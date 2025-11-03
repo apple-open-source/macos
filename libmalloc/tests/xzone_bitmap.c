@@ -3,6 +3,8 @@
 
 #include <../src/internal.h>
 
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED);
+
 #if CONFIG_XZONE_MALLOC
 
 #define XZM_BLOCK_INDEX_INVALID ~0
@@ -438,8 +440,6 @@ static void run_tests(bool populate) {
 	run_programmatic_tests(chunk, slice_count, chunk_idx, populate);
 }
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
-
 T_DECL(slice_on_allocate, "Slice range computation on allocation from small chunk",
 		T_META_TAG_XZONE_ONLY)
 {
@@ -455,13 +455,13 @@ T_DECL(slice_on_deallocate, "Slice range computation on deallocation from small 
 #else // CONFIG_XZONE_MALLOC
 
 T_DECL(slice_on_allocate, "Slice range computation on allocation from small chunk",
-		T_META_ENABLED(false))
+		T_META_ENABLED(false), T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	T_SKIP("Nothing to test for !CONFIG_XZONE_MALLOC");
 }
 
 T_DECL(slice_on_deallocate, "Slice range computation on deallocation from small chunk",
-		T_META_ENABLED(false))
+		T_META_ENABLED(false), T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	T_SKIP("Nothing to test for !CONFIG_XZONE_MALLOC");
 }

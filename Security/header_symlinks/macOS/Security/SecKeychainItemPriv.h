@@ -194,6 +194,7 @@ API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
     @param passwordLength An unsigned 32-bit integer representing the length of the password buffer.
     @param password A buffer containing the password for the keychain. if this password is incorrect, this call might fail---it will not prompt the user.
     @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion This can only modify the XARA list, no other ACLs, see rdar://152328115
 */
  OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAccessRef accessRef, UInt32 passwordLength, const void * password)
 API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))

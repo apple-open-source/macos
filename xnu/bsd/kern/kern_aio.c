@@ -56,6 +56,7 @@
 #include <kern/zalloc.h>
 #include <kern/task.h>
 #include <kern/sched_prim.h>
+#include <kern/ast.h>
 
 #include <vm/vm_map_xnu.h>
 
@@ -3164,6 +3165,8 @@ workq_aio_unpark_select_req_or_park_and_unlock(proc_t p, workq_aio_t wq_aio,
 
 		/* this frees references to workq entry */
 		workq_aio_process_entry(entryp);
+
+		ast_check_async_thread();
 
 		aio_proc_lock_spin(p);
 	}

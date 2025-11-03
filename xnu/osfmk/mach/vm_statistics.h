@@ -283,6 +283,7 @@ typedef struct vm_purgeable_info        *vm_purgeable_info_t;
 #define VM_FLAGS_RESILIENT_MEDIA        0x00000040
 #define VM_FLAGS_PERMANENT              0x00000080
 #define VM_FLAGS_TPRO                   0x00001000
+#define VM_FLAGS_MTE                    0x00002000
 #define VM_FLAGS_OVERWRITE              0x00004000  /* delete any existing mappings first */
 /*
  * VM_FLAGS_SUPERPAGE_MASK
@@ -321,13 +322,14 @@ typedef struct vm_purgeable_info        *vm_purgeable_info_t;
 	                         VM_FLAGS_RESILIENT_MEDIA |     \
 	                         VM_FLAGS_PERMANENT |           \
 	                         VM_FLAGS_TPRO |                \
+	                         VM_FLAGS_MTE |                 \
 	                         VM_FLAGS_OVERWRITE |           \
 	                         VM_FLAGS_SUPERPAGE_MASK |      \
 	                         VM_FLAGS_RETURN_DATA_ADDR |    \
 	                         VM_FLAGS_RETURN_4K_DATA_ADDR | \
 	                         VM_FLAGS_ALIAS_MASK)
 #endif /* XNU_KERNEL_PRIVATE */
-#define VM_FLAGS_HW     (VM_FLAGS_TPRO)
+#define VM_FLAGS_HW     (VM_FLAGS_TPRO | VM_FLAGS_MTE)
 
 /* These are the flags that we accept from user-space */
 #define VM_FLAGS_USER_ALLOCATE  (VM_FLAGS_FIXED |               \
@@ -388,11 +390,31 @@ __enum_decl(virtual_memory_guard_exception_code_t, uint32_t, {
 	kGUARD_EXC_SEC_COPY_DENIED = 100,
 	kGUARD_EXC_SEC_SHARING_DENIED = 101,
 
+	/* Fault-related exceptions. */
+	kGUARD_EXC_MTE_SYNC_FAULT = 200,
+	kGUARD_EXC_MTE_ASYNC_USER_FAULT = 201,
+	kGUARD_EXC_MTE_ASYNC_KERN_FAULT = 202
 });
 
+#define kGUARD_EXC_MTE_SOFT_MODE       0x100000
 
 #ifdef XNU_KERNEL_PRIVATE
 
+#if HAS_MTE
+static inline bool
+vm_guard_is_mte_policy(uint32_t flavor)
+{
+	return flavor == kGUARD_EXC_SEC_COPY_DENIED || flavor == kGUARD_EXC_SEC_SHARING_DENIED;
+}
+
+static inline bool
+vm_guard_is_mte_fault(uint32_t flavor)
+{
+	return flavor == kGUARD_EXC_MTE_SYNC_FAULT ||
+	       flavor == kGUARD_EXC_MTE_ASYNC_USER_FAULT ||
+	       flavor == kGUARD_EXC_MTE_ASYNC_KERN_FAULT;
+}
+#endif /* HAS_MTE */
 
 #pragma mark Map Ranges
 
@@ -486,8 +508,8 @@ typedef union {
 		    __unused_bit_10:1,
 		    __unused_bit_11:1,
 		    vmf_tpro:1,
-		__unused_bit_13:1,
-		vmf_overwrite:1,
+		    vmf_mte:1,
+		    vmf_overwrite:1,
 		    __unused_bit_15:1,
 
 		    vmf_superpage_size:3,
@@ -545,7 +567,12 @@ typedef union {
 		    vmkf_range_id:KMEM_RANGE_BITS;      /* kmem range to allocate in */
 
 		unsigned long long
-		__vmkf_unused2:64;
+		/*
+		 * Flags used to enforce security policy for copying of tagged memory
+		 */
+		    vmkf_copy_dest:2,       /* See VM_COPY_DESTINATION_* */
+		    vmkf_is_iokit:1,            /* creating a memory entry to back an IOMD */
+		    __vmkf_unused2:61;
 	};
 
 	/*
@@ -588,11 +615,13 @@ typedef struct {
 	unsigned int
 	    vmnekf_ledger_tag:3,
 	    vmnekf_ledger_no_footprint:1,
-	__vmnekf_unused:28;
+	    vmnekf_is_iokit:1,
+	    __vmnekf_unused:27;
 } vm_named_entry_kernel_flags_t;
 #define VM_NAMED_ENTRY_KERNEL_FLAGS_NONE (vm_named_entry_kernel_flags_t) {    \
 	.vmnekf_ledger_tag = 0,                                                \
 	.vmnekf_ledger_no_footprint = 0,                                       \
+	.vmnekf_is_iokit = 0,                                                  \
 	.__vmnekf_unused = 0                                                   \
 }
 
@@ -930,6 +959,7 @@ const char *mach_vm_tag_describe(unsigned int tag);
 #define VM_KERN_MEMORY_KALLOC_TYPE      31
 #define VM_KERN_MEMORY_TRIAGE           32
 #define VM_KERN_MEMORY_RECOUNT          33
+#define VM_KERN_MEMORY_MTAG             34
 #define VM_KERN_MEMORY_EXCLAVES         35
 #define VM_KERN_MEMORY_EXCLAVES_SHARED  36
 #define VM_KERN_MEMORY_KALLOC_SHARED    37
@@ -990,6 +1020,10 @@ const char *mach_vm_tag_describe(unsigned int tag);
 /* The number of VM_KERN_COUNT_ stats. New VM_KERN_COUNT_ entries should be less than this. */
 #define VM_KERN_COUNTER_COUNT           15
 
+#define VM_COPY_DESTINATION_USER 0
+#define VM_COPY_DESTINATION_KERNEL 1
+#define VM_COPY_DESTINATION_UNKNOWN 2 /* memory entry */
+#define VM_COPY_DESTINATION_INTERNAL 3 /* creating a copy map for internal use which is soon discarded */
 #endif /* KERNEL_PRIVATE */
 
 __END_DECLS

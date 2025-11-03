@@ -106,6 +106,10 @@ extern kern_return_t arm64_ropjop_test(void);
 #if CONFIG_SPTM
 extern kern_return_t arm64_panic_lockdown_test(void);
 #endif /* CONFIG_SPTM */
+#if HAS_MTE
+extern kern_return_t mte_test(void);
+extern kern_return_t mte_copyio_recovery_handler_test(void);
+#endif /* HAS_MTE */
 #if HAS_SPECRES
 extern kern_return_t specres_test(void);
 #endif /* HAS_SPECRES */
@@ -166,6 +170,10 @@ struct xnupost_test kernel_post_tests[] = {
 	XNUPOST_TEST_CONFIG_BASIC(counter_tests),
 #if ML_IO_TIMEOUTS_ENABLED
 	XNUPOST_TEST_CONFIG_BASIC(ml_io_timeout_test),
+#endif
+#if HAS_MTE
+	XNUPOST_TEST_CONFIG_BASIC(mte_test),
+	XNUPOST_TEST_CONFIG_BASIC(mte_copyio_recovery_handler_test),
 #endif
 #if HAS_SPECRES
 	XNUPOST_TEST_CONFIG_BASIC(specres_test),

@@ -2285,7 +2285,13 @@ ByteCodeParser::CallOptimizationResult ByteCodeParser::handleInlining(
                 if (executable->intrinsic() == WasmFunctionIntrinsic && !Options::forceICFailure())
                     return inliningResult;
 
+                if (executable->intrinsic() == BoundFunctionCallIntrinsic)
+                    return inliningResult;
+
                 if (auto* functionExecutable = jsDynamicCast<FunctionExecutable*>(executable)) {
+                    if (callOp == Construct && functionExecutable->constructAbility() == ConstructAbility::CannotConstruct)
+                        return inliningResult;
+
                     // We need to update m_parameterSlots before we get to the backend, but we don't
                     // want to do too much of this.
                     unsigned numAllocatedArgs = std::max(static_cast<unsigned>(functionExecutable->parameterCount()) + 1, static_cast<unsigned>(argumentCountIncludingThis));

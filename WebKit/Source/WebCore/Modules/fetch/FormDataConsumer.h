@@ -70,7 +70,7 @@ private:
 
     size_t m_currentElementIndex { 0 };
     const Ref<WorkQueue> m_fileQueue;
-    std::unique_ptr<BlobLoader> m_blobLoader;
+    RefPtr<BlobLoader> m_blobLoader;
     bool m_isReadingFile { false };
 };
 

@@ -222,8 +222,10 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
 		builder->anchorSource = SecMemoryCertificateSourceCreate(anchors);
     }
 
-    bool allowNonProduction = false;
-    builder->appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(allowNonProduction));
+    if (!_SecTrustRemoveOldAppleAnchorSource()) {
+        bool allowNonProduction = false;
+        builder->appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(allowNonProduction));
+    }
 
 
     /** Parent Sources
@@ -244,12 +246,15 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
     if (anchorsOnly) {
         /* Add the Apple, system, and user anchor certificate db to the search list
          if we don't explicitly trust them. */
-        CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
+        if (builder->appleAnchorSource) {
+            CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
+        }
+        CFArrayAppendValue(builder->parentSources, kSecAppleAnchorSource);
         if (TrustdVariantHasCertificatesBundle()) {
-            CFArrayAppendValue(builder->parentSources, kSecSystemAnchorSource);
-            if (_SecTrustStoreRootConstraintsEnabled()) {
-                CFArrayAppendValue(builder->parentSources, kSecSystemConstrainedAnchorSource);
+            if (!_SecTrustRemoveOldSystemAnchorSource()) {
+                CFArrayAppendValue(builder->parentSources, kSecSystemAnchorSource);
             }
+            CFArrayAppendValue(builder->parentSources, kSecSystemConstrainedAnchorSource);
         }
         CFArrayAppendValue(builder->parentSources, kSecUserAnchorSource);
     }
@@ -268,7 +273,10 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
     if (!anchorsOnly) {
         /* Only add the system and user anchor certificate db to the
          anchorSources if we are supposed to trust them. */
-        CFArrayAppendValue(builder->anchorSources, builder->appleAnchorSource);
+        if (builder->appleAnchorSource) {
+            CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
+        }
+        CFArrayAppendValue(builder->anchorSources, kSecAppleAnchorSource);
         if (TrustdVariantAllowsKeychain() && keychainsAllowed) {
 #if TARGET_OS_OSX
             if (kSecLegacyAnchorSource->contains && kSecLegacyAnchorSource->copyParents) {
@@ -278,10 +286,10 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
         }
         CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
         if (TrustdVariantHasCertificatesBundle()) {
-            CFArrayAppendValue(builder->anchorSources, kSecSystemAnchorSource);
-            if (_SecTrustStoreRootConstraintsEnabled()) {
-                CFArrayAppendValue(builder->anchorSources, kSecSystemConstrainedAnchorSource);
+            if (!_SecTrustRemoveOldSystemAnchorSource()) {
+                CFArrayAppendValue(builder->anchorSources, kSecSystemAnchorSource);
             }
+            CFArrayAppendValue(builder->anchorSources, kSecSystemConstrainedAnchorSource);
         }
     }
 

@@ -765,6 +765,14 @@ proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 		if (task_has_tpro(task)) {
 			pbsd->pbi_flags |= PROC_FLAG_TPRO_ENABLED;
 		}
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+		if (task_has_sec(task)) {
+			pbsd->pbi_flags |= PROC_FLAG_SEC_ENABLED;
+			if (task_has_sec_soft_mode(task)) {
+				pbsd->pbi_flags |= PROC_FLAG_SEC_BYPASS_ENABLED;
+			}
+		}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 	}
 
 	switch (PROC_CONTROL_STATE(p)) {
@@ -874,6 +882,14 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
 		if (task_has_tpro(task)) {
 			pbsd_shortp->pbsi_flags |= PROC_FLAG_TPRO_ENABLED;
 		}
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+		if (task_has_sec(task)) {
+			pbsd_shortp->pbsi_flags |= PROC_FLAG_SEC_ENABLED;
+			if (task_has_sec_soft_mode(task)) {
+				pbsd_shortp->pbsi_flags |= PROC_FLAG_SEC_BYPASS_ENABLED;
+			}
+		}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 	}
 
 	switch (PROC_CONTROL_STATE(p)) {

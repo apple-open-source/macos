@@ -426,14 +426,25 @@ static void gatherFlexChildrenInfo(FlexBoxIterator& iterator, RelayoutChildren r
     }
 }
 
+static void issueFullRepaintOnFirstLayout(RenderBox& flexItem, bool everHadLayout)
+{
+    if (everHadLayout || !flexItem.checkForRepaintDuringLayout())
+        return;
+
+    flexItem.repaint();
+    flexItem.repaintOverhangingFloats(true);
+}
+
 static void layoutChildIfNeededApplyingDelta(RenderBox* child, const LayoutSize& layoutDelta)
 {
     if (!child->needsLayout())
         return;
     
+    auto everHadLayout = child->everHadLayout();
     child->view().frameView().layoutContext().addLayoutDelta(layoutDelta);
     child->layoutIfNeeded();
     child->view().frameView().layoutContext().addLayoutDelta(-layoutDelta);
+    issueFullRepaintOnFirstLayout(*child, everHadLayout);
 }
 
 void RenderDeprecatedFlexibleBox::layoutHorizontalBox(RelayoutChildren relayoutChildren)
@@ -729,10 +740,12 @@ void RenderDeprecatedFlexibleBox::layoutSingleClampedFlexItem()
     beginUpdateScrollInfoAfterLayoutTransaction();
 
     auto& clampedRendererCandidate = *firstChildBox();
+    auto everHadLayout = clampedRendererCandidate.everHadLayout();
     clampedRendererCandidate.setLocation({ borderLeft() + paddingLeft(), borderTop() + paddingTop() });
 
     auto iterator = FlexBoxIterator { this };
     auto clampedContent = applyLineClamp(iterator, { });
+    issueFullRepaintOnFirstLayout(clampedRendererCandidate, everHadLayout);
 
     clampedRendererCandidate.move(clampedRendererCandidate.marginLeft(), clampedRendererCandidate.marginTop());
     auto childBoxBottom = clampedRendererCandidate.logicalTop() + clampedRendererCandidate.borderAndPaddingBefore() + clampedRendererCandidate.borderAndPaddingAfter();
@@ -817,7 +830,9 @@ void RenderDeprecatedFlexibleBox::layoutVerticalBox(RelayoutChildren relayoutChi
                 child->markForPaginationRelayoutIfNeeded();
 
             // Now do a layout.
+            auto everHadLayout = child->everHadLayout();
             child->layoutIfNeeded();
+            issueFullRepaintOnFirstLayout(*child, everHadLayout);
 
             // We can place the child now, using our value of box-align.
             LayoutUnit childX = borderLeft() + paddingLeft();

@@ -530,6 +530,32 @@ LayoutRect RenderThemeCocoa::adjustedPaintRect(const RenderBox& box, const Layou
 
 #if ENABLE(FORM_CONTROL_REFRESH)
 
+bool RenderThemeCocoa::controlSupportsTints(const RenderObject& box) const
+{
+#if PLATFORM(MAC)
+    switch (box.style().usedAppearance()) {
+    case StyleAppearance::Button:
+        return isSubmitStyleButton(box.node());
+    case StyleAppearance::Checkbox:
+    case StyleAppearance::Radio:
+        return isChecked(box) || isIndeterminate(box);
+    case StyleAppearance::ListButton:
+    case StyleAppearance::ProgressBar:
+    case StyleAppearance::SliderHorizontal:
+    case StyleAppearance::SliderVertical:
+        return true;
+    case StyleAppearance::Switch:
+        return isChecked(box);
+    default:
+        break;
+    }
+#else
+    UNUSED_PARAM(box);
+#endif
+
+    return false;
+}
+
 enum class ControlSize : uint8_t {
     Micro,
     Mini,
@@ -1111,6 +1137,11 @@ bool RenderThemeCocoa::paintCheckboxForVectorBasedControls(const RenderObject& b
     context.setFillColor(checkboxRadioIndicatorColorForVectorBasedControls(controlStates, styleColorOptions));
     context.fillPath(glyphPath);
 
+#if PLATFORM(MAC)
+    if (Theme::singleton().userPrefersContrast())
+        drawHighContrastOutline(context, path, box.styleColorOptions());
+#endif
+
     return true;
 }
 
@@ -1165,6 +1196,11 @@ bool RenderThemeCocoa::paintRadioForVectorBasedControls(const RenderObject& box,
 
         context.setFillColor(checkboxRadioIndicatorColorForVectorBasedControls(controlStates, styleColorOptions));
         context.fillEllipse(innerCircleRect);
+
+#if PLATFORM(MAC)
+    if (Theme::singleton().userPrefersContrast())
+        drawHighContrastOutline(context, boundingPath, box.styleColorOptions());
+#endif
     } else if (!isVision) {
         const auto borderColor = checkboxRadioBorderColorForVectorBasedControls(controlStates, styleColorOptions);
         const auto borderThickness = checkboxRadioBorderWidthForVectorBasedControls * usedZoom;
@@ -1202,7 +1238,7 @@ bool RenderThemeCocoa::paintButtonForVectorBasedControls(const RenderObject& box
 #if PLATFORM(MAC)
         isWindowActive = states.contains(ControlStyle::State::WindowActive);
 #endif
-        if (RefPtr input = dynamicDowncast<HTMLInputElement>(box.node()); input && input->isSubmitButton() && isWindowActive)
+        if (isSubmitStyleButton(box.node()) && isWindowActive)
             backgroundColor = controlTintColor(box.style(), styleColorOptions);
         else
             backgroundColor = colorCompositedOverCanvasColor(CSSValueAppleSystemOpaqueSecondaryFill, styleColorOptions);
@@ -1419,6 +1455,10 @@ bool RenderThemeCocoa::paintColorWellDecorationsForVectorBasedControls(const Ren
     if (!formControlRefreshEnabled(box))
         return false;
 
+    auto& context = paintInfo.context();
+    GraphicsContextStateSaver stateSaver(context);
+    context.clip(rect);
+
     const auto zoomFactor = box.style().zoom();
     const auto strokeThickness = 3.f * zoomFactor;
 
@@ -1435,9 +1475,6 @@ bool RenderThemeCocoa::paintColorWellDecorationsForVectorBasedControls(const Ren
     Ref gradient = Gradient::create(Gradient::ConicData { rect.center(), 0 }, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
     for (int i = 0; i < numColorStops; ++i)
         gradient->addColorStop({ i * 1.0f / (numColorStops - 1), colorStops[i] });
-
-    auto& context = paintInfo.context();
-    GraphicsContextStateSaver stateSaver(context);
 
     FloatRect strokeRect = rect;
     strokeRect.inflate(-strokeThickness / 2.0f);
@@ -1821,14 +1858,14 @@ static void applyEmPadding(RenderStyle& style, const Element* element, float pad
     applyPaddingIfNotExplicitlySet(style, paddingBox);
 }
 
-#if PLATFORM(MAC)
-static void applyEmPaddingForNumberField(RenderStyle& style, const Element* element, float inlineStartPadding, float inlineEndAndBlockPadding)
-{
-    if (!element)
-        return;
+static constexpr auto standardTextControlInlinePaddingEm = 0.5f;
+static constexpr auto standardTextControlBlockPaddingEm = 0.25f;
 
-    Ref paddingInlineStart = CSSPrimitiveValue::create(inlineStartPadding, CSSUnitType::CSS_EM);
-    Ref paddingInlineEndAndBlock = CSSPrimitiveValue::create(inlineEndAndBlockPadding, CSSUnitType::CSS_EM);
+#if PLATFORM(MAC)
+static Style::PaddingBox paddingBoxForNumberField(const RenderStyle& style, const Element* element)
+{
+    Ref paddingInlineStart = CSSPrimitiveValue::create(standardTextControlInlinePaddingEm, CSSUnitType::CSS_EM);
+    Ref paddingInlineEndAndBlock = CSSPrimitiveValue::create(standardTextControlBlockPaddingEm, CSSUnitType::CSS_EM);
     Ref document = element->document();
 
     const auto paddingInlineStartPixels = Style::PaddingEdge::Fixed { static_cast<float>(paddingInlineStart->resolveAsLength<int>({ style, document->renderStyle(), nullptr, document->renderView() })) };
@@ -1837,12 +1874,17 @@ static void applyEmPaddingForNumberField(RenderStyle& style, const Element* elem
     Style::PaddingBox paddingBox { paddingInlineEndAndBlockPixels };
     paddingBox.setStart(paddingInlineStartPixels, style.writingMode());
 
-    applyPaddingIfNotExplicitlySet(style, paddingBox);
+    return paddingBox;
+}
+
+static void applyEmPaddingForNumberField(RenderStyle& style, const Element* element)
+{
+    if (!element)
+        return;
+
+    applyPaddingIfNotExplicitlySet(style, paddingBoxForNumberField(style, element));
 }
 #endif
-
-static constexpr auto standardTextControlInlinePaddingEm = 0.5f;
-static constexpr auto standardTextControlBlockPaddingEm = 0.25f;
 
 bool RenderThemeCocoa::adjustTextFieldStyleForVectorBasedControls(RenderStyle& style, const Element* element) const
 {
@@ -1864,7 +1906,7 @@ bool RenderThemeCocoa::adjustTextFieldStyleForVectorBasedControls(RenderStyle& s
     // concentricity will be determined by the list button rather than the spin button.
     if (RefPtr input = dynamicDowncast<HTMLInputElement>(*element); input && !input->hasDataList()) {
         if (input->isNumberField())
-            applyEmPaddingForNumberField(style, element, standardTextControlInlinePaddingEm, standardTextControlBlockPaddingEm);
+            applyEmPaddingForNumberField(style, element);
         else
             applyEmPadding(style, element, standardTextControlInlinePaddingEm, standardTextControlBlockPaddingEm);
     }
@@ -2093,7 +2135,7 @@ static bool paintTextAreaOrTextField(const RenderObject& box, const PaintInfo& p
 #endif
 
     const auto styleColorOptions = box.styleColorOptions();
-    auto backgroundColor = RenderTheme::singleton().systemColor(CSSValueCanvas, styleColorOptions);
+    auto backgroundColor = style->visitedDependentColor(CSSPropertyBackgroundColor);
 #if PLATFORM(MAC)
     const auto prefersContrast = Theme::singleton().userPrefersContrast();
     auto borderColor = prefersContrast ? highContrastOutlineColor(styleColorOptions) : RenderTheme::singleton().systemColor(CSSValueAppleSystemContainerBorder, styleColorOptions);
@@ -2311,10 +2353,6 @@ bool RenderThemeCocoa::adjustButtonStyleForVectorBasedControls(RenderStyle& styl
     RenderTheme::adjustButtonStyle(style, element);
 #endif
 
-    auto isSubmitButton = false;
-    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element))
-        isSubmitButton = input->isSubmitButton();
-
     auto isEnabled = true;
     if (RefPtr input = dynamicDowncast<HTMLFormControlElement>(element))
         isEnabled = !input->isDisabledFormControl();
@@ -2334,7 +2372,7 @@ bool RenderThemeCocoa::adjustButtonStyleForVectorBasedControls(RenderStyle& styl
     };
 
     if (!style.hasExplicitlySetColor()) {
-        if (isSubmitButton)
+        if (isSubmitStyleButton(element))
             adjustStyleForSubmitButton();
         else
             style.setColor(buttonTextColor(styleColorOptions, isEnabled));
@@ -3742,6 +3780,39 @@ FloatSize RenderThemeCocoa::inflateRectForInteractionRegion(const RenderObject& 
 
     return { 0, 0 };
 }
+
+float RenderThemeCocoa::adjustedMaximumLogicalWidthForControl(const RenderStyle& style, const Element& element, float maximumLogicalWidth) const
+{
+#if PLATFORM(MAC)
+    if (!formControlRefreshEnabled(&element) || !style.hasUsedAppearance() || style.nativeAppearanceDisabled())
+        return maximumLogicalWidth;
+
+    const auto writingMode = style.writingMode();
+
+    const auto inlineEndPaddingExplicitlySet = [&] {
+        const auto isInlineFlipped = writingMode.isInlineFlipped();
+        if (writingMode.isHorizontal())
+            return isInlineFlipped ? style.hasExplicitlySetPaddingLeft() : style.hasExplicitlySetPaddingRight();
+
+        return isInlineFlipped ? style.hasExplicitlySetPaddingTop() : style.hasExplicitlySetPaddingBottom();
+    };
+
+    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element); input && input->isNumberField() && !inlineEndPaddingExplicitlySet()) {
+        const auto paddingBox = paddingBoxForNumberField(style, &element);
+        const auto paddingEdgeInlineStart = paddingBox.start(writingMode);
+        const auto paddingEdgeInlineEnd = paddingBox.end(writingMode);
+
+        if (auto paddingEdgeInlineStartFixed = paddingEdgeInlineStart.tryFixed()) {
+            if (auto paddingEdgeInlineEndFixed = paddingEdgeInlineEnd.tryFixed())
+                maximumLogicalWidth += paddingEdgeInlineStartFixed->value - paddingEdgeInlineEndFixed->value;
+        }
+    }
+#else
+    UNUSED_PARAM(style);
+    UNUSED_PARAM(element);
+#endif
+    return maximumLogicalWidth;
+}
 #endif
 
 void RenderThemeCocoa::adjustCheckboxStyle(RenderStyle& style, const Element* element) const
@@ -4346,6 +4417,17 @@ void RenderThemeCocoa::adjustTextControlInnerTextStyle(RenderStyle& style, const
 #endif
 
     RenderTheme::adjustTextControlInnerTextStyle(style, shadowHostStyle, shadowHost);
+}
+
+bool RenderThemeCocoa::isSubmitStyleButton(const Node* node) const
+{
+    if (RefPtr input = dynamicDowncast<HTMLInputElement>(node))
+        return input->isSubmitButton();
+
+    if (RefPtr button = dynamicDowncast<HTMLButtonElement>(node))
+        return button->isExplicitlySetSubmitButton();
+
+    return false;
 }
 
 }

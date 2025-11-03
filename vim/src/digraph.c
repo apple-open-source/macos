@@ -997,6 +997,7 @@ static digr_T digraphdefault[] = {
 	{'?', '=', 0x2245},
 	{'?', '2', 0x2248},
 	{'=', '?', 0x224c},
+	{'.', '=', 0x2250},
 	{'H', 'I', 0x2253},
 	{'!', '=', 0x2260},
 	{'=', '3', 0x2261},
@@ -1027,8 +1028,8 @@ static digr_T digraphdefault[] = {
 	{'T', 'R', 0x2315},
 	{'I', 'u', 0x2320},
 	{'I', 'l', 0x2321},
-	{'<', '/', 0x2329},
-	{'/', '>', 0x232a},
+	{'<', '[', 0x27e8},
+	{']', '>', 0x27e9},
 #   define DG_START_OTHER2 0x2423
 	{'V', 's', 0x2423},
 	{'1', 'h', 0x2440},
@@ -1175,6 +1176,8 @@ static digr_T digraphdefault[] = {
 	{'*', '_', 0x3005},
 	{';', '_', 0x3006},
 	{'0', '_', 0x3007},
+	{'<', '/', 0x3008},
+	{'/', '>', 0x3009},
 	{'<', '+', 0x300a},
 	{'>', '+', 0x300b},
 	{'<', '\'', 0x300c},
@@ -2115,18 +2118,15 @@ f_digraph_getlist(typval_T *argvars, typval_T *rettv)
 # ifdef FEAT_DIGRAPHS
     int     flag_list_all;
 
-    if (in_vim9script() && check_for_opt_bool_arg(argvars, 0) == FAIL)
+    if (check_for_opt_bool_arg(argvars, 0) == FAIL)
 	return;
 
     if (argvars[0].v_type == VAR_UNKNOWN)
 	flag_list_all = FALSE;
     else
     {
-	int	    error = FALSE;
-	varnumber_T flag = tv_get_number_chk(&argvars[0], &error);
+	varnumber_T flag = tv_get_bool(&argvars[0]);
 
-	if (error)
-	    return;
 	flag_list_all = flag ? TRUE : FALSE;
     }
 

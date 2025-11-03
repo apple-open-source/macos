@@ -49,6 +49,8 @@ class Element;
 class MediaResource;
 class WeakPtrImplWithEventTargetData;
 
+enum class LoadedFromOpaqueSource : bool;
+
 class MediaResourceLoader final : public PlatformMediaResourceLoader, public CanMakeWeakPtr<MediaResourceLoader>, public ContextDestructionObserver {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(MediaResourceLoader, WEBCORE_EXPORT);
 public:
@@ -68,6 +70,7 @@ public:
     void addResponseForTesting(const ResourceResponse&);
 
     bool verifyMediaResponse(const URL& requestURL, const ResourceResponse&, const SecurityOrigin*);
+    void redirectReceived(const URL&);
 
 private:
     WEBCORE_EXPORT MediaResourceLoader(Document&, Element&, const String& crossOriginMode, FetchOptions::Destination);
@@ -87,6 +90,9 @@ private:
         bool usedServiceWorker { false };
     };
     HashMap<URL, ValidationInformation> m_validationLoadInformations WTF_GUARDED_BY_CAPABILITY(mainThread);
+
+    HashSet<URL> m_nonOpaqueLoadURLs;
+    std::optional<LoadedFromOpaqueSource> m_loadedFromOpaqueSource;
 };
 
 class MediaResource : public PlatformMediaResource, public CachedRawResourceClient {

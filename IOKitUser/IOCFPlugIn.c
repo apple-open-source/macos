@@ -132,6 +132,10 @@ IOFindPlugIns( io_service_t service,
 			os_log_error(__IOCFPlugInLog(), "io_service_t has no " kIOCFPlugInTypesKey " for %@", pluginType);
             continue;
         }
+        if (CFDictionaryGetTypeID() != CFGetTypeID(pluginTypes)) {
+			os_log_error(__IOCFPlugInLog(), "io_service_t has invalid " kIOCFPlugInTypesKey " for %@", pluginType);
+            continue;
+        }
         
         context.key = pluginType;
         context.result = 0;

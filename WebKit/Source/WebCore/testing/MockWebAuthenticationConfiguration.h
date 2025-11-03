@@ -79,6 +79,8 @@ struct MockWebAuthenticationConfiguration {
 
     struct HidConfiguration {
         Vector<String> payloadBase64;
+        Vector<String> expectedCommandsBase64;
+        bool validateExpectedCommands { false };
         HidStage stage { HidStage::Info };
         HidSubStage subStage { HidSubStage::Init };
         HidError error { HidError::Success };

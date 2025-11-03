@@ -6,7 +6,7 @@ en_GY{
     Currencies{
         GYD{
             "$",
-            "Guyanaese Dollar",
+            "Guyanese Dollar",
         }
     }
 }

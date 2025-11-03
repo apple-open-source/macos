@@ -337,6 +337,35 @@ fmap_buf_resize(struct fmap *fm, size_t datasz)
 	return true;
 }
 
+bool
+fmap_access_valid(struct fmap *fm, off_t offset, size_t datasz)
+{
+
+	if (fm == NULL)
+		return false;
+
+	assert(fm->ftype != FT_NULL);
+	switch (fm->ftype) {
+	case FT_MMAP:
+		return offset + datasz <= fm->mapsz;
+	case FT_BUFIO:
+		/*
+		 * For bufio mappings, we don't actually know if the access will
+		 * be invalid until we try to slide our window.  That's not a
+		 * concern, though; if we fail to slide, then we'll jump back
+		 * to the installed trap as if we had just made the invalid
+		 * access.  The end result is the same as what we'll get from
+		 * using fmap_access_valid(), we can just provide better
+		 * diagnostics if the file is actually mapped.
+		 */
+		return true;
+	default:
+		assert(0 && "Unknown type found... unreachable");
+	}
+
+	return false;
+}
+
 void *
 fmap_data(struct fmap *fm, off_t offset, size_t datasz)
 {
@@ -345,6 +374,7 @@ fmap_data(struct fmap *fm, off_t offset, size_t datasz)
 		return NULL;
 
 	assert(fm->ftype != FT_NULL);
+	assert(fmap_access_valid(fm, offset, datasz));
 	switch (fm->ftype) {
 	case FT_MMAP:
 #if defined(__APPLE__) && !defined(NDEBUG)
@@ -355,7 +385,6 @@ fmap_data(struct fmap *fm, off_t offset, size_t datasz)
 		}
 #endif
 
-		assert(offset + datasz <= fm->mapsz);
 		return &fm->map[offset];
 	case FT_BUFIO:
 		if (!fmap_buf_resize(fm, datasz))

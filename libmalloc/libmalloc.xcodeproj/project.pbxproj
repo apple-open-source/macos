@@ -667,7 +667,7 @@
 		93EF33422B16A224000BA829 /* exclavekit-darwintest-SystemBundle.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "exclavekit-darwintest-SystemBundle.bundle"; sourceTree = BUILT_PRODUCTS_DIR; };
 		96C6DA1F27DAC25C008D0061 /* magazine_large_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = magazine_large_tests.m; sourceTree = "<group>"; };
 		96E1C8ED2653373700B23906 /* magazine_medium_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_medium_test.c; sourceTree = "<group>"; };
-		B23096182AB4F3DE00917598 /* xzone_introspect.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = xzone_introspect.h; path = src/xzone/xzone_introspect.h; sourceTree = SOURCE_ROOT; };
+		B23096182AB4F3DE00917598 /* xzone_introspect.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = xzone_introspect.h; path = xzone_introspect.h; sourceTree = "<group>"; };
 		B2395C7629EE0962006E9545 /* _ptrcheck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _ptrcheck.h; sourceTree = "<group>"; };
 		B23F6AB02A982F630062A4E0 /* libmalloc_common.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_common.xcconfig; sourceTree = "<group>"; };
 		B24C5D802D14DA760050A0BE /* libmalloc_ktrace */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_ktrace; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -716,7 +716,6 @@
 		B6A494971F9918DD0016A799 /* calloc_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = calloc_test.c; sourceTree = "<group>"; };
 		B6A9C48C1F991716007D0853 /* malloc_free_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_free_test.c; sourceTree = "<group>"; };
 		B6AFD93B214C6198007983DA /* msl_lite_support.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = msl_lite_support.c; sourceTree = "<group>"; };
-		B6C1C9C720D9B70F002CCC0B /* nano_trace_replay.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nano_trace_replay.c; sourceTree = "<group>"; };
 		B6CA644D1FCE2C0A00DEBA12 /* nanov2_zone.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nanov2_zone.h; sourceTree = "<group>"; };
 		B6CA64511FCF1AAD00DEBA12 /* nano_zone_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nano_zone_common.h; sourceTree = "<group>"; };
 		B6D2ED512007D76F007AF994 /* libmalloc_replay */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_replay; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -907,7 +906,7 @@
 			children = (
 				06057A272A56B4B8005EF06B /* instrumentation.h */,
 				06057A282A56B4B8005EF06B /* instrumentation.c */,
-				F765F92729217BAA00E9649E /* xzone */,
+				F765F92729217BAA00E9649E /* xzone_malloc */,
 				C95742891BF3FD290027269A /* base.h */,
 				3FE91FD116A90A8D00D1238A /* bitarray.c */,
 				3FE91FD216A90A8D00D1238A /* bitarray.h */,
@@ -1100,7 +1099,6 @@
 				925383D01BD03B4A00F745DB /* Makefile */,
 				B6536A6320475BA4005FBE22 /* basic_malloc_free_perf.c */,
 				B675F74520213D0A00B5038B /* nano_tests.c */,
-				B6C1C9C720D9B70F002CCC0B /* nano_trace_replay.c */,
 				4D87505A23F1D680005E25AA /* pgm_testing.h */,
 				4DD5962D23E22A3D00D573D2 /* pgm_internals.c */,
 				4D87505B23F1DB2E005E25AA /* pgm_allocator.c */,
@@ -1180,7 +1178,7 @@
 			path = private;
 			sourceTree = "<group>";
 		};
-		F765F92729217BAA00E9649E /* xzone */ = {
+		F765F92729217BAA00E9649E /* xzone_malloc */ = {
 			isa = PBXGroup;
 			children = (
 				93C629F42ACB71240006CBDA /* xzone_metapool.c */,
@@ -1192,7 +1190,7 @@
 				F765F92929217BAA00E9649E /* xzone_malloc.c */,
 				F765F92829217BAA00E9649E /* xzone_segment.c */,
 			);
-			path = xzone;
+			path = xzone_malloc;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

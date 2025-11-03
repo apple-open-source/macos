@@ -61,6 +61,7 @@
              reportRateLimitingError:(BOOL)reportRateLimitingError
                               repair:(BOOL)repair
                  danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                   caesarPeerCleanup:(BOOL)caesarPeerCleanup
                           updateIdMS:(BOOL)updateIdMS
 {
     if((self = [super init])) {
@@ -73,6 +74,7 @@
         _reportRateLimitingError = reportRateLimitingError;
         _repair = repair;
         _danglingPeerCleanup = danglingPeerCleanup;
+        _caesarPeerCleanup = caesarPeerCleanup;
         _updateIdMS = updateIdMS;
     }
     return self;
@@ -199,6 +201,7 @@
                                                    requiresEscrowCheck:[OTCheckHealthOperation checkIfPasscodeIsSetForDevice]
                                                                 repair:self.repair
                                                    danglingPeerCleanup:self.danglingPeerCleanup
+                                                     caesarPeerCleanup:self.caesarPeerCleanup
                                                             updateIdMS:self.updateIdMS
 
 #if TARGET_OS_TV
@@ -417,12 +420,16 @@
 
     // Within rate limiting window - must post CFU.
     if ([now timeIntervalSinceDate:lastAttemptDate] < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
-        secnotice("octagon-escrow-repair", "rate limited, will not perform silent repair");
+        if (accountState.escrowRepairAttemptVersion == ESCROW_REPAIR_CURRENT_VERSION) {
+            secnotice("octagon-escrow-repair", "rate limited, will not perform silent repair");
 
-        if (error) {
-            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
+            if (error) {
+                *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
+            }
+            return NO;
+        } else {
+            secnotice("octagon-escrow-repair", "rate limit ignored due to version check");
         }
-        return NO;
     }
 
     if (self.results.repairDisabled) {

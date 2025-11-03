@@ -56,6 +56,7 @@ class OctagonCKKSTests: OctagonTestsBase {
             "com.apple.password-manager.personal-recently-deleted",
             "com.apple.password-manager.generated-passwords",
             "com.apple.password-manager.generated-passwords-recently-deleted",
+            "com.apple.password-manager.website-metadata",
         ]) as CFArray)
     }
 
@@ -226,6 +227,29 @@ class OctagonCKKSTests: OctagonTestsBase {
                                 expecting: errSecSuccess,
                                 message: "Add item to personal sidecars access group")
 
+        self.verifyDatabaseMocks()
+#endif // tvos test skip
+    }
+
+    func testHandleSafariPasswordManagerWebsiteMetadataItem() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV cannot set user-controllable views")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        self.assertModifyUserViews(clique: clique, intendedSyncStatus: true)
+
+        self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: self.passwordsZoneID)
+
+        self.addGenericPassword("personal-bicycle",
+                                account: "jane_eyre",
+                                access: kSecAttrAccessibleWhenUnlocked as String,
+                                viewHint: nil,
+                                accessGroup: "com.apple.password-manager.website-metadata",
+                                expecting: errSecSuccess,
+                                message: "Add item about website metadata")
         self.verifyDatabaseMocks()
 #endif // tvos test skip
     }

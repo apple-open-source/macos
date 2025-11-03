@@ -1511,6 +1511,7 @@ dyld_pager_create(
 	pager->dyld_header.mo_ikot = IKOT_MEMORY_OBJECT;
 	pager->dyld_header.mo_pager_ops = &dyld_pager_ops;
 	pager->dyld_header.mo_control = MEMORY_OBJECT_CONTROL_NULL;
+	pager->dyld_header.mo_last_unmap_ctid = 0;
 
 	pager->dyld_is_ready = FALSE;/* not ready until it has a "name" */
 	/* existence reference for the caller */

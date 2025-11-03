@@ -1502,7 +1502,7 @@ bool WebPageProxy::isDesktopClassBrowsingRecommended(const WebCore::ResourceRequ
 #else
         // While desktop-class browsing is supported on all iPad models, it is not recommended for iPad mini.
         auto screenClass = MGGetSInt32Answer(kMGQMainScreenClass, MGScreenClassPad2);
-        shouldRecommendDesktopClassBrowsing = screenClass != MGScreenClassPad3 && screenClass != MGScreenClassPad4 && desktopClassBrowsingSupported();
+        shouldRecommendDesktopClassBrowsing = screenClass != MGScreenClassPad3 && screenClass != MGScreenClassPad4 && screenClass != MGScreenClassPad11 && desktopClassBrowsingSupported();
 #endif
         if (!m_navigationClient->shouldBypassContentModeSafeguards() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ModernCompabilityModeByDefault)) {
             // Opt out apps that haven't yet built against the iOS 13 SDK to limit any incompatibilities as a result of enabling desktop-class browsing by default in
@@ -1791,6 +1791,14 @@ FloatRect WebPageProxy::layoutViewportRect() const
 {
     if (internals().lastVisibleContentRectUpdate)
         return internals().lastVisibleContentRectUpdate->layoutViewportRect();
+    return { };
+}
+
+FloatBoxExtent WebPageProxy::computedObscuredInset() const
+{
+    if (RefPtr pageClient = this->pageClient())
+        return pageClient->computedObscuredInset();
+
     return { };
 }
 

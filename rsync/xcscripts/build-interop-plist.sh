@@ -8,7 +8,7 @@ fi
 inplist=$1
 outplist=$2
 
-impls="openrsync samba"
+impls="openrsync"
 roles="sender receiver"
 
 # Truncate
@@ -41,6 +41,9 @@ EOF
 			destprefix=""
 			sendmacro=""
 			rcvmacro=""
+			# Note that this is effectively dead code now that we do
+			# not test samba in interop anymore.  To be removed when
+			# we're ready to purge smb rsync entirely.
 			if [ "$client" = "samba" -a "$client" = "$server" -a "$crole" = "receiver" ]; then
 				cat <<EOF >> "$outplist"
 			<!-- OMITTED: $crole -->

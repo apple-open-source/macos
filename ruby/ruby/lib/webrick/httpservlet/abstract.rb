@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # httpservlet.rb -- HTTPServlet Module
 #
@@ -105,7 +105,7 @@ module WEBrick
           __send__(method_name, req, res)
         else
           raise HTTPStatus::MethodNotAllowed,
-                "unsupported method `#{req.request_method}'."
+                "unsupported method '#{req.request_method}'."
         end
       end
 

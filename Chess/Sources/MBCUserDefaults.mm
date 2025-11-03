@@ -49,7 +49,6 @@
 
 
 NSString * const kMBCBoardStyle         = @"MBCBoardStyle";
-NSString * const kMBCListenForMoves     = @"MBCListenForMoves";
 NSString * const kMBCPieceStyle         = @"MBCPieceStyle";
 NSString * const kMBCNewGamePlayers     = @"MBCNewGamePlayers";
 NSString * const kMBCNewGameVariant     = @"MBCNewGameVariant";

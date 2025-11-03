@@ -110,7 +110,6 @@ using WebCore::ScrollOffset = WebCore::IntPoint;
     uint64_t surroundingContextCursorPosition;
     uint64_t surroundingContextSelectionPosition;
 #endif
-    std::optional<WebCore::FontAttributes> fontAttributes;
     bool canCut;
     bool canCopy;
     bool canPaste;

@@ -10,7 +10,7 @@ limited root privileges to users and log root activity.  \
 The basic philosophy is to give as few privileges as possible but \
 still allow people to get their work done."
 	vendor="Todd C. Miller"
-	copyright="(c) 1993-1996,1998-2021 Todd C. Miller"
+	copyright="Copyright 1994-1996,1998-2025 Todd C. Miller"
 	sudoedit_man=`echo ${pp_destdir}$mandir/*/sudoedit.*|sed "s:^${pp_destdir}::"`
 	sudoedit_man_target=`basename $sudoedit_man | sed 's/edit//'`
 
@@ -21,8 +21,8 @@ still allow people to get their work done."
 	# Convert to 4 part version for AIX, including patch level
 	pp_aix_version=`echo $version|sed -e 's/^\([0-9]*\.[0-9]*\.[0-9]*\)p\([0-9]*\)$/\1.\2/' -e 's/^\([0-9]*\.[0-9]*\.[0-9]*\)[^0-9\.].*$/\1/' -e 's/^\([0-9]*\.[0-9]*\.[0-9]*\)$/\1.0/'`
 
-	# Don't allow sudo to prompt for a password
-	pp_aix_sudo="sudo -n"
+	# Don't use sudo to list the package.
+	pp_aix_sudo=
 %endif
 
 %if [sd]
@@ -149,15 +149,20 @@ still allow people to get their work done."
 %endif
 
 %if [rpm]
+	# Used to set rpm_arch to x86_64_v2 on Alma Linux
+	if test -n "$pp_rpm_arch_override"; then
+		pp_rpm_arch="$pp_rpm_arch_override"
+	fi
+
 	# Add distro info to release
-	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*\([0-9]\{1,2\}\).*/\1/'`
+	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*\([0-9]\{1,3\}\).*/\1/'`
 	case "$pp_rpm_distro" in
 	centos*|rhel*|f[0-9]*)
 		# CentOS Stream has a single-digit version
 		if test $osrelease -lt 10; then
 		    osrelease="${osrelease}0"
 		fi
-		pp_rpm_release="$pp_rpm_release.el${osrelease%%[0-9]}"
+		pp_rpm_release="$pp_rpm_release.el${osrelease%[0-9]}"
 		;;
 	sles*)
 		pp_rpm_release="$pp_rpm_release.sles$osrelease"
@@ -295,10 +300,16 @@ still allow people to get their work done."
 	    test "`dirname $exampledir`" != "$docdir" && extradirs="$extradirs `dirname $exampledir`"
 	    test -d ${pp_destdir}${localedir} && extradirs="$extradirs $localedir"
 	    for dir in $bindir $sbindir $libexecdir $includedir $extradirs; do
+		# Only package directories that match the prefix,
+		# otherwise we could package directories like /var.
+		case "$dir" in
+		${prefix}*)
 		    while test "$dir" != "/"; do
 			    parentdirs="${parentdirs}${parentdirs+ }$dir/"
 			    dir=`dirname $dir`
 		    done
+		    ;;
+		esac
 	    done
 	    parentdirs=`echo $parentdirs | tr " " "\n" | sort -u`
 	fi

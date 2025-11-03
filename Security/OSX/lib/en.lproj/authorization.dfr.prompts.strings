@@ -110,6 +110,8 @@
 
 "com.apple.SoftwareUpdate.modify-settings" = "Touch ID to Unlock the Software Update Settings.";
 
+"com.apple.SoftwareUpdate.modify-splat-settings" = "Touch ID to Modify Your Privacy & Security Settings.";
+
 "com.apple.uninstalld.uninstall" = "Touch ID to Delete an Application.";
 
 "system.privilege.taskport" = "Touch ID to Take Control of Another Process.";

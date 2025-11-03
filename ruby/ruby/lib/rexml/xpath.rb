@@ -31,12 +31,7 @@ module REXML
     def XPath::first(element, path=nil, namespaces=nil, variables={}, options={})
       raise "The namespaces argument, if supplied, must be a hash object." unless namespaces.nil? or namespaces.kind_of?(Hash)
       raise "The variables argument, if supplied, must be a hash object." unless variables.kind_of?(Hash)
-      parser = XPathParser.new(**options)
-      parser.namespaces = namespaces
-      parser.variables = variables
-      path = "*" unless path
-      element = [element] unless element.kind_of? Array
-      parser.parse(path, element).flatten[0]
+      match(element, path, namespaces, variables, options).flatten[0]
     end
 
     # Iterates over nodes that match the given path, calling the supplied
@@ -60,12 +55,7 @@ module REXML
     def XPath::each(element, path=nil, namespaces=nil, variables={}, options={}, &block)
       raise "The namespaces argument, if supplied, must be a hash object." unless namespaces.nil? or namespaces.kind_of?(Hash)
       raise "The variables argument, if supplied, must be a hash object." unless variables.kind_of?(Hash)
-      parser = XPathParser.new(**options)
-      parser.namespaces = namespaces
-      parser.variables = variables
-      path = "*" unless path
-      element = [element] unless element.kind_of? Array
-      parser.parse(path, element).each( &block )
+      match(element, path, namespaces, variables, options).each( &block )
     end
 
     # Returns an array of nodes matching a given XPath.
@@ -74,7 +64,6 @@ module REXML
       parser.namespaces = namespaces
       parser.variables = variables
       path = "*" unless path
-      element = [element] unless element.kind_of? Array
       parser.parse(path,element)
     end
   end

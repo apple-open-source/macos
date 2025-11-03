@@ -154,6 +154,9 @@ extern void ast_taken_kernel(void);
 /* Handle an AST flag set while returning to user mode (may continue via thread_exception_return) */
 extern void ast_taken_user(void);
 
+/* Check for ASTs for per-process aio threads in the kernel */
+extern void ast_check_async_thread(void);
+
 /* Check for pending ASTs */
 extern void ast_check(processor_t processor);
 

@@ -2544,7 +2544,7 @@ static void PMConnectionPowerCallBack(
             }
             else {
                 cancelPowerNapStates();
-                _unclamp_silent_running(false);
+                _unclamp_silent_running(false, false);
 
                 // kDarkWakeForSSState bit is removed when the SS session is closed.
                 gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
@@ -2674,7 +2674,7 @@ static void PMConnectionPowerCallBack(
             }
             if (checkForActivesByType(kPreventSleepType)) {
                 deliverCapabilityBits &= ~kIOPMCapabilitySilentRunning;
-               _unclamp_silent_running(false);
+               _unclamp_silent_running(false, false);
             }
 
             evaluateADS();
@@ -3796,12 +3796,12 @@ static PMConnection *connectionForID(uint32_t findMe)
 // Does so by going through rootDomain's setProperties implementation.
 // RootDomain informs all interested drivers (including AppleSMC) that
 // SilentRunning has been turned off
-__private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits)
+__private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits, bool forceUpdate)
 {
     IOPMCapabilityBits deliverCapabilityBits;
 
     // Nothing to do. It's already unclamped
-    if(gCurrentSilentRunningState == kSilentRunningOff)
+    if(!forceUpdate && gCurrentSilentRunningState == kSilentRunningOff)
         return kIOReturnSuccess;
 
     // Nothing to do. SMC doesn't support SR
@@ -3849,6 +3849,10 @@ __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits)
         IOReturn ret = _smcWritePerfStateSensorExData(false);
         if(ret == kIOReturnSuccess) {
             gCurrentSilentRunningState = kSilentRunningOff;
+            INFO_LOG("Successfully communicated unclamped Silent Running state to SMC.\n");
+        }
+        else {
+            ERROR_LOG("Failed to communicate Silent Running state to SMC. Error: 0x%x\n", ret);
         }
         return ret;
     }

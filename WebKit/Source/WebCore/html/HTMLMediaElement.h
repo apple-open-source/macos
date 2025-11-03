@@ -265,7 +265,6 @@ public:
 
     WEBCORE_EXPORT bool isActiveNowPlayingSession() const;
     void isActiveNowPlayingSessionChanged() final;
-    std::optional<ProcessID> mediaSessionPresentingApplicationPID() const final;
 
 // DOM API
 // error state
@@ -1416,7 +1415,7 @@ private:
     size_t m_reportedExtraMemoryCost { 0 };
 
     friend class MediaControlsHost;
-    RefPtr<MediaControlsHost> m_mediaControlsHost;
+    const std::unique_ptr<MediaControlsHost> m_mediaControlsHost;
     RefPtr<DOMWrapperWorld> m_isolatedWorld;
 
 #if ENABLE(MEDIA_STREAM)

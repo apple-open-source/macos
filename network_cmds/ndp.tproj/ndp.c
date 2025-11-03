@@ -135,6 +135,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <ifaddrs.h>
 
 /* packing rule for routing socket */
 #define	ROUNDUP(a) \
@@ -221,8 +222,6 @@ main(int argc, char **argv)
 		case 'i' :
 			argc -= optind;
 			argv += optind;
-			if (argc < 1)
-				usage();
 			ifinfo(argc, argv);
 			exit(0);
 		case 'n':
@@ -1184,102 +1183,146 @@ ifinfo(int argc, char **argv)
 {
 	struct in6_ndireq nd;
 	int i, s;
-	char *ifname = argv[0];
+	char *ifname = NULL;
 	u_int32_t newflags;
 	u_int8_t nullbuf[8];
+	struct ifaddrs *ifap = NULL, *ifa;
+	const char *last_ifname = NULL;
 
 	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 		perror("ndp: socket");
-		exit(1);
+		goto done;
 	}
-	bzero(&nd, sizeof (nd));
-	strlcpy(nd.ifname, ifname, sizeof (nd.ifname));
-	if (ioctl(s, SIOCGIFINFO_IN6, (caddr_t)&nd) < 0) {
-		perror("ioctl (SIOCGIFINFO_IN6)");
-		exit(1);
-	}
-#define	ND nd.ndi
-	newflags = ND.flags;
-	for (i = 1; i < argc; i++) {
-		int clear = 0;
-		char *cp = argv[i];
+	if (getifaddrs(&ifap) != 0) {
+		perror("getifaddrs");
+		goto done;
+    }
 
-		if (*cp == '-') {
-			clear = 1;
-			cp++;
+	if (argc > 0) {
+		if (strcmp(argv[0], "nud") == 0 ||
+			strcmp(argv[0], "proxy_prefixes") == 0 ||
+			strcmp(argv[0], "disabled") == 0 ||
+			strcmp(argv[0], "insecure") == 0 ||
+			strcmp(argv[0], "replicated") == 0) {
+			(void) fprintf(stderr, "ndp: cannpt apply flag '%s' to all interfaces\n",
+				argv[0]);
+			goto done;
 		}
+		ifname = argv[0];
+	}
+
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		if (ifname != NULL &&
+			strcmp(ifa->ifa_name, ifname) != 0) {
+			continue;
+		}
+
+		if (last_ifname != NULL && strcmp(ifa->ifa_name, last_ifname) == 0) {
+			continue;
+		}
+		last_ifname = ifa->ifa_name;
+
+		bzero(&nd, sizeof (nd));
+		strlcpy(nd.ifname, last_ifname, sizeof (nd.ifname));
+		if (ioctl(s, SIOCGIFINFO_IN6, (caddr_t)&nd) < 0) {
+			if (ifname != NULL) {
+				perror("ioctl (SIOCGIFINFO_IN6)");
+				goto done;
+			}
+			continue;
+		}
+
+		if (ifname != NULL && argc > 0) {
+#define	ND nd.ndi
+			newflags = ND.flags;
+				for (i = 1; i < argc; i++) {
+					int clear = 0;
+					char *cp = argv[i];
+
+					if (*cp == '-') {
+						clear = 1;
+						cp++;
+					}
 
 #define	SETFLAG(s, f) \
-	do {\
-		if (strcmp(cp, (s)) == 0) {\
-			if (clear)\
-				newflags &= ~(f);\
-			else\
-				newflags |= (f);\
-		}\
-	} while (0)
-		SETFLAG("nud", ND6_IFF_PERFORMNUD);
-		SETFLAG("proxy_prefixes", ND6_IFF_PROXY_PREFIXES);
-		SETFLAG("disabled", ND6_IFF_IFDISABLED);
-		SETFLAG("insecure", ND6_IFF_INSECURE);
-		SETFLAG("replicated", ND6_IFF_REPLICATED);
+			do {\
+				if (strcmp(cp, (s)) == 0) {\
+					if (clear)\
+						newflags &= ~(f);\
+					else\
+						newflags |= (f);\
+				}\
+			} while (0)
+				SETFLAG("nud", ND6_IFF_PERFORMNUD);
+				SETFLAG("proxy_prefixes", ND6_IFF_PROXY_PREFIXES);
+				SETFLAG("disabled", ND6_IFF_IFDISABLED);
+				SETFLAG("insecure", ND6_IFF_INSECURE);
+				SETFLAG("replicated", ND6_IFF_REPLICATED);
 
-		ND.flags = newflags;
-		if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd) < 0) {
-			perror("ioctl(SIOCSIFINFO_FLAGS)");
-			exit(1);
-		}
-#undef SETFLAG
-	}
-
-	printf("linkmtu=%d", ND.linkmtu);
-	printf(", curhlim=%d", ND.chlim);
-	printf(", basereachable=%ds%dms", ND.basereachable / 1000,
-	    ND.basereachable % 1000);
-	printf(", reachable=%ds", ND.reachable);
-	printf(", retrans=%ds%dms", ND.retrans / 1000, ND.retrans % 1000);
-	memset(nullbuf, 0, sizeof (nullbuf));
-	if (memcmp(nullbuf, ND.randomid, sizeof (nullbuf)) != 0) {
-		int j;
-		u_int8_t *rbuf = NULL;
-
-		for (i = 0; i < 3; i++) {
-			switch (i) {
-			case 0:
-				printf("\nRandom seed(0): ");
-				rbuf = ND.randomseed0;
-				break;
-			case 1:
-				printf("\nRandom seed(1): ");
-				rbuf = ND.randomseed1;
-				break;
-			case 2:
-				printf("\nRandom ID:      ");
-				rbuf = ND.randomid;
-				break;
+				ND.flags = newflags;
+				if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd) < 0) {
+					perror("ioctl(SIOCSIFINFO_FLAGS)");
+					exit(1);
+				}
+	#undef SETFLAG
 			}
-			for (j = 0; j < 8; j++)
-				printf("%02x", rbuf[j]);
 		}
-	}
-	if (ND.flags) {
-		printf("\nFlags: 0x%x ", ND.flags);
-		if ((ND.flags & ND6_IFF_IFDISABLED) != 0)
-			printf("IFDISABLED ");
-		if ((ND.flags & ND6_IFF_INSECURE) != 0)
-			printf("INSECURE ");
-		if ((ND.flags & ND6_IFF_PERFORMNUD) != 0)
-			printf("PERFORMNUD ");
-		if ((ND.flags & ND6_IFF_PROXY_PREFIXES) != 0)
-			printf("PROXY_PREFIXES ");
-		if ((ND.flags & ND6_IFF_REPLICATED) != 0)
-			printf("REPLICATED ");
-		if ((ND.flags & ND6_IFF_DAD) != 0)
-			printf("DAD ");
-	}
-	putc('\n', stdout);
-#undef ND
 
+		if (ifname == NULL) {
+			printf("\n%s:\n", last_ifname);
+		}
+
+		printf("linkmtu=%d", ND.linkmtu);
+		printf(", curhlim=%d", ND.chlim);
+		printf(", basereachable=%ds%dms", ND.basereachable / 1000,
+			   ND.basereachable % 1000);
+		printf(", reachable=%ds", ND.reachable);
+		printf(", retrans=%ds%dms", ND.retrans / 1000, ND.retrans % 1000);
+		memset(nullbuf, 0, sizeof (nullbuf));
+		if (memcmp(nullbuf, ND.randomid, sizeof (nullbuf)) != 0) {
+			int j;
+			u_int8_t *rbuf = NULL;
+
+			for (i = 0; i < 3; i++) {
+				switch (i) {
+					case 0:
+						printf("\nRandom seed(0): ");
+						rbuf = ND.randomseed0;
+						break;
+					case 1:
+						printf("\nRandom seed(1): ");
+						rbuf = ND.randomseed1;
+						break;
+					case 2:
+						printf("\nRandom ID:      ");
+						rbuf = ND.randomid;
+						break;
+				}
+				for (j = 0; j < 8; j++)
+					printf("%02x", rbuf[j]);
+			}
+		}
+		if (ND.flags) {
+			printf("\nFlags: 0x%x ", ND.flags);
+			if ((ND.flags & ND6_IFF_IFDISABLED) != 0)
+				printf("IFDISABLED ");
+			if ((ND.flags & ND6_IFF_INSECURE) != 0)
+				printf("INSECURE ");
+			if ((ND.flags & ND6_IFF_PERFORMNUD) != 0)
+				printf("PERFORMNUD ");
+			if ((ND.flags & ND6_IFF_PROXY_PREFIXES) != 0)
+				printf("PROXY_PREFIXES ");
+			if ((ND.flags & ND6_IFF_REPLICATED) != 0)
+				printf("REPLICATED ");
+			if ((ND.flags & ND6_IFF_DAD) != 0)
+				printf("DAD ");
+		}
+		putc('\n', stdout);
+#undef ND
+	}
+
+done:
+	freeifaddrs(ifap);
 	close(s);
 }
 

@@ -2268,6 +2268,10 @@ unsigned int SecStaticCode::validationCategory()
 #if TARGET_OS_OSX
 					if (policyFlags & CORETRUST_POLICY_MAC_PLATFORM) {
 						mValidationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
+					} else if (policyFlags & CORETRUST_POLICY_MAC_PLATFORM_G2) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
+					} else if (qaCertsAllowed && (policyFlags & CORETRUST_POLICY_MAC_PLATFORM_QA)) {
+						mValidationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
 					} else if (policyFlags & CORETRUST_POLICY_DEVELOPER_ID) {
 						mValidationCategory = CS_VALIDATION_CATEGORY_DEVELOPER_ID;
 					} else

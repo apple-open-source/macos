@@ -871,10 +871,12 @@ LayoutSize RenderInline::offsetForInFlowPositionedInline(const RenderBox* child)
     // Per http://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-width an absolute positioned box with a static position
     // should locate itself as though it is a normal flow box in relation to its containing block.
     LayoutSize logicalOffset;
-    if (!child->style().hasStaticInlinePosition(writingMode().isHorizontal()))
+    if (!child->style().hasStaticInlinePosition(writingMode().isHorizontal())
+        || child->style().positionArea() || child->style().justifySelf().position() == ItemPosition::AnchorCenter)
         logicalOffset.setWidth(inlinePosition);
 
-    if (!child->style().hasStaticBlockPosition(writingMode().isHorizontal()))
+    if (!child->style().hasStaticBlockPosition(writingMode().isHorizontal())
+        || child->style().positionArea() || child->style().alignSelf().position() == ItemPosition::AnchorCenter)
         logicalOffset.setHeight(blockPosition);
 
     return writingMode().isHorizontal() ? logicalOffset : logicalOffset.transposedSize();

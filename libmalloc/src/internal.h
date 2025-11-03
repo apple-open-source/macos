@@ -297,10 +297,10 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 # include "nanov2_zone.h"
 # include "magazine_inline.h"
 #endif // !MALLOC_TARGET_EXCLAVES && MALLOC_TARGET_EXCLAVES_INTROSPECTOR
-#include "xzone/xzone_introspect.h"
-#include "xzone/xzone_malloc.h"
+#include "xzone_malloc/xzone_introspect.h"
+#include "xzone_malloc/xzone_malloc.h"
 #if !(MALLOC_TARGET_EXCLAVES_INTROSPECTOR && defined(__x86_64__))
-# include "xzone/xzone_inline_internal.h"
+# include "xzone_malloc/xzone_inline_internal.h"
 #endif // !(MALLOC_TARGET_EXCLAVES_INTROSPECTOR && defined(__x86_64__))
 #if !MALLOC_TARGET_EXCLAVES
 # include "stack_logging.h"
@@ -382,6 +382,20 @@ extern malloc_zone_t *initial_xzone_zone;
 MALLOC_NOEXPORT
 extern bool malloc_sanitizer_enabled;
 
+#if CONFIG_MTE
+
+MALLOC_NOEXPORT
+extern bool malloc_has_sec_transition;
+
+MALLOC_NOEXPORT
+extern uint32_t malloc_sec_transition_policy;
+
+#if !MALLOC_TARGET_EXCLAVES
+MALLOC_NOEXPORT
+extern bool malloc_sec_transition_early_malloc_support;
+#endif // !MALLOC_TARGET_EXCLAVES
+
+#endif // CONFIG_MTE
 
 #if CONFIG_MALLOC_PROCESS_IDENTITY
 MALLOC_NOEXPORT

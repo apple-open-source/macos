@@ -41,7 +41,7 @@ module REXML
       else
         results = filter([element], path)
       end
-      return results
+      results
     end
 
     # Given an array of nodes it filters the array based on the path. The
@@ -51,18 +51,18 @@ module REXML
       return elements if path.nil? or path == '' or elements.size == 0
       case path
       when /^\/\//u                                                                                     # Descendant
-        return axe( elements, "descendant-or-self", $' )
+        axe( elements, "descendant-or-self", $' )
       when /^\/?\b(\w[-\w]*)\b::/u                                                      # Axe
-        return axe( elements, $1, $' )
+        axe( elements, $1, $' )
       when /^\/(?=\b([:!\w][-\.\w]*:)?[-!\*\.\w]*\b([^:(]|$)|\*)/u      # Child
         rest = $'
         results = []
         elements.each do |element|
           results |= filter( element.to_a, rest )
         end
-        return results
+        results
       when /^\/?(\w[-\w]*)\(/u                                                  # / Function
-        return function( elements, $1, $' )
+        function( elements, $1, $' )
       when Namespace::NAMESPLIT         # Element name
         name = $2
         ns = $1
@@ -73,21 +73,21 @@ module REXML
              (element.name == name and
               element.namespace == Functions.namespace_context[ns])))
         end
-        return filter( elements, rest )
+        filter( elements, rest )
       when /^\/\[/u
         matches = []
         elements.each do |element|
           matches |= predicate( element.to_a, path[1..-1] ) if element.kind_of? Element
         end
-        return matches
+        matches
       when /^\[/u                                                                                               # Predicate
-        return predicate( elements, path )
+        predicate( elements, path )
       when /^\/?\.\.\./u                                                                                # Ancestor
-        return axe( elements, "ancestor", $' )
+        axe( elements, "ancestor", $' )
       when /^\/?\.\./u                                                                                  # Parent
-        return filter( elements.collect{|e|e.parent}, $' )
+        filter( elements.collect{|e|e.parent}, $' )
       when /^\/?\./u                                                                                            # Self
-        return filter( elements, $' )
+        filter( elements, $' )
       when /^\*/u                                                                                                       # Any
         results = []
         elements.each do |element|
@@ -98,9 +98,10 @@ module REXML
           #     results |= filter( children, $' )
           #end
         end
-        return results
+        results
+      else
+        []
       end
-      return []
     end
 
     def QuickPath::axe( elements, axe_name, rest )
@@ -138,7 +139,7 @@ module REXML
         matches = filter(elements.collect{|element|
           element.previous_sibling}.uniq, rest )
       end
-      return matches.uniq
+      matches.uniq
     end
 
     OPERAND_ = '((?=(?:(?!and|or).)*[^\s<>=])[^\s<>=]+)'
@@ -200,15 +201,15 @@ module REXML
           results << element
         end
       end
-      return filter( results, rest )
+      filter( results, rest )
     end
 
     def QuickPath::attribute( name )
-      return Functions.node.attributes[name] if Functions.node.kind_of? Element
+      Functions.node.attributes[name] if Functions.node.kind_of? Element
     end
 
     def QuickPath::name()
-      return Functions.node.name if Functions.node.kind_of? Element
+      Functions.node.name if Functions.node.kind_of? Element
     end
 
     def QuickPath::method_missing( id, *args )
@@ -234,7 +235,7 @@ module REXML
           results << element if Functions.pair[0] == res
         end
       end
-      return results
+      results
     end
 
     def QuickPath::parse_args( element, string )

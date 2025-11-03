@@ -47,6 +47,9 @@ public:
     static Ref<PreconnectTask> create(NetworkSession&, NetworkLoadParameters&&);
     ~PreconnectTask();
 
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     void setH2PingCallback(const URL&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
     void start(CompletionHandler<void(const WebCore::ResourceError&, const WebCore::NetworkLoadMetrics&)>&& = { }, Seconds timeout = 60_s);
 

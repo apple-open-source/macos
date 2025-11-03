@@ -523,21 +523,31 @@ GetByStatus GetByStatus::computeFor(JSGlobalObject* globalObject, const Structur
                     GetByStatus result;
                     result.m_state = Simple;
                     result.m_wasSeenInJIT = false;
-                    PropertyOffset offset = invalidOffset;
-                    PropertyCondition::Kind kind = PropertyCondition::Absence;
+                    size_t i = 0;
+                    size_t totalSize = conditionSet.size();
                     for (auto& condition : conditionSet) {
-                        if (condition.hasOffset())
-                            offset = condition.offset();
-                        kind = condition.kind();
+                        if ((i + 1) == totalSize) {
+                            // The last condition
+                            if (condition.kind() != PropertyCondition::Presence)
+                                return std::nullopt;
+                            if (condition.attributes() & PropertyAttribute::Accessor)
+                                return std::nullopt;
+                            if (condition.attributes() & PropertyAttribute::CustomAccessorOrValue)
+                                return std::nullopt;
+
+                            GetByVariant variant(identifier, StructureSet(structure), /* viaGlobalProxy */ false, condition.offset(), conditionSet);
+                            if (!result.appendVariant(variant))
+                                return std::nullopt;
+
+                            return result;
+                        }
+
+                        if (condition.kind() != PropertyCondition::Absence)
+                            return std::nullopt;
+
+                        ++i;
                     }
-                    if (offset == invalidOffset)
-                        return std::nullopt;
-                    if (kind != PropertyCondition::Presence)
-                        return std::nullopt;
-                    GetByVariant variant(identifier, StructureSet(structure), /* viaGlobalProxy */ false, offset, conditionSet);
-                    if (!result.appendVariant(variant))
-                        return std::nullopt;
-                    return result;
+                    return std::nullopt;
                 }
                 return std::nullopt;
             }

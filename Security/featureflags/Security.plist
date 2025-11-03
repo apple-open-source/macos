@@ -97,13 +97,6 @@
 		<key>DevelopmentPhase</key>
 		<string>PreviewReady</string>
 	</dict>
-	<key>RootConstraints</key>
-	<dict>
-		<key>DisplayName</key>
-		<string>Enable constrained anchor source</string>
-		<key>DevelopmentPhase</key>
-		<string>FeatureComplete</string>
-	</dict>
 	<key>DisableLegacyTLSExclusions</key>
 	<dict>
 		<key>Enabled</key>
@@ -181,6 +174,20 @@
 	<dict>
 		<key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
+	</dict>
+	<key>RemoveOldAppleAnchorSource</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Remove Old Apple Anchor Source</string>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>RemoveOldSystemAnchorSource</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Remove Old System Anchor Source</string>
+		<key>DevelopmentPhase</key>
+		<string>PreviewReady</string>
 	</dict>
 </dict>
 </plist>

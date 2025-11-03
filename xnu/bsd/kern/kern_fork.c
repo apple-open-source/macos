@@ -587,8 +587,8 @@ fork(proc_t parent_proc, __unused struct fork_args *uap, int32_t *retval)
 		child_task = (task_t)get_threadtask(child_thread);
 		assert(child_task != TASK_NULL);
 
-		task_copyout_control_port(child_task);
 		vm_map_setup(get_task_map(child_task), child_task);
+		task_set_ctrl_port_default(child_task, child_thread);
 		ipc_task_enable(child_task);
 
 		/*

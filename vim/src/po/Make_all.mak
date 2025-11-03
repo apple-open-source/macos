@@ -16,6 +16,7 @@ LANGUAGES = \
 		fr \
 		ga \
 		hu \
+		hy \
 		it \
 		ja \
 		ja.euc-jp \
@@ -61,6 +62,7 @@ POFILES = \
 		fr.po \
 		ga.po \
 		hu.po \
+		hy.po \
 		it.po \
 		ja.po \
 		ja.euc-jp.po \
@@ -105,6 +107,7 @@ MOFILES = \
 		fr.mo \
 		ga.mo \
 		hu.mo \
+		hy.mo \
 		it.mo \
 		ja.mo \
 		ko.UTF-8.mo \
@@ -154,6 +157,7 @@ CHECKFILES = \
 		fr.ck \
 		ga.ck \
 		hu.ck \
+		hy.ck \
 		it.ck \
 		ja.ck \
 		ja.euc-jp.ck \

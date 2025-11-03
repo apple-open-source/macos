@@ -4400,6 +4400,7 @@ void BytecodeGenerator::endSwitch(const Vector<Ref<Label>, 8>& labels, Expressio
     auto handleSwitchList = [&](auto bytecode) {
         UnlinkedSimpleJumpTable& jumpTable = m_codeBlock->unlinkedSwitchJumpTable(bytecode.m_tableIndex);
         jumpTable.m_min = INT32_MAX;
+        jumpTable.m_isList = true;
 
         Vector<int32_t> branchOffsets;
         branchOffsets.reserveInitialCapacity(labels.size() * 2);

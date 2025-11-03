@@ -300,10 +300,13 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
 
 #if ENABLE(CONTENT_EXTENSIONS)
     if (frame->loader().documentLoader() && frame->loader().documentLoader()->hasActiveContentRuleListActions()) {
+        // FIXME: <https://webkit.org/b/297553> Ideally, we should be doing this in CachedResourceLoader.
         if (RefPtr page = frame->page()) {
             auto resourceType = frame->isMainFrame() ? ContentExtensions::ResourceType::TopDocument : ContentExtensions::ResourceType::ChildDocument;
             auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, request.url(), resourceType, *frame->loader().documentLoader());
-            ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), request);
+
+            // Only apply the results if a cross origin redirect will occur. See https://webkit.org/b/297077 and https://webkit.org/b/297554.
+            ContentExtensions::applyResultsToRequestIfCrossOriginRedirect(WTFMove(results), page.get(), request);
         }
     }
 #endif

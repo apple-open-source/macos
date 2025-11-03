@@ -45,4 +45,15 @@ if ! cmp -s dir1/a_file dir2/a_file; then
 	fails=$((fails + 1))
 fi
 
+rm -rf dir1 dir2 dir3
+mkdir -p dir1 dir2
+
+# On the second transfer here, bad tracking of the file position would have
+# resulted in dir2/a_file being truncated.
+dd if=/dev/random of=dir1/a_file bs=8m count=4 conv=sync
+rsync -a --inplace --no-W dir1/ dir2
+cmp dir1/a_file dir2/a_file
+rsync -aI --inplace --no-W dir1/ dir2
+cmp dir1/a_file dir2/a_file
+
 exit $fails

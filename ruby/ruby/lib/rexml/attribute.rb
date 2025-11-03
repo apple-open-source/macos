@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 require_relative "namespace"
 require_relative 'text'
 
@@ -13,9 +13,6 @@ module REXML
 
     # The element to which this attribute belongs
     attr_reader :element
-    # The normalized value of this attribute.  That is, the attribute with
-    # entities intact.
-    attr_writer :normalized
     PATTERN = /\s*(#{NAME_STR})\s*=\s*(["'])(.*?)\2/um
 
     NEEDS_A_SECOND_CHECK = /(<|&((#{Entity::NAME});|(#0*((?:\d+)|(?:x[a-fA-F0-9]+)));)?)/um
@@ -67,15 +64,11 @@ module REXML
     #  e.add_attribute( "nsa:a", "aval" )
     #  e.add_attribute( "b", "bval" )
     #  e.attributes.get_attribute( "a" ).prefix   # -> "nsa"
-    #  e.attributes.get_attribute( "b" ).prefix   # -> "elns"
+    #  e.attributes.get_attribute( "b" ).prefix   # -> ""
     #  a = Attribute.new( "x", "y" )
     #  a.prefix                                   # -> ""
     def prefix
-      pf = super
-      if pf == ""
-        pf = @element.prefix if @element
-      end
-      pf
+      super
     end
 
     # Returns the namespace URL, if defined, or nil otherwise
@@ -86,9 +79,26 @@ module REXML
     #  e.add_attribute("nsx:a", "c")
     #  e.attribute("ns:a").namespace # => "http://url"
     #  e.attribute("nsx:a").namespace # => nil
+    #
+    # This method always returns "" for no namespace attribute. Because
+    # the default namespace doesn't apply to attribute names.
+    #
+    # From https://www.w3.org/TR/xml-names/#uniqAttrs
+    #
+    # > the default namespace does not apply to attribute names
+    #
+    #  e = REXML::Element.new("el")
+    #  e.add_namespace("", "http://example.com/")
+    #  e.namespace # => "http://example.com/"
+    #  e.add_attribute("a", "b")
+    #  e.attribute("a").namespace # => ""
     def namespace arg=nil
       arg = prefix if arg.nil?
-      @element.namespace arg
+      if arg == ""
+        ""
+      else
+        @element.namespace(arg)
+      end
     end
 
     # Returns true if other is an Attribute and has the same name and value,
@@ -109,18 +119,18 @@ module REXML
     #  b = Attribute.new( "ns:x", "y" )
     #  b.to_string     # -> "ns:x='y'"
     def to_string
+      value = to_s
       if @element and @element.context and @element.context[:attribute_quote] == :quote
-        %Q^#@expanded_name="#{to_s().gsub(/"/, '&quot;')}"^
+        value = value.gsub('"', '&quot;') if value.include?('"')
+        %Q^#@expanded_name="#{value}"^
       else
-        "#@expanded_name='#{to_s().gsub(/'/, '&apos;')}'"
+        value = value.gsub("'", '&apos;') if value.include?("'")
+        "#@expanded_name='#{value}'"
       end
     end
 
     def doctype
-      if @element
-        doc = @element.document
-        doc.doctype if doc
-      end
+      @element&.document&.doctype
     end
 
     # Returns the attribute value, with entities replaced
@@ -128,7 +138,6 @@ module REXML
       return @normalized if @normalized
 
       @normalized = Text::normalize( @unnormalized, doctype )
-      @unnormalized = nil
       @normalized
     end
 
@@ -136,9 +145,16 @@ module REXML
     # have been expanded to their values
     def value
       return @unnormalized if @unnormalized
-      @unnormalized = Text::unnormalize( @normalized, doctype )
-      @normalized = nil
-      @unnormalized
+
+      @unnormalized = Text::unnormalize(@normalized, doctype,
+                                        entity_expansion_text_limit: @element&.document&.entity_expansion_text_limit)
+    end
+
+    # The normalized value of this attribute.  That is, the attribute with
+    # entities intact.
+    def normalized=(new_normalized)
+      @normalized = new_normalized
+      @unnormalized = nil
     end
 
     # Returns a copy of this attribute
@@ -154,7 +170,7 @@ module REXML
       @element = element
 
       if @normalized
-        Text.check( @normalized, NEEDS_A_SECOND_CHECK, doctype )
+        Text.check( @normalized, NEEDS_A_SECOND_CHECK )
       end
 
       self
@@ -177,15 +193,17 @@ module REXML
     end
 
     def inspect
-      rv = ""
+      rv = +""
       write( rv )
       rv
     end
 
     def xpath
-      path = @element.xpath
-      path += "/@#{self.expanded_name}"
-      return path
+      @element.xpath + "/@#{self.expanded_name}"
+    end
+
+    def document
+      @element&.document
     end
   end
 end

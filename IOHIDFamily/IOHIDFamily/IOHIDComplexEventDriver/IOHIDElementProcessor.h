@@ -254,10 +254,9 @@ private:
     IOFixed getButtonPressure() const;
 
     void updateButtonState(IOFixed pressure);
-    IOFixed getPressThreshold() const;
-    IOFixed getReleaseThreshold() const;
 
     OSPtr<IOHIDElement> _input;
+    OSPtr<IOHIDElement> _pressState;
     IOFixed _pressThreshold;
     IOFixed _releaseThreshold;
     bool _state;

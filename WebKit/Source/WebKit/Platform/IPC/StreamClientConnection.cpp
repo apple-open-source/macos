@@ -41,18 +41,22 @@ StreamClientConnection::DedicatedConnectionClient::DedicatedConnectionClient(Str
 
 void StreamClientConnection::DedicatedConnectionClient::didReceiveMessage(Connection& connection, Decoder& decoder)
 {
-    m_receiver->didReceiveMessage(connection, decoder);
+    if (RefPtr receiver = m_receiver.get())
+        receiver->didReceiveMessage(connection, decoder);
 }
 
 bool StreamClientConnection::DedicatedConnectionClient::didReceiveSyncMessage(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder)
 {
-    return m_receiver->didReceiveSyncMessage(connection, decoder, replyEncoder);
+    if (RefPtr receiver = m_receiver.get())
+        return receiver->didReceiveSyncMessage(connection, decoder, replyEncoder);
+    return false;
 }
 
 void StreamClientConnection::DedicatedConnectionClient::didClose(Connection& connection)
 {
     // Client is expected to listen to Connection::didClose() from the connection it sent to the dedicated connection to.
-    m_receiver->didClose(connection);
+    if (RefPtr receiver = m_receiver.get())
+        receiver->didClose(connection);
 }
 
 void StreamClientConnection::DedicatedConnectionClient::didReceiveInvalidMessage(Connection&, MessageName, const Vector<uint32_t>&)

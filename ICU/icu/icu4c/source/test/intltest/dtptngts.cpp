@@ -1649,8 +1649,14 @@ void IntlTestDateTimePatternGeneratorAPI::testJjMapping() {
             continue;
         }
 #if APPLE_ICU_CHANGES
-// rdar://123393073
-        if ((uprv_strncmp(localeID, "lut", 3) == 0 || uprv_strncmp(localeID, "mus", 3) == 0) && logKnownIssue("N/A", "Minimal data available for lut and mus")) {
+// rdar://123393073&153902727&160427611
+        if ((uprv_strncmp(localeID, "lut", 3) == 0 ||
+             uprv_strncmp(localeID, "mus", 3) == 0 ||
+             uprv_strncmp(localeID, "cst", 3) == 0 ||
+             uprv_strncmp(localeID, "hch", 3) == 0 ||
+             uprv_strncmp(localeID, "isc", 3) == 0 ||
+             uprv_strncmp(localeID, "shp", 3) == 0 ||
+             uprv_strncmp(localeID, "nez", 3) == 0) && logKnownIssue("N/A", "Minimal data available for cst, hch, isc, lut, mus, shp, nez")) {
             continue;
         }
 #endif // APPLE_ICU_CHANGES

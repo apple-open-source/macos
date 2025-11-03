@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2021-2024 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,11 +32,11 @@
 #include <unistd.h>
 #include <stdarg.h>
 
-#include "sudoers.h"
-#include "cvtsudoers.h"
+#include <sudoers.h>
+#include <cvtsudoers.h>
 #include <gram.h>
 
-static void print_member_list_csv(FILE *fp, struct sudoers_parse_tree *parse_tree, struct member_list *members, bool negated, int alias_type, bool expand_aliases);
+static bool print_member_list_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree, struct member_list *members, bool negated, short alias_type, bool expand_aliases);
 
 /*
  * Print sudoOptions from a defaults_list.
@@ -88,7 +88,7 @@ defaults_type_to_string(int defaults_type)
 /*
  * Map a Defaults type to an alias type.
  */
-static int
+static short
 defaults_to_alias_type(int defaults_type)
 {
     switch (defaults_type) {
@@ -112,7 +112,7 @@ defaults_to_alias_type(int defaults_type)
  * XXX - rewrite this
  */
 static bool
-print_csv_string(FILE *fp, const char *str, bool quoted)
+print_csv_string(FILE * restrict fp, const char * restrict str, bool quoted)
 {
     const char *src = str;
     char *dst, *newstr;
@@ -179,13 +179,13 @@ format_cmnd(struct sudo_command *c, bool negated)
     }
 
     if ((buf = malloc(bufsiz)) == NULL) {
-	sudo_fatalx(U_("%s: %s"), __func__,
-	    U_("unable to allocate memory"));
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	debug_return_ptr(NULL);
     }
 
     cp = buf;
     TAILQ_FOREACH(digest, &c->digests, entries) {
-	len = snprintf(cp, bufsiz - (cp - buf), "%s:%s%s ", 
+	len = snprintf(cp, bufsiz - (size_t)(cp - buf), "%s:%s%s ", 
 	    digest_type_to_name(digest->digest_type), digest->digest_str,
 	    TAILQ_NEXT(digest, entries) ? "," : "");
 	if (len < 0 || len >= (int)bufsiz - (cp - buf))
@@ -193,8 +193,8 @@ format_cmnd(struct sudo_command *c, bool negated)
 	cp += len;
     }
 
-    len = snprintf(cp, bufsiz - (cp - buf), "%s%s%s%s", negated ? "!" : "",
-	cmnd, c->args ? " " : "", c->args ? c->args : "");
+    len = snprintf(cp, bufsiz - (size_t)(cp - buf), "%s%s%s%s",
+	negated ? "!" : "", cmnd, c->args ? " " : "", c->args ? c->args : "");
     if (len < 0 || len >= (int)bufsiz - (cp - buf))
 	sudo_fatalx(U_("internal error, %s overflow"), __func__);
 
@@ -205,9 +205,10 @@ format_cmnd(struct sudo_command *c, bool negated)
  * Print struct member in CSV format as the specified attribute.
  * See print_member_int() in parse.c.
  */
-static void
-print_member_csv(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
-    int type, bool negated, bool quoted, int alias_type, bool expand_aliases)
+static bool
+print_member_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
+    char *name, int type, bool negated, bool quoted, short alias_type,
+    bool expand_aliases)
 {
     struct alias *a;
     char *str;
@@ -226,14 +227,23 @@ print_member_csv(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
 	FALLTHROUGH;
     case COMMAND:
 	str = format_cmnd((struct sudo_command *)name, negated);
-	print_csv_string(fp, str, quoted);
+	if (str == NULL) {
+	    debug_return_bool(false);
+	}
+	if (!print_csv_string(fp, str, quoted)) {
+	    free(str);
+	    debug_return_bool(false);
+	}
 	free(str);
 	break;
     case ALIAS:
 	if (expand_aliases) {
 	    if ((a = alias_get(parse_tree, name, alias_type)) != NULL) {
-		print_member_list_csv(fp, parse_tree, &a->members, negated,
-		    alias_type, expand_aliases);
+		if (!print_member_list_csv(fp, parse_tree, &a->members, negated,
+			alias_type, expand_aliases)) {
+		    alias_put(a);
+		    debug_return_bool(false);
+		}
 		alias_put(a);
 		break;
 	    }
@@ -242,65 +252,73 @@ print_member_csv(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
     default:
 	len = asprintf(&str, "%s%s", negated ? "!" : "", name);
 	if (len == -1) {
-	    sudo_fatalx(U_("%s: %s"), __func__,
-		U_("unable to allocate memory"));
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	    debug_return_bool(false);
 	}
-	print_csv_string(fp, str, quoted);
+	if (!print_csv_string(fp, str, quoted)) {
+	    free(str);
+	    debug_return_bool(false);
+	}
 	free(str);
 	break;
     }
 
-    debug_return;
+    debug_return_bool(!ferror(fp));
 }
 
 /*
  * Print list of struct member in CSV format as the specified attribute.
  * See print_member_int() in parse.c.
  */
-static void
-print_member_list_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    struct member_list *members, bool negated, int alias_type,
+static bool
+print_member_list_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
+    struct member_list *members, bool negated, short alias_type,
     bool expand_aliases)
 {
     struct member *m, *next;
     debug_decl(print_member_list_csv, SUDOERS_DEBUG_UTIL);
 
     if (TAILQ_EMPTY(members))
-        debug_return;
+        debug_return_bool(true);
 
     if (TAILQ_FIRST(members) != TAILQ_LAST(members, member_list))
 	putc('"', fp);
     TAILQ_FOREACH_SAFE(m, members, entries, next) {
-        print_member_csv(fp, parse_tree, m->name, m->type,
-	    negated ? !m->negated : m->negated, true, alias_type,
-	    expand_aliases);
+        if (!print_member_csv(fp, parse_tree, m->name, m->type,
+		negated ? !m->negated : m->negated, true, alias_type,
+		expand_aliases)) {
+	    debug_return_bool(false);
+	}
 	if (next != NULL)
 	    putc(',', fp);
     }
     if (TAILQ_FIRST(members) != TAILQ_LAST(members, member_list))
 	putc('"', fp);
 
-    debug_return;
+    debug_return_bool(!ferror(fp));
 }
 
 /*
  * Print the binding for a Defaults entry of the specified type.
  */
-static void
-print_defaults_binding_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+static bool
+print_defaults_binding_csv(FILE *fp,
+    const struct sudoers_parse_tree *parse_tree,
      struct defaults_binding *binding, int type, bool expand_aliases)
 {
-    int alias_type;
+    short alias_type;
     debug_decl(print_defaults_binding_csv, SUDOERS_DEBUG_UTIL);
 
     if (type != DEFAULTS) {
 	/* Print each member object in binding. */
 	alias_type = defaults_to_alias_type(type);
-	print_member_list_csv(fp, parse_tree, &binding->members, false,
-	    alias_type, expand_aliases);
+	if (!print_member_list_csv(fp, parse_tree, &binding->members, false,
+		alias_type, expand_aliases)) {
+	    debug_return_bool(false);
+	}
     }
 
-    debug_return;
+    debug_return_bool(true);
 }
 
 /*
@@ -312,7 +330,7 @@ print_defaults_binding_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * and boolean flags use true/false for the value.
  */
 static bool
-print_defaults_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_defaults_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     bool expand_aliases)
 {
     struct defaults *def;
@@ -363,7 +381,8 @@ print_defaults_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	    fputs(def->op == true ? "true" : "false", fp);
 	} else {
 	    /* Does not handle lists specially. */
-	    print_csv_string(fp, def->val, false);
+	    if (!print_csv_string(fp, def->val, false))
+		debug_return_bool(false);
 	}
 	putc('\n', fp);
     }
@@ -377,8 +396,7 @@ print_defaults_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Callback for alias_apply() to print an alias entry.
  */
 static int
-print_alias_csv(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v
-)
+print_alias_csv(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v)
 {
     FILE *fp = v;
     const char *title;
@@ -387,20 +405,23 @@ print_alias_csv(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v
     title = alias_type_to_string(a->type);
     if (title == NULL) {
         sudo_warnx("unexpected alias type %d", a->type);
-	debug_return_int(0);
+	debug_return_int(-1);
     }
 
     fprintf(fp, "%s,%s,", title, a->name);
-    print_member_list_csv(fp, parse_tree, &a->members, false, a->type, false);
+    if (!print_member_list_csv(fp, parse_tree, &a->members, false, a->type,
+	    false)) {
+	debug_return_int(-1);
+    }
     putc('\n', fp);
-    debug_return_int(0);
+    debug_return_int(ferror(fp));
 }
 
 /*
  * Print all aliases in CSV format:
  */
 static bool
-print_aliases_csv(FILE *fp, struct sudoers_parse_tree *parse_tree)
+print_aliases_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree)
 {
     debug_decl(print_aliases_csv, SUDOERS_DEBUG_UTIL);
 
@@ -410,17 +431,21 @@ print_aliases_csv(FILE *fp, struct sudoers_parse_tree *parse_tree)
     /* Heading line. */
     fputs("alias_type,alias_name,members\n", fp);
 
-    alias_apply(parse_tree, print_alias_csv, fp);
+    /* print_alias_csv() does not modify parse_tree. */
+    if (!alias_apply((struct sudoers_parse_tree *)parse_tree, print_alias_csv,
+	    fp)) {
+	debug_return_bool(false);
+    }
     putc('\n', fp);
 
-    debug_return_bool(true);
+    debug_return_bool(!ferror(fp));
 }
 
 /*
  * Print a Cmnd_Spec in CSV format.
  */
-static void
-print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+static bool
+print_cmndspec_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     struct cmndspec *cs, struct cmndspec **nextp,
     struct defaults_list *options, bool expand_aliases)
 {
@@ -430,18 +455,22 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct member *m;
     struct tm gmt;
     bool last_one, quoted = false;
-    int len;
+    size_t len;
     debug_decl(print_cmndspec_csv, SUDOERS_DEBUG_UTIL);
 
     if (cs->runasuserlist != NULL) {
-	print_member_list_csv(fp, parse_tree, cs->runasuserlist, false,
-	    RUNASALIAS, expand_aliases);
+	if (!print_member_list_csv(fp, parse_tree, cs->runasuserlist, false,
+		RUNASALIAS, expand_aliases)) {
+	    debug_return_bool(false);
+	}
     }
     putc(',', fp);
 
     if (cs->runasgrouplist != NULL) {
-	print_member_list_csv(fp, parse_tree, cs->runasgrouplist, false,
-	    RUNASALIAS, expand_aliases);
+	if (!print_member_list_csv(fp, parse_tree, cs->runasgrouplist, false,
+		RUNASALIAS, expand_aliases)) {
+	    debug_return_bool(false);
+	}
     }
     putc(',', fp);
 
@@ -530,7 +559,8 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	    need_comma = true;
 	}
     }
-    print_options_csv(fp, options, need_comma);
+    if (!print_options_csv(fp, options, need_comma))
+	debug_return_bool(false);
     if (!TAILQ_EMPTY(options))
 	need_comma = true;
 
@@ -544,24 +574,19 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	need_comma = true;
     }
 
-#ifdef HAVE_SELINUX
     /* Print SELinux role/type */
     if (cs->role != NULL && cs->type != NULL) {
 	fprintf(fp, "%srole=%s,type=%s", need_comma ? "," : "",
 	    cs->role, cs->type);
 	need_comma = true;
     }
-#endif /* HAVE_SELINUX */
 
-#ifdef HAVE_APPARMOR
     if (cs->apparmor_profile != NULL) {
 	fprintf(fp, "%sapparmor_profile=%s,", need_comma ? "," : "",
 	    cs->apparmor_profile);
 	need_comma = true;
     }
-#endif /* HAVE_APPARMOR */
 
-#ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */
     if (cs->privs != NULL || cs->limitprivs != NULL) {
 	if (cs->privs != NULL) {
@@ -573,7 +598,6 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	    need_comma = true;
 	}
     }
-#endif /* HAVE_PRIV_SET */
 #ifdef __clang_analyzer__
     (void)&need_comma;
 #endif
@@ -590,15 +614,9 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	/* XXX - TAG_SET does not account for implied SETENV */
 	last_one = next == NULL ||
 	    RUNAS_CHANGED(cs, next) || TAGS_CHANGED(cs->tags, next->tags)
-#ifdef HAVE_PRIV_SET
 	    || cs->privs != next->privs || cs->limitprivs != next->limitprivs
-#endif /* HAVE_PRIV_SET */
-#ifdef HAVE_SELINUX
 	    || cs->role != next->role || cs->type != next->type
-#endif /* HAVE_SELINUX */
-#ifdef HAVE_APPARMOR
 	    || cs->apparmor_profile != next->apparmor_profile
-#endif /* HAVE_APPARMOR  */
 	    || cs->runchroot != next->runchroot || cs->runcwd != next->runcwd;
 
 	if (!quoted && !last_one) {
@@ -606,8 +624,10 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	    putc('"', fp);
 	}
 	m = cs->cmnd;
-	print_member_csv(fp, parse_tree, m->name, m->type, m->negated, quoted,
-	    CMNDALIAS, expand_aliases);
+	if (!print_member_csv(fp, parse_tree, m->name, m->type, m->negated,
+		quoted, CMNDALIAS, expand_aliases)) {
+	    debug_return_bool(false);
+	}
 	if (last_one)
 	    break;
 	putc(',', fp);
@@ -619,14 +639,14 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 
     *nextp = next;
 
-    debug_return;
+    debug_return_bool(!ferror(fp));
 }
 
 /*
  * Print a single User_Spec.
  */
 static bool
-print_userspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_userspec_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     struct userspec *us, bool expand_aliases)
 {
     struct privilege *priv;
@@ -639,16 +659,22 @@ print_userspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
     TAILQ_FOREACH(priv, &us->privileges, entries) {
 	TAILQ_FOREACH_SAFE(cs, &priv->cmndlist, entries, next) {
 	    fputs("rule,", fp);
-	    print_member_list_csv(fp, parse_tree, &us->users, false,
-		USERALIAS, expand_aliases);
+	    if (!print_member_list_csv(fp, parse_tree, &us->users, false,
+		    USERALIAS, expand_aliases)) {
+		debug_return_bool(false);
+	    }
 	    putc(',', fp);
 
-	    print_member_list_csv(fp, parse_tree, &priv->hostlist, false,
-		HOSTALIAS, expand_aliases);
+	    if (!print_member_list_csv(fp, parse_tree, &priv->hostlist, false,
+		    HOSTALIAS, expand_aliases)) {
+		debug_return_bool(false);
+	    }
 	    putc(',', fp);
 
-	    print_cmndspec_csv(fp, parse_tree, cs, &next, &priv->defaults,
-		expand_aliases);
+	    if (!print_cmndspec_csv(fp, parse_tree, cs, &next, &priv->defaults,
+		    expand_aliases)) {
+		debug_return_bool(false);
+	    }
 	    putc('\n', fp);
 	}
     }
@@ -660,7 +686,7 @@ print_userspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Print User_Specs.
  */
 static bool
-print_userspecs_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_userspecs_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     bool expand_aliases)
 {
     struct userspec *us;
@@ -670,7 +696,8 @@ print_userspecs_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	debug_return_bool(true);
 
     /* Heading line. */
-    fputs("rule,user,host,runusers,rungroups,options,command\n", fp);
+    if (fputs("rule,user,host,runusers,rungroups,options,command\n", fp) == EOF)
+	debug_return_bool(false);
  
     TAILQ_FOREACH(us, &parse_tree->userspecs, entries) {
 	if (!print_userspec_csv(fp, parse_tree, us, expand_aliases))
@@ -683,7 +710,7 @@ print_userspecs_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Export the parsed sudoers file in CSV format.
  */
 bool
-convert_sudoers_csv(struct sudoers_parse_tree *parse_tree,
+convert_sudoers_csv(const struct sudoers_parse_tree *parse_tree,
     const char *output_file, struct cvtsudoers_config *conf)
 {
     bool ret = true;
@@ -691,26 +718,39 @@ convert_sudoers_csv(struct sudoers_parse_tree *parse_tree,
     debug_decl(convert_sudoers_csv, SUDOERS_DEBUG_UTIL);
 
     if (output_file != NULL && strcmp(output_file, "-") != 0) {
-	if ((output_fp = fopen(output_file, "w")) == NULL)
-	    sudo_fatal(U_("unable to open %s"), output_file);
+	if ((output_fp = fopen(output_file, "w")) == NULL) {
+	    sudo_warn(U_("unable to open %s"), output_file);
+	    debug_return_bool(false);
+	}
     }
 
     /* Dump Defaults in CSV format. */
-    if (!ISSET(conf->suppress, SUPPRESS_DEFAULTS))
-	print_defaults_csv(output_fp, parse_tree, conf->expand_aliases);
+    if (!ISSET(conf->suppress, SUPPRESS_DEFAULTS)) {
+	if (!print_defaults_csv(output_fp, parse_tree, conf->expand_aliases)) {
+	    goto cleanup;
+	}
+    }
 
     /* Dump Aliases in CSV format. */
     if (!conf->expand_aliases && !ISSET(conf->suppress, SUPPRESS_ALIASES)) {
-	print_aliases_csv(output_fp, parse_tree);
+	if (!print_aliases_csv(output_fp, parse_tree)) {
+	    goto cleanup;
+	}
     }
 
     /* Dump User_Specs in CSV format. */
-    if (!ISSET(conf->suppress, SUPPRESS_PRIVS))
-	print_userspecs_csv(output_fp, parse_tree, conf->expand_aliases);
+    if (!ISSET(conf->suppress, SUPPRESS_PRIVS)) {
+	if (!print_userspecs_csv(output_fp, parse_tree, conf->expand_aliases)) {
+	    goto cleanup;
+	}
+    }
 
+cleanup:
     (void)fflush(output_fp);
-    if (ferror(output_fp))
+    if (ferror(output_fp)) {
+	sudo_warn("%s", output_file);
 	ret = false;
+    }
     if (output_fp != stdout)
 	fclose(output_fp);
 

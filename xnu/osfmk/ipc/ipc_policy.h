@@ -120,14 +120,12 @@ __options_decl(ipc_control_port_options_t, uint32_t, {
 	/* policy for IPC_SPACE_POLICY_{PLATFORM,HARDENED} */
 	ICP_OPTIONS_PINNED_1P_SOFT      = 0x01,
 	ICP_OPTIONS_PINNED_1P_HARD      = 0x02,
-	ICP_OPTIONS_IMMOVABLE_1P_SOFT   = 0x04,
-	ICP_OPTIONS_IMMOVABLE_1P_HARD   = 0x08,
+	ICP_OPTIONS_IMMOVABLE_1P_HARD   = 0x04,
 
 	/* policy for other processes */
-	ICP_OPTIONS_PINNED_3P_SOFT      = 0x10,
-	ICP_OPTIONS_PINNED_3P_HARD      = 0x20,
-	ICP_OPTIONS_IMMOVABLE_3P_SOFT   = 0x40,
-	ICP_OPTIONS_IMMOVABLE_3P_HARD   = 0x80,
+	ICP_OPTIONS_PINNED_3P_SOFT      = 0x08,
+	ICP_OPTIONS_PINNED_3P_HARD      = 0x10,
+	ICP_OPTIONS_IMMOVABLE_3P_HARD   = 0x20,
 });
 
 /*!
@@ -443,7 +441,7 @@ __enum_closed_decl(ipc_policy_violation_id_t, uint8_t, {
 	/* Kobject Reply Port and Move Reply Port Violators End */
 
 	/* Service Port Defense Violators Start */
-	IPCPV_MOVE_SERVICE_PORT, /* 7 */
+	__UNUSED10, /* 7 */
 	IPCPV_SERVICE_PORT_PD_NOTIFICATION, /* 8, for future telemetry */
 	/* Service Port Defense Violators End */
 
@@ -617,15 +615,16 @@ ipc_port_label_free(ipc_object_label_t label)
  * @brief
  * Returns whether an entry for this port should be marked as immovable send
  *
- * @param task      The task where the new entry is being created/copied out
- * @param port      The port that the entry is being created/copied out for
+ * @param curr_task     The task where the new entry is being created/copied out
+ * @param port          The port that the entry is being created/copied out for
+ * @param label         The label associated with `port`
  *
  * @returns
  *      - true  The send right entry should be marked as immovable
  *      - false The send right entry should not be marked as immovable
  */
 extern bool ipc_should_mark_immovable_send(
-	task_t      task,
+	task_t      curr_task,
 	ipc_port_t  port,
 	ipc_object_label_t label);
 

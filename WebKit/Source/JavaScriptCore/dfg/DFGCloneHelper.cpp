@@ -119,24 +119,27 @@ Node* CloneHelper::cloneNodeImpl(BasicBlock* into, Node* node)
         return edge ? Edge(cloneNode(into, edge.node()), edge.useKind()) : Edge();
     };
 
-    switch (nodeCloneStatusFor(node->op())) {
-    case NodeCloneStatus::Common: {
+    auto cloneEdges = [&](Node* node, Node* clone) {
         if (node->hasVarArgs()) {
             size_t firstChild = m_graph.m_varArgChildren.size();
             m_graph.doToAllChildren(node, [&](Edge& edge) {
                 m_graph.m_varArgChildren.append(cloneEdge(edge));
             });
 
-            Node* clone = into->cloneAndAppend(m_graph, node);
             clone->children.setFirstChild(firstChild);
             return clone;
         }
 
-        Node* clone = into->cloneAndAppend(m_graph, node);
         clone->child1() = cloneEdge(node->child1());
         clone->child2() = cloneEdge(node->child2());
         clone->child3() = cloneEdge(node->child3());
         return clone;
+    };
+
+    switch (nodeCloneStatusFor(node->op())) {
+    case NodeCloneStatus::Common: {
+        Node* clone = into->cloneAndAppend(m_graph, node);
+        return cloneEdges(node, clone);
     }
 
     case NodeCloneStatus::Special:
@@ -144,16 +147,46 @@ Node* CloneHelper::cloneNodeImpl(BasicBlock* into, Node* node)
         case Branch: {
             Node* clone = into->cloneAndAppend(m_graph, node);
             clone->setOpInfo(OpInfo(m_graph.m_branchData.add(WTFMove(*node->branchData()))));
-            clone->child1() = cloneEdge(node->child1());
-            return clone;
+            return cloneEdges(node, clone);
         }
         case Switch: {
             Node* clone = into->cloneAndAppend(m_graph, node);
             SwitchData& cloneData = *m_graph.m_switchData.add();
             cloneData = *clone->switchData();
             clone->setOpInfo(OpInfo(&cloneData));
-            clone->child1() = cloneEdge(node->child1());
-            return clone;
+            return cloneEdges(node, clone);
+        }
+        case MultiGetByOffset: {
+            Node* clone = into->cloneAndAppend(m_graph, node);
+            MultiGetByOffsetData& cloneData = *m_graph.m_multiGetByOffsetData.add();
+            cloneData = node->multiGetByOffsetData();
+            clone->setOpInfo(OpInfo(&cloneData));
+            return cloneEdges(node, clone);
+        }
+        case MultiPutByOffset: {
+            Node* clone = into->cloneAndAppend(m_graph, node);
+            MultiPutByOffsetData& cloneData = *m_graph.m_multiPutByOffsetData.add();
+            cloneData = node->multiPutByOffsetData();
+            clone->setOpInfo(OpInfo(&cloneData));
+            return cloneEdges(node, clone);
+        }
+        case CallVarargs:
+        case ConstructVarargs:
+        case TailCallVarargsInlinedCaller:
+        case TailCallForwardVarargsInlinedCaller: {
+            Node* clone = into->cloneAndAppend(m_graph, node);
+            CallVarargsData& cloneData = *m_graph.m_callVarargsData.add();
+            cloneData = *node->callVarargsData();
+            clone->setOpInfo(OpInfo(&cloneData));
+            return cloneEdges(node, clone);
+        }
+        case LoadVarargs:
+        case VarargsLength: {
+            Node* clone = into->cloneAndAppend(m_graph, node);
+            LoadVarargsData& cloneData = *m_graph.m_loadVarargsData.add();
+            cloneData = *node->loadVarargsData();
+            clone->setOpInfo(OpInfo(&cloneData));
+            return cloneEdges(node, clone);
         }
         default:
             RELEASE_ASSERT_NOT_REACHED();

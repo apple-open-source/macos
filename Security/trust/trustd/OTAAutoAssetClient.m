@@ -129,7 +129,7 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
                                                               error:&selectAssetError];
     if (selectAssetError) {
         secerror("Unable to create auto-asset instance: %@", selectAssetError);
-        TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, (OSStatus)CFErrorGetCode((__bridge CFErrorRef)selectAssetError));
+        [[TrustAnalytics logger] logResultForEvent:TAEventAssetTrigger hardFailure:true result:selectAssetError withAttributes:@{@"spi" : @"initAutoAsset"}];
         if (outError) {
             *outError = selectAssetError;
         }
@@ -146,13 +146,15 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
     CFErrorRef error = NULL;
     self.lastAvailableVersion = SecOTAPKIGetAvailableTrustStoreVersion((__bridge CFStringRef)self.lastAssetPath, &error);
     if (0 == self.lastAvailableVersion) {
-        secerror("Unable to read trust store version from asset path, giving up");
-        TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, (error) ? (OSStatus)CFErrorGetCode(error) : -1);
+        secerror("Unable to read trust store version from asset path, giving up: %@", error);
+        NSError *nsError =  error ? (__bridge NSError *)error : [NSError errorWithDomain:@"com.apple.security.file."__FILE__ code:__LINE__ userInfo:nil];
+        [[TrustAnalytics logger] logResultForEvent:TAEventAssetTrigger hardFailure:true result:nsError withAttributes:@{@"spi" : @"checkAssetVersion"}];
     } else if (0 != self.lastCurrentVersion) {
         secnotice("OTATrust", "Available version after recheck: %llu, our current version: %llu",
                   (unsigned long long)self.lastAvailableVersion, (unsigned long long)self.lastCurrentVersion);
         if (self.lastAvailableVersion > self.lastCurrentVersion) {
             // restart trustd to pick up new asset
+            [[TrustAnalytics logger] logSuccessForEventNamed:TAEventAssetTrigger];
             trustd_exit_clean("Will exit when clean to use newer asset version.");
         }
     }
@@ -177,26 +179,10 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
                                 NSError * _Nullable operationError) {
         if (operationError) {
             secerror("Interest registration failed for %@ with error: %@", assetSpecifier, operationError);
+            [[TrustAnalytics logger] logResultForEvent:TAEventAssetTrigger hardFailure:true result:operationError withAttributes:@{@"spi" : @"interest"}];
         } else {
             secnotice("OTATrust", "Successfully registered interest for %@", assetSpecifier);
             [self _recheckAssetVersion];
-        }
-    }];
-    return YES;
-#else
-    return NO;
-#endif
-}
-
-- (BOOL)_removeInterestInAssetType:(NSString *)assetType withAssetSpecifier:(NSString *)assetSpecifier withError:(NSError **)outError {
-#if !TARGET_OS_BRIDGE
-    [MAAutoAsset eliminateAllForSelector:self.currentAssetSelector
-                              completion:^(MAAutoAssetSelector * _Nonnull assetSelector,
-                                           NSError * _Nullable operationError) {
-        if (operationError) {
-            secerror("Failed to eliminate asset: %@", operationError);
-        } else {
-            secnotice("OTATrust", "Successfully removed interest for %@", assetSpecifier);
         }
     }];
     return YES;
@@ -245,13 +231,13 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
                     }
                 }
             }
-            if (!validated) {
-                secnotice("OTATrust", "invalid asset path: %{public}@", realPathString);
-                TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, (OSStatus)result);
-            }
         } else {
             secnotice("OTATrust", "unable to resolve asset path: %{public}s", utf8Str);
-            TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, (OSStatus)result);
+        }
+        if (!validated) {
+            secnotice("OTATrust", "invalid asset path: %{public}@", realPathString);
+            NSError *nsError = [NSError errorWithDomain:@"OTAValidPath" code:result userInfo:nil];
+            [[TrustAnalytics logger] logResultForEvent:TAEventAssetUpdate hardFailure:true result:nsError withAttributes:@{@"spi":@"validPath"}];
         }
     });
     if (validated) {
@@ -263,7 +249,8 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
         NSString *pathString = [NSString stringWithFormat:@"%@/%@", realPathString, filename];
         if (!SecOTAPKIPathIsOnAuthAPFSVolume((__bridge CFStringRef)pathString)) {
             secnotice("OTATrust", "ignoring asset path (not on an AuthAPFS volume)");
-            TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, EACCES);
+            NSError *nsError = [NSError errorWithDomain:@"OTAOnAuthAPFS" code:EACCES userInfo:nil];
+            [[TrustAnalytics logger] logResultForEvent:TAEventAssetUpdate hardFailure:true result:nsError withAttributes:@{@"spi":@"validPath"}];
             return nil;
         }
         return realPathString;
@@ -297,17 +284,14 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
     if (!TrustdVariantAllowsFileWrite()) {
         return NO;
     }
-    __block NSString *plistPath = nil;
-    WithPathInProtectedTrustdDirectory((__bridge CFStringRef)OTAAutoAssetSettingsPlist, ^(const char *utf8String) {
-        plistPath = [NSString stringWithCString:utf8String encoding:NSUTF8StringEncoding];
-    });
-    if (!plistPath) { return NO; }
 
     NSString *savedPath = [OTAAutoAssetClient savedTrustStoreAssetPath];
     if (savedPath && [assetPath isEqualToString:savedPath]) { return YES; } // this is a no-op
 
+    NSURL *plistURL = CFBridgingRelease(SecCopyURLForFileInProtectedTrustdDirectory((__bridge CFStringRef)OTAAutoAssetSettingsPlist));
+    if (!plistURL) { return NO; }
+
     NSError *error = nil;
-    NSURL *plistURL = [NSURL fileURLWithPath:plistPath isDirectory:NO];
     NSMutableDictionary *autoAssetDict = [NSMutableDictionary dictionaryWithCapacity:0];
     autoAssetDict[OTAAutoAssetPathKey] = assetPath;
     secnotice("OTATrust", "writing asset path \"%@\" (was \"%@\")", assetPath, savedPath);
@@ -322,8 +306,10 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
         if ([OTAAutoAssetClient retryReadSavedTrustStoreAssetPath:assetPath]) {
             return YES;
         }
-        secerror("failed to write %{public}@: %@", plistPath, error);
+        secerror("failed to write %{public}@: %@", plistURL.path, error);
+        [[TrustAnalytics logger] logResultForEvent:TAEventAssetSaved hardFailure:true result:error];
     } else {
+        [[TrustAnalytics logger] logSuccessForEventNamed:TAEventAssetSaved];
         return YES;
     }
 #endif
@@ -332,27 +318,28 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
 
 + (nullable NSString *)savedTrustStoreAssetPath {
 #if !TARGET_OS_BRIDGE
-    __block NSString *plistPath = nil;
-    WithPathInProtectedTrustdDirectory((__bridge CFStringRef)OTAAutoAssetSettingsPlist, ^(const char *utf8String) {
-        plistPath = [NSString stringWithCString:utf8String encoding:NSUTF8StringEncoding];
-    });
-    if (!plistPath) {
-        secnotice("OTATrust", "unable to resolve location of %{public}@", OTAAutoAssetSettingsPlist);
-        return NULL;
-    }
-    NSDictionary *tsDict = [NSDictionary dictionaryWithContentsOfFile:plistPath];
+    NSURL *plistPath = CFBridgingRelease(SecCopyURLForFileInProtectedTrustdDirectory((__bridge CFStringRef)OTAAutoAssetSettingsPlist));
+    NSError *error = nil;
+    NSDictionary *tsDict = [NSDictionary dictionaryWithContentsOfURL:plistPath error:&error];
     if (!tsDict) {
         secnotice("OTATrust", "unable to read from %{public}@", plistPath);
+        // Only report unexpected read failures -- no such file is expected
+        if (!([error.domain isEqual:NSCocoaErrorDomain] && error.code == NSFileReadNoSuchFileError)) {
+            [[TrustAnalytics logger] logResultForEvent:TAEventAssetUpdate hardFailure:true result:error withAttributes:@{@"spi" : @"readSettings"}];
+        }
         return NULL;
     }
     NSString *value = [tsDict objectForKey:OTAAutoAssetPathKey];
-    if (!value || !isString((__bridge CFStringRef) value)) {
+    if (!value) {
+        // Expected if this file is re-used for other settings
+        secnotice("OTATrust", "no OTAAutoAssetPathKey from %{public}@", plistPath);
+    } else if (!isString((__bridge CFStringRef) value)) {
         secnotice("OTATrust", "could not read OTAAutoAssetPathKey from %{public}@", plistPath);
+        error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecInvalidValue userInfo:nil];
+        [[TrustAnalytics logger] logResultForEvent:TAEventAssetUpdate hardFailure:true result:error withAttributes:@{@"spi" : @"readSettings"}];
         return NULL;
     }
-    if (value) {
-        return value;
-    }
+    return value;
 #endif
     return NULL;
 }
@@ -384,10 +371,6 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
 #endif
 }
 
-- (void)stopUsingLocalAsset {
-    [self _endLocalAssetLocks];
-}
-
 static uint64_t CurrentlyAvailableTrustStoreVersion(NSString *assetPath) {
     uint64_t tsVersion = SecOTAPKIGetAvailableTrustStoreVersion((__bridge CFStringRef)assetPath, NULL);
     if (0 == tsVersion) {
@@ -412,6 +395,7 @@ static uint64_t CurrentlyAvailableTrustStoreVersion(NSString *assetPath) {
     MAAutoAsset *autoAsset = [[MAAutoAsset alloc] initForClientName:OTAAutoAssetClientName selectingAsset:self.currentAssetSelector error:&selectAssetError];
     if (selectAssetError) {
         secerror("Unable to create auto-asset instance: %@", selectAssetError.description);
+        [[TrustAnalytics logger] logResultForEvent:TAEventAssetUpdate hardFailure:true result:selectAssetError withAttributes:@{@"spi" : @"initAutoAsset"}];
         return;
     }
     // Check lock status asynchronously (this is informational only)
@@ -442,7 +426,10 @@ static uint64_t CurrentlyAvailableTrustStoreVersion(NSString *assetPath) {
         // completion callback should give us an existing version of the asset, or nil.
         if (lockForUseError) {
             secerror("Unable to lock any version of auto-asset content: %@", lockForUseError.description);
-            TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, (OSStatus)CFErrorGetCode((__bridge CFErrorRef)lockForUseError));
+            // Skip reporting expected no download error (due to no wait, we'll be called back later)
+            if (!([lockForUseError.domain isEqualToString:MA_AUTO_ASSET_ERROR_DOMAIN] && lockForUseError.code == MAAutoAssetErrorLockNoWaitNoDownloadedAsset)) {
+                [[TrustAnalytics logger] logResultForEvent:TAEventAssetUpdate hardFailure:false result:lockForUseError withAttributes:@{@"spi" : @"lockContent"}];
+            }
             return;
         }
         if (localContentURL.path) {
@@ -466,40 +453,27 @@ static uint64_t CurrentlyAvailableTrustStoreVersion(NSString *assetPath) {
                     // first unlock, we may be running into rdar://126777531 and will need to retry later.
                     self.recheckAssetVersion = YES;
                     secerror("Unable to read trust store version from locked asset path, will retry later");
+                    NSError *nsError = [NSError errorWithDomain:@"com.apple.security.file."__FILE__ code:__LINE__ userInfo:nil];
+                    [[TrustAnalytics logger] logResultForEvent:TAEventAssetUpdate hardFailure:true result:nsError withAttributes:@{@"spi" : @"lockContent"}];
                     return;
                 }
                 if (availableVersion > localVersion && localVersion > 0) {
                     hasNewContent = true;
+                } else if (localVersion == availableVersion && contentLocked) {
+                    secnotice("OTATrust", "Successfully locked and loaded asset version %llu", localVersion);
+                    [[TrustAnalytics logger] logSuccessForEventNamed:TAEventAssetUpdate];
                 }
             }
             if (hasNewContent) {
                 // save new asset path
                 secnotice("OTATrust", "--- New asset path obtained from MobileAsset ---");
                 if ([OTAAutoAssetClient saveTrustStoreAssetPath:localContentURL.path] == YES) {
-                    // restart trustd to pick up new asset
-                    TrustdHealthAnalyticsLogSuccess(TAEventAssetUpdate);
                     trustd_exit_clean("Will exit when clean to use updated asset path.");
                 } else {
                     secnotice("OTATrust", "Will not exit due to earlier error.");
-                    TrustdHealthAnalyticsLogErrorCode(TAEventAssetUpdate, false, EACCES);
                 }
             }
         }
-    }];
-#endif
-}
-
-- (void)_endLocalAssetLocks {
-#if !TARGET_OS_BRIDGE
-    // Create an asset selector for our client name
-    [MAAutoAsset endAllPreviousLocksOfSelector:self.currentAssetSelector
-                                    completion:^(MAAutoAssetSelector * _Nonnull assetSelector,
-                                                 NSError * _Nullable operationError) {
-          if (operationError) {
-              secerror("Failed to end asset locks for %@: %@", OTAAutoAssetClientName, operationError);
-          } else {
-              secnotice("OTATrust", "Ended local asset locks for %@", OTAAutoAssetClientName);
-          }
     }];
 #endif
 }

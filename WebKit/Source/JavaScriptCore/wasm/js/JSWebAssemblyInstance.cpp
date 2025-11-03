@@ -133,9 +133,9 @@ void JSWebAssemblyInstance::finishCreation(VM& vm)
     for (unsigned i = 0; i < moduleInformation.typeCount(); ++i) {
         RefPtr rtt = moduleInformation.rtts[i];
         if (rtt->kind() == RTTKind::Array)
-            gcObjectStructure(i).setWithoutWriteBarrier(JSWebAssemblyArray::createStructure(vm, globalObject, moduleInformation.typeSignatures[i]->expand(), rtt.releaseNonNull()));
+            gcObjectStructure(i).setWithoutWriteBarrier(JSWebAssemblyArray::createStructure(vm, globalObject, moduleInformation.typeSignatures[i], rtt.releaseNonNull()));
         else if (rtt->kind() == RTTKind::Struct)
-            gcObjectStructure(i).setWithoutWriteBarrier(JSWebAssemblyStruct::createStructure(vm, globalObject, moduleInformation.typeSignatures[i]->expand(), rtt.releaseNonNull()));
+            gcObjectStructure(i).setWithoutWriteBarrier(JSWebAssemblyStruct::createStructure(vm, globalObject, moduleInformation.typeSignatures[i], rtt.releaseNonNull()));
     }
     if (moduleInformation.typeCount())
         vm.writeBarrier(this);

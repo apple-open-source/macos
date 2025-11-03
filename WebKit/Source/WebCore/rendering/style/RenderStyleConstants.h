@@ -28,6 +28,7 @@
 #include <initializer_list>
 #include <limits>
 #include <optional>
+#include <wtf/EnumTraits.h>
 
 namespace WTF {
 class TextStream;
@@ -118,8 +119,9 @@ enum class PseudoId : uint32_t {
 
     FirstPublicPseudoId = FirstLine,
     FirstInternalPseudoId = WebKitScrollbarThumb,
-    PublicPseudoIdMask = ((1 << FirstInternalPseudoId) - 1) & ~((1 << FirstPublicPseudoId) - 1)
 };
+
+constexpr auto PublicPseudoIdMask = static_cast<std::underlying_type_t<PseudoId>>(((1U << enumToUnderlyingType(PseudoId::FirstInternalPseudoId)) - 1U) & ~((1U << enumToUnderlyingType(PseudoId::FirstPublicPseudoId)) - 1U));
 
 inline std::optional<PseudoId> parentPseudoElement(PseudoId pseudoId)
 {

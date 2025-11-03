@@ -75,7 +75,7 @@ arm_sme_probe_version(void)
 		return ARM_FEAT_SME2;
 
 	default:
-		return ARM_FEAT_SME2;
+		return ARM_FEAT_SME2p1;
 	}
 }
 

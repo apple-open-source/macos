@@ -66,6 +66,7 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
        skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                       repair:(BOOL)repair
          danglingPeerCleanup:(BOOL)danglingPeerCleanup
+           caesarPeerCleanup:(BOOL)caesarPeerCleanup
                   updateIdMS:(BOOL)updateIdMS
                         json:(BOOL)json;
 

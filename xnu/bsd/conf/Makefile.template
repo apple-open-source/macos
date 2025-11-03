@@ -75,7 +75,7 @@ COMP_SUBDIRS =
 
 %MACHDEP
 
-tcp_cubic.o_CWARNFLAGS_ADD += -Wno-error=implicit-int-float-conversion
+tcp_cubic.o_CWARNFLAGS_ADD += -Wno-implicit-int-float-conversion
 
 #
 # Enforce semantic types

@@ -484,7 +484,10 @@ void LibWebRTCMediaEndpoint::stop()
 
     stopLoggingStats();
 
-    std::exchange(m_backend, nullptr)->Close();
+    webrtc::scoped_refptr backend = std::exchange(m_backend, nullptr);
+    backend->Close();
+    // We move backend to the signalling thread in case this is the last reference, as deallocating backend could block on the signalling thread.
+    LibWebRTCProvider::callOnWebRTCSignalingThread([backend = WTFMove(backend)] { });
 
     for (RefPtr stream : m_remoteStreamsById.values())
         stream->inactivate();

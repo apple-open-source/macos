@@ -50,6 +50,8 @@
 #include "SecRandom.h"
 #include "keychainstasherinterface.h"
 #include "keybag_helpers.h"
+#include "featureflags/featureflags.h"
+#include "derivedentropy.h"
 #include <vector>           // @@@  4003540 workaround
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
 #include <security_cdsa_utilities/cssmendian.h>
@@ -1272,7 +1274,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 //   2. It will not change the secrets of this database
 //
 // TODO: These two functions should probably be refactored to something nicer.
-bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
+Database::checkCredentials_kind KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
 
     list<CssmSample> samples;
     if (creds && creds->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, samples)) {
@@ -1291,7 +1293,7 @@ bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
                         CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
                     secinfo("integrity", "%p checking passphrase", this);
                     if(validatePassphrase(sample[1])) {
-                        return true;
+                        return checkCredentials_password;
                     }
                     break;
                 // try to open with a given master key - Data:CSP or KeyHandle, Data:CssmKey
@@ -1302,7 +1304,7 @@ bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
                     try {
                         CssmClient::Key checkKey = keyFromCreds(sample, 4);
                         if(common().validateKey(checkKey)) {
-                            return true;
+                            return checkCredentials_masterkey;
                         }
                     } catch(...) {
                         // ignore all problems in keyFromCreds
@@ -1314,7 +1316,7 @@ bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
     }
 
     // out of options - credentials don't match
-    return false;
+    return checkCredentials_neither;
 }
 
 uint32_t KeychainDatabase::interactiveUnlockAttempts = 0;
@@ -1711,6 +1713,24 @@ CssmClient::Key KeychainDatabase::makeRawKey(void *data, size_t length,
         CssmClient::KeySpec(CSSM_KEYUSE_ANY, CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE),
         unwrappedKey, &descriptiveData, NULL);
     return CssmClient::Key(Server::csp(), unwrappedKey);
+}
+
+bool KeychainDatabase::derivePassphraseIfNecessary(const CssmData &passphraseIn, CssmDataContainer& passphraseOut) const
+{
+    if (!_SecProtectLoginKeychainWithDP() || !common().isLoginKeychain()) {
+        return false;
+    }
+
+    secnotice("dp_login", "KeychainDatabase::derivePassphraseIfNecessary need to validate using protected entropy");
+    CssmData salt(mBlob->salt, sizeof(mBlob->salt));
+    KeyHandle kh = generateDerivedEntropy(salt, passphraseIn);
+    bool ret = retrieveHandleData(kh, passphraseOut);
+    if (!ret) {
+        secwarning("dp_login: KeychainDatabase::derivePassphraseIfNecessary: could not retrieve handle to derived entropy");
+    }
+    removeHandle(kh);
+    secinfo("dp_login", "KeychainDatabase::derivePassphraseIfNecessary: %s", ret ? "derived" : "passed through");
+    return ret;
 }
 
 //

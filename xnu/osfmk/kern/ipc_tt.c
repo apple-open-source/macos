@@ -297,6 +297,8 @@ ipc_task_init(
  *	Purpose:
  *		Copyout the task control port as pinned
  *      and stash the send right name in the port
+ *  Condition:
+ *      Nothing locked.
  */
 void
 ipc_task_copyout_control_port(
@@ -390,7 +392,13 @@ ipc_task_enable(
 		return;
 	}
 
-	assert(task_is_a_corpse(task) || task->map->owning_task == task); /* verify vm_map_setup called */
+	/* verify vm_map_setup called */
+	assert(task_is_a_corpse(task) || task->map->owning_task == task);
+
+	/* verify task_set_control_port_options called */
+	assert(task_is_a_corpse_fork(task) || task == kernel_task ||
+	    task_get_control_port_options(task) != TASK_CONTROL_PORT_OPTIONS_INVALID);
+
 	assert(!task->ipc_active || task_is_a_corpse(task));
 	task->ipc_active = true;
 
@@ -1598,6 +1606,7 @@ thread_get_special_port_from_user(
 	mach_thread_flavor_t flavor;
 	kern_return_t kr = KERN_SUCCESS;
 
+	task_t curr_task = current_task();
 	thread_t thread = convert_port_to_thread_inspect_no_eval(port);
 
 	if (thread == THREAD_NULL) {
@@ -1607,7 +1616,7 @@ thread_get_special_port_from_user(
 	tro = get_thread_ro(thread);
 	kotype = ip_type(port);
 
-	if (which == THREAD_KERNEL_PORT && tro->tro_task == current_task()) {
+	if (which == THREAD_KERNEL_PORT && tro->tro_task == curr_task) {
 #if CONFIG_MACF
 		/*
 		 * only check for threads belong to current_task,
@@ -1623,7 +1632,7 @@ thread_get_special_port_from_user(
 		 * then we must also have a movable task.
 		 * see `task_set_exc_guard_default`
 		 */
-		assert(!task_is_immovable(current_task()));
+		assert(!task_is_immovable(curr_task));
 	}
 
 	switch (kotype) {
@@ -1899,6 +1908,7 @@ task_get_special_port_from_user(
 	mach_task_flavor_t flavor;
 	kern_return_t kr = KERN_SUCCESS;
 
+	task_t curr_task = current_task();
 	task_t task = convert_port_to_task_inspect_no_eval(port);
 
 	if (task == TASK_NULL) {
@@ -1914,7 +1924,7 @@ task_get_special_port_from_user(
 	}
 #endif
 
-	if (which == TASK_KERNEL_PORT && task == current_task()) {
+	if (which == TASK_KERNEL_PORT && task == curr_task) {
 #if CONFIG_MACF
 		/*
 		 * only check for current_task,
@@ -1930,7 +1940,7 @@ task_get_special_port_from_user(
 		 * then we must also have a movable task.
 		 * see `task_set_exc_guard_default`
 		 */
-		assert(!task_is_immovable(current_task()));
+		assert(!task_is_immovable(curr_task));
 	}
 
 	switch (kotype) {

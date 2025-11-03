@@ -168,7 +168,7 @@ host_processors(host_priv_t host_priv, processor_array_t * out_array, mach_msg_t
 	static_assert(sizeof(mach_port_t) == sizeof(processor_t));
 
 	mach_port_array_t ports = mach_port_array_alloc(count, Z_WAITOK);
-	if (!ports) {
+	if (ports == NULL) {
 		return KERN_RESOURCE_SHORTAGE;
 	}
 

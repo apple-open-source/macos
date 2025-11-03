@@ -136,6 +136,12 @@
 		764807DA1E60799B00EB2DEF /* authorization_lacont in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = 764807D91E6068B000EB2DEF /* authorization_lacont */; };
 		EB27C0B5143CA4AA003F6770 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		F60ABCB41BB40E4E006F85AD /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */; };
+		F63F81BE2E51F9BA0061C0C1 /* SharedMem.h in Headers */ = {isa = PBXBuildFile; fileRef = F63F81BC2E51F9BA0061C0C1 /* SharedMem.h */; };
+		F63F81BF2E51F9BA0061C0C1 /* SharedMem.h in Headers */ = {isa = PBXBuildFile; fileRef = F63F81BC2E51F9BA0061C0C1 /* SharedMem.h */; };
+		F63F81C02E51F9BA0061C0C1 /* SharedMem.m in Sources */ = {isa = PBXBuildFile; fileRef = F63F81BB2E51F9BA0061C0C1 /* SharedMem.m */; };
+		F63F81C12E51F9BA0061C0C1 /* SharedMem.h in Headers */ = {isa = PBXBuildFile; fileRef = F63F81BC2E51F9BA0061C0C1 /* SharedMem.h */; };
+		F63F81C22E51F9BA0061C0C1 /* SharedMem.m in Sources */ = {isa = PBXBuildFile; fileRef = F63F81BB2E51F9BA0061C0C1 /* SharedMem.m */; };
+		F63F81F62E54B5230061C0C1 /* ForkSafeLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = F63F81F52E54B5230061C0C1 /* ForkSafeLogging.h */; };
 		F6529BBA1C84BE1D005245B2 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6529BB91C84BE1D005245B2 /* libctkclient.a */; };
 		F67CB7E21C899F3600DABE90 /* authorization_ctk in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = F67CB7DF1C899EB800DABE90 /* authorization_ctk */; };
 		F67CB7E31C899F3600DABE90 /* screensaver_ctk in Copy PAM profiles */ = {isa = PBXBuildFile; fileRef = F67CB7E01C899EB800DABE90 /* screensaver_ctk */; };
@@ -469,6 +475,9 @@
 		7434C97912554E6F001D7F9E /* Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Common.h; path = common/Common.h; sourceTree = "<group>"; };
 		764807D91E6068B000EB2DEF /* authorization_lacont */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = authorization_lacont; path = modules/pam_localauthentication/authorization_lacont; sourceTree = "<group>"; };
 		F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = System/Library/Frameworks/DirectoryService.framework; sourceTree = SDKROOT; };
+		F63F81BB2E51F9BA0061C0C1 /* SharedMem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SharedMem.m; path = common/SharedMem.m; sourceTree = "<group>"; };
+		F63F81BC2E51F9BA0061C0C1 /* SharedMem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SharedMem.h; path = common/SharedMem.h; sourceTree = "<group>"; };
+		F63F81F52E54B5230061C0C1 /* ForkSafeLogging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ForkSafeLogging.h; path = common/ForkSafeLogging.h; sourceTree = "<group>"; };
 		F6529BB91C84BE1D005245B2 /* libctkclient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libctkclient.a; path = usr/local/lib/libctkclient.a; sourceTree = SDKROOT; };
 		F67CB7DF1C899EB800DABE90 /* authorization_ctk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = authorization_ctk; path = modules/pam_smartcard/authorization_ctk; sourceTree = "<group>"; };
 		F67CB7E01C899EB800DABE90 /* screensaver_ctk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screensaver_ctk; path = modules/pam_smartcard/screensaver_ctk; sourceTree = "<group>"; };
@@ -734,6 +743,9 @@
 		1C47A8A9112CB89F00013ABE /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				F63F81BC2E51F9BA0061C0C1 /* SharedMem.h */,
+				F63F81BB2E51F9BA0061C0C1 /* SharedMem.m */,
+				F63F81F52E54B5230061C0C1 /* ForkSafeLogging.h */,
 				F6EF67ED1D1C306100342741 /* attribute_matching.c */,
 				F6D2E89426737C8C005D165D /* ds_ops.h */,
 				F6D2E89026737A41005D165D /* ds_ops.c */,
@@ -861,6 +873,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F63F81BF2E51F9BA0061C0C1 /* SharedMem.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -931,6 +944,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F63F81C12E51F9BA0061C0C1 /* SharedMem.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -945,7 +959,9 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F63F81F62E54B5230061C0C1 /* ForkSafeLogging.h in Headers */,
 				F6D2E89526737C8C005D165D /* ds_ops.h in Headers */,
+				F63F81BE2E51F9BA0061C0C1 /* SharedMem.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1372,6 +1388,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F63F81C02E51F9BA0061C0C1 /* SharedMem.m in Sources */,
 				7434CA791255562B001D7F9E /* Common.c in Sources */,
 				1C2375A910290D9F0055216A /* pam_mount.c in Sources */,
 			);
@@ -1462,6 +1479,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F63F81C22E51F9BA0061C0C1 /* SharedMem.m in Sources */,
 				EB27C0B5143CA4AA003F6770 /* Common.c in Sources */,
 				7434C8A11255452A001D7F9E /* pam_ntlm.c in Sources */,
 			);
@@ -1664,6 +1682,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = so.2;
@@ -1908,6 +1927,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = so.2;

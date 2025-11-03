@@ -758,7 +758,7 @@
     XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
     pcsChanged.inverted = YES;
 
-    // We expect a single record to be uploaded to the LimitedPeersOkay view.
+    // We expect a single record to be uploaded to the FindMy view.
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.findMyZoneID];
     [self addGenericPassword: @"data" account: @"account-delete-me-find-my" viewHint:(NSString*) kSecAttrViewHintFindMy];
 

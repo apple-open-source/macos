@@ -951,6 +951,7 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.hyphenationString != second.hyphenationString
         || first.rubyPosition != second.rubyPosition
         || first.rubyAlign != second.rubyAlign
+        || first.rubyOverhang != second.rubyOverhang
         || first.textCombine != second.textCombine
         || first.textEmphasisStyle != second.textEmphasisStyle
         || first.textEmphasisPosition != second.textEmphasisPosition
@@ -1341,7 +1342,7 @@ bool RenderStyle::changeRequiresRepaint(const RenderStyle& other, OptionSet<Styl
     if (!requiresPainting(*this) && !requiresPainting(other))
         return false;
 
-    if (m_inheritedFlags.visibility != other.m_inheritedFlags.visibility
+    if (usedVisibility() != other.usedVisibility()
         || m_inheritedFlags.printColorAdjust != other.m_inheritedFlags.printColorAdjust
         || m_inheritedFlags.insideLink != other.m_inheritedFlags.insideLink)
         return true;
@@ -3856,6 +3857,16 @@ const FixedVector<Style::PositionTryFallback>& RenderStyle::positionTryFallbacks
 void RenderStyle::setPositionTryFallbacks(FixedVector<Style::PositionTryFallback>&& fallbacks)
 {
     SET_NESTED_VAR(m_nonInheritedData, rareData, positionTryFallbacks, WTFMove(fallbacks));
+}
+
+std::optional<size_t> RenderStyle::lastSuccessfulPositionTryFallbackIndex() const
+{
+    return m_nonInheritedData->rareData->lastSuccessfulPositionTryFallbackIndex;
+}
+
+void RenderStyle::setLastSuccessfulPositionTryFallbackIndex(std::optional<size_t> index)
+{
+    SET_NESTED_VAR(m_nonInheritedData, rareData, lastSuccessfulPositionTryFallbackIndex, WTFMove(index));
 }
 
 std::optional<Style::PseudoElementIdentifier> RenderStyle::pseudoElementIdentifier() const

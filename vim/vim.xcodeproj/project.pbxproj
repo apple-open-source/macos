@@ -23,6 +23,12 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A5923B02E733D56007D1A69 /* fuzzy.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5923AF2E733D56007D1A69 /* fuzzy.c */; };
+		2A5923B22E733D98007D1A69 /* linematch.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5923B12E733D98007D1A69 /* linematch.c */; };
+		2A5923B42E733DED007D1A69 /* tabpanel.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5923B32E733DED007D1A69 /* tabpanel.c */; };
+		2A5923B62E73BE30007D1A69 /* tuple.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5923B52E73BE30007D1A69 /* tuple.c */; };
+		2A5923B82E73BE62007D1A69 /* vim9generics.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5923B72E73BE62007D1A69 /* vim9generics.c */; };
+		2A5923BC2E73C08C007D1A69 /* gc.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5923BB2E73C08C007D1A69 /* gc.c */; };
 		3E1E23B81FB5113800A170B5 /* terminal.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E1E23B61FB5112A00A170B5 /* terminal.c */; };
 		3E1E23B91FB5113B00A170B5 /* pty.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E1E23B71FB5112A00A170B5 /* pty.c */; };
 		3EB3C1191DD4FA2E00E46356 /* channel.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452F9C1DD4F15D001BF7DB /* channel.c */; };
@@ -126,7 +132,6 @@
 		C12D91A3228213B000501F22 /* debugger.c in Sources */ = {isa = PBXBuildFile; fileRef = C12D91A2228213B000501F22 /* debugger.c */; };
 		C12D91C1228214E800501F22 /* usercmd.c in Sources */ = {isa = PBXBuildFile; fileRef = C12D91C0228214E800501F22 /* usercmd.c */; };
 		C17B0B912939004B000BD8D8 /* logfile.c in Sources */ = {isa = PBXBuildFile; fileRef = C17B0B902939004B000BD8D8 /* logfile.c */; };
-		C18C63882C6AD1F200B2B968 /* gc.c in Sources */ = {isa = PBXBuildFile; fileRef = C18C63872C6AD1F200B2B968 /* gc.c */; };
 		C18E31EE2327271B00A8F600 /* scriptfile.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31ED2327270D00A8F600 /* scriptfile.c */; };
 		C18E31F12327285B00A8F600 /* evalvars.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31F02327285B00A8F600 /* evalvars.c */; };
 		C18E31F4232728D000A8F600 /* evalbuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31F3232728D000A8F600 /* evalbuffer.c */; };
@@ -190,6 +195,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2A5923AF2E733D56007D1A69 /* fuzzy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = fuzzy.c; path = src/fuzzy.c; sourceTree = "<group>"; };
+		2A5923B12E733D98007D1A69 /* linematch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = linematch.c; path = src/linematch.c; sourceTree = SOURCE_ROOT; };
+		2A5923B32E733DED007D1A69 /* tabpanel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tabpanel.c; path = src/tabpanel.c; sourceTree = "<group>"; };
+		2A5923B52E73BE30007D1A69 /* tuple.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tuple.c; path = src/tuple.c; sourceTree = "<group>"; };
+		2A5923B72E73BE62007D1A69 /* vim9generics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = vim9generics.c; path = src/vim9generics.c; sourceTree = "<group>"; };
+		2A5923BB2E73C08C007D1A69 /* gc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = gc.c; path = src/gc.c; sourceTree = "<group>"; };
 		3E1E23B61FB5112A00A170B5 /* terminal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = terminal.c; path = src/terminal.c; sourceTree = "<group>"; };
 		3E1E23B71FB5112A00A170B5 /* pty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pty.c; path = src/pty.c; sourceTree = "<group>"; };
 		3E452F9C1DD4F15D001BF7DB /* channel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = channel.c; path = src/channel.c; sourceTree = "<group>"; };
@@ -2272,7 +2283,6 @@
 		C12D91BF228214A100501F22 /* findfile.pro */ = {isa = PBXFileReference; lastKnownFileType = text; path = findfile.pro; sourceTree = "<group>"; };
 		C12D91C0228214E800501F22 /* usercmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = usercmd.c; path = src/usercmd.c; sourceTree = "<group>"; };
 		C17B0B902939004B000BD8D8 /* logfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = logfile.c; path = src/logfile.c; sourceTree = "<group>"; };
-		C18C63872C6AD1F200B2B968 /* gc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = gc.c; sourceTree = "<group>"; };
 		C18E31ED2327270D00A8F600 /* scriptfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scriptfile.c; path = src/scriptfile.c; sourceTree = "<group>"; };
 		C18E31F02327285B00A8F600 /* evalvars.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evalvars.c; path = src/evalvars.c; sourceTree = "<group>"; };
 		C18E31F3232728D000A8F600 /* evalbuffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evalbuffer.c; path = src/evalbuffer.c; sourceTree = "<group>"; };
@@ -2407,7 +2417,8 @@
 				C1119FA62245D99B0072C208 /* findfile.c */,
 				A9B45A1826B9C4BF0010671E /* float.c */,
 				4CD04B6B10361A30001C87D5 /* fold.c */,
-				C18C63872C6AD1F200B2B968 /* gc.c */,
+				2A5923AF2E733D56007D1A69 /* fuzzy.c */,
+				2A5923BB2E73C08C007D1A69 /* gc.c */,
 				4CD04B6C10361A30001C87D5 /* getchar.c */,
 				4CD04B6F10361A30001C87D5 /* globals.h */,
 				A9C135AC25103EC40052BC57 /* gui_xim.c */,
@@ -2426,6 +2437,7 @@
 				C10BF7B422678FFB00A207D2 /* keyboard.c */,
 				4CD04BBC10361A30001C87D5 /* keymap.h */,
 				C1AA54CF234F926D00C82C5B /* libvterm */,
+				2A5923B12E733D98007D1A69 /* linematch.c */,
 				3E452FA11DD4F15D001BF7DB /* list.c */,
 				A9C135A825103E320052BC57 /* locale.c */,
 				C17B0B902939004B000BD8D8 /* logfile.c */,
@@ -2484,6 +2496,7 @@
 				A9B45A1A26B9C5080010671E /* strings.c */,
 				4CD04C6F10361A30001C87D5 /* structs.h */,
 				4CD04C7110361A30001C87D5 /* syntax.c */,
+				2A5923B32E733DED007D1A69 /* tabpanel.c */,
 				4CD04C7210361A30001C87D5 /* tag.c */,
 				4CD04C7410361A30001C87D5 /* tee */,
 				4CD04C7710361A30001C87D5 /* term.c */,
@@ -2496,6 +2509,7 @@
 				A9DA77742576DA6600E35EE4 /* textobject.c */,
 				C1119FA42245D9680072C208 /* textprop.c */,
 				C1A0828E2439058000F16C39 /* time.c */,
+				2A5923B52E73BE30007D1A69 /* tuple.c */,
 				A9DA7B912482C9B700ECA3F8 /* typval.c */,
 				4CD04D1410361A31001C87D5 /* ui.c */,
 				4CD04D1510361A31001C87D5 /* undo.c */,
@@ -2511,6 +2525,7 @@
 				C198001B23F385AF004D70D5 /* vim9compile.c */,
 				C198001F23F3861B004D70D5 /* vim9execute.c */,
 				A962ED9727864C8A00D3CCF4 /* vim9expr.c */,
+				2A5923B72E73BE62007D1A69 /* vim9generics.c */,
 				A962ED9827864C8A00D3CCF4 /* vim9instr.c */,
 				C198001D23F385E5004D70D5 /* vim9script.c */,
 				A9C135AA25103E7F0052BC57 /* vim9type.c */,
@@ -5322,15 +5337,17 @@
 				A9DA7B922482C9B700ECA3F8 /* typval.c in Sources */,
 				C1AA54D6234F930700C82C5B /* register.c in Sources */,
 				3ECDF48D1BDAA945009B95F1 /* crypt.c in Sources */,
+				2A5923B22E733D98007D1A69 /* linematch.c in Sources */,
 				C1C241B42971BDBC00AE4D30 /* vim9class.c in Sources */,
 				C1F2AD992306125600B8602B /* cmdhist.c in Sources */,
 				4CD04D8D10361A31001C87D5 /* if_xcmdsrv.c in Sources */,
 				4CD04D9010361A31001C87D5 /* main.c in Sources */,
-				C18C63882C6AD1F200B2B968 /* gc.c in Sources */,
+				2A5923B42E733DED007D1A69 /* tabpanel.c in Sources */,
 				4CD04DA210361A31001C87D5 /* mark.c in Sources */,
 				4CD04DA310361A31001C87D5 /* mbyte.c in Sources */,
 				C1AA54E0234F942800C82C5B /* optionstr.c in Sources */,
 				C1AA54E2234F945A00C82C5B /* popupmenu.c in Sources */,
+				2A5923B62E73BE30007D1A69 /* tuple.c in Sources */,
 				3EB3C11E1DD5007F00E46356 /* json.c in Sources */,
 				A9C135A525103D840052BC57 /* match.c in Sources */,
 				3EB3C11F1DD5008300E46356 /* userfunc.c in Sources */,
@@ -5384,6 +5401,8 @@
 				C12D91A3228213B000501F22 /* debugger.c in Sources */,
 				C1A0828F2439058100F16C39 /* time.c in Sources */,
 				3EB3C11D1DD5007700E46356 /* evalfunc.c in Sources */,
+				2A5923BC2E73C08C007D1A69 /* gc.c in Sources */,
+				2A5923B02E733D56007D1A69 /* fuzzy.c in Sources */,
 				A9DA7B942482C9E100ECA3F8 /* clientserver.c in Sources */,
 				C18E31F4232728D000A8F600 /* evalbuffer.c in Sources */,
 				C1F2AD9F2306139200B8602B /* profiler.c in Sources */,
@@ -5391,6 +5410,7 @@
 				4CD04DD110361A31001C87D5 /* ui.c in Sources */,
 				A962ED9C27864C8A00D3CCF4 /* vim9cmds.c in Sources */,
 				4CD04DD210361A31001C87D5 /* undo.c in Sources */,
+				2A5923B82E73BE62007D1A69 /* vim9generics.c in Sources */,
 				4CD04DD410361A31001C87D5 /* version.c in Sources */,
 				4CD04DDD10361A31001C87D5 /* window.c in Sources */,
 				3E1E23B81FB5113800A170B5 /* terminal.c in Sources */,

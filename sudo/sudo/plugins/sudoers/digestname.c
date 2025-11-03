@@ -23,13 +23,13 @@
 
 #include <config.h>
 
-#include "sudo_compat.h"
-#include "sudo_digest.h"
-#include "sudoers_debug.h"
-#include "parse.h"
+#include <sudo_compat.h>
+#include <sudo_digest.h>
+#include <sudoers_debug.h>
+#include <parse.h>
 
 const char *
-digest_type_to_name(int digest_type)
+digest_type_to_name(unsigned int digest_type)
 {
     const char *digest_name;
     debug_decl(digest_type_to_name, SUDOERS_DEBUG_UTIL);

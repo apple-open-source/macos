@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -863,7 +863,7 @@ BSDPClientCreateWithInterfaceAndAttributes(BSDPClientStatus * status_p,
     if (version == kNetBootVersion1) {
 	old_firmware = TRUE;
     }
-    ifl = ifl_init();
+    ifl = ifl_create(NULL);
     if (ifl == NULL) {
 	goto cleanup;
     }

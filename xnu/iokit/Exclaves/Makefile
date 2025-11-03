@@ -34,8 +34,6 @@ PUBLIC_GENERATED_HEADERS = $(patsubst %.tightbeam,%.tightbeam.h,$(PUBLIC_DEFS))
 PRIVATE_GENERATED_HEADERS = $(patsubst %.tightbeam,%.tightbeam.h,$(PRIVATE_DEFS))
 OTHER_HEADERS = 
 
-GENERATED_IMPL = $(patsubst %.tightbeam,%.tightbeam.c,$(ALL_DEFS))
-
 INSTALL_MI_LIST = $(ALL_DEFS)
 INSTALL_MI_LCL_LIST = $(ALL_DEFS)
 
@@ -43,16 +41,12 @@ INSTALL_KF_MI_GEN_LIST = $(PUBLIC_DEFS)
 
 EXPORT_MI_LIST = $(ALL_HDRS)
 
-COMP_FILES = ${GENERATED_HEADERS} $(GENERATED_IMPL)
-
-$(GENERATED_HEADERS) : \
-	%.tightbeam.h : %.tightbeam
+$(GENERATED_HEADERS) : $(ALL_DEFS)
 	@$(LOG_TIGHTBEAMC) "$@"
-	$(_v)$(TIGHTBEAMC) $(TIGHTBEAMC_INCFLAGS) --pass c --output-base $(patsubst %.tightbeam.h,%.tightbeam.c,$@) $<
+	$(_v)$(TIGHTBEAMC) $(TIGHTBEAMC_INCFLAGS) --pass c --output-base $(patsubst %.tightbeam.h,%.tightbeam.c,$@) $^
 
-$(GENERATED_IMPL) : $(GENERATED_HEADERS)
 
-do_build_all:: $(COMP_FILES)
+do_build_all:: $(GENERATED_HEADERS)
 
 include $(MakeInc_rule)
 include $(MakeInc_dir)

@@ -49,6 +49,7 @@ extern void kevent_ast(thread_t thread, uint16_t bits);
 extern void act_set_astkevent(thread_t thread, uint16_t bits);
 extern uint16_t act_clear_astkevent(thread_t thread, uint16_t bits);
 extern bool act_set_ast_reset_pcs(struct task *task, thread_t thread);
+extern void ast_check_async_thread(void);
 
 #if CONFIG_DTRACE
 extern void ast_dtrace_on(void);

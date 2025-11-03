@@ -3303,6 +3303,14 @@ timer:
 	TCP_LOG_TH_FLAGS(isipv6 ? (void *)ip6 : (void *)ip, th, tp, true,
 	    outifp != NULL ? outifp : inp->inp_boundifp);
 
+	if (__improbable((th->th_flags & TH_RST) != 0 && inp->inp_sndinprog_cnt == 0 &&
+	    sendalot == 0 && tp->t_pktlist_head == m)) {
+		if (tcp_rst_rlc_compress(mtod(m, void *), m->m_len, th) == true) {
+			error = 0;
+			goto out;
+		}
+	}
+
 	if (link_heuristics_enabled && (tcp_link_heuristics_flags & TCP_LINK_HEUR_RXMT_COMP) != 0 &&
 	    (len != 0 || (th->th_flags & TH_FIN) != 0)) {
 		/*

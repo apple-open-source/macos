@@ -268,10 +268,10 @@ void AnimationTimelinesController::suspendAnimations()
     if (m_isSuspended)
         return;
 
-    if (!m_cachedCurrentTime) {
+    if (!m_cachedCurrentTime)
         m_cachedCurrentTime = liveCurrentTime();
-        m_cachedCurrentTimeClearanceTimer.stop();
-    }
+
+    m_cachedCurrentTimeClearanceTimer.stop();
 
     for (Ref timeline : m_timelines)
         timeline->suspendAnimations();
@@ -284,9 +284,9 @@ void AnimationTimelinesController::resumeAnimations()
     if (!m_isSuspended)
         return;
 
-    clearCachedCurrentTime();
-
     m_isSuspended = false;
+
+    clearCachedCurrentTime();
 
     for (Ref timeline : m_timelines)
         timeline->resumeAnimations();
@@ -348,6 +348,7 @@ void AnimationTimelinesController::cacheCurrentTime(ReducedResolutionSeconds new
 
 void AnimationTimelinesController::clearCachedCurrentTime()
 {
+    ASSERT(!m_isSuspended);
     m_cachedCurrentTime = std::nullopt;
 }
 

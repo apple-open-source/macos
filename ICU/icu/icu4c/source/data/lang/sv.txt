@@ -441,6 +441,7 @@ sv{
         nds_NL{"lågsaxiska"}
         ne{"nepalesiska"}
         new{"newariska"}
+        nez{"nez perce"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niueanska"}

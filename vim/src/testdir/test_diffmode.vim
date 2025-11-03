@@ -1,9 +1,6 @@
 " Tests for diff mode
 
-source shared.vim
-source screendump.vim
-source check.vim
-source view_util.vim
+source util/screendump.vim
 
 func Test_diff_fold_sync()
   enew!
@@ -48,6 +45,34 @@ func Test_vert_split()
   set diffopt=filler
   call Common_vert_split()
   set diffopt&
+endfunc
+
+" Test for diff folding redraw after last diff is resolved
+func Test_diff_fold_redraw()
+  " Set up two files with a minimal case.
+  call writefile(['Paragraph 1', '', 'Paragraph 2', '', 'Paragraph 3'], 'Xfile1')
+  call writefile(['Paragraph 1', '', 'Paragraph 3'], 'Xfile2')
+
+  " Open in diff mode.
+  edit Xfile1
+  vert diffsplit Xfile2
+
+  " Go to the diff and apply :diffput to copy Paragraph 2 to Xfile2.
+  wincmd l
+  3
+  diffput
+
+  " Check that the folds in both windows are closed and extend from the first
+  " line of the buffer to the last line of the buffer.
+  call assert_equal(1, foldclosed(line("$")))
+  wincmd h
+  call assert_equal(1, foldclosed(line("$")))
+
+  " Clean up.
+  bwipe!
+  bwipe!
+  call delete('Xfile1')
+  call delete('Xfile2')
 endfunc
 
 func Test_vert_split_internal()
@@ -260,6 +285,63 @@ func Test_diffget_diffput_range()
   %bw!
 endfunc
 
+" Test :diffget/:diffput handling of added/deleted lines
+func Test_diffget_diffput_deleted_lines()
+  call setline(1, ['2','4','6'])
+  diffthis
+  new
+  call setline(1, range(1,7))
+  diffthis
+  wincmd w
+
+  3,3diffget " get nothing
+  call assert_equal(['2', '4', '6'], getline(1, '$'))
+  3,4diffget " get the last insertion past the end of file
+  call assert_equal(['2', '4', '6', '7'], getline(1, '$'))
+  0,1diffget " get the first insertion above first line
+  call assert_equal(['1', '2', '4', '6', '7'], getline(1, '$'))
+
+  " When using non-range diffget on the last line, it should get the
+  " change above or at the line as usual, but if the only change is below the
+  " last line, diffget should get that instead.
+  1,$delete
+  call setline(1, ['2','4','6'])
+  diffupdate
+  norm Gdo
+  call assert_equal(['2', '4', '5', '6'], getline(1, '$'))
+  norm Gdo
+  call assert_equal(['2', '4', '5', '6', '7'], getline(1, '$'))
+
+  " Test non-range diffput on last line with the same logic
+  1,$delete
+  call setline(1, ['2','4','6'])
+  diffupdate
+  norm Gdp
+  wincmd w
+  call assert_equal(['1', '2', '3', '4', '6', '7'], getline(1, '$'))
+  wincmd w
+  norm Gdp
+  wincmd w
+  call assert_equal(['1', '2', '3', '4', '6'], getline(1, '$'))
+  call setline(1, range(1,7))
+  diffupdate
+  wincmd w
+
+  " Test that 0,$+1 will get/put all changes from/to the other buffer
+  1,$delete
+  call setline(1, ['2','4','6'])
+  diffupdate
+  0,$+1diffget
+  call assert_equal(['1', '2', '3', '4', '5', '6', '7'], getline(1, '$'))
+  1,$delete
+  call setline(1, ['2','4','6'])
+  diffupdate
+  0,$+1diffput
+  wincmd w
+  call assert_equal(['2', '4', '6'], getline(1, '$'))
+  %bw!
+endfunc
+
 " Test for :diffget/:diffput with an empty buffer and a non-empty buffer
 func Test_diffget_diffput_empty_buffer()
   %d _
@@ -430,13 +512,13 @@ endfunc
 
 func Common_icase_test()
   edit one
-  call setline(1, ['One', 'Two', 'Three', 'Four', 'Fi#ve'])
+  call setline(1, ['One', 'Two', 'Three', 'Four', 'Fi#vϵ', 'Si⃗x', 'Se⃗ve⃗n'])
   redraw
   let normattr = screenattr(1, 1)
   diffthis
 
   botright vert new two
-  call setline(1, ['one', 'TWO', 'Three ', 'Four', 'fI=VE'])
+  call setline(1, ['one', 'TWO', 'Three ', 'Four', 'fI=VΕ', 'SI⃗x', 'SEvE⃗n'])
   diffthis
 
   redraw
@@ -444,10 +526,13 @@ func Common_icase_test()
   call assert_equal(normattr, screenattr(2, 1))
   call assert_notequal(normattr, screenattr(3, 1))
   call assert_equal(normattr, screenattr(4, 1))
+  call assert_equal(normattr, screenattr(6, 2))
+  call assert_notequal(normattr, screenattr(7, 2))
 
   let dtextattr = screenattr(5, 3)
   call assert_notequal(dtextattr, screenattr(5, 1))
   call assert_notequal(dtextattr, screenattr(5, 5))
+  call assert_notequal(dtextattr, screenattr(7, 4))
 
   diffoff!
   %bwipe!
@@ -778,10 +863,10 @@ endfunc
 
 func Test_diff_hlID()
   new
-  call setline(1, [1, 2, 3])
+  call setline(1, [1, 2, 3, 'Yz', 'a dxxg',])
   diffthis
   vnew
-  call setline(1, ['1x', 2, 'x', 3])
+  call setline(1, ['1x', 2, 'x', 3, 'yx', 'abc defg'])
   diffthis
   redraw
 
@@ -792,6 +877,26 @@ func Test_diff_hlID()
   call diff_hlID(2, 1)->synIDattr("name")->assert_equal("")
   call diff_hlID(3, 1)->synIDattr("name")->assert_equal("DiffAdd")
   eval 4->diff_hlID(1)->synIDattr("name")->assert_equal("")
+  call diff_hlID(5, 1)->synIDattr("name")->assert_equal("DiffText")
+  call diff_hlID(5, 2)->synIDattr("name")->assert_equal("DiffText")
+
+  set diffopt+=icase " test that caching is invalidated by diffopt change
+  call diff_hlID(5, 1)->synIDattr("name")->assert_equal("DiffChange")
+  set diffopt-=icase
+  call diff_hlID(5, 1)->synIDattr("name")->assert_equal("DiffText")
+
+  call diff_hlID(6, 1)->synIDattr("name")->assert_equal("DiffChange")
+  call diff_hlID(6, 2)->synIDattr("name")->assert_equal("DiffText")
+  call diff_hlID(6, 4)->synIDattr("name")->assert_equal("DiffText")
+  call diff_hlID(6, 7)->synIDattr("name")->assert_equal("DiffText")
+  call diff_hlID(6, 8)->synIDattr("name")->assert_equal("DiffChange")
+  set diffopt+=inline:char
+  call diff_hlID(6, 1)->synIDattr("name")->assert_equal("DiffChange")
+  call diff_hlID(6, 2)->synIDattr("name")->assert_equal("DiffTextAdd")
+  call diff_hlID(6, 4)->synIDattr("name")->assert_equal("DiffChange")
+  call diff_hlID(6, 7)->synIDattr("name")->assert_equal("DiffText")
+  call diff_hlID(6, 8)->synIDattr("name")->assert_equal("DiffChange")
+  set diffopt-=inline:char
 
   wincmd w
   call assert_equal(synIDattr(diff_hlID(1, 1), "name"), "DiffChange")
@@ -856,6 +961,8 @@ endfunc
 
 " Verify a screendump with both the internal and external diff.
 func VerifyBoth(buf, dumpfile, extra)
+  CheckScreendump
+
   " trailing : for leaving the cursor on the command line
   for cmd in [":set diffopt=filler" . a:extra . "\<CR>:", ":set diffopt+=internal\<CR>:"]
     call term_sendkeys(a:buf, cmd)
@@ -874,6 +981,8 @@ endfunc
 
 " Verify a screendump with the internal diff only.
 func VerifyInternal(buf, dumpfile, extra)
+  CheckScreendump
+
   call term_sendkeys(a:buf, ":diffupdate!\<CR>")
   " trailing : for leaving the cursor on the command line
   call term_sendkeys(a:buf, ":set diffopt=internal,filler" . a:extra . "\<CR>:")
@@ -1034,6 +1143,41 @@ func Test_diff_screen()
   " Test 22: Add line to empty file
   call WriteDiffFiles(buf, [], [0])
   call VerifyBoth(buf, "Test_diff_22", "")
+
+  call WriteDiffFiles(buf, ['?a', '?b', '?c'], ['!b'])
+  call VerifyInternal(buf, 'Test_diff_23', " diffopt+=linematch:30")
+
+  call WriteDiffFiles(buf, ['',
+      \ 'common line',
+      \ 'common line',
+      \ '',
+      \ 'DEFabc',
+      \ 'xyz',
+      \ 'xyz',
+      \ 'xyz',
+      \ 'DEFabc',
+      \ 'DEFabc',
+      \ 'DEFabc',
+      \ 'common line',
+      \ 'common line',
+      \ 'DEF',
+      \ 'common line',
+      \ 'DEF',
+      \ 'something' ],
+      \ ['',
+      \ 'common line',
+      \ 'common line',
+      \ '',
+      \ 'ABCabc',
+      \ 'ABCabc',
+      \ 'ABCabc',
+      \ 'ABCabc',
+      \ 'common line',
+      \ 'common line',
+      \ 'common line',
+      \ 'something'])
+  call VerifyInternal(buf, 'Test_diff_24', " diffopt+=linematch:30")
+
 
   " clean up
   call StopVimInTerminal(buf)
@@ -1230,7 +1374,7 @@ func CloseoffSetup()
   call setline(1, ['one', 'tow', 'three'])
   diffthis
   call assert_equal(1, &diff)
-  only!
+  bw!
 endfunc
 
 func Test_diff_closeoff()
@@ -2255,7 +2399,1140 @@ func Test_diff_overlapped_diff_blocks_will_be_merged()
   call WriteDiffFiles3(buf, ["a", "b", "c"], ["a", "x", "c"], ["a", "b", "y", "c"])
   call VerifyBoth(buf, "Test_diff_overlapped_3.37", "")
 
+  call WriteDiffFiles3(buf, ["a", "b", "c"], ["d", "e"], ["b", "f"])
+  call VerifyBoth(buf, "Test_diff_overlapped_3.38", "")
+
+  call WriteDiffFiles3(buf, ["a", "b", "c"], ["d", "e"], ["b"])
+  call VerifyBoth(buf, "Test_diff_overlapped_3.39", "")
+
+  " File 3 overlaps twice, 2nd overlap completely within the existing block.
+  call WriteDiffFiles3(buf, ["foo", "a", "b", "c", "bar"], ["foo", "w", "x", "y", "z", "bar"], ["foo", "1", "a", "b", "2", "bar"])
+  call VerifyBoth(buf, "Test_diff_overlapped_3.40", "")
+
+  " File 3 overlaps twice, 2nd overlap extends beyond existing block on new
+  " side. Make sure we don't over-extend the range and hit 'bar'.
+  call WriteDiffFiles3(buf, ["foo", "a", "b", "c", "d", "bar"], ["foo", "w", "x", "y", "z", "u", "bar"], ["foo", "1", "a", "b", "2", "d", "bar"])
+  call VerifyBoth(buf, "Test_diff_overlapped_3.41", "")
+
+  " Chained overlaps. File 3's 2nd overlap spans two diff blocks and is longer
+  " than the 2nd one.
+  call WriteDiffFiles3(buf, ["foo", "a", "b", "c", "d", "e", "f", "bar"], ["foo", "w", "x", "y", "z", "e", "u", "bar"], ["foo", "1", "b", "2", "3", "d", "4", "f", "bar"])
+  call VerifyBoth(buf, "Test_diff_overlapped_3.42", "")
+
+  " File 3 has 2 overlaps. An add and a delete. First overlap's expansion hits
+  " the 2nd one. Make sure we adjust the diff block to have fewer lines.
+  call WriteDiffFiles3(buf, ["foo", "a", "b", "bar"], ["foo", "x", "y", "bar"], ["foo", "1", "a", "bar"])
+  call VerifyBoth(buf, "Test_diff_overlapped_3.43", "")
+
+  " File 3 has 2 overlaps. An add and another add. First overlap's expansion hits
+  " the 2nd one. Make sure we adjust the diff block to have more lines.
+  call WriteDiffFiles3(buf, ["foo", "a", "b", "c", "d", "bar"], ["foo", "w", "x", "y", "z", "u", "bar"], ["foo", "1", "a", "b", "3", "4", "d", "bar"])
+  call VerifyBoth(buf, "Test_diff_overlapped_3.44", "")
+
   call StopVimInTerminal(buf)
+endfunc
+
+" switching windows in diff mode caused an unnecessary scroll
+func Test_diff_topline_noscroll()
+  CheckScreendump
+
+  let content =<< trim END
+    call setline(1, range(1,60))
+    vnew
+    call setline(1, range(1,10) + range(50,60))
+    windo diffthis
+    norm! G
+    exe "norm! 30\<C-y>"
+  END
+  call writefile(content, 'Xcontent', 'D')
+  let buf = RunVimInTerminal('-S Xcontent', {'rows': 20})
+  call VerifyScreenDump(buf, 'Test_diff_topline_1', {})
+  call term_sendkeys(buf, ":echo line('w0', 1001)\<cr>")
+  call term_wait(buf)
+  call VerifyScreenDump(buf, 'Test_diff_topline_2', {})
+  call term_sendkeys(buf, "\<C-W>p")
+  call term_wait(buf)
+  call VerifyScreenDump(buf, 'Test_diff_topline_3', {})
+  call term_sendkeys(buf, "\<C-W>p")
+  call term_wait(buf)
+  call VerifyScreenDump(buf, 'Test_diff_topline_4', {})
+  call StopVimInTerminal(buf)
+endfunc
+
+" Test inline highlighting which shows what's different within each diff block
+func Test_diff_inline()
+  CheckScreendump
+
+  call WriteDiffFiles(0, [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+  call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+
+  call WriteDiffFiles(buf, ["abcdef ghi jk n", "x", "y"], ["aBcef gHi lm n", "y", "z"])
+  call VerifyInternal(buf, "Test_diff_inline_01", "")
+  call VerifyInternal(buf, "Test_diff_inline_02", " diffopt+=inline:none")
+
+  " inline:simple is the same as default
+  call VerifyInternal(buf, "Test_diff_inline_01", " diffopt+=inline:simple")
+
+  call VerifyInternal(buf, "Test_diff_inline_03", " diffopt+=inline:char")
+  call VerifyInternal(buf, "Test_diff_inline_04", " diffopt+=inline:word")
+
+  " multiple inline values will the last one
+  call VerifyInternal(buf, "Test_diff_inline_01", " diffopt+=inline:none,inline:char,inline:simple")
+  call VerifyInternal(buf, "Test_diff_inline_02", " diffopt+=inline:simple,inline:word,inline:none")
+  call VerifyInternal(buf, "Test_diff_inline_03", " diffopt+=inline:simple,inline:word,inline:char")
+
+  " DiffTextAdd highlight
+  call term_sendkeys(buf, ":hi DiffTextAdd ctermbg=blue\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_05", " diffopt+=inline:char")
+
+  " Live update in insert mode
+  call term_sendkeys(buf, "\<Esc>isometext")
+  call VerifyScreenDump(buf, "Test_diff_inline_06", {})
+  call term_sendkeys(buf, "\<Esc>u")
+
+  " icase simple scenarios
+  call VerifyInternal(buf, "Test_diff_inline_07", " diffopt+=inline:simple,icase")
+  call VerifyInternal(buf, "Test_diff_inline_08", " diffopt+=inline:char,icase")
+  call VerifyInternal(buf, "Test_diff_inline_09", " diffopt+=inline:word,icase")
+
+  " diff algorithms should affect highlight
+  call WriteDiffFiles(buf, ["apples and oranges"], ["oranges and apples"])
+  call VerifyInternal(buf, "Test_diff_inline_10", " diffopt+=inline:char")
+  call VerifyInternal(buf, "Test_diff_inline_11", " diffopt+=inline:char,algorithm:patience")
+
+  " icase: composing chars and Unicode fold case edge cases
+  call WriteDiffFiles(buf,
+        \ ["1 - sigma in 6σ and Ὀδυσσεύς", "1 - angstrom in åå", "1 - composing: ii⃗I⃗"],
+        \ ["2 - Sigma in 6Σ and ὈΔΥΣΣΕΎΣ", "2 - Angstrom in ÅÅ", "2 - Composing: i⃗I⃗I⃗"])
+  call VerifyInternal(buf, "Test_diff_inline_12", " diffopt+=inline:char")
+  call VerifyInternal(buf, "Test_diff_inline_13", " diffopt+=inline:char,icase")
+
+  " wide chars
+  call WriteDiffFiles(buf, ["abc😅xde一", "f🚀g"], ["abcy😢de", "二f🚀g"])
+  call VerifyInternal(buf, "Test_diff_inline_14", " diffopt+=inline:char,icase")
+
+  " NUL char (\n below is internally substituted as NUL)
+  call WriteDiffFiles(buf, ["1\n34\n5\n6"], ["1234\n5", "6"])
+  call VerifyInternal(buf, "Test_diff_inline_15", " diffopt+=inline:char")
+
+  " word diff: always use first buffer's iskeyword and ignore others' for consistency
+  call WriteDiffFiles(buf, ["foo+bar test"], ["foo+baz test"])
+  call VerifyInternal(buf, "Test_diff_inline_word_01", " diffopt+=inline:word")
+
+  call term_sendkeys(buf, ":set iskeyword+=+\<CR>:diffupdate\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_word_02", " diffopt+=inline:word")
+
+  call term_sendkeys(buf, ":set iskeyword&\<CR>:wincmd w\<CR>")
+  call term_sendkeys(buf, ":set iskeyword+=+\<CR>:wincmd w\<CR>:diffupdate\<CR>")
+  " Use the previous screen dump as 2nd buffer's iskeyword does not matter
+  call VerifyInternal(buf, "Test_diff_inline_word_01", " diffopt+=inline:word")
+
+  call term_sendkeys(buf, ":windo set iskeyword&\<CR>:1wincmd w\<CR>")
+
+  " word diff: test handling of multi-byte characters. Only alphanumeric chars
+  " (e.g. Greek alphabet, but not CJK/emoji) count as words.
+  call WriteDiffFiles(buf, ["🚀⛵️一二三ひらがなΔέλτα Δelta foobar"], ["🚀🛸一二四ひらなδέλτα δelta foobar"])
+  call VerifyInternal(buf, "Test_diff_inline_word_03", " diffopt+=inline:word")
+
+  " char diff: should slide highlight to whitespace boundary if possible for
+  " better readability (by using forced indent-heuristics). A wrong result
+  " would be if the highlight is "Bar, prefix". It should be "prefixBar, "
+  " instead.
+  call WriteDiffFiles(buf, ["prefixFoo, prefixEnd"], ["prefixFoo, prefixBar, prefixEnd"])
+  call VerifyInternal(buf, "Test_diff_inline_char_01", " diffopt+=inline:char")
+
+  " char diff: small gaps between inline diff blocks will be merged during refine step
+  " - first segment: test that we iteratively merge small gaps after we merged
+  "   adjacent blocks, but only with limited number (set to 4) of iterations.
+  " - second and third segments: show that we need a large enough adjacent block to
+  "   trigger a merge.
+  " - fourth segment: small gaps are not merged when adjacent large block is
+  "   on a different line.
+  call WriteDiffFiles(buf,
+        \ ["abcdefghijklmno", "anchor1",
+        \  "abcdefghijklmno", "anchor2",
+        \  "abcdefghijklmno", "anchor3",
+        \  "test", "multiline"],
+        \ ["a?c?e?g?i?k???o", "anchor1",
+        \  "a??de?????klmno", "anchor2",
+        \  "a??de??????lmno", "anchor3",
+        \  "t?s?", "??????i?e"])
+  call VerifyInternal(buf, "Test_diff_inline_char_02", " diffopt+=inline:char")
+
+  " Test multi-line blocks and whitespace
+  call WriteDiffFiles(buf,
+        \ ["this   is   ", "sometest text foo", "baz abc def ", "one", "word another word", "additional line"],
+        \ ["this is some test", "texts", "foo bar abX Yef     ", "oneword another word"])
+  call VerifyInternal(buf, "Test_diff_inline_multiline_01", " diffopt+=inline:char,iwhite")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_02", " diffopt+=inline:word,iwhite")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_03", " diffopt+=inline:char,iwhiteeol")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_04", " diffopt+=inline:word,iwhiteeol")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_05", " diffopt+=inline:char,iwhiteall")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_06", " diffopt+=inline:word,iwhiteall")
+
+  " newline should be highlighted too when 'list' is set
+  call term_sendkeys(buf, ":windo set list\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_07", " diffopt+=inline:char")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_08", " diffopt+=inline:char,iwhite")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_09", " diffopt+=inline:char,iwhiteeol")
+  call VerifyInternal(buf, "Test_diff_inline_multiline_10", " diffopt+=inline:char,iwhiteall")
+  call term_sendkeys(buf, ":windo set nolist\<CR>")
+
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_diff_inline_multibuffer()
+  CheckScreendump
+
+  call WriteDiffFiles3(0, [], [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2 Xdifile3', {})
+  call term_sendkeys(buf, ":windo set autoread\<CR>:1wincmd w\<CR>")
+  call term_sendkeys(buf, ":hi DiffTextAdd ctermbg=blue\<CR>")
+
+  call WriteDiffFiles3(buf,
+        \ ["That is buffer1.", "anchor", "Some random text", "anchor"],
+        \ ["This is buffer2.", "anchor", "Some text", "anchor", "buffer2/3"],
+        \ ["This is buffer3. Last.", "anchor", "Some more", "text here.", "anchor", "only in buffer2/3", "not in buffer1"])
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_01", " diffopt+=inline:char")
+
+  " Close one of the buffers and make sure it updates correctly
+  call term_sendkeys(buf, ":diffoff\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_02", " diffopt+=inline:char")
+
+  " Update text in the non-diff buffer and nothing should be changed
+  call term_sendkeys(buf, "\<Esc>isometext")
+  call VerifyScreenDump(buf, "Test_diff_inline_multibuffer_03", {})
+  call term_sendkeys(buf, "\<Esc>u")
+
+  call term_sendkeys(buf, ":diffthis\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_01", " diffopt+=inline:char")
+
+  " Test that removing first buffer from diff will in turn use the next
+  " earliest buffer's iskeyword during word diff.
+  call WriteDiffFiles3(buf,
+        \ ["This+is=a-setence"],
+        \ ["This+is=another-setence"],
+        \ ["That+is=a-setence"])
+  call term_sendkeys(buf, ":set iskeyword+=+\<CR>:2wincmd w\<CR>:set iskeyword+=-\<CR>:1wincmd w\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_04", " diffopt+=inline:word")
+  call term_sendkeys(buf, ":diffoff\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_05", " diffopt+=inline:word")
+  call term_sendkeys(buf, ":diffthis\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_04", " diffopt+=inline:word")
+
+  " Test multi-buffer char diff refinement, and that removing a buffer from
+  " diff will update the others properly.
+  call WriteDiffFiles3(buf,
+        \ ["abcdefghijkYmYYY"],
+        \ ["aXXdXXghijklmnop"],
+        \ ["abcdefghijkYmYop"])
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_06", " diffopt+=inline:char")
+  call term_sendkeys(buf, ":diffoff\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_07", " diffopt+=inline:char")
+  call term_sendkeys(buf, ":diffthis\<CR>")
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_06", " diffopt+=inline:char")
+
+  call StopVimInTerminal(buf)
+endfunc
+
+" Test that when using multi-buffer diff, an empty block would be correctly
+" skipped in the result, without resulting in invalid states or crashes.
+func Test_diff_inline_multibuffer_empty_block()
+  CheckScreendump
+
+  call writefile(['anchor1', '1234567890abcde', 'anchor2'], 'Xdifile1')
+  call writefile(['anchor1', '1234567--0abc-e', 'anchor2'], 'Xdifile2')
+  call writefile(['anchor1', 'anchor2'], 'Xdifile3')
+  call writefile(['anchor1', '1???????90abcd?', 'anchor2'], 'Xdifile4')
+
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2 Xdifile3 Xdifile4', {})
+  call VerifyInternal(buf, "Test_diff_inline_multibuffer_empty_block_01", " diffopt+=inline:char")
+
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_diffget_diffput_linematch()
+  CheckScreendump
+  call delete('.Xdifile1.swp')
+  call delete('.Xdifile2.swp')
+  call WriteDiffFiles(0, [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+  call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+
+  " enable linematch
+  call term_sendkeys(buf, ":set diffopt+=linematch:30\<CR>")
+  call WriteDiffFiles(buf, ['',
+      \ 'common line',
+      \ 'common line',
+      \ '',
+      \ 'ABCabc',
+      \ 'ABCabc',
+      \ 'ABCabc',
+      \ 'ABCabc',
+      \ 'common line',
+      \ 'common line',
+      \ 'common line',
+      \ 'something' ],
+      \ ['',
+      \ 'common line',
+      \ 'common line',
+      \ '',
+      \ 'DEFabc',
+      \ 'xyz',
+      \ 'xyz',
+      \ 'xyz',
+      \ 'DEFabc',
+      \ 'DEFabc',
+      \ 'DEFabc',
+      \ 'common line',
+      \ 'common line',
+      \ 'DEF',
+      \ 'common line',
+      \ 'DEF',
+      \ 'something'])
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_1', {})
+
+  " get from window 1 from line 5 to 9
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, ":5,9diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_2', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get from window 2 from line 5 to 10
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, ":5,10diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_3', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get all from window 2
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, ":4,17diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_4', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get all from window 1
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, ":4,12diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_5', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get from window 1 using do 1 line 5
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "5gg")
+  call term_sendkeys(buf, ":diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_6', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get from window 1 using do 2 line 6
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "6gg")
+  call term_sendkeys(buf, ":diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_7', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get from window 1 using do 2 line 7
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "7gg")
+  call term_sendkeys(buf, ":diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_8', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get from window 1 using do 2 line 11
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "11gg")
+  call term_sendkeys(buf, ":diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_9', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " get from window 1 using do 2 line 12
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "12gg")
+  call term_sendkeys(buf, ":diffget\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_10', {})
+
+  " undo the last diffget
+  call term_sendkeys(buf, "u")
+
+  " put from window 1 using dp 1 line 5
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "5gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_11', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 1 using dp 2 line 6
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "6gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_12', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 1 using dp 2 line 7
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "7gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_13', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 1 using dp 2 line 11
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "11gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_14', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 1 using dp 2 line 12
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "12gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_15', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 2 using dp line 6
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "6gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_16', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 2 using dp line 8
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "8gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_17', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 2 using dp line 9
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "9gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_18', {})
+
+  " undo the last diffput
+  call term_sendkeys(buf, "1\<c-w>w")
+  call term_sendkeys(buf, "u")
+
+  " put from window 2 using dp line 17
+  call term_sendkeys(buf, "2\<c-w>w")
+  call term_sendkeys(buf, "17gg")
+  call term_sendkeys(buf, ":diffput\<CR>")
+  call VerifyScreenDump(buf, 'Test_diff_get_put_linematch_19', {})
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_linematch_diff()
+  CheckScreendump
+  call delete('.Xdifile1.swp')
+  call delete('.Xdifile2.swp')
+  call WriteDiffFiles(0, [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+  call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+
+  " enable linematch
+  call term_sendkeys(buf, ":set diffopt+=linematch:30\<CR>")
+  call WriteDiffFiles(buf, ['// abc d?',
+      \ '// d?',
+      \ '// d?' ],
+      \ ['!',
+      \ 'abc d!',
+      \ 'd!'])
+  call term_sendkeys(buf, ":\<CR>") " clear cmdline
+  call VerifyScreenDump(buf, 'Test_linematch_diff1', {})
+
+  " test that filler is always implicitly set by linematch
+  call term_sendkeys(buf, ":set diffopt-=filler\<CR>")
+  call term_sendkeys(buf, ":\<CR>") " clear cmdline
+  call VerifyScreenDump(buf, 'Test_linematch_diff1', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_linematch_diff_iwhite()
+  CheckScreendump
+  call delete('.Xdifile1.swp')
+  call delete('.Xdifile2.swp')
+  call WriteDiffFiles(0, [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+  call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+
+  " setup a diff with 2 files and set linematch:30, with ignore white
+  call term_sendkeys(buf, ":set diffopt+=linematch:30\<CR>")
+  call WriteDiffFiles(buf, ['void testFunction () {',
+      \ '  for (int i = 0; i < 10; i++) {',
+      \ '    for (int j = 0; j < 10; j++) {',
+      \ '    }',
+      \ '  }',
+      \ '}' ],
+      \ ['void testFunction () {',
+      \ '  // for (int j = 0; j < 10; i++) {',
+      \ '  // }',
+      \ '}'])
+  call VerifyScreenDump(buf, 'Test_linematch_diff_iwhite1', {})
+  call term_sendkeys(buf, ":set diffopt+=iwhiteall\<CR>")
+  call VerifyScreenDump(buf, 'Test_linematch_diff_iwhite2', {})
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_linematch_diff_grouping()
+  CheckScreendump
+  call delete('.Xdifile1.swp')
+  call delete('.Xdifile2.swp')
+  call WriteDiffFiles(0, [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+  call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+
+  " a diff that would result in multiple groups before grouping optimization
+  call term_sendkeys(buf, ":set diffopt+=linematch:30\<CR>")
+  call WriteDiffFiles(buf, ['!A',
+      \ '!B',
+      \ '!C' ],
+      \ ['?Z',
+      \ '?A',
+      \ '?B',
+      \ '?C',
+      \ '?A',
+      \ '?B',
+      \ '?B',
+      \ '?C'])
+  call VerifyScreenDump(buf, 'Test_linematch_diff_grouping1', {})
+  call WriteDiffFiles(buf, ['!A',
+      \ '!B',
+      \ '!C' ],
+      \ ['?A',
+      \ '?Z',
+      \ '?B',
+      \ '?C',
+      \ '?A',
+      \ '?B',
+      \ '?C',
+      \ '?C'])
+  call VerifyScreenDump(buf, 'Test_linematch_diff_grouping2', {})
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_linematch_diff_scroll()
+  CheckScreendump
+  call delete('.Xdifile1.swp')
+  call delete('.Xdifile2.swp')
+  call WriteDiffFiles(0, [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+  call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+
+  " a diff that would result in multiple groups before grouping optimization
+  call term_sendkeys(buf, ":set diffopt+=linematch:30\<CR>")
+  call WriteDiffFiles(buf, ['!A',
+      \ '!B',
+      \ '!C' ],
+      \ ['?A',
+      \ '?Z',
+      \ '?B',
+      \ '?C',
+      \ '?A',
+      \ '?B',
+      \ '?C',
+      \ '?C'])
+  " scroll down to show calculation of top fill and scroll to correct line in
+  " both windows
+  call VerifyScreenDump(buf, 'Test_linematch_diff_grouping_scroll0', {})
+  call term_sendkeys(buf, "3\<c-e>")
+  call VerifyScreenDump(buf, 'Test_linematch_diff_grouping_scroll1', {})
+  call term_sendkeys(buf, "3\<c-e>")
+  call VerifyScreenDump(buf, 'Test_linematch_diff_grouping_scroll2', {})
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_linematch_line_limit_exceeded()
+  CheckScreendump
+  call delete('.Xdifile1.swp')
+  call delete('.Xdifile2.swp')
+  call WriteDiffFiles(0, [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+  call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+
+  call term_sendkeys(buf, ":set diffopt+=linematch:10\<CR>")
+  " a diff block will not be aligned with linematch because it's contents
+  " exceed 10 lines
+  call WriteDiffFiles(buf,
+        \ ['common line',
+        \ 'HIL',
+        \ '',
+        \ 'aABCabc',
+        \ 'aABCabc',
+        \ 'aABCabc',
+        \ 'aABCabc',
+        \ 'common line',
+        \ 'HIL',
+        \ 'common line',
+        \ 'something'],
+        \ ['common line',
+        \ 'DEF',
+        \ 'GHI',
+        \ 'something',
+        \ '',
+        \ 'aDEFabc',
+        \ 'xyz',
+        \ 'xyz',
+        \ 'xyz',
+        \ 'aDEFabc',
+        \ 'aDEFabc',
+        \ 'aDEFabc',
+        \ 'common line',
+        \ 'DEF',
+        \ 'GHI',
+        \ 'something else',
+        \ 'common line',
+        \ 'something'])
+  call VerifyScreenDump(buf, 'Test_linematch_line_limit_exceeded1', {})
+  " after increasing the count to 30, the limit is not exceeded, and the
+  " alignment algorithm will run on the largest diff block here
+  call term_sendkeys(buf, ":set diffopt+=linematch:30\<CR>")
+  call VerifyScreenDump(buf, 'Test_linematch_line_limit_exceeded2', {})
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_linematch_3diffs()
+  CheckScreendump
+  call delete('.Xdifile1.swp')
+  call delete('.Xdifile2.swp')
+  call delete('.Xdifile3.swp')
+  call WriteDiffFiles3(0, [], [], [])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2 Xdifile3', {})
+  call term_sendkeys(buf, "1\<c-w>w:set autoread\<CR>")
+  call term_sendkeys(buf, "2\<c-w>w:set autoread\<CR>")
+  call term_sendkeys(buf, "3\<c-w>w:set autoread\<CR>")
+  call term_sendkeys(buf, ":set diffopt+=linematch:30\<CR>")
+  call WriteDiffFiles3(buf,
+        \ ["",
+        \ "  common line",
+        \ "      AAA",
+        \ "      AAA",
+        \ "      AAA"],
+        \ ["",
+        \ "  common line",
+        \ "  <<<<<<< HEAD",
+        \ "      AAA",
+        \ "      AAA",
+        \ "      AAA",
+        \ "  =======",
+        \ "      BBB",
+        \ "      BBB",
+        \ "      BBB",
+        \ "  >>>>>>> branch1"],
+        \ ["",
+        \ "  common line",
+        \ "      BBB",
+        \ "      BBB",
+        \ "      BBB"])
+  call VerifyScreenDump(buf, 'Test_linematch_3diffs1', {})
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+" this used to access invalid memory
+func Test_linematch_3diffs_sanity_check()
+  CheckScreendump
+  call delete('.Xfile_linematch1.swp')
+  call delete('.Xfile_linematch2.swp')
+  call delete('.Xfile_linematch3.swp')
+  let lines =<< trim END
+    set diffopt+=linematch:60
+    call feedkeys("Aq\<esc>")
+    call feedkeys("GAklm\<esc>")
+    call feedkeys("o")
+  END
+  call writefile(lines, 'Xlinematch_3diffs.vim', 'D')
+  call writefile(['abcd', 'def', 'hij'], 'Xfile_linematch1', 'D')
+  call writefile(['defq', 'hijk', 'nopq'], 'Xfile_linematch2', 'D')
+  call writefile(['hijklm', 'nopqr', 'stuv'], 'Xfile_linematch3', 'D')
+  call WriteDiffFiles3(0, [], [], [])
+  let buf = RunVimInTerminal('-d -S Xlinematch_3diffs.vim Xfile_linematch1 Xfile_linematch2 Xfile_linematch3', {})
+  call VerifyScreenDump(buf, 'Test_linematch_3diffs2', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_diffanchors()
+  CheckScreendump
+  call WriteDiffFiles3(0,
+      \ ["anchorA1", "1", "2", "3",
+      \  "100", "101", "102", "anchorB", "103", "104", "105"],
+      \ ["100", "101", "102", "anchorB", "103", "104", "105",
+      \  "anchorA2", "1", "2", "3"],
+      \ ["100", "anchorB", "103",
+      \  "anchorA3", "1", "2", "3"])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2 Xdifile3', {})
+
+  " Simple diff without any anchors
+  call VerifyInternal(buf, "Test_diff_anchors_00", "")
+
+  " Setting diffopt+=anchor or diffanchors without the other won't do anything
+  call VerifyInternal(buf, "Test_diff_anchors_00", " diffopt+=anchor")
+  call VerifyInternal(buf, "Test_diff_anchors_00", " dia=1/anchorA/")
+
+  " Use a single anchor by specifying a pattern. Test both internal and
+  " external diff to make sure both paths work.
+  call VerifyBoth(buf, "Test_diff_anchors_01", " dia=1/anchorA/ diffopt+=anchor")
+
+  " Use 2 anchors. They should be sorted by line number, so in file 2/3
+  " anchorB is used before anchorA.
+  call VerifyBoth(buf, "Test_diff_anchors_02", " dia=1/anchorA/,1/anchorB/ diffopt+=anchor")
+
+  " Set marks and specify addresses using marks and repeat the test
+  call term_sendkeys(buf, ":2wincmd w\<CR>:1/anchorA/mark a\<CR>")
+  call term_sendkeys(buf, ":1/anchorB/mark b\<CR>")
+  call term_sendkeys(buf, ":3wincmd w\<CR>:1/anchorA/mark a\<CR>")
+  call term_sendkeys(buf, ":1/anchorB/mark b\<CR>")
+  call term_sendkeys(buf, ":1wincmd w\<CR>:1/anchorA/mark a\<CR>")
+  call term_sendkeys(buf, ":1/anchorB/mark b\<CR>")
+
+  call VerifyInternal(buf, "Test_diff_anchors_01", " dia='a diffopt+=anchor")
+  call VerifyInternal(buf, "Test_diff_anchors_02", " dia='a,'b diffopt+=anchor")
+
+  " Update marks to point somewhere else. When we first set the mark the diff
+  " won't be updated until we manually invoke :diffupdate.
+  call VerifyInternal(buf, "Test_diff_anchors_01", " dia='a diffopt+=anchor")
+  call term_sendkeys(buf, ":1wincmd w\<CR>:1/anchorB/mark a\<CR>:")
+  call term_wait(buf)
+  call VerifyScreenDump(buf, "Test_diff_anchors_01", {})
+  call term_sendkeys(buf, ":diffupdate\<CR>:")
+  call term_wait(buf)
+  call VerifyScreenDump(buf, "Test_diff_anchors_03", {})
+
+  " Use local diff anchors with line numbers, and repeat the same test
+  call term_sendkeys(buf, ":2wincmd w\<CR>:setlocal dia=8\<CR>")
+  call term_sendkeys(buf, ":3wincmd w\<CR>:setlocal dia=4\<CR>")
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=1\<CR>")
+  call VerifyInternal(buf, "Test_diff_anchors_01", " diffopt+=anchor")
+  call term_sendkeys(buf, ":2wincmd w\<CR>:setlocal dia=8,4\<CR>")
+  call term_sendkeys(buf, ":3wincmd w\<CR>:setlocal dia=4,2\<CR>")
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=1,8\<CR>")
+  call VerifyInternal(buf, "Test_diff_anchors_02", " diffopt+=anchor")
+
+  " Test multiple diff anchors on the same line in file 1.
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=1,1\<CR>")
+  call VerifyInternal(buf, "Test_diff_anchors_04", " diffopt+=anchor")
+
+  " Test that if one file has fewer diff anchors than others. Vim should only
+  " use the minimum in this case.
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=8\<CR>")
+  call VerifyInternal(buf, "Test_diff_anchors_05", " diffopt+=anchor")
+
+  " $+1 should anchor everything past the last line
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=$+1\<CR>")
+  call VerifyInternal(buf, "Test_diff_anchors_06", " diffopt+=anchor")
+
+  " Sorting of diff anchors should work with multiple anchors
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=1,10,8,2\<CR>")
+  call term_sendkeys(buf, ":2wincmd w\<CR>:setlocal dia=1,2,3,4\<CR>")
+  call term_sendkeys(buf, ":3wincmd w\<CR>:setlocal dia=4,3,2,1\<CR>")
+  call VerifyInternal(buf, "Test_diff_anchors_07", " diffopt+=anchor")
+
+  " Intentionally set an invalid anchor with wrong line number. Should fall
+  " back to treat it as if no anchors are used at all.
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=1,10,8,2,1000 | silent! diffupdate\<CR>:")
+  call VerifyScreenDump(buf, "Test_diff_anchors_00", {})
+
+  call StopVimInTerminal(buf)
+endfunc
+
+" Test that scrollbind and topline calculations work correctly, even when diff
+" anchors create adjacent diff blocks which complicates the calculations.
+func Test_diffanchors_scrollbind_topline()
+  CheckScreendump
+
+  " Simple overlapped line anchored to be adjacent to each other
+  call WriteDiffFiles(0,
+      \ ["anchor1", "diff1a", "anchor2"],
+      \ ["anchor1", "diff2a", "anchor2"])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2', {})
+
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=2\<CR>")
+  call term_sendkeys(buf, ":2wincmd w\<CR>:setlocal dia=3\<CR>")
+
+  call VerifyInternal(buf, "Test_diff_anchors_scrollbind_topline_01", " diffopt+=anchor")
+  call term_sendkeys(buf, "\<Esc>\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_02", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_03", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_04", {})
+
+  " Also test no-filler
+  call term_sendkeys(buf, "gg")
+  call VerifyInternal(buf, "Test_diff_anchors_scrollbind_topline_05", " diffopt+=anchor diffopt-=filler")
+  call term_sendkeys(buf, "\<Esc>\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_06", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_07", {})
+
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_diffanchors_scrollbind_topline2()
+  CheckScreendump
+
+  " More-complicated case with 3 files and multiple overlapping diff blocks
+  call WriteDiffFiles3(0,
+      \ ["anchor1"],
+      \ ["diff2a", "diff2b", "diff2c", "diff2d", "anchor2"],
+      \ ["diff3a", "diff3c", "diff3d", "anchor3", "diff3e"])
+  let buf = RunVimInTerminal('-d Xdifile1 Xdifile2 Xdifile3', {})
+
+  call term_sendkeys(buf, ":1wincmd w\<CR>:setlocal dia=1,1,2\<CR>")
+  call term_sendkeys(buf, ":2wincmd w\<CR>:setlocal dia=3,5,6\<CR>")
+  call term_sendkeys(buf, ":3wincmd w\<CR>:setlocal dia=2,4,5\<CR>")
+
+  call VerifyInternal(buf, "Test_diff_anchors_scrollbind_topline_08", " diffopt+=anchor")
+  call term_sendkeys(buf, ":1wincmd w\<CR>")
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_09", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_10", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_11", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_12", {})
+
+  " Also test no-filler
+  call term_sendkeys(buf, ":3wincmd w\<CR>gg")
+  call VerifyInternal(buf, "Test_diff_anchors_scrollbind_topline_13", " diffopt+=anchor diffopt-=filler")
+  call term_sendkeys(buf, "\<Esc>\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_14", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_15", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_16", {})
+  call term_sendkeys(buf, "\<C-E>")
+  call VerifyScreenDump(buf, "Test_diff_anchors_scrollbind_topline_17", {})
+
+  call StopVimInTerminal(buf)
+endfunc
+
+" Test that setting 'diffanchors' will update the diff.
+func Test_diffanchors_option_set_update()
+  set diffanchors='a diffopt=internal,filler,anchor
+
+  " Set up 3 tabs that share some buffers, and set up marks on each of them.
+  " We want to make sure only relevant tabs are updated if buffer-local diff
+  " anchors are updated, but all tabs should refresh if global diff anchors
+  " are updated (see diffanchors_changed() in code).
+
+  " Tab 1. A buffer here will be reused.
+  call setline(1, range(1, 10))
+  3mark a
+  4mark b
+  diffthis
+  new
+  call setline(1, range(21, 25))
+  let buf = bufnr()
+  1mark a
+  2mark b
+  diffthis
+  call assert_equal(2, diff_filler(1))
+  call assert_equal(0, diff_filler(2))
+
+  " Tab 2. "buf" is here but intentionally not participating in diff.
+  tabnew
+  exec 'buf ' .. buf
+  diffoff
+  new
+  call setline(1, range(31, 40))
+  8mark a
+  9mark b
+  diffthis
+  new
+  call setline(1, range(41, 50))
+  5mark a
+  6mark b
+  diffthis
+
+  call assert_equal(3, diff_filler(5))
+  call assert_equal(0, diff_filler(6))
+  call assert_equal(0, diff_filler(7))
+
+  " Update mark a location, and check that the diff has *not* updated. When
+  " updating marks diff's won't automatically update.
+  7mark a
+  call assert_equal(3, diff_filler(5))
+  call assert_equal(0, diff_filler(6))
+  call assert_equal(0, diff_filler(7))
+
+  " Tab 3. "buf" is used here and also in a diff.
+  tabnew
+  call setline(1, range(51, 65))
+  10mark a
+  11mark b
+  diffthis
+  exec 'sbuffer ' .. buf
+  diffthis
+
+  " Change local diff anchor of "buf" to mark b
+  setlocal diffanchors='b
+
+  " Tab 1 should immediately update the diff to use mark b because the buf
+  " local diff anchor has been changed in "buf".
+  1tabnext
+  call assert_equal(0, diff_filler(1))
+  call assert_equal(1, diff_filler(2))
+
+  " Tab 2 should not immediately update because "buf" is not a diff buffer
+  " here.
+  2tabnext
+  call assert_equal(3, diff_filler(5))
+  call assert_equal(0, diff_filler(6))
+  call assert_equal(0, diff_filler(7))
+
+  " Manual diff update would refresh the diff since we previously changed mark
+  " a's location above.
+  diffupdate
+  call assert_equal(0, diff_filler(5))
+  call assert_equal(0, diff_filler(6))
+  call assert_equal(1, diff_filler(7))
+
+  " Go back to tab 1. Reset diff anchor to global value and make sure it uses
+  " mark a again.
+  1tabnext
+  set diffanchors<
+  call assert_equal(2, diff_filler(1))
+  call assert_equal(0, diff_filler(2))
+
+  " Now, change the global diff anchor to mark b. This should affect all tabs
+  " including tab 2 which should update automatically.
+  set diffanchors='b
+  call assert_equal(0, diff_filler(1))
+  call assert_equal(2, diff_filler(2))
+
+  2tabnext
+  call assert_equal(0, diff_filler(5))
+  call assert_equal(3, diff_filler(6))
+  call assert_equal(0, diff_filler(7))
+
+  %bw!
+  set diffopt&
+  set diffanchors&
+endfunc
+
+" Test that using diff anchors with window/buffer-local addresses will work as
+" expected and use the relevant window/buffer instead of curbuf/curwin.
+func Test_diffanchors_buf_win_local_addresses()
+  " Win 1-3 point to buffer 1. Set up different window-specific jump history
+  " Win 2 is the one we activate diff mode on.
+  call setline(1, range(1, 15))
+  norm 2gg
+  norm 3gg
+
+  split
+  norm 4gg
+  norm 5gg
+
+  split
+  norm 11gg
+  norm 12gg
+  call setline(10, 'new text 1') " update the '. mark to line 10
+
+  " Win 4 points to buffer 2
+  botright vert new
+  call setline(1, range(101, 110))
+  norm 8gg
+  norm 9gg
+  call setline(3, 'new text 2') " update the '. mark to line 3
+
+  2wincmd w
+  diffthis
+  4wincmd w
+  diffthis
+
+  " Test buffer-local marks using '. Should be anchored to lines 10 / 3.
+  set diffopt=internal,filler,anchor
+  set diffanchors='.
+  4wincmd w
+  call assert_equal(7, diff_filler(3))
+
+  " Test window-local marks using '' Should be anchored to lines 4 / 8.
+  " Note that windows 1 & 3 point to the buffer being diff'ed but are not used
+  " for diffing themselves and therefore should not be used. Windows 2 & 4
+  " should be used.
+  set diffanchors=''
+  2wincmd w
+  call assert_equal(4, diff_filler(4))
+
+  " Also test "." for the current cursor position, which is also
+  " window-specific. Make sure the cursor position at the longer file doesn't
+  " result in the other file using out of bounds line number.
+  4wincmd w
+  norm G
+  2wincmd w
+  norm G
+  set diffanchors=.
+  diffupdate
+  4wincmd w
+  call assert_equal(5, diff_filler(10))
+
+  %bw!
+  set diffopt&
+  set diffanchors&
+endfunc
+
+" Test diff anchors error handling for anchors that fail to resolve to a line.
+" These are not handled during option parsing because they depend on the
+" specifics of the buffer at diff time.
+func Test_diffanchors_invalid()
+  call setline(1, range(1, 5))
+  new
+  call setline(1, range(11, 20))
+  set diffopt=internal,filler,anchor
+  windo diffthis
+  1wincmd w
+
+  " Line numbers that are out of bounds should be an error
+  set diffanchors=0
+  call assert_fails('diffupdate', 'E16:')
+  set diffanchors=1
+  diffupdate
+  set diffanchors=$
+  diffupdate
+  set diffanchors=$+1
+  diffupdate
+  set diffanchors=$+2
+  call assert_fails('diffupdate', 'E16:')
+
+  " Test that non-existent marks in any one buffer will be detected
+  set diffanchors='a
+  call assert_fails('diffupdate', 'E20:')
+  2mark a
+  call assert_fails('diffupdate', 'E20:')
+
+  set diffanchors=1
+  setlocal diffanchors='a
+  diffupdate
+
+  set diffanchors<
+  windo 2mark a
+  set diffanchors='b
+  call assert_fails('diffupdate', 'E20:')
+  set diffanchors='a
+  diffupdate
+
+  " File marks are ok to use for anchors only if it is in the same file
+  1wincmd w
+  3mark C
+  setlocal diffanchors='C
+  diffupdate
+  set diffanchors='C
+  call assert_fails('diffupdate', 'E20:')
+
+  " Buffer-local marks also can only be used in buffers that have them.
+  set diffanchors=1
+  exec "norm 1ggVj\<Esc>"
+  setlocal diffanchors='<
+  diffupdate
+  set diffanchors='<
+  call assert_fails('diffupdate', 'E20:')
+
+  " Pattern search that failed will be an error too
+  let @/='orig_search_pat'
+  set diffanchors=1/5/
+  diffupdate
+  call assert_equal('orig_search_pat', @/) " also check we don't pollute the search register
+  set diffanchors=1/does_not_exist/
+  call assert_fails('diffupdate', 'E1550:')
+  call assert_equal('orig_search_pat', @/)
+
+  " Hidden buffers are not supported right now
+  hide
+  call assert_fails('diffupdate', 'E1562:')
+
+  %bw!
+  set diffopt&
+  set diffanchors&
+endfunc
+
+" Test diffget/diffput behaviors when using diff anchors which could create
+" adjacent diff blocks.
+func Test_diffget_diffput_diffanchors()
+  set diffanchors=1/anchor/
+  set diffopt=internal,filler,anchor
+
+  call setline(1, ['1', 'anchor1', '4'])
+  diffthis
+  new
+  call setline(1, ['2', '3', 'anchor2', '4', '5'])
+  diffthis
+  wincmd w
+
+  " Test using no-range diffget. It should grab the closest diff block only,
+  " even if there are multiple adjacent blocks.
+  2
+  diffget
+  call assert_equal(['1', 'anchor2', '4'], getline(1, '$'))
+  diffget
+  call assert_equal(['2', '3', 'anchor2', '4'], getline(1, '$'))
+
+  " Test using a range to get/put all the adjacent diff blocks.
+  1,$delete
+  call setline(1, ['anchor1', '4'])
+  0,1 diffget
+  call assert_equal(['2', '3', 'anchor2', '4'], getline(1, '$'))
+
+  1,$delete
+  call setline(1, ['anchor1', '4'])
+  0,$+1 diffget
+  call assert_equal(['2', '3', 'anchor2', '4', '5'], getline(1, '$'))
+
+  1,$delete
+  call setline(1, ['anchor1', '4'])
+  0,1 diffput
+  wincmd w
+  call assert_equal(['anchor1', '4', '5'], getline(1,'$'))
+
+  %bw!
+  set diffopt&
+  set diffanchors&
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

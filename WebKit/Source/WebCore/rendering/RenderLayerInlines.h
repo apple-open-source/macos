@@ -29,7 +29,7 @@
 
 namespace WebCore {
 
-inline bool RenderLayer::canPaintTransparencyWithSetOpacity() const { return isBitmapOnly() && !hasNonOpacityTransparency(); }
+inline bool RenderLayer::canPaintTransparencyWithSetOpacity() const { return isBitmapOnly() && !hasNonOpacityTransparency() && !hasFilter(); }
 inline bool RenderLayer::hasBackdropFilter() const { return renderer().hasBackdropFilter(); }
 inline bool RenderLayer::hasFilter() const { return renderer().hasFilter(); }
 inline bool RenderLayer::hasPerspective() const { return renderer().style().hasPerspective(); }
@@ -49,7 +49,7 @@ inline bool RenderLayer::isTransformed() const
 {
     // If the scroll offset is present, a transform is applied on top of existing
     // transforms from the renderer.
-    return renderer().isTransformed() || m_snapshottedScrollOffsetForAnchorPositioning;
+    return renderer().isTransformed() || m_anchorScrollAdjustment;
 }
 
 inline bool RenderLayer::hasBlendMode() const { return renderer().hasBlendMode(); } // FIXME: Why ask the renderer this given we have m_blendMode?

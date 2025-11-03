@@ -29,6 +29,7 @@
 #include "WebProcessProxy.h"
 #include <WebCore/Site.h>
 #include <pal/SessionID.h>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/RunLoop.h>
@@ -41,9 +42,8 @@ class ProcessThrottlerActivity;
 class WebProcessPool;
 class WebsiteDataStore;
 
-class WebProcessCache final : public CanMakeThreadSafeCheckedPtr<WebProcessCache> {
+class WebProcessCache final : public AbstractRefCountedAndCanMakeWeakPtr<WebProcessCache> {
     WTF_MAKE_TZONE_ALLOCATED(WebProcessCache);
-    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebProcessCache);
 public:
     explicit WebProcessCache(WebProcessPool&);
 
@@ -64,6 +64,9 @@ public:
     void removeProcess(WebProcessProxy&, ShouldShutDownProcess);
     static void setCachedProcessSuspensionDelayForTesting(Seconds);
 
+    void ref() const final;
+    void deref() const final;
+
 private:
     static Seconds cachedProcessLifetime;
     static Seconds clearingDelayAfterApplicationResignsActive;
@@ -79,7 +82,7 @@ private:
         RefPtr<WebProcessProxy> protectedProcess() const { return m_process; }
         void startSuspensionTimer();
 
-#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
         bool isSuspended() const { return !m_suspensionTimer.isActive(); }
 #endif
 
@@ -87,13 +90,13 @@ private:
         explicit CachedProcess(Ref<WebProcessProxy>&&);
 
         void evictionTimerFired();
-#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
         void suspensionTimerFired();
 #endif
 
         RefPtr<WebProcessProxy> m_process;
         RunLoop::Timer m_evictionTimer;
-#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
         RunLoop::Timer m_suspensionTimer;
         RefPtr<ProcessThrottlerActivity> m_backgroundActivity;
 #endif
@@ -105,6 +108,7 @@ private:
 
     unsigned m_capacity { 0 };
 
+    WeakRef<WebProcessPool> m_processPool;
     HashMap<uint64_t, Ref<CachedProcess>> m_pendingAddRequests;
     HashMap<WebCore::Site, Ref<CachedProcess>> m_processesPerSite;
     RunLoop::Timer m_evictionTimer;

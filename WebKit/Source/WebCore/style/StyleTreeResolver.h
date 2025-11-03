@@ -172,7 +172,7 @@ private:
     std::unique_ptr<RenderStyle> generatePositionOption(const PositionTryFallback&, const ResolvedStyle&, const Styleable&, const ResolutionContext&);
     struct PositionOptions;
     void sortPositionOptionsIfNeeded(PositionOptions&, const Styleable&);
-    std::optional<ResolvedStyle> tryChoosePositionOption(const Styleable&, const RenderStyle* existingStyle);
+    std::optional<ResolvedStyle> tryChoosePositionOption(const Styleable&);
 
     void updateForPositionVisibility(RenderStyle&, const Styleable&);
 
@@ -212,12 +212,22 @@ private:
     TreeResolutionState m_treeResolutionState;
     HashMap<Ref<const Element>, std::unique_ptr<RenderStyle>> m_savedBeforeResolutionStylesForInterleaving;
 
+    struct PositionOption {
+        std::unique_ptr<RenderStyle> style;
+        // Index of the option in the position-try-fallbacks list.
+        std::optional<size_t> fallbackIndex;
+    };
+
     struct PositionOptions {
-        std::unique_ptr<RenderStyle> originalStyle;
-        Vector<std::unique_ptr<RenderStyle>> optionStyles { };
+        // Array of option styles. By convention, the original style is at index 0.
+        Vector<PositionOption> optionStyles { };
         size_t index { 0 };
         bool sorted { false };
         bool chosen { false };
+        bool isFirstTry { true };
+
+        const RenderStyle& originalStyle() const;
+        std::unique_ptr<RenderStyle> currentOption() const;
     };
     HashMap<Ref<Element>, PositionOptions> m_positionOptions;
 

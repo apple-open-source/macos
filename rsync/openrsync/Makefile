@@ -94,3 +94,8 @@ regress:
 $(ALLOBJS) $(AFLS): extern.h config.h
 
 blocks.o downloader.o hash.o md4.o: md4.h
+
+# Suppress some warnings on imported code as they're extremely
+# noisy and detract from the warnings we desire to see:
+#
+${ZLIBOBJS}: CFLAGS+=-Wno-deprecated-non-prototype -Wno-strict-prototypes

@@ -850,6 +850,15 @@ extern void pmap_static_allocations_done(void);
 
 #endif /* XNU_MONITOR */
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+/*
+ * Strip a pointer of all metadata bits based on its pmap.
+ * This function will return a pointer that is cleared of any bit that is not part
+ * of the specified VA size. "cleared" here is meant in the canonicalization sense,
+ * replacing these bits with bit 55 value.
+ */
+extern vm_map_address_t pmap_strip_addr(pmap_t pmap, vm_map_address_t ptr);
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 /*
  * Indicates that we are done mutating sensitive state in the system, and that

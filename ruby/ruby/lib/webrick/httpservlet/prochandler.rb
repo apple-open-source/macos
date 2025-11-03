@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # prochandler.rb -- ProcHandler Class
 #
@@ -40,6 +40,7 @@ module WEBrick
       end
 
       alias do_POST do_GET
+      alias do_PUT  do_GET
       # :startdoc:
     end
 

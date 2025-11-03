@@ -438,6 +438,7 @@ it{
         nds_NL{"basso tedesco olandese"}
         ne{"nepalese"}
         new{"newari"}
+        nez{"nez percé"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niue"}

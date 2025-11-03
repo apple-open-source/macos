@@ -168,7 +168,7 @@
 # undef HAVE_LSTAT		// VMS does not have lstat()
 # define mch_stat(n, p)		stat(vms_fixfilename(n), (p))
 #else
-# ifndef MSWIN
+# if !defined(MSWIN) && !defined(PROTO)
 #   define mch_access(n, p)	access((n), (p))
 # endif
 
@@ -360,11 +360,17 @@
  */
 #define VIM_CLEAR(p) \
     do { \
-	if ((p) != NULL) \
-	{ \
-	    vim_free(p); \
-	    (p) = NULL; \
-	} \
+	vim_free(p); \
+	(p) = NULL; \
+    } while (0)
+
+/*
+ * Free a string and set it's pointer to NULL and length to 0
+ */
+#define VIM_CLEAR_STRING(s) \
+    do { \
+	VIM_CLEAR(s.string); \
+	s.length = 0; \
     } while (0)
 
 // Whether a command index indicates a user command.
@@ -481,3 +487,7 @@
 // Iterate over all the items in a hash table
 #define FOR_ALL_HASHTAB_ITEMS(ht, hi, todo) \
     for ((hi) = (ht)->ht_array; (todo) > 0; ++(hi))
+
+#define TUPLE_LEN(t)	    (t->tv_items.ga_len)
+#define TUPLE_ITEM(t, i) \
+	    (((typval_T *)t->tv_items.ga_data) + i)

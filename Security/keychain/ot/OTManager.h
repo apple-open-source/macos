@@ -46,6 +46,7 @@
 #import "keychain/ckks/CKKSViewManager.h"
 #include "keychain/securityd/SecDbItem.h"
 #import <CoreCDP/CDPAccount.h>
+#import "keychain/ot/OTLAContextAdapter.h"
 NS_ASSUME_NONNULL_BEGIN
 
 @class OTContext;
@@ -73,6 +74,7 @@ NS_ASSUME_NONNULL_BEGIN
                  tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
+                  laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                 escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
@@ -253,6 +255,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)invalidateEscrowCache:(OTControlArguments*)arguments
                         reply:(nonnull void (^)(NSError * _Nullable error))reply;
+
+- (void)clearCliqueFromAccount:(OTControlArguments*)arguments
+                   resetReason:(CuttlefishResetReason)resetReason
+                         reply:(void (^)(NSError* _Nullable error))reply;
 @end
 
 NS_ASSUME_NONNULL_END

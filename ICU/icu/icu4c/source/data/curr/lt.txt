@@ -389,7 +389,7 @@ lt{
         }
         FKP{
             "FKP",
-            "Falklando salų svaras",
+            "Folklando Salų svaras",
         }
         FRF{
             "FRF",
@@ -1798,10 +1798,10 @@ lt{
             other{"Fidžio dolerių"}
         }
         FKP{
-            few{"Falklando salų svarai"}
-            many{"Falklando salų svaro"}
-            one{"Falklando salų svaras"}
-            other{"Falklando salų svarų"}
+            few{"Folklando Salų svarai"}
+            many{"Folklando Salų svaro"}
+            one{"Folklando Salų svaras"}
+            other{"Folklando Salų svarų"}
         }
         FRF{
             few{"Prancūzijos frankai"}

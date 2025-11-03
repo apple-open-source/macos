@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
-.\" Copyright (c) 1994-1996, 1998-2005, 2007-2023
+.\" Copyright (c) 1994-1996, 1998-2005, 2007-2025
 .\"	Todd C. Miller <Todd.Miller@sudo.ws>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
@@ -25,7 +25,7 @@
 .nr BA @BAMAN@
 .nr LC @LCMAN@
 .nr PS @PSMAN@
-.Dd January 16, 2023
+.Dd June 7, 2025
 .Dt SUDOERS @mansectform@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -123,6 +123,17 @@ A value of
 .Em false
 will disable error recovery.
 Prior to version 1.9.3, no error recovery was performed.
+.It ignore_perms=bool
+The
+.Em ignore_perms
+argument can be used to disable security checks when loading the
+.Em sudoers
+file.
+If enabled, the
+.Em sudoers
+file will be loaded regardless of the owner or file mode.
+This argument is intended to be used for testing purposes and
+should not be enabled on production systems.
 .It ldap_conf=pathname
 The
 .Em ldap_conf
@@ -179,7 +190,7 @@ when
 requires
 authentication, it validates the invoking user's credentials, not
 the target user's (or
-.Sy @runas_default@ Ns No 's)
+.Sy @runas_default@ Ns No 's )
 credentials.
 This can be changed via
 the
@@ -269,6 +280,14 @@ The
 option can be used to select the type of time stamp record
 .Nm
 will use.
+.Pp
+The
+.Nm tsdump
+utility, included with the sudo source distribution, can be used to
+display the contents of a time stamp file.
+See
+.Xr sudoers_timestamp @mansectform@
+for details of the time stamp file format.
 .Ss Logging
 By default,
 .Nm
@@ -461,14 +480,33 @@ varies based on the operating system
 .Nm sudo
 is running on.
 .Pp
-Other
+Other settings may influence the command environment:
+.Bl -bullet -width 1n
+.It
 .Nm
-options may influence the command environment, such as
+options such as
 .Em always_set_home ,
 .Em secure_path ,
 .Em set_logname ,
+.Em set_home ,
 and
-.Em set_home .
+.Em setenv .
+.It
+Command tags, such as
+.Dv SETENV
+and
+.Dv NOSETENV .
+Note that
+.Dv SETENV
+is implied if the command matched is
+.Sy ALL .
+.It
+.Nm sudo
+options, such as
+.Fl E
+and
+.Fl i .
+.El
 .Pp
 On systems that support PAM where the
 .Sy pam_env
@@ -618,16 +656,16 @@ Resource limits may also be set in the
 .Em sudoers
 file itself, in which case they override those set by the system.
 See the
-.Em rlimit_as,
-.Em rlimit_core,
-.Em rlimit_cpu,
-.Em rlimit_data,
-.Em rlimit_fsize,
-.Em rlimit_locks,
-.Em rlimit_memlock,
-.Em rlimit_nofile,
-.Em rlimit_nproc,
-.Em rlimit_rss,
+.Em rlimit_as ,
+.Em rlimit_core ,
+.Em rlimit_cpu ,
+.Em rlimit_data ,
+.Em rlimit_fsize ,
+.Em rlimit_locks ,
+.Em rlimit_memlock ,
+.Em rlimit_nofile ,
+.Em rlimit_nproc ,
+.Em rlimit_rss ,
 .Em rlimit_stack
 options described below.
 Resource limits in
@@ -741,7 +779,7 @@ Cmnd_Alias ::= NAME
 
 Cmnd_Alias_Spec ::= Cmnd_Alias '=' Cmnd_List
 
-NAME ::= [A-Z]([A-Z][0-9]_)*
+NAME ::= [A\(enZ]([A\(enZ][0\(en9]_)*
 .Ed
 .Pp
 Each
@@ -857,7 +895,7 @@ Group in the same domain: "%:Group Name"
 .It
 Group in any domain: "%:Group Name@FULLY.QUALIFIED.DOMAIN"
 .It
-Group SID: "%:S-1-2-34-5678901234-5678901234-5678901234-567"
+Group SID: "%:S\-1\-2\-34\-5678901234\-5678901234\-5678901234\-567"
 .El
 .Pp
 See
@@ -955,8 +993,8 @@ Also, the host name
 will only match if that is the actual host name, which is usually
 only the case for non-networked systems.
 .Bd -literal
-digest ::= [A-Fa-f0-9]+ |
-           [A-Za-z0-9\e+/=]+
+digest ::= [A\(enFa\(enf0\(en9]+ |
+           [A\(enZa\(enz0\(en9\e+/=]+
 
 Digest_Spec ::= "sha224" ':' digest |
                 "sha256" ':' digest |
@@ -1139,13 +1177,13 @@ format such as openssl, shasum, sha224sum, sha256sum, sha384sum, sha512sum.
 .Pp
 For example, using openssl:
 .Bd -literal
-$ openssl dgst -sha224 /bin/ls
+$ openssl dgst \-sha224 /bin/ls
 SHA224(/bin/ls)= 118187da8364d490b4a7debbf483004e8f3e053ec954309de2c41a25
 .Ed
 .Pp
 It is also possible to use openssl to generate base64 output:
 .Bd -literal
-$ openssl dgst -binary -sha224 /bin/ls | openssl base64
+$ openssl dgst \-binary \-sha224 /bin/ls | openssl base64
 EYGH2oNk1JC0p9679IMATo8+BT7JVDCd4sQaJQ==
 .Ed
 .Pp
@@ -1169,19 +1207,43 @@ Certain configuration options may be changed from their default
 values at run-time via one or more
 .Em Default_Entry
 lines.
-These may affect all users on any host, all users on a specific host, a
-specific user, a specific command, or commands being run as a specific user.
+These may affect all users on any host
+.Pq Sq Defaults ,
+all users on a specific host
+.Pq Sq Defaults@host ,
+a specific user
+.Pq Sq Defaults:user ,
+a specific command
+.Pq Sq Defaults!cmnd ,
+or commands being run as a specific user
+.Pq Sq Defaults>runasuser .
+.Pp
+White space is not permitted between
+.Sq Defaults
+and the
+.Ql @ ,
+.Ql \&: ,
+.Ql \&! ,
+or
+.Ql >
+characters.
+While a comma-separated list may be used in place of a single value after the
+.Ql @ ,
+.Ql \&: ,
+.Ql \&! ,
+or
+.Ql >
+character, using an alias instead of a list is often improve readability.
 Per-command entries may not include command line arguments.
 If you need to specify arguments, define a
 .Em Cmnd_Alias
-and reference
-that instead.
+and reference that instead.
 .Bd -literal
 Default_Type ::= 'Defaults' |
-                 'Defaults' '@' Host_List |
-                 'Defaults' ':' User_List |
-                 'Defaults' '!' Cmnd_List |
-                 'Defaults' '>' Runas_List
+                 'Defaults@' Host_List |
+                 'Defaults:' User_List |
+                 'Defaults!' Cmnd_List |
+                 'Defaults>' Runas_List
 
 Default_Entry ::= Default_Type Parameter_List
 
@@ -1240,14 +1302,16 @@ It is not an error to use the
 operator to remove an element
 that does not exist in a list.
 .Pp
-Defaults entries are parsed in the following order: global, host,
-user, and runas Defaults first, then command defaults.
-If there are multiple Defaults settings of the same type, the last
-matching setting is used.
-The following Defaults settings are parsed before all others since
-they may affect subsequent entries:
+In general Defaults settings are applied in order, later entries
+will override earlier ones.
+However, command-specific Defaults settings are applied later, once
+the command's path is known.
+In addition, the following Defaults settings must be applied before
+all others since they may affect subsequent entries:
 .Em fqdn ,
 .Em group_plugin ,
+.Em ignore_unknown_defaults ,
+.Em match_group_by_gid ,
 .Em runas_default ,
 .Em sudoers_locale .
 .Pp
@@ -1332,7 +1396,7 @@ A fully-specified
 consists of two
 .Em Runas_List Ns s
 (as defined above) separated by a colon
-.Pq Ql :\&
+.Pq Ql \&:
 and enclosed in a set of parentheses.
 The first
 .Em Runas_List
@@ -1391,7 +1455,7 @@ only as
 .Sy operator .
 For example:
 .Bd -literal
-$ sudo -u operator /bin/ls
+$ sudo \-u operator /bin/ls
 .Ed
 .Pp
 It is also possible to override a
@@ -1437,9 +1501,9 @@ will run with the group listed in the target user's password database
 entry.
 The following would all be permitted by the sudoers entry above:
 .Bd -literal
-$ sudo -u operator /bin/ls
-$ sudo -u operator -g operator /bin/ls
-$ sudo -g operator /bin/ls
+$ sudo \-u operator /bin/ls
+$ sudo \-u operator \-g operator /bin/ls
+$ sudo \-g operator /bin/ls
 .Ed
 .Pp
 In the following example, user
@@ -1455,7 +1519,7 @@ In this example only the group will be set, the command still runs as user
 .Sy tcm .
 For example:
 .Bd -literal
-$ sudo -g dialer /usr/bin/cu
+$ sudo \-g dialer /usr/bin/cu
 .Ed
 .Pp
 Multiple users and groups may be present in a
@@ -1588,7 +1652,7 @@ The
 command can be used to list all privileges known to the system.
 For example:
 .Bd -literal
-$ ppriv -l
+$ ppriv \-l
 .Ed
 .Pp
 In addition, there are several
@@ -1632,7 +1696,7 @@ It is also possible to specify a timezone offset from UTC in hours
 and minutes instead of a
 .Ql Z .
 For example,
-.Ql -0500
+.Ql \-0500
 would correspond to Eastern Standard time in the US.
 As an extension, if no
 .Ql Z
@@ -1708,6 +1772,10 @@ user's home directory.
 .Pp
 This setting is only supported by version 1.9.3 or higher.
 .Ss Chroot_Spec
+Support for setting the root directory is deprecated and will be removed
+in a future version of
+.Nm sudo .
+.Pp
 The root directory that the command will be run in can be specified
 using the
 .Dv CHROOT
@@ -1792,7 +1860,7 @@ may run
 .Pa /usr/bin/more
 and
 .Pa /usr/bin/vi
-but shell escapes will be disabled.
+on the host shanty, but shell escapes will be disabled.
 .Bd -literal
 aaron	shanty = NOEXEC: /usr/bin/more, /usr/bin/vi
 .Ed
@@ -1919,10 +1987,10 @@ By default, if the
 .Dv NOPASSWD
 tag is applied to any of a user's entries for the current host,
 the user will be able to run
-.Ql sudo -l
+.Ql sudo \-l
 without a password.
 Additionally, a user may only run
-.Ql sudo -v
+.Ql sudo \-v
 without a password if all of the user's entries for the current
 host have the
 .Dv NOPASSWD
@@ -2160,7 +2228,7 @@ on any host but is not allowed to change
 password.
 This kind of rule is impossible to express safely using wildcards.
 .Bd -literal -offset 4n
-john	ALL = /usr/bin/passwd ^[a-zA-Z0-9_]+$,\e
+john	ALL = /usr/bin/passwd ^[a\-zA\-Z0\-9_]+$,\e
               !/usr/bin/passwd root
 .Ed
 .Pp
@@ -2299,6 +2367,11 @@ will cause
 .Nm sudo
 to include the file
 .Pa /etc/sudoers.xerxes .
+Any path name separator characters
+.Pq Ql /
+present in the host name will be replaced with an underbar
+.Pq Ql _
+during expansion.
 .Pp
 The
 .Em @includedir
@@ -3103,6 +3176,9 @@ The
 flag uses the same underlying mechanism as the
 .Em intercept
 setting.
+Some commands may not work properly when
+.Em log_subcmds
+is enabled, due to the way it intercepts sub-commands.
 See
 .Sx Preventing shell escapes
 for more information on what systems support this option and its limitations.
@@ -3296,6 +3372,9 @@ will behave as if the
 tag has been set, unless overridden by an
 .Dv NOINTERCEPT
 tag.
+Some commands may not work properly when
+.Em intercept
+is enabled, due to the way it intercept sub-commands.
 See the description of
 .Dv INTERCEPT and NOINTERCEPT
 above as well as the
@@ -3389,6 +3468,14 @@ tag has been set for the command and the
 .Em intercept_type
 option is set to
 .Em trace .
+.Pp
+This setting is incompatible with programs that change their root directory via
+.Xr chroot 2 .
+If a program changes its root directory, path names will no longer match
+those seen by the
+.Nm sudo
+parent process and sub-commands will be terminated before they have a chance
+to run.
 This flag is
 .Em on
 by default.
@@ -3542,6 +3629,21 @@ This flag is
 by default.
 .Pp
 This setting is only supported by version 1.8.8 or higher.
+.It pam_silent
+If set, PAM authentication will be performed in silent mode.
+This prevents PAM authentication modules from generating output.
+In some cases, this may suppress important information about why
+authentication failed.
+For example, PAM modules such as
+.Em pam_faillock
+will only display a warning if
+.Em pam_silent
+is disabled.
+This flag is
+.Em on
+by default.
+.Pp
+This setting is only supported by version 1.9.16 or higher.
 .It passprompt_override
 If set, the prompt specified by
 .Em passprompt
@@ -3940,7 +4042,7 @@ if one exists.
 Only available if
 .Nm sudo
 is configured with the
-.Li --with-logincap
+.Li \-\-with-logincap
 option.
 This flag is
 .Em off
@@ -3964,8 +4066,7 @@ by default.
 .It use_pty
 If set, and
 .Nm sudo
-is running in a terminal, the command will be run in a pseudo-terminal
-(even if no I/O logging is being done).
+is running in a terminal, the command will be run in a new pseudo-terminal.
 If the
 .Nm sudo
 process is not attached to a terminal,
@@ -3980,9 +4081,19 @@ user's terminal device even after the main program has finished
 executing.
 By running the command in a separate pseudo-terminal, this attack is
 no longer possible.
+.Pp
+A side effect of running the command in a new pseudo-terminal is
+that input will be passed to the command even if it is non-interactive.
+This means that, for example, keys pressed while a non-interactive
+command is running will be consumed by
+.Nm sudo
+instead of being passed to the shell after the command exits.
+.Pp
 This flag is
-.Em off
-by default.
+.Em on
+by default for
+.Nm sudo
+1.9.14 and above.
 .It user_command_timeouts
 If set, the user may specify a timeout on the command line.
 If the timeout expires before the command has exited, the
@@ -4035,7 +4146,7 @@ by default.
 Before it executes a command,
 .Nm sudo
 will close all open file descriptors other than standard input,
-standard output, and standard error (file descriptors 0-2).
+standard output, and standard error (file descriptors 0\(en2).
 The
 .Em closefrom
 option can be used to specify a different file descriptor at which
@@ -4081,7 +4192,7 @@ it will
 .Dq roll over
 to zero, after which
 .Nm
-will truncate and re-use any existing I/O log path names.
+will truncate and reuse any existing I/O log path names.
 .Pp
 This setting is only supported by version 1.8.7 or higher.
 .It passwd_tries
@@ -4139,9 +4250,9 @@ Set this to 0 to always prompt for a password.
 If set to a value less than 0 the user's time stamp will not expire
 until the system is rebooted.
 This can be used to allow users to create or delete their own time stamps via
-.Ql sudo -v
+.Ql sudo \-v
 and
-.Ql sudo -k
+.Ql sudo \-k
 respectively.
 .It umask
 File mode creation mask to use when running the command.
@@ -4189,6 +4300,17 @@ option.
 This option is only available when sudo is built with AppArmor
 support.
 .\}
+.It cmddenial_message
+It set,
+.Nm sudo
+will display this message when a user is denied access to run the
+specified command, but is listed in the
+.Em sudoers
+file for the host.
+This can be used to provide additional, site-specific information
+to the user when a command is denied by the security policy.
+It does not override the standard warning the user receives when
+a command is denied.
 .It authfail_message
 Message that is displayed after a user fails to authenticate.
 The message may include the
@@ -4345,6 +4467,12 @@ To include a literal
 character, the string
 .Ql %%
 should be used.
+.Pp
+Any path name separator characters
+.Pq Ql /
+present in the user, group or host name will be replaced with an underbar
+.Pq Ql _
+during expansion.
 .It iolog_file
 The path name, relative to
 .Em iolog_dir ,
@@ -4748,7 +4876,7 @@ groups runs
 Only available if
 .Nm sudo
 is configured with the
-.Li --enable-admin-flag
+.Li \-\-enable-admin-flag
 option.
 The default value is
 .Pa ~/.sudo_as_admin_successful .
@@ -4863,6 +4991,13 @@ before the file extension;
 becomes
 .Pa group_plugin64.so .
 .Pp
+On AIX systems, the plugin may be either a shared object
+ending in
+.Ql .so
+or an archive file containing a shared object ending in
+.Ql .a
+with the name of the shared object in parentheses at the end.
+.Pp
 For more information see
 .Sx "GROUP PROVIDER PLUGINS" .
 .It lecture
@@ -4940,16 +5075,41 @@ The event log format.
 Supported log formats are:
 .Bl -tag -width 4n
 .It json
-Logs in JSON format.
+Currently, this is an alias for
+.Em json_pretty .
+In a future version of
+.Nm sudo ,
+.Em json
+will be equivalent to
+.Em json_compact .
 JSON log entries contain the full user details as well as the execution
 environment if the command was allowed.
+.It json_compact
+Log events in
+.Dq compact
+(minified) JSON format.
+Each event is written as a separate JSON object on single line without
+extraneous white space.
 Due to limitations of the protocol, JSON events sent via
 .Em syslog
 may be truncated.
+.It json_pretty
+Log events in
+.Dq pretty
+JSON format.
+When logging to a file, the entire file is treated as a single JSON
+object consisting of multiple events, each event spanning multiple lines.
+When logging via
+.Em syslog ,
+there is no difference between the
+.Em json_pretty
+and
+.Em json_compact
+formats.
 .It sudo
-Traditional sudo-style logs, see
+Log events in traditional sudo-style format, see
 .Sx "EVENT LOGGING"
-for a description of the log file format.
+for details.
 .El
 .Pp
 This setting affects logs sent via
@@ -5066,11 +5226,16 @@ The
 .Em restricted_env_file
 option specifies the fully qualified path to a file containing variables
 to be set in the environment of the program being run.
-Entries in this file should either be of the form
+Entries in this file should be assignments in the form
 .Ql VARIABLE=value
 or
-.Ql export VARIABLE=value .
+.Ql export VARIABLE=value ,
+separated by newline characters.
 The value may optionally be enclosed in single or double quotes.
+Shell-style variable substitution is not supported.
+Empty lines and comments starting with a pound sign
+.Pq Ql #
+are ignored.
 Variables in this file are only added if the variable does not already
 exist in the environment.
 Unlike
@@ -5120,6 +5285,10 @@ that includes a
 .Em Chroot_Spec .
 .Pp
 This setting is only supported by version 1.9.3 or higher.
+.Pp
+Support for setting the root directory is deprecated and will be removed
+in a future version of
+.Nm sudo .
 .It runcwd
 If set,
 .Nm sudo
@@ -5141,17 +5310,32 @@ If set,
 will use this value in place of the user's
 .Ev PATH
 environment variable.
-This option can be used to reset the
-.Ev PATH
-to a known good value that contains directories for system administrator
-commands such as
+There are two basic use cases for
+.Em secure_path :
+.Bl -enum -width 1n
+.It
+To make it possible for
+.Nm sudo
+to find system administrator commands located in directories that
+may not be in the default user path, such as
 .Pa /usr/sbin .
+.It
+To help protect scripts and programs that execute other commands without
+first setting
+.Ev PATH
+to a safe value.
+Otherwise, a user with limited privileges may be able to run arbitrary
+commands by manipulating the
+.Ev PATH
+if the command being run executes other commands without using a
+fully-qualified path name.
+.El
 .Pp
 Users in the group specified by the
 .Em exempt_group
 option are not affected by
 .Em secure_path .
-This option is @secure_path@ by default.
+This option is @secure_path_status@ by default.
 .It syslog
 Syslog facility if syslog is being used for logging (negate to
 disable syslog logging).
@@ -5312,7 +5496,7 @@ single value without double-quotes.
 The list can be replaced, added to, deleted from, or disabled by using the
 .Ql = ,
 .Ql += ,
-.Ql -= ,
+.Ql \-= ,
 and
 .Ql \&!
 operators respectively.
@@ -5338,7 +5522,7 @@ single value without double-quotes.
 The list can be replaced, added to, deleted from, or disabled by using the
 .Ql = ,
 .Ql += ,
-.Ql -= ,
+.Ql \-= ,
 and
 .Ql \&!
 operators respectively.
@@ -5601,7 +5785,7 @@ locale.
 If the user is not allowed to run the command, the reason for the denial
 will follow the user name.
 Possible reasons include:
-.Bl -tag -width 4
+.Bl -tag -width 4n
 .It user NOT in sudoers
 The user is not listed in the
 .Em sudoers
@@ -5635,7 +5819,7 @@ If an error occurs,
 will log a message and, in most cases, send a message to the
 administrator via email.
 Possible errors include:
-.Bl -tag -width 4
+.Bl -tag -width 4n
 .It parse error in @sysconfdir@/sudoers near line N
 .Nm
 encountered an error when parsing the specified file.
@@ -5742,7 +5926,7 @@ file) to the
 line in the
 .Xr sudo.conf @mansectform@
 file.
-.It unable to open @rundir@/ts/username
+.It unable to open @rundir@/ts/user-ID
 .Nm
 was unable to read or create the user's time stamp file.
 This can happen when
@@ -5755,7 +5939,7 @@ is not searchable by group or other.
 The default mode for
 .Pa @rundir@
 is 0711.
-.It unable to write to @rundir@/ts/username
+.It unable to write to @rundir@/ts/user-ID
 .Nm
 was unable to write to the user's time stamp file.
 .It @rundir@/ts is owned by uid X, should be Y
@@ -5937,7 +6121,7 @@ This means that the
 .Ql echo done
 statement is never executed.
 .Bd -literal -offset 4n
-$ sh -s < test.sh
+$ sh \-s < test.sh
 testing
 .Ed
 .Pp
@@ -5996,7 +6180,7 @@ flag or the
 command tag will enable
 .Em log_stdout
 and
-.Em log_stderr.
+.Em log_stderr .
 Careful ordering of rules may be necessary to achieve the results
 that you expect.
 .Ss I/O log format
@@ -6120,7 +6304,7 @@ No post-processing is performed.
 For manual viewing, you may wish to convert carriage return characters
 in the log to line feeds.
 For example:
-.Ql gunzip -c ttyin | tr \&"\er\&" \&"\en\&"
+.Ql gunzip \-c ttyin | tr \&"\er\&" \&"\en\&"
 .It Pa stdin
 The standard input when no terminal is present, or input redirected from
 a pipe or file.
@@ -6199,7 +6383,7 @@ Once the I/O log sequence number reaches
 .Em maxseq ,
 it will be reset to zero and
 .Nm
-will truncate and re-use any existing I/O logs.
+will truncate and reuse any existing I/O logs.
 .Sh FILES
 .Bl -tag -width 24n
 .It Pa @sysconfdir@/sudo.conf
@@ -6286,12 +6470,7 @@ facility in all cases and for commands to be run with
 the target user's home directory as the working directory.
 We don't want to subject the full time staff to the
 .Nm sudo
-lecture and we want to allow them to run commands in a
-.Xr chroot 2
-.Dq sandbox
-via the
-.Fl R
-option.
+lecture.
 User
 .Sy millert
 need not provide a password and we don't want to reset the
@@ -6321,7 +6500,7 @@ privileges.
 # Override built-in defaults
 Defaults		syslog=auth,runcwd=~
 Defaults>root		!set_logname
-Defaults:FULLTIMERS	!lecture,runchroot=*
+Defaults:FULLTIMERS	!lecture
 Defaults:millert	!authenticate
 Defaults@SERVERS	log_year, logfile=@log_dir@/sudo.log
 Defaults!PAGERS		noexec
@@ -6419,7 +6598,7 @@ may only
 .Xr su 1
 to operator.
 .Bd -literal
-pete		HPPA = /usr/bin/passwd [A-Za-z]*, !/usr/bin/passwd *root*
+pete		HPPA = /usr/bin/passwd [A\-Za\-z]*, !/usr/bin/passwd *root*
 
 %opers		ALL = (: ADMINGRP) /usr/sbin/
 .Ed
@@ -6461,7 +6640,7 @@ options to
 may be specified after the user argument.
 As a result, this rule will also allow:
 .Bd -literal -offset 4n
-passwd username --expire
+passwd username \-\-expire
 .Ed
 .Pp
 which may not be desirable.
@@ -6522,7 +6701,7 @@ or
 .Pc
 without giving a password.
 .Bd -literal
-john		ALPHA = /usr/bin/su [!-]*, !/usr/bin/su *root*
+john		ALPHA = /usr/bin/su [!\-]*, !/usr/bin/su *root*
 .Ed
 .Pp
 On the
@@ -6597,7 +6776,7 @@ web pages) or simply
 to www.
 .Bd -literal
 ALL		CDROM = NOPASSWD: /sbin/umount /CDROM,\e
-		/sbin/mount -o nosuid\e,nodev /dev/cd0a /CDROM
+		/sbin/mount \-o nosuid\e,nodev /dev/cd0a /CDROM
 .Ed
 .Pp
 Any user may mount or unmount a CD-ROM on the machines in the CDROM
@@ -6655,8 +6834,8 @@ For example, given the following
 .Em sudoers
 file entry:
 .Bd -literal
-john	ALL = /usr/bin/passwd [a-zA-Z0-9]*, /usr/bin/chsh [a-zA-Z0-9]*,\e
-              /usr/bin/chfn [a-zA-Z0-9]*, !/usr/bin/* root
+john	ALL = /usr/bin/passwd [a\-zA\-Z0\-9]*, /usr/bin/chsh [a\-zA\-Z0\-9]*,\e
+              /usr/bin/chfn [a\-zA\-Z0\-9]*, !/usr/bin/* root
 .Ed
 .Pp
 User
@@ -6772,6 +6951,9 @@ run a new command, allow or deny it based on
 rules, and log the result.
 For example, this can be used to restrict the commands run from
 within a privileged shell or editor.
+However, not all programs operate correctly when
+.Em intercept
+is enabled.
 .Pp
 There are two underlying mechanisms that may be used to implement
 .Em intercept
@@ -6845,6 +7027,23 @@ Functions utilizing the
 system call, such as
 .Xr fexecve 3 ,
 are not currently intercepted.
+Programs that rely on
+.Xr ptrace 2
+themselves, such as debuggers and system call tracers
+.Po
+such as
+.Xr strace 1
+and
+.Xr truss 1
+.Pc
+will be unable to function if
+.Em intercept
+is enabled in
+.Em trace
+mode.
+This same restriction applies to the
+.Em log_subcmds
+sudoers option.
 .Pp
 The
 .Em intercept
@@ -7159,7 +7358,7 @@ If no terminal is present or the
 option is set to
 .Dq ppid ,
 the start time of the parent process is used instead.
-In most cases this will prevent a time stamp record from being re-used
+In most cases this will prevent a time stamp record from being reused
 without the user entering a password when logging out and back in again.
 .Sh DEBUGGING
 Versions 1.8.4 and higher of the
@@ -7264,10 +7463,12 @@ manual.
 .Xr mktemp 3 ,
 .Xr strftime 3 ,
 .Xr sudo.conf @mansectform@ ,
+.Xr sudo_logsrv.proto @mansectform@ ,
 .Xr sudo_plugin @mansectform@ ,
 .Xr sudoers.ldap @mansectform@ ,
 .Xr sudoers_timestamp @mansectform@ ,
 .Xr sudo @mansectsu@ ,
+.Xr sudo_logsrvd @mansectsu@ ,
 .Xr visudo @mansectsu@
 .Sh AUTHORS
 Many people have worked on
@@ -7318,8 +7519,20 @@ option in
 .Em sudoers .
 .Sh BUGS
 If you believe you have found a bug in
-.Nm sudo ,
-you can submit a bug report at https://bugzilla.sudo.ws/
+.Nm ,
+you can either file a bug report in the sudo bug database,
+https://bugzilla.sudo.ws/, or open an issue at
+https://github.com/sudo-project/sudo/issues.
+If you would prefer to use email, messages may be sent to the
+sudo-workers mailing list,
+https://www.sudo.ws/mailman/listinfo/sudo-workers (public)
+or <sudo@sudo.ws> (private).
+.Pp
+Please do not report security vulnerabilities through public GitHub
+issues, Bugzilla or mailing lists.
+Instead, report them via email to <Todd.Miller@sudo.ws>.
+You may encrypt your message with PGP if you would like, using
+the key found at https://www.sudo.ws/dist/PGPKEYS.
 .Sh SUPPORT
 Limited free support is available via the sudo-users mailing list,
 see https://www.sudo.ws/mailman/listinfo/sudo-users to subscribe or

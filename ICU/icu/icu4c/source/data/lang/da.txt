@@ -397,6 +397,7 @@ da{
         nds{"nedertysk"}
         ne{"nepalesisk"}
         new{"newari"}
+        nez{"nez percé"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niueansk"}

@@ -4999,7 +4999,7 @@ IOService::startCandidate( IOService * service )
 				reuseRequired = reuse && service->propertyHasValue(gIOUserServerNameKey, getProperty(gIOUserServerNameKey));
 			}
 			serverDUI = OSDynamicCast(OSData, service->getProperty(kOSBundleDextUniqueIdentifierKey));
-			userServer = IOUserServer::launchUserServer(bundleID, sym, serverTag, reuse, &token, serverDUI);
+			userServer = IOUserServer::launchUserServer(this, bundleID, sym, serverTag, reuse, &token, serverDUI);
 			OSSafeReleaseNULL(sym);
 			OSSafeReleaseNULL(serverTag);
 			OSSafeReleaseNULL(serverName);

@@ -33,8 +33,6 @@
 #include <ipc/ipc_service_port.h>
 #include <security/mac_mach_internal.h>
 
-#define XPC_DOMAIN_PORT 7 /* This value should match what is in <xpc/launch_private.h> */
-
 ZONE_DEFINE_TYPE(ipc_service_port_label_zone, "ipc_service_port_label",
     struct ipc_service_port_label, ZC_ZFREE_CLEARMEM | ZC_NOCACHING);
 
@@ -74,11 +72,11 @@ kdp_ipc_fill_splabel(struct ipc_service_port_label *ispl,
  *
  * Args:
  *   sp_info: service port string name, length, domain information
- *   send_side_filtering: indicates if the messages should be filtered during mach_msg_send
  *   port_label_ptr: used to return the allocated service_port_label
  *
  * Returns:
  *   KERN_SUCCESS
+ *   KERN_FAILURE: sandbox failed to alloc sblabel
  */
 kern_return_t
 ipc_service_port_label_alloc(
@@ -108,19 +106,12 @@ ipc_service_port_label_alloc(
 	sp_label->ispl_domain = sp_info->mspi_domain_type;
 #endif /* CONFIG_SERVICE_PORT_INFO */
 
-	if (sp_info->mspi_domain_type == XPC_DOMAIN_PORT) {
-		sp_label->ispl_bootstrap_port = true;
-	}
-
 	label->iol_service = sp_label;
 	if (sblabel) {
 		/* always filter service ports with a label */
 		label->io_filtered = true;
 	}
-	if (sp_label->ispl_bootstrap_port) {
-		/* bootstrap ports are completely immovable thank you */
-		label->io_state = IO_STATE_IN_SPACE_IMMOVABLE;
-	}
+
 	return KERN_SUCCESS;
 }
 
@@ -136,7 +127,7 @@ ipc_connection_port_label_dealloc(ipc_object_label_t label)
  * Description: Deallocates the service port label
  *
  * Args:
- *   ip_splabel: port's ip_splabel
+ *   label: port's label
  *
  * Returns: None
  *

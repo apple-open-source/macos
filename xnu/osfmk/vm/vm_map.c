@@ -122,6 +122,10 @@
 #include <vm/vm_memory_entry.h>
 #include <vm/vm_sanitize_internal.h>
 #include <vm/vm_reclaim_xnu.h>
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#include <arm64/mte_xnu.h>
+#endif /* HAS_MTE */
 #if DEVELOPMENT || DEBUG
 #include <vm/vm_compressor_info.h>
 #endif /* DEVELOPMENT || DEBUG */
@@ -329,6 +333,13 @@ static kern_return_t    vm_map_copy_overwrite_aligned(
 __options_closed_decl(vm_map_copyin_strategy, uint8_t, {
 	VM_MAP_COPYIN_STRATEGY_INVALID_ARGUMENT,
 	VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER,
+#if HAS_MTE
+	/*
+	 * If we decided to bounce to the kernel buffer due to witnessing an MTE
+	 * object within the region, we must apply extra security policy.
+	 */
+	VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER_DUE_TO_MTE_REGION,
+#endif /* HAS_MTE */
 	VM_MAP_COPYIN_STRATEGY_VIRTUAL_COPY,
 });
 
@@ -346,6 +357,9 @@ static kern_return_t    vm_map_copyout_kernel_buffer(
 	vm_map_copy_t   copy,
 	vm_map_size_t   copy_size,
 	boolean_t       overwrite,
+#if HAS_MTE
+	boolean_t       sec_override,
+#endif
 	boolean_t       consume_on_success);
 
 static void             vm_map_fork_share(
@@ -389,6 +403,9 @@ static kern_return_t    vm_map_copy_overwrite_nested(
 	vm_map_copy_t              copy,
 	boolean_t                  interruptible,
 	pmap_t                     pmap,
+#if HAS_MTE
+	boolean_t                  sec_override,
+#endif
 	boolean_t                  discard_on_success);
 
 static kern_return_t    vm_map_remap_extract(
@@ -492,6 +509,17 @@ pid_t find_largest_process_vm_map_entries(void);
 uint8_t vm_map_entry_info_flags(
 	vm_map_entry_t entry);
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+/*
+ * Generic function to strip an address out of all its metadata bits (PAC, MTE, TBI).
+ */
+vm_map_address_t
+vm_map_strip_addr(vm_map_t map, vm_map_address_t ptr)
+{
+	assert(map && map->pmap);
+	return pmap_strip_addr(map->pmap, ptr);
+}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 #if DEBUG || DEVELOPMENT
 #define panic_on_release_builds(format, ...) \
@@ -589,6 +617,9 @@ vm_map_kernel_flags_check_vmflags(
 
 	/* bits 8-15 */
 	check(vmf_tpro, VM_FLAGS_TPRO);
+#if HAS_MTE
+	check(vmf_mte, VM_FLAGS_MTE);
+#endif /* HAS_MTE */
 	check(vmf_overwrite, VM_FLAGS_OVERWRITE);
 
 	/* bits 16-23 */
@@ -1466,6 +1497,15 @@ __startup_func
 static void
 vm_map_steal_memory(void)
 {
+#if HAS_MTE
+	/*
+	 * Initialize the mteinfo structure here, because mteinfo steals memory
+	 * which shouldn't be in the vm page array.
+	 */
+	if (is_mte_enabled) {
+		mteinfo_init(mte_tag_storage_count);
+	}
+#endif /* HAS_MTE */
 
 	/*
 	 * We need to reserve enough memory to support boostraping VM maps
@@ -2156,6 +2196,14 @@ vm_map_lookup_entry(
 	}
 #endif /* KASAN_TBI */
 
+#if HAS_MTE
+#if DEVELOPMENT || DEBUG
+	/* Addresses getting here must be canonical. The lookup won't work otherwise. */
+	if (address != 0 && map != NULL && vm_memtag_canonicalize(map, address) != address) {
+		mte_report_non_canonical_address((caddr_t)address, map, __func__);
+	}
+#endif /* DEVELOPMENT || DEBUG */
+#endif /* HAS_MTE */
 	result = vm_map_store_lookup_entry( map, address, entry );
 
 	return result;
@@ -2678,6 +2726,11 @@ vm_map_find_space(
 	assert(VM_MAP_PAGE_ALIGNED(new_entry->vme_start, VM_MAP_PAGE_MASK(map)));
 	assert(VM_MAP_PAGE_ALIGNED(new_entry->vme_end, VM_MAP_PAGE_MASK(map)));
 
+#if HAS_MTE
+	if (vmk_flags.vmf_mte) {
+		vm_map_mark_has_sec_access_locked(map);
+	}
+#endif /* HAS_MTE */
 
 	/*
 	 *	Insert the new entry into the list
@@ -2769,6 +2822,7 @@ vm_map_pmap_enter(
 		}
 		type_of_fault = DBG_CACHE_HIT_FAULT;
 		bool page_sleep_needed = false;
+		bool need_retry = false;
 		kr = vm_fault_enter(m, map->pmap,
 		    addr,
 		    PAGE_SIZE, 0,
@@ -2776,7 +2830,7 @@ vm_map_pmap_enter(
 		    VM_PAGE_WIRED(m),
 		    VM_KERN_MEMORY_NONE,                 /* tag - not wiring */
 		    &fault_info,
-		    NULL,                  /* need_retry */
+		    &need_retry,
 		    &type_of_fault,
 		    &object_lock_type, /* Exclusive lock mode. Will remain unchanged.*/
 		    &page_sleep_needed);
@@ -2925,6 +2979,39 @@ vm_map_enter(
 	const bool              resilient_codesign = vmk_flags.vmf_resilient_codesign;
 	const bool              resilient_media = vmk_flags.vmf_resilient_media;
 	const bool              entry_for_tpro = vmk_flags.vmf_tpro;
+#if HAS_MTE
+	/* This flag signifies an 'MTE-aware' code path, but doesn't necessarily indicate
+	 * that we're actually attempting to insert an MTE-enabled object.
+	 */
+	const bool              is_caller_mte_aware = vmk_flags.vmf_mte;
+	/* This flag is disjoint from the flag above, and provides a stronger guarantee:
+	 * the object we've been passed actually has MTE enabled.
+	 */
+	bool                    is_caller_entering_mte_memory = false;
+
+	/* If the object we're provided is MTE enabled, the code path we're on must
+	 * be MTE-aware (signified by `vmk_flags.vmf_mte`).
+	 * We've encountered cases where code paths perform unexpected operations on
+	 * MTE-enabled objects (such as aliasing them elsewhere).
+	 *
+	 * If `is_submap`, we've actually been passed a vm_map_t rather than a vm_object_t,
+	 * and therefore should not attempt to access the WIMG bits.
+	 */
+	if (is_submap) {
+		if (vmk_flags.vmf_mte) {
+			panic("vm_map_enter() received a request to enter MTE memory on a submap, which is unexpected");
+		}
+	} else if (object == VM_OBJECT_NULL) {
+		/* 'Old' semantics: vmf_mte means "please enter MTE memory" */
+		is_caller_entering_mte_memory = is_caller_mte_aware;
+	} else if (vm_object_is_mte_mappable(object)) {
+		if (!is_caller_mte_aware) {
+			panic("vm_map_enter() passed an MTE-enabled object, but the caller didn't specify vmf_mte.");
+		} else {
+			is_caller_entering_mte_memory = true;
+		}
+	}
+#endif /* HAS_MTE */
 	const unsigned int      superpage_size = vmk_flags.vmf_superpage_size;
 	const vm_tag_t          alias = vmk_flags.vm_tag;
 	vm_tag_t                user_alias;
@@ -2951,6 +3038,17 @@ vm_map_enter(
 	}
 
 
+#if HAS_MTE
+	if (is_caller_entering_mte_memory && inheritance == VM_INHERIT_SHARE) {
+		/* we have no space allocated yet, so just report an address of 0 */
+		vm_mte_operation_flags_t mte_operation = VM_MTE_OPERATION_TYPE_INHERIT_SHARE;
+		mte_operation |= vm_kernel_map_is_kernel(map) ? VM_MTE_OPERATION_DEST_KERNEL : VM_MTE_OPERATION_DEST_USER;
+		if (!vm_map_allow_mte_operation(map, 0, size, mte_operation, optional_vm_object_none() /* irrelevant here */)) {
+			vmlp_api_end(VM_MAP_ENTER, KERN_NO_ACCESS);
+			return KERN_NO_ACCESS;
+		}
+	}
+#endif /* HAS_MTE */
 
 	if (superpage_size) {
 		if (object != VM_OBJECT_NULL) {
@@ -3214,6 +3312,54 @@ vm_map_enter(
 	vm_map_lock(map);
 	map_locked = TRUE;
 
+#if HAS_MTE
+	/*
+	 * If we're in an MTE disabled map and we're trying to enter *our own*
+	 * MTE memory (rather than MTE memory that we're aliasing from some other
+	 *  actor on the system), we must deny the request since it's conceptually
+	 * invalid for MTE-disabled actors to map owned MTE-enabled memory.
+	 */
+	if (is_caller_entering_mte_memory) {
+		task_t task = map->owning_task;
+		/*
+		 * !task means either:
+		 * 1. This map has been terminated, in which case the result doesn't matter.
+		 * 2. This map is a submap.
+		 * 3. This map is not a submap, but doesn't correspond to a task (e.g. the
+		 * guest map allocated in hv_space).
+		 * 4. We're in one of our unit tests that constructs maps without attaching them
+		 * to a task.
+		 * Allowing the operation to proceed is useful for #4, and is benign for
+		 * the others.
+		 */
+		bool is_map_mte_enabled = task && task_has_sec(task);
+		if (!task && !vm_kernel_map_is_kernel(map)) {
+			/* We're not attached to a task, allow entering */
+			goto proceed_with_enter_mte_memory_request;
+		}
+		if (!is_map_mte_enabled) {
+			if (object == VM_OBJECT_NULL) {
+				/*
+				 * If we're not entering an object, there's no way we're aliasing
+				 * another actor's MTE memory and therefore we must reject this mapping
+				 */
+				goto fail_enter_mte_memory_request;
+			} else {
+				/* Don't allow !MTE tasks to enter their own MTE memory */
+				bool is_memory_owned_by_map = (object->vmo_provenance == map->serial_id);
+				if (is_memory_owned_by_map) {
+					goto fail_enter_mte_memory_request;
+				}
+			}
+		}
+		/* All checks passed */
+		goto proceed_with_enter_mte_memory_request;
+fail_enter_mte_memory_request:
+		vm_map_unlock(map);
+		return KERN_INVALID_ARGUMENT;
+	}
+proceed_with_enter_mte_memory_request:
+#endif /* HAS_MTE */
 
 	if (anywhere) {
 		result = vm_map_locate_space_anywhere(map, size, mask, vmk_flags,
@@ -3259,6 +3405,9 @@ vm_map_enter(
 			    entry->max_protection != max_protection ||
 			    entry->inheritance != inheritance ||
 			    entry->iokit_acct != iokit_acct ||
+#if HAS_MTE
+			    entry->vme_is_tagged != is_caller_entering_mte_memory ||
+#endif
 			    VME_ALIAS(entry) != alias) {
 				/* not the same mapping ! */
 				RETURN(KERN_NO_SPACE);
@@ -3329,6 +3478,9 @@ vm_map_enter(
 	if (purgable ||
 	    entry_for_jit ||
 	    entry_for_tpro ||
+#if HAS_MTE
+	    is_caller_entering_mte_memory ||
+#endif /* HAS_MTE */
 	    vm_memory_malloc_no_cow(user_alias)) {
 		if (superpage_size) {
 			/*
@@ -3350,6 +3502,9 @@ vm_map_enter(
 			    !purgable &&
 			    !entry_for_jit &&
 			    !entry_for_tpro &&
+#if HAS_MTE
+			    !is_caller_entering_mte_memory &&
+#endif
 			    vm_memory_malloc_no_cow(user_alias)) {
 				object->copy_strategy = MEMORY_OBJECT_COPY_DELAY_FORK;
 				VM_OBJECT_SET_TRUE_SHARE(object, TRUE);
@@ -3357,6 +3512,13 @@ vm_map_enter(
 			if (entry_for_jit) {
 				object->vo_inherit_copy_none = true;
 			}
+#if HAS_MTE
+			if (is_caller_entering_mte_memory) {
+				object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
+				needs_copy = false;
+				object->wimg_bits = VM_WIMG_MTE;
+			}
+#endif /* HAS_MTE */
 			if (purgable) {
 				task_t owner;
 				VM_OBJECT_SET_PURGABLE(object, VM_PURGABLE_NONVOLATILE);
@@ -3400,6 +3562,9 @@ vm_map_enter(
 	    (VME_ALIAS(entry) == alias)) &&
 	    (entry->no_cache == no_cache) &&
 	    (entry->vme_permanent == permanent) &&
+#if HAS_MTE
+	    (entry->vme_is_tagged == is_caller_entering_mte_memory) &&
+#endif
 	    /* no coalescing for immutable executable mappings */
 	    !((entry->protection & VM_PROT_EXECUTE) &&
 	    entry->vme_permanent) &&
@@ -3503,6 +3668,13 @@ vm_map_enter(
 			    cur_protection, max_protection,
 			    (entry_for_jit && !VM_MAP_POLICY_ALLOW_JIT_INHERIT(map) ?
 			    VM_INHERIT_NONE : inheritance));
+#if HAS_MTE
+			if (object == kernel_object_tagged) {
+				assert(new_entry->vme_is_tagged);
+			} else if (object == kernel_object_default) {
+				assert(!new_entry->vme_is_tagged);
+			}
+#endif
 
 			assert(!is_kernel_object(object) || (VM_KERN_MEMORY_NONE != alias));
 
@@ -3669,6 +3841,11 @@ vm_map_enter(
 	}
 
 	new_mapping_established = TRUE;
+#if HAS_MTE
+	if (vmk_flags.vmf_mte) {
+		vm_map_mark_has_sec_access_locked(map);
+	}
+#endif /* HAS_MTE*/
 
 
 BailOut:
@@ -4315,6 +4492,11 @@ vm_map_enter_mem_object(
 			    VM_FLAGS_OVERWRITE |
 			    VM_FLAGS_RETURN_4K_DATA_ADDR |
 			    VM_FLAGS_RETURN_DATA_ADDR;
+#if HAS_MTE
+			if (vmk_flags.vmf_mte) {
+				allowed_flags |= VM_FLAGS_MTE;
+			}
+#endif /* HAS_MTE */
 
 			if (!vm_map_kernel_flags_check_vmflags(vmk_flags, allowed_flags)) {
 				named_entry_unlock(named_entry);
@@ -4428,6 +4610,11 @@ vm_map_enter_mem_object(
 				} else {
 					copy_object = VME_OBJECT(copy_entry);
 				}
+
+				if (copy_object) {
+					do_copy = copy || copy_entry->needs_copy;
+				}
+
 				copy_offset = VME_OFFSET(copy_entry);
 				copy_size = (copy_entry->vme_end -
 				    copy_entry->vme_start);
@@ -4489,6 +4676,7 @@ vm_map_enter_mem_object(
 							    prot);
 						}
 						copy_entry->needs_copy = FALSE;
+						do_copy = FALSE;
 						copy_entry->is_shared = TRUE;
 						copy_object = VME_OBJECT(copy_entry);
 						copy_offset = VME_OFFSET(copy_entry);
@@ -4643,6 +4831,10 @@ vm_map_enter_mem_object(
 				}
 #endif /* XNU_TARGET_OS_OSX */
 
+				/*
+				 * vm_object_copy_strategically() could set do_copy to FALSE, so let's use
+				 * this info while deciding "copy" in vm_map_enter().
+				 */
 				kr = vm_map_enter(target_map,
 				    &copy_addr,
 				    copy_size,
@@ -4650,9 +4842,7 @@ vm_map_enter_mem_object(
 				    vmk_remap_flags,
 				    copy_object,
 				    copy_offset,
-				    ((copy_object == NULL)
-				    ? FALSE
-				    : (copy || copy_entry->needs_copy)),
+				    do_copy,
 				    cur_protection,
 				    max_protection,
 				    inheritance);
@@ -4721,6 +4911,13 @@ vm_map_enter_mem_object(
 			wimg_mode = object->wimg_bits;
 			vm_prot_to_wimg(access, &wimg_mode);
 			if (object->wimg_bits != wimg_mode) {
+#if HAS_MTE
+				if (vm_object_is_mte_mappable(object)) {
+					vm_object_unlock(object);
+					result = KERN_INVALID_ARGUMENT;
+					goto out;
+				}
+#endif /* HAS_MTE */
 				vm_object_change_wimg_mode(object, wimg_mode);
 			}
 
@@ -5771,6 +5968,9 @@ vm_map_protect_sanitize(
 	vm_map_size_t           size;
 	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	kr = vm_sanitize_prot(new_prot_u, VM_SANITIZE_CALLER_VM_MAP_PROTECT,
 	    map, VM_PROT_COPY, new_prot);
@@ -6309,6 +6509,9 @@ vm_map_inherit_sanitize(
 
 	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	kr = vm_sanitize_addr_end(start_u, end_u, VM_SANITIZE_CALLER_VM_MAP_INHERIT,
 	    map, flags, start, end, &size);
@@ -6378,6 +6581,20 @@ vm_map_inherit(
 				return KERN_INVALID_ARGUMENT;
 			}
 		}
+#if HAS_MTE
+		if (new_inheritance == VM_INHERIT_SHARE) {
+			if (!entry->is_sub_map && VME_OBJECT(entry) && vm_object_is_mte_mappable(VME_OBJECT(entry))) {
+				vm_size_t size = entry->vme_end - entry->vme_start;
+				vm_mte_operation_flags_t mte_operation = VM_MTE_OPERATION_TYPE_INHERIT_SHARE;
+				mte_operation |= vm_kernel_map_is_kernel(map) ? VM_MTE_OPERATION_DEST_KERNEL : VM_MTE_OPERATION_DEST_USER;
+				if (!vm_map_allow_mte_operation(map, entry->vme_start, size, mte_operation, optional_vm_object_none() /* irrelevant here */)) {
+					vm_map_unlock(map);
+					vmlp_api_end(VM_MAP_INHERIT, KERN_NO_ACCESS);
+					return KERN_NO_ACCESS;
+				}
+			}
+		}
+#endif /* HAS_MTE */
 
 		entry = entry->vme_next;
 	}
@@ -7317,6 +7534,9 @@ vm_map_wire_sanitize(
 
 	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	kr = vm_sanitize_addr_end(start_u, end_u, vm_sanitize_caller, map,
 	    flags, start, end, size);
@@ -7803,6 +8023,9 @@ vm_map_unwire_sanitize(
 {
 	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	return vm_sanitize_addr_end(start_u, end_u, vm_sanitize_caller, map,
 	           flags, start, end, size);
@@ -7996,6 +8219,18 @@ virt_memory_guard_ast(
 
 	behavior = task->task_exc_guard;
 
+#if HAS_MTE
+	/*
+	 * Defer fixing rdar://150503373 (MTE Exceptions should not overload VM_GUARD exceptions and instead have their own)
+	 * at a quieter time. For now, simply call into the code that would handle that guard from within the
+	 * VM AST handling code. VM 3.0 Security Policy violations are still handled as regular virtual memory guards, whereby
+	 * MTE fault guards get routed to the MTE handler.
+	 */
+	if (vm_guard_is_mte_fault(EXC_GUARD_DECODE_GUARD_FLAVOR(code))) {
+		mte_guard_ast(thread, code, subcode);
+		return;
+	}
+#endif /* HAS_MTE */
 
 	/* Is delivery enabled */
 	if ((behavior & TASK_EXC_GUARD_VM_DELIVER) == 0) {
@@ -8089,6 +8324,18 @@ vm_map_guard_exception_internal(
  *     or if there is a gap in the mapping when a user address space
  *     was requested. We report the address of the first gap found.
  */
+#if HAS_MTE
+/*     `reason` is kGUARD_EXC_SEC_COPY_DENIED when we are trying to
+ *     share > 32K bytes of tagged memory via `vm_map_copyin`.
+ *     We report the tagged address.
+ *
+ *     `reason` is kGUARD_EXC_SEC_SHARING_DENIED when a task is trying to
+ *     share tagged memory to itself via `vm_map_remap` or `mach_make_memory_entry`.
+ *     We report the source address.
+ *
+ *     Both exceptions above are always fatal.
+ */
+#endif /* HAS_MTE */
 
 void
 vm_map_guard_exception(
@@ -8100,10 +8347,237 @@ vm_map_guard_exception(
 	if (vm_map_guard_exception_internal(address, reason, &code, &subcode)) {
 		task_t task = current_task();
 		bool fatal = task->task_exc_guard & TASK_EXC_GUARD_VM_FATAL;
+#if HAS_MTE
+		if (vm_guard_is_mte_policy(EXC_GUARD_DECODE_GUARD_FLAVOR(code))) {
+			fatal = true;
+		}
+#endif /* HAS_MTE */
 		thread_guard_violation(current_thread(), code, subcode, fatal);
 	}
 }
 
+#if HAS_MTE
+__assert_only static bool
+exactly_one_bit_set(uint32_t val)
+{
+	return __builtin_popcount(val) == 1;
+}
+
+/*
+ * Gates vm_map_entry_t copy operations (copy and shares) of MTE-tagged memory
+ * according to security policy. Depending on the appropriate action to be
+ * applied, this function will either throw a guard exception, panic, or return
+ * a boolean value indicating whether the operation should be permitted.
+ *
+ * `maybe_source_vm_object` must be provided in the `VM_MTE_OPERATION_TYPE_COPY` case.
+ */
+bool
+vm_map_allow_mte_operation(vm_map_t source_map, vm_map_offset_t addr, vm_size_t size, vm_mte_operation_flags_t flags,
+    optional_vm_object_t maybe_source_vm_object)
+{
+	/* Basic policy checks */
+	assert(exactly_one_bit_set(flags & VM_MTE_OPERATION_TYPE_MASK));
+	bool source_is_kernel = vm_kernel_map_is_kernel(source_map);
+	if (flags & VM_MTE_OPERATION_FORK) {
+		assert(!source_is_kernel && (flags & VM_MTE_OPERATION_DEST_USER));
+	}
+
+	/*
+	 * Allow creating UPLs out of tagged memory for IOMDs to work.
+	 */
+	if (flags & VM_MTE_OPERATION_TYPE_CREATE_UPL) {
+		return true;
+	}
+
+	/*
+	 * All operations besides CREATE_UPL require information on the destination
+	 * to be able to determine the policy. The destination can either be a user
+	 * map, a kernel map, or unknown (e.g. a memory entry that can be sent
+	 * to any destination map via IPC).
+	 */
+	assert(exactly_one_bit_set(flags & VM_MTE_OPERATION_DEST_MASK));
+
+	/*
+	 * Currently, we never allow you to set VM_INHERIT_SHARE on an MTE entry,
+	 * except in specific cases along the corpse-fork path which don't call this
+	 * function.
+	 */
+	if (flags & VM_MTE_OPERATION_TYPE_INHERIT_SHARE) {
+		/*
+		 * ... unless we're creating a memory entry. In this case, the VM_INHERIT
+		 * value provided is unimportant, since it doesn't matter until the
+		 * memory entry is mapped, where it will be overridden anyway by the
+		 * inheritance value passed to vm_map_enter.
+		 */
+		if (flags & VM_MTE_OPERATION_DEST_UNKNOWN) {
+			return true;
+		}
+		goto prohibit_mte_operation;
+	}
+
+	/*
+	 * Copy and share operations that are internal to XNU (i.e. the vm_map_copy_t
+	 * gets discarded instead of inserted into a map or memory entry) are
+	 * permitted to avoid breaking unrelated APIs.
+	 */
+	if (flags & VM_MTE_OPERATION_DEST_INTERNAL) {
+		return true;
+	}
+
+	/* Share cases: */
+	if (flags & VM_MTE_OPERATION_TYPE_SHARE) {
+		/*
+		 * Violations of kernel memory sharing policy are enforced by SPTM for
+		 * PMAP_MAPPING_TYPE_RESTRICTED memory, not by this function.
+		 */
+		if (source_is_kernel) {
+			return true;
+		}
+
+		/*
+		 * fork() is allowed to share tagged memory, as this behavior is required
+		 * along the corpse fork path. It is not allowed in the normal case,
+		 * which we enforce by preventing setting VM_INHERIT_SHARE on entries
+		 * pointing to tagged VM objects.
+		 */
+		if (flags & VM_MTE_OPERATION_FORK) {
+			return true;
+		}
+
+		/*
+		 * In userspace, share operations are allowed if we hold the task port
+		 * of the destination process. We rely on the IPC layer to enforce any
+		 * security policies related to obtaining the task port of other
+		 * processes.
+		 *
+		 * Note that this includes the case of you holding your own task port,
+		 * so it is totally legal to vm_remap your own tagged memory to share
+		 * with yourself.
+		 */
+		if (flags & VM_MTE_OPERATION_DEST_USER) {
+			return true;
+		}
+
+		if (flags & VM_MTE_OPERATION_IOKIT) {
+			/*
+			 * Allow IOKit to create memory entries out of tagged user memory as
+			 * this is used by some flavors of IOMemoryDescriptor.
+			 */
+			if (flags & VM_MTE_OPERATION_DEST_UNKNOWN) {
+				return true;
+			}
+
+			/*
+			 * This is currently unreachable. No paths currently pass
+			 * vmkf_is_iokit to any calls besides make_memory_entry. If you
+			 * want to add new policy here, you need to plumb through that
+			 * flag first.
+			 */
+			panic("unreachable");
+		}
+
+		/*
+		 * All other sharing of tagged userspace memory is prohibited.
+		 */
+		goto prohibit_mte_operation;
+	}
+
+	/* Copy cases: */
+	if (flags & VM_MTE_OPERATION_TYPE_COPY) {
+		/*
+		 * Copying MTE memory is always allowed, since our VM MTE sharing policies
+		 * v3 ensures that alias mappings of MTE memory into new maps always
+		 * results in an untagged mapping, which allows convenient sharing for
+		 * minimal security cost.
+		 *
+		 * Note that in the code we still have carveouts for code paths that were
+		 * specially allowed here, before we opened the floodgates (for example,
+		 *  VM_MTE_OPERATION_FORK still exists and was previously special-cased
+		 * here to allow CoW of tagged memory).
+		 *
+		 * Note that it's the caller's responsibility to ensure other MTE
+		 * invariants are upheld: for example, if we allowed creating virtual
+		 * copies of large MTE objects, we'd have to do something extra to ensure
+		 * that local callers used a validly-tagged MTE buffer to create the copy.
+		 * For now, we mandate that local MTE copyin takes the byte-by-byte copy
+		 * path, sidestepping this issue for that case.
+		 *
+		 * To validate our expectation that we'll always hit the byte-by-byte
+		 * copy path, ensure we never try to create a local MTE copy along this
+		 * path (except for certain operations which we've specifically decided
+		 * are allowed to do this for now, such as vm_map_remap_extract).
+		 *
+		 * It's the caller's responsibility to provide this object on relevant
+		 * code paths. In an attempt to help catch programmer error, panic if
+		 * this is not provided.
+		 * As far as I can tell, this panic is 'safe' in the sense that
+		 * we shouldn't hit it due to incidental VM behavior: since MTE VM objects
+		 * are always eagerly allocated, if we're on a code path where we're copying
+		 * an MTE VM entry there should always be a corresponding VM object.
+		 */
+		vm_object_t source_vm_object = OPTIONAL_EXPECT(maybe_source_vm_object, "Programming error? VM_MTE_OPERATION_TYPE_COPY but no VM object was provided");
+
+		if (
+			/* Is this a local copy? */
+			source_vm_object->vmo_provenance == source_map->serial_id &&
+			/* Is this an MTE object? */
+			vm_object_is_mte_mappable(source_vm_object) &&
+			/*
+			 * vm_map_fork_copy() reads entries directly off the VM map,
+			 * so it definitely won't be providing correctly tagged inputs.
+			 * Don't restrict this case.
+			 */
+			!(flags & VM_MTE_OPERATION_FORK) &&
+			/*
+			 * vm_map_remap_extract() is currently allowed to hit this path
+			 * with local MTE copies, don't restrict it.
+			 */
+			!(flags & VM_MTE_OPERATION_REMAP_EXTRACT) &&
+			/*
+			 * mach_make_memory_entry() is allowed to hit this with local MTE copies.
+			 */
+			!(flags & VM_MTE_OPERATION_MAKE_MEMORY_ENTRY)
+			) {
+			panic("We expect to never hit this path with an MTE-enabled object");
+		}
+		return true;
+	}
+
+	/* should be unreachable */
+	panic("vm_map_allow_mte_operation: unimplemented operation type %u", flags & VM_MTE_OPERATION_TYPE_MASK);
+
+
+prohibit_mte_operation:;
+	/*
+	 * Handle error cases.
+	 */
+	char *op_name = (flags & VM_MTE_OPERATION_TYPE_COPY ? "copy" :
+	    (flags & VM_MTE_OPERATION_TYPE_SHARE ? "share" :
+	    (flags & VM_MTE_OPERATION_TYPE_INHERIT_SHARE ? "inherit_share" :
+	    (flags & VM_MTE_OPERATION_TYPE_CREATE_UPL ? "create_upl" : "unknown"))));
+	if (source_is_kernel) {
+		panic("illegal %s operation on tagged kernel memory: addr=%llu, size=%lu, flags=%#x",
+		    op_name, addr, size, flags);
+	}
+	if (flags & VM_MTE_OPERATION_IOKIT) {
+		/* IOKit will handle its own errors */
+		return false;
+	}
+	if (current_task() == kernel_task) {
+		panic("kernel performing illegal %s operation on tagged user memory: addr=%llu, size=%lu, flags=%#x",
+		    op_name, addr, size, flags);
+	}
+	bool is_share = (flags & VM_MTE_OPERATION_TYPE_SHARE) || (flags & VM_MTE_OPERATION_TYPE_INHERIT_SHARE);
+	vm_map_guard_exception(addr, is_share ? kGUARD_EXC_SEC_SHARING_DENIED : kGUARD_EXC_SEC_COPY_DENIED);
+	/*
+	 * When vm_sec is enforcing, we throw a fatal guard exception and cause the
+	 * caller to return early. When sec_bypass is enabled, we throw a non-fatal
+	 * guard exception but allow the caller to perform the operation and
+	 * continue running. This results in a simulated crash.
+	 */
+	return false;
+}
+#endif /* HAS_MTE */
 
 static kern_return_t
 vm_map_delete_submap_recurse(
@@ -9426,6 +9900,14 @@ vm_map_entry_is_overwritable(
 		/* remember not to assume every entry has a VM object... */
 	}
 
+#if HAS_MTE
+	/* Do not allow overwriting of MTE objects */
+	if (!entry->is_sub_map &&
+	    VME_OBJECT(entry) &&
+	    vm_object_is_mte_mappable(VME_OBJECT(entry))) {
+		return FALSE;
+	}
+#endif /* HAS_MTE */
 
 	return TRUE;
 }
@@ -9664,6 +10146,9 @@ vm_map_copy_overwrite_nested(
 	vm_map_copy_t           copy,
 	boolean_t               interruptible,
 	pmap_t                  pmap,
+#if HAS_MTE
+	boolean_t               sec_override,
+#endif
 	boolean_t               discard_on_success)
 {
 	vm_map_offset_t         dst_end;
@@ -9690,6 +10175,9 @@ vm_map_copy_overwrite_nested(
 		kr = vm_map_copyout_kernel_buffer(
 			dst_map, &dst_addr,
 			copy, copy->size, TRUE,
+#if HAS_MTE
+			sec_override,
+#endif
 			discard_on_success);
 		vmlp_api_end(VM_MAP_COPY_OVERWRITE_NESTED, kr);
 		return kr;
@@ -10079,6 +10567,9 @@ start_overwrite:
 						copy,
 						interruptible,
 						sub_map->pmap,
+#if HAS_MTE
+						FALSE,
+#endif
 						TRUE);
 				} else if (pmap != NULL) {
 					kr = vm_map_copy_overwrite_nested(
@@ -10086,6 +10577,9 @@ start_overwrite:
 						sub_start,
 						copy,
 						interruptible, pmap,
+#if HAS_MTE
+						FALSE,
+#endif
 						TRUE);
 				} else {
 					kr = vm_map_copy_overwrite_nested(
@@ -10094,6 +10588,9 @@ start_overwrite:
 						copy,
 						interruptible,
 						dst_map->pmap,
+#if HAS_MTE
+						FALSE,
+#endif
 						TRUE);
 				}
 
@@ -10336,6 +10833,9 @@ vm_map_copy_overwrite(
 	vm_map_offset_ut        dst_addr_u,
 	vm_map_copy_t           copy,
 	vm_map_size_ut          copy_size_u,
+#if HAS_MTE
+	boolean_t               sec_override,
+#endif
 	boolean_t               interruptible)
 {
 	vm_map_offset_t dst_addr, dst_end;
@@ -10402,6 +10902,9 @@ blunt_copy:
 		    copy,
 		    interruptible,
 		    (pmap_t) NULL,
+#if HAS_MTE
+		    sec_override,
+#endif
 		    TRUE);
 		if (kr) {
 			ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_COPYOVERWRITE_FULL_NESTED_ERROR), kr /* arg */);
@@ -10535,6 +11038,9 @@ blunt_copy:
 		    head_copy,
 		    interruptible,
 		    (pmap_t) NULL,
+#if HAS_MTE
+		    sec_override,
+#endif
 		    FALSE);
 		if (kr != KERN_SUCCESS) {
 			ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_COPYOVERWRITE_PARTIAL_HEAD_NESTED_ERROR), kr /* arg */);
@@ -10593,6 +11099,9 @@ blunt_copy:
 	    copy,
 	    interruptible,
 	    (pmap_t) NULL,
+#if HAS_MTE
+	    sec_override,
+#endif
 	    FALSE);
 	if (kr != KERN_SUCCESS) {
 		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_COPYOVERWRITE_PARTIAL_NESTED_ERROR), kr /* arg */);
@@ -10605,6 +11114,9 @@ blunt_copy:
 		    tail_copy,
 		    interruptible,
 		    (pmap_t) NULL,
+#if HAS_MTE
+		    sec_override,
+#endif
 		    FALSE);
 		if (kr) {
 			ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_COPYOVERWRITE_PARTIAL_TAIL_NESTED_ERROR), kr /* arg */);
@@ -11441,8 +11953,15 @@ vm_map_copyin_kernel_buffer(
 	void *kdata;
 
 	if (len > msg_ool_size_small) {
+#if HAS_MTE
+		/* Large MTE copyins are allowed */
+		if (strategy != VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER_DUE_TO_MTE_REGION) {
+			return KERN_INVALID_ARGUMENT;
+		}
+#else /* HAS_MTE */
 #pragma unused(strategy)
 		return KERN_INVALID_ARGUMENT;
+#endif /* HAS_MTE */
 	}
 
 	kdata = kalloc_data(len, Z_WAITOK);
@@ -11459,6 +11978,9 @@ vm_map_copyin_kernel_buffer(
 	copy->cpy_kdata = kdata;
 	copy->size = len;
 	copy->offset = 0;
+#if HAS_MTE
+	copy->cpy_should_apply_mte_security_policy = (strategy == VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER_DUE_TO_MTE_REGION);
+#endif /* HAS_MTE */
 
 	if (src_destroy) {
 		vmr_flags_t flags = VM_MAP_REMOVE_INTERRUPTIBLE;
@@ -11500,6 +12022,9 @@ vm_map_copyout_kernel_buffer(
 	vm_map_copy_t           copy,
 	vm_map_size_t           copy_size,
 	boolean_t               overwrite,
+#if HAS_MTE
+	boolean_t               sec_override,
+#endif
 	boolean_t               consume_on_success)
 {
 	kern_return_t kr = KERN_SUCCESS;
@@ -11512,7 +12037,14 @@ vm_map_copyout_kernel_buffer(
 	 */
 	bool is_corrupt_vm_map_copy_detected = copy->offset != 0;
 	if (copy_size > msg_ool_size_small) {
+#if HAS_MTE
+		/* Large MTE buffers are allowed */
+		if (!copy->cpy_should_apply_mte_security_policy) {
+#endif /* HAS_MTE */
 		is_corrupt_vm_map_copy_detected = true;
+#if HAS_MTE
+	}
+#endif /* HAS_MTE */
 	}
 	if (is_corrupt_vm_map_copy_detected) {
 		panic("Invalid vm_map_copy_t sz:%lld, ofst:%lld",
@@ -11574,7 +12106,11 @@ vm_map_copyout_kernel_buffer(
 		 * of the copy.
 		 */
 		vm_map_reference(map);
+#if HAS_MTE
+		switch_ctx = vm_map_switch_with_sec_override(map, sec_override);
+#else
 		switch_ctx = vm_map_switch_to(map);
+#endif
 
 		assert((vm_size_t)copy_size == copy_size);
 		if (copyout(copy->cpy_kdata, *addr, (vm_size_t)copy_size)) {
@@ -11799,6 +12335,9 @@ vm_map_copyout_internal(
 	if (copy->type == VM_MAP_COPY_KERNEL_BUFFER) {
 		kr = vm_map_copyout_kernel_buffer(dst_map, dst_addr,
 		    copy, copy_size, FALSE,
+#if HAS_MTE
+		    FALSE,
+#endif
 		    consume_on_success);
 		if (kr) {
 			ktriage_record(thread_tid(current_thread()),
@@ -11810,6 +12349,24 @@ vm_map_copyout_internal(
 		return kr;
 	}
 
+#if HAS_MTE
+	if (inheritance == VM_INHERIT_SHARE) {
+		for (entry = vm_map_copy_first_entry(copy);
+		    entry != vm_map_copy_to_entry(copy);
+		    entry = entry->vme_next) {
+			if (!entry->is_sub_map && VME_OBJECT(entry) && vm_object_is_mte_mappable(VME_OBJECT(entry))) {
+				/* we have no space allocated yet, so just report an address of 0 */
+				vm_size_t entry_size = entry->vme_end - entry->vme_start;
+				vm_mte_operation_flags_t mte_operation = VM_MTE_OPERATION_TYPE_INHERIT_SHARE;
+				mte_operation |= vm_kernel_map_is_kernel(dst_map) ? VM_MTE_OPERATION_DEST_KERNEL : VM_MTE_OPERATION_DEST_USER;
+				if (!vm_map_allow_mte_operation(dst_map, 0, entry_size, mte_operation, optional_vm_object_none() /* irrelevant here */)) {
+					vmlp_api_end(VM_MAP_COPYOUT_INTERNAL, KERN_NO_ACCESS);
+					return KERN_NO_ACCESS;
+				}
+			}
+		}
+	}
+#endif /* HAS_MTE */
 
 	original_copy = copy;
 	if (copy->cpy_hdr.page_shift != VM_MAP_PAGE_SHIFT(dst_map)) {
@@ -12030,6 +12587,7 @@ vm_map_copyout_internal(
 				}
 
 				bool page_sleep_needed = false;
+				bool need_retry = false;
 				vm_fault_enter(m,
 				    dst_map->pmap,
 				    va,
@@ -12039,7 +12597,7 @@ vm_map_copyout_internal(
 				    VM_PAGE_WIRED(m),
 				    VM_KERN_MEMORY_NONE,            /* tag - not wiring */
 				    &fault_info,
-				    NULL,             /* need_retry */
+				    &need_retry,
 				    &type_of_fault,
 				    &object_lock_type, /*Exclusive mode lock. Will remain unchanged.*/
 				    &page_sleep_needed);
@@ -12221,6 +12779,9 @@ vm_map_copyin_common(
 	if (use_maxprot) {
 		flags |= VM_MAP_COPYIN_USE_MAXPROT;
 	}
+#if HAS_MTE
+	flags |= VM_MAP_COPYIN_DEST_UNKNOWN;
+#endif
 	return vm_map_copyin_internal(src_map,
 	           src_addr,
 	           len,
@@ -12237,7 +12798,12 @@ vm_map_copyin_sanitize(
 	vm_map_offset_t        *src_start,
 	vm_map_offset_t        *src_end,
 	vm_map_size_t          *len,
+#if HAS_MTE
+	vm_map_offset_t        *src_addr_unaligned,
+	vm_map_offset_t        *src_addr_unaligned_tagged)
+#else /* HAS_MTE */
 	vm_map_offset_t        *src_addr_unaligned)
+#endif /* HAS_MTE */
 {
 	kern_return_t   kr;
 	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS |
@@ -12267,10 +12833,118 @@ vm_map_copyin_sanitize(
 	    VM_MAP_PAGE_MASK(src_map));
 	*src_end   = vm_map_round_page(*src_end, VM_MAP_PAGE_MASK(src_map));
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+#if HAS_MTE
+	*src_addr_unaligned_tagged = *src_addr_unaligned;
+#endif /* HAS_MTE */
+	/*
+	 * Full stripping here may allow a trashed address to pass through,
+	 * so we limit the operation to just an MTE canonicalization for the range
+	 * checks. The copyin operation is more destructive than a simple range
+	 * verification, so our policy is to be conservative.
+	 */
+	if (current_task_has_sec_enabled()) {
+		*src_start = vm_memtag_canonicalize(src_map, *src_start);
+		*src_end = vm_memtag_canonicalize(src_map, *src_end);
+		*src_addr_unaligned = vm_memtag_canonicalize(src_map, *src_addr_unaligned);
+	}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	return KERN_SUCCESS;
 }
 
+#if HAS_MTE
+/*
+ * Take a look at all the objects backing the region and return whether
+ * any of them are MTE mappable and originate from the local domain.
+ *
+ * Preconditions:
+ *      - Map locked
+ *
+ * Returns:
+ *	- Multiple error signifiers, so all of them are out-parameters to ensure
+ *    there's no ambiguity w.r.t return value.
+ *    If `!out_is_region_well_formed`, other out-returns are irrelevant.
+ */
+static void
+_is_any_object_in_region_local_mte_mappable(
+	bool* out_is_region_well_formed,
+	bool* out_is_any_object_mte_mappable,
+	vm_map_t src_map,
+	vm_map_offset_t src_start,
+	vm_map_offset_t src_end
+	)
+{
+	vm_map_entry_t curr_entry = VM_MAP_ENTRY_NULL;
+	vm_map_offset_t end_of_previous_entry;
+
+	/* Start off with good intent */
+	*out_is_region_well_formed = true;
+
+	/* Look up the initial entry */
+	if (!vm_map_lookup_entry(src_map, src_start, &curr_entry)) {
+		/* Failed to look up an entry, invalid region? */
+		*out_is_region_well_formed = false;
+		return;
+	}
+
+	/* Scan the region looking for holes or mixed-MTE-state objects */
+	/* (Set such that the first entry won't be considered a hole) */
+	end_of_previous_entry = curr_entry->vme_start;
+	while ((curr_entry != vm_map_to_entry(src_map)) &&
+	    (curr_entry->vme_start < src_end)) {
+		if (curr_entry->vme_start != end_of_previous_entry) {
+			/* Hole?! */
+			*out_is_region_well_formed = false;
+			return;
+		}
+
+		if (curr_entry->is_sub_map) {
+			/* Not a relevant MTE object... */
+			goto next;
+		}
+
+		vm_object_t obj = VME_OBJECT(curr_entry);
+		if (obj == VM_OBJECT_NULL) {
+			/* Not a relevant MTE object... */
+			goto next;
+		}
+
+		if (!vm_object_is_mte_mappable(obj)) {
+			/* Only relevant to MTE objects... */
+			goto next;
+		}
+
+		if (obj->vmo_provenance != src_map->serial_id) {
+			/* Only relevant to local copies... */
+			goto next;
+		}
+
+		/* Found an MTE object in the region, we're done. */
+		*out_is_any_object_mte_mappable = true;
+		return;
+
+next:
+
+		/*
+		 * Note that our region may not be perfectly aligned with the entry,
+		 * or the entry's offset within its object.
+		 * Advancing to the end of the entry handles both of these cases
+		 * correctly.
+		 */
+		end_of_previous_entry = curr_entry->vme_end;
+		curr_entry = curr_entry->vme_next;
+	}
+
+	/* Do we have a hole off the end of the range? */
+	if (src_end > end_of_previous_entry) {
+		*out_is_region_well_formed = false;
+		return;
+	}
+
+	*out_is_any_object_mte_mappable = false;
+}
+#endif /* HAS_MTE */
 
 static vm_map_copyin_strategy
 _vm_map_copyin_select_strategy(
@@ -12283,6 +12957,10 @@ _vm_map_copyin_select_strategy(
 	int flags
 	)
 {
+#if HAS_MTE
+	bool is_region_well_formed;
+	bool is_any_object_in_region_local_mte_mappable;
+#endif /* HAS_MTE */
 	/*
 	 * If the copy is sufficiently small, use a kernel buffer instead
 	 * of making a virtual copy.  The theory being that the cost of
@@ -12307,7 +12985,66 @@ _vm_map_copyin_select_strategy(
 		return VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER;
 	}
 
+#if HAS_MTE
+	/*
+	 * Note that there are more conditions under which we must be sure to go down
+	 * the kernel buffer path. Notably, we mandate doing this, rather than making
+	 * a virtual copy, if we're creating a local copy of MTE-enabled memory.
+	 * This avoids any hijinks where a caller could create a virtual copy of
+	 * local MTE memory whose tags they don't know.
+	 * The thought is that although this would be expensive for large copies,
+	 * we don't expect to hit this often because we don't expect to have many
+	 * large MTE objects floating around.
+	 * Note also that copies of MTE memory into other contexts are fine, because
+	 * they're not a risk under VM MTE policies v3.
+	 */
+	/*
+	 * However, vm_map_fork_copy() reads entries directly off the VM map,
+	 * so it definitely won't be providing correctly tagged inputs and certainly
+	 * shouldn't be subject to universal byte-by-byte copies.
+	 * Don't restrict this case.
+	 */
+	if (flags & VM_MAP_COPYIN_FORK) {
+		return VM_MAP_COPYIN_STRATEGY_VIRTUAL_COPY;
+	}
+	/* Additionally, mach_make_memory_entry conceptually should go down the kernel
+	 * buffer path for the reason outlined above, but today it cannot do so because
+	 * the relevant code paths only know how to manipulate entry list-style copy
+	 * maps (see rdar://22611816).
+	 * The blast radius of allowing it to continue using virtual copies is limited,
+	 * so we'll maintain this carveout for now.
+	 */
+	if (flags & VM_MAP_COPYIN_ENTRY_LIST) {
+		return VM_MAP_COPYIN_STRATEGY_VIRTUAL_COPY;
+	}
+
+	vm_map_lock_read(src_map);
+
+	_is_any_object_in_region_local_mte_mappable(
+		&is_region_well_formed,
+		&is_any_object_in_region_local_mte_mappable,
+		src_map,
+		src_start,
+		src_end);
+
+	vm_map_unlock_read(src_map);
+
+	if (!is_region_well_formed) {
+		return VM_MAP_COPYIN_STRATEGY_INVALID_ARGUMENT;
+	}
+
+	if (!is_any_object_in_region_local_mte_mappable) {
+		return VM_MAP_COPYIN_STRATEGY_VIRTUAL_COPY;
+	}
+
+	/*
+	 * Local copyin of an MTE-enabled object, we must use a kernel buffer
+	 * instead of a virtual copy.
+	 */
+	return VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER_DUE_TO_MTE_REGION;
+#else /* HAS_MTE */
 	return VM_MAP_COPYIN_STRATEGY_VIRTUAL_COPY;
+#endif /* HAS_MTE */
 }
 
 kern_return_t
@@ -12331,6 +13068,9 @@ vm_map_copyin_internal(
 	vm_map_offset_t src_end;        /* End of entire region to be
 	                                 * copied */
 	vm_map_offset_t src_addr_unaligned;
+#if HAS_MTE
+	vm_map_offset_t src_addr_unaligned_tagged;
+#endif /* HAS_MTE */
 	vm_map_offset_t src_base;
 	vm_map_size_t   len;
 	vm_map_t        base_map = src_map;
@@ -12373,7 +13113,12 @@ vm_map_copyin_internal(
 		&src_start,
 		&src_end,
 		&len,
+#if HAS_MTE
+		&src_addr_unaligned,
+		&src_addr_unaligned_tagged);
+#else /* HAS_MTE */
 		&src_addr_unaligned);
+#endif /* HAS_MTE */
 	if (__improbable(kr != KERN_SUCCESS)) {
 		kr = vm_sanitize_get_kr(kr);
 		vmlp_api_end(VM_MAP_COPYIN_INTERNAL, kr);
@@ -12397,9 +13142,17 @@ vm_map_copyin_internal(
 	if (strategy == VM_MAP_COPYIN_STRATEGY_INVALID_ARGUMENT) {
 		return KERN_INVALID_ADDRESS;
 	} else if (
+#if HAS_MTE
+		strategy == VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER_DUE_TO_MTE_REGION ||
+#endif /* HAS_MTE */
 		strategy == VM_MAP_COPYIN_STRATEGY_KERNEL_BUFFER) {
+#if HAS_MTE
+		kr = vm_map_copyin_kernel_buffer(src_map, src_addr_unaligned_tagged,
+		    len, strategy, src_destroy, copy_result);
+#else /* HAS_MTE */
 		kr = vm_map_copyin_kernel_buffer(src_map, src_addr_unaligned, len, strategy,
 		    src_destroy, copy_result);
+#endif /* HAS_MTE */
 		vmlp_api_end(VM_MAP_COPYIN_INTERNAL, kr);
 		return kr;
 	}
@@ -12612,6 +13365,44 @@ vm_map_copyin_internal(
 
 		src_object = VME_OBJECT(src_entry);
 
+#if HAS_MTE
+		/*
+		 * Usually, small copies take the kernel buffer path, but do not do so
+		 * in the path from mach_make_memory_entry. In this case, as well as
+		 * other paths that do virtual copies (e.g. large copies), we must
+		 * verify MTE policy before permitting the operation.
+		 *
+		 * If the operation is allowed to succeed, the virtual copy path does an
+		 * EAGER copy (i.e., no copy-on-write aka copy strategy of MEMORY_OBJECT_COPY_NONE)
+		 *
+		 * In the future, the VM object will have a copy strategy of
+		 * MEMORY_OBJECT_COPY_DELAY_FORK (rdar://126656127)
+		 */
+		if (src_object && vm_object_is_mte_mappable(src_object)) {
+			/* verify MTE policy before allowing virtual copies */
+			vm_mte_operation_flags_t mte_operation = VM_MTE_OPERATION_TYPE_COPY;
+
+			/* set copy destination based on copyin flags */
+			if (flags & VM_MAP_COPYIN_DEST_USER) {
+				mte_operation |= VM_MTE_OPERATION_DEST_USER;
+			} else if (flags & VM_MAP_COPYIN_DEST_KERNEL) {
+				mte_operation |= VM_MTE_OPERATION_DEST_KERNEL;
+			} else if (flags & VM_MAP_COPYIN_DEST_UNKNOWN) {
+				mte_operation |= VM_MTE_OPERATION_DEST_UNKNOWN;
+			} else {
+				panic("MTE vm_map_copyin without setting VM_MAP_COPYIN_DEST");
+			}
+
+			/* Pass through additional policy flags based on our called context */
+			mte_operation |= (flags & VM_MAP_COPYIN_IOKIT) ? VM_MTE_OPERATION_IOKIT : 0;
+			mte_operation |= (flags & VM_MAP_COPYIN_FORK) ? VM_MTE_OPERATION_FORK : 0;
+			mte_operation |= (flags & VM_MAP_COPYIN_ENTRY_LIST) ? VM_MTE_OPERATION_MAKE_MEMORY_ENTRY : 0;
+
+			if (!vm_map_allow_mte_operation(src_map, src_addr_unaligned_tagged, len, mte_operation, OPTIONAL_SOME(src_object))) {
+				RETURN(KERN_NOT_SUPPORTED);
+			}
+		}
+#endif /* HAS_MTE */
 
 		src_offset = VME_OFFSET(src_entry);
 		src_object = VME_OBJECT(src_entry);
@@ -12778,6 +13569,9 @@ CopySlowly:
 				src_offset,
 				src_size,
 				THREAD_UNINT,
+#if HAS_MTE
+				false, /* create_mte_object */
+#endif /* HAS_MTE */
 				&new_copy_object);
 			/* VME_OBJECT_SET will reset used_for_jit|tpro, so preserve it. */
 			saved_used_for_jit = new_entry->used_for_jit;
@@ -13669,6 +14463,10 @@ vm_map_fork_copy(
 	 *	right now.
 	 */
 	vm_map_copyin_flags |= VM_MAP_COPYIN_USE_MAXPROT;
+#if HAS_MTE
+	assert(!vm_kernel_map_is_kernel(new_map));
+	vm_map_copyin_flags |= VM_MAP_COPYIN_DEST_USER;
+#endif
 	if (vm_map_copyin_internal(old_map, start, entry_size,
 	    vm_map_copyin_flags, &copy)
 	    != KERN_SUCCESS) {
@@ -13828,7 +14626,17 @@ vm_map_fork(
 	    map_create_options);
 
 	/* Inherit our parent's ID. */
+#if HAS_MTE
+	/*
+	 * If we assigned a new ID to forked children, then MTE CoW mappings would be
+	 * faulted into the child as non-MTE, which seems wrong.
+	 */
+#endif /* HAS_MTE */
 	vm_map_assign_serial(new_map, old_map->serial_id);
+#if HAS_MTE
+	/* Inherit parent restrictions on receiving untagged aliases to MTE pages */
+	new_pmap->restrict_receiving_aliases_to_tagged_memory = vm_map_get_pmap(old_map)->restrict_receiving_aliases_to_tagged_memory;
+#endif /* HAS_MTE */
 
 	/* inherit cs_enforcement */
 	vm_map_cs_enforcement_set(new_map, old_map->cs_enforcement);
@@ -13876,6 +14684,19 @@ vm_map_fork(
 		entry_size = old_entry->vme_end - old_entry->vme_start;
 
 		old_entry_inheritance = old_entry->inheritance;
+#if HAS_MTE
+		if (!old_entry->is_sub_map && VME_OBJECT(old_entry) && vm_object_is_mte_mappable(VME_OBJECT(old_entry))) {
+			/*
+			 * Setting VM_INHERIT_SHARE on an entry pointing to an MTE object
+			 * should always be forbidden, except along the corpse-fork path,
+			 * but that gets set *after* this check.
+			 *
+			 * Therefore, at this point, no MTE entries should have that
+			 * inheritance value.
+			 */
+			assert(old_entry_inheritance != VM_INHERIT_SHARE);
+		}
+#endif /* HAS_MTE */
 
 		/*
 		 * If caller used the VM_MAP_FORK_SHARE_IF_INHERIT_NONE option
@@ -14099,6 +14920,12 @@ slow_vm_map_fork_copy:
 		pmap_set_tpro(new_map->pmap);
 	}
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/* Propagate sec properties from the old map to the new map. */
+	if (vm_map_has_sec_access(old_map)) {
+		vm_map_mark_has_sec_access_locked(new_map);
+	}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	vm_map_unlock(new_map);
 	vm_map_unlock(old_map);
@@ -15047,17 +15874,91 @@ vm_map_verify(
 	return result;
 }
 
+#if HAS_MTE
+
+/*
+ * vm_map_page_tags_get:
+ *
+ * Given a virtual address and a VM map,
+ * Resolve the correspnonding resident memory,
+ * and copy the corresponding tags for the containing physical page.
+ * If the memory turns out to not be resident, no data will be retrieved.
+ */
+kern_return_t
+vm_map_page_tags_get(vm_map_t map, vm_address_t page_addr, uint64_t *buf, vm_size_t size)
+{
+	assert((page_addr & PAGE_MASK) == 0);
+
+	/* validate the page is resident and MTE-enabled */
+	kern_return_t error = KERN_FAILURE;
+	vm_map_lock_read(map);
+
+	vm_map_entry_t entry;
+	if (!vm_map_lookup_entry(map, page_addr, &entry)) {
+		goto out;
+	}
+
+	/* rdar://134321998 simplifying for now.. implications might be minor currently,
+	 * but this should definitely be made to recurse rather than giveup on submpas
+	 */
+	if (entry->is_sub_map) {
+		goto out;
+	}
+
+	vm_object_t object = VME_OBJECT(entry);
+	if (object == VM_OBJECT_NULL) {
+		goto out;
+	}
+
+	vm_object_lock(object);
+
+	/* verify object/page has MTE enabled*/
+	if (!vm_object_is_mte_mappable(object)) {
+		goto out_unlock_object;
+	}
+
+	/* rdar://134321998 we need to take care of shadow chains here. */
+
+	vm_object_offset_t offset = (page_addr - entry->vme_start) + VME_OFFSET(entry);
+	vm_page_t page = vm_page_lookup(object, vm_object_trunc_page(offset));
+	if (page == VM_PAGE_NULL) {
+		goto out_unlock_object;
+	}
+
+	ppnum_t page_phys = VM_PAGE_GET_PHYS_PAGE(page);
+	if (!pmap_valid_page(page_phys)) {
+		goto out_unlock_object;
+	}
+
+	/* fill the buffer with the page's tags */
+	vm_address_t vcur = phystokv(ptoa(page_phys));
+	mte_bulk_read_tags((caddr_t)vcur, PAGE_SIZE, (mte_bulk_taglist_t *)buf, size);
+
+
+	error = KERN_SUCCESS;
+out_unlock_object:
+	vm_object_unlock(object);
+out:
+	vm_map_unlock_read(map);
+	return error;
+}
+#endif /* HAS_MTE */
 
 /* Helper function to interrogate a VM entry's state for vm_map_region_recurse */
 uint8_t
 vm_map_entry_info_flags(vm_map_entry_t entry)
 {
 	uint8_t flags = 0;
+#if HAS_MTE
+	vm_object_t object = VME_OBJECT(entry);
+#endif /* HAS_MTE */
 	if (entry->used_for_jit) {
 		flags |= VM_REGION_FLAG_JIT_ENABLED;
 	}
 
 
+#if HAS_MTE
+#endif /* HAS_MTE */
 	return flags;
 }
 
@@ -15143,6 +16044,20 @@ vm_map_region_recurse_64(
 
 	user_address = vm_sanitize_addr(map, *address_u);
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/*
+	 * Ideally we'd like to emulate VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR behavior
+	 * by rejecting virtual addresses containing metadata (PAC, TBI, MTE), but we have to
+	 * account for the "fake_region" therefore we settle to just refuse metadata in the
+	 * MTE bits. Due to compatibility with callers expecting to find the end of the
+	 * addressable user range, we return KERN_INVALID_ADDRESS rather than KERN_INVALID_AGUMENT.
+	 * with callers expecting to find the end of the addressable user range,
+	 */
+	if (user_address != vm_memtag_canonicalize(map, user_address)) {
+		vmlp_api_end(VM_MAP_REGION_RECURSE_64, KERN_INVALID_ADDRESS);
+		return KERN_INVALID_ADDRESS;
+	}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	effective_page_shift = vm_self_region_page_shift(map);
 	effective_page_size = (1 << effective_page_shift);
@@ -15631,6 +16546,20 @@ vm_map_region(
 
 	start = vm_sanitize_addr(map, *address_u);
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/*
+	 * Ideally we'd like to emulate VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR behavior
+	 * by rejecting virtual addresses containing metadata (PAC, TBI, MTE), but we have to
+	 * account for the "fake_region" therefore we settle to just refuse metadata in the
+	 * MTE bits. Due to compatibility with callers expecting to find the end of the
+	 * addressable user range, we return KERN_INVALID_ADDRESS rather than KERN_INVALID_AGUMENT.
+	 * with callers expecting to find the end of the addressable user range,
+	 */
+	if (start != vm_memtag_canonicalize(map, start)) {
+		vmlp_api_end(VM_MAP_REGION, KERN_INVALID_ADDRESS);
+		return KERN_INVALID_ADDRESS;
+	}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	switch (flavor) {
 	case VM_REGION_BASIC_INFO:
@@ -16474,6 +17403,9 @@ vm_map_machine_attribute_sanitize(
 {
 	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	return vm_sanitize_addr_end(start_u, end_u,
 	           VM_SANITIZE_CALLER_VM_MAP_MACHINE_ATTRIBUTE, map,
@@ -18425,6 +19357,46 @@ vm_map_remap_extract(
 
 copy_src_entry:
 
+#if HAS_MTE
+		/* verify MTE policy before allowing CoW/share operations */
+		if (VME_OBJECT(src_entry) && vm_object_is_mte_mappable(VME_OBJECT(src_entry))) {
+			vm_mte_operation_flags_t mte_operation = VM_MTE_OPERATION_REMAP_EXTRACT;
+			mte_operation |= vmk_flags.vmkf_is_iokit ? VM_MTE_OPERATION_IOKIT : 0;
+
+			switch (vmk_flags.vmkf_copy_dest) {
+			case VM_COPY_DESTINATION_USER:
+				mte_operation |= VM_MTE_OPERATION_DEST_USER;
+				break;
+			case VM_COPY_DESTINATION_KERNEL:
+				mte_operation |= VM_MTE_OPERATION_DEST_KERNEL;
+				break;
+			case VM_COPY_DESTINATION_UNKNOWN:
+				mte_operation |= VM_MTE_OPERATION_DEST_UNKNOWN;
+				break;
+			case VM_COPY_DESTINATION_INTERNAL:
+				mte_operation |= VM_MTE_OPERATION_DEST_INTERNAL;
+				break;
+			default:
+				/* should be unreachable */
+				panic("vm_map_remap_extract: unimplemented vmk_flags.vmkf_copy_dest %u", vmk_flags.vmkf_copy_dest);
+			}
+
+			if (inheritance == VM_INHERIT_SHARE) {
+				mte_operation |= VM_MTE_OPERATION_TYPE_INHERIT_SHARE;
+				if (!vm_map_allow_mte_operation(map, addr, size, mte_operation, optional_vm_object_none() /* irrelevant here */)) {
+					result = KERN_NO_ACCESS;
+					break;
+				}
+				mte_operation &= ~VM_MTE_OPERATION_TYPE_INHERIT_SHARE;
+			}
+
+			mte_operation |= copy ? VM_MTE_OPERATION_TYPE_COPY : VM_MTE_OPERATION_TYPE_SHARE;
+			if (!vm_map_allow_mte_operation(map, addr, size, mte_operation, OPTIONAL_SOME(VME_OBJECT(src_entry)))) {
+				result = KERN_NO_ACCESS;
+				break;
+			}
+		}
+#endif /* HAS_MTE */
 
 		new_entry = _vm_map_entry_create(map_header);
 		vm_map_entry_copy(map, new_entry, src_entry);
@@ -18642,6 +19614,9 @@ RestartCopy:
 					(new_entry->vme_end -
 					new_entry->vme_start),
 					THREAD_UNINT,
+#if HAS_MTE
+					false, /* create_mte_object */
+#endif /* HAS_MTE */
 					&new_copy_object);
 				/* VME_OBJECT_SET will reset used_for_jit, so preserve it. */
 				saved_used_for_jit = new_entry->used_for_jit;
@@ -18819,6 +19794,39 @@ vm_map_single_jit(
 }
 #endif /* XNU_TARGET_OS_OSX */
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+bool
+vm_map_has_sec_access(vm_map_t map)
+{
+	return map->has_sec_access;
+}
+
+void
+vm_map_mark_has_sec_access_locked(vm_map_t map)
+{
+	vm_map_lock_assert_exclusive(map);
+	map->has_sec_access = true;
+}
+
+#if CONFIG_XNUPOST
+void
+vm_map_mark_has_sec_access(vm_map_t map)
+{
+	vm_map_lock(map);
+	map->has_sec_access = true;
+	vm_map_unlock(map);
+}
+
+void
+vm_map_remove_sec_access(vm_map_t map)
+{
+	assert(map != kernel_map);
+	vm_map_lock(map);
+	map->has_sec_access = false;
+	vm_map_unlock(map);
+}
+#endif /* CONFIG_XNUPOST */
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 /*
  * Callers of this function must call vm_map_copy_require on
@@ -19438,6 +20446,10 @@ vm_map_range_physical_size(
 	assert(adjusted_size != 0);
 	cur_prot = VM_PROT_NONE; /* legacy mode */
 	max_prot = VM_PROT_NONE; /* legacy mode */
+#if HAS_MTE
+	/* this means the copy_map is discarded instead of being inserted into a map */
+	vmk_flags.vmkf_copy_dest = VM_COPY_DESTINATION_INTERNAL;
+#endif /* HAS_MTE */
 	vmk_flags.vmkf_remap_legacy_mode = true;
 	kr = vm_map_copy_extract(map, adjusted_start, adjusted_size,
 	    FALSE /* copy */,
@@ -19681,6 +20693,9 @@ vm_map_remap(
 
 	vmk_flags.vmkf_copy_pageable = target_map->hdr.entries_pageable;
 	vmk_flags.vmkf_copy_same_map = (src_map == target_map);
+#if HAS_MTE
+	vmk_flags.vmkf_copy_dest = vm_kernel_map_is_kernel(target_map) ? VM_COPY_DESTINATION_KERNEL : VM_COPY_DESTINATION_USER;
+#endif
 
 	assert(memory_size != 0);
 	result = vm_map_copy_extract(src_map,
@@ -19865,6 +20880,11 @@ vm_map_remap(
 			    VME_OBJECT(entry)->internal)) {
 				entry->vme_resilient_media = TRUE;
 			}
+#if HAS_MTE
+			if (VME_OBJECT(entry) && vm_object_is_mte_mappable(VME_OBJECT(entry))) {
+				vm_map_mark_has_sec_access_locked(target_map);
+			}
+#endif /* HAS_MTE */
 			assert(VM_MAP_PAGE_ALIGNED(entry->vme_start, MIN(target_page_mask, PAGE_MASK)));
 			assert(VM_MAP_PAGE_ALIGNED(entry->vme_end, MIN(target_page_mask, PAGE_MASK)));
 			assert(VM_MAP_PAGE_ALIGNED(VME_OFFSET(entry), MIN(target_page_mask, PAGE_MASK)));
@@ -19946,6 +20966,11 @@ vm_map_switch_with_sec_override(vm_map_t map, boolean_t sec_override)
 	 * Deactivate the current map and activate the requested map
 	 */
 	mp_disable_preemption();
+#if HAS_MTE
+	if (sec_override) {
+		ml_thread_set_sec_override(thread, true);
+	}
+#endif
 	PMAP_SWITCH_USER(thread, map, cpu_number());
 	mp_enable_preemption();
 
@@ -19967,6 +20992,20 @@ vm_map_switch_back(vm_map_switch_context_t ctx)
 	vm_map_t map = ctx.map;
 
 	if (task) {
+#if HAS_MTE
+		/*
+		 * While the map was switched, we may have incurred an asynchronous tag
+		 * check fault; we now need to kill the owner of the switched-to map.
+		 *
+		 * This can race; another thread could have already sent the ASTs. In
+		 * this case, we spuriously set the ASTs again and in the worst case
+		 * cause an extra AST check which will be ignored.
+		 */
+		vm_map_offset_t async_fault_addr = os_atomic_load(&thread->map->async_tag_fault_address, relaxed);
+		if (async_fault_addr && (async_fault_addr != VM_ASYNC_TAG_FAULT_ALREADY_REPORTED)) {
+			task_set_ast_mte_synthesize_mach_exception(task);
+		}
+#endif
 		task_deallocate(task);
 	} else {
 		/*
@@ -19982,6 +21021,11 @@ vm_map_switch_back(vm_map_switch_context_t ctx)
 	 * Restore the original map from prior to vm_map_switch_to
 	 */
 	mp_disable_preemption();
+#if HAS_MTE
+	if (ctx.sec_overridden) {
+		ml_thread_set_sec_override(thread, false);
+	}
+#endif
 	PMAP_SWITCH_USER(thread, map, cpu_number());
 	mp_enable_preemption();
 }
@@ -21120,6 +22164,9 @@ vm_map_msync_sanitize(
 	vm_object_offset_t      end;
 	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	return vm_sanitize_addr_size(address_u, size_u,
 	           VM_SANITIZE_CALLER_VM_MAP_MSYNC,
@@ -21759,7 +22806,39 @@ vm_map_set_tpro(vm_map_t map)
 #endif
 }
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+/*
+ * This map has security checks enabled
+ */
+void
+vm_map_set_sec_enabled(vm_map_t map)
+{
+#if CONFIG_SPTM && HAS_MTE
+	pmap_set_tag_check_enabled(map->pmap);
+#endif /* CONFIG_SPTM && HAS_MTE */
+	(void) map;
+}
 
+/*
+ * This map has security checks disabled
+ */
+void
+vm_map_set_sec_disabled(vm_map_t map)
+{
+#if CONFIG_SPTM && HAS_MTE
+	pmap_set_user_tag_check_faults_disabled(map->pmap);
+#endif /* CONFIG_SPTM && HAS_MTE */
+	(void) map;
+}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
+
+#if HAS_MTE
+void
+vm_map_set_restrict_receiving_aliases_to_tagged_memory(vm_map_t map, bool must_restrict)
+{
+	map->pmap->restrict_receiving_aliases_to_tagged_memory = must_restrict;
+}
+#endif /* HAS_MTE */
 
 /*
  * Does this map have TPRO enforcement enabled

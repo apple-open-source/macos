@@ -443,6 +443,7 @@ fr{
         nds_NL{"bas-saxon néerlandais"}
         ne{"népalais"}
         new{"newari"}
+        nez{"nez-percé"}
         ng{"ndonga"}
         nia{"niha"}
         niu{"niuéen"}

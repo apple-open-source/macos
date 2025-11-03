@@ -45,6 +45,9 @@ typedef enum : uint32_t {
 
 typedef enum __enum_closed __enum_options : uint32_t {
 	EXCLAVES_MEMORY_PAGE_FLAGS_NONE = 0,
+#if HAS_MTE
+	EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED = (1 << 0),
+#endif /* HAS_MTE */
 } exclaves_memory_page_flags_t;
 
 __BEGIN_DECLS

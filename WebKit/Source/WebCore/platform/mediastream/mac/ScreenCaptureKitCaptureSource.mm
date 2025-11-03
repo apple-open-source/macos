@@ -261,10 +261,9 @@ void ScreenCaptureKitCaptureSource::stop()
     });
     [contentStream() stopCaptureWithCompletionHandler:stopHandler.get()];
 
-    if (m_sessionSource) {
+    // We do not nullify m_sessionSource to keep the picker active since it is helping capture for some fullscreen cases.
+    if (m_sessionSource)
         m_contentFilter = m_sessionSource->contentFilter();
-        m_sessionSource = nullptr;
-    }
 }
 
 void ScreenCaptureKitCaptureSource::end()
@@ -398,9 +397,6 @@ RetainPtr<SCStreamConfiguration> ScreenCaptureKitCaptureSource::streamConfigurat
 void ScreenCaptureKitCaptureSource::startContentStream()
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-
-    if (contentStream())
-        return;
 
     if (!m_captureHelper)
         m_captureHelper = adoptNS([[WebCoreScreenCaptureKitHelper alloc] initWithCallback:this]);

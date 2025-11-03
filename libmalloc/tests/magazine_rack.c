@@ -38,7 +38,8 @@ malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(false), T_META_TIMEOUT(1200));
 
-T_DECL(basic_magazine_init, "allocate magazine counts", T_META_TAG_VM_PREFERRED)
+T_DECL(basic_magazine_init, "allocate magazine counts", T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	struct rack_s rack;
 
@@ -49,7 +50,8 @@ T_DECL(basic_magazine_init, "allocate magazine counts", T_META_TAG_VM_PREFERRED)
 	}
 }
 
-T_DECL(basic_magazine_deinit, "allocate deallocate magazines", T_META_TAG_VM_PREFERRED)
+T_DECL(basic_magazine_deinit, "allocate deallocate magazines",
+		T_META_TAG_VM_PREFERRED, T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	struct rack_s rack;
 	memset(&rack, 'a', sizeof(rack));
@@ -115,13 +117,17 @@ test_region_remove(size_t allocation_size)
 	}
 }
 
-T_DECL(rack_tiny_region_remove, "exercise region deallocation race (rdar://66713029)", T_META_TAG_VM_NOT_PREFERRED)
+T_DECL(rack_tiny_region_remove,
+		"exercise region deallocation race (rdar://66713029)",
+		T_META_TAG_VM_NOT_PREFERRED, T_META_TAG_MAGAZINE_ONLY)
 {
 	test_region_remove(TINY_ALLOCATION_SZ);
 	T_PASS("finished without crashing");
 }
 
-T_DECL(rack_small_region_remove, "exercise region deallocation race (rdar://66713029)", T_META_TAG_VM_NOT_PREFERRED)
+T_DECL(rack_small_region_remove,
+		"exercise region deallocation race (rdar://66713029)",
+		T_META_TAG_VM_NOT_PREFERRED, T_META_TAG_MAGAZINE_ONLY)
 {
 	test_region_remove(SMALL_ALLOCATION_SZ);
 	T_PASS("finished without crashing");
@@ -130,7 +136,8 @@ T_DECL(rack_small_region_remove, "exercise region deallocation race (rdar://6671
 T_DECL(rack_medium_region_remove, "exercise region deallocation race (rdar://66713029)",
 	   T_META_ENVVAR("MallocMediumZone=1"),
 	   T_META_ENVVAR("MallocMediumActivationThreshold=1"),
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_NOT_PREFERRED)
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_NOT_PREFERRED,
+	   T_META_TAG_MAGAZINE_ONLY)
 {
 	test_region_remove(MEDIUM_ALLOCATION_SZ);
 	T_PASS("finished without crashing");

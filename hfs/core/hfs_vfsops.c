@@ -2963,6 +2963,12 @@ hfs_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp,
 		hfs_unlock_global (hfsmp);
 		hfs_flushvolumeheader(hfsmp, HFS_FVH_WAIT | HFS_FVH_WRITE_ALT);
 
+		/*
+		 * This ends up changing the volume subtype.  Refresh the VFS's
+		 * cached copy of the statfs information.
+		 */
+		(void)vfs_update_vfsstat(hfsmp->hfs_mp, context, VFS_KERNEL_EVENT);
+
 		{
 			fsid_t fsid;
 		
@@ -3011,6 +3017,12 @@ hfs_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp,
 		hfs_unlock_global (hfsmp);
 
 		hfs_flushvolumeheader(hfsmp, HFS_FVH_WAIT | HFS_FVH_WRITE_ALT);
+
+		/*
+		 * This ends up changing the volume subtype.  Refresh the VFS's
+		 * cached copy of the statfs information.
+		 */
+		(void)vfs_update_vfsstat(hfsmp->hfs_mp, context, VFS_KERNEL_EVENT);
 
 		{
 			fsid_t fsid;

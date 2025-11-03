@@ -320,6 +320,15 @@ See remaining rules for examples.
 			<key>rule</key>
 			<string>root-or-entitled-admin-or-authenticate-admin</string>
 		</dict>
+		<key>com.apple.SoftwareUpdate.modify-splat-settings</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Checked when modifying splat settings in Privacy &amp; Security.</string>
+			<key>rule</key>
+			<string>root-or-entitled-admin-or-app-specific-admin</string>
+		</dict>
 		<key>com.apple.XType.fontmover.install</key>
 		<dict>
 			<key>allow-root</key>

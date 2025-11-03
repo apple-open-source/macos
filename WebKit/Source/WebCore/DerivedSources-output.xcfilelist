@@ -2085,6 +2085,12 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorShare.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorShare.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorStorage.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorStorage.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorUA.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorUA.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorUABrandVersion.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorUABrandVersion.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorUAData.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorUAData.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNode.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNode.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNodeFilter.cpp
@@ -3078,6 +3084,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSTrustedTypePolicyOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSTrustedTypePolicyOptions.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSTypeConversions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSTypeConversions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSUADataValues.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSUADataValues.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSUALowEntropyJSON.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSUALowEntropyJSON.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSUIEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSUIEvent.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSUIEventInit.cpp

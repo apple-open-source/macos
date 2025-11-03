@@ -106,6 +106,7 @@ WorkQueue& VideoMediaSampleRenderer::queueSingleton()
 
 VideoMediaSampleRenderer::VideoMediaSampleRenderer(WebSampleBufferVideoRendering *renderer)
     : m_rendererIsThreadSafe(isRendererThreadSafe(renderer))
+    , m_displayLayer(dynamic_objc_cast<AVSampleBufferDisplayLayer>(renderer))
     , m_frameRateMonitor([] (auto info) {
         RELEASE_LOG_ERROR(MediaPerformance, "VideoMediaSampleRenderer Frame decoding allowance exceeded:%f expected:%f", Seconds { info.lastFrameTime - info.frameTime }.value(), 1 / info.observedFrameRate);
     })
@@ -113,16 +114,14 @@ VideoMediaSampleRenderer::VideoMediaSampleRenderer(WebSampleBufferVideoRendering
     if (!renderer)
         return;
 
-    if (auto *displayLayer = dynamic_objc_cast<AVSampleBufferDisplayLayer>(renderer)) {
 #if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
-        m_renderer = [displayLayer sampleBufferRenderer];
-#endif
-        m_displayLayer = displayLayer;
-        return;
+    if (RetainPtr videoRenderer = videoRendererFor(renderer)) {
+        m_mainRenderer = videoRenderer;
+        m_renderer = WTFMove(videoRenderer);
     }
-#if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
-    ASSERT(dynamic_objc_cast<AVSampleBufferVideoRenderer>(renderer));
-    m_renderer = dynamic_objc_cast<AVSampleBufferVideoRenderer>(renderer);
+    ASSERT(m_renderer);
+#else
+    ASSERT(dynamic_objc_cast<AVSampleBufferDisplayLayer>(renderer));
 #endif
 }
 
@@ -141,15 +140,53 @@ VideoMediaSampleRenderer::~VideoMediaSampleRenderer()
     if (decompressionSession)
         decompressionSession->invalidate();
 
-    if (auto renderer = this->renderer()) {
+    if (RetainPtr renderer = this->renderer()) {
         [renderer flush];
         [renderer stopRequestingMediaData];
 #if ENABLE(LINEAR_MEDIA_PLAYER)
         if ([m_renderer respondsToSelector:@selector(removeAllVideoTargets)])
-            [m_renderer removeAllVideoTargets];
+            [m_renderer.get() removeAllVideoTargets];
 #endif
     }
 }
+
+#if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
+AVSampleBufferVideoRenderer *VideoMediaSampleRenderer::videoRendererFor(WebSampleBufferVideoRendering *renderer)
+{
+    ASSERT(renderer);
+    if (auto *displayLayer = dynamic_objc_cast<AVSampleBufferDisplayLayer>(renderer))
+        return [displayLayer sampleBufferRenderer];
+    return checked_objc_cast<AVSampleBufferVideoRenderer>(renderer);
+}
+
+Ref<GenericPromise> VideoMediaSampleRenderer::changeRenderer(WebSampleBufferVideoRendering *renderer)
+{
+    assertIsMainThread();
+
+    ASSERT(m_rendererIsThreadSafe);
+    ASSERT(useDecompressionSessionForProtectedContent());
+    ASSERT(isUsingDecompressionSession());
+
+    RetainPtr videoRenderer = videoRendererFor(renderer);
+    ASSERT(videoRenderer);
+    if (std::exchange(m_mainRenderer, videoRenderer) == videoRenderer)
+        return GenericPromise::createAndResolve();
+    m_displayLayer = dynamic_objc_cast<AVSampleBufferDisplayLayer>(renderer);
+    return invokeAsync(dispatcher(), [weakThis = ThreadSafeWeakPtr { *this }, renderer = WTFMove(videoRenderer)] {
+        if (RefPtr protectedThis = weakThis.get()) {
+            assertIsCurrent(protectedThis->dispatcher().get());
+            RetainPtr previousRenderer = std::exchange(protectedThis->m_renderer, renderer);
+            [previousRenderer flush];
+            [previousRenderer stopRequestingMediaData];
+            protectedThis->purgeDecodedSampleQueue(protectedThis->m_flushId);
+            for (Ref sample : protectedThis->m_decodedSampleQueue)
+                [renderer enqueueSampleBuffer:sample->platformSample().sample.cmSampleBuffer];
+            protectedThis->maybeBecomeReadyForMoreMediaData();
+        }
+        return GenericPromise::createAndResolve();
+    });
+}
+#endif
 
 RefPtr<WebCoreDecompressionSession> VideoMediaSampleRenderer::decompressionSession() const
 {
@@ -219,7 +256,8 @@ bool VideoMediaSampleRenderer::isReadyForMoreMediaData() const
 {
     assertIsMainThread();
 
-    return areSamplesQueuesReadyForMoreMediaData(SampleQueueHighWaterMark) && (!renderer() || [renderer() isReadyForMoreMediaData]);
+    RetainPtr renderer = this->renderer();
+    return areSamplesQueuesReadyForMoreMediaData(SampleQueueHighWaterMark) && (!renderer || [renderer isReadyForMoreMediaData]);
 }
 
 bool VideoMediaSampleRenderer::areSamplesQueuesReadyForMoreMediaData(size_t waterMark) const
@@ -381,18 +419,19 @@ void VideoMediaSampleRenderer::enqueueSample(const MediaSample& sample, const Me
     }
 #endif
 
-    if (!m_decompressionSessionBlocked && !decompressionSession() && (!renderer() || ((prefersDecompressionSession() || needsDecompressionSession || isUsingDecompressionSession()) && (!sample.isProtected() || useDecompressionSessionForProtectedContent()))))
+    RetainPtr renderer = this->renderer();
+    if (!m_decompressionSessionBlocked && !decompressionSession() && (!renderer || ((prefersDecompressionSession() || needsDecompressionSession || isUsingDecompressionSession()) && (!sample.isProtected() || useDecompressionSessionForProtectedContent()))))
         initializeDecompressionSession();
 
     if (!isUsingDecompressionSession()) {
-        [renderer() enqueueSampleBuffer:cmSampleBuffer];
+        [renderer enqueueSampleBuffer:cmSampleBuffer];
         return;
     }
 
     if (!useDecompressionSessionForProtectedFallback() && !m_decompressionSessionBlocked && sample.isProtected()) {
         m_decompressionSessionBlocked = true;
 #if !PLATFORM(WATCHOS)
-        auto numberOfDroppedVideoFrames = [renderer() videoPerformanceMetrics].numberOfDroppedVideoFrames;
+        auto numberOfDroppedVideoFrames = [renderer videoPerformanceMetrics].numberOfDroppedVideoFrames;
         if (m_droppedVideoFrames >= numberOfDroppedVideoFrames)
             m_droppedVideoFramesOffset = m_droppedVideoFrames - numberOfDroppedVideoFrames;
 #endif
@@ -513,15 +552,7 @@ void VideoMediaSampleRenderer::decodeNextSampleIfNeeded()
             if (!result) {
                 if (result.error() == kVTInvalidSessionErr) {
                     RELEASE_LOG(Media, "VTDecompressionSession got invalidated, requesting flush");
-                    RefPtr decompressionSession = [&] {
-                        Locker lock { m_lock };
-                        return std::exchange(m_decompressionSession, nullptr);
-                    }();
-                    if (decompressionSession)
-                        decompressionSession->invalidate();
-                    callOnMainThread([protectedThis] {
-                        protectedThis->notifyVideoRendererRequiresFlushToResumeDecoding();
-                    });
+                    invalidateDecompressionSession();
                     return;
                 }
 
@@ -530,15 +561,6 @@ void VideoMediaSampleRenderer::decodeNextSampleIfNeeded()
 
                 callOnMainThread([protectedThis, status = result.error()] {
                     assertIsMainThread();
-
-                    if (protectedThis->renderer()) {
-                        // Simulate AVSBDL decoding error.
-                        RetainPtr error = [NSError errorWithDomain:@"com.apple.WebKit" code:status userInfo:nil];
-                        NSDictionary *userInfoDict = @{ (__bridge NSString *)AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey: (__bridge NSError *)error.get() };
-                        [NSNotificationCenter.defaultCenter postNotificationName:AVSampleBufferDisplayLayerFailedToDecodeNotification object:protectedThis->renderer() userInfo:userInfoDict];
-                        [NSNotificationCenter.defaultCenter postNotificationName:AVSampleBufferVideoRendererDidFailToDecodeNotification object:protectedThis->renderer() userInfo:userInfoDict];
-                        return;
-                    }
                     protectedThis->notifyErrorHasOccurred(status);
                 });
                 return;
@@ -606,9 +628,9 @@ void VideoMediaSampleRenderer::initializeDecompressionSession()
             return;
 
 #if HAVE(RECOMMENDED_PIXEL_ATTRIBUTES_API)
-        if (m_renderer) {
-            if ([m_renderer.get() respondsToSelector:@selector(recommendedPixelBufferAttributes)])
-                m_decompressionSession = WebCoreDecompressionSession::create([m_renderer recommendedPixelBufferAttributes], m_rendererIsThreadSafe ? dispatcher().ptr() : nullptr);
+        if (m_mainRenderer) {
+            if ([m_mainRenderer respondsToSelector:@selector(recommendedPixelBufferAttributes)])
+                m_decompressionSession = WebCoreDecompressionSession::create([m_mainRenderer recommendedPixelBufferAttributes], m_rendererIsThreadSafe ? dispatcher().ptr() : nullptr);
         }
 #endif
         if (!m_decompressionSession)
@@ -623,6 +645,8 @@ void VideoMediaSampleRenderer::initializeDecompressionSession()
 
 void VideoMediaSampleRenderer::decodedFrameAvailable(Ref<const MediaSample>&& sample, FlushId flushId)
 {
+    assertIsCurrent(dispatcher().get());
+
     assignResourceOwner(sample);
 
     [rendererOrDisplayLayer() enqueueSampleBuffer:sample->platformSample().sample.cmSampleBuffer];
@@ -844,7 +868,7 @@ void VideoMediaSampleRenderer::resetReadyForMoreMediaData()
 {
     assertIsMainThread();
 
-    if (!rendererOrDisplayLayer() || isUsingDecompressionSession()) {
+    if (!renderer() || isUsingDecompressionSession()) {
         dispatcher()->dispatch([weakThis = ThreadSafeWeakPtr { *this }] {
             if (RefPtr protectedThis = weakThis.get())
                 protectedThis->maybeBecomeReadyForMoreMediaData();
@@ -876,22 +900,24 @@ void VideoMediaSampleRenderer::expectMinimumUpcomingSampleBufferPresentationTime
 
 WebSampleBufferVideoRendering *VideoMediaSampleRenderer::renderer() const
 {
-    if (m_displayLayer) {
-        assertIsMainThread();
+    assertIsMainThread();
+
+    if (m_displayLayer)
         return m_displayLayer.get();
-    }
 #if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
-    return m_renderer.get();
+    return m_mainRenderer.get();
 #else
     return nil;
 #endif
 }
 
 template <>
-AVSampleBufferVideoRenderer* VideoMediaSampleRenderer::as() const
+AVSampleBufferVideoRenderer *VideoMediaSampleRenderer::as() const
 {
+    assertIsMainThread();
+
 #if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
-    return m_renderer.get();
+    return m_mainRenderer.get();
 #else
     return nil;
 #endif
@@ -899,11 +925,12 @@ AVSampleBufferVideoRenderer* VideoMediaSampleRenderer::as() const
 
 WebSampleBufferVideoRendering *VideoMediaSampleRenderer::rendererOrDisplayLayer() const
 {
+    assertIsCurrent(dispatcher().get());
 #if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
     return m_renderer.get();
 #else
     if (m_displayLayer) {
-        assertIsMainThread();
+        assertIsMainThread(); // if we access this object, dispatcher is identical to main thread.
         return m_displayLayer.get();
     }
     return nil;
@@ -1046,6 +1073,21 @@ MediaTime VideoMediaSampleRenderer::totalFrameDelay() const
 void VideoMediaSampleRenderer::setResourceOwner(const ProcessIdentity& resourceOwner)
 {
     m_resourceOwner = resourceOwner;
+}
+
+void VideoMediaSampleRenderer::invalidateDecompressionSession()
+{
+    RefPtr decompressionSession = [&] {
+        Locker lock { m_lock };
+        return std::exchange(m_decompressionSession, nullptr);
+    }();
+
+    if (decompressionSession)
+        decompressionSession->invalidate();
+
+    ensureOnMainThread([protectedThis = Ref { *this }] {
+        protectedThis->notifyVideoRendererRequiresFlushToResumeDecoding();
+    });
 }
 
 void VideoMediaSampleRenderer::assignResourceOwner(const MediaSample& sample)

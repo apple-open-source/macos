@@ -575,6 +575,7 @@ compressor_memory_object_create(
 	pager->cpgr_hdr.mo_ikot = IKOT_MEMORY_OBJECT;
 	pager->cpgr_hdr.mo_pager_ops = &compressor_pager_ops;
 	pager->cpgr_hdr.mo_control = MEMORY_OBJECT_CONTROL_NULL;
+	pager->cpgr_hdr.mo_last_unmap_ctid = 0;
 
 	*new_mem_obj = (memory_object_t) pager;
 	return KERN_SUCCESS;

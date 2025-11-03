@@ -179,7 +179,7 @@ realloc_tests(const char *base_name, boolean_t using_nano)
 #pragma mark Tests for realloc()
 
 T_DECL(realloc_perf_base, "realloc without nano",
-	   T_META_TAG_PERF, T_META_TAG_VM_NOT_PREFERRED,
+	   T_META_TAG_PERF, T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_NOT_PREFERRED,
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
 	realloc_tests("NoNano", false);
@@ -187,7 +187,7 @@ T_DECL(realloc_perf_base, "realloc without nano",
 
 #if !MALLOC_TARGET_EXCLAVES
 T_DECL(realloc_perf_nanov2, "realloc with nanoV2",
-	   T_META_TAG_PERF, T_META_TAG_VM_NOT_PREFERRED,
+	   T_META_TAG_PERF, T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_NOT_PREFERRED,
 	   T_META_ENVVAR("MallocNanoZone=V2"))
 {
 #if CONFIG_NANOZONE

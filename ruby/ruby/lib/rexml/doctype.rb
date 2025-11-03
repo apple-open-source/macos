@@ -171,15 +171,11 @@ module REXML
     end
 
     def context
-      if @parent
-        @parent.context
-      else
-        nil
-      end
+      @parent&.context
     end
 
     def entity( name )
-      @entities[name].unnormalized if @entities[name]
+      @entities[name]&.unnormalized
     end
 
     def add child
@@ -197,7 +193,7 @@ module REXML
       when "SYSTEM"
         nil
       when "PUBLIC"
-        strip_quotes(@long_name)
+        @long_name
       end
     end
 
@@ -207,9 +203,9 @@ module REXML
     def system
       case @external_id
       when "SYSTEM"
-        strip_quotes(@long_name)
+        @long_name
       when "PUBLIC"
-        @uri.kind_of?(String) ? strip_quotes(@uri) : nil
+        @uri.kind_of?(String) ? @uri : nil
       end
     end
 
@@ -230,15 +226,6 @@ module REXML
       notations.find { |notation_decl|
         notation_decl.name == name
       }
-    end
-
-    private
-
-    # Method contributed by Henrik Martensson
-    def strip_quotes(quoted_string)
-      quoted_string =~ /^[\'\"].*[\'\"]$/ ?
-        quoted_string[1, quoted_string.length-2] :
-        quoted_string
     end
   end
 
@@ -297,8 +284,7 @@ module REXML
     end
 
     def to_s
-      context = nil
-      context = parent.context if parent
+      context = parent&.context
       notation = "<!NOTATION #{@name}"
       reference_writer = ReferenceWriter.new(@middle, @public, @system, context)
       reference_writer.write(notation)

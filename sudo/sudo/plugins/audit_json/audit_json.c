@@ -31,7 +31,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 #include <string.h>
 #include <signal.h>
@@ -40,16 +40,16 @@
 #include <limits.h>
 #include <time.h>
 
-#include "pathnames.h"
-#include "sudo_compat.h"
-#include "sudo_conf.h"
-#include "sudo_debug.h"
-#include "sudo_dso.h"
-#include "sudo_fatal.h"
-#include "sudo_gettext.h"
-#include "sudo_json.h"
-#include "sudo_plugin.h"
-#include "sudo_util.h"
+#include <pathnames.h>
+#include <sudo_compat.h>
+#include <sudo_conf.h>
+#include <sudo_debug.h>
+#include <sudo_dso.h>
+#include <sudo_fatal.h>
+#include <sudo_gettext.h>
+#include <sudo_json.h>
+#include <sudo_plugin.h>
+#include <sudo_util.h>
 
 static int audit_debug_instance = SUDO_DEBUG_INSTANCE_INITIALIZER;
 static sudo_conv_t audit_conv;
@@ -141,6 +141,7 @@ audit_json_open(unsigned int version, sudo_conv_t conversation,
     if (plugin_options != NULL) {
 	for (cur = plugin_options; (cp = *cur) != NULL; cur++) {
 	    if (strncmp(cp, "logfile=", sizeof("logfile=") - 1) == 0) {
+		free(state.logfile);
 		state.logfile = strdup(cp + sizeof("logfile=") - 1);
 		if (state.logfile == NULL)
 		    goto oom;
@@ -342,28 +343,32 @@ add_timestamp(struct json_container *jsonc, struct timespec *ts)
     time_t secs = ts->tv_sec;
     char timebuf[1024];
     struct tm gmt;
-    int len;
+    size_t len;
     debug_decl(add_timestamp, SUDO_DEBUG_PLUGIN);
 
     if (gmtime_r(&secs, &gmt) == NULL)
 	debug_return_bool(false);
 
-    sudo_json_open_object(jsonc, "timestamp");
+    if (!sudo_json_open_object(jsonc, "timestamp"))
+	debug_return_bool(false);
 
     json_value.type = JSON_NUMBER;
     json_value.u.number = ts->tv_sec;
-    sudo_json_add_value(jsonc, "seconds", &json_value);
+    if (!sudo_json_add_value(jsonc, "seconds", &json_value))
+	debug_return_bool(false);
 
     json_value.type = JSON_NUMBER;
     json_value.u.number = ts->tv_nsec;
-    sudo_json_add_value(jsonc, "nanoseconds", &json_value);
+    if (!sudo_json_add_value(jsonc, "nanoseconds", &json_value))
+	debug_return_bool(false);
 
     timebuf[sizeof(timebuf) - 1] = '\0';
     len = strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%SZ", &gmt);
     if (len != 0 && timebuf[sizeof(timebuf) - 1] == '\0'){
 	json_value.type = JSON_STRING;
 	json_value.u.string = timebuf;
-	sudo_json_add_value(jsonc, "iso8601", &json_value);
+	if (!sudo_json_add_value(jsonc, "iso8601", &json_value))
+	    debug_return_bool(false);
     }
 
     timebuf[sizeof(timebuf) - 1] = '\0';
@@ -371,16 +376,18 @@ add_timestamp(struct json_container *jsonc, struct timespec *ts)
     if (len != 0 && timebuf[sizeof(timebuf) - 1] == '\0'){
 	json_value.type = JSON_STRING;
 	json_value.u.string = timebuf;
-	sudo_json_add_value(jsonc, "localtime", &json_value);
+	if (!sudo_json_add_value(jsonc, "localtime", &json_value))
+	    debug_return_bool(false);
     }
 
-    sudo_json_close_object(jsonc);
+    if (!sudo_json_close_object(jsonc))
+	debug_return_bool(false);
 
     debug_return_bool(true);
 }
 
 static int
-audit_write_json(struct json_container *jsonc)
+audit_write_json(struct json_container * restrict jsonc)
 {
     struct stat sb;
     int ret = -1;

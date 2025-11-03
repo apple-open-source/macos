@@ -105,6 +105,7 @@ protected:
     const Ref<WebPage> m_page;
     RefPtr<WebCore::Element> m_element;
     WeakPtr<WebCore::Element, WebCore::WeakPtrImplWithEventTargetData> m_elementToRestore;
+    std::optional<WebCore::FrameIdentifier> m_elementFrameIdentifier;
 #if ENABLE(QUICKLOOK_FULLSCREEN)
     WebCore::FloatSize m_oldSize;
     double m_scaleFactor { 1 };

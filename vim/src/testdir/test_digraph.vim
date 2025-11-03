@@ -1,8 +1,6 @@
 " Tests for digraphs
 
-source check.vim
 CheckFeature digraphs
-source term_util.vim
 
 func Put_Dig(chars)
   exe "norm! o\<c-k>".a:chars
@@ -40,6 +38,9 @@ func Test_digraphs()
   " Quadruple prime
   call Put_Dig("'4")
   call assert_equal("⁗", getline('.'))
+  " APPROACHES THE LIMIT
+  call Put_Dig(".=")
+  call assert_equal("≐", getline('.'))
   " Not a digraph
   call Put_Dig("a\<bs>")
   call Put_Dig("\<bs>a")
@@ -250,9 +251,12 @@ func Test_digraphs_option()
   call Put_Dig_BS("P","=")
   call assert_equal(['Р']+repeat(["₽"],2)+['П'], getline(line('.')-3,line('.')))
   " Not a digraph: this is different from <c-k>!
+  let _bs = &bs
+  set bs=
   call Put_Dig_BS("a","\<bs>")
   call Put_Dig_BS("\<bs>","a")
   call assert_equal(['','a'], getline(line('.')-1,line('.')))
+  let &bs = _bs
   " Grave
   call Put_Dig_BS("a","!")
   call Put_Dig_BS("!","e")
@@ -602,9 +606,22 @@ func Test_digraph_getlist_function()
   " of digraphs returned.
   call assert_equal(digraph_getlist()->len(), digraph_getlist(0)->len())
   call assert_notequal(digraph_getlist()->len(), digraph_getlist(1)->len())
+  call assert_equal(digraph_getlist()->len(), digraph_getlist(v:false)->len())
+  call assert_notequal(digraph_getlist()->len(), digraph_getlist(v:true)->len())
 
-  call assert_fails('call digraph_getlist(0z12)', 'E974: Using a Blob as a Number')
+  call assert_fails('call digraph_getlist(0z12)', 'E1212: Bool required for argument 1')
 endfunc
 
+func Test_digraph_angle_bracket_patch()
+  " Ensure that the deprecated angle brackets 2329/232A ('</','/>') are not used
+  call assert_notequal('〈', digraph_get('</'))
+  call assert_notequal('〉', digraph_get('/>'))
+  " Ensure that the CJK angle brackets 3008/3009 ('</','/>') are used
+  call assert_equal('〈', digraph_get('</'))
+  call assert_equal('〉', digraph_get('/>'))
+  " Ensure that the mathematical angle brackets 27E8/27E9 ('<[',']>') are defined
+  call assert_equal('⟨', digraph_get('<['))
+  call assert_equal('⟩', digraph_get(']>'))
+endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

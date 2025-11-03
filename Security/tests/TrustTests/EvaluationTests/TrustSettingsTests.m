@@ -38,14 +38,11 @@
 }
 #else
 /* Use admin store on OS X to avoid user prompts.
- * Need a framework cert since we're interacting with keychain and trust settings.
  * Sleep a little so trustd has time to get the KeychainEvent. */
 #define setTS(cert, settings) \
 { \
-    SecCertificateRef frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert); \
-    ok_status(SecTrustSettingsSetTrustSettings(frameworkCert, kSecTrustSettingsDomainAdmin, \
+    ok_status(SecTrustSettingsSetTrustSettings(cert, kSecTrustSettingsDomainAdmin, \
         settings), "set trust settings"); \
-    CFReleaseNull(frameworkCert); \
     usleep(20000); \
 }
 #endif
@@ -59,10 +56,8 @@
 #else
 #define setTSFail(cert, settings) \
 { \
-    SecCertificateRef frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert); \
-    is(SecTrustSettingsSetTrustSettings(frameworkCert, kSecTrustSettingsDomainAdmin, \
+    is(SecTrustSettingsSetTrustSettings(cert, kSecTrustSettingsDomainAdmin, \
         settings), errSecParam, "set trust settings"); \
-    CFReleaseNull(frameworkCert); \
 }
 #endif
 
@@ -75,10 +70,8 @@
 #else
 #define removeTS(cert) \
 { \
-    SecCertificateRef frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert); \
     ok_status(SecTrustSettingsRemoveTrustSettings(cert, kSecTrustSettingsDomainAdmin), \
         "remove trust settings"); \
-    CFReleaseNull(frameworkCert); \
 }
 #endif
 
@@ -110,11 +103,9 @@ static NSDate *verify_date = nil;
 
 #if TARGET_OS_IPHONE
 static SecTrustStoreRef defaultStore = NULL;
-#define sslFrameworkPolicy sslPolicy
 #else
 #define kSystemLoginKeychainPath "/Library/Keychains/System.keychain"
 static NSMutableArray *deleteMeCertificates = NULL;
-static SecPolicyRef sslFrameworkPolicy = NULL;
 #endif
 
 @implementation TrustSettingsTests
@@ -142,16 +133,11 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 #if TARGET_OS_IPHONE
     defaultStore = SecTrustStoreForDomain(kSecTrustStoreDomainUser);
 #else
-    /* We need a framework version of the policies in order to set policies in the trust settings */
-    sslFrameworkPolicy = SecFrameworkPolicyCreateSSL(true, CFSTR("testserver.apple.com"));
-
     /* Since we're putting trust settings in the admin domain,
-     * we need to add the certs to the system keychain.
-     * Need a framework cert since we're interacting with keychain. */
+     * we need to add the certs to the system keychain. */
     SecKeychainRef kcRef = NULL;
     CFArrayRef certRef = NULL;
     NSDictionary *attrs = nil;
-    SecCertificateRef frameworkCert = NULL;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -163,41 +149,33 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
     deleteMeCertificates = [[NSMutableArray alloc] init];
 
-    frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert0);
-    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)frameworkCert,
+    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)cert0,
               (__bridge NSString*)kSecUseKeychain: (__bridge id)kcRef,
               (__bridge NSString*)kSecReturnPersistentRef: @YES};
     if (SecItemAdd((CFDictionaryRef)attrs, (void *)&certRef) == 0)
         [deleteMeCertificates addObject:(__bridge NSArray *)certRef];
     CFReleaseNull(certRef);
-    CFReleaseNull(frameworkCert);
 
-    frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert1);
-    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)frameworkCert,
+    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)cert1,
               (__bridge NSString*)kSecUseKeychain: (__bridge id)kcRef,
               (__bridge NSString*)kSecReturnPersistentRef: @YES};
     if (SecItemAdd((CFDictionaryRef)attrs, (void *)&certRef) == 0)
         [deleteMeCertificates addObject:(__bridge NSArray *)certRef];
     CFReleaseNull(certRef);
-    CFReleaseNull(frameworkCert);
 
-    frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert2);
-    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)frameworkCert,
+    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)cert2,
                              (__bridge NSString*)kSecUseKeychain: (__bridge id)kcRef,
                              (__bridge NSString*)kSecReturnPersistentRef: @YES};
     if (SecItemAdd((CFDictionaryRef)attrs, (void *)&certRef) == 0)
         [deleteMeCertificates addObject:(__bridge NSArray *)certRef];
     CFReleaseNull(certRef);
-    CFReleaseNull(frameworkCert);
 
-    frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert3);
-    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)frameworkCert,
+    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)cert3,
               (__bridge NSString*)kSecUseKeychain: (__bridge id)kcRef,
               (__bridge NSString*)kSecReturnPersistentRef: @YES};
     if (SecItemAdd((CFDictionaryRef)attrs, (void *)&certRef) == 0)
         [deleteMeCertificates addObject:(__bridge NSArray *)certRef];
     CFReleaseNull(certRef);
-    CFReleaseNull(frameworkCert);
 
     CFReleaseNull(kcRef);
 #endif
@@ -216,7 +194,6 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     CFReleaseNull(cert2);
     CFReleaseNull(cert3);
     CFReleaseNull(sslPolicy);
-    CFReleaseNull(sslFrameworkPolicy);
     CFReleaseNull(smimePolicy);
     CFReleaseNull(basicPolicy);
     CFReleaseNull(sslChain);
@@ -282,7 +259,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTSkip();
 #endif
     /* Trust only for SSL server. SSL server policy succeeds. */
-    NSDictionary *sslServerAllowed = @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+    NSDictionary *sslServerAllowed = @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                         (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustAsRoot) };
     setTS(cert1, (__bridge CFDictionaryRef)sslServerAllowed);
     check_trust(sslChain, sslPolicy, verify_date, kSecTrustResultProceed);
@@ -302,10 +279,10 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 #if TARGET_OS_BRIDGE
     XCTSkip();
 #endif
-    NSArray *hostnameAllowed = @[ @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+    NSArray *hostnameAllowed = @[ @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                      (__bridge NSString*)kSecTrustSettingsPolicyString: @("wrongname.apple.com"),
                                      (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny) },
-                                  @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+                                  @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                      (__bridge NSString*)kSecTrustSettingsPolicyString: @("testserver.apple.com"),
                                      (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustAsRoot) }
                                   ];
@@ -324,16 +301,10 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     CFReleaseNull(wrongnamePolicy);
     removeTS(cert2);
 
-#if TARGET_OS_IPHONE
-    #define smimeFrameworkPolicy smimePolicy
-#else
-    SecPolicyRef smimeFrameworkPolicy= SecFrameworkPolicyCreateSMIME(kSecAnyEncryptSMIME, CFSTR("username@apple.com"));
-#endif
-
-    NSArray *emailAllowed = @[ @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)smimeFrameworkPolicy,
+    NSArray *emailAllowed = @[ @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)smimePolicy,
                                   (__bridge NSString*)kSecTrustSettingsPolicyString: @("wrongemail@apple.com"),
                                   (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny) },
-                               @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)smimeFrameworkPolicy,
+                               @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)smimePolicy,
                                   (__bridge NSString*)kSecTrustSettingsPolicyString: @("username@apple.com"),
                                   (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustAsRoot) }
                                ];
@@ -351,10 +322,6 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     check_trust(smimeChain, wrongemailPolicy, verify_date, kSecTrustResultDeny);
     CFReleaseNull(wrongemailPolicy);
     removeTS(cert3);
-
-#if TARGET_OS_OSX
-    CFReleaseNull(smimeFrameworkPolicy);
-#endif
 }
 
 #if TARGET_OS_OSX
@@ -517,7 +484,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
     /* allowed error with a policy constraint */
     NSDictionary *allowExpiredConstrained = @{ (__bridge NSString*)kSecTrustSettingsAllowedError: @(-2147409654),
-                                               (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+                                               (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                                (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)};
     setTS(cert1, (__bridge CFDictionaryRef)allowExpiredConstrained)
     setTS(cert2, (__bridge CFDictionaryRef)allowExpiredConstrained);
@@ -536,7 +503,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 #endif
     /* deny all but */
     NSArray *denyAllBut = @[
-                            @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy ,
+                            @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy ,
                               (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot)},
                             @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny) }
                             ];
@@ -547,7 +514,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
     /* allow all but */
     NSArray *allowAllBut = @[
-                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy ,
+                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy ,
                                (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)},
                              @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
                              ];
@@ -556,17 +523,11 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     check_trust(sslChain, sslPolicy, verify_date, kSecTrustResultRecoverableTrustFailure);
     removeTS(cert0);
 
-#if TARGET_OS_IPHONE
-#define basicFrameworkPolicy basicPolicy
-#else
-    SecPolicyRef basicFrameworkPolicy = SecFrameworkPolicyCreateBasicX509();
-#endif
-
     /* different results for specific policies */
     NSArray *specifyPolicyResult = @[
-                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                        (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultDeny)},
-                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)basicFrameworkPolicy,
+                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)basicPolicy,
                                        (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
                                      ];
     setTS(cert0, (__bridge CFArrayRef)specifyPolicyResult);
@@ -577,11 +538,11 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
     /* different results for additional constraint with same policy */
     NSArray *policyConstraintResult = @[
-                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                        (__bridge NSString*)kSecTrustSettingsPolicyString: @("wrongname.apple.com"),
                                        (__bridge NSString*)kSecTrustSettingsAllowedError: @(-2147408896),
                                        (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustAsRoot)},
-                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+                                     @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                        (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified) }
                                      ];
     SecPolicyRef wrongNameSSL = NULL;
@@ -592,10 +553,6 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     check_trust(sslChain, sslPolicy, verify_date, kSecTrustResultRecoverableTrustFailure);
     removeTS(cert2);
     CFReleaseNull(wrongNameSSL);
-
-#if TARGET_OS_OSX
-    CFReleaseNull(basicFrameworkPolicy);
-#endif
 }
 
 - (void)test_change_constraints
@@ -605,7 +562,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 #endif
     /* allow all but */
     NSArray *allowAllBut = @[
-                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy ,
+                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy ,
                                (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)},
                              @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
                              ];
@@ -629,15 +586,10 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 #endif
     /* need a new policy object for this test so we don't mess up the policy used by the other tests */
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("testserver.apple.com"));
-#if TARGET_OS_IPHONE
-#define frameworkPolicy policy
-#else
-    SecPolicyRef frameworkPolicy = SecFrameworkPolicyCreateSSL(true, CFSTR("testserver.apple.com"));
-#endif
 
     /* allow all but */
     NSArray *allowAllBut = @[
-                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)frameworkPolicy ,
+                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)policy ,
                                (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)},
                              @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
                              ];
@@ -650,7 +602,6 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTAssertFalse(SecTrustEvaluateWithError(trust, nil), "evaluate trust");
     CFReleaseSafe(trust);
     CFReleaseNull(policy);
-    CFReleaseNull(frameworkPolicy);
 
     removeTS(cert0);
 }
@@ -770,7 +721,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
 
     /* Add two trust settings */
     NSArray *allowAllBut = @[
-                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy ,
+                             @{(__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy ,
                                (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultUnspecified)},
                              @{(__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) }
                              ];
@@ -819,7 +770,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     removeTS(cert0);
 
     // Trusted with constraints
-    NSDictionary *sslServerAllowed = @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+    NSDictionary *sslServerAllowed = @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslPolicy,
                                         (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) };
     setTS(cert0, (__bridge CFDictionaryRef)sslServerAllowed);
     ok_status(SecTrustStoreCopyUsageConstraints(ts, cert0, &usageConstraints), "no failure to fetch constraints for unconstrained root");

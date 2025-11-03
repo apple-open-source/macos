@@ -128,12 +128,13 @@ void UIGamepadProvider::platformGamepadDisconnected(PlatformGamepad& gamepad)
     ASSERT(m_gamepads[gamepad.index()]);
 
     if (gamepad.index() >= m_gamepads.size()) {
-        std::array<uint64_t, 6> values { 0, 0, 0, 0, 0, 0 };
-        auto valuesAsBytes  = asMutableByteSpan(std::span { values });
-        memcpySpan(valuesAsBytes, std::span { "gamepad-unknown-disconnect" });
-        values[4] = gamepad.index();
-        values[5] = m_gamepads.size();
-        CRASH_WITH_INFO(values[0], values[1], values[2], values[3], values[4], values[5]);
+#if PLATFORM(COCOA)
+        auto reason = makeString("Unknown platform gamepad disconnect: Index "_s, gamepad.index(), " with "_s, m_gamepads.size(), " known gamepads"_s);
+        os_fault_with_payload(OS_REASON_WEBKIT, 0, nullptr, 0, reason.utf8().data(), 0);
+#else
+        RELEASE_LOG_ERROR(Gamepad, "Unknown platform gamepad disconnect: Index %zu with %zu known gamepads", gamepad.index(), m_gamepads.size());
+#endif
+        return;
     }
 
     std::unique_ptr<UIGamepad> disconnectedGamepad = WTFMove(m_gamepads[gamepad.index()]);

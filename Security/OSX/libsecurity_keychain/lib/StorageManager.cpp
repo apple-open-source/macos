@@ -54,6 +54,7 @@
 #include <Security/SecBasePriv.h>
 #include "TokenLogin.h"
 #include "featureflags/featureflags.h"
+#include <os/feature_private.h>
 
 extern "C" {
 #include <ctkloginhelper.h>
@@ -1721,9 +1722,9 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 		for (UInt32 i = 0; i < 2; i++) {
 			loginResult = errSecSuccess;
 
-			CFRef<CFDictionaryRef> tokenLoginData;
+			CFRef<CFDictionaryRef> dataFromTokenPlist;
 			if (tokenLoginContext) {
-				OSStatus status = TokenLoginGetLoginData(tokenLoginContext, tokenLoginData.take());
+				OSStatus status = TokenLoginGetLoginData(tokenLoginContext, dataFromTokenPlist.take());
 				if (status != errSecSuccess) {
 					if (tokenLoginDataUpdated) {
 						loginResult = status;
@@ -1739,7 +1740,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
                     }
 					status = TokenLoginUpdateUnlockData(tokenLoginContext, smartCardPassword);
 					if (status == errSecSuccess) {
-						loginResult = TokenLoginGetLoginData(tokenLoginContext, tokenLoginData.take());
+						loginResult = TokenLoginGetLoginData(tokenLoginContext, dataFromTokenPlist.take());
 						if (loginResult != errSecSuccess) {
 							break;
 						}
@@ -1752,9 +1753,10 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 				}
 			}
 
+            Boolean unlockedByDp = false;
             try {
                 // first try to unlock login keychain because if this fails, token keychain unlock fails as well
-				if (tokenLoginData) {
+				if (dataFromTokenPlist) {
                     // check if smartcard setup is complete
                     bool scKekNeeded = false; bool scKekValid = false;
                     CFStringRef currName = CFStringCreateWithCString(kCFAllocatorDefault, userName.c_str(), kCFStringEncodingUTF8);
@@ -1768,54 +1770,63 @@ void StorageManager::login(UInt32 nameLength, const void *name,
                     }
                     
 					secnotice("KCLogin", "Going to unlock keybag using scBlob");
-                    status = TokenLoginUnlockKeybag(tokenLoginContext, tokenLoginData);
-					secnotice("KCLogin", "Keybag unlock result %d", (int)status);
+                    status = TokenLoginUnlockKeybag(tokenLoginContext, dataFromTokenPlist);
+					secnotice("KCLogin", "Keybag unlock result %x", (int)status);
 					if (status)
 						CssmError::throwMe(status); // to trigger login data regeneration
+                    
+                    if (os_feature_enabled(Security, ProtectLoginKeychainWithDP)) {
+                        // keychain will be unlocked with DP thus it should accept any password
+                        char blankPwd[] = "";
+                        theKeychain->unlock(CssmData(static_cast<void *>(blankPwd), strlen(blankPwd)));
+                        unlockedByDp = true;
+                    }
 				}
 
-                // build a fake key
-                CssmKey key;
-                key.header().BlobType = CSSM_KEYBLOB_RAW;
-                key.header().Format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
-                key.header().AlgorithmId = CSSM_ALGID_3DES_3KEY;
-                key.header().KeyClass = CSSM_KEYCLASS_SESSION_KEY;
-                key.header().KeyUsage = CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT | CSSM_KEYATTR_EXTRACTABLE;
-                key.header().KeyAttr = 0;
-                CFRef<CFDataRef> tokenLoginUnlockKey;
-				if (tokenLoginData) {
-					OSStatus status = TokenLoginGetUnlockKey(tokenLoginContext, tokenLoginUnlockKey.take());
-					if (status)
-						CssmError::throwMe(status); // to trigger login data regeneration
-					key.KeyData = CssmData(tokenLoginUnlockKey.get());
-				} else {
-					key.KeyData = CssmData(const_cast<void *>(password), passwordLength);
-				}
-                // unwrap it into the CSP (but keep it raw)
-                UnwrapKey unwrap(theKeychain->csp(), CSSM_ALGID_NONE);
-                CssmKey masterKey;
-                CssmData descriptiveData;
-                unwrap(key,
-                       KeySpec(CSSM_KEYUSE_ANY, CSSM_KEYATTR_EXTRACTABLE),
-                       masterKey, &descriptiveData, NULL);
-                
-                CssmClient::Db db = theKeychain->database();
-                
-                // create the keychain, using appropriate credentials
-                Allocator &alloc = db->allocator();
-                AutoCredentials cred(alloc);	// will leak, but we're quitting soon :-)
-                
-                // use this passphrase
-                cred += TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
-                                  new(alloc) ListElement(CSSM_SAMPLE_TYPE_SYMMETRIC_KEY),
-                                  new(alloc) ListElement(CssmData::wrap(theKeychain->csp()->handle())),
-                                  new(alloc) ListElement(CssmData::wrap(masterKey)),
-                                  new(alloc) ListElement(CssmData()));
-                db->authenticate(CSSM_DB_ACCESS_READ, &cred);
-                db->unlock();
+                if (!unlockedByDp) {
+                    // build a fake key
+                    CssmKey key;
+                    key.header().BlobType = CSSM_KEYBLOB_RAW;
+                    key.header().Format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+                    key.header().AlgorithmId = CSSM_ALGID_3DES_3KEY;
+                    key.header().KeyClass = CSSM_KEYCLASS_SESSION_KEY;
+                    key.header().KeyUsage = CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT | CSSM_KEYATTR_EXTRACTABLE;
+                    key.header().KeyAttr = 0;
+                    CFRef<CFDataRef> tokenLoginUnlockKey;
+                    if (dataFromTokenPlist) {
+                        OSStatus status = TokenLoginGetUnlockKey(tokenLoginContext, tokenLoginUnlockKey.take());
+                        if (status)
+                            CssmError::throwMe(status); // to trigger login data regeneration
+                        key.KeyData = CssmData(tokenLoginUnlockKey.get());
+                    } else {
+                        key.KeyData = CssmData(const_cast<void *>(password), passwordLength);
+                    }
+                    // unwrap it into the CSP (but keep it raw)
+                    UnwrapKey unwrap(theKeychain->csp(), CSSM_ALGID_NONE);
+                    CssmKey masterKey;
+                    CssmData descriptiveData;
+                    unwrap(key,
+                           KeySpec(CSSM_KEYUSE_ANY, CSSM_KEYATTR_EXTRACTABLE),
+                           masterKey, &descriptiveData, NULL);
+                    
+                    CssmClient::Db db = theKeychain->database();
+                    
+                    // create the keychain, using appropriate credentials
+                    Allocator &alloc = db->allocator();
+                    AutoCredentials cred(alloc);	// will leak, but we're quitting soon :-)
+                    
+                    // use this passphrase
+                    cred += TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
+                                      new(alloc) ListElement(CSSM_SAMPLE_TYPE_SYMMETRIC_KEY),
+                                      new(alloc) ListElement(CssmData::wrap(theKeychain->csp()->handle())),
+                                      new(alloc) ListElement(CssmData::wrap(masterKey)),
+                                      new(alloc) ListElement(CssmData()));
+                    db->authenticate(CSSM_DB_ACCESS_READ, &cred);
+                    db->unlock();
+                }
                 loginUnlocked = true;
             } catch (const CssmError &e) {
-                if (tokenLoginData && !tokenLoginDataUpdated) {
+                if (dataFromTokenPlist && !tokenLoginDataUpdated) {
                     // token login unlock key was invalid
 					loginResult = TokenLoginUpdateUnlockData(tokenLoginContext, smartCardPassword);
                     if (loginResult == errSecSuccess) {

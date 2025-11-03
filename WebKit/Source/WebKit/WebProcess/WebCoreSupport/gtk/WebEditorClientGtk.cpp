@@ -41,7 +41,8 @@ bool WebEditorClient::handleGtkEditorCommand(LocalFrame& frame, const String& co
     if (command == "GtkInsertEmoji"_s) {
         if (!allowTextInsertion)
             return false;
-        m_page->showEmojiPicker(frame);
+        if (RefPtr page = m_page.get())
+            page->showEmojiPicker(frame);
         return true;
     }
 

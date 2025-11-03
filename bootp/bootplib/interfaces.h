@@ -108,6 +108,7 @@ typedef struct {
     link_addr_t		link_address;
     uint32_t		user_defined;
     link_status_t	link_status;
+    uint64_t		generation; /* SIOCGIFGENERATIONID */
 } interface_t;
 
 typedef struct {
@@ -121,7 +122,7 @@ typedef struct {
  * Purpose:
  *   Interface list routines.
  */
-interface_list_t * 	ifl_init(void);
+interface_list_t * 	ifl_create(interface_list_t * list);
 interface_t * 		ifl_first_broadcast_inet(interface_list_t * intface);
 interface_t *		ifl_find_name(interface_list_t * intface, 
 				      const char * name);
@@ -152,6 +153,8 @@ boolean_t		if_inet_valid(interface_t * if_p);
 inet_addrinfo_t *	if_inet_addr_at(interface_t * if_p, int i);
 int			if_inet_match_subnet(interface_t * if_p,
 					     struct in_addr match);
+uint64_t		if_generation(interface_t * if_p);
+
 static inline struct in_addr
 if_inet_addr_best_match(interface_t * if_p, struct in_addr match)
 {

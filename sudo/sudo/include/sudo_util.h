@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2013-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2013-2025 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,7 +23,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 
 #ifdef __TANDEM
@@ -32,6 +32,14 @@
 # define ROOT_UID	0
 #endif
 #define ROOT_GID	0
+
+#ifndef OFF_T_MAX
+# if SIZEOF_OFF_T == 8
+#  define OFF_T_MAX	LLONG_MAX
+# else
+#  define OFF_T_MAX	INT_MAX
+# endif
+#endif
 
 #ifndef TIME_T_MIN
 # if SIZEOF_TIME_T == 8
@@ -46,46 +54,6 @@
 # else
 #  define TIME_T_MAX	INT_MAX
 # endif
-#endif
-
-/*
- * Macros for operating on struct timeval.
- */
-#define sudo_timevalclear(tv)	((tv)->tv_sec = (tv)->tv_usec = 0)
-
-#define sudo_timevalisset(tv)	((tv)->tv_sec || (tv)->tv_usec)
-
-#define sudo_timevalcmp(tv1, tv2, op)					       \
-    (((tv1)->tv_sec == (tv2)->tv_sec) ?					       \
-	((tv1)->tv_usec op (tv2)->tv_usec) :				       \
-	((tv1)->tv_sec op (tv2)->tv_sec))
-
-#define sudo_timevaladd(tv1, tv2, tv3)					       \
-    do {								       \
-	(tv3)->tv_sec = (tv1)->tv_sec + (tv2)->tv_sec;			       \
-	(tv3)->tv_usec = (tv1)->tv_usec + (tv2)->tv_usec;		       \
-	if ((tv3)->tv_usec >= 1000000) {				       \
-	    (tv3)->tv_sec++;						       \
-	    (tv3)->tv_usec -= 1000000;					       \
-	}								       \
-    } while (0)
-
-#define sudo_timevalsub(tv1, tv2, tv3)					       \
-    do {								       \
-	(tv3)->tv_sec = (tv1)->tv_sec - (tv2)->tv_sec;			       \
-	(tv3)->tv_usec = (tv1)->tv_usec - (tv2)->tv_usec;		       \
-	if ((tv3)->tv_usec < 0) {					       \
-	    (tv3)->tv_sec--;						       \
-	    (tv3)->tv_usec += 1000000;					       \
-	}								       \
-    } while (0)
-
-#ifndef TIMEVAL_TO_TIMESPEC
-# define TIMEVAL_TO_TIMESPEC(tv, ts)					       \
-    do {								       \
-	(ts)->tv_sec = (tv)->tv_sec;					       \
-	(ts)->tv_nsec = (tv)->tv_usec * 1000;				       \
-    } while (0)
 #endif
 
 /*
@@ -119,6 +87,14 @@
 	    (ts3)->tv_nsec += 1000000000;				       \
 	}								       \
     } while (0)
+
+#ifndef TIMEVAL_TO_TIMESPEC
+# define TIMEVAL_TO_TIMESPEC(tv, ts)					       \
+    do {								       \
+	(ts)->tv_sec = (tv)->tv_sec;					       \
+	(ts)->tv_nsec = (tv)->tv_usec * 1000;				       \
+    } while (0)
+#endif
 
 #ifndef TIMESPEC_TO_TIMEVAL
 # define TIMESPEC_TO_TIMEVAL(tv, ts)					       \
@@ -163,10 +139,14 @@
 #define ssizeof(_x)	((ssize_t)sizeof(_x))
 
 /* Bit map macros. */
-#define sudo_setbit(_a, _i)	((_a)[(_i) / NBBY] |= 1 << ((_i) % NBBY))
-#define sudo_clrbit(_a, _i)	((_a)[(_i) / NBBY] &= ~(1<<((_i) % NBBY)))
-#define sudo_isset(_a, _i)	((_a)[(_i) / NBBY] & (1<<((_i) % NBBY)))
-#define sudo_isclr(_a, _i)	(((_a)[(_i) / NBBY] & (1<<((_i) % NBBY))) == 0)
+#define sudo_setbit(_a, _i) ((_a)[(_i) / NBBY] |= 1U << ((_i) % NBBY))
+#define sudo_clrbit(_a, _i) ((_a)[(_i) / NBBY] &= ~(1U << ((_i) % NBBY)))
+#define sudo_isset(_a, _i)  ((_a)[(_i) / NBBY] & (1U << ((_i) % NBBY)))
+#define sudo_isclr(_a, _i)  (((_a)[(_i) / NBBY] & (1U << ((_i) % NBBY))) == 0)
+
+/* Macros to determine the length of a type in string form. */
+#define STRLEN_MAX_UNSIGNED(t)	(((sizeof(t) * 8 * 1233) >> 12) + 1)
+#define STRLEN_MAX_SIGNED(t)	(STRLEN_MAX_UNSIGNED(t) + ((sizeof(t) == 8) ? 0 : 1))
 
 /* sudo_parseln() flags */
 #define PARSELN_COMM_BOL	0x01	/* comments only at beginning of line */
@@ -205,6 +185,8 @@ sudo_dso_public char *sudo_basename_v1(const char *filename);
 /* gethostname.c */
 sudo_dso_public char *sudo_gethostname_v1(void);
 #define sudo_gethostname() sudo_gethostname_v1()
+sudo_dso_public size_t sudo_host_name_max_v1(void);
+#define sudo_host_name_max() sudo_host_name_max_v1()
 
 /* gettime.c */
 sudo_dso_public int sudo_gettime_awake_v1(struct timespec *ts);
@@ -223,7 +205,7 @@ sudo_dso_public int sudo_getgrouplist2_v1(const char *name, gid_t basegid, GETGR
 #define sudo_getgrouplist2(_a, _b, _c, _d) sudo_getgrouplist2_v1((_a), (_b), (_c), (_d))
 
 /* hexchar.c */
-sudo_dso_public int sudo_hexchar_v1(const char *s);
+sudo_dso_public int sudo_hexchar_v1(const char s[restrict static 2]);
 #define sudo_hexchar(_a) sudo_hexchar_v1(_a)
 
 /* key_val.c */
@@ -244,6 +226,10 @@ sudo_dso_public bool sudo_str2logfac_v1(const char *str, int *logfac);
 #define sudo_str2logfac(_a, _b) sudo_str2logfac_v1((_a), (_b))
 sudo_dso_public const char *sudo_logfac2str_v1(int num);
 #define sudo_logfac2str(_a) sudo_logfac2str_v1((_a))
+
+/* login_max.c */
+sudo_dso_public size_t sudo_login_name_max_v1(void);
+#define sudo_login_name_max() sudo_login_name_max_v1()
 
 /* logpri.c */
 sudo_dso_public bool sudo_str2logpri_v1(const char *str, int *logpri);
@@ -270,7 +256,7 @@ sudo_dso_public int sudo_mmap_protect_v1(void *ptr);
 #define sudo_mmap_protect(_a) sudo_mmap_protect_v1(_a)
 
 /* multiarch.c */
-sudo_dso_public char *sudo_stat_multiarch_v1(const char *path, struct stat *sb);
+sudo_dso_public char *sudo_stat_multiarch_v1(const char * restrict path, struct stat * restrict sb);
 #define sudo_stat_multiarch(_a, _b) sudo_stat_multiarch_v1((_a), (_b))
 
 /* parseln.c */
@@ -294,7 +280,8 @@ sudo_dso_public bool sudo_regex_compile_v1(void *v, const char *pattern, const c
 
 /* roundup.c */
 sudo_dso_public unsigned int sudo_pow2_roundup_v1(unsigned int len);
-#define sudo_pow2_roundup(_a) sudo_pow2_roundup_v1((_a))
+sudo_dso_public size_t sudo_pow2_roundup_v2(size_t len);
+#define sudo_pow2_roundup(_a) sudo_pow2_roundup_v2((_a))
 
 /* secure_path.c */
 #define SUDO_PATH_SECURE		0
@@ -305,12 +292,16 @@ sudo_dso_public unsigned int sudo_pow2_roundup_v1(unsigned int len);
 #define SUDO_PATH_GROUP_WRITABLE	-5
 sudo_dso_public int sudo_secure_dir_v1(const char *path, uid_t uid, gid_t gid, struct stat *sb);
 #define sudo_secure_dir(_a, _b, _c, _d) sudo_secure_dir_v1((_a), (_b), (_c), (_d))
+sudo_dso_public int sudo_secure_fd_v1(int fd, unsigned int type, uid_t uid, gid_t gid, struct stat *sb);
+#define sudo_secure_fd(_a, _b, _c, _d, _e) sudo_secure_fd_v1((_a), (_b), (_c), (_d), (_e))
 sudo_dso_public int sudo_secure_file_v1(const char *path, uid_t uid, gid_t gid, struct stat *sb);
 #define sudo_secure_file(_a, _b, _c, _d) sudo_secure_file_v1((_a), (_b), (_c), (_d))
 sudo_dso_public int sudo_secure_open_file_v1(const char *path, uid_t uid, gid_t gid, struct stat *sb, int *error);
 #define sudo_secure_open_file(_a, _b, _c, _d, _e) sudo_secure_open_file_v1((_a), (_b), (_c), (_d), (_e))
 sudo_dso_public int sudo_secure_open_dir_v1(const char *path, uid_t uid, gid_t gid, struct stat *sb, int *error);
 #define sudo_secure_open_dir(_a, _b, _c, _d, _e) sudo_secure_open_dir_v1((_a), (_b), (_c), (_d), (_e))
+sudo_dso_public int sudo_open_conf_path_v1(const char *path, char *name, size_t namesize, int (*fn)(const char *, int));
+#define sudo_open_conf_path(_a, _b, _c, _d) sudo_open_conf_path_v1((_a), (_b), (_c), (_d))
 
 /* setgroups.c */
 sudo_dso_public int sudo_setgroups_v1(int ngids, const GETGROUPS_T *gids);
@@ -339,19 +330,25 @@ sudo_dso_public id_t sudo_strtoidx_v1(const char *str, const char *sep, char **e
 
 /* strtomode.c */
 sudo_dso_public int sudo_strtomode_v1(const char *cp, const char **errstr);
-#define sudo_strtomode(_a, _b) sudo_strtomode_v1((_a), (_b))
+sudo_dso_public mode_t sudo_strtomode_v2(const char *cp, const char **errstr);
+#define sudo_strtomode(_a, _b) sudo_strtomode_v2((_a), (_b))
 
 /* sudo_printf.c */
-extern int (*sudo_printf)(int msg_type, const char *fmt, ...);
+extern int (*sudo_printf)(int msg_type, const char * restrict fmt, ...);
 
 /* term.c */
+#define SUDO_TERM_ISIG	0x01U
+#define SUDO_TERM_OFLAG	0x02U
+sudo_dso_public bool sudo_isatty_v1(int fd, struct stat *sbp);
+#define sudo_isatty(_a, _b) sudo_isatty_v1((_a), (_b))
 sudo_dso_public bool sudo_term_cbreak_v1(int fd);
-#define sudo_term_cbreak(_a) sudo_term_cbreak_v1((_a))
+sudo_dso_public bool sudo_term_cbreak_v2(int fd, bool flush);
+#define sudo_term_cbreak(_a, _b) sudo_term_cbreak_v2((_a), (_b))
 sudo_dso_public bool sudo_term_copy_v1(int src, int dst);
 #define sudo_term_copy(_a, _b) sudo_term_copy_v1((_a), (_b))
 sudo_dso_public bool sudo_term_noecho_v1(int fd);
 #define sudo_term_noecho(_a) sudo_term_noecho_v1((_a))
-sudo_dso_public bool sudo_term_raw_v1(int fd, int isig);
+sudo_dso_public bool sudo_term_raw_v1(int fd, unsigned int flags);
 #define sudo_term_raw(_a, _b) sudo_term_raw_v1((_a), (_b))
 sudo_dso_public bool sudo_term_restore_v1(int fd, bool flush);
 #define sudo_term_restore(_a, _b) sudo_term_restore_v1((_a), (_b))
@@ -364,12 +361,13 @@ sudo_dso_public char *sudo_ttyname_dev_v1(dev_t tdev, char *name, size_t namelen
 
 /* ttysize.c */
 sudo_dso_public void sudo_get_ttysize_v1(int *rowp, int *colp);
-#define sudo_get_ttysize(_a, _b) sudo_get_ttysize_v1((_a), (_b))
+sudo_dso_public void sudo_get_ttysize_v2(int fd, int *rowp, int *colp);
+#define sudo_get_ttysize(_a, _b, _c) sudo_get_ttysize_v2((_a), (_b), (_c))
 
 /* uuid.c */
-sudo_dso_public void sudo_uuid_create_v1(unsigned char uuid_out[16]);
+sudo_dso_public void sudo_uuid_create_v1(unsigned char uuid_out[restrict static 16]);
 #define sudo_uuid_create(_a) sudo_uuid_create_v1((_a))
-sudo_dso_public char *sudo_uuid_to_string_v1(unsigned char uuid[16], char *dst, size_t dstsiz);
+sudo_dso_public char *sudo_uuid_to_string_v1(const unsigned char uuid[restrict static 16], char * restrict dst, size_t dstsiz);
 #define sudo_uuid_to_string(_a, _b, _c) sudo_uuid_to_string_v1((_a), (_b), (_c))
 
 #endif /* SUDO_UTIL_H */

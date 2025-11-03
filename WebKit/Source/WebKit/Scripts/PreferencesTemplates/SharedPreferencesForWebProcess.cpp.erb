@@ -33,14 +33,18 @@
 
 namespace WebKit {
 
-SharedPreferencesForWebProcess sharedPreferencesForWebProcess(const WebPreferencesStore& preferencesStore)
+SharedPreferencesForWebProcess sharedPreferencesForWebProcess(const WebPreferencesStore& preferencesStore, bool isLockdownModeEnabled)
 {
     SharedPreferencesForWebProcess sharedPreferences;
 <% for @pref in @sharedPreferencesForWebProcess do -%>
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
-        sharedPreferences.<%= @pref.nameLower %> = preferencesStore.getBoolValueForKey(WebPreferencesKey::<%= @pref.nameLower %>Key());
+<%- if @pref.opts["disableInLockdownMode"] -%>
+    sharedPreferences.<%= @pref.nameLower %> = isLockdownModeEnabled ? false : preferencesStore.getBoolValueForKey(WebPreferencesKey::<%= @pref.nameLower %>Key());
+<%- else -%>
+    sharedPreferences.<%= @pref.nameLower %> = preferencesStore.getBoolValueForKey(WebPreferencesKey::<%= @pref.nameLower %>Key());
+<%- end -%>
 <%- if @pref.condition -%>
 #endif
 <%- end -%>
@@ -48,17 +52,24 @@ SharedPreferencesForWebProcess sharedPreferencesForWebProcess(const WebPreferenc
     return sharedPreferences;
 }
 
-bool updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess& sharedPreferences, const WebPreferencesStore& preferencesStore)
+bool updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess& sharedPreferences, const WebPreferencesStore& preferencesStore, bool isLockdownModeEnabled)
 {
     bool didChange = false;
 <% for @pref in @sharedPreferencesForWebProcess do -%>
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
+<%- if @pref.opts["disableInLockdownMode"] -%>
+    if (!isLockdownModeEnabled && preferencesStore.getBoolValueForKey(WebPreferencesKey::<%= @pref.nameLower %>Key()) && !sharedPreferences.<%= @pref.nameLower %>) {
+        sharedPreferences.<%= @pref.nameLower %> = true;
+        didChange = true;
+    }
+<%- else -%>
     if (preferencesStore.getBoolValueForKey(WebPreferencesKey::<%= @pref.nameLower %>Key()) && !sharedPreferences.<%= @pref.nameLower %>) {
         sharedPreferences.<%= @pref.nameLower %> = true;
         didChange = true;
     }
+<%- end -%>
 <%- if @pref.condition -%>
 #endif
 <%- end -%>

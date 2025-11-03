@@ -836,9 +836,16 @@ float AudioParamTimeline::linearRampAtTime(Seconds t, float value1, Seconds time
     return value1 + (value2 - value1) * (t - time1).value() / (time2 - time1).value();
 }
 
+// See : https://webaudio.github.io/web-audio-api/#dom-audioparam-exponentialramptovalueattime
 float AudioParamTimeline::exponentialRampAtTime(Seconds t, float value1, Seconds time1, float value2, Seconds time2)
 {
-    return value1 * pow(value2 / value1, (t - time1).value() / (time2 - time1).value());
+    ASSERT(std::isfinite(value1));
+    ASSERT(std::isfinite(value2));
+    ASSERT(time2 > time1);
+
+    return (!value1 || (value2 && std::signbit(value1) != std::signbit(value2)))
+        ? value1
+        : value1 * std::pow(value2 / value1, (t - time1).value() / (time2 - time1).value());
 }
 
 float AudioParamTimeline::valueCurveAtTime(Seconds t, Seconds time1, Seconds duration, std::span<const float> curveData, size_t curveLength)

@@ -41,8 +41,8 @@
 #include <signal.h>
 #include <fcntl.h>
 
-#include "sudo.h"
-#include "sudo_plugin.h"
+#include <sudo.h>
+#include <sudo_plugin.h>
 
 enum tgetpass_errval {
     TGP_ERRVAL_NOERROR,
@@ -108,7 +108,7 @@ tgetpass_display_error(enum tgetpass_errval errval)
  * Like getpass(3) but with timeout and echo flags.
  */
 char *
-tgetpass(const char *prompt, int timeout, int flags,
+tgetpass(const char *prompt, int timeout, unsigned int flags,
     struct sudo_conv_callback *callback)
 {
     struct sigaction sa, savealrm, saveint, savehup, savequit, saveterm;
@@ -137,8 +137,13 @@ restart:
 	ttyfd = open(_PATH_TTY, O_RDWR);
 	if (ttyfd == -1 && !ISSET(flags, TGP_ECHO|TGP_NOECHO_TRY)) {
 	    if (askpass == NULL || getenv_unhooked("DISPLAY") == NULL) {
-		sudo_warnx("%s",
-		    U_("a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"));
+		if (getenv_unhooked("SSH_CONNECTION") != NULL && getenv_unhooked("SSH_TTY") == NULL) {
+		    sudo_warnx("%s",
+			U_("a terminal is required to read the password; either use ssh's -t option or configure an askpass helper"));
+		} else {
+		    sudo_warnx("%s",
+			U_("a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"));
+		}
 		debug_return_str(NULL);
 	    }
 	    SET(flags, TGP_ASKPASS);
@@ -180,7 +185,7 @@ restart:
     if (!ISSET(flags, TGP_ECHO)) {
 	for (;;) {
 	    if (ISSET(flags, TGP_MASK))
-		neednl = feedback = sudo_term_cbreak(input);
+		neednl = feedback = sudo_term_cbreak(input, true);
 	    else
 		neednl = sudo_term_noecho(input);
 	    if (neednl || errno != EINTR)
@@ -213,22 +218,22 @@ restart:
 
     if (ISSET(flags, TGP_BELL) && output != STDERR_FILENO) {
 	/* Ring the bell if requested and there is a tty. */
-	if (write(output, "\a", 1) == -1)
+	if (write(output, "\a", 1) != 1)
 	    goto restore;
     }
     if (prompt) {
-	if (write(output, prompt, strlen(prompt)) == -1)
+	if (write(output, prompt, strlen(prompt)) < 0)
 	    goto restore;
     }
 
     if (timeout > 0)
-	alarm(timeout);
+	alarm((unsigned int)timeout);
     pass = getln(input, buf, sizeof(buf), feedback, &errval);
     alarm(0);
     save_errno = errno;
 
     if (neednl || pass == NULL) {
-	if (write(output, "\n", 1) == -1)
+	if (write(output, "\n", 1) != 1)
 	    goto restore;
     }
     tgetpass_display_error(errval);
@@ -290,7 +295,7 @@ static char *
 sudo_askpass(const char *askpass, const char *prompt)
 {
     static char buf[SUDO_CONV_REPL_MAX + 1], *pass;
-    struct sudo_cred *cred = &user_details.cred;
+    const struct sudo_cred *cred = sudo_askpass_cred(NULL);
     sigset_t chldmask;
     enum tgetpass_errval errval;
     int pfd[2], status;
@@ -374,21 +379,22 @@ static char *
 getln(int fd, char *buf, size_t bufsiz, bool feedback,
     enum tgetpass_errval *errval)
 {
-    size_t left = bufsiz;
     ssize_t nr = -1;
+    const char *ep;
     char *cp = buf;
     char c = '\0';
     debug_decl(getln, SUDO_DEBUG_CONV);
 
     *errval = TGP_ERRVAL_NOERROR;
 
-    if (left == 0) {
+    if (bufsiz == 0) {
 	*errval = TGP_ERRVAL_READERROR;
 	errno = EINVAL;
 	debug_return_str(NULL);
     }
+    ep = buf + bufsiz - 1;	/* reserve space for NUL byte */
 
-    while (--left) {
+    while (cp < ep) {
 	nr = read(fd, &c, 1);
 	if (nr != 1 || c == '\n' || c == '\r')
 	    break;
@@ -398,18 +404,16 @@ getln(int fd, char *buf, size_t bufsiz, bool feedback,
 		break;
 	    } else if (c == sudo_term_kill) {
 		while (cp > buf) {
-		    if (write(fd, "\b \b", 3) == -1)
+		    if (write(fd, "\b \b", 3) != 3)
 			break;
 		    cp--;
 		}
 		cp = buf;
-		left = bufsiz;
 		continue;
 	    } else if (c == sudo_term_erase) {
 		if (cp > buf) {
 		    ignore_result(write(fd, "\b \b", 3));
 		    cp--;
-		    left++;
 		}
 		continue;
 	    }
@@ -421,9 +425,9 @@ getln(int fd, char *buf, size_t bufsiz, bool feedback,
     if (feedback) {
 	/* erase stars */
 	while (cp > buf) {
-	    if (write(fd, "\b \b", 3) == -1)
+	    if (write(fd, "\b \b", 3) != 3)
 		break;
-	    --cp;
+	    cp--;
 	}
     }
 
@@ -439,7 +443,7 @@ getln(int fd, char *buf, size_t bufsiz, bool feedback,
 	debug_return_str(NULL);
     case 0:
 	/* EOF is only an error if no bytes were read. */
-	if (left == bufsiz - 1) {
+	if (buf[0] == '\0') {
 	    *errval = TGP_ERRVAL_NOPASSWORD;
 	    debug_return_str(NULL);
 	}
@@ -453,4 +457,14 @@ static void
 tgetpass_handler(int s)
 {
     signo[s] = 1;
+}
+
+const struct sudo_cred *
+sudo_askpass_cred(const struct sudo_cred *cred)
+{
+    static const struct sudo_cred *saved_cred;
+
+    if (cred != NULL)
+	saved_cred = cred;
+    return saved_cred;
 }

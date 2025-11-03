@@ -57,6 +57,9 @@
 #include <libkern/section_keywords.h>
 #include <libkern/OSDebug.h>
 
+#if HAS_MTE
+#include <arm64/mte_xnu.h>
+#endif
 
 #define INT_SIZE        (BYTE_SIZE * sizeof (int))
 
@@ -140,6 +143,16 @@ bcopy_phys_internal(addr64_t src, addr64_t dst, vm_size_t bytes, int flags)
 			tmp_src = (char*)(pmap_cpu_windows_copy_addr(cpu_num, src_index) + src_offset);
 		} else if (BCOPY_PHYS_SRC_IS_PHYS(flags)) {
 			tmp_src = (char*)phystokv_range((pmap_paddr_t)src, &count);
+#if HAS_MTE
+			if (flags & cppvFixupPhysmapTag) {
+				/*
+				 * The physical page backs an MTE enabled mapping,
+				 * but the address we got back from the physmap is untagged.
+				 * Fixup the address here.
+				 */
+				tmp_src = mte_load_tag(tmp_src);
+			}
+#endif /* HAS_MTE */
 		} else {
 			tmp_src = (char*)src;
 		}
@@ -148,6 +161,16 @@ bcopy_phys_internal(addr64_t src, addr64_t dst, vm_size_t bytes, int flags)
 			tmp_dst = (char*)(pmap_cpu_windows_copy_addr(cpu_num, dst_index) + dst_offset);
 		} else if (BCOPY_PHYS_DST_IS_PHYS(flags)) {
 			tmp_dst = (char*)phystokv_range((pmap_paddr_t)dst, &count2);
+#if HAS_MTE
+			if (flags & cppvFixupPhysmapTag) {
+				/*
+				 * The physical page backs an MTE enabled mapping,
+				 * but the address we got back from the physmap is untagged.
+				 * Fixup the address here.
+				 */
+				tmp_dst = mte_load_tag(tmp_dst);
+			}
+#endif /* HAS_MTE */
 		} else {
 			tmp_dst = (char*)dst;
 		}
@@ -164,8 +187,51 @@ bcopy_phys_internal(addr64_t src, addr64_t dst, vm_size_t bytes, int flags)
 		} else if (BCOPY_PHYS_DST_IS_USER(flags)) {
 			res = copyout(tmp_src, (user_addr_t)dst, count);
 		} else {
-			bcopy(tmp_src, tmp_dst, count);
+#if HAS_MTE
+			/*
+			 * Page-copy operations naturally traverse over
+			 * potentially differently tagged ranges. Whenever
+			 * that's the case, the caller must explicitly ask
+			 * to have tag checking disabled.
+			 */
+			if (flags & cppvDisableTagCheck) {
+				mte_disable_tag_checking();
+			}
 
+			if (flags & cppvDenoteAccessMayFault) {
+				if (flags & cppvPsrc) {
+					/* IOMD::readBytes() */
+					int _bcopy_recover_tag_read_fault(const char *src, char *dst, vm_size_t len);
+					res = _bcopy_recover_tag_read_fault(tmp_src, tmp_dst, count);
+				} else {
+					/* IOMD::writeBytes() */
+					int _bcopy_recover_tag_write_fault(const char *src, char *dst, vm_size_t len);
+					res = _bcopy_recover_tag_write_fault(tmp_src, tmp_dst, count);
+				}
+			} else {
+				bcopy(tmp_src, tmp_dst, count);
+			}
+#else /* HAS_MTE */
+			bcopy(tmp_src, tmp_dst, count);
+#endif /* HAS_MTE */
+
+#if HAS_MTE
+			if (flags & cppvCopyTags) {
+				assert(flags & cppvDisableTagCheck);
+
+				/*
+				 * Copy tags along with performing the copy operation.
+				 * This happens today in case a page is being relocated or
+				 * copied during fork.
+				 */
+				mte_copy_tags(tmp_dst, tmp_src, count);
+			}
+
+			if (flags & cppvDisableTagCheck) {
+				/* If we disabled tag checking during the copy, restore it now */
+				mte_enable_tag_checking();
+			}
+#endif /* HAS_MTE */
 		}
 
 		if (use_copy_window_src) {
@@ -227,6 +293,32 @@ bzero_phys_page(vm_offset_t buf)
 #pragma clang diagnostic pop
 }
 
+#if HAS_MTE
+static void
+bzero_phys_tags_for_page(vm_offset_t buf)
+{
+	assert((buf & PAGE_MASK) == 0);
+
+	/*
+	 * The unrolling is chosen so that the `add` operands in the codegen
+	 * are all immediates and avoid a `mov`
+	 */
+	#pragma unroll 4
+	for (vm_offset_t offset = 0; offset < PAGE_SIZE; offset += 4 * 256) {
+		asm volatile (
+                        "stgm xzr, [%0]\n\t"
+                        "stgm xzr, [%1]\n\t"
+                        "stgm xzr, [%2]\n\t"
+                        "stgm xzr, [%3]"
+                        :
+                        : "r"(buf + offset + (0 * 256))
+                        , "r"(buf + offset + (1 * 256))
+                        , "r"(buf + offset + (2 * 256))
+                        , "r"(buf + offset + (3 * 256))
+                        : "memory");
+	}
+}
+#endif /* HAS_MTE */
 
 /* Zero bytes starting at a physical address */
 static void
@@ -271,6 +363,14 @@ bzero_phys_internal(addr64_t src, vm_size_t bytes, __unused int options)
 			count = bytes;
 		}
 
+#if HAS_MTE
+		/*
+		 * Do this unconditionally to avoid any kind of checks,
+		 * no one should try to disable TCO in the kernel around
+		 * bcopy_phys() ever.
+		 */
+		mte_disable_tag_checking();
+#endif
 		switch (wimg_bits & VM_WIMG_MASK) {
 		case VM_WIMG_DEFAULT:
 		case VM_WIMG_WCOMB:
@@ -279,6 +379,9 @@ bzero_phys_internal(addr64_t src, vm_size_t bytes, __unused int options)
 #if HAS_UCNORMAL_MEM || APPLEVIRTUALPLATFORM
 		case VM_WIMG_RT:
 #endif
+#if HAS_MTE
+		case VM_WIMG_MTE:
+#endif /* HAS_MTE */
 			/**
 			 * When we are zerofilling a normal page, there are a couple of assumptions that can
 			 * be made.
@@ -298,12 +401,35 @@ bzero_phys_internal(addr64_t src, vm_size_t bytes, __unused int options)
 			} else {
 				bzero(buf, count);
 			}
+#if HAS_MTE
+			/*
+			 * Optimize the PAGE_SIZEd and page_aligned case, leveraging
+			 * STGM directly. Page laundering is the only case we have today
+			 * where we want to zero data _and_ tags. If any further case
+			 * was to pop up and not be page aligned, we'd need an extra
+			 * option to call into the generic mte_store_tag() function.
+			 */
+			if (options & cppvZeroPageTags) {
+				/*
+				 * We currently zero tags only when laundering pages
+				 * for userland, so we force a zero tag here. If a kernel
+				 * case were to come up, we'd need to have a way to
+				 * differentiate what tag to use (0 or F).
+				 */
+				assert(count == PAGE_SIZE &&
+				    (wimg_bits & VM_WIMG_MASK) == VM_WIMG_MTE);
+				bzero_phys_tags_for_page((vm_offset_t)buf);
+			}
+#endif /* HAS_MTE */
 			break;
 
 		default:
 			/* 'dc zva' performed by bzero is not safe for device memory */
 			secure_memset((void*)buf, 0, count);
 		}
+#if HAS_MTE
+		mte_enable_tag_checking();
+#endif /* HAS_MTE */
 
 		if (use_copy_window) {
 			pmap_unmap_cpu_windows_copy(index);

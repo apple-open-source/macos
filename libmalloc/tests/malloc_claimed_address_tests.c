@@ -22,11 +22,8 @@ T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 T_DECL(malloc_claimed_address_default_zone_test,
 		"Tests for malloc_claimed_address, default zone only",
-#if TARGET_OS_IPHONE
-		T_META_TAG_XZONE,
-#endif // TARGET_OS_IPHONE
-		T_META_ENVVAR("MallocNanoZone=0"),
-	    T_META_TAG_VM_NOT_PREFERRED)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED,
+		T_META_ENVVAR("MallocNanoZone=0"))
 {
 	// NULL is never a possible pointer.
 	boolean_t result = malloc_claimed_address(NULL);
@@ -80,7 +77,7 @@ T_DECL(malloc_claimed_address_default_zone_test,
 T_DECL(malloc_zone_claimed_address_test,
 		"Tests for malloc_zone_claimed_address",
 		T_META_ENVVAR("MallocNanoZone=0"),
-	    T_META_TAG_VM_NOT_PREFERRED)
+		T_META_TAG_MAGAZINE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *zone = malloc_create_zone(0, 0);
 
@@ -157,11 +154,9 @@ T_DECL(malloc_zone_claimed_address_test,
 #if !MALLOC_TARGET_EXCLAVES
 T_DECL(malloc_claimed_address_zone_test,
 		"Tests for malloc_claimed_address with another zone",
-#if TARGET_OS_IPHONE
-		T_META_TAG_XZONE,
-#endif // TARGET_OS_IPHONE
+		T_META_TAG_ALL_ALLOCATORS,
 		T_META_ENVVAR("MallocNanoZone=0"),
-	    T_META_TAG_VM_NOT_PREFERRED)
+	    T_META_TAG_VM_PREFERRED)
 {
 	// Allocate in a custom zone, check that we can still use
 	// malloc_claimed_address() to check whether an address is claimed.
@@ -204,7 +199,7 @@ T_DECL(malloc_claimed_address_zone_test,
 T_DECL(malloc_claimed_address_nanozone_test,
 		"Tests for malloc_claimed_address with nano",
 		T_META_ENVVAR("MallocNanoZone=1"),
-	    T_META_TAG_VM_NOT_PREFERRED)
+	    T_META_TAG_VM_PREFERRED, T_META_TAG_MAGAZINE_ONLY)
 {
 	// NULL is never a possible pointer.
 	boolean_t result = malloc_claimed_address(NULL);
@@ -247,7 +242,8 @@ T_DECL(malloc_claimed_address_nanozone_test,
 // to mprotect the zone returned by malloc_create_zone
 T_DECL(malloc_claimed_address_custom_zone_test,
 		"Tests for malloc_claimed_address in a zone that does not implement it",
-		T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_PREFERRED)
+		T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_MAGAZINE_ONLY)
 {
 	// Custom zones that do not support claimed_address must always appear
 	// to return true.
@@ -297,7 +293,7 @@ T_DECL(malloc_claimed_address_custom_zone_test,
 
 T_DECL(malloc_claimed_address_xzone_test,
 		"Specific xzone malloc tests for malloc_claimed_address",
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	// Allocate a HUGE buffer, and then check that both the start and end of it
 	// are claimed by malloc

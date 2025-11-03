@@ -47,6 +47,7 @@
 #import "RunningBoardServicesSPI.h"
 #import "TapHandlingResult.h"
 #import "UIKitSPI.h"
+#import "UIKitUtilities.h"
 #import "UndoOrRedo.h"
 #import "ViewSnapshotStore.h"
 #import "WKContentView.h"
@@ -263,6 +264,11 @@ UIView *PageClientImpl::createVisibilityPropagationView()
 {
     return [contentView() _createVisibilityPropagationView];
 }
+
+void PageClientImpl::removeVisibilityPropagationView(UIView *view)
+{
+    [contentView() _removeVisibilityPropagationView:view];
+}
 #endif
 #endif // HAVE(VISIBILITY_PROPAGATION_VIEW)
 
@@ -284,7 +290,12 @@ void PageClientImpl::modelProcessDidExit()
 
 void PageClientImpl::preferencesDidChange()
 {
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    if (RetainPtr webView = this->webView())
+        [webView _updateOverlayRegions];
+#else
     notImplemented();
+#endif
 }
 
 void PageClientImpl::toolTipChanged(const String&, const String&)
@@ -737,7 +748,7 @@ bool PageClientImpl::handleRunOpenPanel(const WebPageProxy& page, const WebFrame
 #if ENABLE(MEDIA_CAPTURE)
     if (parameters.mediaCaptureType() != WebCore::MediaCaptureType::MediaCaptureTypeNone) {
         if (auto pid = page.configuration().processPool().configuration().presentingApplicationPID())
-            WebCore::MediaSessionHelper::sharedHelper().providePresentingApplicationPID(pid, WebCore::MediaSessionHelper::ShouldOverride::Yes);
+            WebCore::MediaSessionHelper::sharedHelper().providePresentingApplicationPID(pid);
     }
 #endif
 
@@ -1178,6 +1189,11 @@ bool PageClientImpl::isSimulatingCompatibilityPointerTouches() const
 void PageClientImpl::runModalJavaScriptDialog(CompletionHandler<void()>&& callback)
 {
     [contentView() runModalJavaScriptDialog:WTFMove(callback)];
+}
+
+FloatBoxExtent PageClientImpl::computedObscuredInset() const
+{
+    return floatBoxExtent([webView() _computedObscuredInset]);
 }
 
 WebCore::Color PageClientImpl::contentViewBackgroundColor()

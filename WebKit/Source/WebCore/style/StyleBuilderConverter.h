@@ -2348,7 +2348,7 @@ inline FixedVector<PositionTryFallback> BuilderConverter::convertPositionTryFall
             // Turn the inlined position-area fallback into properties object that can be applied similarly to @position-try declarations.
             auto property = CSSProperty { CSSPropertyPositionArea, Ref { const_cast<CSSValue&>(fallbackValue) } };
             return PositionTryFallback {
-                .positionAreaProperties = ImmutableStyleProperties::create(std::span { &property, 1 }, HTMLStandardMode)
+                .positionAreaProperties = ImmutableStyleProperties::createDeduplicating(std::span { &property, 1 }, HTMLStandardMode)
             };
         }
 

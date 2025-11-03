@@ -138,6 +138,7 @@ sptm_get_page_table_refcnt(sptm_paddr_t table_paddr)
 	return refcnt;
 }
 
+
 /**
  * Convenience function for determining whether a frame type allows userspace
  * executable mapping permissions.

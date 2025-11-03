@@ -39,7 +39,9 @@ zone_thread(void *arg)
 	return NULL;
 }
 
-T_DECL(malloc_enable_msl_lite, "enable the malloc stack logging lite zone while constantly registering zones", T_META_TAG_VM_NOT_PREFERRED)
+T_DECL(malloc_enable_msl_lite,
+		"enable the malloc stack logging lite zone while constantly registering zones",
+		T_META_TAG_VM_NOT_PREFERRED, T_META_TAG_ALL_ALLOCATORS)
 {
 	pthread_t zone_threads[N_ZONE_CREATION_THREADS];
 	for (int i = 0; i < N_ZONE_CREATION_THREADS; i++) {

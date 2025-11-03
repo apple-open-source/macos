@@ -110,6 +110,8 @@
 
 "com.apple.SoftwareUpdate.modify-settings" = "__APPNAME__ is trying to unlock the Software Update settings.";
 
+"com.apple.SoftwareUpdate.modify-splat-settings" = "__APPNAME__ is trying to modify your Privacy & Security settings.";
+
 "com.apple.uninstalld.uninstall" = "__APPNAME__ is trying to delete an application.";
 
 "system.privilege.taskport" = "__APPNAME__ is trying to take control of another process.";

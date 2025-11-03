@@ -998,17 +998,19 @@ class Client: TrustedPeersHelperProtocol {
                             requiresEscrowCheck: Bool,
                             repair: Bool,
                             danglingPeerCleanup: Bool,
+                            caesarPeerCleanup: Bool,
                             updateIdMS: Bool,
                             knownFederations: [String],
                             flowID: String?,
                             deviceSessionID: String?,
                             reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
         do {
-            logger.info("Health Check! requiring escrow check? \(requiresEscrowCheck), \(repair), \(danglingPeerCleanup), \(updateIdMS) for \(String(describing: user), privacy: .public)")
+            logger.info("Health Check! requiring escrow check? \(requiresEscrowCheck), \(repair), \(danglingPeerCleanup), \(caesarPeerCleanup), \(updateIdMS) for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
             container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck,
                                          repair: repair,
                                          danglingPeerCleanup: danglingPeerCleanup,
+                                         caesarPeerCleanup: caesarPeerCleanup,
                                          updateIdMS: updateIdMS,
                                          knownFederations: knownFederations,
                                          flowID: flowID,

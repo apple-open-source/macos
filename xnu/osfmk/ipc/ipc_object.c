@@ -561,15 +561,6 @@ ipc_object_copyin(
 	ipc_right_copyin_cleanup_destroy(&icc, name);
 	ipc_right_copyin_rcleanup_destroy(&icrc);
 
-	if (IP_VALID(*portp) &&
-	    ip_type(*portp) == IOT_SERVICE_PORT &&
-	    msgt_name == MACH_MSG_TYPE_MOVE_RECEIVE &&
-	    !task_is_initproc(space->is_task) &&
-	    !ipc_space_has_telemetry_type(space, IS_HAS_SERVICE_PORT_TELEMETRY)) {
-		ipc_stash_policy_violations_telemetry(IPCPV_MOVE_SERVICE_PORT,
-		    *portp, name);
-	}
-
 	return kr;
 }
 

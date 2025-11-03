@@ -130,7 +130,7 @@ IPConfigurationCopyIPv4RouterInformation(CFStringRef interface_name,
     unsigned int		info_data_len = 0;
     CFDictionaryRef		info_dict = NULL;
     kern_return_t		kret;
-    CFStringRef			router_ip;
+    CFStringRef			router_ip = NULL;
     CFStringRef			router_mac = NULL;
     mach_port_t			server = MACH_PORT_NULL;
     ipconfig_status_t		status;

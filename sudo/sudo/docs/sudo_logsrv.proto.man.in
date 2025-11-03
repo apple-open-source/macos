@@ -1,4 +1,4 @@
-.\" Automatically generated from an mdoc input file.  Do not edit.
+.\" Automatically generated from the sudo_logsrv.proto.mdoc.in file.  Do not edit.
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
@@ -247,7 +247,7 @@ calculated using a monotonic clock where possible.
 This is not the wall clock time.
 .TP 8n
 exit_value
-The command's exit value in the range 0-255.
+The command's exit value in the range 0\(en255.
 .TP 8n
 dumped_core
 True if the command was terminated by a signal and dumped core.
@@ -290,7 +290,7 @@ was previously interrupted.
 It contains the following members:
 .TP 8n
 log_id
-The the server-side name for an I/O log that was previously
+The server-side name for an I/O log that was previously
 sent to the client by the server.
 This may be a path name on the server or some other kind of server-side
 identifier.
@@ -726,7 +726,7 @@ submitgroups	StringList	submit user's supplementary group names
 .PP
 submituid	int64	submit user's user-ID
 .PP
-ttyname	string	the terminal the command was submitted from
+ttyname	string	terminal the command was submitted from
 .TE
 .PP
 The server must accept other variables not listed above but may
@@ -815,7 +815,7 @@ message RejectMessage {
 /* Might revisit runtime and use end_time instead */
 message ExitMessage {
   TimeSpec run_time = 1;	/* total elapsed run time */
-  int32 exit_value = 2;		/* 0-255 */
+  int32 exit_value = 2;		/* 0\(en255 */
   bool dumped_core = 3;		/* true if command dumped core */
   string signal = 4;		/* signal name if killed by signal */
   string error = 5;		/* if killed due to other error */
@@ -876,7 +876,7 @@ sudo(8),
 sudo_logsrvd(8)
 .PP
 \fIProtocol Buffers\fR,
-https://developers.google.com/protocol-buffers/.
+https://protobuf.dev/.
 .SH "AUTHORS"
 Many people have worked on
 \fBsudo\fR
@@ -893,8 +893,20 @@ exhaustive list of people who have contributed to
 \fBsudo\fR.
 .SH "BUGS"
 If you believe you have found a bug in
-\fBsudo\fR,
-you can submit a bug report at https://bugzilla.sudo.ws/
+\fBsudo_logsrv.proto\fR,
+you can either file a bug report in the sudo bug database,
+https://bugzilla.sudo.ws/, or open an issue at
+https://github.com/sudo-project/sudo/issues.
+If you would prefer to use email, messages may be sent to the
+sudo-workers mailing list,
+https://www.sudo.ws/mailman/listinfo/sudo-workers (public)
+or <sudo@sudo.ws> (private).
+.PP
+Please do not report security vulnerabilities through public GitHub
+issues, Bugzilla or mailing lists.
+Instead, report them via email to <Todd.Miller@sudo.ws>.
+You may encrypt your message with PGP if you would like, using
+the key found at https://www.sudo.ws/dist/PGPKEYS.
 .SH "SUPPORT"
 Limited free support is available via the sudo-users mailing list,
 see https://www.sudo.ws/mailman/listinfo/sudo-users to subscribe or

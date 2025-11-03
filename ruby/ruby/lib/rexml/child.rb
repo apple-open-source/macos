@@ -83,13 +83,12 @@ module REXML
     # Returns:: the document this child belongs to, or nil if this child
     # belongs to no document
     def document
-      return parent.document unless parent.nil?
-      nil
+      parent&.document
     end
 
     # This doesn't yet handle encodings
     def bytes
-      document.encoding
+      document&.encoding
 
       to_s
     end

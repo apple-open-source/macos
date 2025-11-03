@@ -36,6 +36,8 @@ class StyleProperties;
 namespace Style {
 
 struct PositionTryFallback {
+    WTF_MAKE_STRUCT_TZONE_ALLOCATED(PositionTryFallback);
+
     std::optional<ScopedName> positionTryRuleName { };
 
     enum class Tactic : uint8_t {
@@ -46,12 +48,13 @@ struct PositionTryFallback {
     Vector<Tactic> tactics { };
 
     // A position-area fallback is mutually exclusive with the rest.
-    RefPtr<const StyleProperties> positionAreaProperties { };
+    const RefPtr<const StyleProperties> positionAreaProperties { };
 
     ~PositionTryFallback();
-    bool operator==(const PositionTryFallback&) const;
+    friend bool operator==(const PositionTryFallback&, const PositionTryFallback&);
 };
 
+TextStream& operator<<(TextStream&, const PositionTryFallback::Tactic&);
 TextStream& operator<<(TextStream&, const PositionTryFallback&);
 TextStream& operator<<(TextStream&, const Vector<PositionTryFallback>&);
 

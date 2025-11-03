@@ -102,7 +102,8 @@ public:
 private:
     void setIsPlayingToAutomotiveHeadUnit(bool);
 
-    void providePresentingApplicationPID(int, ShouldOverride) final;
+    std::optional<ProcessID> presentedApplicationPID() const final;
+    void providePresentingApplicationPID(ProcessID) final;
     void startMonitoringWirelessRoutesInternal() final;
     void stopMonitoringWirelessRoutesInternal() final;
 
@@ -235,6 +236,15 @@ void MediaSessionHelper::stopMonitoringWirelessRoutes()
     stopMonitoringWirelessRoutesInternal();
 }
 
+std::optional<ProcessID> MediaSessionHelper::presentedApplicationPID() const
+{
+    return std::nullopt;
+}
+
+void MediaSessionHelper::providePresentingApplicationPID(ProcessID)
+{
+}
+
 void MediaSessionHelper::updateActiveAudioRouteSupportsSpatialPlayback()
 {
 #if HAVE(AVAUDIOSESSION)
@@ -265,10 +275,19 @@ MediaSessionHelperIOS::MediaSessionHelperIOS()
     updateCarPlayIsConnected();
 }
 
-void MediaSessionHelperIOS::providePresentingApplicationPID(int pid, ShouldOverride shouldOverride)
+std::optional<ProcessID> MediaSessionHelperIOS::presentedApplicationPID() const
 {
 #if HAVE(MEDIAEXPERIENCE_AVSYSTEMCONTROLLER)
-    if (m_presentedApplicationPID && (*m_presentedApplicationPID == pid || shouldOverride == ShouldOverride::No))
+    if (m_presentedApplicationPID)
+        return *m_presentedApplicationPID;
+#endif
+    return std::nullopt;
+}
+
+void MediaSessionHelperIOS::providePresentingApplicationPID(ProcessID pid)
+{
+#if HAVE(MEDIAEXPERIENCE_AVSYSTEMCONTROLLER)
+    if (m_presentedApplicationPID == pid)
         return;
 
     RELEASE_LOG(Media, "Setting AVSystemController_PIDToInheritApplicationStateFrom to %d", pid);
@@ -281,7 +300,6 @@ void MediaSessionHelperIOS::providePresentingApplicationPID(int pid, ShouldOverr
         RELEASE_LOG_ERROR(Media, "Failed to set AVSystemController_PIDToInheritApplicationStateFrom: %@", error.localizedDescription);
 #else
     UNUSED_PARAM(pid);
-    UNUSED_PARAM(shouldOverride);
 #endif
 }
 

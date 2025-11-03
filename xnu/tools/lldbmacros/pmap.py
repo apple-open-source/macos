@@ -1058,7 +1058,7 @@ def KVToPhysARM(addr):
     else:
         papt_table = kern.globals.libsptm_papt_ranges
         page_size = kern.globals.page_size
-        for i in range(0, kern.globals.libsptm_n_papt_ranges):
+        for i in range(0, unsigned(dereference(kern.globals.libsptm_n_papt_ranges))):
             if (addr >= int(unsigned(papt_table[i].papt_start))) and (addr < (int(unsigned(papt_table[i].papt_start)) + int(unsigned(papt_table[i].num_mappings) * page_size))):
                 return (addr - int(unsigned(papt_table[i].papt_start)) + int(unsigned(papt_table[i].paddr_start)))
         raise ValueError("VA {:#x} not found in physical region lookup table".format(addr))

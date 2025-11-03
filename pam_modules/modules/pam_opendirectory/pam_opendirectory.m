@@ -40,6 +40,7 @@
 #include <OpenDirectory/OpenDirectory.h>
 #include <OpenDirectory/OpenDirectoryPriv.h>
 #include <DirectoryService/DirectoryService.h>
+#include "ForkSafeLogging.h"
 
 #define PAM_SM_AUTH
 #define PAM_SM_ACCOUNT

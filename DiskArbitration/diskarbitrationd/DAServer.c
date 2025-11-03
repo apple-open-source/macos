@@ -1455,9 +1455,12 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
                  if ( ( dialog == TRUE ) && DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
                 {
                     CFURLRef mountpoint;
+                    CFURLRef devicePath;
                     char *   path;
+                    char *   devCString;
 
-                    mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+                    mountpoint = DADiskGetDescription( disk , kDADiskDescriptionVolumePathKey );
+                    devicePath = DADiskGetDevice( disk );
 
                     path = ___CFURLCopyFileSystemRepresentation( mountpoint );
 
@@ -1473,6 +1476,18 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
                             if ( ( fs.f_flags & MNT_RDONLY ) )
                             {
                                 dialog = FALSE;
+                            }
+                            
+                            devCString = ___CFURLCopyFileSystemRepresentation( devicePath );
+                            
+                            if ( devCString )
+                            {
+                                if ( strncasecmp( fs.f_mntfromname , devCString , strnlen( fs.f_mntfromname , MAXPATHLEN ) ) )
+                                {
+                                    dialog = FALSE;
+                                }
+                                
+                                free( devCString );
                             }
                         }
 
@@ -2222,7 +2237,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
 exit:
     if ( status )
     {
-        DALogDebug( "unable to create session, id = %s [%d].", _name, audit_token_to_pid( _token ) );
+        DALogDebug( "unable to create session, id = %s [%d] (status code 0x%08X).", _name, audit_token_to_pid( _token ), status );
     }
 
     return status;

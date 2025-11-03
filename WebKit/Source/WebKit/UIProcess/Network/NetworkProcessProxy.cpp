@@ -85,6 +85,7 @@
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/MakeString.h>
@@ -110,6 +111,7 @@
 #include "DefaultWebBrowserChecks.h"
 #include "LegacyCustomProtocolManagerClient.h"
 #include "WebPrivacyHelpers.h"
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
@@ -1678,6 +1680,14 @@ void NetworkProcessProxy::testProcessIncomingSyncMessagesWhenWaitingForSyncReply
 
 void NetworkProcessProxy::preconnectTo(PAL::SessionID sessionID, WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, WebCore::ResourceRequest&& request, WebCore::StoredCredentialsPolicy storedCredentialsPolicy, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain)
 {
+#if PLATFORM(COCOA)
+    if (!isUIThread()) {
+        if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::CrashWhenPreconnectingFromBackgroundThread))
+            return;
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+#endif
+
     if (!request.url().isValid() || !request.url().protocolIsInHTTPFamily())
         return;
 

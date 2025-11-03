@@ -248,6 +248,10 @@ extern uint64_t get_tcr(void);
 extern void set_tcr(uint64_t);
 extern uint64_t pmap_get_arm64_prot(pmap_t, vm_offset_t);
 
+#if HAS_MTE
+extern bool is_mte_enabled;
+extern bool panic_on_user_induced_iomd_kernel_faults;
+#endif /* HAS_MTE */
 
 extern pmap_paddr_t get_mmu_ttb(void);
 extern pmap_paddr_t mmu_kvtop(vm_offset_t va);
@@ -423,6 +427,13 @@ struct pmap {
 
 	/* The ID of the vm_map that this pmap is backing, if any */
 	vm_map_serial_t associated_vm_map_serial_id;
+#if HAS_MTE
+	/*
+	 * Whether this pmap is marked as being explicitly disallowed from
+	 * receiving aliases to untagged memory from other actors.
+	 */
+	bool restrict_receiving_aliases_to_tagged_memory;
+#endif /* HAS_MTE */
 };
 
 #define PMAP_VASID(pmap) ((pmap)->asid)
@@ -470,6 +481,13 @@ extern void * pmap_sign_user_ptr(void *value, ptrauth_key key, uint64_t data, ui
 extern void * pmap_auth_user_ptr(void *value, ptrauth_key key, uint64_t data, uint64_t jop_key);
 extern bool pmap_batch_sign_user_ptr(void *location, void *value, ptrauth_key key, uint64_t discriminator, uint64_t jop_key);
 #endif /* HAS_APPLE_PAC */
+#if HAS_MTE
+/* Inform the pmap layer that the process has tag checks enabled. */
+extern void pmap_set_tag_check_enabled(pmap_t pmap);
+
+/* Inform the pmap layer that the process has EL0 tag check faults disabled. */
+extern void pmap_set_user_tag_check_faults_disabled(pmap_t pmap);
+#endif /* HAS_MTE */
 
 /**
  * Interfaces implemented as macros.
@@ -538,6 +556,15 @@ extern boolean_t pmap_bootloader_page(ppnum_t pn);
 
 extern boolean_t pmap_is_empty(pmap_t pmap, vm_map_offset_t start, vm_map_offset_t end);
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+/*
+ * Strip a pointer of all metadata bits based on its pmap.
+ * This function will return a pointer that is cleared of any bit that is not part
+ * of the specified VA size. "cleared" here is meant in the canonicalization sense,
+ * replacing these bits with bit 55 value.
+ */
+extern vm_map_address_t pmap_strip_addr(pmap_t pmap, vm_map_address_t ptr);
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 
 #define ARM_PMAP_MAX_OFFSET_DEFAULT 0x01

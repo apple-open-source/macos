@@ -16,7 +16,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .nr SL @SEMAN@
-.Dd January 16, 2023
+.Dd November 6, 2023
 .Dt SUDO.CONF @mansectform@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -141,6 +141,13 @@ For example:
 Plugin sudoers_policy @sudoers_plugin@
 .Ed
 .Pp
+On AIX systems, the plugin may be either a shared object
+ending in
+.Ql .so
+or an archive file containing a shared object ending in
+.Ql .a
+with the name of the shared object in parentheses at the end.
+.Pp
 Starting with
 .Nm sudo
 1.8.5, any additional parameters after the
@@ -192,7 +199,7 @@ versions, if
 .Nm sudoers
 is configured as the security policy, it will be used as an audit
 plugin as well.
-This guarantees that the logging behavior will be consistnet with that of
+This guarantees that the logging behavior will be consistent with that of
 .Nm sudo
 versions 1.9.0 and below.
 .Pp
@@ -227,7 +234,7 @@ The following plugin-agnostic paths may be set in the
 file:
 .Bl -tag -width 4n
 .It askpass
-The fully qualified path to a helper program used to read the user's
+The fully-qualified path to a helper program used to read the user's
 password when no terminal is available.
 This may be the case when
 .Nm sudo
@@ -264,7 +271,7 @@ functions, for example
 .Bx ,
 macOS and Solaris.
 .It intercept
-The fully-qualified path to a shared library containing a wrappers for the
+The path to a shared library containing wrappers for the
 .Xr execve 2 ,
 .Xr execl 3 ,
 .Xr execle 3 ,
@@ -278,14 +285,28 @@ library functions that intercepts attempts to run further commands and
 performs a policy check before allowing them to be executed.
 This is used to implement the
 .Em intercept
+and
+.Em log_subcmds
 functionality on systems that support
 .Ev LD_PRELOAD
-or its equivalent.
+or the equivalent.
+.Pp
+The
+.Em intercept
+path may be set to either a single fully-qualified path, or, for systems
+that support separate
+.Dv LD_PRELOAD
+environment variables for 32-bit and 64-bit executables, it may optionally
+be set to two fully-qualified paths separated by a colon
+.Pq Ql :\& .
+The first path should be the 32-bit version and the second the
+64-bit version.
+This two-path form is currently only supported on AIX and Solaris
+systems.
 The default value is
 .Pa @intercept_file@ .
 .It noexec
-The fully-qualified path to a shared library containing wrappers
-for the
+The path to a shared library containing wrappers for the
 .Xr execve 2 ,
 .Xr execl 3 ,
 .Xr execle 3 ,
@@ -308,12 +329,25 @@ This is used to implement the
 .Em noexec
 functionality on systems that support
 .Ev LD_PRELOAD
-or its equivalent.
+or the equivalent.
+.Pp
+The
+.Em noexec
+path may be set to either a single fully-qualified path, or, for systems
+that support separate
+.Dv LD_PRELOAD
+environment variables for 32-bit and 64-bit executables, it may optionally
+be set to two fully-qualified paths separated by a colon
+.Pq Ql :\& .
+The first path should be the 32-bit version and the second the
+64-bit version.
+This two-path form is currently only supported on AIX and Solaris
+systems.
 The default value is
 .Pa @noexec_file@ .
 .It plugin_dir
 The default directory to use when searching for plugins
-that are specified without a fully qualified path name.
+that are specified without a fully-qualified path name.
 The default value is
 .Pa @plugindir@ .
 .if \n(SL \{\
@@ -425,7 +459,7 @@ Currently,
 .Nm sudo
 supports efficient group queries on AIX,
 .Bx ,
-HP-UX, Linux, macOS, and Solaris.
+Linux, macOS, and Solaris.
 This is the default behavior on macOS in
 .Nm sudo
 1.9.6 and higher.
@@ -506,6 +540,17 @@ but a third-party plugin is free to use a different format so long
 as it does not include a comma
 .Pq Ql \&, .
 .Pp
+On AIX systems, a
+.Em Debug
+line will match a plugin specified as either the name of an
+SVR4-style shared object file ending in
+.Ql .so ,
+an archive file ending in
+.Ql .a ,
+or an archive file ending in
+.Ql .a
+with the name of the shared object in parentheses.
+.Pp
 Examples:
 .Bd -literal -offset 4n
 Debug sudo @log_dir@/sudo_debug all@warn,plugin@info
@@ -525,6 +570,18 @@ would log all debugging statements, regardless of level, for the
 shared library that implements
 .Nm sudo Ns 's
 intercept functionality on some systems.
+.Bd -literal -offset 4n
+Debug @sudoers_plugin@ @log_dir@/sudoers_debug all@debug
+.Ed
+.Pp
+would log all debugging statements, regardless of level, for the
+.Nm sudoers
+plugin.
+See
+.Xr sudoers @mansectform@
+for the full list of subsystems supported by the
+.Nm sudoers
+plugin.
 .Pp
 As of
 .Nm sudo
@@ -677,11 +734,11 @@ front-end configuration
 # Sudo command interception:
 #   Path intercept /path/to/sudo_intercept.so
 #
-# Path to a shared library containing replacements for the execv()
-# and execve() library functions that perform a policy check to verify
-# the command is allowed and simply return an error if not.  This is
-# used to implement the "intercept" functionality on systems that
-# support LD_PRELOAD or its equivalent.
+# Path to a shared library containing replacements for the execv(),
+# execve() and fexecve() library functions, which perform a policy
+# check to verify whether the command is allowed and simply return
+# an error if it is not.  This is used to implement the "intercept"
+# functionality on systems that support LD_PRELOAD or its equivalent.
 #
 # The compiled-in value is usually sufficient and should only be changed
 # if you rename or move the sudo_intercept.so file.
@@ -707,7 +764,7 @@ front-end configuration
 #   Path plugin_dir /path/to/plugins
 #
 # The default directory to use when searching for plugins that are
-# specified without a fully qualified path name.
+# specified without a fully-qualified path name.
 #
 #Path plugin_dir @plugindir@
 
@@ -784,8 +841,20 @@ exhaustive list of people who have contributed to
 .Nm sudo .
 .Sh BUGS
 If you believe you have found a bug in
-.Nm sudo ,
-you can submit a bug report at https://bugzilla.sudo.ws/
+.Nm ,
+you can either file a bug report in the sudo bug database,
+https://bugzilla.sudo.ws/, or open an issue at
+https://github.com/sudo-project/sudo/issues.
+If you would prefer to use email, messages may be sent to the
+sudo-workers mailing list,
+https://www.sudo.ws/mailman/listinfo/sudo-workers (public)
+or <sudo@sudo.ws> (private).
+.Pp
+Please do not report security vulnerabilities through public GitHub
+issues, Bugzilla or mailing lists.
+Instead, report them via email to <Todd.Miller@sudo.ws>.
+You may encrypt your message with PGP if you would like, using
+the key found at https://www.sudo.ws/dist/PGPKEYS.
 .Sh SUPPORT
 Limited free support is available via the sudo-users mailing list,
 see https://www.sudo.ws/mailman/listinfo/sudo-users to subscribe or

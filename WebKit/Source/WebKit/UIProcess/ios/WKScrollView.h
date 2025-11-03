@@ -55,11 +55,14 @@
 #endif
 
 #if HAVE(LIQUID_GLASS)
+@property (nonatomic, readonly) BOOL _usesHardTopScrollEdgeEffect;
+- (void)_didChangeTopScrollEdgeEffectStyle;
+- (void)_setInternalTopPocketColor:(UIColor *)color;
 - (WKUIScrollEdgeEffect *)_wk_topEdgeEffect;
 - (WKUIScrollEdgeEffect *)_wk_leftEdgeEffect;
 - (WKUIScrollEdgeEffect *)_wk_rightEdgeEffect;
 - (WKUIScrollEdgeEffect *)_wk_bottomEdgeEffect;
-#endif
+#endif // HAVE(LIQUID_GLASS)
 
 @end
 

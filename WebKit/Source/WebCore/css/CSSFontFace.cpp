@@ -103,6 +103,7 @@ CSSFontFace::CSSFontFace(const SettingsValues* settings, StyleRuleFontFace* conn
     , m_shouldIgnoreFontLoadCompletions(settings && settings->shouldIgnoreFontLoadCompletions)
     , m_fontLoadTimingOverride(settings ? settings->fontLoadTimingOverride : FontLoadTimingOverride::None)
     , m_allowUserInstalledFonts(settings && !settings->shouldAllowUserInstalledFonts ? AllowUserInstalledFonts::No : AllowUserInstalledFonts::Yes)
+    , m_trustedType(settings ? settings->downloadableBinaryFontTrustedTypes : DownloadableBinaryFontTrustedTypes::Any)
     , m_timeoutTimer(*this, &CSSFontFace::timeoutFired)
 {
 }
@@ -611,11 +612,11 @@ void CSSFontFace::fontLoaded(CSSFontFaceSource&)
     fontLoadEventOccurred();
 }
 
-void CSSFontFace::opportunisticallyStartFontDataURLLoading()
+void CSSFontFace::opportunisticallyStartFontDataURLLoading(DownloadableBinaryFontTrustedTypes trustedType)
 {
     // We don't want to go crazy here and blow the cache. Usually these data URLs are the first item in the src: list, so let's just check that one.
     if (!m_sources.isEmpty())
-        m_sources[0]->opportunisticallyStartFontDataURLLoading();
+        m_sources[0]->opportunisticallyStartFontDataURLLoading(trustedType);
 }
 
 size_t CSSFontFace::pump(ExternalResourceDownloadPolicy policy)
@@ -642,7 +643,7 @@ size_t CSSFontFace::pump(ExternalResourceDownloadPolicy policy)
             if (policy == ExternalResourceDownloadPolicy::Allow || !source->requiresExternalResource()) {
                 if (policy == ExternalResourceDownloadPolicy::Allow && m_status == Status::Pending)
                     setStatus(Status::Loading);
-                source->load(protectedDocument().get());
+                source->load(m_trustedType, protectedDocument().get());
             }
         }
 
@@ -714,7 +715,7 @@ RefPtr<Font> CSSFontFace::font(const FontDescription& fontDescription, bool synt
     for (size_t i = startIndex; i < m_sources.size(); ++i) {
         auto& source = m_sources[i];
         if (source->status() == CSSFontFaceSource::Status::Pending && (policy == ExternalResourceDownloadPolicy::Allow || !source->requiresExternalResource()))
-            source->load(protectedDocument().get());
+            source->load(m_trustedType, protectedDocument().get());
 
         switch (source->status()) {
         case CSSFontFaceSource::Status::Pending:

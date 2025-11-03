@@ -208,7 +208,11 @@ struct vm_map_entry {
 	/* vm_object_offset_t*/ vme_offset:VME_OFFSET_BITS, /* offset into object */
 
 	/* boolean_t         */ is_shared:1,                /* region is shared */
+#if HAS_MTE
+	/* boolean_t         */ vme_is_tagged:1,            /* region is mapped with tags */
+#else /* !HAS_MTE */
 	/* boolean_t         */__unused1:1,
+#endif /* HAS_MTE */
 	/* boolean_t         */in_transition:1,             /* Entry being changed */
 	/* boolean_t         */ needs_wakeup:1,             /* Waiters on in_transition */
 	/* behavior is not defined for submap type */
@@ -312,7 +316,11 @@ _VME_OBJECT(
 		object = VM_OBJECT_UNPACK(entry->vme_object_or_delta);
 		__builtin_assume(!is_kernel_object(object));
 	} else {
+#if HAS_MTE
+		object = entry->vme_is_tagged ? kernel_object_tagged : kernel_object_default;
+#else /* !HAS_MTE */
 		object = kernel_object_default;
+#endif /* HAS_MTE */
 	}
 	return object;
 }
@@ -462,7 +470,11 @@ struct _vm_map {
 #define VM_MAP_WILL_BE_SEALED 1                   /* map will be sealed and is subject to limited modification. */
 #define VM_MAP_SEALED 2                           /* map is sealed and should not be modified. */
 	/* unsigned int */ vmmap_sealed:2,        /* sealed state of map, see definitions above. */
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/* boolean_t */ has_sec_access:1,         /* offsets into this map may contain embedded pointer tags, whether or not they're enabled */
+#else
 	/* reserved */ res0:1,
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 	/* reserved  */pad:6;
 	unsigned int            timestamp;          /* Version number */
 	/*
@@ -472,6 +484,30 @@ struct _vm_map {
 	 * if owning_task is not NULL, since vm_map_terminate requires the map lock.
 	 */
 	task_t owning_task;
+#if HAS_MTE
+	/*
+	 * This is used to asynchronously deliver tag check faults to the owner
+	 * of a user vm_map when we take a tag check fault in a kernel thread with
+	 * its map switched.
+	 *
+	 * This variable starts zero-initialized. On such a tag check fault, we
+	 * atomically set the the address to the address where the fault occurred.
+	 *
+	 * When we vm_map_switch_back, we set AST_MACH_EXCEPTION on all of
+	 * owning_task's threads.
+	 *
+	 * Whichever thread consumes the AST first will atomically set the address
+	 * to VM_ASYNC_TAG_FAULT_ALREADY_REPORTED (which prevents vm_map_switch_back
+	 * from spuriously setting ASTs on the map) and throw a guard exception,
+	 * potentially (based on policy) killing owning_task.
+	 *
+	 * This field is not protected by the map lock. Readers/writers should hold
+	 * a map reference and access this value atomically.
+	 */
+	vm_map_offset_t async_tag_fault_address;
+#define VM_ASYNC_TAG_FAULT_ALREADY_REPORTED 0x1
+#define VM_ASYNC_TAG_FAULT_MIN_VALID_ADDR (VM_ASYNC_TAG_FAULT_ALREADY_REPORTED + 1)
+#endif
 
 	/*
 	 * A generation ID for maps that increments monotonically.
@@ -575,6 +611,9 @@ struct vm_map_copy {
 		struct vm_map_header                  hdr;    /* ENTRY_LIST */
 		struct {
 			void *XNU_PTRAUTH_SIGNED_PTR("vm_map_copy.kdata") kdata;  /* KERNEL_BUFFER */
+#if HAS_MTE
+			bool should_apply_mte_security_policy;
+#endif /* HAS_MTE */
 		} buffer_data;
 	} c_u;
 };
@@ -592,6 +631,9 @@ ZONE_DECLARE_ID(ZONE_ID_VM_MAP, struct _vm_map);
 
 #define cpy_hdr                 c_u.hdr
 #define cpy_kdata               c_u.buffer_data.kdata
+#if HAS_MTE
+#define cpy_should_apply_mte_security_policy    c_u.buffer_data.should_apply_mte_security_policy
+#endif /* HAS_MTE */
 
 #define VM_MAP_COPY_PAGE_SHIFT(copy) ((copy)->cpy_hdr.page_shift)
 #define VM_MAP_COPY_PAGE_SIZE(copy) (1 << VM_MAP_COPY_PAGE_SHIFT((copy)))
@@ -738,6 +780,17 @@ extern vm_map_t         vm_map_fork(
 	vm_map_t                old_map,
 	int                     options);
 
+#if HAS_MTE
+/*
+ * WARNING: VM_MAP_FORK_SHARE_IF_INHERIT_NONE and VM_MAP_FORK_SHARE_IF_OWNED
+ * allow fork() to create shared mappings of MTE-tagged memory, which is
+ * generally forbidden.
+ *
+ * Currently, these flags are used only in the corpse-fork path, which is
+ * safe because neither the process nor the corpse continue running, but future
+ * callers should be careful.
+ */
+#endif /* HAS_MTE */
 #define VM_MAP_FORK_SHARE_IF_INHERIT_NONE       0x00000001
 #define VM_MAP_FORK_PRESERVE_PURGEABLE          0x00000002
 #define VM_MAP_FORK_CORPSE_FOOTPRINT            0x00000004
@@ -929,6 +982,9 @@ extern kern_return_t    vm_map_copy_overwrite(
 	vm_map_address_ut       dst_addr_u,
 	vm_map_copy_t           copy,
 	vm_map_size_ut          copy_size_u,
+#if HAS_MTE
+	boolean_t               sec_override,
+#endif
 	boolean_t               interruptible);
 
 /* returns TRUE if size of vm_map_copy == *size, FALSE otherwise */
@@ -989,7 +1045,22 @@ extern boolean_t        vm_map_tpro(
 extern void             vm_map_set_tpro(
 	vm_map_t                map);
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+extern void             vm_map_set_sec_enabled(
+	vm_map_t                map);
 
+extern void             vm_map_set_sec_disabled(
+	vm_map_t                map);
+
+extern vm_map_address_t vm_map_strip_addr(
+	vm_map_t                map,
+	vm_map_address_t        ptr);
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
+
+#if HAS_MTE
+extern void                     vm_map_set_restrict_receiving_aliases_to_tagged_memory(
+	vm_map_t map, bool must_restrict);
+#endif /* HAS_MTE */
 
 extern void             vm_map_set_tpro_enforcement(
 	vm_map_t                map);
@@ -1146,6 +1217,14 @@ extern void vm_map_guard_exception(vm_map_offset_t gap_start, unsigned reason);
 extern bool vm_map_is_corpse_source(vm_map_t map);
 extern void vm_map_set_corpse_source(vm_map_t map);
 extern void vm_map_unset_corpse_source(vm_map_t map);
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+extern bool vm_map_has_sec_access(vm_map_t map);
+extern void vm_map_mark_has_sec_access_locked(vm_map_t map);
+#if CONFIG_XNUPOST
+extern void vm_map_mark_has_sec_access(vm_map_t map);
+extern void vm_map_remove_sec_access(vm_map_t map);
+#endif /* CONFIG_XNUPOST */
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 #if CONFIG_DYNAMIC_CODE_SIGNING
 

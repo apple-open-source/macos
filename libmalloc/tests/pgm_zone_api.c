@@ -7,7 +7,10 @@
 
 #include <darwintest.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"));
+// TODO: support these tests with xzone malloc - currently their direct
+// manipulation of the wrapped zone may prevent this (not tested)
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
+		T_META_TAG_MAGAZINE_ONLY);
 
 #define PGM_MOCK_SHOULD_SAMPLE_COUNTER
 static uint32_t should_sample_counter_call_count;

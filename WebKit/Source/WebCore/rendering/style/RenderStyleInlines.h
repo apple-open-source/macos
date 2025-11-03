@@ -915,7 +915,7 @@ inline bool RenderStyle::NonInheritedFlags::hasPseudoStyle(PseudoId pseudo) cons
 
 inline bool RenderStyle::NonInheritedFlags::hasAnyPublicPseudoStyles() const
 {
-    return static_cast<unsigned>(PseudoId::PublicPseudoIdMask) & pseudoBits;
+    return PublicPseudoIdMask & pseudoBits;
 }
 
 inline bool RenderStyle::breakOnlyAfterWhiteSpace() const

@@ -105,7 +105,7 @@ keychain_unlock(int argc, char * const *argv)
 
     if (!password && use_password)
     {
-        password = prompt_password(keychainName);
+        password = prompt_password(keychainName, FALSE);
 		if (!password)
 		{
 			result = -1;

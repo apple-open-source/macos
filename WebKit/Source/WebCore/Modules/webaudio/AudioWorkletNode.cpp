@@ -65,6 +65,12 @@ ExceptionOr<Ref<AudioWorkletNode>> AudioWorkletNode::create(JSC::JSGlobalObject&
     if (!options.numberOfInputs && !options.numberOfOutputs)
         return Exception { ExceptionCode::NotSupportedError, "Number of inputs and outputs cannot both be 0"_s };
 
+    if (options.numberOfInputs > UINT16_MAX)
+        return Exception { ExceptionCode::RangeError, "Number of inputs is out of range"_s };
+
+    if (options.numberOfOutputs > UINT16_MAX)
+        return Exception { ExceptionCode::RangeError, "Number of outputs is out of range"_s };
+
     if (options.outputChannelCount) {
         if (options.numberOfOutputs != options.outputChannelCount->size())
             return Exception { ExceptionCode::IndexSizeError, "Length of specified outputChannelCount does not match the given number of outputs"_s };

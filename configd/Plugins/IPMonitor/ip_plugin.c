@@ -5868,13 +5868,27 @@ set_dns(CFArrayRef val_search_domains,
 	CFArrayRef val_servers,
 	CFArrayRef val_sortlist)
 {
-    FILE * f = fopen(VAR_RUN_RESOLV_CONF "-", "w");
+	FILE * 		f;
+	int		fd;
+	const char *	filename = VAR_RUN_RESOLV_CONF "-";
+	CFIndex		n;
 
-    /* publish new resolv.conf */
-    if (f) {
-	CFIndex	i;
-	CFIndex	n;
+	fd = SC_create_file_safely(filename, 0, 0644);
+	if (fd < 0) {
+		my_log(LOG_NOTICE,
+		       "%s: failed to create '%s'", __func__,  filename);
+		return;
+	}
+	f = fdopen(fd, "w");
+	if (f == NULL) {
+		my_log(LOG_NOTICE,
+		       "%s: fdopen(%d) failed: %s",
+		       __func__, fd, strerror(errno));
+		close(fd);
+		return;
+	}
 
+	/* publish new resolv.conf */
 	SCPrint(TRUE, f, CFSTR("#\n"));
 	SCPrint(TRUE, f, CFSTR("# macOS Notice\n"));
 	SCPrint(TRUE, f, CFSTR("#\n"));
@@ -5894,7 +5908,7 @@ set_dns(CFArrayRef val_search_domains,
 	if (isA_CFArray(val_search_domains)) {
 	    SCPrint(TRUE, f, CFSTR("search"));
 	    n = CFArrayGetCount(val_search_domains);
-	    for (i = 0; i < n; i++) {
+	    for (int i = 0; i < n; i++) {
 		CFStringRef	domain;
 
 		domain = CFArrayGetValueAtIndex(val_search_domains, i);
@@ -5910,7 +5924,7 @@ set_dns(CFArrayRef val_search_domains,
 
 	if (isA_CFArray(val_servers)) {
 	    n = CFArrayGetCount(val_servers);
-	    for (i = 0; i < n; i++) {
+	    for (int i = 0; i < n; i++) {
 		CFStringRef	nameserver;
 
 		nameserver = CFArrayGetValueAtIndex(val_servers, i);
@@ -5923,7 +5937,7 @@ set_dns(CFArrayRef val_search_domains,
 	if (isA_CFArray(val_sortlist)) {
 	    SCPrint(TRUE, f, CFSTR("sortlist"));
 	    n = CFArrayGetCount(val_sortlist);
-	    for (i = 0; i < n; i++) {
+	    for (int i = 0; i < n; i++) {
 		CFStringRef	address;
 
 		address = CFArrayGetValueAtIndex(val_sortlist, i);
@@ -5935,9 +5949,8 @@ set_dns(CFArrayRef val_search_domains,
 	}
 
 	fclose(f);
-	(void)rename(VAR_RUN_RESOLV_CONF "-", VAR_RUN_RESOLV_CONF);
-    }
-    return;
+	(void)rename(filename, VAR_RUN_RESOLV_CONF);
+	return;
 }
 #endif	/* !TARGET_OS_IPHONE */
 

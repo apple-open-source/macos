@@ -378,6 +378,16 @@ struct vm_pageout_vminfo {
 	unsigned long vm_pageout_forcereclaimed_sharedcache;
 	unsigned long vm_pageout_protected_realtime;
 	unsigned long vm_pageout_forcereclaimed_realtime;
+
+	uint64_t vm_compactor_major_compactions_completed;
+	uint64_t vm_compactor_major_compactions_considered;
+	uint64_t vm_compactor_major_compactions_bailed;
+	uint64_t vm_compactor_major_compaction_bytes_freed;
+	uint64_t vm_compactor_major_compaction_bytes_moved;
+	uint64_t vm_compactor_major_compaction_slots_moved;
+	uint64_t vm_compactor_major_compaction_segments_freed;
+	uint64_t vm_compactor_swapouts_queued;
+	uint64_t vm_compactor_swapout_bytes_wasted;
 };
 
 extern struct vm_pageout_vminfo vm_pageout_vminfo;

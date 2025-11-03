@@ -25,6 +25,7 @@
 #include <sys/proc_info.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
+#include <sys/fileport.h>
 #include <sys/vnode.h>
 #include <unistd.h>
 #undef PRIVATE

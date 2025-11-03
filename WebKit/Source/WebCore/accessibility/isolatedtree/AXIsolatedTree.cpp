@@ -30,6 +30,7 @@
 
 #include "AXIsolatedObject.h"
 #include "AXLogger.h"
+#include "AccessibilityImageMapLink.h"
 #include "AccessibilityTable.h"
 #include "AccessibilityTableCell.h"
 #include "AccessibilityTableRow.h"
@@ -746,6 +747,9 @@ void AXIsolatedTree::updateNodeProperties(AccessibilityObject& axObject, const A
         }
         case AXProperty::CellScope:
             properties.append({ AXProperty::CellScope, axObject.cellScope().isolatedCopy() });
+            break;
+        case AXProperty::RadioButtonGroupMembers:
+            properties.append({ AXProperty::RadioButtonGroupMembers, axIDs(axObject.radioButtonGroup()) });
             break;
         case AXProperty::ScreenRelativePosition:
             properties.append({ AXProperty::ScreenRelativePosition, axObject.screenRelativePosition() });
@@ -1584,9 +1588,24 @@ void AXIsolatedTree::processQueuedNodeUpdates()
         updateRelations(cache->relations());
 
     if (m_mostRecentlyPaintedTextIsDirty) {
-        Locker lock { m_changeLogLock };
-        m_pendingMostRecentlyPaintedText = cache->mostRecentlyPaintedText();
         m_mostRecentlyPaintedTextIsDirty = false;
+        // Resolving `mostRecentlyPaintedText()` can result in this sequence:
+        //   1. AXObjectCache::getOrCreate, which calls AccessibilityObject::recomputeIsIgnored
+        //   2. If the ignored state changes, AXObjectCache::objectBecameUnignored may be called
+        //   3. AXIsolatedTree::treeForPageID() will be called to try to inform the isolated tree
+        //      of this change, which requires taking AXTreeStore::s_storeLock.
+        //
+        // If we (the main-thread) held the m_changeLogLock when the above sequence happened, we would deadlock
+        // if the accessibility thread was simultaneously running applyPendingChangesForAllIsolatedTrees(), which
+        // holds the s_storeLock for the length of the function. The main-thread would be waiting on the storeLock,
+        // and the accessibility thread would be waiting on the m_changeLogLock to run AXIsolatedTree::applyPendingChanges()
+        // while holding the s_storeLock. Thus, a deadlock.
+        //
+        // So it's crucial to resolve the mostRecentlyPaintedText structure before the m_changeLogLock critical section,
+        // and only perform a move or copy while in the critical section to avoid a deadlock.
+        auto mostRecentlyPaintedText = cache->mostRecentlyPaintedText();
+        Locker lock { m_changeLogLock };
+        m_pendingMostRecentlyPaintedText = WTFMove(mostRecentlyPaintedText);
     }
 
     queueRemovalsAndUnresolvedChanges();
@@ -1899,8 +1918,9 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
             // The GeometryManager does not have a relative frame for ScrollViews, WebAreas, or scrollbars yet. We need to get it from the
             // live object so that we don't need to hit the main thread in the case a request comes in while the whole isolated tree is being built.
             setProperty(AXProperty::RelativeFrame, enclosingIntRect(object.relativeFrame()));
-        } else if (!object.renderer() && object.node() && is<AccessibilityNodeObject>(object)) {
+        } else if (!object.renderer() && object.node() && is<AccessibilityNodeObject>(object) && !is<AccessibilityImageMapLink>(object)) {
             // The frame of node-only AX objects is made up of their children.
+            // This excludes image-map links (a.k.a. <area> elements), which will never have rendered children.
             getsGeometryFromChildren = true;
         } else if (object.isMenuListPopup()) {
             // AccessibilityMenuListPopup's elementRect is hardcoded to return an empty rect, so preserve that behavior.
@@ -1998,8 +2018,7 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
         setProperty(AXProperty::IsTree, object.isTree());
         if (object.isRadioButton()) {
             setProperty(AXProperty::NameAttribute, object.nameAttribute().isolatedCopy());
-            // FIXME: This property doesn't get updated when a page changes dynamically.
-            setObjectVectorProperty(AXProperty::RadioButtonGroup, object.radioButtonGroup());
+            setObjectVectorProperty(AXProperty::RadioButtonGroupMembers, object.radioButtonGroup());
         }
 
         if (object.isImage())

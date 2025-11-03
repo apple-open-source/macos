@@ -161,8 +161,13 @@ sec_protocol_helper_dispatch_data_equal(dispatch_data_t left, dispatch_data_t ri
 bool
 client_is_WebKit(void);
 
+typedef enum {
+    external_pre_shared_key_selection,
+    pake_challenge,
+} selection_queue_type_t;
+
 void
-sec_protocol_options_set_external_pre_shared_key_selection_queue_helper(sec_protocol_options_t options, dispatch_queue_t psk_selection_queue);
+sec_protocol_options_set_queue_helper(sec_protocol_options_t options, dispatch_queue_t queue, selection_queue_type_t type);
 
 /*!
  * @function sec_identity_create_SPAKE2PLUSV1_registration_record

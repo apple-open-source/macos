@@ -1,19 +1,20 @@
 #! /bin/sh
 
+set -e
+set -u
+
 . ${tstdir-.}/lib.sh
 . ${tstdir-.}/conf.sh
 
-rm -rf dir1 dir2 dir3
-# make the copy-from-here tree
-mkdir dir1
-cd dir1
-seq -f%015g 262144 > foo
-# make the tree we want to compare to
-mkdir ../dir2
-cd ../dir2
-seq -f%015g 262144 > foo
+1>&2 echo ">>>> TEST 1: Interrupted transfer into partial directory"
 
-cd ..
+rm -rf dir1 dir2 dir3
+mkdir -p dir1 dir2
+
+# make the copy-from-here tree
+seq -f%015g 262144 > dir1/foo
+# make the tree we want to compare to
+seq -f%015g 262144 > dir2/foo
 
 rsync --partial-dir=.rsync-partial --bwlimit=512 -a -- dir1/ dir3 &
 pid=$!
@@ -33,8 +34,27 @@ if [ ! -s dir3/.rsync-partial/foo ] ; then
 fi
 
 rsync --partial-dir=.rsync-partial -av -- dir1/ dir3
-echo "Exit code of final rsync was $?" 1>&2
 ls -laR dir[123]
 compare_trees dir2 dir3
-echo "Finished" 1>&2
-echo "Finished"
+
+1>&2 echo ">>>> TEST 2: Partial directory with file from a subdir"
+rm -rf dir1 dir2 dir3 .rsync-partial
+mkdir -p dir1/a .rsync-partial
+echo "ABC" > dir1/root.file
+echo "DEF" > dir1/a/next.file
+
+ditto dir1 dir2
+
+# The above layout exercises one bug where we assumed that an absolute partial
+# dir had the same layout as the source directory hierarchy in one very specific
+# case.  This exercises another bug, where we'd allow the quick check to pass
+# and just accept the file as-is (but it's in the partial directory, so we
+# should assume that we need to check it anyways).
+echo "XYZ" > .rsync-partial/next.file
+
+rsync --partial-dir=$PWD/.rsync-partial -a --size-only dir1/ dir3
+compare_trees dir2 dir3
+if [ -e .rsync-partial/next.file ]; then
+	1>&2 echo "--partial-dir transfer did not consume our partial"
+	exit 1
+fi

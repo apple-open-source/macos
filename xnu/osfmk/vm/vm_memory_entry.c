@@ -222,6 +222,14 @@ mach_make_memory_entry_mem_only(
 	    (!(object->nophyscache))) {
 		if (object->wimg_bits != wimg_mode) {
 			vm_object_lock(object);
+#if HAS_MTE
+			if (vm_object_is_mte_mappable(object)) {
+				vm_object_unlock(object);
+				return mach_make_memory_entry_cleanup(KERN_INVALID_ARGUMENT,
+				           target_map, size_u, offset_u, permission, user_entry,
+				           object_handle);
+			}
+#endif /* HAS_MTE */
 			vm_object_change_wimg_mode(object, wimg_mode);
 			vm_object_unlock(object);
 		}
@@ -531,6 +539,10 @@ mach_make_memory_entry_copy(
 	    use_data_addr, use_4K_compat);
 
 	int copyin_flags = VM_MAP_COPYIN_ENTRY_LIST;
+#if HAS_MTE
+	copyin_flags |= VM_MAP_COPYIN_DEST_UNKNOWN;
+	copyin_flags |= vmne_kflags.vmnekf_is_iokit ? VM_MAP_COPYIN_IOKIT : 0;
+#endif
 	kr = vm_map_copyin_internal(target_map,
 	    map_start,
 	    map_size,
@@ -736,6 +748,10 @@ mach_make_memory_entry_share(
 		vmk_flags.vmkf_copy_pageable = TRUE;
 	}
 	vmk_flags.vmkf_copy_same_map = FALSE;
+#if HAS_MTE
+	vmk_flags.vmkf_is_iokit = vmne_kflags.vmnekf_is_iokit;
+	vmk_flags.vmkf_copy_dest = VM_COPY_DESTINATION_UNKNOWN;
+#endif /* HAS_MTE */
 	assert(map_size != 0);
 	kr = vm_map_copy_extract(target_map,
 	    map_start,
@@ -840,6 +856,15 @@ mach_make_memory_entry_share(
 			vm_prot_to_wimg(access, &wimg_mode);
 		}
 		if (object->wimg_bits != wimg_mode) {
+#if HAS_MTE
+			if (vm_object_is_mte_mappable(object)) {
+				vm_object_unlock(object);
+				vm_map_copy_discard(copy);
+				return mach_make_memory_entry_cleanup(KERN_INVALID_ARGUMENT,
+				           target_map, size_u, offset_u, permission, user_entry,
+				           object_handle);
+			}
+#endif /* HAS_MTE */
 			vm_object_change_wimg_mode(object, wimg_mode);
 		}
 		vm_object_unlock(object);

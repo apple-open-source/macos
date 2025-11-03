@@ -127,10 +127,12 @@ Vector<uint8_t> encodeMakeCredentialRequestAsCBOR(const Vector<uint8_t>& hash, c
     cborMap[CBORValue(3)] = convertUserEntityToCBOR(options.user);
     cborMap[CBORValue(4)] = convertParametersToCBOR(trimmedParameters(options.pubKeyCredParams, authenticatorSupportedParameters));
     if (overrideExcludeCredentials) {
-        CBORValue::ArrayValue excludeListArray;
-        for (const auto& descriptor : *overrideExcludeCredentials)
-            excludeListArray.append(convertDescriptorToCBOR(descriptor));
-        cborMap[CBORValue(5)] = CBORValue(WTFMove(excludeListArray));
+        if (!overrideExcludeCredentials->isEmpty()) {
+            CBORValue::ArrayValue excludeListArray;
+            for (const auto& descriptor : *overrideExcludeCredentials)
+                excludeListArray.append(convertDescriptorToCBOR(descriptor));
+            cborMap[CBORValue(5)] = CBORValue(WTFMove(excludeListArray));
+        }
     } else if (!options.excludeCredentials.isEmpty()) {
         CBORValue::ArrayValue excludeListArray;
         for (const auto& descriptor : options.excludeCredentials)

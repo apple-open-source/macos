@@ -30,11 +30,16 @@
 #include <vm/vm_pageout_internal.h>
 #include <vm/vm_page_internal.h>
 #include <vm/vm_map_internal.h>
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#endif /* HAS_MTE */
 #include <mach/upl_server.h>
 #include <kern/host_statistics.h>
 #include <vm/vm_purgeable_internal.h>
 #include <vm/vm_object_internal.h>
 #include <vm/vm_ubc.h>
+#include <sys/kdebug.h>
+#include <sys/kdebug_kernel.h>
 
 extern boolean_t hibernate_cleaning_in_progress;
 
@@ -720,6 +725,25 @@ process_upl_to_commit:
 		vm_object_lock(shadow_object);
 	}
 
+	if (upl->flags & UPL_IO_WIRE &&
+	    !(flags & (UPL_COMMIT_INACTIVATE | UPL_COMMIT_SPECULATE)) &&
+	    !is_kernel_object(shadow_object) &&
+	    vm_page_deactivate_behind &&
+	    (shadow_object->resident_page_count - shadow_object->wired_page_count + atop_64(xfer_size) >
+	    vm_page_active_count / vm_page_deactivate_behind_min_resident_ratio)) {
+		/*
+		 * We're being asked to un-wire pages from a very-large resident vm-object
+		 * Naively inserting the pages into the active queue is likely to induce
+		 * thrashing with the backing store -- i.e. we will be forced to
+		 * evict hot pages that are likely to be re-faulted before we can get to
+		 * this UPL's pages in the LRU. Immediately deactivate the pages instead so
+		 * that we can evict them before currently-active pages.
+		 */
+		flags |= UPL_COMMIT_INACTIVATE;
+		KDBG(VMDBG_CODE(DBG_VM_UPL_COMMIT_FORCE_DEACTIVATE) | DBG_FUNC_NONE,
+		    VM_KERNEL_ADDRHIDE(shadow_object), upl->u_offset, xfer_size);
+	}
+
 	VM_OBJECT_WIRED_PAGE_UPDATE_START(shadow_object);
 
 	if (upl->flags & UPL_ACCESS_BLOCKED) {
@@ -827,6 +851,12 @@ process_upl_to_commit:
 			assert(m->vmp_busy);
 
 			dwp->dw_mask |= (DW_clear_busy | DW_PAGE_WAKEUP);
+#if HAS_MTE
+			if (vm_page_is_tag_storage_pnum(m, VM_PAGE_GET_PHYS_PAGE(m)) &&
+			    m->vmp_ts_wanted) {
+				dwp->dw_mask |= DW_vm_page_wakeup_tag_storage;
+			}
+#endif /* HAS_MTE */
 			goto commit_next_page;
 		}
 
@@ -909,6 +939,9 @@ process_upl_to_commit:
 						m->vmp_iopl_wired = false;
 						unwired_count++;
 
+#if HAS_MTE
+						mteinfo_decrement_wire_count(m, false);
+#endif /* HAS_MTE */
 					}
 				}
 				if (m->vmp_wire_count == 0) {

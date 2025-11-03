@@ -79,9 +79,9 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
     secnotice("octagon-authkit", "Attempting to reset octagon");
 
-    NSDictionary* metrics = nil;
-    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
-
+    NSDictionary* metrics = @{
+        kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW),
+    };
     AAFAnalyticsEventSecurity *resetEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                      altDSID:self.deps.activeAccount.altDSID
                                                                                                       flowID:self.deps.flowID

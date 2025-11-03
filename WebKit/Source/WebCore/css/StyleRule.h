@@ -101,6 +101,7 @@ protected:
 
     bool hasDocumentSecurityOrigin() const { return m_hasDocumentSecurityOrigin; }
     void setType(StyleRuleType type) { m_type = static_cast<unsigned>(type); }
+    void invalidateResolvedSelectorListRecursively();
 
 private:
     template<typename Visitor> constexpr decltype(auto) visitDerived(Visitor&&);
@@ -134,10 +135,12 @@ public:
 
     using StyleRuleBase::hasDocumentSecurityOrigin;
 
+    // Used for CSSOM.
     void wrapperAdoptSelectorList(CSSSelectorList&&);
 
     Vector<Ref<StyleRule>> splitIntoMultipleRulesWithMaximumSelectorComponentCount(unsigned) const;
 
+    void adoptSelectorList(CSSSelectorList&&);
 #if ENABLE(CSS_SELECTOR_JIT)
     CompiledSelector& compiledSelectorForListIndex(unsigned index) const;
     void releaseCompiledSelectors() const { m_compiledSelectors = nullptr; }
@@ -176,6 +179,8 @@ public:
     const Vector<Ref<StyleRuleBase>>& nestedRules() const { return m_nestedRules; }
     Vector<Ref<StyleRuleBase>>& nestedRules() { return m_nestedRules; }
     const CSSSelectorList& originalSelectorList() const { return m_originalSelectorList; }
+
+    // Used by CSSOM.
     void wrapperAdoptOriginalSelectorList(CSSSelectorList&&);
 
     String debugDescription() const;
@@ -490,18 +495,12 @@ inline StyleRuleBase::StyleRuleBase(const StyleRuleBase& o)
 {
 }
 
-inline void StyleRule::wrapperAdoptSelectorList(CSSSelectorList&& selectors)
+inline void StyleRule::adoptSelectorList(CSSSelectorList&& selectors)
 {
     m_selectorList = WTFMove(selectors);
 #if ENABLE(CSS_SELECTOR_JIT)
     m_compiledSelectors = nullptr;
 #endif
-}
-
-inline void StyleRuleWithNesting::wrapperAdoptOriginalSelectorList(CSSSelectorList&& selectors)
-{
-    m_originalSelectorList = CSSSelectorList { selectors };
-    StyleRule::wrapperAdoptSelectorList(WTFMove(selectors));
 }
 
 #if ENABLE(CSS_SELECTOR_JIT)

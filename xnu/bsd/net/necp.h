@@ -270,7 +270,6 @@ typedef struct necp_domain_trie_request {
  */
 #define NECP_POLICY_DROP_FLAG_LOCAL_NETWORK             0x01
 #define NECP_POLICY_DROP_FLAG_SUPPRESS_ALERTS           0x02
-#define NECP_POLICY_DROP_FLAG_DEFUNCT_ALL_FLOWS         0x04
 
 /*
  * Local-Networks Condition Flags
@@ -1305,7 +1304,6 @@ typedef u_int32_t necp_app_id;
 
 #define NECP_KERNEL_POLICY_DROP_FLAG_LOCAL_NETWORK              NECP_POLICY_DROP_FLAG_LOCAL_NETWORK
 #define NECP_KERNEL_POLICY_DROP_FLAG_SUPPRESS_ALERTS            NECP_POLICY_DROP_FLAG_SUPPRESS_ALERTS
-#define NECP_KERNEL_POLICY_DROP_FLAG_DEFUNCT_ALL_FLOWS          NECP_POLICY_DROP_FLAG_DEFUNCT_ALL_FLOWS
 
 typedef union {
 	u_int                                           tunnel_interface_index;

@@ -11,7 +11,7 @@
 #include <malloc/malloc.h>
 #include "../src/internal.h"
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_ALL_ALLOCATORS);
 
 static inline void*
 t_malloc(size_t s)

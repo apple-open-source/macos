@@ -1,0 +1,8 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+cst{
+    AuxExemplarCharacters{"[á é í ó {t̤} ú]"}
+    ExemplarCharacters{"[a č {ch} e h i k l m n {ny} o p r s š t ṭ u w x y ʼ]"}
+    ExemplarCharactersIndex{"[A Č E H I K L M N O P R S Š T Ṭ U W X Y ʼ]"}
+}

@@ -3144,11 +3144,14 @@ AccessibilityObject* AccessibilityObject::elementAccessibilityHitTest(const IntP
 {
     // Send the hit test back into the sub-frame if necessary.
     if (isAttachment()) {
-        Widget* widget = widgetForAttachmentView();
+        RefPtr widget = widgetForAttachmentView();
         // Normalize the point for the widget's bounds.
         if (widget && widget->isLocalFrameView()) {
-            if (CheckedPtr cache = axObjectCache())
-                return cache->getOrCreate(*widget)->accessibilityHitTest(IntPoint(point - widget->frameRect().location()));
+            RefPtr widgetScrollView = dynamicDowncast<ScrollView>(widget);
+            if (CheckedPtr cache = widgetScrollView ? axObjectCache() : nullptr) {
+                IntPoint adjustedPoint = IntPoint(point - widget->frameRect().location()) + widgetScrollView->scrollPosition();
+                return cache->getOrCreate(*widget)->accessibilityHitTest(adjustedPoint);
+            }
         }
 
         if (widget && widget->isRemoteFrameView()) {
@@ -4117,6 +4120,13 @@ bool AccessibilityObject::isIgnoredWithoutCache(AXObjectCache* cache) const
         }
     }
     return ignored;
+}
+
+void AccessibilityObject::recomputeIsIgnoredForDescendants(bool includeSelf)
+{
+    Accessibility::enumerateDescendantsIncludingIgnored<AXCoreObject>(*this, includeSelf, [] (auto& descendant) {
+        downcast<AccessibilityObject>(descendant).recomputeIsIgnored();
+    });
 }
 
 Vector<Ref<Element>> AccessibilityObject::elementsFromAttribute(const QualifiedName& attribute) const

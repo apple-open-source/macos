@@ -136,6 +136,27 @@ mac_task_check_get_movable_control_port(void)
 	return error;
 }
 
+/*
+ * This function should only be called from spawn/fork context because,
+ * in general, it is not allowed to reference the proc from get_bsdtask_info
+ * if we only have a task ref. In spawn context, however, we have reference
+ * to both task and proc.
+ */
+int
+mac_task_check_get_movable_control_port_during_spawn(struct task *new_task)
+{
+	int error;
+	kauth_cred_t p_cred;
+
+	p_cred = kauth_cred_proc_ref(get_bsdtask_info(new_task));
+
+	MAC_CHECK(proc_check_get_movable_control_port, p_cred);
+
+	kauth_cred_unref(&p_cred);
+
+	return error;
+}
+
 int
 mac_task_check_set_host_special_port(struct task *task, int id, struct ipc_port *port)
 {

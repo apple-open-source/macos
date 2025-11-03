@@ -336,6 +336,44 @@ coalition_info_efficiency(coalition_t coal, user_addr_t buffer, user_size_t bufs
 }
 
 static int
+coalition_info_pid_list(coalition_t coal, user_addr_t buffer, user_size_t *bufsize_inout_p)
+{
+	int error;
+
+	user_size_t size_in = *bufsize_inout_p;
+	if (size_in == 0) {
+		return 0;
+	}
+
+	/* We return at most COALITION_INFO_PID_LIST_MAX_PIDS. */
+	size_t alloc_count = MIN(size_in / sizeof(pid_t), (user_size_t)COALITION_INFO_PID_LIST_MAX_PIDS);
+
+	pid_t *pid_list = kalloc_type(pid_t, alloc_count, Z_WAITOK | Z_ZERO);
+	if (!pid_list) {
+		return ENOMEM;
+	}
+
+	int ntasks = coalition_get_pid_list(coal, COALITION_ROLEMASK_ALLROLES, COALITION_SORT_NOSORT, pid_list, (int)alloc_count);
+	if (ntasks < 0) {
+		/* coalition_get_pid_list returns negative errno */
+		error = -ntasks;
+		goto out_free;
+	}
+
+	/* Ensure size_in >= alloc_len * sizeof(pid_t) >= size_out */
+	user_size_t size_out = MIN(alloc_count * sizeof(pid_t), ntasks * sizeof(pid_t));
+	assert(size_in >= alloc_count * sizeof(pid_t));
+	assert(alloc_count * sizeof(pid_t) >= size_out);
+
+	*bufsize_inout_p = size_out;
+	error = copyout(pid_list, buffer, size_out);
+
+out_free:
+	kfree_type(pid_t, alloc_count, pid_list);
+	return error;
+}
+
+static int
 coalition_ledger_logical_writes_limit(coalition_t coal, user_addr_t buffer, user_size_t bufsize)
 {
 	int error = 0;
@@ -362,7 +400,7 @@ coalition_info(proc_t p, struct coalition_info_args *uap, __unused int32_t *retv
 	user_addr_t cidp = uap->cid;
 	user_addr_t buffer = uap->buffer;
 	user_addr_t bufsizep = uap->bufsize;
-	user_size_t bufsize;
+	user_size_t bufsize = 0;
 	uint32_t flavor = uap->flavor;
 	int error;
 	uint64_t cid;
@@ -401,6 +439,25 @@ coalition_info(proc_t p, struct coalition_info_args *uap, __unused int32_t *retv
 		break;
 	case COALITION_INFO_SET_EFFICIENCY:
 		error = coalition_info_efficiency(coal, buffer, bufsize);
+		break;
+	case COALITION_INFO_PID_LIST:
+		/* bufsize is used as inout for this operation */
+		error = coalition_info_pid_list(coal, buffer, &bufsize);
+		if (error) {
+			goto bad;
+		}
+
+		/* When successful, the size of the returned list is bounded */
+		assert(bufsize <= COALITION_INFO_PID_LIST_MAX_PIDS * sizeof(pid_t));
+
+		if (IS_64BIT_PROCESS(p)) {
+			user64_size_t size64out = bufsize;
+			error = copyout(&size64out, bufsizep, sizeof(user64_size_t));
+		} else {
+			/* bufsize < UINT32_MAX is guaranteed due to the assertion above */
+			user32_size_t size32out = (user32_size_t)bufsize;
+			error = copyout(&size32out, bufsizep, sizeof(user32_size_t));
+		}
 		break;
 #if DEVELOPMENT || DEBUG
 	case COALITION_INFO_GET_DEBUG_INFO:

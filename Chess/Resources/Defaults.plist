@@ -18,8 +18,6 @@
 	<false/>
 	<key>MBCFloatingBoard</key>
 	<false/>
-	<key>MBCListenForMoves</key>
-	<true/>
 	<key>MBCPieceStyle</key>
 	<string>Wood</string>
 	<key>MBCSearchTime</key>

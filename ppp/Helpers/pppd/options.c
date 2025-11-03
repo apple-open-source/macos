@@ -482,6 +482,7 @@ options_from_file(filename, must_exist, check_prot, priv)
     int check_prot;
     int priv;
 {
+#if TARGET_OS_OSX
     FILE *f;
     int i, newline, ret, err;
     option_t *opt;
@@ -556,6 +557,10 @@ err:
         free(tofree);
 #endif
     return ret;
+#else
+#pragma unused(filename, must_exist, check_prot, priv)
+	return 1;
+#endif
 }
 
 /*
@@ -565,6 +570,7 @@ err:
 int
 options_from_user()
 {
+#if TARGET_OS_OSX
     char *user, *path, *file;
     int ret;
     struct passwd *pw;
@@ -583,6 +589,9 @@ options_from_user()
     ret = options_from_file(path, 0, 1, privileged);
     free(path);
     return ret;
+#else
+	return 1;
+#endif
 }
 
 /*
@@ -596,6 +605,7 @@ options_from_user()
 int
 options_for_tty()
 {
+#if TARGET_OS_OSX
     char *dev, *path, *p;
     int ret;
     size_t pl;
@@ -618,6 +628,9 @@ options_for_tty()
     ret = options_from_file(path, 0, 0, 1);
     free(path);
     return ret;
+#else
+	return 1;
+#endif
 }
 
 /*

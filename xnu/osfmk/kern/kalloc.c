@@ -86,6 +86,9 @@
 #include <libkern/section_keywords.h>
 #include <libkern/prelink.h>
 
+#if HAS_MTE
+#include <arm64/mte_xnu.h>
+#endif /* HAS_MTE */
 
 SCALABLE_COUNTER_DEFINE(kalloc_large_count);
 SCALABLE_COUNTER_DEFINE(kalloc_large_total);

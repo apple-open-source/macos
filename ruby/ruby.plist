@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<array>
 <dict>
 	<key>OpenSourceImportDate</key>
 	<string>2022-06-07</string>
@@ -28,4 +29,45 @@
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.ruby-lang.org/</string>
 </dict>
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2025-08-29</string>
+	<key>OpenSourceLicense</key>
+	<string>bsd</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>rexml.gemspec: adjustments to match Apple layout (157324538)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>rexml</string>
+	<key>OpenSourceSHA256</key>
+	<string>8abf7d3f8af889c0a685c87261bc4dae7481467acc72945f0416652e58b32259</string>
+	<key>OpenSourceURL</key>
+	<string>https://github.com/ruby/rexml/archive/refs/tags/v3.4.2.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>3.4.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://github.com/ruby/rexml</string>
+</dict>
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2025-08-29</string>
+	<key>OpenSourceLicense</key>
+	<string>bsd</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>webrick.gemspec: adjustments to match Apple layout (157324538)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>webrick</string>
+	<key>OpenSourceSHA256</key>
+	<string>0a2a4f55a948bd1c6cd5d67758e32d60cb764f95ee517e6d170cae8c6e11c5a2</string>
+	<key>OpenSourceURL</key>
+	<string>https://github.com/ruby/webrick/archive/refs/tags/v1.9.1.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>1.9.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://github.com/ruby/webrick</string>
+</dict>
+</array>
 </plist>

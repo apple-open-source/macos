@@ -28,13 +28,13 @@
 #include "config.h"
 #include "WorkerFontLoadRequest.h"
 
+#include "CachedFont.h"
 #include "Font.h"
 #include "FontCreationContext.h"
 #include "FontCustomPlatformData.h"
 #include "FontSelectionAlgorithm.h"
 #include "ResourceLoaderOptions.h"
 #include "ServiceWorker.h"
-#include "WOFFFileFormat.h"
 #include "WorkerGlobalScope.h"
 #include "WorkerThreadableLoader.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -76,15 +76,23 @@ void WorkerFontLoadRequest::load(WorkerGlobalScope& workerGlobalScope)
     WorkerThreadableLoader::loadResourceSynchronously(workerGlobalScope, WTFMove(request), *this, options);
 }
 
+RefPtr<FontCustomPlatformData> WorkerFontLoadRequest::loadCustomFont(SharedBuffer& bytes, const String& itemInCollection)
+{
+    ASSERT(m_context);
+
+    // FIXME: We should refactor this so that the unused wrapping parameter is not required.
+    bool wrapper = false;
+    return CachedFont::createCustomFontData(bytes, itemInCollection, wrapper, m_context->settingsValues().downloadableBinaryFontTrustedTypes);
+}
+
 bool WorkerFontLoadRequest::ensureCustomFontData()
 {
     if (!m_fontCustomPlatformData && !m_errorOccurred && !m_isLoading) {
         RefPtr<SharedBuffer> contiguousData;
         if (m_data)
             contiguousData = m_data.takeAsContiguous();
-        convertWOFFToSfntIfNecessary(contiguousData);
         if (contiguousData) {
-            RefPtr fontCustomPlatformData = FontCustomPlatformData::create(*contiguousData, m_url.fragmentIdentifier().toString());
+            RefPtr fontCustomPlatformData = loadCustomFont(*contiguousData, m_url.fragmentIdentifier().toString());
             m_data = WTFMove(contiguousData);
             if (!fontCustomPlatformData) {
                 m_errorOccurred = true;

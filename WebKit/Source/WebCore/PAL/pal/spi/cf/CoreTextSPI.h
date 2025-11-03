@@ -246,6 +246,7 @@ CFBitVectorRef CTFontCopyColorGlyphCoverage(CTFontRef);
 
 #if HAVE(CTFONTMANAGER_CREATEMEMORYSAFEFONTDESCRIPTORFROMDATA)
 CTFontDescriptorRef CTFontManagerCreateMemorySafeFontDescriptorFromData(CFDataRef);
+CFArrayRef FPFontCreateMemorySafeFontsFromData(CFDataRef);
 #endif
 
 typedef const struct __FPFont* FPFontRef;

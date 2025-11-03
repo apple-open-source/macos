@@ -144,7 +144,6 @@ private:
     bool canProduceAudio() const final { return true; }
     std::optional<MediaSessionGroupIdentifier> mediaSessionGroupIdentifier() const final;
     void isActiveNowPlayingSessionChanged() final;
-    std::optional<ProcessID> mediaSessionPresentingApplicationPID() const final;
     bool shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSession::InterruptionType) const final;
     bool isSuspended() const final;
     bool isPlaying() const final;

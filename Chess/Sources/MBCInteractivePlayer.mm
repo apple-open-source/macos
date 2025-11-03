@@ -47,55 +47,11 @@
 #import "MBCEngine.h"
 #import "MBCBoardView.h"
 #import "MBCBoardWin.h"
-#import "MBCLanguageModel.h"
 #import "MBCController.h"
 #import "MBCDocument.h"
 
 #import <ApplicationServices/ApplicationServices.h>
 #include <dispatch/dispatch.h>
-//
-// Private selector to set the help text in the speech feedback window
-//
-#ifndef kSRCommandsDisplayCFPropListRef
-#define kSRCommandsDisplayCFPropListRef	'cdpl'
-#endif
-
-pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent* reply, SRefCon refcon)
-{
-	long				actualSize;
-	DescType			actualType;
-	OSErr				status = 0;
-	OSErr				recStatus = 0;
-	SRRecognitionResult	recResult = 0;
-    SRRecognizer        recognizer;
-	
-	status = AEGetParamPtr(theAEevt,keySRSpeechStatus,typeSInt16,
-					&actualType, (Ptr)&recStatus, sizeof(status), &actualSize);
-	if (!status)
-		status = recStatus;
-
-	if (!status)
-		status = AEGetParamPtr(theAEevt,keySRRecognizer,
-							   typeSRRecognizer, &actualType, 
-							   (Ptr)&recognizer,
-							   sizeof(SRRecognizer), &actualSize);
-	if (!status)
-		status = AEGetParamPtr(theAEevt,keySRSpeechResult,
-							   typeSRSpeechResult, &actualType, 
-							   (Ptr)&recResult,
-							   sizeof(SRRecognitionResult), &actualSize);
-    if (!status) {
-        Size sz = sizeof(refcon);
-        status = SRGetProperty(recognizer, kSRRefCon, &refcon, &sz);
-    }
-	if (!status) {
-		[reinterpret_cast<MBCInteractivePlayer *>(refcon) 	
-						 recognized:recResult];
-		SRReleaseObject(recResult);
-	}
-
-	return status;
-}
 
 void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 {
@@ -129,52 +85,6 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 
 @implementation MBCInteractivePlayer
 
-- (void) makeSpeechHelp
-{
-	NSPropertyListFormat	format;
-
-	NSString * path = 
-		[[NSBundle mainBundle] pathForResource: @"SpeechHelp" ofType: @"plist"];
-	NSData *	help 	= 
-		[NSData dataWithContentsOfFile:path];
-	NSMutableDictionary * prop = 
-		[NSPropertyListSerialization 
-			propertyListFromData: help
-			mutabilityOption: NSPropertyListMutableContainers
-			format: &format
-			errorDescription:nil];
-	ProcessSerialNumber	psn;
-	GetCurrentProcess(&psn);
-	[prop setObject:[NSNumber numberWithLong:psn.highLongOfPSN] 
-		  forKey:@"ProcessPSNHigh"];
-	[prop setObject:[NSNumber numberWithLong:psn.lowLongOfPSN] 
-		  forKey:@"ProcessPSNLow"];
-	fSpeechHelp =
-		[[NSPropertyListSerialization 
-			 dataFromPropertyList:prop
-			 format: NSPropertyListXMLFormat_v1_0
-			 errorDescription:nil]
-			retain];
-}
-
-- (void) initSR
-{
-	if (SROpenRecognitionSystem(&fRecSystem, kSRDefaultRecognitionSystemID))
-		return;
-	SRNewRecognizer(fRecSystem, &fRecognizer, kSRDefaultSpeechSource);
-    SRSetProperty(fRecognizer, kSRRefCon, &self, sizeof(self));
-	short modes = kSRHasFeedbackHasListenModes;
-	SRSetProperty(fRecognizer, kSRFeedbackAndListeningModes, &modes, sizeof(short));
-	SRNewLanguageModel(fRecSystem, &fModel, "<moves>", 7);
-	fLanguageModel = 
-    [[MBCLanguageModel alloc] initWithRecognitionSystem:fRecSystem];
-	if (fSpeechHelp)
-		SRSetProperty(fRecognizer, kSRCommandsDisplayCFPropListRef,
-					  [fSpeechHelp bytes], [fSpeechHelp length]);
-	fStartingSR = false;
-	[self updateNeedMouse:self];
-}
-
 - (void) updateNeedMouse:(id)arg
 {
     //
@@ -203,66 +113,6 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
     
 	[[fController renderView] wantMouse:wantMouse];
     [[NSApp delegate] updateApplicationBadge];
-
-	if ([fController listenForMoves]) {
-		//
-		// Work with speech recognition
-		//
-		if (wantMouse) {
-			if (fStartingSR) {
-					; // Current starting, will update later
-			} else if (!fRecSystem) {
-                static dispatch_once_t  sInitOnce;
-                static dispatch_queue_t sInitQueue;
-                dispatch_once(&sInitOnce, ^{
-                    sInitQueue = dispatch_queue_create("InitSR", DISPATCH_QUEUE_SERIAL);
-                    AEInstallEventHandler(kAESpeechSuite, kAESpeechDone, 
-                                          NewAEEventHandlerUPP(HandleSpeechDoneAppleEvent), 
-                                          NULL, false);
-                });
-				fStartingSR = true;
-                dispatch_async(sInitQueue, ^{
-                    [self initSR];
-                });
-			} else {
-				if (!fSpeechHelp) {
-					[self makeSpeechHelp];
-					SRSetProperty(fRecognizer, kSRCommandsDisplayCFPropListRef,
-					  [fSpeechHelp bytes], [fSpeechHelp length]);
-				}
-
-				SRStopListening(fRecognizer);
-				MBCMoveCollector * moves = [MBCMoveCollector new];
-				MBCMoveGenerator generateMoves(moves, fVariant, 0);
-				generateMoves.Generate(fLastSide==kBlackSide,
-									   *[[fController board] curPos]);
-				[fLanguageModel buildLanguageModel:fModel 
-								fromMoves:[moves collection]
-								takeback:[[fController board] canUndo]];
-				SRSetLanguageModel(fRecognizer, fModel);
-				SRStartListening(fRecognizer);	
-				[moves release];
-			}
-		} else if (fRecSystem) 
-			SRStopListening(fRecognizer);
-	} else if (fRecSystem && !fStartingSR) {
-		// 	
-		// Time to take the recognition system down
-		//
-		SRStopListening(fRecognizer);
-		[fLanguageModel release];
-        fLanguageModel = nil;
-		SRReleaseObject(fRecognizer);
-		SRCloseRecognitionSystem(fRecSystem);
-		fRecSystem	=	0;
-	}
-}
-
-- (void)allowedToListen:(BOOL)allowed
-{
-    [self updateNeedMouse:self];
-    if (fRecSystem && !allowed)
-        SRStopListening(fRecognizer);
 }
 
 - (void) removeChessObservers
@@ -289,8 +139,6 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 - (void)dealloc
 {
     [self removeChessObservers];
-    [fSpeechHelp release];
-    [fLanguageModel release];
     [super dealloc];
 }
 
@@ -646,29 +494,6 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
      object:fDocument userInfo:(id)move];
 }
 
-- (void) recognized:(SRRecognitionResult)result
-{
-	if (MBCMove * move = [fLanguageModel recognizedMove:result]) {
-		if (move->fCommand == kCmdUndo) {
-			[fController takeback:self];
-		} else {
-			//
-			// Fill in promotion info if missing
-			//
-			[[fController board] tryPromotion:move];
-
-			NSString * notification;			
-			if (fLastSide==kBlackSide)
-				notification = MBCUncheckedWhiteMoveNotification;
-			else
-				notification = MBCUncheckedBlackMoveNotification;
-			[[NSNotificationCenter defaultCenter] 
-				postNotificationName:notification
-             object:fDocument userInfo:(id)move];
-		}
-	}
-}
-
 - (void) removeController
 {
     //
@@ -689,4 +514,3 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 // Local Variables:
 // mode:ObjC
 // End:
- 

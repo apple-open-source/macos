@@ -8,7 +8,8 @@
 #include <stdlib.h>
 #include <malloc/malloc.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_MAGAZINE_ONLY);
 
 T_DECL(malloc_zone_batch, "malloc_zone_batch_malloc and malloc_zone_batch_free",
 		T_META_ENVVAR("MallocProbGuard=0"))

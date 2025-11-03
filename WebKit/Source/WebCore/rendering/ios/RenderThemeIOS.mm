@@ -899,17 +899,6 @@ void RenderThemeIOS::paintSearchFieldDecorations(const RenderBox& box, const Pai
 // This value matches the opacity applied to UIKit controls.
 constexpr auto pressedStateOpacity = 0.75f;
 
-bool RenderThemeIOS::isSubmitStyleButton(const Element& element) const
-{
-    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element))
-        return input->isSubmitButton();
-
-    if (RefPtr button = dynamicDowncast<HTMLButtonElement>(element))
-        return button->isExplicitlySetSubmitButton();
-
-    return false;
-}
-
 void RenderThemeIOS::adjustButtonLikeControlStyle(RenderStyle& style, const Element& element) const
 {
     if (PAL::currentUserInterfaceIdiomIsVision())
@@ -920,7 +909,7 @@ void RenderThemeIOS::adjustButtonLikeControlStyle(RenderStyle& style, const Elem
 
     if (!style.hasAutoAccentColor()) {
         auto tintColor = style.usedAccentColor(element.document().styleColorOptions(&style));
-        if (isSubmitStyleButton(element))
+        if (isSubmitStyleButton(&element))
             style.setBackgroundColor(WTFMove(tintColor));
         else
             style.setColor(WTFMove(tintColor));

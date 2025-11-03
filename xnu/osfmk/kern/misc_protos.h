@@ -162,6 +162,15 @@ extern int copyoutmsg(
 	user_addr_t     user_addr,
 	mach_msg_size_t nbytes);
 
+#if HAS_MTE
+/*
+ * Retrieves the associated MTE tag, if any, for a user space address.
+ * Returns the input pointer with any associated MTE tag merged to the
+ * architecturally specified bitfield in `out`.
+ */
+int copyin_mte_load_tag(const user_addr_t src, user_addr_t* out);
+
+#endif /* HAS_MTE */
 
 #if (DEBUG || DEVELOPMENT)
 extern int verify_write(const void *source, void *dst, size_t size);

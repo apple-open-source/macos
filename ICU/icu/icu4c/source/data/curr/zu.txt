@@ -225,7 +225,7 @@ zu{
         }
         GYD{
             "GYD",
-            "i-Guyanaese Dollar",
+            "i-Guyanese Dollar",
         }
         HKD{
             "HK$",

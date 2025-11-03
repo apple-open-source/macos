@@ -399,6 +399,7 @@ hu{
         nds_NL{"alsószász"}
         ne{"nepáli"}
         new{"nevari"}
+        nez{"nez percé"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niuei"}

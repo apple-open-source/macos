@@ -116,6 +116,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer> accountStateTracker;
 @property (readonly) id<OTDeviceInformationAdapter> deviceAdapter;
 @property (readonly) id<OTSecureBackupAdapter> secureBackupAdapter;
+@property (readonly) id<OTLAContextAdapter> laContextAdapter;
 @property (readonly) id<OTAccountsAdapter> accountsAdapter;
 @property (readonly) id<OTAuthKitAdapter> authKitAdapter;
 @property (readonly) id<OTPersonaAdapter> personaAdapter;
@@ -144,6 +145,7 @@ NS_ASSUME_NONNULL_BEGIN
                   accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer>)accountStateTracker
              deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                   secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
+                     laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                    escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
                         notifierClass:(Class<CKKSNotifier>)notifierClass
@@ -323,7 +325,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)moveToCheckTrustedState;
 
 // called when passcode stash is available via cache flow
-- (void)passcodeStashAvailable;
+- (void)passcodeStashAvailable:(NSNumber*)aksEventContext;
 
 - (OTOperationDependencies*)operationDependencies;
 
@@ -364,6 +366,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck
                     repair:(BOOL)repair
        danglingPeerCleanup:(BOOL)danglingPeerCleanup
+         caesarPeerCleanup:(BOOL)caesarPeerCleanup
                 updateIdMS:(BOOL)updateIdMS
                      reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError * _Nullable error))reply;
 - (void)checkEscrowCheck:(BOOL)isBackgroundCheck reply:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error))reply;

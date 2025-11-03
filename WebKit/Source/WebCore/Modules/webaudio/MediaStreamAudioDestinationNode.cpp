@@ -72,6 +72,13 @@ void MediaStreamAudioDestinationNode::process(size_t numberOfFrames)
     m_source->consumeAudio(input(0)->bus(), numberOfFrames);
 }
 
+void MediaStreamAudioDestinationNode::checkNumberOfChannelsForInput(AudioNodeInput* input)
+{
+    ASSERT(context().isAudioThread() && context().isGraphOwner());
+    m_source->setNumberOfChannels(input->numberOfChannels());
+    AudioBasicInspectorNode::checkNumberOfChannelsForInput(input);
+}
+
 } // namespace WebCore
 
 #endif // ENABLE(WEB_AUDIO) && ENABLE(MEDIA_STREAM)

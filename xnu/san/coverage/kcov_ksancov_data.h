@@ -143,6 +143,23 @@ ksancov_cmps_trace_func_arg2(ksancov_cmps_trace_ent_t *entry)
 	return &func_args[entry->len1_func];
 }
 
+#define KSANCOV_SERIALIZED_TESTCASE_BYTES 16777216 // 16MiB
+#define KSANCOV_SERIALIZED_TESTCASES_MAX_COUNT 100
+
+typedef struct ksancov_serialized_testcase {
+	uint32_t size;
+	uint8_t  buffer[KSANCOV_SERIALIZED_TESTCASE_BYTES];
+} ksancov_serialized_testcase_t;
+
+/*
+ * Store the latest executed testcases in kernel to dump on panic.
+ */
+typedef struct ksancov_serialized_testcases {
+	uint32_t head;         /* current head of the circular buffer */
+	uint32_t inner_index;  /* current inner index in the head testcase (e.g. current call being executed) */
+	ksancov_serialized_testcase_t list[];  /* testcases circular buffer */
+} ksancov_serialized_testcases_t;
+
 /*
  * Represents state of a ksancov device when userspace asks for coverage data recording.
  */
@@ -166,6 +183,9 @@ struct ksancov_dev {
 		ksancov_trace_t        *cmps_trace;
 	};
 	size_t cmps_sz;     /* size of allocated cmps trace buffer */
+
+	ksancov_serialized_testcases_t* testcases;
+	uint32_t testcases_count;     /* number of testcases in the buffer (less or equal than max count) */
 
 	thread_t thread;
 	dev_t dev;

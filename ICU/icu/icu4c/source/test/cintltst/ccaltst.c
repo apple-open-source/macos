@@ -1697,42 +1697,42 @@ void TestGregorianChange(void) {
 
 static void TestGetKeywordValuesForLocale(void) {
 #define PREFERRED_SIZE 25
-#define MAX_NUMBER_OF_KEYWORDS 5
+#define MAX_NUMBER_OF_KEYWORDS 14
     const char *PREFERRED[PREFERRED_SIZE][MAX_NUMBER_OF_KEYWORDS+1] = {
-            { "root",        "gregorian", NULL, NULL, NULL, NULL },
-            { "und",         "gregorian", NULL, NULL, NULL, NULL },
-            { "en_US",       "gregorian", NULL, NULL, NULL, NULL },
-            { "en_029",      "gregorian", NULL, NULL, NULL, NULL },
-            { "th_TH",       "buddhist", "gregorian", NULL, NULL, NULL },
-            { "und_TH",      "buddhist", "gregorian", NULL, NULL, NULL },
-            { "en_TH",       "buddhist", "gregorian", NULL, NULL, NULL },
-            { "he_IL",       "gregorian", "hebrew", "islamic", "islamic-civil", "islamic-tbla" },
-            { "ar_EG",       "gregorian", "coptic", "islamic", "islamic-civil", "islamic-tbla" },
-            { "ja",          "gregorian", "japanese", NULL, NULL, NULL },
-            { "ps_Guru_IN",  "gregorian", "indian", NULL, NULL, NULL },
-            { "th@calendar=gregorian", "buddhist", "gregorian", NULL, NULL, NULL },
-            { "en@calendar=islamic",   "gregorian", NULL, NULL, NULL, NULL },
-            { "zh_TW",       "gregorian", "roc", "chinese", NULL, NULL },
-            { "ar_IR",       "persian", "gregorian", "islamic", "islamic-civil", "islamic-tbla" },
+            { "root",        "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "und",         "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "en_US",       "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "en_029",      "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "th_TH",       "buddhist", "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "und_TH",      "buddhist", "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "en_TH",       "buddhist", "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "he_IL",       "gregorian", "hebrew", "islamic", "islamic-civil", "islamic-tbla", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "ar_EG",       "gregorian", "coptic", "islamic", "islamic-civil", "islamic-tbla", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "ja",          "gregorian", "japanese", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "ps_Guru_IN",  "gregorian", "vikram", "islamic", "islamic-civil", "islamic-tbla", "bangla", "gujarati", "kannada", "malayalam", "marathi", "odia", "tamil", "telugu", "indian" },
+            { "th@calendar=gregorian", "buddhist", "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "en@calendar=islamic",   "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "zh_TW",       "gregorian", "roc", "chinese", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
+            { "ar_IR",       "persian", "gregorian", "islamic", "islamic-civil", "islamic-tbla", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
 #if APPLE_ICU_CHANGES
 // rdar://
-            { "th@rg=SAZZZZ", "islamic-umalqura", "islamic-rgsa", "islamic", "gregorian", NULL },
+            { "th@rg=SAZZZZ", "islamic-umalqura", "islamic-rgsa", "islamic", "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
 #else
-            { "th@rg=SAZZZZ", "gregorian", "islamic-umalqura", "islamic", "islamic-rgsa", NULL },
+            { "th@rg=SAZZZZ", "gregorian", "islamic-umalqura", "islamic", "islamic-rgsa", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
 #endif  // APPLE_ICU_CHANGES
 
             // tests for ICU-22364
-            { "zh_CN@rg=TW",           "gregorian", "chinese", NULL, NULL, NULL }, // invalid subdivision code
-            { "zh_CN@rg=TWzzzz",       "gregorian", "roc", "chinese", NULL, NULL }, // whole region
-            { "zh_TW@rg=TWxxxx",       "gregorian", "roc", "chinese", NULL, NULL }, // invalid subdivision code (ignored)
-            { "zh_TW@rg=ARa",          "gregorian", NULL, NULL, NULL, NULL }, // single-letter subdivision code
-            { "zh_TW@rg=AT1",          "gregorian", NULL, NULL, NULL, NULL }, // single-digit subdivision code
-            { "zh_TW@rg=USca",         "gregorian", NULL, NULL, NULL, NULL }, // two-letter subdivision code
-            { "zh_TW@rg=IT53",         "gregorian", NULL, NULL, NULL, NULL }, // two-digit subdivision code
-            { "zh_TW@rg=AUnsw",        "gregorian", NULL, NULL, NULL, NULL }, // three-letter subdivision code
-            { "zh_TW@rg=EE130",        "gregorian", NULL, NULL, NULL, NULL }, // three-digit subdivision code
+            { "zh_CN@rg=TW",           "gregorian", "chinese", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // invalid subdivision code
+            { "zh_CN@rg=TWzzzz",       "gregorian", "roc", "chinese", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // whole region
+            { "zh_TW@rg=TWxxxx",       "gregorian", "roc", "chinese", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // invalid subdivision code (ignored)
+            { "zh_TW@rg=ARa",          "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // single-letter subdivision code
+            { "zh_TW@rg=AT1",          "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // single-digit subdivision code
+            { "zh_TW@rg=USca",         "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // two-letter subdivision code
+            { "zh_TW@rg=IT53",         "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // two-digit subdivision code
+            { "zh_TW@rg=AUnsw",        "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // three-letter subdivision code
+            { "zh_TW@rg=EE130",        "gregorian", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }, // three-digit subdivision code
     };
-    const int32_t EXPECTED_SIZE[PREFERRED_SIZE] = { 1, 1, 1, 1, 2, 2, 2, 5, 5, 2, 2, 2, 1, 3, 5, 4, 2, 3, 3, 1, 1, 1, 1, 1, 1 };
+    const int32_t EXPECTED_SIZE[PREFERRED_SIZE] = { 1, 1, 1, 1, 2, 2, 2, 5, 5, 2, 14, 2, 1, 3, 5, 4, 2, 3, 3, 1, 1, 1, 1, 1, 1 };
     UErrorCode status = U_ZERO_ERROR;
     int32_t i, size, j;
     UEnumeration *all, *pref;
@@ -3543,41 +3543,41 @@ struct { // rdar://144904333 & rdar://145184053
   { "gu@calendar=vikram", "ફાગણ કૃ૰ બીજ" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names
   { "hi@calendar=vikram", "फाल्गुन कृ॰ द्वितीया" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names
   { "kn@calendar=vikram", "ಫಾಲ್ಗುಣ ಕೃ. ದ್ವಿತೀಯ" },  // rdar://145171191 replace numeric values with strings rdar://145904346 Shorten narrow names
-  { "ml@calendar=vikram", "ഫാൽ. ദ്വിതീയ" },  // rdar://145171191 replace numeric values with strings rdar://145904346 Shorten narrow names
-  { "mr@calendar=vikram", "फाल्गुन कृ॰ द्वितीया" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names
+  { "ml@calendar=vikram", "ഫാൽ. കൃ. ദ്വിതീയ" },  // rdar://145171191 replace numeric values with strings rdar://145904346 Shorten narrow names rdar://157607506 audit and fix locale data
+  { "mr@calendar=vikram", "फाल्गुन कृ. द्वितीया" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names rdar://157607506 audit and fix locale data
   { "or@calendar=vikram", "ଫାଲ୍‌ଗୁନ କୃଷ୍ଣ ଦ୍ୱିତୀୟା" },  // rdar://145171191 replace numeric values with strings
   { "pa@calendar=vikram", "ਫੱਗਣ ਵਦੀ ਦੂਜ" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first
-  { "ta@calendar=vikram", "பங்குனி துவிதியை" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first
+  { "ta@calendar=vikram", "பங்குனி தேய். துவி." },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://157607506 audit and fix locale data
   { "te@calendar=vikram", "ఫాల్గుణం కృష్ణ విదియ" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first
-  { "ur@calendar=vikram", "پھاگن بَدی دوج" },  // rdar://145171191 replace numeric values with strings
+  { "ur@calendar=vikram", "پھاگن بدی دوج" },  // rdar://145171191 replace numeric values with strings rdar://157607506 audit and fix locale data
   { "en@calendar=bangla", "1 Falgun" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
   { "en@calendar=gujarati", "Mahā Vad 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
   { "en@calendar=kannada", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
-  { "en@calendar=odia", "Phalguna 3" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
-  { "en@calendar=tamil", "2 Maasi" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "en@calendar=odia", "Kumbha 3" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names rdar://155040056 Odia zodiac names
+  { "en@calendar=tamil", "Maasi 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names rdar://157607506 audit and fix locale data
   { "en@calendar=telugu", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
   { "en@calendar=malayalam", "Kumbham 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names rdar://153720231 malayalam field order
   { "en@calendar=marathi", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
   { "gu@calendar=gujarati", "મહા કૃ૰ બીજ" },  // rdar://151311580 Gujarati should return Amanta based dates rdar://145904346 Shorten narrow names
-  { "kn@calendar=kannada", "ಮಾಘ ಕೃ. ದ್ವಿತೀಯ" },  // rdar://151311580 Kannada should return Amanta based dates rdar://145904346 Shorten narrow names
-  { "mr@calendar=marathi", "माघ कृ॰ द्वितीया" },  // rdar://151311580 Marathi should return Amanta based dates rdar://145904346 Shorten narrow names
+  { "kn@calendar=kannada", "ಮಾಘ ಕೃ. ಬಿದಿಗೆ" },  // rdar://151311580 Kannada should return Amanta based dates rdar://145904346 Shorten narrow names rdar://157607506 audit and fix locale data
+  { "mr@calendar=marathi", "माघ कृ. द्वितीया" },  // rdar://151311580 Marathi should return Amanta based dates rdar://145904346 Shorten narrow names rdar://157607506 audit and fix locale data
   { "bn@calendar=bangla", "1 ফাল্গুন" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "or@calendar=odia", "ଫାଲ୍‌ଗୁନ 3" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "ta@calendar=tamil", "2 மாசி" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "or@calendar=odia", "କୁମ୍ଭ 3" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)  rdar://155040056 Odia zodiac names
+  { "ta@calendar=tamil", "மாசி 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
   { "ml@calendar=malayalam", "കുംഭം 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "gu@calendar=tamil", "2 મહા" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "hi@calendar=tamil", "2 माघ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "kn@calendar=tamil", "2 ಮಾಘ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "mr@calendar=tamil", "2 माघ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "pa@calendar=tamil", "2 ਮਾਘ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "te@calendar=tamil", "2 మాఘం" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
-  { "ur@calendar=tamil", "2 ماگھ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "gu@calendar=tamil", "મહા 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
+  { "hi@calendar=tamil", "माघ 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
+  { "kn@calendar=tamil", "ಮಾಘ 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
+  { "mr@calendar=tamil", "माघ 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
+  { "pa@calendar=tamil", "ਮਾਘ 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
+  { "te@calendar=tamil", "మాఘం 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
+  { "ur@calendar=tamil", "ماگھ 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars) rdar://157607506 audit and fix locale data
   { "fi@calendar=vikram", "Phālguna K. 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
   { "fr@calendar=vikram", "Phālguna K. 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
   { "en_IN@calendar=vikram", "Phālguna K. 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
-  { "fi@calendar=tamil", "2 Maasi" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
-  { "fr@calendar=tamil", "2 Maasi" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
-  { "en_IN@calendar=tamil", "2 Maasi" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fi@calendar=tamil", "Maasi 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized) rdar://157607506 audit and fix locale data
+  { "fr@calendar=tamil", "Maasi 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized) rdar://157607506 audit and fix locale data
+  { "en_IN@calendar=tamil", "Maasi 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized) rdar://157607506 audit and fix locale data
   { "fi@calendar=bangla", "1 Falgun" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
   { "fr@calendar=bangla", "1 Falgun" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
   { "en_IN@calendar=bangla", "1 Falgun" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
@@ -3598,21 +3598,21 @@ void TestHinduLeapMonthFormatting() {
         { "gu@calendar=vikram", "અ૰જેઠ શુ૰ પ્રતિપદા" },
         { "hi@calendar=vikram", "अ॰ज्येष्ठ शु॰ प्रतिपदा" },
         { "kn@calendar=vikram", "ಅ.ಜ್ಯೇಷ್ಠ ಶು. ಪ್ರತಿಪದ" },
-        { "ml@calendar=vikram", "അ.ജ്യേഷ്. പ്രഥമ" },
-        { "mr@calendar=vikram", "अ॰ज्येष्ठ शु॰ प्रतिपदा" },
+        { "ml@calendar=vikram", "അ.ജ്യേഷ്. പശു. പ്രഥമ" }, //  rdar://157607506 audit and fix locale data
+        { "mr@calendar=vikram", "अ.ज्येष्ठ शु. प्रतिपदा" }, //  rdar://157607506 audit and fix locale data
         { "or@calendar=vikram", "ଅ.ଜ‍୍ୟେଷ୍ଠ ଶୁକ୍ଳ ପ୍ରତିପଦା" },
         { "pa@calendar=vikram", "ਅ.ਜੇਠ ਸੁਦੀ ਏਕਮ" },
-        { "ta@calendar=vikram", "அ.ஆனி பிரதமை" },
+        { "ta@calendar=vikram", "அ.ஆனி வளர். பிர." }, //  rdar://157607506 audit and fix locale data
         { "te@calendar=vikram", "అ.జ్యేష్ఠం శుక్ల పాడ్యమి" },
-        { "ur@calendar=vikram", "ادھکجیٹھ سُدی پرِوا" },
+        { "ur@calendar=vikram", "ادھکجیٹھ سدی پروا" }, //  rdar://157607506 audit and fix locale data
         { "en@calendar=gujarati", "Jeth (A) Sud 1" },
         { "en@calendar=kannada", "Jyeṣṭha (A) Ś. 1" },
         { "en@calendar=telugu", "Jyeṣṭha (A) S. 1" },
         { "en@calendar=marathi", "Jyeṣṭha (A) Ś. 1" },
         { "gu@calendar=gujarati", "અ૰જેઠ શુ૰ પ્રતિપદા" },
-        { "kn@calendar=kannada", "ಅ.ಜ್ಯೇಷ್ಠ ಶು. ಪ್ರತಿಪದ" },
-        { "mr@calendar=marathi", "अ॰ज्येष्ठ शु॰ प्रतिपदा" },
-        { "te@calendar=telugu", "అ.జ్యేష్ఠం శుక్ల పాడ్యమి" },
+        { "kn@calendar=kannada", "ಅ.ಜ್ಯೇಷ್ಠ ಶು. ಪಾಡ್ಯ" }, //  rdar://157607506 audit and fix locale data
+        { "mr@calendar=marathi", "अ.ज्येष्ठ शु. प्रतिपदा" }, //  rdar://157607506 audit and fix locale data
+        { "te@calendar=telugu", "అ.జ్యేష్ఠ శుక్ల పాడ్యమి" }, //  rdar://157607506 audit and fix locale data
     };
 
     UErrorCode status = U_ZERO_ERROR;
@@ -3693,52 +3693,52 @@ void TestHinduDateFormats(void) {
         { "hi@calendar=gujarati", u"MMMd",  "माघ कृ॰ द्वितीया" },
         { "hi@calendar=gujarati", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
         { "hi@calendar=kannada", u"MMMd",  "माघ कृ॰ द्वितीया" },
-        { "hi@calendar=kannada", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
+        { "hi@calendar=kannada", u"MMMMEEEEd", "माघ कृ॰ द्वितीया, शुक्रवार" },            // rdar://157607506 audit and fix locale data
         { "hi@calendar=marathi", u"MMMd",  "माघ कृ॰ द्वितीया" },
         { "hi@calendar=marathi", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
         { "hi@calendar=telugu", u"MMMd",  "माघ कृ॰ द्वितीया" },
-        { "hi@calendar=telugu", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
+        { "hi@calendar=telugu", u"MMMMEEEEd", "माघ कृ॰ द्वितीया, शुक्रवार" },             // rdar://157607506 audit and fix locale data
         { "hi@calendar=vikram", u"MMMd",  "फाल्गुन कृ॰ द्वितीया" },
         { "hi@calendar=vikram", u"MMMMEEEEd", "शुक्रवार, फाल्गुन कृ॰ द्वितीया" },
         { "bn@calendar=vikram", u"MMMd",  "ফাল্গুন কৃষ্ণ দ্বিতীয়া" },
         { "bn@calendar=vikram", u"MMMMEEEEd", "শুক্রবার, ফাল্গুন কৃষ্ণ দ্বিতীয়া" },
         { "en@calendar=vikram", u"MMMd",  "Phālguna K. 2" },
-        { "en@calendar=vikram", u"MMMMEEEEd", "Phālguna K. 2, Friday" },
+        { "en@calendar=vikram", u"MMMMEEEEd", "Friday, Phālguna K. 2" },         // rdar://157607506 audit and fix locale data
         { "kn@calendar=vikram", u"MMMd",  "ಫಾಲ್ಗುಣ ಕೃ. ದ್ವಿತೀಯ" },
         { "kn@calendar=vikram", u"MMMMEEEEd", "ಶುಕ್ರವಾರ, ಫಾಲ್ಗುಣ ಕೃ. ದ್ವಿತೀಯ" },
-        { "ml@calendar=vikram", u"MMMd",  "ഫാൽ. ദ്വിതീയ" },
-        { "ml@calendar=vikram", u"MMMMEEEEd", "ഫാൽഗുനം ദ്വിതീയ, വെള്ളിയാഴ്‌ച" },
-        { "mr@calendar=vikram", u"MMMd",  "फाल्गुन कृ॰ द्वितीया" },
-        { "mr@calendar=vikram", u"MMMMEEEEd", "शुक्रवार, फाल्गुन कृ॰ द्वितीया" },
+        { "ml@calendar=vikram", u"MMMd",  "ഫാൽ. കൃ. ദ്വിതീയ" },                   // rdar://157607506 audit and fix locale data
+        { "ml@calendar=vikram", u"MMMMEEEEd", "വെള്ളിയാഴ്‌ച, ഫാൽഗുനം കൃ. ദ്വിതീയ" }, // rdar://157607506 audit and fix locale data
+        { "mr@calendar=vikram", u"MMMd",  "फाल्गुन कृ. द्वितीया" },                     // rdar://157607506 audit and fix locale data
+        { "mr@calendar=vikram", u"MMMMEEEEd", "शुक्रवार, फाल्गुन कृ. द्वितीया" },          // rdar://157607506 audit and fix locale data
         { "or@calendar=vikram", u"MMMd",  "ଫାଲ୍‌ଗୁନ କୃଷ୍ଣ ଦ୍ୱିତୀୟା" },
         { "or@calendar=vikram", u"MMMMEEEEd", "ଶୁକ୍ରବାର, ଫାଲ୍‌ଗୁନ କୃଷ୍ଣ ଦ୍ୱିତୀୟା" },
         { "pa@calendar=vikram", u"MMMd",  "ਫੱਗਣ ਵਦੀ ਦੂਜ" },
         { "pa@calendar=vikram", u"MMMMEEEEd", "ਸ਼ੁੱਕਰਵਾਰ, ਫੱਗਣ ਵਦੀ ਦੂਜ" },
-        { "ta@calendar=vikram", u"MMMd",  "பங்குனி துவிதியை" },
-        { "ta@calendar=vikram", u"MMMMEEEEd", "வெள்ளி, பங்குனி துவிதியை" },
+        { "ta@calendar=vikram", u"MMMd",  "பங்குனி தேய். துவி." },                 // rdar://157607506 audit and fix locale data
+        { "ta@calendar=vikram", u"MMMMEEEEd", "வெள்ளி, பங்குனி தேய். துவி." },      // rdar://157607506 audit and fix locale data
         { "te@calendar=vikram", u"MMMd",  "ఫాల్గుణం కృష్ణ విదియ" },
-        { "te@calendar=vikram", u"MMMMEEEEd", "శుక్రవారం, ఫాల్గుణం కృష్ణ విదియ" },
-        { "ur@calendar=vikram", u"MMMd",  "پھاگن بَدی دوج" },
-        { "ur@calendar=vikram", u"MMMMEEEEd", "جمعہ، پھاگن بَدی دوج" },
+        { "te@calendar=vikram", u"MMMMEEEEd", "శుక్రవారం, ఫాల్గుణం కృష్ణ విదియ" },     // rdar://157607506 audit and fix locale data
+        { "ur@calendar=vikram", u"MMMd",  "پھاگن بدی دوج" },                    // rdar://157607506 audit and fix locale data
+        { "ur@calendar=vikram", u"MMMMEEEEd", "جمعہ, پھاگن بدی دوج" },
         // tests for rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
         { "en@calendar=gujarati", u"MMMd",  "Mahā Vad 2" },
         { "en@calendar=kannada", u"MMMd",  "Māgha K. 2" },
         { "en@calendar=marathi", u"MMMd",  "Māgha K. 2" },
         { "en@calendar=telugu", u"MMMd",  "Māgha K. 2" },
         { "en@calendar=vikram", u"MMMd",  "Phālguna K. 2" },
-        { "en@calendar=tamil", u"MMMd",  "2 Maasi" },
+        { "en@calendar=tamil", u"MMMd",  "Maasi 2" },                           // rdar://157607506 audit and fix locale data
         { "en@calendar=bangla", u"MMMd",  "1 Falgun" },
         { "en@calendar=malayalam", u"MMMd",  "Kumbham 2" },
-        { "en@calendar=odia", u"MMMd",  "Phalguna 3" },
+        { "en@calendar=odia", u"MMMd",  "Kumbha 3" }, // rdar://155040056 Odia zodiac names
         { "en_IN@calendar=gujarati", u"MMMd",  "Mahā Vad 2" },
         { "en_IN@calendar=kannada", u"MMMd",  "Māgha K. 2" },
         { "en_IN@calendar=marathi", u"MMMd",  "Māgha K. 2" },
         { "en_IN@calendar=telugu", u"MMMd",  "Māgha K. 2" },
         { "en_IN@calendar=vikram", u"MMMd",  "Phālguna K. 2" },
-        { "en_IN@calendar=tamil", u"MMMd",  "2 Maasi" },
+        { "en_IN@calendar=tamil", u"MMMd",  "Maasi 2" },                        // rdar://157607506 audit and fix locale data
         { "en_IN@calendar=bangla", u"MMMd",  "1 Falgun" },
         { "en_IN@calendar=malayalam", u"MMMd",  "Kumbham 2" },
-        { "en_IN@calendar=odia", u"MMMd",  "Phalguna 3" },
+        { "en_IN@calendar=odia", u"MMMd",  "Kumbha 3" }, // rdar://155040056 Odia zodiac names
     };
     UErrorCode status = U_ZERO_ERROR;
     
@@ -3776,7 +3776,7 @@ void TestHinduDateFormats(void) {
     }
 }
     
-// test for rdar://153144480 (Odia and Bangla calendars have the wrong month names and year starts) rdar://145904346 Shorten narrow names
+// test for rdar://153144480 (Odia and Bangla calendars have the wrong month names and year starts) rdar://145904346 Shorten narrow names rdar://155040056 Odia zodiac names
 void TestHinduSolarMonthsAndYears(void) {
     UDate now = 1749625200000; // June 11, 2025
     
@@ -3788,10 +3788,10 @@ void TestHinduSolarMonthsAndYears(void) {
         int32_t expectedDay;
     } testCases[] = {
         // the month names, month numbers, and years were scraped from Drik Panchang
-        { "en@calendar=odia",      u"Jyosta 28",  1432, 8, 28 },
+        { "en@calendar=odia",      u"Br̥sha 28",  1432, 8, 28 },    //  rdar://157607506 audit and fix locale data
         { "en@calendar=bangla",    u"27 Joishtho",  1432, 1, 27 },
-        { "en@calendar=malayalam", u"Itavam 28", 1200, 9, 28 },
-        { "en@calendar=tamil",     u"28 Vaikaasi", 1947, 1, 28 },
+        { "en@calendar=malayalam", u"Idavam 28", 1200, 9, 28 },    //  rdar://157607506 audit and fix locale data
+        { "en@calendar=tamil",     u"Vaikaasi 28", 1947, 1, 28 },  //  rdar://157607506 audit and fix locale data
     };
     
     char errorMessage[256];

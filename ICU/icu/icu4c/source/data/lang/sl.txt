@@ -378,6 +378,7 @@ sl{
         nds_NL{"nizka saščina"}
         ne{"nepalščina"}
         new{"nevarščina"}
+        nez{"nez perce"}
         ng{"ndonga"}
         nia{"niaščina"}
         niu{"niuejščina"}

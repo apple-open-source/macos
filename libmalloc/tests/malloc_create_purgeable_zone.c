@@ -40,7 +40,7 @@ zone_thread(void *arg)
 }
 
 T_DECL(malloc_create_purgeable_zone, "create a purgeable zone while constantly registering zones",
-		T_META_TAG_XZONE,
+		T_META_TAG_ALL_ALLOCATORS,
 		T_META_TAG_VM_NOT_PREFERRED)
 {
 	pthread_t zone_threads[N_ZONE_CREATION_THREADS];
@@ -62,7 +62,7 @@ T_DECL(malloc_create_purgeable_zone, "create a purgeable zone while constantly r
 
 T_DECL(malloc_purgeable_zone_helper,
 		"Test that the purgeable zone uses the default xzone as its helper",
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *purgeable_zone = malloc_default_purgeable_zone();
 	malloc_zone_t *default_zone = malloc_zones[0];
@@ -103,8 +103,9 @@ get_purgeable_state(mach_vm_address_t addr)
 	return state;
 }
 
-T_DECL(malloc_purgeable_vm_size, "check that the size of a purgeable allocation matches the vm object size",
-		T_META_TAG_XZONE)
+T_DECL(malloc_purgeable_vm_size,
+		"check that the size of a purgeable allocation matches the vm object size",
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	// All allocations that come out of the purgeable zone should be a VM object,
 	// since we need to be able to tag it as purgeable or non-purgeable. The VM
@@ -190,7 +191,7 @@ T_DECL(malloc_purgeable_vm_size, "check that the size of a purgeable allocation 
 
 T_DECL(purgeable_aligned_alloc,
 		"Make an aligned purgeable allocation smaller than the minimum purgeable size",
-		T_META_TAG_XZONE)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	void *ptr = malloc_zone_memalign(malloc_default_purgeable_zone(), KiB(64),
 			KiB(32));
@@ -200,7 +201,7 @@ T_DECL(purgeable_aligned_alloc,
 }
 
 T_DECL(purgeable_realloc, "Test reallocating pointers from the purgeable zone",
-		T_META_TAG_XZONE)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	// Test reallocating from the purgeable zone to the purgeable zone
 	void *ptr = malloc_zone_malloc(malloc_default_purgeable_zone(), KiB(64));

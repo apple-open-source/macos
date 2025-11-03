@@ -3288,7 +3288,8 @@ kdp_mqueue_send_find_owner(
 			waitinfo->wait_type = kThreadWaitPortSendInTransit;
 			waitinfo->owner = VM_KERNEL_UNSLIDE_OR_PERM(port->ip_destination);
 		}
-		if (ip_is_any_service_port(port)) {
+		if (ip_is_any_service_port(port) ||
+		    ip_is_bootstrap_port(port)) {
 			*isplp = ip_label_peek_kdp(port).iol_service;
 		}
 	}
@@ -3350,8 +3351,8 @@ kdp_mqueue_recv_find_owner(
 			}
 			if (ip_is_special_reply_port(port)) {
 				waitinfo->wait_flags |= STACKSHOT_WAITINFO_FLAGS_SPECIALREPLY;
-			}
-			if (ip_is_any_service_port(port)) {
+			} else if (ip_is_any_service_port(port) ||
+			    ip_is_bootstrap_port(port)) {
 				*isplp = ip_label_peek_kdp(port).iol_service;
 			}
 		}

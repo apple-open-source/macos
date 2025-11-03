@@ -316,7 +316,7 @@ bool SpeculativeLoadManager::canRetrieve(const Key& storageKey, const WebCore::R
     }
 
     // Check pending speculative revalidations.
-    CheckedPtr pendingPreload = m_pendingPreloads.get(storageKey);
+    RefPtr pendingPreload = m_pendingPreloads.get(storageKey);
     if (!pendingPreload) {
         if (m_notPreloadedEntries.get(storageKey))
             logSpeculativeLoadingDiagnosticMessage(cache->networkProcess(), frameID, DiagnosticLoggingKeys::entryWronglyNotWarmedUpKey());
@@ -532,7 +532,7 @@ void SpeculativeLoadManager::revalidateSubresource(const SubresourceInfo& subres
 
     LOG(NetworkCacheSpeculativePreloading, "(NetworkProcess) Speculatively revalidating '%s':", key.identifier().utf8().data());
 
-    auto revalidator = makeUnique<SpeculativeLoad>(protectedCache(), frameID, revalidationRequest, WTFMove(entry), isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections, [weakThis = WeakPtr { *this }, key, revalidationRequest, frameID](std::unique_ptr<Entry> revalidatedEntry) {
+    Ref revalidator = SpeculativeLoad::create(protectedCache(), frameID, revalidationRequest, WTFMove(entry), isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections, [weakThis = WeakPtr { *this }, key, revalidationRequest, frameID](std::unique_ptr<Entry> revalidatedEntry) {
         ASSERT(!revalidatedEntry || !revalidatedEntry->needsValidation());
         ASSERT(!revalidatedEntry || revalidatedEntry->key() == key);
         CheckedPtr checkedThis = weakThis.get();

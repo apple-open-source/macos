@@ -1604,6 +1604,75 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     });
 }
 
+- (void)test_sec_protocol_options_set_pake_challenge_block {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    sec_protocol_metadata_t sample_metadata = [self create_sec_protocol_metadata];
+
+    const char *context = "context";
+    size_t context_len = strlen(context);
+    dispatch_data_t context_data = dispatch_data_create(context, context_len, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    const char *client_identity_str = "client";
+    size_t client_identity_len = strlen(client_identity_str);
+    dispatch_data_t client_identity_data = dispatch_data_create(client_identity_str, client_identity_len, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    const char *server_identity_str = "server";
+    size_t server_identity_len = strlen(server_identity_str);
+    dispatch_data_t server_identity_data = dispatch_data_create(server_identity_str, server_identity_len, NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    const char *password = "password";
+    dispatch_data_t password_data = dispatch_data_create(password, strlen(password), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    sec_identity_t client_identity = sec_identity_create_client_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, password_data, PAKE_PBKDF_PARAMS_SCRYPT_DEFAULT);
+
+    dispatch_data_t server_password_verifier_data = sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(client_identity);
+    dispatch_data_t registration_record = sec_identity_copy_SPAKE2PLUSV1_registration_record(client_identity);
+    sec_identity_t server_identity = sec_identity_create_server_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, server_password_verifier_data, registration_record);
+
+    void (^selection_block)(sec_protocol_metadata_t, SecOfferedPAKEIdentity*, sec_protocol_pake_challenge_complete_t) = ^(sec_protocol_metadata_t metadata, SecOfferedPAKEIdentity *offered_pake_identity, sec_protocol_pake_challenge_complete_t complete) {
+            XCTAssertNotNil(offered_pake_identity);
+            if (!offered_pake_identity) {
+                complete(nil);
+                return;
+            }
+            complete(server_identity);
+        };
+
+    void (^selection_block_two)(sec_protocol_metadata_t, SecOfferedPAKEIdentity*, sec_protocol_pake_challenge_complete_t) = ^(sec_protocol_metadata_t metadata, SecOfferedPAKEIdentity *offered_pake_identity, sec_protocol_pake_challenge_complete_t complete) {
+            XCTAssertNotNil(offered_pake_identity);
+            if (!offered_pake_identity) {
+                complete(nil);
+                return;
+            }
+            complete(server_identity);
+        };
+
+    __block void (^completion_handler)(sec_identity_t) = ^(sec_identity_t _Nullable pake_credential) {
+        XCTAssertNotNil(pake_credential);
+        XCTAssertEqual(sec_identity_copy_SPAKE2PLUSV1_client_identity(pake_credential), client_identity_data);
+        XCTAssertEqual(sec_identity_copy_SPAKE2PLUSV1_server_identity(pake_credential), server_identity_data);
+        XCTAssertEqual(sec_identity_copy_SPAKE2PLUSV1_server_password_verifier(pake_credential), server_password_verifier_data);
+        XCTAssertEqual(sec_identity_copy_SPAKE2PLUSV1_registration_record(pake_credential), registration_record);
+        XCTAssertEqual(sec_identity_copy_SPAKE2PLUSV1_context(pake_credential), context_data);
+    };
+
+    dispatch_queue_t selection_queue = dispatch_queue_create("test_sec_protocol_options_set_pake_challenge_block_queue", DISPATCH_QUEUE_SERIAL);
+
+    sec_protocol_options_set_pake_challenge_block(options, selection_block, selection_queue);
+    sec_protocol_options_set_pake_challenge_block(options, selection_block_two, selection_queue);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->pake_challenge_block == selection_block_two);
+        XCTAssertTrue(content->pake_challenge_queue != nil);
+        sec_protocol_pake_challenge_t pake_challenge_block = sec_protocol_options_content_get_pake_challenge_block(content);
+        SecOfferedPAKEIdentity *offeredPAKEIdentity = [[SecOfferedPAKEIdentity alloc] initWithClientIdentity:(NSData *)client_identity_data :(NSData *)server_identity_data :sec_protocol_pake_scheme_spake2plus_v1];
+        pake_challenge_block(sample_metadata, offeredPAKEIdentity, completion_handler);
+        return false;
+    });
+}
+
 - (dispatch_data_t)create_random_dispatch_data {
     uint8_t random[32];
     (void)SecRandomCopyBytes(NULL, sizeof(random), random);

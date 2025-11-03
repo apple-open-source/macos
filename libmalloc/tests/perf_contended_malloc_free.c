@@ -18,7 +18,7 @@ typedef unsigned seed_type_t;
 typedef unsigned long seed_type_t;
 #endif // !MALLOC_TARGET_EXCLAVES
 
-T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
+T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_NOT_PREFERRED);
 
 // number of times malloc & free are called per dt_stat batch
 #define ITERATIONS_PER_DT_STAT_BATCH 10000ull

@@ -228,7 +228,7 @@ int	lflag;		/* show routing table with more information */
 int	Lflag;		/* show size of listen queues */
 int	mflag;		/* show memory stats */
 int	nflag;		/* show addresses numerically */
-static int pflag;	/* show given protocol */
+int pflag;		/* show given protocol */
 int	prioflag = -1;	/* show packet priority statistics */
 int	Rflag;		/* show reachability information */
 int	rflag;		/* show routing tables (or routing stats) */
@@ -440,11 +440,7 @@ main(argc, argv)
 		exit(0);
 	}
 	if (qflag || Qflag) {
-		if (interface == NULL) {
-			fprintf(stderr, "%s statistics option "
-			    "requires interface name\n", qflag ? "Queue" :
-			    "Polling");
-		} else if (qflag) {
+		if (qflag) {
 			aqstatpr();
 		} else {
 			rxpollstatpr();
@@ -452,12 +448,7 @@ main(argc, argv)
 		exit(0);
 	}
 	if (Sflag) {
-		if (interface == NULL) {
-			fprintf(stderr, "additional link status option"
-				" requires interface name\n");
-		} else {
-			print_link_status(interface);
-		}
+		print_link_status(interface);
 		exit(0);
 	}
 
@@ -477,6 +468,7 @@ main(argc, argv)
 	 */
 	if (iflag && !pflag) {
 		intpr(NULL);
+		exit(0);
 	}
 	if (af == AF_INET || af == AF_UNSPEC)
 		for (tp = protox; tp->pr_name; tp++)
@@ -540,24 +532,14 @@ printproto(tp, name)
 	uint32_t off;
 
 	if (sflag) {
-		if (iflag && !pflag) {
-			if (tp->pr_istats) {
-				intpr(tp->pr_istats);
-			} else if (vflag)
-				printf("%s: no per-interface stats routine\n",
-				    tp->pr_name);
+		pr = tp->pr_stats;
+		if (!pr) {
+			if (pflag && vflag)
+				printf("%s: no stats routine\n",
+					tp->pr_name);
 			return;
 		}
-		else {
-			pr = tp->pr_stats;
-			if (!pr) {
-				if (pflag && vflag)
-					printf("%s: no stats routine\n",
-					    tp->pr_name);
-				return;
-			}
-			off = tp->pr_protocol;
-		}
+		off = tp->pr_protocol;
 	} else {
 		pr = tp->pr_cblocks;
 		if (!pr) {
@@ -568,12 +550,28 @@ printproto(tp, name)
 		off = tp->pr_protocol;
 	}
 	if (pr != NULL) {
-		if (sflag && iflag && pflag)
+		if (sflag && iflag && pflag && interval)
 			intervalpr(pr, off, name, af);
 		else
 			(*pr)(off, name, af);
 	} else {
 		printf("### no stats for %s\n", name);
+	}
+}
+
+void
+printprotoifstats(char *ifname)
+{
+	struct protox **proto_table;
+
+	for (proto_table = protoprotox; proto_table != NULL && *proto_table != NULL; proto_table++) {
+		struct protox *tp;
+
+		for (tp = *proto_table; tp->pr_name != NULL; tp++) {
+			if (tp->pr_istats != NULL) {
+				tp->pr_istats(ifname);
+			}
+		}
 	}
 }
 

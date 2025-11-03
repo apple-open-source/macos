@@ -3937,7 +3937,11 @@ bool Editor::findString(const String& target, FindOptions options)
     Ref document = this->document();
     std::optional<SimpleRange> resultRange;
     {
-        document->updateLayoutIgnorePendingStylesheets();
+        OptionSet<LayoutOptions> findInPageLayoutOptions;
+        findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityAutoAsVisible);
+        if (document->settings().detailsAutoExpandEnabled())
+            findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityHiddenAsVisible);
+        document->updateLayoutIgnorePendingStylesheets(findInPageLayoutOptions);
         Style::PostResolutionCallbackDisabler disabler(document);
         VisibleSelection selection = document->selection().selection();
         resultRange = rangeOfString(target, selection.firstRange(), options);
@@ -4046,8 +4050,14 @@ unsigned Editor::countMatchesForText(const String& target, const std::optional<S
     if (target.isEmpty())
         return 0;
 
-    std::optional<SimpleRange> searchRange;
     Ref document = this->document();
+    OptionSet<LayoutOptions> findInPageLayoutOptions;
+    findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityAutoAsVisible);
+    if (document->settings().detailsAutoExpandEnabled())
+        findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityHiddenAsVisible);
+    document->updateLayoutIgnorePendingStylesheets(findInPageLayoutOptions);
+
+    std::optional<SimpleRange> searchRange;
     if (range) {
         if (&range->start.document() == document.ptr())
             searchRange = *range;

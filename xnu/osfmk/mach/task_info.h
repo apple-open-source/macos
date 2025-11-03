@@ -638,14 +638,12 @@ typedef uint32_t task_corpse_forking_behavior_t;
 
 #ifdef XNU_KERNEL_PRIVATE
 
-__options_decl(task_control_port_options_t, uint32_t, {
-	TASK_CONTROL_PORT_OPTIONS_NONE     = 0x00000000,
-
-	TASK_CONTROL_PORT_IMMOVABLE_SOFT   = 0x00000001,
+__options_closed_decl(task_control_port_options_t, uint8_t, {
+	TASK_CONTROL_PORT_OPTIONS_INVALID     = 0x00000000,
+	TASK_CONTROL_PORT_OPTIONS_NONE     = 0x00000001,
 	TASK_CONTROL_PORT_IMMOVABLE_HARD   = 0x00000002,
 
 	TASK_CONTROL_PORT_IMMOVABLE_MASK   = (
-		TASK_CONTROL_PORT_IMMOVABLE_SOFT |
 		TASK_CONTROL_PORT_IMMOVABLE_HARD),
 });
 

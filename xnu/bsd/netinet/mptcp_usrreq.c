@@ -1336,6 +1336,9 @@ mptcp_usr_sosend(struct socket *mp_so, struct sockaddr *addr, struct uio *uio,
 			 */
 			error = (*mp_so->so_proto->pr_usrreqs->pru_send)
 			    (mp_so, sendflags, top, NULL, NULL, p);
+			if (error == EJUSTRETURN) {
+				error = 0;
+			}
 
 			top = NULL;
 			if (error != 0) {

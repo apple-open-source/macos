@@ -136,8 +136,6 @@ struct EditorState {
         uint64_t surroundingContextSelectionPosition { 0 };
 #endif
 
-        std::optional<WebCore::FontAttributes> fontAttributes;
-
         bool canCut { false };
         bool canCopy { false };
         bool canPaste { false };

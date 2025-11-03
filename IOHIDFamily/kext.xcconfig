@@ -1,3 +1,5 @@
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AppleFeatures.xcconfig"
+
 BUILD_VARIANTS = normal development kasan
 CODE_SIGN_IDENTITY = -
 OTHER_CFLAGS_normal = $(inherited) -DRELEASE=1
@@ -7,3 +9,5 @@ OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern
 OTHER_CPLUSPLUSFLAGS = $(inherited) -ftrivial-auto-var-init=pattern
 WARNING_CFLAGS = $(inherited) -Wno-unknown-pragmas -Wno-four-char-constants -Wmost
 CLANG_WARN_XNU_TYPED_ALLOCATORS = YES_ERROR
+INFOPLIST_PREPROCESS = YES
+INFOPLIST_PREPROCESSOR_DEFINITIONS = $(inherited) APPLE_FEATURE_P192=$(APPLE_FEATURE_P192:default=0)

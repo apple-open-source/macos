@@ -273,6 +273,14 @@ gu{
     }
     calendar{
         bangla{
+            eras{
+                abbreviated{
+                    "બંગ૰",
+                }
+                wide{
+                    "બંગાબ્દ",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -882,23 +890,31 @@ gu{
                 "h:mm:ss a",
                 "h:mm a",
                 {
-                    "EEEE, d MMMM, y",
+                    "EEEE, G y, MMMM d",
                     "d=tithigua",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithigua",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithigua",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "વિ૰ સં૰",
+                }
+                wide{
+                    "વિક્રમ સંવત",
+                }
             }
             monthNames{
                 format{
@@ -1110,12 +1126,20 @@ gu{
                     "MMM, d",
                     "d=tithigua",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "શકે૰",
+                }
+                wide{
+                    "શાલિવાહન શકે",
+                }
             }
             monthNames{
                 format{
@@ -1234,12 +1258,20 @@ gu{
                 "EEEE, d MMMM, y",
                 "d, MMMM",
                 "d, MMM",
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "કો૰ વ૰",
+                }
+                wide{
+                    "કોલ્લવર્ષમ",
+                }
             }
         }
         marathi{
@@ -1260,12 +1292,20 @@ gu{
                     "MMM, d",
                     "d=tithigua",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "શક૰",
+                }
+                wide{
+                    "શક સંવત",
+                }
             }
             monthPatterns{
                 format{
@@ -1294,7 +1334,7 @@ gu{
                 "EEEE, d MMMM, y",
                 "d, MMMM",
                 "d, MMM",
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -1421,6 +1461,14 @@ gu{
             }
         }
         tamil{
+            eras{
+                abbreviated{
+                    "શક૰",
+                }
+                wide{
+                    "શક વરૂડમ",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -1530,12 +1578,20 @@ gu{
                     "MMM, d",
                     "d=tithigua",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "શકમ૰",
+                }
+                wide{
+                    "શાલિવાહન શકમ",
+                }
             }
             monthNames{
                 format{
@@ -1663,7 +1719,7 @@ gu{
                     "MMM, d",
                     "d=tithigup",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -1676,6 +1732,14 @@ gu{
                 MEd{"M/d, E"}
                 MMdd{"MM/dd"}
                 Md{"M/d"}
+            }
+            eras{
+                abbreviated{
+                    "વિ૰ સં૰",
+                }
+                wide{
+                    "વિક્રમ સંવત",
+                }
             }
             monthNames{
                 format{

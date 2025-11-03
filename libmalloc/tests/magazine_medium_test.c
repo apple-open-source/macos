@@ -17,7 +17,8 @@ bool aggressive_madvise_enabled = false;
 uint64_t magazine_medium_madvise_window_scale_factor = 1;
 malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE);
 
 static inline void
 medium_test_rack_setup(rack_t *rack)
@@ -73,8 +74,9 @@ get_magazine(struct rack_s *rack, void *ptr)
 }
 
 
-T_DECL(medium_realloc_madvise_headers, "medium realloc in place maintains madvise headers",
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR),T_META_TAG_VM_PREFERRED)
+T_DECL(medium_realloc_madvise_headers,
+		"medium realloc in place maintains madvise headers",
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
 {
 	struct rack_s rack;
 	medium_test_rack_setup(&rack);
@@ -103,7 +105,7 @@ T_DECL(medium_realloc_madvise_headers, "medium realloc in place maintains madvis
 }
 
 T_DECL(free_end_of_region, "End of region's footer is marked dirty",
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_PREFERRED)
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
 {
 	// Check that the headers for the last block in a region are correct
 	// when the block has been coalesced and is using an intrusive free list.
@@ -158,7 +160,7 @@ T_DECL(free_end_of_region, "End of region's footer is marked dirty",
 }
 
 T_DECL(madvise_scale_factor, "madvise_scale_factor changes window size",
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_PREFERRED)
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
 {
 	struct rack_s rack;
 	medium_test_rack_setup(&rack);
@@ -195,7 +197,7 @@ T_DECL(madvise_scale_factor, "madvise_scale_factor changes window size",
 }
 
 T_DECL(medium_free_deallocate, "check medium regions deallocate when empty",
-		T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_PREFERRED)
+		T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
 {
 	struct rack_s rack;
 	memset(&rack, 'a', sizeof(rack));
@@ -232,7 +234,8 @@ T_DECL(medium_free_deallocate, "check medium regions deallocate when empty",
 #else // CONFIG_MEDIUM_ALLOCATOR
 
 // binaries are required to contain at least 1 test
-T_DECL(medium_test_skip, "skip medium tests")
+T_DECL(medium_test_skip, "skip medium tests", T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	T_SKIP("MallocMedium is not compiled on this platform");
 }

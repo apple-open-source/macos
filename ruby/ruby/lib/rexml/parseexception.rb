@@ -29,6 +29,7 @@ module REXML
         err << "\nLine: #{line}\n"
         err << "Position: #{position}\n"
         err << "Last 80 unconsumed characters:\n"
+        err.force_encoding("ASCII-8BIT")
         err << @source.buffer[0..80].force_encoding("ASCII-8BIT").gsub(/\n/, ' ')
       end
 

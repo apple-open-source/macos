@@ -202,6 +202,7 @@ public:
 
 private:
     KeyframeEffect(Element*, const std::optional<Style::PseudoElementIdentifier>&);
+    ~KeyframeEffect();
 
     enum class AcceleratedAction : uint8_t { Play, Pause, UpdateProperties, TransformChange, Stop };
     enum class AcceleratedProperties : uint8_t { None, Some, All };

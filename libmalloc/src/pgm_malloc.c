@@ -1196,6 +1196,11 @@ extern bool main_image_has_section(const char* segname, const char *sectname);
 static bool
 should_activate(bool internal_build)
 {
+#if CONFIG_MTE
+	if (malloc_has_sec_transition) {
+		return false;
+	}
+#endif
 	if (!internal_build && !is_platform_binary()) {
 		return false;
 	}

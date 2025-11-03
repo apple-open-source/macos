@@ -59,6 +59,20 @@ vm_far_add_ptr_internal(void *ptr, uint64_t idx, size_t elem_size,
 	uintptr_t ptr_i = (uintptr_t)(ptr);
 	uintptr_t new_ptr_i = ptr_i + (idx * elem_size);
 
+#if HAS_MTE
+	/*
+	 * Since pointer math through integers doesn't get CPA, emulate it by hand.
+	 * Like the compiler, however, we can elide the check when the tag won't
+	 * overflow in a useful way (such as when the index is 32-bits or smaller)
+	 */
+	if (!__builtin_constant_p(idx_small) || !idx_small) {
+		if (__improbable((ptr_i ^ new_ptr_i) & (0xFFC0000000000000ULL))) {
+			/* Poison the top 16-bits in the same way the compiler does */
+			new_ptr_i &= ~(0xFFFFULL << 48);
+			new_ptr_i |= 0x0080ULL << 48;
+		}
+	}
+#endif /* HAS_MTE */
 
 	return __unsafe_forge_single(void *, new_ptr_i);
 }

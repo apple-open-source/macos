@@ -34,7 +34,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#include "sudo.h"
+#include <sudo.h>
 
 /*
  * Avoid using RLIM_INFINITY for the nofile soft limit to prevent
@@ -215,28 +215,40 @@ static int dumpflag;
 void
 disable_coredump(void)
 {
-    struct rlimit rl = { 0, 0 };
     debug_decl(disable_coredump, SUDO_DEBUG_UTIL);
 
-    if (getrlimit(RLIMIT_CORE, &corelimit) == -1)
-	sudo_warn("getrlimit(RLIMIT_CORE)");
-    sudo_debug_printf(SUDO_DEBUG_INFO, "RLIMIT_CORE [%lld, %lld] -> [0, 0]",
-	(long long)corelimit.rlim_cur, (long long)corelimit.rlim_max);
-    if (setrlimit(RLIMIT_CORE, &rl) == -1)
-	sudo_warn("setrlimit(RLIMIT_CORE)");
+    if (getrlimit(RLIMIT_CORE, &corelimit) == 0) {
+	/*
+	 * Set the soft limit to 0 but leave the existing hard limit.
+	 * On Linux, we need CAP_SYS_RESOURCE to raise the hard limit
+	 * which may not be the case in, e.g. an unprivileged container.
+	 */
+	struct rlimit rl = corelimit;
+	rl.rlim_cur = 0;
+	sudo_debug_printf(SUDO_DEBUG_INFO,
+	    "RLIMIT_CORE [%lld, %lld] -> [%lld, %lld]",
+	    (long long)corelimit.rlim_cur, (long long)corelimit.rlim_max,
+	    (long long)rl.rlim_cur, (long long)rl.rlim_max);
+	if (setrlimit(RLIMIT_CORE, &rl) == -1) {
+	    sudo_warn("setrlimit(RLIMIT_CORE)");
+	} else {
+	    coredump_disabled = true;
 #ifdef __linux__
-    /* On Linux, also set PR_SET_DUMPABLE to zero (reset by execve). */
-    if ((dumpflag = prctl(PR_GET_DUMPABLE, 0, 0, 0, 0)) == -1) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
-	    "prctl(PR_GET_DUMPABLE, 0, 0, 0, 0)");
-	dumpflag = 0;
-    }
-    if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) == -1) {
-	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
-	    "prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)");
-    }
+	    /* On Linux, also set PR_SET_DUMPABLE to zero (reset by execve). */
+	    if ((dumpflag = prctl(PR_GET_DUMPABLE, 0, 0, 0, 0)) == -1) {
+		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
+		    "prctl(PR_GET_DUMPABLE, 0, 0, 0, 0)");
+		dumpflag = 0;
+	    }
+	    if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) == -1) {
+		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
+		    "prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)");
+	    }
 #endif /* __linux__ */
-    coredump_disabled = true;
+	}
+    } else {
+	sudo_warn("getrlimit(RLIMIT_CORE)");
+    }
 
     debug_return;
 }
@@ -251,8 +263,8 @@ restore_coredump(void)
 
     if (coredump_disabled) {
 	/*
-	 * Linux containers don't allow RLIMIT_CORE to be set back to
-	 * RLIM_INFINITY if we set the limit to zero, even for root.
+	 * Do not warn about a failure to restore the core dump size limit.
+	 * This is mostly harmless and should not happen in practice.
 	 */
 	if (setrlimit(RLIMIT_CORE, &corelimit) == -1) {
 	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
@@ -659,18 +671,18 @@ set_policy_rlimits(void)
     debug_return;
 }
 
-int
+size_t
 serialize_rlimits(char **info, size_t info_max)
 {
     char *str;
-    unsigned int idx, nstored = 0;
+    size_t idx, nstored = 0;
     debug_decl(serialize_rlimits, SUDO_DEBUG_UTIL);
 
     for (idx = 0; idx < nitems(saved_limits); idx++) {
 	const struct saved_limit *lim = &saved_limits[idx];
 	const struct rlimit *rl = &lim->oldlimit;
-	char curlim[(((sizeof(long long) * 8) + 2) / 3) + 2];
-	char maxlim[(((sizeof(long long) * 8) + 2) / 3) + 2];
+	char curlim[STRLEN_MAX_UNSIGNED(unsigned long long) + 1];
+	char maxlim[STRLEN_MAX_UNSIGNED(unsigned long long) + 1];
 
 	if (!lim->saved)
 	    continue;
@@ -694,9 +706,9 @@ serialize_rlimits(char **info, size_t info_max)
 	    goto oom;
 	info[nstored++] = str;
     }
-    debug_return_int(nstored);
+    debug_return_size_t(nstored);
 oom:
-    while (nstored--)
-	free(info[nstored]);
-    debug_return_int(-1);
+    while (nstored)
+	free(info[--nstored]);
+    debug_return_size_t((size_t)-1);
 }

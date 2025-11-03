@@ -44,6 +44,9 @@
 #include <tests/ktest.h>
 
 kern_return_t copyio_test(void);
+#if HAS_MTE
+kern_return_t copyio_unprivileged_test(void);
+#endif
 
 #define copyio_test_buf_size (PAGE_SIZE * 16)
 static const char copyio_test_string[] = {'T', 'e', 's', 't', ' ', 'S', 't', 'r', 'i', 'n', 'g', '!', '\0', 'A', 'B', 'C'};
@@ -569,3 +572,27 @@ err_kalloc:
 	return ret;
 }
 
+#if HAS_MTE
+kern_return_t
+copyio_unprivileged_test(void)
+{
+	task_t task = current_task();
+	bool sec_enabled = task_has_sec(task);
+	task_clear_sec(task);
+
+	vm_map_t map = current_map();
+	bool sec_access = vm_map_has_sec_access(map);
+	vm_map_mark_has_sec_access(map);
+
+	kern_return_t ret = copyio_test();
+
+	if (sec_enabled) {
+		task_set_sec(task);
+	}
+	if (!sec_access) {
+		vm_map_remove_sec_access(map);
+	}
+
+	return ret;
+}
+#endif /* HAS_MTE */

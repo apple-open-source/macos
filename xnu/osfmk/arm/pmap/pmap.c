@@ -106,6 +106,9 @@
 #endif
 
 
+#if HAS_MTE
+#error invalid configuration, you must be using CONFIG_SPTM
+#endif
 
 #if HIBERNATION
 #include <IOKit/IOHibernatePrivate.h>
@@ -5438,6 +5441,12 @@ pmap_has_prot_policy(__unused pmap_t pmap, __unused bool translated_allow_execut
 	return false;
 }
 
+static inline bool
+pmap_allows_xo(pmap_t pmap __unused)
+{
+	return true;
+}
+
 /*
  *	Set the physical protection on the
  *	specified range of this map as requested.
@@ -5490,15 +5499,18 @@ pmap_protect_options_internal(
 	{
 		/* Determine the new protection. */
 		switch (prot) {
-		case VM_PROT_EXECUTE:
-			set_XO = TRUE;
-			OS_FALLTHROUGH;
 		case VM_PROT_READ:
 		case VM_PROT_READ | VM_PROT_EXECUTE:
 			break;
 		case VM_PROT_READ | VM_PROT_WRITE:
 		case VM_PROT_ALL:
 			return end;         /* nothing to do */
+		case VM_PROT_EXECUTE:
+			set_XO = true;
+			if (pmap_allows_xo(pmap)) {
+				break;
+			}
+		/* Fall through and panic if this pmap shouldn't be allowed to have XO mappings. */
 		default:
 			should_have_removed = TRUE;
 		}
@@ -5629,7 +5641,7 @@ pmap_protect_options_internal(
 				} else {
 					/* do NOT clear "NX"! */
 					tmplate |= pt_attr_leaf_x(pt_attr);
-					if (set_XO) {
+					if (__improbable(set_XO)) {
 						tmplate &= ~ARM_PTE_APMASK;
 						tmplate |= pt_attr_leaf_rona(pt_attr);
 					}
@@ -5739,13 +5751,17 @@ pmap_protect_options(
 	{
 		/* Determine the new protection. */
 		switch (prot) {
-		case VM_PROT_EXECUTE:
 		case VM_PROT_READ:
 		case VM_PROT_READ | VM_PROT_EXECUTE:
 			break;
 		case VM_PROT_READ | VM_PROT_WRITE:
 		case VM_PROT_ALL:
 			return;         /* nothing to do */
+		case VM_PROT_EXECUTE:
+			if (pmap_allows_xo(pmap)) {
+				break;
+			}
+		/* Fall through and remove the mapping if XO is requested and [pmap] doesn't allow it. */
 		default:
 			pmap_remove_options(pmap, b, e, options);
 			return;
@@ -6075,10 +6091,11 @@ pmap_construct_pte(
 	vm_prot_t fault_type,
 	boolean_t wired,
 	const pt_attr_t* const pt_attr,
+	unsigned int options __unused,
 	uint16_t *pp_attr_bits /* OUTPUT */
 	)
 {
-	bool set_NX = false, set_XO = false;
+	bool set_NX = false, set_XO = false, set_TPRO = false;
 	pt_entry_t pte = pa_to_pte(pa) | ARM_PTE_TYPE_VALID;
 	assert(pp_attr_bits != NULL);
 	*pp_attr_bits = 0;
@@ -6100,6 +6117,9 @@ pmap_construct_pte(
 
 	if (prot == VM_PROT_EXECUTE) {
 		set_XO = true;
+		if (!pmap_allows_xo(pmap)) {
+			panic("%s: attempted execute-only mapping", __func__);
+		}
 	}
 
 	if (set_NX) {
@@ -6136,7 +6156,10 @@ pmap_construct_pte(
 				pte |= ARM_PTE_NG;
 			}
 		}
-		if (prot & VM_PROT_WRITE) {
+		if (set_TPRO) {
+			pte |= pt_attr_leaf_rona(pt_attr);
+			*pp_attr_bits |= PP_ATTR_REFERENCED | PP_ATTR_MODIFIED;
+		} else if (prot & VM_PROT_WRITE) {
 			assert(pmap->type != PMAP_TYPE_NESTED);
 			if (pa_valid(pa) && (!ppattr_pa_test_bits(pa, PP_ATTR_MODIFIED))) {
 				if (fault_type & VM_PROT_WRITE) {
@@ -6156,7 +6179,7 @@ pmap_construct_pte(
 				*pp_attr_bits |= PP_ATTR_REFERENCED;
 			}
 		} else {
-			if (set_XO) {
+			if (__improbable(set_XO)) {
 				pte |= pt_attr_leaf_rona(pt_attr);
 			} else {
 				pte |= pt_attr_leaf_ro(pt_attr);
@@ -6236,6 +6259,10 @@ pmap_enter_options_internal(
 #endif
 		panic("pmap_enter_options(): attempt to add executable mapping to kernel_pmap");
 	}
+	if (__improbable((prot == VM_PROT_EXECUTE) && !pmap_allows_xo(pmap))) {
+		return KERN_PROTECTION_FAILURE;
+	}
+
 	if (__improbable((pmap == kernel_pmap) && zone_spans_ro_va(v, v + pt_attr_page_size(pt_attr)))) {
 		if (__improbable(prot != VM_PROT_READ)) {
 			panic("%s: attempt to map RO zone VA 0x%llx with prot 0x%x",
@@ -6358,22 +6385,7 @@ pmap_enter_options_internal(
 			assert(os_atomic_load(pte_p, acquire) == ARM_PTE_EMPTY);
 		}
 
-		/*
-		 * The XO index is used for TPRO mappings. To avoid exposing them as --x,
-		 * the VM code tracks VM_MAP_TPRO requests and couples them with the proper
-		 * read-write protection. The PMAP layer though still needs to use the right
-		 * index, which is the older XO-now-TPRO one and that is specially selected
-		 * here thanks to PMAP_OPTIONS_MAP_TPRO.
-		 */
-		if (options & PMAP_OPTIONS_MAP_TPRO) {
-			if (__improbable(pmap == kernel_pmap)) {
-				panic("%s: attempt to create kernel TPRO mapping, will produce kernel RX mapping instead.",
-				    __func__);
-			}
-			pte = pmap_construct_pte(pmap, v, pa, VM_PROT_RORW_TP, fault_type, wired, pt_attr, &pp_attr_bits);
-		} else {
-			pte = pmap_construct_pte(pmap, v, pa, prot, fault_type, wired, pt_attr, &pp_attr_bits);
-		}
+		pte = pmap_construct_pte(pmap, v, pa, prot, fault_type, wired, pt_attr, options, &pp_attr_bits);
 
 		if (pa_valid(pa)) {
 			unsigned int pai;
@@ -12941,6 +12953,50 @@ pmap_user_va_size(pmap_t pmap)
 	return 1ULL << pmap_user_va_bits(pmap);
 }
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+static vm_map_address_t
+pmap_strip_user_addr(pmap_t pmap, vm_map_address_t ptr)
+{
+	assert(pmap && pmap != kernel_pmap);
+
+	/*
+	 * TTBR_SELECTOR doesn't match our intention of canonicalizing a TTBR0 address.
+	 * Ignore the strip request.
+	 */
+	if ((ptr & TTBR_SELECTOR) != 0) {
+		return ptr;
+	}
+
+	/* This will reset the TTBR_SELECTOR, but we've confirmed above the value. */
+	return ptr & (pmap->max - 1);
+}
+
+static vm_map_address_t
+pmap_strip_kernel_addr(pmap_t pmap, vm_map_address_t ptr)
+{
+	assert(pmap && pmap == kernel_pmap);
+
+	/*
+	 * TTBR_SELECTOR doesn't match our intention of canonicalizing a TTBR1 address.
+	 * Ignore the strip request.
+	 */
+	if ((ptr & TTBR_SELECTOR) == 0) {
+		return ptr;
+	}
+
+	/* This will reset the TTBR_SELECTOR, but we've confirmed above the value. */
+	return ptr | pmap->min;
+}
+
+vm_map_address_t
+pmap_strip_addr(pmap_t pmap, vm_map_address_t ptr)
+{
+	assert(pmap);
+
+	return pmap == kernel_pmap ? pmap_strip_kernel_addr(pmap, ptr) :
+	       pmap_strip_user_addr(pmap, ptr);
+}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 
 
@@ -14491,8 +14547,8 @@ pmap_local_signing_restricted(
 	return ret != 0;
 }
 
-#endif /* PMAP_CS_INCLUDE_CODE_SIGNING */
 #endif
+#endif /* PMAP_CS_INCLUDE_CODE_SIGNING */
 
 MARK_AS_PMAP_TEXT void
 pmap_footprint_suspend_internal(
@@ -14907,9 +14963,18 @@ pmap_test_test_config(unsigned int flags)
 	pmap_test_write(pmap, va_base, false);
 
 
-	T_LOG("Make the first mapping execute-only");
-	pmap_enter_addr(pmap, va_base, pa, VM_PROT_EXECUTE, VM_PROT_EXECUTE, 0, false);
+	T_LOG("Test XO mapping");
+	kern_return_t kr = pmap_enter_addr(pmap, va_base, pa, VM_PROT_EXECUTE, VM_PROT_EXECUTE, 0, false);
+	if (pmap_allows_xo(pmap)) {
+		if (kr != KERN_SUCCESS) {
+			T_FAIL("XO mapping returned 0x%x instead of KERN_SUCCESS", (unsigned int)kr);
+		}
+	} else if (kr != KERN_PROTECTION_FAILURE) {
+		T_FAIL("XO mapping returned 0x%x instead of KERN_PROTECTION_FAILURE", (unsigned int)kr);
+	}
 
+	T_LOG("Make the first mapping RX");
+	pmap_enter_addr(pmap, va_base, pa, VM_PROT_EXECUTE | VM_PROT_READ, VM_PROT_EXECUTE, 0, false);
 
 	T_LOG("Validate that reads to our mapping do not fault.");
 	pmap_test_read(pmap, va_base, false);

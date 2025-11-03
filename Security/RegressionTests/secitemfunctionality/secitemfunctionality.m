@@ -987,6 +987,18 @@ BenchmarkLargeKeychainItemTiming(void)
     printf("[PASS] %s\n", __FUNCTION__);
 }
 
+#if TARGET_OS_OSX
+static void
+TestCanUseSystemDataProtectionKeychain(void) {
+    printf("[BEGIN] %s\n", __FUNCTION__);
+    if (SecItemCanUseSystemDataProtectionKeychain()) {
+        fail("secitemfunctionality can use system data protection keychain");
+    }
+
+    printf("[PASS] %s\n", __FUNCTION__);
+}
+#endif
+
 
 int
 main(int argc, const char ** argv)

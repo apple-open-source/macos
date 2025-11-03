@@ -610,6 +610,7 @@ NS_ASSUME_NONNULL_BEGIN
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                     repair:(BOOL)repair
                        danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                         caesarPeerCleanup:(BOOL)caesarPeerCleanup
                                 updateIdMS:(BOOL)updateIdMS
                           knownFederations:(NSArray<NSString *> *)knownFederations
                                     flowID:(NSString* _Nullable )flowID

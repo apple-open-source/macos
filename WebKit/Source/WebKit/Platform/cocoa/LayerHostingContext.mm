@@ -186,7 +186,7 @@ WTF::MachSendRightAnnotated LayerHostingContext::sendRightAnnotated() const
     __block MachSendRight sendRight;
     __block RetainPtr<NSData> dataRepresentation;
     [[m_hostable handle] encodeWithBlock:^(mach_port_t copiedPort, NSData * _Nonnull data) {
-        sendRight = MachSendRight::create(copiedPort);
+        sendRight = MachSendRight::adopt(copiedPort);
         dataRepresentation = data;
     }];
     return { WTFMove(sendRight), FixedVector<uint8_t> { span(dataRepresentation.get()) } };
@@ -207,7 +207,7 @@ WTF::MachSendRightAnnotated LayerHostingContext::fence(BELayerHierarchyHostingTr
     __block MachSendRight sendRight;
     __block RetainPtr<NSData> dataRepresentation;
     [coordinator encodeWithBlock:^(mach_port_t copiedPort, NSData * _Nonnull data) {
-        sendRight = MachSendRight::create(copiedPort);
+        sendRight = MachSendRight::adopt(copiedPort);
         dataRepresentation = data;
     }];
     return { WTFMove(sendRight), FixedVector<uint8_t> { span(dataRepresentation.get()) } };

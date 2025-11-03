@@ -618,6 +618,7 @@ static boolean_t		S_linklocal_needs_attention;
 static boolean_t		S_ipv4_publish_needs_attention;
 static IFStateList_t		S_ifstate_list;
 static io_connect_t 		S_power_connection;
+static IONotificationPortRef 	S_power_port;
 static SCDynamicStoreRef	S_scd_session;
 static CFStringRef		S_setup_service_prefix;
 static CFStringRef		S_state_interface_prefix;
@@ -8139,12 +8140,12 @@ update_interface_list()
 {
     interface_list_t *	new_interfaces = NULL;
 
-    new_interfaces = ifl_init();
+    new_interfaces = ifl_create(S_interfaces);
     if (new_interfaces == NULL) {
-	my_log(LOG_NOTICE, "IPConfiguration: ifl_init failed");
+	my_log(LOG_NOTICE, "ifl_create failed");
 	return (FALSE);
     }
-    if (S_interfaces) {
+    if (S_interfaces != NULL) {
 	ifl_free(&S_interfaces);
     }
     S_interfaces = new_interfaces;
@@ -8156,7 +8157,7 @@ interface_list_t *
 get_interface_list(void)
 {
     if (S_interfaces == NULL) {
-	S_interfaces = ifl_init();
+	S_interfaces = ifl_create(NULL);
     }
     return (S_interfaces);
 }
@@ -8471,6 +8472,8 @@ power_notification_init()
 	IONotificationPortSetDispatchQueue(port,
 					   IPConfigurationAgentQueue());
     }
+    /* keep leaks happy */
+    S_power_port = port;
     return (power_connection);
 }
 

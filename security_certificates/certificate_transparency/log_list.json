@@ -1,7 +1,7 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v5.json",
-    "assetVersion": 26,
-    "assetVersionV2": 1007,
+    "assetVersion": 29,
+    "assetVersionV2": 1010,
     "operators": [
         {
             "email": [
@@ -203,10 +203,123 @@
                         "start_inclusive": "2026-01-01T00:00:00Z"
                     },
                     "url": "https://ct.cloudflare.com/logs/nimbus2026/"
+                },
+                {
+                    "description": "Cloudflare 'Nimbus2027' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYjd/jE0EoAhNBbfcNhrTb7F0x10KZK8r2SDjx1GdjJ75hJrHx2OCQ+BXRjXi+czoREN1u0j9cWl8d6OoPMPogQ==",
+                    "log_id": "TGPcmOWcHauI9h6KPd6uj6tEozd7X5uUw/uhnPzBviY=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:34:00Z",
+                            "version": "428"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2028-01-01T00:00:00Z",
+                        "start_inclusive": "2027-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct.cloudflare.com/logs/nimbus2027/"
                 }
             ],
             "name": "Cloudflare",
-            "tiled_logs": []
+            "tiled_logs": [
+                {
+                    "description": "Cloudflare 'Raio2025h2b' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESwiXfU4VWajxfFHaQDvR5OsrBY5lp+JW6AONks1wbPABXhaX0yi5+5zGw0oX1RbA6tB4RiP8V/I9i/ncLniJkQ==",
+                    "log_id": "Tw05u8NV28wWJ5ZuVAUVfMr3Lj90j0f+ewSeWlkVXL0=",
+                    "mmd": 60,
+                    "monitoring_url": "https://raio2025h2b.ct.cloudflare.com/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:05:19Z",
+                            "version": "408"
+                        }
+                    },
+                    "submission_url": "https://ct.cloudflare.com/logs/raio2025h2b/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-01-01T00:00:00Z",
+                        "start_inclusive": "2025-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Cloudflare 'Raio2026h1a' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEewKoi9UXxR2+or27gZXyqqjfC/K0d7YMSBuReaNIBVre8Fkf2IbIXu1JnPIdv2HW3WyOIV3BRAIFgstayoSLFQ==",
+                    "log_id": "5bvNwMctaSvZWYo2AgQ86FTsb2D4AGZ4WWOIK3w4JDg=",
+                    "mmd": 60,
+                    "monitoring_url": "https://raio2026h1a.ct.cloudflare.com/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:05:37Z",
+                            "version": "409"
+                        }
+                    },
+                    "submission_url": "https://ct.cloudflare.com/logs/raio2026h1a/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-07-01T00:00:00Z",
+                        "start_inclusive": "2026-01-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Cloudflare 'Raio2026h2a' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESrSp8+SLuFV5XKzPo6YS5C5qymHjSVFfioV0V8/5Ilhd+AfKuN2m/6d8EAc2VRDD1wGPNFtoYWNotvsqXynfnQ==",
+                    "log_id": "uuKpKTLFwF0fpU00gTDwm/yIMxZKFaH7vvUmKDJWyAs=",
+                    "mmd": 60,
+                    "monitoring_url": "https://raio2026h2a.ct.cloudflare.com/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:10:16Z",
+                            "version": "410"
+                        }
+                    },
+                    "submission_url": "https://ct.cloudflare.com/logs/raio2026h2a/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-01-01T00:00:00Z",
+                        "start_inclusive": "2026-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Cloudflare 'Raio2027h1a' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUJRLaVR5ytKhoHiquDYDwthBdbgMmoa8vFG0vUw493g652rDV39r8v8NGKjsQ48OtiBiOSJCea0SX5YotzjpDA==",
+                    "log_id": "ijgQv0CPWs97dN4gwHGQO3F5yrDb12jv+hD2KY6gaAw=",
+                    "mmd": 60,
+                    "monitoring_url": "https://raio2027h1a.ct.cloudflare.com/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:10:31Z",
+                            "version": "411"
+                        }
+                    },
+                    "submission_url": "https://ct.cloudflare.com/logs/raio2027h1a/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-07-01T00:00:00Z",
+                        "start_inclusive": "2027-01-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Cloudflare 'Raio2027h2a' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEi26evoGHBxrQAASnY/nsnI0ryBZVFJoffV/rpEtmMS1FPEPR+Yjr0fP4YMMHbvnZO/EKU4FYGAXmOihuSV18Uw==",
+                    "log_id": "Ia1IGvXLVPNLOr+uoP8Gmns8dm/DtpCHC7RrFS+2C/k=",
+                    "mmd": 60,
+                    "monitoring_url": "https://raio2027h2a.ct.cloudflare.com/",
+                    "state": {
+                        "pending": {
+                            "timestamp": "2025-08-20T01:33:18Z",
+                            "version": "390"
+                        }
+                    },
+                    "submission_url": "https://ct.cloudflare.com/logs/raio2027h2a/",
+                    "temporal_interval": {
+                        "end_exclusive": "2028-01-01T00:00:00Z",
+                        "start_inclusive": "2027-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                }
+            ]
         },
         {
             "email": [
@@ -683,9 +796,9 @@
                     "log_id": "TnWjJ1yaEMM4W2zU3z9S6x3w4I4bjWnAsfpksWKaOd8=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:42:18Z",
-                            "version": "229"
+                        "rejected": {
+                            "timestamp": "2025-08-20T00:35:09Z",
+                            "version": "378"
                         }
                     },
                     "temporal_interval": {
@@ -717,9 +830,9 @@
                     "log_id": "zxFW7tUufK/zh1vZaS6b6RpxZ0qwF+ysAdJbd87MOwg=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:43:20Z",
-                            "version": "231"
+                        "rejected": {
+                            "timestamp": "2025-08-20T00:35:20Z",
+                            "version": "379"
                         }
                     },
                     "temporal_interval": {
@@ -812,6 +925,40 @@
                         "start_inclusive": "2026-07-01T00:00:00Z"
                     },
                     "url": "https://ct.googleapis.com/logs/eu1/xenon2026h2/"
+                },
+                {
+                    "description": "Google 'Xenon2027h1' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/6WcA4VRSljIfTdY48+pFRLLtLrmTb88cGDdl8Gv3E2LduG4jgJ3AK5iNMFGhpbRRLi5B3rPlBaXVywuR5IFDg==",
+                    "log_id": "RMK9DOkUDmSlyUoBkwpaobs1lw4A7hEWiWgqHETXtWY=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:11:03Z",
+                            "version": "412"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2027-07-01T00:00:00Z",
+                        "start_inclusive": "2027-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct.googleapis.com/logs/eu1/xenon2027h1/"
+                },
+                {
+                    "description": "Google 'Argon2027h1' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKHRm0H/zUaFA6Idz5cGvGO3tCPQyfGMgJmVBOPyKAP6mGM1IiNXi4CLomOUyYj0YN74p+eGVApFMsM4h/jzCsA==",
+                    "log_id": "1tWNqdAXU/NqSqDHV0kCr+vH3CzTjNn3ZMgMiRkenwI=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:11:17Z",
+                            "version": "413"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2027-07-01T00:00:00Z",
+                        "start_inclusive": "2027-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct.googleapis.com/logs/us1/argon2027h1/"
                 }
             ],
             "name": "Google",
@@ -1260,9 +1407,9 @@
                     "log_id": "cyAiDwgWivnzxKaLCrJqmkoA7vV3hYoITQUA1KVCRFk=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2025-04-14T22:33:20Z",
-                            "version": "363"
+                        "rejected": {
+                            "timestamp": "2025-08-20T00:34:54Z",
+                            "version": "377"
                         }
                     },
                     "temporal_interval": {
@@ -1362,9 +1509,9 @@
                     "log_id": "3oWB11AkfGvNy69WN8XngcZM5G7WF2OfjzSnJsnivTc=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2025-04-14T22:33:20Z",
-                            "version": "362"
+                        "rejected": {
+                            "timestamp": "2025-08-20T00:34:34Z",
+                            "version": "376"
                         }
                     },
                     "temporal_interval": {
@@ -1499,9 +1646,9 @@
                     "log_id": "E0rfGrWYQgl4DG/vTHqRpBa3I0nOWFdq367ap8Kr4CI=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:44:41Z",
-                            "version": "235"
+                        "rejected": {
+                            "timestamp": "2025-08-20T00:36:03Z",
+                            "version": "381"
                         }
                     },
                     "temporal_interval": {
@@ -1567,9 +1714,9 @@
                     "log_id": "4JKz/AwdyOdoNh/eYbmWTQpSeBmKctZyxLBNpW1vVAQ=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:45:41Z",
-                            "version": "239"
+                        "rejected": {
+                            "timestamp": "2025-08-20T00:36:15Z",
+                            "version": "382"
                         }
                     },
                     "temporal_interval": {
@@ -1984,9 +2131,9 @@
                     "log_id": "ouMK5EXvva2bfjjtR2d3U9eCW4SU1yteGyzEuVCkR+c=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:46:28Z",
-                            "version": "241"
+                        "rejected": {
+                            "timestamp": "2025-08-20T00:35:42Z",
+                            "version": "380"
                         }
                     },
                     "temporal_interval": {
@@ -2048,7 +2195,198 @@
                 }
             ],
             "name": "Let's Encrypt",
-            "tiled_logs": []
+            "tiled_logs": [
+                {
+                    "description": "log.sycamore.ct.letsencrypt.org/2025h2d",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERI8grd3rsuE95/3Rk/Jn9rGBrpcvDqD6Y5Ooz1E+xABGl3w6JLdFHfzSFZvEFX/Goar6nbzQHtV75ud4R0Iafg==",
+                    "log_id": "W/beU/H7+sSaGFl0aUWhpqconV5wpg9IRQ5Ya7mucrg=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.sycamore.ct.letsencrypt.org/2025h2d/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:13:00Z",
+                            "version": "418"
+                        }
+                    },
+                    "submission_url": "https://log.sycamore.ct.letsencrypt.org/2025h2d/",
+                    "temporal_interval": {
+                        "end_exclusive": "2025-12-18T00:00:00Z",
+                        "start_inclusive": "2025-06-19T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.sycamore.ct.letsencrypt.org/2026h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfEEe0JZknA91/c6eNl1aexgeKzuGQUMvRCXPXg9L227O5I4Pi++Abcpq6qxlVUKPYafAJelAnMfGzv3lHCc8gA==",
+                    "log_id": "pcl4kl1XRheChw3YiWYLXFVki30AQPLsB2hR0YhpGfc=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.sycamore.ct.letsencrypt.org/2026h1/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:13:16Z",
+                            "version": "419"
+                        }
+                    },
+                    "submission_url": "https://log.sycamore.ct.letsencrypt.org/2026h1/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-06-18T00:00:00Z",
+                        "start_inclusive": "2025-12-18T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.sycamore.ct.letsencrypt.org/2026h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEwR1FtiiMbpvxR+sIeiZ5JSCIDIdTAPh7OrpdchcrCcyNVDvNUq358pqJx2qdyrOI+EjGxZ7UiPcN3bL3Q99FqA==",
+                    "log_id": "bP5QGUOoXqkWvFLRM+TcyR7xQRx9JYQg0XOAnhgY6zo=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.sycamore.ct.letsencrypt.org/2026h2/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:13:29Z",
+                            "version": "420"
+                        }
+                    },
+                    "submission_url": "https://log.sycamore.ct.letsencrypt.org/2026h2/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-12-17T00:00:00Z",
+                        "start_inclusive": "2026-06-18T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.sycamore.ct.letsencrypt.org/2027h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWrGdYyZYB7teCS4K/oKIsbV0yVBSgjlOwO22OOCoA6Y252QhFzC8Wg7oVXVKqfkWaSaM/n+3pfCBf4BAkpdx8g==",
+                    "log_id": "jspHC6zeavOiBrCkeoS3Rv4fxr+VPiXmm07kAkjzxug=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.sycamore.ct.letsencrypt.org/2027h1/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:13:44Z",
+                            "version": "421"
+                        }
+                    },
+                    "submission_url": "https://log.sycamore.ct.letsencrypt.org/2027h1/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-06-18T00:00:00Z",
+                        "start_inclusive": "2026-12-17T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.sycamore.ct.letsencrypt.org/2027h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEK+2zy2UWRMIyC2jU46+rj8UsyMjLsQIr1Y/6ClbdpWGthUb8y3Maf4zfAZTWW+AH9wAWPLRL5vmtz7Zkh2f2nA==",
+                    "log_id": "5eNiR9ku9K2jhYO1NZHbcp/C8ArktnRRdNPd/GqiU4g=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.sycamore.ct.letsencrypt.org/2027h2/",
+                    "state": {
+                        "pending": {
+                            "timestamp": "2025-08-20T01:56:20Z",
+                            "version": "402"
+                        }
+                    },
+                    "submission_url": "https://log.sycamore.ct.letsencrypt.org/2027h2/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-12-16T00:00:00Z",
+                        "start_inclusive": "2027-06-18T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.willow.ct.letsencrypt.org/2026h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtpFyulwgy1+u+wYQ37lbV+HsPFNYoi4sy6dZP662N/Z/usdNi4+Q3RLES1RY2PNk7zL/7VPSn3JERMPu/s4e4A==",
+                    "log_id": "4yON8o2iiOCq4Kzw+pDJhfC2v/XSpSewAfwcRFjEtug=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.willow.ct.letsencrypt.org/2026h1/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:17:36Z",
+                            "version": "424"
+                        }
+                    },
+                    "submission_url": "https://log.willow.ct.letsencrypt.org/2026h1/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-06-17T00:00:00Z",
+                        "start_inclusive": "2025-12-17T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.willow.ct.letsencrypt.org/2026h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEp8wH8R6zfM+UhsQq5un+lPdNTDkzcgkWLi1DwyqU6T00mtP5/CuGjvpw4mIz89I6KV5ZvhRHt5ZTF6qe24pqiA==",
+                    "log_id": "qCbL4wrGNRJGUz/gZfFPGdluGQgTxB3ZbXkAsxI8VSc=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.willow.ct.letsencrypt.org/2026h2/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:17:51Z",
+                            "version": "425"
+                        }
+                    },
+                    "submission_url": "https://log.willow.ct.letsencrypt.org/2026h2/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-12-16T00:00:00Z",
+                        "start_inclusive": "2026-06-17T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.willow.ct.letsencrypt.org/2027h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzsMKtojO0BVB4t59lVyAhxtqObVA+wId5BpJGA8pZrw5GTjzuhpvLu/heQGi0hHCeislkDe34N/2D0SwEUBE0w==",
+                    "log_id": "ooEAGHNOF24dR+CVQPOBulRml81jqENQcW64CU7a8Q0=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.willow.ct.letsencrypt.org/2027h1/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:18:10Z",
+                            "version": "426"
+                        }
+                    },
+                    "submission_url": "https://log.willow.ct.letsencrypt.org/2027h1/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-06-17T00:00:00Z",
+                        "start_inclusive": "2026-12-16T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.willow.ct.letsencrypt.org/2027h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYbMDg0qQEEYjsTttdDlouTKhg3fRiMJYNE+Epr/2bXyeQdQOHKQNKv5sbIKxjtE/5Vqo9YjQbnaOeH4Wm4PhdQ==",
+                    "log_id": "ppWirZJtb5lujvxJAUJX2LvwRqfWJYm4jcLXh2x45S8=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.willow.ct.letsencrypt.org/2027h2/",
+                    "state": {
+                        "pending": {
+                            "timestamp": "2025-08-20T02:01:28Z",
+                            "version": "406"
+                        }
+                    },
+                    "submission_url": "https://log.willow.ct.letsencrypt.org/2027h2/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-12-15T00:00:00Z",
+                        "start_inclusive": "2027-06-17T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "log.willow.ct.letsencrypt.org/2025h2d",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElX78WOZsrDp7/LDFvsGytclanWhJ2oEwdgytKo21ZrCzbJ6raFAmZ1bMFh4B/0+e1aWtfhG2wgCM2ex/aDgZuA==",
+                    "log_id": "5NAXdhyRORG+9HOWrNjSRljCT7WTtRvqxVknYuiFPBU=",
+                    "mmd": 60,
+                    "monitoring_url": "https://mon.willow.ct.letsencrypt.org/2025h2d/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:17:19Z",
+                            "version": "423"
+                        }
+                    },
+                    "submission_url": "https://log.willow.ct.letsencrypt.org/2025h2d/",
+                    "temporal_interval": {
+                        "end_exclusive": "2025-12-17T00:00:00Z",
+                        "start_inclusive": "2025-06-18T00:00:00Z"
+                    },
+                    "tls_only": true
+                }
+            ]
         },
         {
             "email": [
@@ -2207,6 +2545,23 @@
                         "start_inclusive": "2025-12-24T00:00:00Z"
                     },
                     "url": "https://ct2026-b.trustasia.com/log2026b/"
+                },
+                {
+                    "description": "TrustAsia HETU2027 (RFC6962)",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE14jG8D9suqIVWPtTNOL33uXKZ4mUnnOMrIwOWeZU7GtoDRCWIXfy/9/SC8lTAbtP2NOP4wjIufAk6f64sY4DWg==",
+                    "log_id": "7drrgVxjITRJtHvlB3kFq9DZMUfCesUUazvFjkPptsc=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:19:30Z",
+                            "version": "427"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2028-01-08T00:00:00Z",
+                        "start_inclusive": "2026-12-25T00:00:00Z"
+                    },
+                    "url": "https://hetu2027.trustasia.com/hetu2027/"
                 }
             ],
             "name": "TrustAsia",
@@ -2283,9 +2638,9 @@
                     "mmd": 86400,
                     "monitoring_url": "https://tuscolo2027h1.skylight.geomys.org/",
                     "state": {
-                        "pending": {
-                            "timestamp": "2025-06-02T00:00:00Z",
-                            "version": "374"
+                        "qualified": {
+                            "timestamp": "2025-07-29T21:00:00Z",
+                            "version": "383"
                         }
                     },
                     "submission_url": "https://tuscolo2027h1.sunlight.geomys.org/",
@@ -2302,9 +2657,9 @@
                     "mmd": 86400,
                     "monitoring_url": "https://tuscolo2027h2.skylight.geomys.org/",
                     "state": {
-                        "pending": {
-                            "timestamp": "2025-06-02T00:00:00Z",
-                            "version": "375"
+                        "qualified": {
+                            "timestamp": "2025-07-29T21:00:00Z",
+                            "version": "384"
                         }
                     },
                     "submission_url": "https://tuscolo2027h2.sunlight.geomys.org/",
@@ -2315,7 +2670,111 @@
                     "tls_only": true
                 }
             ]
+        },
+        {
+            "email": [
+                "ct-ops@ipng.ch"
+            ],
+            "logs": [],
+            "name": "IPng GmbH",
+            "tiled_logs": [
+                {
+                    "description": "Gouda 2025h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpHiP24MNo8pgt5RNoawsvGIwSaVEKNqdzYCUXtMu0MM15t63d26eDUDz+nkQjACuRo4LRJcyia7I0anEdNH9wA==",
+                    "log_id": "GoudanQ8ze1gH3O9MJcIHbyuxKYTnJKwtUDDE3sg7AU=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://gouda2025h2.mon.ct.ipng.ch/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:11:54Z",
+                            "version": "414"
+                        }
+                    },
+                    "submission_url": "https://gouda2025h2.log.ct.ipng.ch/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-01-01T00:00:00Z",
+                        "start_inclusive": "2025-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Gouda 2026h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAER6wvqVwhf5isuCtwSfNjTOrqwZg0vZuIMP7xk8fPmJfaFZCte1ptQiqNhRMCtqIgJvDcJyjkGVI8i44vxL877A==",
+                    "log_id": "GoudaUpXmMiZoMqIvfSPwLRWYMzDYA0fcfRp/8fRrKM=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://gouda2026h1.mon.ct.ipng.ch/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:12:07Z",
+                            "version": "415"
+                        }
+                    },
+                    "submission_url": "https://gouda2026h1.log.ct.ipng.ch/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-07-01T00:00:00Z",
+                        "start_inclusive": "2026-01-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Gouda 2026h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjayczmhUMNftWy6VjvYXcTUEpvL8LIAKcYcxrxx5xxQGZEVvhnZeCnXVlsMWhq1h9J55eZfQWM/dqIr6GmoN9Q==",
+                    "log_id": "Goudaw/+v4G0eTnG0jEKhtbRAtTwRuIYLJ3jX14mJe8=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://gouda2026h2.mon.ct.ipng.ch/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:12:20Z",
+                            "version": "416"
+                        }
+                    },
+                    "submission_url": "https://gouda2026h2.log.ct.ipng.ch/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-01-01T00:00:00Z",
+                        "start_inclusive": "2026-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Gouda 2027h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOh11B2aRT9BiTqo+6kvQ7cSGf819Ait+jGc6AuHlGUXxWCX1YCQ9OFNnr6MUKStyw4sVin5FCvtbke1mctl3gQ==",
+                    "log_id": "Gouda43XkdHNBUnttgNV1ga2T60w23H+eI8Px8j7xLE=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://gouda2027h1.mon.ct.ipng.ch/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-08-20T02:12:32Z",
+                            "version": "417"
+                        }
+                    },
+                    "submission_url": "https://gouda2027h1.log.ct.ipng.ch/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-07-01T00:00:00Z",
+                        "start_inclusive": "2027-01-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Gouda 2027h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPuxPH20sSqUzHGllZceceFvyoSffwBWgX4LKd8wk3A3ayZuwwh2pDuEOsimMxLXFh0IUYz73a9I7kxkUqM+N8w==",
+                    "log_id": "GoudaVNi2GSSp7niI2BuNOzp4xC6NPuTBXhdKc5XV+s=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://gouda2027h2.mon.ct.ipng.ch/",
+                    "state": {
+                        "pending": {
+                            "timestamp": "2025-08-20T01:48:20Z",
+                            "version": "397"
+                        }
+                    },
+                    "submission_url": "https://gouda2027h2.log.ct.ipng.ch/",
+                    "temporal_interval": {
+                        "end_exclusive": "2028-01-01T00:00:00Z",
+                        "start_inclusive": "2027-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                }
+            ]
         }
     ],
-    "version": "375"
+    "version": "428"
 }

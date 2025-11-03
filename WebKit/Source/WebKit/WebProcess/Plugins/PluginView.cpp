@@ -1241,6 +1241,11 @@ bool PluginView::pluginDelegatesScrollingToMainFrame() const
     return m_plugin->delegatesScrollingToMainFrame();
 }
 
+bool PluginView::isPresentingLockedContent() const
+{
+    return m_isInitialized && m_plugin->isLocked();
+}
+
 } // namespace WebKit
 
 #endif

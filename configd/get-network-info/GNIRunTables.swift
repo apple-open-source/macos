@@ -68,8 +68,6 @@ let runTableForDefaultCommands: [(String, String?, Bool)] = [
 	("/usr/sbin/netstat -L -a -n -v",				"netstat.txt",				false),
 	("/usr/sbin/netstat -g -n -s",					"netstat.txt",				false),
 	("/usr/sbin/netstat -B",					"netstat.txt",				false),
-	("/usr/sbin/netstat -n -I",					"netstat.txt",				true),
-	("/usr/sbin/netstat -n -I",					"netstat.txt",				true),
 	("/usr/sbin/netstat -n -s -I",					"netstat.txt",				true),
 	("/sbin/pfctl -s all",						"pf.txt",				false),
 	("/sbin/pfctl -s References",					"pf.txt",				false),
@@ -84,7 +82,7 @@ let runTableForDefaultCommands: [(String, String?, Bool)] = [
 	("/usr/sbin/skywalkctl netstat -s",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl netstat -s --global",			"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl netstat -s -o",				"skywalk.txt",				false),
-	("/usr/sbin/skywalkctl interface",				"skywalk.txt",				false),
+	("/usr/sbin/skywalkctl interface -L",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl channel",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl provider -D",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl netns -a",				"skywalk.txt",				false),
@@ -123,11 +121,11 @@ let runTableForSensitiveInfo: [(String, String?, Bool)] = [
 	("/usr/sbin/ndp -n -r",					"ndp-info.txt",			false),
 	("/usr/sbin/ndp -i",					"ndp-info.txt",			true),
 	("/usr/sbin/arp -n -a",					"arp-info.txt",			false),
+	("/usr/bin/nettop -n -l 1",				"nettop.txt",			false),
+	("/usr/local/bin/network_test path_watcher -dump -sysdiagnose",	"nw_path.txt",		false),
 	("/usr/local/bin/neutil policy dump",			"necp.txt",			false),
 	("/usr/local/bin/neutil agent dump",			"network-agents.txt",		false),
 	("/usr/local/bin/neutil session log-file-handles",	nil,				false),
-	("/usr/bin/nettop -n -l 1",				"nettop.txt",			false),
-	("/usr/local/bin/network_test path_watcher -dump -sysdiagnose",	"nw_path.txt",		false),
 ]
 
 /*

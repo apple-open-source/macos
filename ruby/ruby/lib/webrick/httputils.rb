@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # httputils.rb -- HTTPUtils Module
 #
@@ -29,14 +29,14 @@ module WEBrick
     # normalized.
 
     def normalize_path(path)
-      raise "abnormal path `#{path}'" if path[0] != ?/
+      raise "abnormal path '#{path}'" if path[0] != ?/
       ret = path.dup
 
       ret.gsub!(%r{/+}o, '/')                    # //      => /
       while ret.sub!(%r'/\.(?:/|\Z)', '/'); end  # /.      => /
       while ret.sub!(%r'/(?!\.\./)[^/]+/\.\.(?:/|\Z)', '/'); end # /foo/.. => /foo
 
-      raise "abnormal path `#{path}'" if %r{/\.\.(/|\Z)} =~ ret
+      raise "abnormal path '#{path}'" if %r{/\.\.(/|\Z)} =~ ret
       ret
     end
     module_function :normalize_path
@@ -48,13 +48,13 @@ module WEBrick
       "ai"    => "application/postscript",
       "asc"   => "text/plain",
       "avi"   => "video/x-msvideo",
+      "avif"  => "image/avif",
       "bin"   => "application/octet-stream",
       "bmp"   => "image/bmp",
       "class" => "application/octet-stream",
       "cer"   => "application/pkix-cert",
       "crl"   => "application/pkix-crl",
       "crt"   => "application/x-x509-ca-cert",
-     #"crl"   => "application/x-pkcs7-crl",
       "css"   => "text/css",
       "dms"   => "application/octet-stream",
       "doc"   => "application/msword",
@@ -65,6 +65,7 @@ module WEBrick
       "gif"   => "image/gif",
       "htm"   => "text/html",
       "html"  => "text/html",
+      "ico"   => "image/x-icon",
       "jpe"   => "image/jpeg",
       "jpeg"  => "image/jpeg",
       "jpg"   => "image/jpeg",
@@ -72,10 +73,13 @@ module WEBrick
       "json"  => "application/json",
       "lha"   => "application/octet-stream",
       "lzh"   => "application/octet-stream",
+      "mjs"   => "application/javascript",
       "mov"   => "video/quicktime",
+      "mp4"   => "video/mp4",
       "mpe"   => "video/mpeg",
       "mpeg"  => "video/mpeg",
       "mpg"   => "video/mpeg",
+      "otf"   => "font/otf",
       "pbm"   => "image/x-portable-bitmap",
       "pdf"   => "application/pdf",
       "pgm"   => "image/x-portable-graymap",
@@ -94,7 +98,15 @@ module WEBrick
       "svg"   => "image/svg+xml",
       "tif"   => "image/tiff",
       "tiff"  => "image/tiff",
+      "ttc"   => "font/collection",
+      "ttf"   => "font/ttf",
       "txt"   => "text/plain",
+      "wasm"  => "application/wasm",
+      "webm"  => "video/webm",
+      "webmanifest" => "application/manifest+json",
+      "webp"  => "image/webp",
+      "woff"  => "font/woff",
+      "woff2" => "font/woff2",
       "xbm"   => "image/x-xbitmap",
       "xhtml" => "text/html",
       "xls"   => "application/vnd.ms-excel",
@@ -110,7 +122,7 @@ module WEBrick
     def load_mime_types(file)
       # note: +file+ may be a "| command" for now; some people may
       # rely on this, but currently we do not use this method by default.
-      open(file){ |io|
+      File.open(file){ |io|
         hash = Hash.new
         io.each{ |line|
           next if /^#/ =~ line
@@ -140,21 +152,39 @@ module WEBrick
     # Parses an HTTP header +raw+ into a hash of header fields with an Array
     # of values.
 
+    class SplitHeader < Array
+      def join(separator = ", ")
+        super
+      end
+    end
+
+    class CookieHeader < Array
+      def join(separator = "; ")
+        super
+      end
+    end
+
+    HEADER_CLASSES = Hash.new(SplitHeader).update({
+      "cookie" => CookieHeader,
+    })
+
     def parse_header(raw)
       header = Hash.new([].freeze)
       field = nil
       raw.each_line{|line|
         case line
-        when /^([A-Za-z0-9!\#$%&'*+\-.^_`|~]+):\s*(.*?)\s*\z/om
+        when /^([A-Za-z0-9!\#$%&'*+\-.^_`|~]+):([^\r\n\0]*?)\r\n\z/om
           field, value = $1, $2
           field.downcase!
-          header[field] = [] unless header.has_key?(field)
+          header[field] = HEADER_CLASSES[field].new unless header.has_key?(field)
           header[field] << value
-        when /^\s+(.*?)\s*\z/om
-          value = $1
+        when /^[ \t]+([^\r\n\0]*?)\r\n/om
           unless field
             raise HTTPStatus::BadRequest, "bad header '#{line}'."
           end
+          value = line
+          value.gsub!(/\A[ \t]+/, '')
+          value.slice!(-2..-1)
           header[field][-1] << " " << value
         else
           raise HTTPStatus::BadRequest, "bad header '#{line}'."
@@ -162,8 +192,8 @@ module WEBrick
       }
       header.each{|key, values|
         values.each{|value|
-          value.strip!
-          value.gsub!(/\s+/, " ")
+          value.gsub!(/\A[ \t]+/, '')
+          value.gsub!(/[ \t]+\z/, '')
         }
       }
       header
@@ -174,8 +204,8 @@ module WEBrick
     # Splits a header value +str+ according to HTTP specification.
 
     def split_header_value(str)
-      str.scan(%r'\G((?:"(?:\\.|[^"])+?"|[^",]+)+)
-                    (?:,\s*|\Z)'xn).flatten
+      str.scan(%r'\G((?:"(?:\\.|[^"])+?"|[^",]++)+)
+                    (?:,[ \t]*|\Z)'xn).flatten
     end
     module_function :split_header_value
 
@@ -203,9 +233,9 @@ module WEBrick
     def parse_qvalues(value)
       tmp = []
       if value
-        parts = value.split(/,\s*/)
+        parts = value.split(/,[ \t]*/)
         parts.each {|part|
-          if m = %r{^([^\s,]+?)(?:;\s*q=(\d+(?:\.\d+)?))?$}.match(part)
+          if m = %r{^([^ \t,]+?)(?:;[ \t]*q=(\d+(?:\.\d+)?))?$}.match(part)
             val = m[1]
             q = (m[2] or 1).to_f
             tmp.push([val, q])
@@ -232,7 +262,7 @@ module WEBrick
     # Quotes and escapes quotes in +str+
 
     def quote(str)
-      '"' << str.gsub(/[\\\"]/o, "\\\1") << '"'
+      +'"' << str.gsub(/[\\\"]/o, "\\\1") << '"'
     end
     module_function :quote
 
@@ -304,8 +334,8 @@ module WEBrick
         elsif str == CRLF
           @header = HTTPUtils::parse_header(@raw_header.join)
           if cd = self['content-disposition']
-            if /\s+name="(.*?)"/ =~ cd then @name = $1 end
-            if /\s+filename="(.*?)"/ =~ cd then @filename = $1 end
+            if /[ \t]+name="(.*?)"/ =~ cd then @name = $1 end
+            if /[ \t]+filename="(.*?)"/ =~ cd then @filename = $1 end
           end
         else
           @raw_header << str
@@ -496,7 +526,7 @@ module WEBrick
     # Escapes path +str+
 
     def escape_path(str)
-      result = ""
+      result = +""
       str.scan(%r{/([^/]*)}).each{|i|
         result << "/" << _escape(i[0], UNESCAPED_PCHAR)
       }

@@ -28,10 +28,12 @@
 #include "ScrollSnapOffsetsInfo.h"
 
 #include "ElementChildIteratorInlines.h"
+#include "FloatQuad.h"
 #include "LayoutRect.h"
 #include "Length.h"
 #include "Logging.h"
 #include "RenderBox.h"
+#include "RenderElementInlines.h"
 #include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include "ScrollableArea.h"

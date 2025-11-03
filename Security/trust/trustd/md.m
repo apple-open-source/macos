@@ -42,3 +42,5 @@
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/trustdFileLocations.h"
 
+#include "featureflags/featureflags.h"
+

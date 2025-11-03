@@ -26,6 +26,7 @@
  *  SecRevocationDb.c
  */
 
+#include "featureflags/featureflags.h"
 #include "trust/trustd/SecRevocationDb.h"
 #include "trust/trustd/OTATrustUtilities.h"
 #include "trust/trustd/SecRevocationNetworking.h"
@@ -1154,9 +1155,16 @@ void SecValidInfoSetAnchor(SecValidInfoRef validInfo, SecCertificateRef anchor) 
         anchorHash = SecCertificateCopySHA256Digest(anchor);
 
         /* clear no-ca flag for anchors where we want OCSP checked [32523118] */
-        if (SecIsAppleTrustAnchor(anchor, 0)) {
+        if (SecCertificateSourceContains(kSecAppleAnchorSource, anchor, NULL)) {
             validInfo->noCACheck = false;
         }
+        if (!_SecTrustRemoveOldAppleAnchorSource()) {
+            // Fallback
+            if (SecIsAppleTrustAnchor(anchor, 0)) {
+                validInfo->noCACheck = false;
+            }
+        }
+
     }
     CFReleaseNull(validInfo->anchorHash);
     validInfo->anchorHash = anchorHash;
@@ -1320,7 +1328,11 @@ static bool _SecRevocationDbIsUpdateEnabled(void) {
     if (!TrustdVariantAllowsNetwork()) {
         updateEnabled = false;
     }
-    value = (CFBooleanRef)CFPreferencesCopyValue(kUpdateEnabledKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    /* Prefer a in-process setting for the update enable, as used in testing */
+    value = CFPreferencesCopyAppValue(kUpdateEnabledKey, kSecPrefsDomain);
+    if (!value) {
+        value = (CFBooleanRef)CFPreferencesCopyValue(kUpdateEnabledKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    }
     if (isBoolean(value)) {
         updateEnabled = CFBooleanGetValue((CFBooleanRef)value);
     }
@@ -3763,7 +3775,11 @@ static SecValidInfoRef _SecRevocationDbValidInfoForCertificate(SecRevocationDbCo
                                 notBeforeDate, notAfterDate,
                                 names, policies);
 
-    if (result && (SecIsAppleTrustAnchor(certificate, 0) ||
+    bool isAppleAnchor = SecCertificateSourceContains(kSecAppleAnchorSource, certificate, NULL);
+    if (!_SecTrustRemoveOldAppleAnchorSource()) {
+        isAppleAnchor =  isAppleAnchor || SecIsAppleTrustAnchor(certificate, 0);
+    }
+    if (result && (isAppleAnchor ||
                    SecIsAppleCodeSigningAnchor(certificate) ||
                    SecIsAppleCodeSigningIssuer(issuerHash))) {
         /* Prevent a catch-22. */

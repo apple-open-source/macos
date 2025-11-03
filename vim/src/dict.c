@@ -387,7 +387,11 @@ dict_add(dict_T *d, dictitem_T *item)
  * Returns FAIL when out of memory and when key already exists.
  */
     static int
-dict_add_number_special(dict_T *d, char *key, varnumber_T nr, vartype_T vartype)
+dict_add_number_special(
+    dict_T	*d,
+    char	*key,
+    varnumber_T	nr,
+    vartype_T	vartype)
 {
     dictitem_T	*item;
 
@@ -528,6 +532,29 @@ dict_add_callback(dict_T *d, char *key, callback_T *cb)
 	dictitem_free(item);
 	return FAIL;
     }
+    return OK;
+}
+
+/*
+ * Add a function entry to dictionary "d".
+ * Returns FAIL when out of memory and when key already exists.
+ */
+    int
+dict_add_func(dict_T *d, char *key, ufunc_T *fp)
+{
+    dictitem_T	*item;
+
+    item = dictitem_alloc((char_u *)key);
+    if (item == NULL)
+	return FAIL;
+    item->di_tv.v_type = VAR_FUNC;
+    item->di_tv.vval.v_string = vim_strnsave(fp->uf_name, fp->uf_namelen);
+    if (dict_add(d, item) == FAIL)
+    {
+	dictitem_free(item);
+	return FAIL;
+    }
+    func_ref(item->di_tv.vval.v_string);
     return OK;
 }
 
@@ -1052,12 +1079,12 @@ eval_dict(char_u **arg, typval_T *rettv, evalarg_T *evalarg, int literal)
 	had_comma = **arg == ',';
 	if (had_comma)
 	{
-	    if (vim9script && (*arg)[1] != NUL && !VIM_ISWHITE((*arg)[1]))
+	    if (vim9script && !IS_WHITE_NL_OR_NUL((*arg)[1]))
 	    {
 		semsg(_(e_white_space_required_after_str_str), ",", *arg);
 		goto failret;
 	    }
-	    *arg = skipwhite(*arg + 1);
+	    *arg = skipwhite_and_nl(*arg + 1);
 	}
 
 	// the "}" can be on the next line
@@ -1530,9 +1557,7 @@ dict2list(typval_T *argvars, typval_T *rettv, dict2list_T what)
     if (rettv_list_alloc(rettv) == FAIL)
 	return;
 
-    if ((what == DICT2LIST_ITEMS
-		? check_for_string_or_list_or_dict_arg(argvars, 0)
-		: check_for_dict_arg(argvars, 0)) == FAIL)
+    if (check_for_dict_arg(argvars, 0) == FAIL)
 	return;
 
     d = argvars[0].vval.v_dict;
@@ -1585,17 +1610,12 @@ dict2list(typval_T *argvars, typval_T *rettv, dict2list_T what)
 }
 
 /*
- * "items(dict)" function
+ * "items()" function
  */
     void
-f_items(typval_T *argvars, typval_T *rettv)
+dict2items(typval_T *argvars, typval_T *rettv)
 {
-    if (argvars[0].v_type == VAR_STRING)
-	string2items(argvars, rettv);
-    else if (argvars[0].v_type == VAR_LIST)
-	list2items(argvars, rettv);
-    else
-	dict2list(argvars, rettv, DICT2LIST_ITEMS);
+    dict2list(argvars, rettv, DICT2LIST_ITEMS);
 }
 
 /*

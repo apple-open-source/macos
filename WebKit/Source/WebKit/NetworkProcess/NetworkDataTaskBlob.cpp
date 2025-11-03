@@ -308,22 +308,22 @@ void NetworkDataTaskBlob::read()
 {
     ASSERT(RunLoop::isMain());
 
-    // If there is no more remaining data to read, we are done.
-    if (!m_totalRemainingSize || m_readItemCount >= m_blobData->items().size()) {
-        didFinish();
-        return;
+    while (m_totalRemainingSize && m_readItemCount < m_blobData->items().size()) {
+        const BlobDataItem& item = m_blobData->items().at(m_readItemCount);
+        switch (item.type()) {
+        case BlobDataItem::Type::Data:
+            if (!readData(item))
+                return; // error occurred
+            break;
+        case BlobDataItem::Type::File:
+            readFile(item);
+            return;
+        }
     }
-
-    const BlobDataItem& item = m_blobData->items().at(m_readItemCount);
-    if (item.type() == BlobDataItem::Type::Data)
-        readData(item);
-    else if (item.type() == BlobDataItem::Type::File)
-        readFile(item);
-    else
-        ASSERT_NOT_REACHED();
+    didFinish();
 }
 
-void NetworkDataTaskBlob::readData(const BlobDataItem& item)
+bool NetworkDataTaskBlob::readData(const BlobDataItem& item)
 {
     ASSERT(item.data());
 
@@ -336,7 +336,7 @@ void NetworkDataTaskBlob::readData(const BlobDataItem& item)
     auto dataSpan = data->span().subspan(item.offset() + m_currentItemReadSize, static_cast<size_t>(bytesToRead));
     m_currentItemReadSize = 0;
 
-    consumeData(dataSpan);
+    return consumeData(dataSpan);
 }
 
 void NetworkDataTaskBlob::readFile(const BlobDataItem& item)
@@ -385,17 +385,18 @@ void NetworkDataTaskBlob::didRead(int bytesRead)
     }
 
     Ref<NetworkDataTaskBlob> protectedThis(*this);
-    consumeData(m_buffer.subspan(0, bytesRead));
+    if (consumeData(m_buffer.subspan(0, bytesRead)))
+        read();
 }
 
-void NetworkDataTaskBlob::consumeData(std::span<const uint8_t> data)
+bool NetworkDataTaskBlob::consumeData(std::span<const uint8_t> data)
 {
     m_totalRemainingSize -= data.size();
 
     if (!data.empty()) {
         if (m_downloadFile) {
             if (!writeDownload(data))
-                return;
+                return false;
         } else {
             ASSERT(m_client);
             protectedClient()->didReceiveData(SharedBuffer::create(data));
@@ -417,7 +418,7 @@ void NetworkDataTaskBlob::consumeData(std::span<const uint8_t> data)
         m_readItemCount++;
     }
 
-    read();
+    return true;
 }
 
 void NetworkDataTaskBlob::setPendingDownloadLocation(const String& filename, SandboxExtension::Handle&& sandboxExtensionHandle, bool allowOverwrite)

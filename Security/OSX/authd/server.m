@@ -35,12 +35,15 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <Foundation/NSFileManager.h>
 
 #include <security_utilities/simulatecrash_assert.h>
 
 AUTHD_DEFINE_LOG
 
 #define MAX_PROCESS_RIGHTS   100
+
+static const char * kAuthorizationSPIEntitlement = "com.apple.private.Authorization.SPI";
 
 static CFMutableDictionaryRef gProcessMap = NULL;
 static CFMutableDictionaryRef gSessionMap = NULL;
@@ -377,6 +380,121 @@ server_find_copy_session(session_id_t sid, bool create)
     });
     
     return session;
+}
+
+static OSStatus
+plugin_stage(pid_t instance, const char *originalPath, char **safePath, NSMutableDictionary *stagedPluginsList)
+{
+    OSStatus status = errAuthorizationDenied;
+    
+    // Input validation
+    if (!originalPath || strlen(originalPath) == 0) {
+        os_log_error(AUTHD_LOG, "Invalid plugin path provided");
+        return errAuthorizationInvalidPointer;
+    }
+    
+    NSString *originalPathString = [NSString stringWithUTF8String:originalPath];
+    if (!originalPathString) {
+        os_log_error(AUTHD_LOG, "Failed to create NSString from plugin path");
+        return errAuthorizationInvalidPointer;
+    }
+    
+    NSString *pluginName = [originalPathString lastPathComponent];
+    
+    // Path traversal protection - ensure plugin name doesn't contain path separators
+    if ([pluginName containsString:@"/"] || [pluginName containsString:@".."] ||
+        [pluginName isEqualToString:@"."] || [pluginName isEqualToString:@""]) {
+        os_log_error(AUTHD_LOG, "Invalid plugin name: %{public}@", pluginName);
+        return errAuthorizationDenied;
+    }
+    
+    NSString *stagingDir = @"/Library/Security/SecurityAgentPlugins/StagedPlugins";
+    NSString *safePathString = [stagingDir stringByAppendingPathComponent:pluginName];
+
+    NSMutableIndexSet *pids = [stagedPluginsList objectForKey:safePathString];
+    if (pids) {
+        [pids addIndex:instance];
+        status = errAuthorizationSuccess;
+    } else {
+        // This plugin is not yet staged for this process
+        pids = [NSMutableIndexSet new];
+        [pids addIndex:instance];
+        NSError *error = nil;
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+
+        os_log_debug(AUTHD_LOG, "Copying plugin from %{public}@ to %{public}@", originalPathString, safePathString);
+        
+        // Create staging directory if it doesn't exist
+        if (![fileManager fileExistsAtPath:stagingDir]) {
+            if (![fileManager createDirectoryAtPath:stagingDir withIntermediateDirectories:YES attributes:nil error:&error]) {
+                os_log_error(AUTHD_LOG, "Failed to create staging directory: %{public}@", error.localizedDescription);
+                return errAuthorizationInternal;
+            }
+            
+            // Set proper permissions on the staging directory
+            if (chmod([stagingDir UTF8String], S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) { // 755
+                os_log_error(AUTHD_LOG, "Failed to set permissions on staging directory");
+                return errAuthorizationInternal;
+            }
+        }
+
+        // A TOCTOU race condition is not possible here because the destination directory is
+        // protected by SIP, preventing unentitled processes from interfering with file operations.
+        // The API is also protected by entitlements, ensuring only trusted callers can invoke it.
+        if (![fileManager copyItemAtPath:originalPathString toPath:safePathString error:&error]) {
+            os_log_error(AUTHD_LOG, "Failed to move plugin to secure location: %{public}@", error.localizedDescription);
+            return errAuthorizationInternal;
+        }
+        
+        stagedPluginsList[safePathString] = pids;
+        status = errAuthorizationSuccess;
+        os_log_debug(AUTHD_LOG, "Plugin %{public}@ copied to the secure location %{public}@", pluginName, safePathString);
+    }
+    
+    if (safePath && (status == errAuthorizationSuccess)) {
+        *safePath = strndup(safePathString.UTF8String, PATH_MAX);
+    }
+    
+    return status;
+}
+
+static OSStatus
+plugin_unstage(pid_t instance, NSMutableDictionary *stagedPluginsList)
+{
+    OSStatus status = errAuthorizationSuccess;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    
+    // All operations on stagedPluginsList must be synchronized - caller ensures this
+    NSArray *allPluginPaths = [stagedPluginsList allKeys];
+    NSMutableArray *pluginPathsToRemove = [NSMutableArray array];
+    
+    for (NSString *pluginSafePath in allPluginPaths) {
+        NSMutableIndexSet *pids = stagedPluginsList[pluginSafePath];
+        if (![pids containsIndex:instance]) {
+            continue; // This instance does not use this plugin
+        }
+        
+        [pids removeIndex:instance];
+        if (pids.count == 0) {
+            [pluginPathsToRemove addObject:pluginSafePath];
+        }
+    }
+    
+    // Remove from dictionary and filesystem atomically
+    for (NSString *pluginPath in pluginPathsToRemove) {
+        NSError *error = nil;
+        if ([fileManager removeItemAtPath:pluginPath error:&error]) {
+            [stagedPluginsList removeObjectForKey:pluginPath];
+            os_log_info(AUTHD_LOG, "Successfully removed staged plugin: %{public}@", pluginPath);
+        } else {
+            os_log_error(AUTHD_LOG, "Failed to remove plugin file at %{public}@: %{public}@",
+                       pluginPath, error.localizedDescription);
+            // Don't remove from dictionary if file removal failed
+            status = errAuthorizationInternal;
+        }
+    }
+    
+    return status;
 }
 
 #pragma mark -
@@ -1222,3 +1340,68 @@ authorization_prelogin_smartcardonly_override(connection_t conn, xpc_object_t me
 done:
     return status;
 }
+
+static OSStatus
+server_verify_spi_entitlement(connection_t conn)
+{
+    process_t proc = connection_get_process(conn);
+    if (!proc || !process_has_entitlement(proc, kAuthorizationSPIEntitlement)) {
+        os_log_error(AUTHD_LOG, "Client missing required entitlement: %{public}s", kAuthorizationSPIEntitlement);
+        return errAuthorizationDenied;
+    }
+    return errAuthorizationSuccess;
+}
+
+// Input: AUTH_XPC_PLUGIN_PATH, AUTH_XPC_BOOL
+// Output: AUTH_XPC_STATUS, AUTH_XPC_PLUGIN_SAFE_PATH (on success)
+OSStatus
+authorization_stage_plugin(connection_t conn, xpc_object_t message, xpc_object_t reply)
+{
+    static dispatch_once_t onceToken;
+    static NSMutableDictionary *stagedPluginsList;
+    static dispatch_queue_t access_queue;
+    __block char *safePath = NULL;
+    __block OSStatus status = errAuthorizationDenied;
+
+    status = server_verify_spi_entitlement(conn);
+    if (status != errAuthorizationSuccess) {
+        xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
+        return status;
+    }
+    
+    dispatch_once(&onceToken, ^{
+        stagedPluginsList = @{}.mutableCopy;
+        access_queue = dispatch_queue_create("com.apple.security.auth.plugin.access", DISPATCH_QUEUE_SERIAL);
+    });
+    
+    const char *pluginPath = xpc_dictionary_get_string(message, AUTH_XPC_PLUGIN_PATH);
+    Boolean install = xpc_dictionary_get_bool(message, AUTH_XPC_BOOL);
+
+    // Validate plugin path for install operations
+    if (install && (!pluginPath || strlen(pluginPath) == 0)) {
+        os_log_error(AUTHD_LOG, "Plugin path required for install operation");
+        status = errAuthorizationInvalidPointer;
+        goto done;
+    }
+    
+    // Synchronize access to the static dictionary
+    dispatch_sync(access_queue, ^{
+        if (install) {
+            status = plugin_stage(connection_get_pid(conn), pluginPath, &safePath, stagedPluginsList);
+        } else {
+            status = plugin_unstage(connection_get_pid(conn), stagedPluginsList);
+        }
+    });
+
+done:
+    xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
+    if (status == errAuthorizationSuccess && install && safePath) {
+        xpc_dictionary_set_string(reply, AUTH_XPC_PLUGIN_SAFE_PATH, safePath);
+    }
+    if (safePath) {
+        free(safePath);
+    }
+
+    return status;
+}
+

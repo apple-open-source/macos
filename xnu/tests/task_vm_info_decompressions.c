@@ -133,12 +133,12 @@ T_DECL(task_vm_info_decompressions,
 	T_SETUPBEGIN;
 
 	/* Make sure freezer is enabled on target machine */
-	err = sysctlbyname("vm.compressor_mode", &compressor_mode, &compressor_mode_size, NULL, 0);
+	err = sysctlbyname("vm.compressor.mode", &compressor_mode, &compressor_mode_size, NULL, 0);
 	if (compressor_mode < 8) {
-		T_SKIP("This test requires freezer which is not available on the testing platform (vm.compressor_mode is set to %d)", compressor_mode);
+		T_SKIP("This test requires freezer which is not available on the testing platform (vm.compressor.mode is set to %d)", compressor_mode);
 	}
 #if TARGET_OS_BRIDGE
-	T_SKIP("This test requires freezer which is not available on bridgeOS (vm.compressor_mode is set to %d)", compressor_mode);
+	T_SKIP("This test requires freezer which is not available on bridgeOS (vm.compressor.mode is set to %d)", compressor_mode);
 #endif
 
 	/* Set number of threads to ncpu available on testing device */

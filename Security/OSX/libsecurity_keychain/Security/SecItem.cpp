@@ -37,6 +37,8 @@
 #include <Security/SecKeychainPriv.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicyPriv.h>
+#include <Security/SecTask.h>
+#include <Security/SecEntitlements.h>
 #include "TrustAdditions.h"
 #include "TrustSettingsSchema.h"
 #include <Security/SecTrustPriv.h>
@@ -5507,4 +5509,22 @@ SecItemDelete_osx(
 		CFRelease(items);
 
 	return result;
+}
+
+bool SecItemCanUseSystemDataProtectionKeychain(void) {
+    SecTaskRef task = SecTaskCreateFromSelf(NULL);
+    if (!task) {
+        return false;
+    }
+
+    bool result = false;
+    CFTypeRef value = SecTaskCopyValueForEntitlement(task, kSecEntitlementPrivateSystemKeychain, NULL);
+    if (value && CFGetTypeID(value) == CFBooleanGetTypeID()) {
+        if (CFBooleanGetValue((CFBooleanRef)value)) {
+            result = true;
+        }
+    }
+    CFReleaseNull(value);
+    CFReleaseNull(task);
+    return result;
 }

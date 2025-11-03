@@ -399,6 +399,7 @@ hr{
         nds_NL{"donjosaksonski"}
         ne{"nepalski"}
         new{"newari"}
+        nez{"nez perce"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niujski"}

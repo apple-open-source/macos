@@ -95,6 +95,46 @@ read_file(const char * filename, size_t * data_length)
     return (data);
 }
 
+static ssize_t
+writen(int ref, const void *data, size_t len)
+{
+	size_t		left	= len;
+	ssize_t		n;
+	const void	*p	= data;
+
+	while (left > 0) {
+		if ((n = write(ref, p, left)) == -1) {
+			if (errno != EINTR) {
+				return -1;
+			}
+			n = 0;
+		}
+		left -= n;
+		p += n;
+	}
+	return len;
+}
+/*
+ * Function: write_file
+ * Purpose:
+ *   Create and write `filename` with the contents of `data`.
+ *
+ *   Uses a temporary file `path` (`filename` + `-`), and once it is populated,
+ *   does a `rename()` to atomically ensure one of `filename` or `path`
+ *   exists in the event of a crash.
+ *
+ *   Removes `path` first, then creates it (`O_CREAT`),
+ *   and also specifies `O_NOFOLLOW` to ensure that if it is a
+ *   symlink, the create will fail with `ELOOP`.
+ *
+ *   `ELOOP` in this case implies that a malicious process
+ *   is winning the race between the `unlink()` and `open()`,
+ *   and installing a symlink. For that reason, try the
+ *   `unlink()` + `open()` multiple times.
+ *
+ * Returns:
+ *   0 on success, -1 on failure.
+ */
 static int
 write_file(const char * filename, const void * data, size_t data_length,
 	   mode_t permissions)
@@ -104,13 +144,26 @@ write_file(const char * filename, const void * data, size_t data_length,
     int			ret = 0;
 
     snprintf(path, sizeof(path), "%s-", filename);
-    fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, permissions);
+
+#define ELOOP_TRY_COUNT		5
+    for (int i = 0; i < ELOOP_TRY_COUNT; i++) {
+	/* make sure the file is gone */
+	if (unlink(path) != 0) {
+	    fprintf(stderr, "unlink(%s) failed, %s\n",
+		    path, strerror(errno));
+	}
+	fd = open(path, O_WRONLY | O_TRUNC | O_CREAT | O_NOFOLLOW, permissions);
+	if (fd >= 0 || errno != ELOOP) {
+	    break;
+	}
+	fprintf(stderr, "open(%s) failed with ELOOP\n", path);
+    }
     if (fd < 0) {
 	ret = -1;
 	goto done;
     }
 
-    if (write(fd, data, data_length) != data_length) {
+    if (writen(fd, data, data_length) != data_length) {
 	ret = -1;
 	goto done;
     }
@@ -970,3 +1023,46 @@ main(int argc, char * argv[])
 	exit(0);
 }
 #endif /* TEST_DHCP_HOSTNAME */
+
+
+#ifdef TEST_WRITE_FILE
+
+int
+main(int argc, char * argv[])
+{
+    CFDictionaryRef	dict;
+    const char *	filename;
+    CFStringRef		key = CFSTR("Key");
+    int			ret;
+    CFStringRef		value = CFSTR("Value");
+
+    if (argc < 2) {
+	fprintf(stderr, "Usage: test-write-file <file>\n");
+	exit(2);
+    }
+    filename = argv[1];
+    dict = CFDictionaryCreate(NULL,
+			      (const void * *)&key,
+			      (const void * *)&value,
+			      1,
+			      &kCFTypeDictionaryKeyCallBacks,
+			      &kCFTypeDictionaryValueCallBacks);
+    ret = my_CFPropertyListWriteFile(dict, filename, 0644);
+    if (ret != 0) {
+	fprintf(stderr, "Failed to write '%s', %s\n",
+		filename, strerror(errno));
+    }
+    else {
+	printf("Wrote '%s'\n", filename);
+    }
+    if (argc > 2) {
+	printf("Sleeping, check sudo lsof -p %d\n", getpid());
+	sleep(60);
+    }
+    if (ret != 0) {
+	exit(1);
+    }
+    exit(0);
+}
+
+#endif /* TEST_WRITE_FILE */

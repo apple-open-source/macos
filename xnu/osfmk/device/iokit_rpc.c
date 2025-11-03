@@ -438,6 +438,11 @@ IOMapPages(vm_map_t map, mach_vm_address_t va, mach_vm_address_t pa,
 		flags = VM_WIMG_RT;
 		break;
 	}
+#if HAS_MTE
+	if (pmap_is_tagged_page(pagenum)) {
+		return KERN_INVALID_ARGUMENT;
+	}
+#endif /* HAS_MTE */
 
 	pmap_set_cache_attributes(pagenum, flags);
 
@@ -514,6 +519,16 @@ IOProtectCacheMode(vm_map_t __unused map, mach_vm_address_t __unused va,
 	for (off = 0; off < length; off += page_size) {
 		ppnum_t ppnum = pmap_find_phys(pmap, va + off);
 		if (ppnum) {
+#if HAS_MTE
+			if (__improbable(pmap_is_tagged_mapping(pmap, va + off))) {
+				/*
+				 * This should be impossible. We get here from IOMemoryMap::redirect,
+				 * but we expect all mappings that come from ::map() to be
+				 * untagged.
+				 */
+				panic("Illegal cache attribute overwrite on tagged mapping at 0x%016llx in pmap 0x%016llx", va + off, (uint64_t)pmap);
+			}
+#endif
 			pmap_enter_options(pmap, va + off, ppnum, prot, VM_PROT_NONE, flags, TRUE,
 			    PMAP_OPTIONS_NOFLUSH, (void *)&pmap_flush_context_storage, PMAP_MAPPING_TYPE_INFER);
 			delayed_pmap_flush = TRUE;

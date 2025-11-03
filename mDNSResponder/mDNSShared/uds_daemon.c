@@ -3491,6 +3491,7 @@ mDNSlocal void resolve_result_forget_srv(request_resolve *const resolve)
     mDNSPlatformMemForget(&resolve->srv_target_name);
     resolve->srv_port = zeroIPPort;
     resolve->srv_negative = mDNSfalse;
+    resolve->result_ifindex = 0;
 }
 
 mDNSlocal void resolve_result_forget_txt(request_resolve *const resolve)
@@ -3547,6 +3548,7 @@ mDNSlocal void resolve_result_save_answer(request_resolve *const resolve, const 
         {
             resolve->srv_port = zeroIPPort;
             resolve->srv_negative = mDNStrue;
+            resolve->result_ifindex = 0;
         }
         else
         {
@@ -3561,6 +3563,9 @@ mDNSlocal void resolve_result_save_answer(request_resolve *const resolve, const 
             AssignDomainName(resolve->srv_target_name, target_name);
             resolve->srv_port = answer->rdata->u.srv.port;
             resolve->srv_negative = mDNSfalse;
+
+            resolve->result_ifindex = mDNSPlatformInterfaceIndexfromInterfaceID(&mDNSStorage, answer->InterfaceID,
+                mDNStrue);
         }
     }
     else
@@ -3655,7 +3660,7 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
         txt_rdlength = resolve->txt_rdlength;
     }
 
-    mDNSu32 interface_index = mDNSPlatformInterfaceIndexfromInterfaceID(m, answer->InterfaceID, mDNSfalse);
+    const mDNSu32 interface_index = resolve->result_ifindex;
     // calculate reply length
     len += sizeof(DNSServiceFlags);
     len += sizeof(mDNSu32);  // interface index
@@ -3683,16 +3688,20 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
 
     if (error == kDNSServiceErr_NoError)
     {
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%u->Q%d] DNSServiceResolve(" PRI_S "(%x)) RESULT   " PRI_S "(%x):%d",
-            req->request_id, mDNSVal16(question->TargetQID), fullname, name_hash, target, target_name_hash,
-            mDNSVal16(srv_port));
+        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT, "[R%u->(Q%u, Q%u)] DNSServiceResolve RESULT -- "
+            "instance: " PRI_DM_NAME "(" PRI_HEX_INT "), ifindex: %u, target host: " PRI_DM_NAME "(" PRI_HEX_INT
+            "), port: %u, negative txt: " PUB_BOOL ", txt rdlength: %u",
+            req->request_id, mDNSVal16(resolve->qsrv.TargetQID), mDNSVal16(resolve->qtxt.TargetQID),
+            DM_NAME_PARAM_NONNULL(answer->name), name_hash, interface_index,
+            DM_NAME_PARAM_NONNULL(resolve->srv_target_name), target_name_hash, mDNSVal16(srv_port),
+            BOOL_PARAM(resolve->txt_negative), txt_rdlength);
     }
     else
     {
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%u->Q%d] DNSServiceResolve(" PRI_S "(%x)) NoSuchRecord",
-            req->request_id, mDNSVal16(question->TargetQID), fullname, name_hash);
+        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT, "[R%u->(Q%u, Q%u)] DNSServiceResolve NoSuchRecord -- "
+            "instance: " PRI_DM_NAME "(" PRI_HEX_INT ")",
+            req->request_id, mDNSVal16(resolve->qsrv.TargetQID), mDNSVal16(resolve->qtxt.TargetQID),
+            DM_NAME_PARAM_NONNULL(answer->name), name_hash);
     }
     append_reply(req, rep);
 }
@@ -3798,6 +3807,7 @@ mDNSlocal mStatus handle_resolve_request(request_state *request)
     resolve->qtxt.QuestionCallback = resolve_result_callback;
     resolve->qtxt.QuestionContext  = request;
 
+    resolve->result_ifindex        = 0;
     resolve->ReportTime            = NonZeroTime(mDNS_TimeNow(&mDNSStorage) + 130 * mDNSPlatformOneSecond);
 
     resolve->external_advertise    = mDNSfalse;

@@ -2799,6 +2799,7 @@ vnode_getattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t ctx)
 {
 	kauth_filesec_t fsec;
 	kauth_acl_t facl;
+	bool is_appendonly;
 	int     error;
 
 	/*
@@ -2829,6 +2830,8 @@ vnode_getattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t ctx)
 	}
 
 	vap->va_vaflags &= ~VA_USEFSID;
+
+	is_appendonly = vnode_isappendonly(vp);
 
 	error = VNOP_GETATTR(vp, vap, ctx);
 	if (error) {
@@ -2922,6 +2925,12 @@ vnode_getattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t ctx)
 
 	if (!VATTR_IS_SUPPORTED(vap, va_flags)) {
 		VATTR_RETURN(vap, va_flags, 0);
+	} else if (VATTR_IS_ACTIVE(vap, va_flags)) {
+		if ((vap->va_flags & APPEND) && !is_appendonly) {
+			os_atomic_or(&vp->v_ext_flag, VE_APPENDONLY, relaxed);
+		} else if (!(vap->va_flags & APPEND) && is_appendonly) {
+			os_atomic_andnot(&vp->v_ext_flag, VE_APPENDONLY, relaxed);
+		}
 	}
 
 	if (!VATTR_IS_SUPPORTED(vap, va_filerev)) {

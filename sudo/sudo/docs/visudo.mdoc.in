@@ -20,7 +20,7 @@
 .\" Agency (DARPA) and Air Force Research Laboratory, Air Force
 .\" Materiel Command, USAF, under agreement number F39502-99-1-0512.
 .\"
-.Dd January 16, 2023
+.Dd July 27, 2023
 .Dt VISUDO @mansectsu@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -44,6 +44,11 @@ and checks for syntax errors before installing the edited file.
 If the
 .Em sudoers
 file is currently being edited you will receive a message to try again later.
+.Pp
+If the
+.Em sudoers
+file does not exist, it will be created unless the editor exits
+without writing to the file.
 .Pp
 .Nm
 parses the
@@ -392,18 +397,18 @@ In addition to reporting
 syntax errors,
 .Nm
 may produce the following messages:
-.Bl -tag -width 4n
-.It Li sudoers file busy, try again later.
+.Bl -tag -width 2n
+.It sudoers file busy, try again later.
 Someone else is currently editing the
 .Em sudoers
 file.
-.It Li @sysconfdir@/sudoers: Permission denied
+.It @sysconfdir@/sudoers: Permission denied
 You didn't run
 .Nm
 as root.
-.It Li you do not exist in the passwd database
+.It you do not exist in the passwd database
 Your user-ID does not appear in the system passwd database.
-.It Li Warning: {User,Runas,Host,Cmnd}_Alias referenced but not defined
+.It Warning: {User,Runas,Host,Cmnd}_Alias referenced but not defined
 Either you are trying to use an undeclared {User,Runas,Host,Cmnd}_Alias
 or you have a user or host name listed that consists solely of
 uppercase letters, digits, and the underscore
@@ -420,14 +425,14 @@ file and the line number where the undefined alias was used.
 In
 .Fl s
 (strict) mode these are errors, not warnings.
-.It Li Warning: unused {User,Runas,Host,Cmnd}_Alias
+.It Warning: unused {User,Runas,Host,Cmnd}_Alias
 The specified {User,Runas,Host,Cmnd}_Alias was defined but never
 used.
 The message is prefixed with the path name of the
 .Em sudoers
 file and the line number where the unused alias was defined.
 You may wish to comment out or remove the unused alias.
-.It Li Warning: cycle in {User,Runas,Host,Cmnd}_Alias
+.It Warning: cycle in {User,Runas,Host,Cmnd}_Alias
 The specified {User,Runas,Host,Cmnd}_Alias includes a reference to
 itself, either directly or through an alias it includes.
 The message is prefixed with the path name of the
@@ -443,7 +448,32 @@ will ignore cycles when parsing
 the
 .Em sudoers
 file.
-.It Li unknown defaults entry \&"name\&"
+.It ignoring editor backup file
+While processing a
+.Em @includedir
+or
+.Em #includedir ,
+a file was found with a name that ends in
+.Ql ~
+or
+.Em .bak .
+Such files are skipped by
+.Nm sudo
+and
+.Nm .
+.It ignoring file name containing '.'
+While processing a
+.Em @includedir
+or
+.Em #includedir ,
+a file was found with a name that contains a
+.Ql .\&
+character.
+Such files are skipped by
+.Nm sudo
+and
+.Nm .
+.It unknown defaults entry \&"name\&"
 The
 .Em sudoers
 file contains a
@@ -478,7 +508,19 @@ allows shell escapes.
 .Sh BUGS
 If you believe you have found a bug in
 .Nm ,
-you can submit a bug report at https://bugzilla.sudo.ws/
+you can either file a bug report in the sudo bug database,
+https://bugzilla.sudo.ws/, or open an issue at
+https://github.com/sudo-project/sudo/issues.
+If you would prefer to use email, messages may be sent to the
+sudo-workers mailing list,
+https://www.sudo.ws/mailman/listinfo/sudo-workers (public)
+or <sudo@sudo.ws> (private).
+.Pp
+Please do not report security vulnerabilities through public GitHub
+issues, Bugzilla or mailing lists.
+Instead, report them via email to <Todd.Miller@sudo.ws>.
+You may encrypt your message with PGP if you would like, using
+the key found at https://www.sudo.ws/dist/PGPKEYS.
 .Sh SUPPORT
 Limited free support is available via the sudo-users mailing list,
 see https://www.sudo.ws/mailman/listinfo/sudo-users to subscribe or

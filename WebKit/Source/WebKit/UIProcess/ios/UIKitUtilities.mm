@@ -30,6 +30,7 @@
 
 #import "UIKitSPI.h"
 #import <WebCore/BoxSides.h>
+#import <WebCore/FloatConversion.h>
 #import <WebCore/FloatPoint.h>
 #import <WebCore/FloatQuad.h>
 #import <wtf/BlockPtr.h>
@@ -224,17 +225,6 @@ static UIAxis axesForDelta(WebCore::FloatSize delta)
     [self _flashScrollIndicatorsForAxes:axes persistingPreviousFlashes:YES];
 }
 
-#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-
-- (BOOL)_wk_usesHardTopScrollEdgeEffect
-{
-    // Calling this getter may trigger unintended behaviors, since calling -[UIScrollEdgeEffect style]
-    // may cause UIKit to layout subviews during the next update cycle.
-    return [self.topEdgeEffect.style isEqual:UIScrollEdgeEffectStyle.hardStyle];
-}
-
-#endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-
 @end
 
 @implementation UIView (WebKitInternal)
@@ -408,6 +398,16 @@ UIEdgeInsets maxEdgeInsets(const UIEdgeInsets& a, const UIEdgeInsets& b)
         std::max<CGFloat>(a.bottom, b.bottom),
         std::max<CGFloat>(a.right, b.right)
     );
+}
+
+WebCore::FloatBoxExtent floatBoxExtent(const UIEdgeInsets& insets)
+{
+    return {
+        WebCore::narrowPrecisionToFloatFromCGFloat(insets.top),
+        WebCore::narrowPrecisionToFloatFromCGFloat(insets.right),
+        WebCore::narrowPrecisionToFloatFromCGFloat(insets.bottom),
+        WebCore::narrowPrecisionToFloatFromCGFloat(insets.left)
+    };
 }
 
 } // namespace WebKit

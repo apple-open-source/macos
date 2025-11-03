@@ -222,6 +222,10 @@ cpuid_get_cpufamily(void)
 		case CPU_PART_PCORE_BRAVA_C:
 			cpufamily = CPUFAMILY_ARM_BRAVA;
 			break;
+		case CPU_PART_ECORE_HIDRA:
+		case CPU_PART_PCORE_HIDRA:
+			cpufamily = CPUFAMILY_ARM_HIDRA;
+			break;
 		default:
 			cpufamily = CPUFAMILY_UNKNOWN;
 			break;
@@ -322,6 +326,10 @@ cpuid_get_cpusubfamily(void)
 	case CPU_PART_ECORE_BRAVA_C:
 	case CPU_PART_PCORE_BRAVA_C:
 		cpusubfamily = CPUSUBFAMILY_ARM_HC_HD;
+		break;
+	case CPU_PART_ECORE_HIDRA:
+	case CPU_PART_PCORE_HIDRA:
+		cpusubfamily = CPUSUBFAMILY_ARM_HG;
 		break;
 	default:
 		cpusubfamily = CPUSUBFAMILY_UNKNOWN;

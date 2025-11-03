@@ -105,6 +105,9 @@ extern int get_vmmap_entries(vm_map_t);
 extern int get_map_nentries(vm_map_t);
 
 extern vm_map_offset_t vm_map_page_mask(vm_map_t);
+#if HAS_MTE
+extern kern_return_t vm_map_page_tags_get(vm_map_t map, vm_address_t page_addr, uint64_t *buf, vm_size_t size);
+#endif /* HAS_MTE */
 
 #if MACH_ASSERT
 extern void vm_map_pmap_set_process(

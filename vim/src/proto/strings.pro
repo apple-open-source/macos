@@ -30,6 +30,8 @@ void string_reduce(typval_T *argvars, typval_T *expr, typval_T *rettv);
 void f_byteidx(typval_T *argvars, typval_T *rettv);
 void f_byteidxcomp(typval_T *argvars, typval_T *rettv);
 void f_charidx(typval_T *argvars, typval_T *rettv);
+void f_blob2str(typval_T *argvars, typval_T *rettv);
+void f_str2blob(typval_T *argvars, typval_T *rettv);
 void f_str2list(typval_T *argvars, typval_T *rettv);
 void f_str2nr(typval_T *argvars, typval_T *rettv);
 void f_strgetchar(typval_T *argvars, typval_T *rettv);
@@ -50,4 +52,6 @@ void f_tolower(typval_T *argvars, typval_T *rettv);
 void f_toupper(typval_T *argvars, typval_T *rettv);
 void f_tr(typval_T *argvars, typval_T *rettv);
 void f_trim(typval_T *argvars, typval_T *rettv);
+void f_uridecode(typval_T *argvars, typval_T *rettv);
+void f_uriencode(typval_T *argvars, typval_T *rettv);
 /* vim: set ft=c : */

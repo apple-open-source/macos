@@ -232,7 +232,7 @@ or{
             ec{"ବୁଏନସ୍‌ ଏରିସ୍‌"}
         }
         "America:Cambridge_Bay"{
-            ec{"କେମ୍ଵ୍ରିଜ୍ ବେ"}
+            ec{"କେମ୍ବ୍ରିଜ୍ ବେ"}
         }
         "America:Campo_Grande"{
             ec{"କାମ୍ପୋ ଗ୍ରାଣ୍ଡେ"}
@@ -376,7 +376,7 @@ or{
             ec{"ଇନୁଭିକ୍"}
         }
         "America:Iqaluit"{
-            ec{"ଇକ୍ଵାଲୁଇଟ୍"}
+            ec{"ଇକ୍ବାଲୁଇଟ୍"}
         }
         "America:Jamaica"{
             ec{"ଜାମାଇକା"}
@@ -406,7 +406,7 @@ or{
             ec{"ଲୁଇଭିଲ୍ଲେ"}
         }
         "America:Lower_Princes"{
-            ec{"ନିମ୍ନ ପ୍ରିନ୍ସ’ର କ୍ଵାଟର୍"}
+            ec{"ନିମ୍ନ ପ୍ରିନ୍ସ’ର କ୍ବାଟର୍"}
         }
         "America:Maceio"{
             ec{"ମାସିଓ"}
@@ -445,7 +445,7 @@ or{
             ec{"ମେକ୍ସିକୋ ସିଟି"}
         }
         "America:Miquelon"{
-            ec{"ମିକ୍ଵେଲୋନ୍"}
+            ec{"ମିକ୍ବେଲୋନ୍"}
         }
         "America:Moncton"{
             ec{"ମାନକଟୋନ୍"}
@@ -535,7 +535,7 @@ or{
             ec{"ସାଓ ପାଓଲୋ"}
         }
         "America:Scoresbysund"{
-            ec{"ଇଟ୍ଟୋକ୍ଵୋରଟୋରମିଟ୍"}
+            ec{"ଇଟ୍ଟୋକ୍ବୋରଟୋରମିଟ୍"}
         }
         "America:Sitka"{
             ec{"ସିଟକା"}
@@ -580,7 +580,7 @@ or{
             ec{"ଭାଙ୍କୁଭର୍"}
         }
         "America:Whitehorse"{
-            ec{"ହ୍ଵାଇଟହର୍ସ୍"}
+            ec{"ହ୍ବାଇଟହର୍ସ୍"}
         }
         "America:Winnipeg"{
             ec{"ୱିନିପେଗ୍"}

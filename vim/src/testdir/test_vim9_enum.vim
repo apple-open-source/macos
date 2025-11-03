@@ -1,7 +1,6 @@
 " Test Vim9 enums
 
-source check.vim
-import './vim9.vim' as v9
+import './util/vim9.vim' as v9
 
 " Test for parsing an enum definition
 def Test_enum_parse()
@@ -43,6 +42,14 @@ def Test_enum_parse()
     endenum
   END
   v9.CheckSourceFailure(lines, 'E492: Not an editor command: enums Something', 2)
+
+  # The complete "enum" should be specified.
+  lines =<< trim END
+    vim9script
+    enu Something
+    endenum
+  END
+  v9.CheckSourceFailure(lines, 'E1065: Command cannot be shortened: enu', 2)
 
   # The complete "endenum" should be specified.
   lines =<< trim END
@@ -831,6 +838,25 @@ def Test_enum_values()
   END
   v9.CheckSourceSuccess(lines)
 
+  lines =<< trim END
+    vim9script
+    enum Car
+      Honda,
+      Ford,
+    endenum
+    assert_equal([Car.Honda, Car.Ford], Car.values)
+  END
+  v9.CheckSourceSuccess(lines)
+
+  lines =<< trim END
+    vim9script
+    enum Car
+      Honda, Ford,
+    endenum
+    assert_equal([Car.Honda, Car.Ford], Car.values)
+  END
+  v9.CheckSourceSuccess(lines)
+
   # empty enum
   lines =<< trim END
     vim9script
@@ -856,7 +882,7 @@ def Test_enum_values()
       Red,
       Blue
       static def GetValues(): list<A>
-	return values
+        return values
       enddef
     endenum
     assert_equal([A.Red, A.Blue], A.GetValues())
@@ -900,6 +926,18 @@ def Test_enum_comments()
   END
   v9.CheckSourceSuccess(lines)
 
+  lines =<< trim END
+    vim9script
+    enum Car   # cars
+      # before enum
+      Honda(), # honda
+      # before enum
+      Ford()   # ford
+    endenum
+    assert_equal(1, Car.Ford.ordinal)
+  END
+  v9.CheckSourceSuccess(lines)
+
   # Test for using an unsupported comment
   lines =<< trim END
     vim9script
@@ -911,6 +949,29 @@ def Test_enum_comments()
     defcompile
   END
   v9.CheckSourceFailure(lines, 'E1170: Cannot use #{ to start a comment', 4)
+enddef
+
+" Test trailing whitespace after enum values
+def Test_enum_whitespace()
+  var lines =<< trim END
+    vim9script
+    enum Car
+      Honda, 
+      Ford   
+    endenum
+    defcompile
+  END
+  v9.CheckSourceSuccess(lines)
+
+  lines =<< trim END
+    vim9script
+    enum Car
+      Honda(), 
+      Ford()   
+    endenum
+    defcompile
+  END
+  v9.CheckSourceSuccess(lines)
 enddef
 
 " Test string() with enums
@@ -1006,6 +1067,34 @@ def Test_enum_refcount()
     assert_equal(3, test_refcount(Star))
     assert_equal(4, test_refcount(s))
     assert_equal(4, test_refcount(Star.Orion))
+  END
+  v9.CheckSourceSuccess(lines)
+
+  lines =<< trim END
+    vim9script
+    enum Star
+      Gemini,
+      Orion,
+    endenum
+
+    assert_equal(3, test_refcount(Star))
+    assert_equal(2, test_refcount(Star.Gemini))
+    assert_equal(2, test_refcount(Star.Orion))
+
+    var x = [Star.Gemini]
+    assert_equal(3, test_refcount(Star))
+    assert_equal(3, test_refcount(Star.Gemini))
+
+    def Fn()
+      var y = [Star.Gemini, Star.Orion]
+      assert_equal(6, test_refcount(Star))
+      assert_equal(4, test_refcount(Star.Gemini))
+    enddef
+    Fn()
+    # The instruction in the compiled function adds an additional reference
+    # to the enum.
+    assert_equal(6, test_refcount(Star))
+    assert_equal(3, test_refcount(Star.Gemini))
   END
   v9.CheckSourceSuccess(lines)
 enddef
@@ -1541,6 +1630,53 @@ def Test_lambda_block_in_enum()
     assert_equal(12, IdEnum2.Id(10))
   END
   v9.CheckScriptSuccess(lines)
+enddef
+
+" Echo an enum
+def Test_enum_echo()
+  var lines =<< trim END
+    vim9script
+    enum Demo
+      one('tahi'),
+      two('rua'),
+      three('toru')
+      var alias: string
+    endenum
+    assert_equal('enum Demo.one {name: one, ordinal: 0, alias: tahi}', execute('echo Demo.one')->split("\n")[0])
+  END
+  v9.CheckScriptSuccess(lines)
+enddef
+
+" Test for garbage collecting an enum with a complex member variables.
+func Test_class_selfref_gc()
+  let lines =<< trim END
+    vim9script
+    enum Foo
+      Red,
+      Blue
+      static var d = {a: [1, 2]}
+      static var l = [{a: 'a', b: 'b'}]
+    endenum
+    assert_equal(3, test_refcount(Foo))
+    test_garbagecollect_now()
+    assert_equal(3, test_refcount(Foo))
+  END
+  call v9.CheckSourceSuccess(lines)
+endfunc
+
+" Test for defining an enum in a function
+def Test_enum_defined_in_function()
+  var lines =<< trim END
+    vim9script
+    def Fn()
+      var x = 1
+      enum Foo
+        Red,
+      endenum
+    enddef
+    defcompile
+  END
+  v9.CheckScriptFailure(lines, 'E1435: Enum can only be used in a script', 2)
 enddef
 
 " vim: ts=8 sw=2 sts=2 expandtab tw=80 fdm=marker

@@ -172,6 +172,16 @@ __lck_mtx_not_owned_panic(lck_mtx_t *lock, thread_t thread)
 	panic("Mutex %p is unexpectedly not owned by thread %p", lock, thread);
 }
 
+#if !LCK_MTX_USE_ARCH
+__abortlike
+static void
+__lck_mtx_not_locked_spin(lck_mtx_t *lock, thread_t thread)
+{
+	panic("Mutex %p is unexpectedly not locked in spin mode by thread %p",
+	    lock, thread);
+}
+#endif /* !LCK_MTX_USE_ARCH */
+
 __abortlike
 static void
 __lck_mtx_owned_panic(lck_mtx_t *lock, thread_t thread)
@@ -1313,6 +1323,23 @@ lck_mtx_assert(lck_mtx_t *lock, unsigned int type)
 		panic("lck_mtx_assert(): invalid arg (%u)", type);
 	}
 }
+
+#if !LCK_MTX_USE_ARCH
+void
+lck_mtx_assert_owned_spin(lck_mtx_t *lock)
+{
+	lck_mtx_state_t state  = os_atomic_load(&lock->lck_mtx, relaxed);
+	thread_t        thread = current_thread();
+
+	if (state.owner != thread->ctid) {
+		__lck_mtx_not_owned_panic(lock, thread);
+	}
+
+	if (!state.spin_mode) {
+		__lck_mtx_not_locked_spin(lock, thread);
+	}
+}
+#endif /* !LCK_MTX_USE_ARCH */
 
 /*
  *	Routine:	lck_mtx_convert_spin

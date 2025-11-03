@@ -16,7 +16,9 @@ ln -s foo src/b
 echo "Test 1: Copy dangling symlink, non-recursive"
 rm -rf dst
 rsync -a -L --no-r -- src/* dst/ || [ $? -eq 23 ]
-compare_trees ref dst
+if [ -d dst ]; then
+	compare_trees ref dst
+fi
 
 echo "Test 2: Copy dangling symlink, recursive"
 rm -rf dst

@@ -208,7 +208,9 @@ void WebXROpaqueFramebuffer::endFrame()
         tracePoint(WebXRLayerEndFrameEnd);
     });
 
+    ScopedDisableScissorTest disableScissorTest { m_context };
     ScopedWebGLRestoreFramebuffer restoreFramebuffer { m_context };
+
     switch (m_displayLayout) {
     case PlatformXR::Layout::Shared:
         blitShared(*gl);

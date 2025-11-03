@@ -36,9 +36,9 @@ namespace WebCore {
 
 class GPUComputePipeline : public RefCounted<GPUComputePipeline> {
 public:
-    static Ref<GPUComputePipeline> create(Ref<WebGPU::ComputePipeline>&& backing)
+    static Ref<GPUComputePipeline> create(Ref<WebGPU::ComputePipeline>&& backing, uint64_t uniqueId)
     {
-        return adoptRef(*new GPUComputePipeline(WTFMove(backing)));
+        return adoptRef(*new GPUComputePipeline(WTFMove(backing), uniqueId));
     }
 
     String label() const;
@@ -50,12 +50,14 @@ public:
     const WebGPU::ComputePipeline& backing() const { return m_backing; }
 
 private:
-    GPUComputePipeline(Ref<WebGPU::ComputePipeline>&& backing)
+    GPUComputePipeline(Ref<WebGPU::ComputePipeline>&& backing, uint64_t uniqueId)
         : m_backing(WTFMove(backing))
+        , m_uniqueId(uniqueId)
     {
     }
 
     const Ref<WebGPU::ComputePipeline> m_backing;
+    const uint64_t m_uniqueId;
 };
 
 }

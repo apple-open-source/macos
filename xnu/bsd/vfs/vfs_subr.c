@@ -6521,12 +6521,12 @@ vnode_usecount(vnode_t vp)
 int
 vnode_iocount(vnode_t vp)
 {
-	if (!(vp->v_ext_flag & VE_LINKCHANGE)) {
+	if (!(os_atomic_load(&vp->v_ext_flag, relaxed) & VE_LINKCHANGE)) {
 		return vp->v_iocount;
 	} else {
 		int iocount = 0;
 		vnode_lock_spin(vp);
-		if (!(vp->v_ext_flag & VE_LINKCHANGE)) {
+		if (!(os_atomic_load(&vp->v_ext_flag, relaxed) & VE_LINKCHANGE)) {
 			iocount = vp->v_iocount;
 		} else {
 			/* the "link lock" takes its own iocount */
@@ -7425,8 +7425,8 @@ void
 vnode_link_lock(vnode_t vp)
 {
 	vnode_lock_spin(vp);
-	while (vp->v_ext_flag & VE_LINKCHANGE) {
-		vp->v_ext_flag |= VE_LINKCHANGEWAIT;
+	while (os_atomic_load(&vp->v_ext_flag, relaxed) & VE_LINKCHANGE) {
+		os_atomic_or(&vp->v_ext_flag, VE_LINKCHANGEWAIT, relaxed);
 		msleep(&vp->v_ext_flag, &vp->v_lock, PVFS | PSPIN,
 		    "vnode_link_lock_wait", 0);
 	}
@@ -7434,7 +7434,7 @@ vnode_link_lock(vnode_t vp)
 		panic("%s called without an iocount on the vnode", __FUNCTION__);
 	}
 	vnode_get_locked(vp);
-	vp->v_ext_flag |= VE_LINKCHANGE;
+	os_atomic_or(&vp->v_ext_flag, VE_LINKCHANGE, relaxed);
 	vnode_unlock(vp);
 }
 
@@ -7445,10 +7445,10 @@ vnode_link_unlock(vnode_t vp)
 	bool do_vnode_put = false;
 
 	vnode_lock_spin(vp);
-	if (vp->v_ext_flag & VE_LINKCHANGEWAIT) {
+	if (os_atomic_load(&vp->v_ext_flag, relaxed) & VE_LINKCHANGEWAIT) {
 		do_wakeup = true;
 	}
-	vp->v_ext_flag &= ~(VE_LINKCHANGE | VE_LINKCHANGEWAIT);
+	os_atomic_andnot(&vp->v_ext_flag, VE_LINKCHANGE | VE_LINKCHANGEWAIT, relaxed);
 	if ((vp->v_usecount > 0) || (vp->v_iocount > 1)) {
 		vnode_put_locked(vp);
 	} else {
@@ -13452,7 +13452,8 @@ vnode_hasmultipath(vnode_t vp)
 	vnode_link_lock(vp);
 	link_locked = true;
 
-	if (is_local_volume && (vp->v_ext_flag & VE_NOT_HARDLINK)) {
+	if (is_local_volume &&
+	    (os_atomic_load(&vp->v_ext_flag, relaxed) & VE_NOT_HARDLINK)) {
 		goto out;
 	}
 
@@ -13477,9 +13478,7 @@ vnode_hasmultipath(vnode_t vp)
 	}
 
 	if (has_multipath == 0) {
-		vnode_lock_spin(vp);
-		vp->v_ext_flag |= VE_NOT_HARDLINK;
-		vnode_unlock(vp);
+		os_atomic_or(&vp->v_ext_flag, VE_NOT_HARDLINK, relaxed);
 	}
 
 out:
@@ -13488,4 +13487,10 @@ out:
 	}
 
 	return has_multipath;
+}
+
+bool
+vnode_isappendonly(vnode_t vp)
+{
+	return os_atomic_load(&vp->v_ext_flag, relaxed) & VE_APPENDONLY;
 }

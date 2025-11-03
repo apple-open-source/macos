@@ -208,7 +208,7 @@ private:
     bool shouldDrawVisuallyContiguousBidiSelection() const final;
 #endif
 
-    WeakPtr<WebPage> m_page;
+    const WeakPtr<WebPage> m_page;
 };
 
 } // namespace WebKit

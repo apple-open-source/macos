@@ -99,14 +99,19 @@ static const AtomString& manualKeyword()
     return alwaysOn;
 }
 
-Ref<MediaControlsHost> MediaControlsHost::create(HTMLMediaElement& mediaElement)
-{
-    return adoptRef(*new MediaControlsHost(mediaElement));
-}
-
 MediaControlsHost::MediaControlsHost(HTMLMediaElement& mediaElement)
     : m_mediaElement(mediaElement)
 {
+}
+
+void MediaControlsHost::ref() const
+{
+    m_mediaElement->ref();
+}
+
+void MediaControlsHost::deref() const
+{
+    m_mediaElement->deref();
 }
 
 MediaControlsHost::~MediaControlsHost()

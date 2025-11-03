@@ -1072,13 +1072,7 @@ WASM_SLOW_PATH_DECL(rethrow)
     auto instruction = pc->as<WasmRethrow>();
     JSValue exceptionValue = READ(instruction.m_exception).jsValue();
 
-    JSValue thrownValue = exceptionValue;
-    if (auto* exception = jsDynamicCast<JSWebAssemblyException*>(exceptionValue)) {
-        if (&exception->tag() == &Wasm::Tag::jsExceptionTag())
-            thrownValue = JSValue::decode(exception->payload().at(0));
-    }
-
-    throwException(globalObject, throwScope, thrownValue);
+    throwException(globalObject, throwScope, exceptionValue);
 
     genericUnwind(vm, callFrame);
     ASSERT(!!vm.callFrameForCatch);
@@ -1101,11 +1095,7 @@ WASM_SLOW_PATH_DECL(throw_ref)
         WASM_THROW(Wasm::ExceptionType::NullExnReference);
 
     auto* exception = jsCast<JSWebAssemblyException*>(exceptionValue);
-    JSValue thrownValue = exceptionValue;
-    if (&exception->tag() == &Wasm::Tag::jsExceptionTag())
-        thrownValue = JSValue::decode(exception->payload().at(0));
-
-    throwException(globalObject, throwScope, thrownValue);
+    throwException(globalObject, throwScope, exception);
 
     genericUnwind(vm, callFrame);
     ASSERT(!!vm.callFrameForCatch);

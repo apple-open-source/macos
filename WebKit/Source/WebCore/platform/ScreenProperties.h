@@ -44,6 +44,7 @@ struct ScreenData {
     bool screenHasInvertedColors { false };
     bool screenSupportsHighDynamicRange { false };
 #if HAVE(SUPPORT_HDR_DISPLAY)
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=297729 - Move EDR screen properties to their own container
     bool suppressEDR { false };
     float currentEDRHeadroom { 1 };
     float maxEDRHeadroom { 1 };
@@ -64,6 +65,8 @@ struct ScreenData {
 #if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
     float scaleFactor { 1 };
 #endif
+
+    bool operator==(const ScreenData&) const = default;
 };
 
 using ScreenDataMap = HashMap<PlatformDisplayID, ScreenData>;
@@ -77,6 +80,8 @@ struct ScreenProperties {
 #if ENABLE(TOUCH_EVENTS) && PLATFORM(GTK)
     bool screenHasTouchDevice { true };
 #endif
+
+    bool operator==(const ScreenProperties&) const = default;
 };
 
 } // namespace WebCore

@@ -42,6 +42,10 @@ malloc_zone_t ** __unsafe_indexable malloc_zones = _malloc_zones;
 
 bool malloc_sanitizer_enabled = false;
 
+#if CONFIG_MTE
+bool malloc_has_sec_transition = false;
+uint32_t malloc_sec_transition_policy = 0;
+#endif
 
 #if __LIBLIBC_F_ASAN_INSTRUMENTATION
 static struct malloc_sanitizer_poison malloc_poison_default = {
@@ -146,6 +150,9 @@ void __malloc_init(const char * __null_terminated * __null_terminated args)
 	logical_ncpus = _liblibc_plat_num_cpus;
 	phys_ncpus = _liblibc_plat_num_cpus;
 
+#if CONFIG_MTE
+	malloc_has_sec_transition = xrt__has_sec_transition();
+#endif
 
 	const unsigned malloc_debug_flags = MALLOC_ABORT_ON_CORRUPTION |
 			MALLOC_ABORT_ON_ERROR;
@@ -331,8 +338,9 @@ void * __sized_by_or_null(size)
 malloc_zone_malloc_with_options(malloc_zone_t *zone, size_t align,
 		size_t size, malloc_zone_malloc_options_t options)
 {
-	if (os_unlikely((align != 0) && (!powerof2(align) ||
-			((size & (align-1)) != 0)))) { // equivalent to (size % align != 0)
+	if (align != MALLOC_ZONE_MALLOC_DEFAULT_ALIGN &&
+			(os_unlikely((align != 0) && (!powerof2(align) ||
+			((size & (align-1)) != 0))))) { // equivalent to (size % align != 0)
 		return NULL;
 	}
 

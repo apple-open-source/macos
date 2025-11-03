@@ -174,12 +174,16 @@ public:
             m_localInitFlags.quickSet(index);
         }
     }
+
     uint32_t getLocalInitStackHeight() const { return m_localInitStack.size(); }
+
     void resetLocalInitStackToHeight(uint32_t height)
     {
-        for (uint32_t i = height; i < m_localInitStack.size(); i++)
+        uint32_t limit = m_localInitStack.size();
+        for (uint32_t i = height; i < limit; ++i)
             m_localInitFlags.quickClear(m_localInitStack.takeLast());
     };
+
     bool localIsInitialized(uint32_t localIndex) { return m_localInitFlags.quickGet(localIndex); }
 
     uint32_t getStackHeightInValues() const
@@ -374,7 +378,7 @@ private:
     Stack m_expressionStack;
     ControlStack m_controlStack;
     Vector<Type, 16> m_locals;
-    const TypeDefinition& m_signature;
+    Ref<const TypeDefinition> m_signature;
     const ModuleInformation& m_info;
 
     Vector<uint32_t> m_localInitStack;
@@ -436,8 +440,8 @@ auto FunctionParser<Context>::parse() -> Result
 {
     uint32_t localGroupsCount;
 
-    WASM_PARSER_FAIL_IF(!m_signature.is<FunctionSignature>(), "type signature was not a function signature"_s);
-    const auto& signature = *m_signature.as<FunctionSignature>();
+    WASM_PARSER_FAIL_IF(!m_signature->template is<FunctionSignature>(), "type signature was not a function signature"_s);
+    const auto& signature = *m_signature->template as<FunctionSignature>();
     if (signature.numVectors() || signature.numReturnVectors()) {
         m_context.notifyFunctionUsesSIMD();
         if (!Context::tierSupportsSIMD)
@@ -494,8 +498,8 @@ auto FunctionParser<Context>::parse() -> Result
 template<typename Context>
 auto FunctionParser<Context>::parseConstantExpression() -> Result
 {
-    WASM_PARSER_FAIL_IF(!m_signature.is<FunctionSignature>(), "type signature was not a function signature"_s);
-    const auto& signature = *m_signature.as<FunctionSignature>();
+    WASM_PARSER_FAIL_IF(!m_signature->template is<FunctionSignature>(), "type signature was not a function signature"_s);
+    const auto& signature = *m_signature->template as<FunctionSignature>();
     if (signature.numVectors() || signature.numReturnVectors()) {
         m_context.notifyFunctionUsesSIMD();
         if (!Context::tierSupportsSIMD)
@@ -511,7 +515,7 @@ auto FunctionParser<Context>::parseConstantExpression() -> Result
 template<typename Context>
 auto FunctionParser<Context>::parseBody() -> PartialResult
 {
-    m_controlStack.append({ { }, { }, 0, m_context.addTopLevel({ m_signature.as<FunctionSignature>(), nullptr }) });
+    m_controlStack.append({ { }, { }, 0, m_context.addTopLevel({ m_signature->template as<FunctionSignature>(), nullptr }) });
     uint8_t op = 0;
     while (m_controlStack.size()) {
         m_currentOpcodeStartingOffset = m_offset;
@@ -551,7 +555,7 @@ auto FunctionParser<Context>::parseBody() -> PartialResult
             WASM_FAIL_IF_HELPER_FAILS(parseExpression());
         m_context.didParseOpcode();
     }
-    WASM_FAIL_IF_HELPER_FAILS(m_context.endTopLevel({ m_signature.as<FunctionSignature>(), nullptr }, m_expressionStack));
+    WASM_FAIL_IF_HELPER_FAILS(m_context.endTopLevel({ m_signature->template as<FunctionSignature>(), nullptr }, m_expressionStack));
     if (Context::validateFunctionBodySize)
         WASM_PARSER_FAIL_IF(m_offset != source().size(), "function body size doesn't match the expected size");
 
@@ -3109,7 +3113,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
 
         if (m_currentOpcode == TailCall) {
 
-            const auto& callerSignature = *m_signature.as<FunctionSignature>();
+            const auto& callerSignature = *m_signature->template as<FunctionSignature>();
 
             WASM_PARSER_FAIL_IF(calleeSignature.returnCount() != callerSignature.returnCount(), "tail call function index "_s, functionIndex, " with return count "_s, calleeSignature.returnCount(), ", but the caller's signature has "_s, callerSignature.returnCount(), " return values"_s);
 
@@ -3179,7 +3183,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
 
         if (m_currentOpcode == TailCallIndirect) {
 
-            const auto& callerSignature = *m_signature.as<FunctionSignature>();
+            const auto& callerSignature = *m_signature->template as<FunctionSignature>();
 
             WASM_PARSER_FAIL_IF(calleeSignature.returnCount() != callerSignature.returnCount(), "tail call indirect function with return count "_s, calleeSignature.returnCount(), "_s, but the caller's signature has "_s, callerSignature.returnCount(), " return values"_s);
 
@@ -3246,7 +3250,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         ResultList results;
 
         if (m_currentOpcode == TailCallRef) {
-            const auto& callerSignature = *m_signature.as<FunctionSignature>();
+            const auto& callerSignature = *m_signature->template as<FunctionSignature>();
 
             WASM_PARSER_FAIL_IF(calleeSignature.returnCount() != callerSignature.returnCount(), "tail call indirect function with return count "_s, calleeSignature.returnCount(), "_s, but the caller's signature has "_s, callerSignature.returnCount(), " return values"_s);
 

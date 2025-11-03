@@ -330,6 +330,7 @@ class OctagonRerollTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -361,6 +362,7 @@ class OctagonRerollTests: OctagonTestsBase {
                                  skipRateLimitingCheck: true,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")

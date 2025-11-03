@@ -1760,6 +1760,13 @@ basedir:
 		lidx = -1;
 	}
 
+	if (opts.del >= DMODE_UNSPECIFIED) {
+		if (!(opts.recursive || opts.dirs != DIRMODE_OFF)) {
+			errx(ERR_SYNTAX,
+			     "--delete does not work without --recursive or --dirs");
+		}
+	}
+
 	if (quiet > 0)
 		verbose = 0;
 
@@ -1767,6 +1774,9 @@ basedir:
 	assert(opts.ipf == 0 || opts.ipf == 4 || opts.ipf == 6);
 
 	if (opts.inplace) {
+		if (opts.sparse != 0)
+			errx(ERR_SYNTAX,
+			    "option --sparse conflicts with --inplace");
 		if (opts.partial_dir != NULL)
 			errx(ERR_SYNTAX,
 			    "option --partial-dir conflicts with --inplace");
@@ -1802,7 +1812,8 @@ basedir:
 				*endp-- = '\0';
 			}
 
-			if (parse_rule(partial_dir, RULE_EXCLUDE, 0) == -1) {
+			if (partial_dir[0] != '/' &&
+			    parse_rule(partial_dir, RULE_EXCLUDE, 0) == -1) {
 				errx(ERR_SYNTAX, "syntax error in exclude: %s",
 				    partial_dir);
 			}

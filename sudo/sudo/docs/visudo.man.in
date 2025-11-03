@@ -1,4 +1,4 @@
-.\" Automatically generated from an mdoc input file.  Do not edit.
+.\" Automatically generated from the visudo.mdoc.in file.  Do not edit.
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
@@ -21,7 +21,7 @@
 .\" Agency (DARPA) and Air Force Research Laboratory, Air Force
 .\" Materiel Command, USAF, under agreement number F39502-99-1-0512.
 .\"
-.TH "VISUDO" "@mansectsu@" "January 16, 2023" "Sudo @PACKAGE_VERSION@" "System Manager's Manual"
+.TH "VISUDO" "@mansectsu@" "July 27, 2023" "Sudo @PACKAGE_VERSION@" "System Manager's Manual"
 .nh
 .if n .ad l
 .SH "NAME"
@@ -46,6 +46,11 @@ and checks for syntax errors before installing the edited file.
 If the
 \fIsudoers\fR
 file is currently being edited you will receive a message to try again later.
+.PP
+If the
+\fIsudoers\fR
+file does not exist, it will be created unless the editor exits
+without writing to the file.
 .PP
 \fBvisudo\fR
 parses the
@@ -408,21 +413,21 @@ In addition to reporting
 syntax errors,
 \fBvisudo\fR
 may produce the following messages:
-.TP 6n
-\fRsudoers file busy, try again later.\fR
+.TP 4n
+sudoers file busy, try again later.
 Someone else is currently editing the
 \fIsudoers\fR
 file.
-.TP 6n
-\fR@sysconfdir@/sudoers: Permission denied\fR
+.TP 4n
+@sysconfdir@/sudoers: Permission denied
 You didn't run
 \fBvisudo\fR
 as root.
-.TP 6n
-\fRyou do not exist in the passwd database\fR
+.TP 4n
+you do not exist in the passwd database
 Your user-ID does not appear in the system passwd database.
-.TP 6n
-\fRWarning: {User,Runas,Host,Cmnd}_Alias referenced but not defined\fR
+.TP 4n
+Warning: {User,Runas,Host,Cmnd}_Alias referenced but not defined
 Either you are trying to use an undeclared {User,Runas,Host,Cmnd}_Alias
 or you have a user or host name listed that consists solely of
 uppercase letters, digits, and the underscore
@@ -438,16 +443,16 @@ file and the line number where the undefined alias was used.
 In
 \fB\-s\fR
 (strict) mode these are errors, not warnings.
-.TP 6n
-\fRWarning: unused {User,Runas,Host,Cmnd}_Alias\fR
+.TP 4n
+Warning: unused {User,Runas,Host,Cmnd}_Alias
 The specified {User,Runas,Host,Cmnd}_Alias was defined but never
 used.
 The message is prefixed with the path name of the
 \fIsudoers\fR
 file and the line number where the unused alias was defined.
 You may wish to comment out or remove the unused alias.
-.TP 6n
-\fRWarning: cycle in {User,Runas,Host,Cmnd}_Alias\fR
+.TP 4n
+Warning: cycle in {User,Runas,Host,Cmnd}_Alias
 The specified {User,Runas,Host,Cmnd}_Alias includes a reference to
 itself, either directly or through an alias it includes.
 The message is prefixed with the path name of the
@@ -463,8 +468,35 @@ will ignore cycles when parsing
 the
 \fIsudoers\fR
 file.
-.TP 6n
-\fRunknown defaults entry \&"name\&"\fR
+.TP 4n
+ignoring editor backup file
+While processing a
+\fI@includedir\fR
+or
+\fI#includedir\fR,
+a file was found with a name that ends in
+\(oq~\(cq
+or
+\fI.bak\fR.
+Such files are skipped by
+\fBsudo\fR
+and
+\fBvisudo\fR.
+.TP 4n
+ignoring file name containing '.'
+While processing a
+\fI@includedir\fR
+or
+\fI#includedir\fR,
+a file was found with a name that contains a
+\(oq.\&\(cq
+character.
+Such files are skipped by
+\fBsudo\fR
+and
+\fBvisudo\fR.
+.TP 4n
+unknown defaults entry \&"name\&"
 The
 \fIsudoers\fR
 file contains a
@@ -499,7 +531,19 @@ allows shell escapes.
 .SH "BUGS"
 If you believe you have found a bug in
 \fBvisudo\fR,
-you can submit a bug report at https://bugzilla.sudo.ws/
+you can either file a bug report in the sudo bug database,
+https://bugzilla.sudo.ws/, or open an issue at
+https://github.com/sudo-project/sudo/issues.
+If you would prefer to use email, messages may be sent to the
+sudo-workers mailing list,
+https://www.sudo.ws/mailman/listinfo/sudo-workers (public)
+or <sudo@sudo.ws> (private).
+.PP
+Please do not report security vulnerabilities through public GitHub
+issues, Bugzilla or mailing lists.
+Instead, report them via email to <Todd.Miller@sudo.ws>.
+You may encrypt your message with PGP if you would like, using
+the key found at https://www.sudo.ws/dist/PGPKEYS.
 .SH "SUPPORT"
 Limited free support is available via the sudo-users mailing list,
 see https://www.sudo.ws/mailman/listinfo/sudo-users to subscribe or

@@ -59,6 +59,9 @@ extern kern_return_t ctrr_test(void);
 extern kern_return_t arm64_late_pan_test(void);
 #endif
 extern kern_return_t copyio_test(void);
+#if HAS_MTE
+extern kern_return_t copyio_unprivileged_test(void);
+#endif
 extern kern_return_t parse_boot_arg_test(void);
 
 struct xnupost_test bsd_post_tests[] = {
@@ -84,6 +87,9 @@ struct xnupost_test bsd_post_tests[] = {
 #endif
 	XNUPOST_TEST_CONFIG_BASIC(ipi_test),
 	XNUPOST_TEST_CONFIG_BASIC(copyio_test),
+#if HAS_MTE
+	XNUPOST_TEST_CONFIG_BASIC(copyio_unprivileged_test),
+#endif
 	XNUPOST_TEST_CONFIG_BASIC(parse_boot_arg_test),
 };
 

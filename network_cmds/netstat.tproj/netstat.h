@@ -80,6 +80,7 @@ extern int	lflag;	/* show routing table with use and ref */
 extern int	Lflag;	/* show size of listen queues */
 extern int	mflag;	/* show memory stats */
 extern int	nflag;	/* show addresses numerically */
+extern int	pflag;	/* show given protocol */
 extern int	Rflag;	/* show reachability information */
 extern int	rflag;	/* show routing tables (or routing stats) */
 extern int	sflag;	/* show protocol statistics */
@@ -186,3 +187,5 @@ struct xsocket_n;
 struct xsockbuf_n;
 struct xsockstat_n;
 extern void print_socket_stats_data(struct xsocket_n *, struct xsockbuf_n *, struct xsockbuf_n *, struct xsockstat_n *);
+
+extern void printprotoifstats(char *ifname);

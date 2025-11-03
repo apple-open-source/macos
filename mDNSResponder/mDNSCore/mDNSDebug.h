@@ -277,6 +277,9 @@ extern void freeL(const char *msg, void *x);
 
     #define PRI_PREFIX
 
+    #define PUB_HEX_INT "%x"
+    #define PRI_HEX_INT PUB_HEX_INT
+
     #define PUB_S "%s"
     #define PRI_S PUB_S
 

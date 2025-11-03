@@ -406,7 +406,7 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
     }
 
     if (RefPtr container = dynamicDowncast<ContainerNode>(node)) {
-        for (auto& child : composedTreeChildren(*container))
+        for (auto& child : composedTreeChildren<0>(*container))
             extractRecursive(child, item ? *item : parentItem, context);
     }
 

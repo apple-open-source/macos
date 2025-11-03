@@ -528,6 +528,7 @@ static Boolean __DAMountCheckMntOptsForString( CFMutableStringRef mntOpsStr , CF
 static CFStringRef __DAMountGetOpt( CFStringRef optArgStr , CFStringRef argument , Boolean *foundArgument ) {
     char *argv[2];
     char *optArgCStr;
+    char *tmpPtr;
     char opt;
     int oldOptErr = opterr;
     CFStringRef argumentToAdd = NULL;
@@ -564,9 +565,17 @@ static CFStringRef __DAMountGetOpt( CFStringRef optArgStr , CFStringRef argument
         {
             switch ( opt ) {
                 case 'o':
+                    tmpPtr = optarg;
+                    
+                    // Account for -o=noowners flag format
+                    if ( tmpPtr[0] == '=' )
+                    {
+                        tmpPtr++;
+                    }
+                    
                     // Get mount flag
                     argumentToAdd = CFStringCreateWithCString( kCFAllocatorDefault ,
-                                                               optarg ,
+                                                               tmpPtr ,
                                                                kCFStringEncodingUTF8 );
                     break;
                 case 's':
@@ -578,6 +587,7 @@ static CFStringRef __DAMountGetOpt( CFStringRef optArgStr , CFStringRef argument
                     }
                     break;
                 default:
+                    DALogError("Unknown mount arg string %s", optArgCStr);
                     break;
             }
         }
@@ -626,79 +636,78 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
         for ( argumentListIndex = 0; !containsValue && argumentListIndex < argumentListCount; argumentListIndex++ )
         {
             CFStringRef currentArgument = CFArrayGetValueAtIndex( argumentList, argumentListIndex );
-            CFStringRef argumentToAdd = NULL;
-            
             if ( currentArgument != NULL )
             {
-                /* If this argument starts with a -o or -s, prepare argv to call getopt() */
+                /* If this argument starts with a -o or -s, prepare argv to call getopt().
+                 * Break up the number of arguments to call getopt() on by "=-" prefixes
+                 * ex. -oowners=-onoowners= should be parsed as -oowners and -onoowners=
+                 */
                 if ( CFStringHasPrefix( currentArgument , CFSTR( "-" ) ) )
                 {
-                    argumentToAdd = __DAMountGetOpt( currentArgument , argument , &containsValue );
+                    CFIndex subArgCount;
+                    CFIndex subArgIndex;
+                    CFIndex subArgLength;
+                    CFArrayRef subArguments = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault ,
+                                                                                      currentArgument ,
+                                                                                      CFSTR("=-"));
+                    if ( subArguments != NULL )
+                    {
+                        subArgCount = CFArrayGetCount( subArguments );
+                        
+                        /* Prepend the '-' as necessary before calling getopt() */
+                        for ( subArgIndex = 0; subArgIndex < subArgCount; subArgIndex++ )
+                        {
+                            CFStringRef currentSubArgsItem = CFArrayGetValueAtIndex( subArguments , subArgIndex );
+                            CFMutableStringRef subOptStr;
+                            CFStringRef subArgument;
+                            
+                            if ( CFStringHasPrefix( currentSubArgsItem , CFSTR("-") ) )
+                            {
+                                subOptStr = CFStringCreateMutableCopy( kCFAllocatorDefault , 0 , currentSubArgsItem );
+                            }
+                            else
+                            {
+                                subOptStr = CFStringCreateMutableCopy( kCFAllocatorDefault , 0 , CFSTR("-") );
+                                CFStringAppend( subOptStr , currentSubArgsItem );
+                            }
+                            
+                            if ( subOptStr != NULL )
+                            {
+                                subArgument = __DAMountGetOpt( subOptStr , argument , &containsValue );
+                                CFRelease( subOptStr );
+                                
+                                if ( subArgument != NULL )
+                                {
+                                    /* If this is not the first argument, separate with a comma */
+                                    if ( CFStringGetLength( mutableArguments ) > 0 )
+                                    {
+                                        CFStringAppend( mutableArguments , CFSTR(",") );
+                                    }
+                                    CFStringAppend( mutableArguments , subArgument );
+                                    CFRelease( subArgument );
+                                }
+                            }
+                        }
+                        
+                        CFRelease( subArguments );
+                    }
                 }
                 else
                 {
                     /* Add this argument verbatim to the list of mount flags to process */
-                    argumentToAdd = CFStringCreateCopy( kCFAllocatorDefault, currentArgument );
-                }
-            }
-            
-            if ( argumentToAdd != NULL )
-            {
-                /* Check for argument mapping '(""/owners/perm)=(noowners/noperm)' */
-                CFStringRef itemOne;
-                CFStringRef itemTwo;
-                CFRange result;
-                Boolean foundNoowners = FALSE;
-                CFArrayRef pair = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault ,
-                                                                          argumentToAdd ,
-                                                                          CFSTR( "=" ) );
-                if ( pair != NULL )
-                {
-                    /*
-                     * Check if the first string is "", "owners", "perm"
-                     * and the second string is "noowners" or "noperm".
-                     * Treat this argument as "noowners".
-                     */
-                    if ( CFArrayGetCount( pair ) == 2 )
+                    CFStringRef argumentToAdd = CFStringCreateCopy( kCFAllocatorDefault, currentArgument );
+                    
+                    if ( argumentToAdd != NULL )
                     {
-                        itemOne = CFArrayGetValueAtIndex( pair , 0 );
-                        itemTwo = CFArrayGetValueAtIndex( pair , 1 );
-                        
-                        if ( CFStringGetLength( itemOne ) == 0
-                             || ! CFStringCompare( itemOne ,
-                                                   kDAFileSystemMountArgumentOwnership ,
-                                                   kCFCompareCaseInsensitive )
-                             || ! CFStringCompare( itemOne ,
-                                                   kDAFileSystemMountArgumentPermission ,
-                                                   kCFCompareCaseInsensitive ) )
+                        /* If this is not the first argument, separate with a comma */
+                        if ( CFStringGetLength( mutableArguments ) > 0 )
                         {
-                            result = CFStringFind( itemTwo , kDAFileSystemMountArgumentNoOwnership , 0 );
-                            foundNoowners = ( result.location != kCFNotFound );
-                            
-                            if ( ! foundNoowners )
-                            {
-                                result = CFStringFind( itemTwo , kDAFileSystemMountArgumentNoPermission , 0 );
-                                foundNoowners = ( result.location != kCFNotFound );
-                            }
-                            
-                            if ( foundNoowners )
-                            {
-                                CFRelease( argumentToAdd );
-                                argumentToAdd = CFStringCreateCopy( kCFAllocatorDefault ,
-                                                                    kDAFileSystemMountArgumentNoOwnership );
-                            }
+                            CFStringAppend( mutableArguments , CFSTR(",") );
                         }
+                        CFStringAppend( mutableArguments , argumentToAdd );
+                        CFRelease( argumentToAdd );
                     }
-                    CFRelease( pair );
                 }
-                
-                /* If this is not the first argument, separate with a comma */
-                if ( CFStringGetLength( mutableArguments ) > 0 )
-                {
-                    CFStringAppend( mutableArguments , CFSTR(",") );
-                }
-                CFStringAppend( mutableArguments , argumentToAdd );
-                CFRelease( argumentToAdd );
             }
         }
         

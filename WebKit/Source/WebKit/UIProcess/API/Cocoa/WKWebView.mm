@@ -68,6 +68,7 @@
 #import "ViewGestureController.h"
 #import "WKBackForwardListInternal.h"
 #import "WKBackForwardListItemInternal.h"
+#import "WKBrowsingContextController.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKColorExtensionView.h"
 #import "WKContentWorldInternal.h"
@@ -184,6 +185,7 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/CallbackAggregator.h>
 #import <wtf/HashMap.h>
+#import <wtf/MainThread.h>
 #import <wtf/MathExtras.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
@@ -265,6 +267,7 @@ static const BOOL defaultFastClickingEnabled = NO;
 
 #if ENABLE(SCREEN_TIME)
 static void *screenTimeWebpageControllerBlockedKVOContext = &screenTimeWebpageControllerBlockedKVOContext;
+static void *screenTimeConfigurationObserverKVOContext = &screenTimeConfigurationObserverKVOContext;
 #endif
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
@@ -419,7 +422,16 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     if (!PAL::isScreenTimeFrameworkAvailable())
         return;
 
-    if (!_page->preferences().screenTimeEnabled() || !_page->mainFrame()->url().protocolIsInHTTPFamily())
+    if (!_page->preferences().screenTimeEnabled() || !_page->mainFrame() || !_page->mainFrame()->url().protocolIsInHTTPFamily())
+        return;
+
+    if (!_screenTimeConfigurationObserver) {
+        _screenTimeConfigurationObserver = adoptNS([PAL::allocSTScreenTimeConfigurationObserverInstance() initWithUpdateQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)]);
+        [_screenTimeConfigurationObserver addObserver:self forKeyPath:@"configuration.enforcesChildRestrictions" options: 0 context:&screenTimeConfigurationObserverKVOContext];
+        [_screenTimeConfigurationObserver startObserving];
+    }
+
+    if (![_screenTimeConfigurationObserver configuration].enforcesChildRestrictions)
         return;
 
     _screenTimeWebpageController = adoptNS([PAL::allocSTWebpageControllerInstance() init]);
@@ -446,6 +458,10 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 {
     if (!PAL::isScreenTimeFrameworkAvailable())
         return;
+
+    [_screenTimeConfigurationObserver stopObserving];
+    [_screenTimeConfigurationObserver removeObserver:self forKeyPath:@"configuration.enforcesChildRestrictions" context:&screenTimeConfigurationObserverKVOContext];
+    _screenTimeConfigurationObserver = nil;
 
     if (!_screenTimeWebpageController)
         return;
@@ -506,6 +522,13 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey, id> *)change context:(void *)context
 {
 #if ENABLE(SCREEN_TIME)
+    if (context == &screenTimeConfigurationObserverKVOContext) {
+        ensureOnMainRunLoop([weakSelf = WeakObjCPtr<WKWebView>(self)] {
+            [weakSelf _updateScreenTimeBasedOnWindowVisibility];
+        });
+        return;
+    }
+
     if (context == &screenTimeWebpageControllerBlockedKVOContext) {
         BOOL urlWasBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeOldKey]).boolValue;
         BOOL urlIsBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeNewKey]).boolValue;
@@ -546,7 +569,14 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
 #if PLATFORM(IOS_FAMILY)
 
-static id browsingContextControllerMethodStub(id, SEL)
+static id browsingContextControllerMethodStubNonNil(id, SEL)
+{
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    return adoptNS([WKBrowsingContextController new]).autorelease();
+ALLOW_DEPRECATED_DECLARATIONS_END
+}
+
+static id browsingContextControllerMethodStubNil(id, SEL)
 {
     return nil;
 }
@@ -558,8 +588,8 @@ static void addBrowsingContextControllerMethodStubsIfNeeded()
         if (linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::BrowsingContextControllerMethodStubRemoved))
             return;
 
-        for (auto wkClass : std::array { WKWebView.class, WKContentView.class })
-            class_addMethod(wkClass, NSSelectorFromString(@"browsingContextController"), reinterpret_cast<IMP>(browsingContextControllerMethodStub), "@@:");
+        class_addMethod(WKWebView.class, NSSelectorFromString(@"browsingContextController"), reinterpret_cast<IMP>(browsingContextControllerMethodStubNil), "@@:");
+        class_addMethod(WKContentView.class, NSSelectorFromString(@"browsingContextController"), reinterpret_cast<IMP>(browsingContextControllerMethodStubNonNil), "@@:");
     });
 }
 
@@ -1024,6 +1054,9 @@ static void addBrowsingContextControllerMethodStubsIfNeeded()
 
 - (WKNavigation *)loadRequest:(NSURLRequest *)request
 {
+    if (!isUIThread())
+        RELEASE_LOG_FAULT(Loading, "WKWebView APIs must be called from the main thread");
+
     THROW_IF_SUSPENDED;
     if (_page->isServiceWorkerPage())
         [NSException raise:NSInternalInconsistencyException format:@"The WKWebView was used to load a service worker"];
@@ -3165,17 +3198,20 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 #if PLATFORM(MAC)
     _impl->updateTopScrollPocketCaptureColor();
 #else
-    if (!_needsTopScrollPocketDueToVisibleContentInset) {
-        // On iOS, overriding the top scroll pocket capture color is only necessary when:
+    if (!_needsTopScrollPocketDueToVisibleContentInset && ![_scrollView _usesHardTopScrollEdgeEffect]) {
+        // When using a soft pocket (iPhone), overriding the top scroll pocket capture color is only
+        // necessary when:
         //   1. The top content inset area is visible.
         //   2. There's an element with a top fixed-position color.
         // If either condition is false, the scroll pocket is either not visible in the first place,
         // or it should match the scroll view background color anyways.
+        // When using a hard pocket (iPad), the top scroll pocket capture color must be set to ensure
+        // that glass elements overlaying the pocket adapt correctly.
         return;
     }
 
     if (RetainPtr color = [self _sampledTopFixedPositionContentColor] ?: [self underPageBackgroundColor])
-        [_scrollView _setPocketColor:color.get() forEdge:UIRectEdgeTop];
+        [_scrollView _setInternalTopPocketColor:color.get()];
 #endif
 }
 
@@ -3330,6 +3366,16 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
     }
 }
 
+- (void)_updatePrefersSolidColorHardPocket
+{
+#if PLATFORM(MAC)
+    _impl->updatePrefersSolidColorHardPocket();
+#else
+    BOOL useSolidColor = [_scrollView _usesHardTopScrollEdgeEffect] && [self _hasVisibleColorExtensionView:WebCore::BoxSide::Top];
+    [_scrollView _setPrefersSolidColorHardPocket:useSolidColor forEdge:UIRectEdgeTop];
+#endif
+}
+
 - (void)_updateHiddenScrollPocketEdges
 {
 #if PLATFORM(IOS_FAMILY)
@@ -3370,6 +3416,17 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 
     RetainPtr adjustedColor = [delegate _webView:self adjustedColorForTopContentInsetColor:color];
     return adjustedColor.get() ?: color;
+}
+
+- (RetainPtr<NSScrollPocket>)_copyTopScrollPocket
+{
+    RetainPtr clonedScrollPocket = adoptNS([NSScrollPocket new]);
+    RetainPtr currentScrollPocket = _impl->topScrollPocket();
+    [clonedScrollPocket setEdge:[currentScrollPocket edge]];
+    [clonedScrollPocket setStyle:[currentScrollPocket style]];
+    [clonedScrollPocket setPrefersSolidColorHardPocket:[currentScrollPocket prefersSolidColorHardPocket]];
+    [clonedScrollPocket setCaptureColor:[currentScrollPocket captureColor]];
+    return clonedScrollPocket;
 }
 
 - (BOOL)_alwaysPrefersSolidColorHardPocket
@@ -3434,10 +3491,8 @@ static ASCIILiteral descriptionForReason(WebKit::HideScrollPocketReason reason)
 
 - (void)colorExtensionViewWillDisappear:(WKColorExtensionView *)view
 {
-#if PLATFORM(MAC)
     if (view == _fixedColorExtensionViews.at(WebCore::BoxSide::Top))
-        _impl->updatePrefersSolidColorHardPocket();
-#endif
+        [self _updatePrefersSolidColorHardPocket];
 
 #if PLATFORM(IOS_FAMILY)
     [self _updateHiddenScrollPocketEdges];
@@ -3446,10 +3501,8 @@ static ASCIILiteral descriptionForReason(WebKit::HideScrollPocketReason reason)
 
 - (void)colorExtensionViewDidAppear:(WKColorExtensionView *)view
 {
-#if PLATFORM(MAC)
     if (view == _fixedColorExtensionViews.at(WebCore::BoxSide::Top))
-        _impl->updatePrefersSolidColorHardPocket();
-#endif
+        [self _updatePrefersSolidColorHardPocket];
 
 #if PLATFORM(IOS_FAMILY)
     [self _updateHiddenScrollPocketEdges];

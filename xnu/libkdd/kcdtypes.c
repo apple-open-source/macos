@@ -1228,6 +1228,16 @@ kcdata_get_typedescription(unsigned type_id, uint8_t * buffer, uint32_t buffer_s
 		setup_type_definition(retval, type_id, i, "kernel_triage_info_v1");
 		break;
 	}
+	case STACKSHOT_KCTYPE_MTEINFO_CELL: {
+		_SUBTYPE(KC_ST_UINT8, struct mte_info_cell, mic_state);
+		_SUBTYPE(KC_ST_UINT8, struct mte_info_cell, mic_tagged_count);
+		_SUBTYPE(KC_ST_UINT8, struct mte_info_cell, mic_free_count);
+		_SUBTYPE(KC_ST_UINT8, struct mte_info_cell, mic_wired_count);
+		_SUBTYPE(KC_ST_UINT8, struct mte_info_cell, mic_wired_tagged_count);
+		_SUBTYPE(KC_ST_UINT8, struct mte_info_cell, mic_kernel_wired_tagged_count);
+		setup_type_definition(retval, type_id, i, "mte_info_cell");
+		break;
+	}
 	default:
 		retval = NULL;
 		break;

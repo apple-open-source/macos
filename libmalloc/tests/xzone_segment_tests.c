@@ -2,9 +2,12 @@
 
 #include "xzone_testing.h"
 
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE);
+
 #if CONFIG_XZONE_MALLOC && CONFIG_VM_USER_RANGES
 
-#include "../src/xzone/xzone_segment.c"
+#include "../src/xzone_malloc/xzone_segment.c"
 
 struct ptr_range_test {
 	const char *desc;
@@ -50,9 +53,10 @@ test_exhaust_range_group(xzm_range_group_t rg)
 {
 	uintptr_t last_allocated = 0;
 	uint64_t total_allocated = 0;
+	bool warn_on_exhaustion = true;
 	while (true) {
 		uintptr_t addr = _xzm_range_group_bump_alloc_segment(rg,
-				XZM_SEGMENT_SIZE);
+				XZM_SEGMENT_SIZE, warn_on_exhaustion);
 		if (!addr) {
 			T_EXPECT_GE(total_allocated, (XZM_POINTER_RANGE_SIZE / 2) - MiB(16),
 					"allocated at least expected amount");

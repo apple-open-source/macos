@@ -1171,6 +1171,9 @@ mprotect_sanitize(
 	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_CHECK_ALIGNED_START |
 	    VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	result = vm_sanitize_addr_size(user_addr_u, user_size_u,
 	    VM_SANITIZE_CALLER_MPROTECT, user_map, flags,
@@ -1329,6 +1332,9 @@ minherit_sanitize(
 
 	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	result = vm_sanitize_addr_size(addr_u, size_u, VM_SANITIZE_CALLER_MINHERIT,
 	    user_map, flags, addr, &addr_end, size);
@@ -1402,6 +1408,9 @@ madvise_sanitize(
 {
 	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_FALLTHROUGH;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	return vm_sanitize_addr_size(addr_u, len_u, VM_SANITIZE_CALLER_MADVISE,
 	           user_map, flags, start, end, size);
@@ -1515,6 +1524,15 @@ mincore_sanitize(
 	mach_vm_size_t          *size)
 {
 	vm_sanitize_flags_t flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/*
+	 * mincore() purely accesses VM data structures, which are only composed of
+	 * canonicalized addresses. Request to strip the parameter in order
+	 * to allow userspace to call mincore with MTE/TBI/PAC'ed addresses.
+	 */
+	assert(!vm_kernel_map_is_kernel(map));
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	return vm_sanitize_addr_size(addr_u, len_u, VM_SANITIZE_CALLER_MINCORE,
 	           map, flags, addr, end, size);

@@ -66,6 +66,11 @@
 /* Establish a shared mapping of the comparisons buffer. */
 #define KSANCOV_IOC_CMPS_MAP         _IOWR('K', 90, struct ksancov_buf_desc)
 
+/* Testcases buffer */
+#define KSANCOV_IOC_TESTCASES       _IOW('K', 100, size_t) /* number of testcases */
+#define KSANCOV_IOC_TESTCASES_MAP   _IOWR('K', 101, struct ksancov_buf_desc)
+#define KSANCOV_IOC_TESTCASES_LOG   _IO('K', 102)
+
 /*
  * shared kernel-user mapping
  */
@@ -213,6 +218,23 @@ ksancov_cmps_trace_func_arg2(ksancov_cmps_trace_ent_t *entry)
 	uint8_t* func_args = entry->args_func;
 	return &func_args[entry->len1_func];
 }
+
+#define KSANCOV_SERIALIZED_TESTCASE_BYTES 16777216 // 16MiB
+#define KSANCOV_SERIALIZED_TESTCASES_MAX_COUNT 100
+
+typedef struct ksancov_serialized_testcase {
+	uint32_t size;
+	uint8_t  buffer[KSANCOV_SERIALIZED_TESTCASE_BYTES];
+} ksancov_serialized_testcase_t;
+
+/*
+ * Store the latest executed testcases in kernel to dump on panic.
+ */
+typedef struct ksancov_serialized_testcases {
+	uint32_t head;         /* current head of the circular buffer */
+	uint32_t inner_index;  /* current inner index in the head testcase (e.g. current call being executed) */
+	ksancov_serialized_testcase_t list[];  /* testcases circular buffer */
+} ksancov_serialized_testcases_t;
 
 /*
  * On-demand related functionalities
@@ -505,6 +527,48 @@ ksancov_cmps_trace_entry(ksancov_trace_t *trace, size_t i)
 
 	ksancov_cmps_trace_ent_t *entries = (ksancov_cmps_trace_ent_t *)trace->kt_entries;
 	return &entries[i];
+}
+
+static inline int
+ksancov_testcases(int fd, size_t num_testcases)
+{
+	int ret = ioctl(fd, KSANCOV_IOC_TESTCASES, &num_testcases);
+	if (ret == -1) {
+		return errno;
+	}
+	return 0;
+}
+
+static inline int
+ksancov_testcases_map(int fd, uintptr_t *buf, size_t *sz)
+{
+	int ret;
+	struct ksancov_buf_desc mc = {0};
+
+	assert(buf != NULL);
+
+	ret = ioctl(fd, KSANCOV_IOC_TESTCASES_MAP, &mc);
+	if (ret == -1) {
+		return errno;
+	}
+
+	*buf = mc.ptr;
+	if (sz) {
+		*sz = mc.sz;
+	}
+
+	return 0;
+}
+
+static inline int
+ksancov_testcases_log(int fd)
+{
+	int ret;
+	ret = ioctl(fd, KSANCOV_IOC_TESTCASES_LOG);
+	if (ret == -1) {
+		return errno;
+	}
+	return 0;
 }
 
 /*

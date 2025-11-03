@@ -1247,18 +1247,26 @@ void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
     LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
 }
 
-void Element::scrollIntoViewIfNotVisible(bool centerIfNotVisible)
+void Element::scrollIntoViewIfNotVisible(bool centerIfNotVisible, AllowScrollingOverflowHidden allowScrollingOverflowHidden)
 {
     protectedDocument()->updateLayoutIgnorePendingStylesheets(LayoutOptions::UpdateCompositingLayers);
 
     CheckedPtr renderer = this->renderer();
     if (!renderer)
         return;
-    
+
     bool insideFixed;
     LayoutRect absoluteBounds = renderer->absoluteAnchorRectWithScrollMargin(&insideFixed).marginRect;
     auto align = centerIfNotVisible ? ScrollAlignment::alignCenterIfNotVisible : ScrollAlignment::alignToEdgeIfNotVisible;
-    LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, { SelectionRevealMode::Reveal, align, align, ShouldAllowCrossOriginScrolling::No });
+    ScrollRectToVisibleOptions options = {
+        .revealMode = SelectionRevealMode::Reveal,
+        .alignX = align,
+        .alignY = align,
+        .shouldAllowCrossOriginScrolling = ShouldAllowCrossOriginScrolling::No,
+        .allowScrollingOverflowHidden = allowScrollingOverflowHidden
+    };
+
+    LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, options);
 }
 
 void Element::scrollBy(const ScrollToOptions& options)

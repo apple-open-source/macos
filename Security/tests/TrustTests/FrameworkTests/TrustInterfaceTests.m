@@ -32,16 +32,22 @@
 #include "OSX/utilities/array_size.h"
 #include "OSX/sec/ipc/securityd_client.h"
 #include "featureflags/featureflags.h"
+#include "trust/trustd/trustd_spi.h"
+#include <os/transaction_private.h>
 
 #include "../TestMacroConversions.h"
 #include "../TrustEvaluationTestHelpers.h"
 #include "TrustFrameworkTestCase.h"
 #include "TrustInterfaceTests_data.h"
 
-@interface TrustInterfaceTests : TrustFrameworkTestCase
+/* Common test cases for Trust framework interfaces
+ * Adopted by TrustInterfaceXPCTests and TrustInterfaceTrustdTests in order
+ * to run the tests both through the flow that XPC's to trustd and through
+ * the flow that directly calls trustd spi. */
+@interface TrustInterfaceTestCase : XCTestCase
 @end
 
-@implementation TrustInterfaceTests
+@implementation TrustInterfaceTestCase
 
 - (void)testCreateWithCertificates {
     SecTrustRef trust = NULL;
@@ -151,100 +157,6 @@
     CFReleaseNull(certs);
     CFReleaseNull(policy);
     CFReleaseNull(chain);
-}
-
-- (void)testRestoreOS {
-    SecTrustRef trust = NULL;
-    CFArrayRef certs = NULL;
-    SecCertificateRef cert0 = NULL, cert1 = NULL;
-    SecPolicyRef policy = NULL;
-    CFDateRef date = NULL;
-    SecTrustResultType trustResult = kSecTrustResultOtherError;
-
-    /* Apr 14 2018. */
-    isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2018, 4, 14, 12, 0, 0),
-         NULL, "create verify date");
-    if (!date) { goto errOut; }
-    
-    isnt(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)),
-         NULL, "create cert0");
-    isnt(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)),
-         NULL, "create cert1");
-    const void *v_certs[] = { cert0, cert1 };
-
-    certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks);
-    policy = SecPolicyCreateSSL(false, NULL);
-
-    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
-
-    // Test Restore OS environment
-    SecServerSetTrustdMachServiceName("com.apple.security.doesn't-exist");
-    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust without securityd running");
-    is_status(trustResult, kSecTrustResultInvalid, "trustResult is kSecTrustResultInvalid");
-    is(SecTrustGetCertificateCount(trust), 1, "cert count is 1 without securityd running");
-    SecKeyRef pubKey = NULL;
-    ok(pubKey = SecTrustCopyKey(trust), "copy public key without securityd running");
-    CFReleaseNull(pubKey);
-    SecServerSetTrustdMachServiceName("com.apple.trustd");
-    // End of Restore OS environment tests
-
-errOut:
-    CFReleaseNull(date);
-    CFReleaseNull(trust);
-    CFReleaseNull(cert0);
-    CFReleaseNull(cert1);
-    CFReleaseNull(certs);
-    CFReleaseNull(policy);
-}
-
-- (void)testRestoreOSBag {
-    SecTrustRef trust;
-    SecCertificateRef leaf, root;
-    SecPolicyRef policy;
-    CFDataRef urlBagData;
-    CFDictionaryRef urlBagDict;
-
-    isnt(urlBagData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, url_bag, sizeof(url_bag), kCFAllocatorNull), NULL,
-        "load url bag");
-    isnt(urlBagDict = CFPropertyListCreateWithData(kCFAllocatorDefault, urlBagData, kCFPropertyListImmutable, NULL, NULL), NULL,
-        "parse url bag");
-    CFReleaseSafe(urlBagData);
-    CFArrayRef certs_data = CFDictionaryGetValue(urlBagDict, CFSTR("certs"));
-    CFDataRef cert_data = CFArrayGetValueAtIndex(certs_data, 0);
-    isnt(leaf = SecCertificateCreateWithData(kCFAllocatorDefault, cert_data), NULL, "create leaf");
-    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, sITunesStoreRootCertificate, sizeof(sITunesStoreRootCertificate)), NULL, "create root");
-
-    CFArrayRef certs = CFArrayCreate(kCFAllocatorDefault, (const void **)&leaf, 1, NULL);
-    CFDataRef signature = CFDictionaryGetValue(urlBagDict, CFSTR("signature"));
-    CFDataRef bag = CFDictionaryGetValue(urlBagDict, CFSTR("bag"));
-
-    isnt(policy = SecPolicyCreateBasicX509(), NULL, "create policy instance");
-
-    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust for leaf");
-
-    // Test Restore OS environment bag signing verification
-    SecServerSetTrustdMachServiceName("com.apple.security.doesn't-exist");
-    SecTrustResultType trustResult;
-    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
-    SecKeyRef pub_key_leaf;
-    isnt(pub_key_leaf = SecTrustCopyKey(trust), NULL, "get leaf pub key");
-    if (!pub_key_leaf) { goto errOut; }
-    CFErrorRef error = NULL;
-    ok(SecKeyVerifySignature(pub_key_leaf, kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1, bag, signature, &error),
-              "verify signature on bag");
-    CFReleaseNull(error);
-    SecServerSetTrustdMachServiceName("com.apple.trustd");
-    // End of Restore OS environment tests
-
-errOut:
-    CFReleaseSafe(pub_key_leaf);
-    CFReleaseSafe(urlBagDict);
-    CFReleaseSafe(certs);
-    CFReleaseSafe(trust);
-    CFReleaseSafe(policy);
-    CFReleaseSafe(leaf);
-    CFReleaseSafe(root);
 }
 
 - (void)testAnchorCerts {
@@ -1327,6 +1239,13 @@ errOut:
     SecCertificateRef cert2 = SecCertificateCreateWithBytes(NULL, _eidas_root, sizeof(_eidas_root));
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("eidas.ec.europa.eu"));
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /* Disable CT so we don't have to replace this cert every time we update the log list.
+     * Note: that QWAC validation doesn't inherently require CT, unlike EV. */
+        SecPolicySetOptionsValue(policy, kSecPolicyCheckSystemTrustedCTRequired, kCFBooleanFalse);
+#pragma clang diagnostic pop
+
     NSArray *certs = @[ (__bridge id)cert0, (__bridge id)cert1 ];
     TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:@[(__bridge id)policy]];
     [eval addAnchor:cert2];
@@ -1348,6 +1267,137 @@ errOut:
     CFReleaseNull(cert1);
     CFReleaseNull(cert2);
     CFReleaseNull(policy);
+}
+
+@end
+
+/* The tests that XPC to the DUT's trustd */
+@interface TrustInterfaceXPCTests : TrustInterfaceTestCase
+@end
+
+@implementation TrustInterfaceXPCTests
+
++ (void)setUp {
+    /* XPC to trustd instead of using trustd built-in */
+    gTrustd = NULL;
+}
+
+- (void)testRestoreOS {
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL;
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    SecTrustResultType trustResult = kSecTrustResultOtherError;
+
+    /* Apr 14 2018. */
+    isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2018, 4, 14, 12, 0, 0),
+         NULL, "create verify date");
+    if (!date) { goto errOut; }
+
+    isnt(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)),
+         NULL, "create cert0");
+    isnt(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)),
+         NULL, "create cert1");
+    const void *v_certs[] = { cert0, cert1 };
+
+    certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks);
+    policy = SecPolicyCreateSSL(false, NULL);
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+
+    // Test Restore OS environment
+    SecServerSetTrustdMachServiceName("com.apple.security.doesn't-exist");
+    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust without securityd running");
+    is_status(trustResult, kSecTrustResultInvalid, "trustResult is kSecTrustResultInvalid");
+    is(SecTrustGetCertificateCount(trust), 1, "cert count is 1 without securityd running");
+    SecKeyRef pubKey = NULL;
+    ok(pubKey = SecTrustCopyKey(trust), "copy public key without securityd running");
+    CFReleaseNull(pubKey);
+    SecServerSetTrustdMachServiceName("com.apple.trustd");
+    // End of Restore OS environment tests
+
+errOut:
+    CFReleaseNull(date);
+    CFReleaseNull(trust);
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(certs);
+    CFReleaseNull(policy);
+}
+
+- (void)testRestoreOSBag {
+    SecTrustRef trust;
+    SecCertificateRef leaf, root;
+    SecPolicyRef policy;
+    CFDataRef urlBagData;
+    CFDictionaryRef urlBagDict;
+
+    isnt(urlBagData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, url_bag, sizeof(url_bag), kCFAllocatorNull), NULL,
+        "load url bag");
+    isnt(urlBagDict = CFPropertyListCreateWithData(kCFAllocatorDefault, urlBagData, kCFPropertyListImmutable, NULL, NULL), NULL,
+        "parse url bag");
+    CFReleaseSafe(urlBagData);
+    CFArrayRef certs_data = CFDictionaryGetValue(urlBagDict, CFSTR("certs"));
+    CFDataRef cert_data = CFArrayGetValueAtIndex(certs_data, 0);
+    isnt(leaf = SecCertificateCreateWithData(kCFAllocatorDefault, cert_data), NULL, "create leaf");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, sITunesStoreRootCertificate, sizeof(sITunesStoreRootCertificate)), NULL, "create root");
+
+    CFArrayRef certs = CFArrayCreate(kCFAllocatorDefault, (const void **)&leaf, 1, NULL);
+    CFDataRef signature = CFDictionaryGetValue(urlBagDict, CFSTR("signature"));
+    CFDataRef bag = CFDictionaryGetValue(urlBagDict, CFSTR("bag"));
+
+    isnt(policy = SecPolicyCreateBasicX509(), NULL, "create policy instance");
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust for leaf");
+
+    // Test Restore OS environment bag signing verification
+    SecServerSetTrustdMachServiceName("com.apple.security.doesn't-exist");
+    SecTrustResultType trustResult;
+    ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
+    SecKeyRef pub_key_leaf;
+    isnt(pub_key_leaf = SecTrustCopyKey(trust), NULL, "get leaf pub key");
+    if (!pub_key_leaf) { goto errOut; }
+    CFErrorRef error = NULL;
+    ok(SecKeyVerifySignature(pub_key_leaf, kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1, bag, signature, &error),
+              "verify signature on bag");
+    CFReleaseNull(error);
+    SecServerSetTrustdMachServiceName("com.apple.trustd");
+    // End of Restore OS environment tests
+
+errOut:
+    CFReleaseSafe(pub_key_leaf);
+    CFReleaseSafe(urlBagDict);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(root);
+}
+
+@end
+
+/* The tests that run "within" trustd */
+@interface TrustInterfaceTrustdTests : TrustInterfaceTestCase
+@end
+
+@implementation TrustInterfaceTrustdTests
+
+static os_transaction_t transaction = nil;
+
++ (void)setUp {
+    /* Setup the built-in trustd */
+    transaction = os_transaction_create("com.apple.TrustTests.noExitWhenClean");
+    NSURL *tmpDirURL = setUpTmpDir();
+    trustd_init((__bridge CFURLRef) tmpDirURL);
+
+    // "Disable" evaluation analytics (by making the sampling rate as low as possible)
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
+    [defaults setInteger:INT32_MAX forKey:@"TrustEvaluationEventAnalyticsRate"];
+    [defaults setInteger:INT32_MAX forKey:@"PinningEventAnalyticsRate"];
+    [defaults setInteger:INT32_MAX forKey:@"SystemRootUsageEventAnalyticsRate"];
+    [defaults setInteger:INT32_MAX forKey:@"TrustFailureEventAnalyticsRate"];
 }
 
 @end

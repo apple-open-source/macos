@@ -80,6 +80,8 @@
 #include <kern/arcade.h>
 #endif
 
+static inline __attribute__((always_inline)) void handle_user_asts_interrupts_enabled(ast_t reasons, thread_t thread, task_t task);
+static inline __attribute__((always_inline)) void assert_thread_return_to_user(thread_t thread);
 
 static void __attribute__((noinline, noreturn, disable_tail_calls))
 thread_preempted(__unused void* parameter, __unused wait_result_t result)
@@ -213,93 +215,7 @@ ast_taken_user(void)
 
 	ml_set_interrupts_enabled(TRUE);
 
-#if CONFIG_DTRACE
-	if (reasons & AST_DTRACE) {
-		dtrace_ast();
-	}
-#endif
-
-#ifdef MACH_BSD
-	if (reasons & AST_BSD) {
-		thread_ast_clear(thread, AST_BSD);
-		bsd_ast(thread);
-	}
-#endif
-
-#if CONFIG_MACF
-	if (reasons & AST_MACF) {
-		thread_ast_clear(thread, AST_MACF);
-		mac_thread_userret(thread);
-	}
-#endif
-
-#if CONFIG_ARCADE
-	if (reasons & AST_ARCADE) {
-		thread_ast_clear(thread, AST_ARCADE);
-		arcade_ast(thread);
-	}
-#endif
-
-	if (reasons & AST_APC) {
-		thread_ast_clear(thread, AST_APC);
-		thread_apc_ast(thread);
-	}
-
-
-	if (reasons & AST_MACH_EXCEPTION) {
-		thread_ast_clear(thread, AST_MACH_EXCEPTION);
-		mach_exception_ast(thread);
-	}
-
-	if (reasons & AST_LEDGER) {
-		thread_ast_clear(thread, AST_LEDGER);
-		ledger_ast(thread);
-	}
-
-	if (reasons & AST_KPERF) {
-		thread_ast_clear(thread, AST_KPERF);
-#if CONFIG_CPU_COUNTERS
-		kpc_thread_ast_handler(thread);
-#endif /* CONFIG_CPU_COUNTERS */
-		kperf_thread_ast_handler(thread);
-		thread->kperf_ast = 0;
-	}
-
-	if (reasons & AST_RESET_PCS) {
-		thread_ast_clear(thread, AST_RESET_PCS);
-		thread_reset_pcs_ast(task, thread);
-	}
-
-	if (reasons & AST_KEVENT) {
-		thread_ast_clear(thread, AST_KEVENT);
-		uint16_t bits = atomic_exchange(&thread->kevent_ast_bits, 0);
-		if (bits) {
-			kevent_ast(thread, bits);
-		}
-	}
-
-	if (reasons & AST_PROC_RESOURCE) {
-		thread_ast_clear(thread, AST_PROC_RESOURCE);
-		task_port_space_ast(task);
-#if MACH_BSD
-		proc_filedesc_ast(task);
-#endif /* MACH_BSD */
-	}
-
-#if CONFIG_TELEMETRY
-	if (reasons & AST_TELEMETRY_ALL) {
-		ast_t telemetry_reasons = reasons & AST_TELEMETRY_ALL;
-		thread_ast_clear(thread, AST_TELEMETRY_ALL);
-		telemetry_ast(thread, telemetry_reasons);
-	}
-#endif
-
-#if MACH_ASSERT
-	if (reasons & AST_DEBUG_ASSERT) {
-		thread_ast_clear(thread, AST_DEBUG_ASSERT);
-		thread_debug_return_to_user_ast(thread);
-	}
-#endif
+	handle_user_asts_interrupts_enabled(reasons, thread, task);
 
 	spl_t s = splsched();
 
@@ -369,6 +285,111 @@ ast_taken_user(void)
 	 * Here's a good place to put assertions of things which must be true
 	 * upon return to userspace.
 	 */
+	assert_thread_return_to_user(thread);
+}
+
+static inline void
+handle_user_asts_interrupts_enabled(ast_t reasons, thread_t thread, task_t task)
+{
+#if CONFIG_DTRACE
+	if (reasons & AST_DTRACE) {
+		dtrace_ast();
+	}
+#endif
+
+#ifdef MACH_BSD
+	if (reasons & AST_BSD) {
+		thread_ast_clear(thread, AST_BSD);
+		bsd_ast(thread);
+	}
+#endif
+
+#if CONFIG_MACF
+	if (reasons & AST_MACF) {
+		thread_ast_clear(thread, AST_MACF);
+		mac_thread_userret(thread);
+	}
+#endif
+
+#if CONFIG_ARCADE
+	if (reasons & AST_ARCADE) {
+		thread_ast_clear(thread, AST_ARCADE);
+		arcade_ast(thread);
+	}
+#endif
+
+	if (reasons & AST_APC) {
+		thread_ast_clear(thread, AST_APC);
+		thread_apc_ast(thread);
+	}
+
+#if HAS_MTE
+	if (reasons & AST_SYNTHESIZE_MACH) {
+		extern void mte_synthesize_async_tag_check_fault(thread_t thread, vm_map_t map);
+		thread_ast_clear(thread, AST_SYNTHESIZE_MACH);
+		mte_synthesize_async_tag_check_fault(thread, get_threadtask(thread)->map);
+	}
+#endif /* HAS_MTE */
+
+	if (reasons & AST_MACH_EXCEPTION) {
+		thread_ast_clear(thread, AST_MACH_EXCEPTION);
+		mach_exception_ast(thread);
+	}
+
+	if (reasons & AST_LEDGER) {
+		thread_ast_clear(thread, AST_LEDGER);
+		ledger_ast(thread);
+	}
+
+	if (reasons & AST_KPERF) {
+		thread_ast_clear(thread, AST_KPERF);
+#if CONFIG_CPU_COUNTERS
+		kpc_thread_ast_handler(thread);
+#endif /* CONFIG_CPU_COUNTERS */
+		kperf_thread_ast_handler(thread);
+		thread->kperf_ast = 0;
+	}
+
+	if (reasons & AST_RESET_PCS) {
+		thread_ast_clear(thread, AST_RESET_PCS);
+		thread_reset_pcs_ast(task, thread);
+	}
+
+	if (reasons & AST_KEVENT) {
+		thread_ast_clear(thread, AST_KEVENT);
+		uint16_t bits = atomic_exchange(&thread->kevent_ast_bits, 0);
+		if (bits) {
+			kevent_ast(thread, bits);
+		}
+	}
+
+	if (reasons & AST_PROC_RESOURCE) {
+		thread_ast_clear(thread, AST_PROC_RESOURCE);
+		task_port_space_ast(task);
+#if MACH_BSD
+		proc_filedesc_ast(task);
+#endif /* MACH_BSD */
+	}
+
+#if CONFIG_TELEMETRY
+	if (reasons & AST_TELEMETRY_ALL) {
+		ast_t telemetry_reasons = reasons & AST_TELEMETRY_ALL;
+		thread_ast_clear(thread, AST_TELEMETRY_ALL);
+		telemetry_ast(thread, telemetry_reasons);
+	}
+#endif
+
+#if MACH_ASSERT
+	if (reasons & AST_DEBUG_ASSERT) {
+		thread_ast_clear(thread, AST_DEBUG_ASSERT);
+		thread_debug_return_to_user_ast(thread);
+	}
+#endif
+}
+
+static inline void
+assert_thread_return_to_user(thread_t thread)
+{
 	assert(thread->kern_promotion_schedpri == 0);
 	if (thread->rwlock_count > 0) {
 		panic("rwlock_count is %d for thread %p, possibly it still holds a rwlock", thread->rwlock_count, thread);
@@ -385,6 +406,37 @@ ast_taken_user(void)
 #if CONFIG_EXCLAVES
 	assert3u(thread->options & TH_OPT_AOE, ==, 0);
 #endif /* CONFIG_EXCLAVES */
+}
+
+#define ASYNC_THREAD_ASTS_HANDLED (AST_MACH_EXCEPTION | AST_DTRACE | AST_TELEMETRY_ALL | AST_KPERF | AST_DEBUG_ASSERT)
+
+/*
+ * Check if ASTs need to be handled for threads that do work on other threads (currently
+ * aio threads).
+ * Called and returns with interrupts enabled
+ */
+void
+ast_check_async_thread(void)
+{
+	thread_t thread = current_thread();
+	task_t   task   = get_threadtask(thread);
+
+	assert(ml_get_interrupts_enabled() == TRUE);
+
+	for (;;) {
+		spl_t s = splsched();
+		ast_t reasons = ast_consume(ASYNC_THREAD_ASTS_HANDLED);
+		splx(s);
+
+		if (!(reasons & ASYNC_THREAD_ASTS_HANDLED)) {
+			break;
+		}
+
+		handle_user_asts_interrupts_enabled(reasons & ASYNC_THREAD_ASTS_HANDLED, thread,
+		    task);
+
+		assert_thread_return_to_user(thread);
+	}
 }
 
 /*

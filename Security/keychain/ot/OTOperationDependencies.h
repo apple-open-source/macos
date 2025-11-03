@@ -14,6 +14,7 @@
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import <Security/SecEscrowRequest.h>
+#import "keychain/ot/OTLAContextAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -39,6 +40,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property id<OTPersonaAdapter> personaAdapter;
 @property id<OTDeviceInformationAdapter> deviceInformationAdapter;
 @property id<OTSecureBackupAdapter> secureBackupAdapter;
+@property id<OTLAContextAdapter> laContextAdapter;
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property (readonly, weak) CKKSKeychainView* ckks;
 
@@ -51,6 +53,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable, strong) NSString* flowID;
 @property (nullable, strong) NSString* deviceSessionID;
 @property (nonatomic) BOOL permittedToSendMetrics;
+
 
 @property (nonatomic) BOOL accountIsW;
 
@@ -68,6 +71,7 @@ NS_ASSUME_NONNULL_BEGIN
                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
              secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
+                laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
                  ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                 lockStateTracker:(CKKSLockStateTracker *)lockStateTracker
             cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper

@@ -40,8 +40,12 @@
 #include <vm/vm_log.h>
 #include <vm/vm_page.h>
 #include <vm/vm_compressor_internal.h>
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#endif /* HAS_MTE */
 #if CONFIG_EXCLAVES
 #include <kern/exclaves_memory.h>
+#include <mach/exclaves.h>
 #endif /* CONFIG_EXCLAVES */
 
 #include "vm_compressor_backing_store_internal.h"
@@ -228,6 +232,9 @@ report_accounting_health(void)
 #if CONFIG_SECLUDED_MEMORY
 	    + vm_page_secluded_count
 #endif /* CONFIG_SECLUDED_MEMORY */
+#if HAS_MTE
+	    + mte_info_lists[MTE_LIST_INACTIVE_IDX].count /* Free tag storage pages. */
+#endif
 	    );
 	int64_t percentage = (pages * 100) / (max_mem >> PAGE_SHIFT);
 
@@ -264,6 +271,7 @@ vm_analytics_tick(void *arg0, void *arg1)
 	report_accounting_health();
 #if CONFIG_EXCLAVES
 	exclaves_memory_report_accounting();
+	exclaves_indicator_metrics_report();
 #endif /* CONFIG_EXCLAVES */
 	schedule_analytics_thread_call();
 }

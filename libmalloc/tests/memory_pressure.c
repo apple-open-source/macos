@@ -48,6 +48,7 @@ T_DECL(tiny_mem_pressure, "tiny memory pressure",
 		T_META_ENVVAR("MallocSpaceEfficient=1"),
 		T_META_ENVVAR("MallocMaxMagazines=1"),
 		T_META_TAG_VM_NOT_PREFERRED,
+		T_META_TAG_MAGAZINE_ONLY,
 		T_META_CHECK_LEAKS(false))
 {
 	dispatch_queue_t q = dispatch_queue_create("pressure queue", 0); // serial
@@ -63,6 +64,7 @@ T_DECL(tiny_mem_pressure, "tiny memory pressure",
 
 T_DECL(small_mem_pressure, "small memory pressure thread",
 		T_META_TAG_VM_NOT_PREFERRED,
+		T_META_TAG_MAGAZINE_ONLY,
 		T_META_RUN_CONCURRENTLY(true),
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
@@ -131,9 +133,11 @@ T_DECL(medium_mem_pressure, "medium memory pressure thread",
 T_DECL(xzone_mem_pressure, "xzone memory pressure",
 		T_META_ENVVAR("MallocNanoZone=1"),
 		T_META_ENVVAR("MallocProbGuard=0"),
+#if TARGET_OS_WATCH
+		T_META_ENVVAR(PTR_BUCKET_ENVVAR), // disables narrow bucketing
+#endif
 		T_META_TAG("no_debug"),
-		T_META_TAG_NANO_ON_XZONE,
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
 {
 #define XZM_DATA_RANGE_SIZE    GiB(10)
 	xzm_malloc_zone_t zone = get_default_xzone_zone();
@@ -220,6 +224,7 @@ T_DECL(tiny_mem_pressure_multi, "test memory pressure in tiny on threads",
 		T_META_TIMEOUT(TEST_TIMEOUT),
 #endif // TARGET_OS_WATCH
 		T_META_TAG_VM_NOT_PREFERRED,
+		T_META_TAG_MAGAZINE_ONLY,
 		T_META_CHECK_LEAKS(false)) {
 	dispatch_group_t g = dispatch_group_create();
 	for (int i=0; i<16; i++) {
@@ -242,6 +247,7 @@ T_DECL(tiny_mem_pressure_multi, "test memory pressure in tiny on threads",
 
 T_DECL(small_mem_pressure_multi, "test memory pressure in small on threads",
 		T_META_TAG_VM_NOT_PREFERRED,
+		T_META_TAG_MAGAZINE_ONLY,
 		T_META_RUN_CONCURRENTLY(true),
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
@@ -272,6 +278,7 @@ T_DECL(medium_mem_pressure_multi, "test memory pressure in medium on threads",
 #endif // TARGET_OS_WATCH
 		T_META_CHECK_LEAKS(false),
 		T_META_TAG_VM_NOT_PREFERRED,
+		T_META_TAG_MAGAZINE_ONLY,
 		T_META_RUN_CONCURRENTLY(true)) {
 	dispatch_group_t g = dispatch_group_create();
 	for (int i=0; i<30; i++) {

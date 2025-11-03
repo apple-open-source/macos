@@ -276,10 +276,9 @@ void AVAudioSessionCaptureDeviceManager::setAudioCaptureDevices(Vector<AVAudioSe
 {
     bool firstTime = !m_captureDevices;
     bool deviceListChanged = !m_audioSessionCaptureDevices || newAudioDevices.size() != m_audioSessionCaptureDevices->size();
-    bool defaultDeviceChanged = false;
+
     if (!deviceListChanged && !firstTime) {
         for (auto& newState : newAudioDevices) {
-
             std::optional<CaptureDevice> oldState;
             for (const auto& device : m_audioSessionCaptureDevices.value()) {
                 if (device.type() == newState.type() && device.persistentId() == newState.persistentId()) {
@@ -288,14 +287,25 @@ void AVAudioSessionCaptureDeviceManager::setAudioCaptureDevices(Vector<AVAudioSe
                 }
             }
 
-            if (!oldState || newState.isDefault() != oldState->isDefault() || newState.enabled() != oldState->enabled()) {
+            if (!oldState || newState.enabled() != oldState->enabled()) {
+                deviceListChanged = true;
+                break;
+            }
+
+            if (newState.isDefault() == oldState->isDefault())
+                continue;
+
+            bool hasNewDefaultDevice = newState.isDefault() || newAudioDevices.containsIf([type = newState.type()](auto& state) {
+                return state.isDefault() && state.type() == type;
+            });
+            if (hasNewDefaultDevice) {
                 deviceListChanged = true;
                 break;
             }
         }
     }
 
-    if (!deviceListChanged && !firstTime && !defaultDeviceChanged)
+    if (!deviceListChanged && !firstTime)
         return;
 
     m_audioSessionCaptureDevices = WTFMove(newAudioDevices);
@@ -311,14 +321,28 @@ void AVAudioSessionCaptureDeviceManager::setAudioCaptureDevices(Vector<AVAudioSe
         }
     }
 
+    auto isDifferentDeviceList = [](auto& list1, auto& list2) -> bool {
+        if (list1.size() != list2.size())
+            return true;
+        for (size_t cptr = 0; cptr < list1.size(); ++cptr) {
+            if (list1[cptr].persistentId() != list2[cptr].persistentId() || list1[cptr].enabled() != list2[cptr].enabled())
+                return true;
+        }
+        return false;
+    };
+
     std::ranges::sort(newCaptureDevices, [] (auto& first, auto& second) -> bool {
         return first.isDefault() && !second.isDefault();
     });
+    if (m_captureDevices)
+        deviceListChanged = isDifferentDeviceList(newCaptureDevices, *m_captureDevices);
     m_captureDevices = WTFMove(newCaptureDevices);
 
     std::ranges::sort(newSpeakerDevices, [] (auto& first, auto& second) -> bool {
         return first.isDefault() && !second.isDefault();
     });
+    if (!deviceListChanged)
+        deviceListChanged = isDifferentDeviceList(newSpeakerDevices, m_speakerDevices);
     m_speakerDevices = WTFMove(newSpeakerDevices);
 
     if (deviceListChanged && !firstTime)

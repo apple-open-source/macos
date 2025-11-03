@@ -552,8 +552,9 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (sandbox_init_with_parameters(temp.data(), flags, parameters.namedParameterVector().span().data(), &errorBuf)) {
 ALLOW_DEPRECATED_DECLARATIONS_END
         WTFLogAlways("%s: Could not initialize sandbox profile [%s], error '%s'\n", getprogname(), temp.data(), errorBuf);
-        for (size_t i = 0, count = parameters.count(); i != count; ++i)
-            WTFLogAlways("%s=%s\n", parameters.name(i), parameters.value(i));
+        for (size_t i = 0, count = parameters.count(); i != count; ++i) {
+            WTFLogAlways("%s=%s\n", parameters.name(i).characters(), parameters.value(i));
+        }
         return false;
     }
     return true;

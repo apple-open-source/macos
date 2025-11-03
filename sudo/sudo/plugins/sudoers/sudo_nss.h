@@ -23,16 +23,19 @@
 struct passwd;
 struct userspec_list;
 struct defaults_list;
+struct sudoers_context;
 
 /* XXX - parse_tree, ret_if_found and ret_if_notfound should be private */
 struct sudo_nss {
     TAILQ_ENTRY(sudo_nss) entries;
     const char *source;
-    int (*open)(struct sudo_nss *nss);
-    int (*close)(struct sudo_nss *nss);
-    struct sudoers_parse_tree *(*parse)(struct sudo_nss *nss);
-    int (*query)(struct sudo_nss *nss, struct passwd *pw);
-    int (*getdefs)(struct sudo_nss *nss);
+    int (*open)(struct sudoers_context *ctx, struct sudo_nss *nss);
+    int (*close)(struct sudoers_context *ctx, struct sudo_nss *nss);
+    struct sudoers_parse_tree *(*parse)(struct sudoers_context *ctx, const struct sudo_nss *nss);
+    int (*query)(struct sudoers_context *ctx, const struct sudo_nss *nss, struct passwd *pw);
+    int (*getdefs)(struct sudoers_context *ctx, const struct sudo_nss *nss);
+    int (*innetgr)(const struct sudo_nss *nss, const char *netgr,
+	const char *host, const char *user, const char *domain);
     void *handle;
     struct sudoers_parse_tree *parse_tree;
     bool ret_if_found;
@@ -42,6 +45,6 @@ struct sudo_nss {
 TAILQ_HEAD(sudo_nss_list, sudo_nss);
 
 struct sudo_nss_list *sudo_read_nss(void);
-bool sudo_nss_can_continue(struct sudo_nss *nss, int match);
+bool sudo_nss_can_continue(const struct sudo_nss *nss, int match);
 
 #endif /* SUDOERS_NSS_H */

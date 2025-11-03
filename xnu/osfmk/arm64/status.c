@@ -2142,9 +2142,7 @@ machine_thread_dup(thread_t self,
 	bcopy(self_neon_state, target_neon_state, sizeof(*target_neon_state));
 
 #if HAVE_MACHINE_THREAD_MATRIX_STATE
-	if (self->machine.umatrix_hdr) {
-		machine_thread_matrix_state_dup(target);
-	}
+	machine_thread_matrix_state_dup(target);
 #endif
 
 	return KERN_SUCCESS;

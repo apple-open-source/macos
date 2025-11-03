@@ -143,7 +143,6 @@ osfmk/kern/exclaves_storage.c		standard
 osfmk/kern/exclaves_tests.c		standard
 osfmk/kern/exclaves_upcalls.c		standard
 osfmk/kern/exclaves_xnuproxy.c		standard
-./kern/exclaves.tightbeam.c			optional config_exclaves
 osfmk/kern/extmod_statistics.c		standard
 osfmk/kern/host.c			standard
 osfmk/kern/host_notify.c		standard
@@ -225,6 +224,7 @@ osfmk/kern/copyout_shim.c	optional copyout_shim
 osfmk/kern/task_ident.c     standard
 osfmk/kern/socd_client.c   	standard
 osfmk/kern/iotrace.c		optional config_iotrace
+osfmk/kern/epoch_sync.c		optional config_exclaves
 
 ./mach/clock_server.c			standard
 ./mach/clock_reply_user.c		standard
@@ -314,6 +314,8 @@ osfmk/vm/vm_pmap.c			standard
 osfmk/vm/vm_purgeable.c			standard
 osfmk/vm/vm_reclaim.c			optional config_deferred_reclaim
 osfmk/vm/vm_resident.c			standard
+osfmk/vm/vm_mteinfo.c			standard
+osfmk/vm/vm_mte_tests.c         optional config_xnupost
 osfmk/vm/vm_shared_region.c		standard
 osfmk/vm/vm_shared_region_pager.c	standard
 osfmk/vm/vm_dyld_pager.c		standard

@@ -646,7 +646,9 @@ ip6_ifstats(char *ifname)
 	printf("ip6 on %s:\n", ifr.ifr_name);
 
 	if (ioctl(s, SIOCGIFSTAT_IN6, (char *)&ifr) < 0) {
-		perror("Warning: ioctl(SIOCGIFSTAT_IN6)");
+		if (vflag > 0){
+			perror("Warning: ioctl(SIOCGIFSTAT_IN6)");
+		}
 		goto end;
 	}
 
@@ -1061,7 +1063,9 @@ icmp6_ifstats(char *ifname)
 	printf("icmp6 on %s:\n", ifr.ifr_name);
 
 	if (ioctl(s, SIOCGIFSTAT_ICMP6, (char *)&ifr) < 0) {
-		perror("Warning: ioctl(SIOCGIFSTAT_ICMP6)");
+		if (vflag > 0) {
+			perror("Warning: ioctl(SIOCGIFSTAT_ICMP6)");
+		}
 		goto end;
 	}
 

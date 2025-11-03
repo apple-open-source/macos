@@ -120,15 +120,39 @@ const_sme_za(const void *addr)
 }
 
 static inline uint8_t *
-sme_z(void *addr)
+sme_zt0(void *addr)
 {
 	return sme_za(addr) + sme_za_size();
 }
 
 static inline const uint8_t *
-const_sme_z(const void *addr)
+const_sme_zt0(const void *addr)
 {
 	return const_sme_za(addr) + sme_za_size();
+}
+
+static inline uint8_t *
+sme_tpidr2_el0(void *addr)
+{
+	return sme_zt0(addr) + sme_zt0_size();
+}
+
+static inline const uint8_t *
+const_sme_tpidr2_el0(const void *addr)
+{
+	return const_sme_zt0(addr) + sme_zt0_size();
+}
+
+static inline uint8_t *
+sme_z(void *addr)
+{
+	return sme_tpidr2_el0(addr) + sizeof(uint64_t);
+}
+
+static inline const uint8_t *
+const_sme_z(const void *addr)
+{
+	return const_sme_tpidr2_el0(addr) + sizeof(uint64_t);
 }
 
 static inline uint8_t *
@@ -143,35 +167,29 @@ const_sme_p(const void *addr)
 	return const_sme_z(addr) + sme_z_size();
 }
 
-static inline uint8_t *
-sme_zt0(void *addr)
-{
-	return sme_p(addr) + sme_p_size();
-}
-
-static inline const uint8_t *
-const_sme_zt0(const void *addr)
-{
-	return const_sme_p(addr) + sme_p_size();
-}
-
 static size_t
 sme_data_size(void)
 {
-	return sme_za_size() + sme_z_size() + sme_p_size() + sme_zt0_size() + sme_tpidr2_size();
+	return sme_za_size() + sme_zt0_size() + sme_tpidr2_size() + sme_z_size() + sme_p_size();
+}
+
+static size_t
+sme_za_data_size(void)
+{
+	return sme_za_size() + sme_zt0_size() + sme_tpidr2_size();
 }
 
 static inline void
 set_sme_tpidr2_el0(void *addr, uint64_t val)
 {
-	uint64_t *ptr = (uint64_t *)(sme_zt0(addr) + sme_zt0_size());
+	uint64_t *ptr = (uint64_t *)(sme_tpidr2_el0(addr));
 	*ptr = val;
 }
 
 static inline uint64_t
 get_sme_tpidr2_el0(const void *addr)
 {
-	const uint64_t *ptr = (const uint64_t *)(const_sme_zt0(addr) + sme_zt0_size());
+	const uint64_t *ptr = (const uint64_t *)(const_sme_tpidr2_el0(addr));
 	return *ptr;
 }
 
@@ -179,6 +197,12 @@ static void *
 sme_alloc_data(void)
 {
 	return malloc(sme_data_size());
+}
+
+static void *
+sme_za_alloc_data(void)
+{
+	return malloc(sme_za_data_size());
 }
 
 static bool
@@ -194,9 +218,21 @@ sme_start(void)
 }
 
 static void
+sme_za_start(void)
+{
+	asm volatile ("smstart za");
+}
+
+static void
 sme_stop(void)
 {
 	asm volatile ("smstop");
+}
+
+static void
+sme_za_stop(void)
+{
+	asm volatile ("smstop za");
 }
 
 static void
@@ -212,11 +248,9 @@ sme_load_one_vector(const void *addr)
 }
 
 static void
-sme_load_data(const void *addr)
+sme_za_load_data(const void *addr)
 {
 	const uint8_t *za = const_sme_za(addr);
-	const uint8_t *z = const_sme_z(addr);
-	const uint8_t *p = const_sme_p(addr);
 	uint16_t svl_b = arm_sme_svl_b();
 
 	for (register uint16_t i asm("w12") = 0; i < svl_b; i += 16) {
@@ -242,6 +276,26 @@ sme_load_data(const void *addr)
                           [addr] "r"(za + (i * svl_b))
                 );
 	}
+
+	if (sme_zt0_size()) {
+		const uint8_t *zt0 = const_sme_zt0(addr);
+		asm volatile (
+                        "ldr	zt0, [%[zt0]]"
+                        :
+                        : [zt0] "r"(zt0)
+                );
+	}
+
+	__builtin_arm_wsr64("TPIDR2_EL0", get_sme_tpidr2_el0(addr));
+}
+
+static void
+sme_load_data(const void *addr)
+{
+	const uint8_t *z = const_sme_z(addr);
+	const uint8_t *p = const_sme_p(addr);
+
+	sme_za_load_data(addr);
 
 	asm volatile (
                 "ldr    z0, [%[z],   #0, mul vl]"        "\n"
@@ -300,25 +354,12 @@ sme_load_data(const void *addr)
                 :
                 : [p] "r"(p)
         );
-
-	if (sme_zt0_size()) {
-		const uint8_t *zt0 = const_sme_zt0(addr);
-		asm volatile (
-                        "ldr	zt0, [%[zt0]]"
-                        :
-                        : [zt0] "r"(zt0)
-                );
-	}
-
-	__builtin_arm_wsr64("TPIDR2_EL0", get_sme_tpidr2_el0(addr));
 }
 
 static void
-sme_store_data(void *addr)
+sme_za_store_data(void *addr)
 {
 	uint8_t *za = sme_za(addr);
-	uint8_t *z = sme_z(addr);
-	uint8_t *p = sme_p(addr);
 	uint16_t svl_b = arm_sme_svl_b();
 
 	for (register uint16_t i asm("w12") = 0; i < svl_b; i += 16) {
@@ -344,6 +385,26 @@ sme_store_data(void *addr)
                           [addr] "r"(za + (i * svl_b))
                 );
 	}
+
+	if (sme_zt0_size()) {
+		uint8_t *zt0 = sme_zt0(addr);
+		asm volatile (
+                        "str	zt0, [%[zt0]]"
+                        :
+                        : [zt0] "r"(zt0)
+                );
+	}
+
+	set_sme_tpidr2_el0(addr, __builtin_arm_rsr64("TPIDR2_EL0"));
+}
+
+static void
+sme_store_data(void *addr)
+{
+	uint8_t *z = sme_z(addr);
+	uint8_t *p = sme_p(addr);
+
+	sme_za_store_data(addr);
 
 	asm volatile (
                 "str    z0, [%[z],   #0, mul vl]"        "\n"
@@ -402,17 +463,6 @@ sme_store_data(void *addr)
                 :
                 : [p] "r"(p)
         );
-
-	if (sme_zt0_size()) {
-		uint8_t *zt0 = sme_zt0(addr);
-		asm volatile (
-                        "str	zt0, [%[zt0]]"
-                        :
-                        : [zt0] "r"(zt0)
-                );
-	}
-
-	set_sme_tpidr2_el0(addr, __builtin_arm_rsr64("TPIDR2_EL0"));
 }
 
 static kern_return_t
@@ -580,4 +630,22 @@ const struct arm_matrix_operations sme_operations = {
 
 	.thread_get_state = sme_thread_get_state,
 	.thread_set_state = sme_thread_set_state,
+};
+
+const struct arm_matrix_operations sme_za_operations = {
+	.name = "SME (SVCR.ZA only)",
+
+	.data_size = sme_za_data_size,
+	.alloc_data = sme_za_alloc_data,
+
+	.is_available = sme_is_available,
+	.start = sme_za_start,
+	.stop = sme_za_stop,
+
+	.load_one_vector = NULL, /* currently unused */
+	.load_data = sme_za_load_data,
+	.store_data = sme_za_store_data,
+
+	.thread_get_state = NULL, /* currently unused */
+	.thread_set_state = NULL, /* currently unused */
 };

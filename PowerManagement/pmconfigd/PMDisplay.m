@@ -37,6 +37,8 @@
 #include "PMDisplay.h"
 #include "SystemLoad.h"
 #include "PMConnection.h"
+#define DONATE_DISPLAY_RESOURCE_HINT 0
+
 
 #include "PMAssertions.h"
 
@@ -51,6 +53,19 @@ bool gDisplayOn = false;
 bool gSLConnectionInitialized = false;
 pid_t gSLPid = -1;
 dispatch_source_t gSLExit = 0;
+
+#if DONATE_DISPLAY_RESOURCE_HINT
+static ResourceHint *displayResourceHint;
+
+// Helper function to update display ResourceHint state
+static void updateDisplayResourceHint(DisplayResourceState state) {
+    if (!displayResourceHint) {
+        displayResourceHint = [[ResourceHint alloc] initWithResourceType:kResourceHintDisplay andState:state];
+    } else {
+        [displayResourceHint updateState:state];
+    }
+}
+#endif
 
 enum {
     kPMClamshellOpen          = 1,
@@ -100,6 +115,10 @@ __private_extern__ void dimDisplay(void)
 
 __private_extern__ void unblankDisplay(void)
 {
+#if DONATE_DISPLAY_RESOURCE_HINT
+    // Optimistically set ResourceHint to active when unblank is requested
+    updateDisplayResourceHint(kResourceHintDisplayActiveOn);
+#endif
     requestDisplayState(kDisplaysUnblank, -1);
 }
 
@@ -390,6 +409,13 @@ void handleSkylightNotification(void *dict)
                 int error_code = [error[kSLSDisplayControlNotificationErrorCode] intValue];
                 NSString *error_desc = error[kSLSDisplayControlNotificationErrorDescription];
                 ERROR_LOG("Display request %llu failed with error code %d description: %@", uuid, error_code, error_desc);
+
+#if DONATE_DISPLAY_RESOURCE_HINT
+                // If this was an unblank request that failed and display is still off, revert ResourceHint
+                if (!gDisplayOn) {
+                    updateDisplayResourceHint(kResourceHintDisplayOff);
+                }
+#endif
             }
             break;
             
@@ -399,6 +425,13 @@ void handleSkylightNotification(void *dict)
                 int error_code = [ns_dict[kSLSDisplayControlNotificationErrorCode] intValue];
                 NSString *error_desc = ns_dict[kSLSDisplayControlNotificationErrorDescription];
                 ERROR_LOG("Display request %llu failed with xpc erro code %d description: %@", uuid, error_code, error_desc);
+
+#if DONATE_DISPLAY_RESOURCE_HINT
+                // If this was an unblank request that failed and display is still off, revert ResourceHint
+                if (!gDisplayOn) {
+                    updateDisplayResourceHint(kResourceHintDisplayOff);
+                }
+#endif
             }
             break;
             
@@ -614,6 +647,11 @@ void displayStateDidChange(uint64_t state)
         return;
     }
     gDisplayOn = display_on;
+#if DONATE_DISPLAY_RESOURCE_HINT
+    // Update ResourceHint to match actual display state
+    DisplayResourceState displayState = gDisplayOn ? kResourceHintDisplayActiveOn : kResourceHintDisplayOff;
+    updateDisplayResourceHint(displayState);
+#endif
     SystemLoadDisplayPowerStateHasChanged(!gDisplayOn);
     logASLDisplayStateChange();
 

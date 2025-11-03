@@ -46,7 +46,6 @@
 #import <Foundation/Foundation.h>
 
 extern NSString * const kMBCBoardStyle;
-extern NSString * const kMBCListenForMoves;
 extern NSString * const kMBCPieceStyle;
 extern NSString * const kMBCNewGamePlayers;
 extern NSString * const kMBCNewGameVariant;

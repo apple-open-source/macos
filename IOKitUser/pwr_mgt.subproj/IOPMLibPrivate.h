@@ -768,6 +768,20 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 
 #define kIOPMAssertionProcessingHotPlug                     CFSTR("ProcessingHotPlug")
 
+/*!
+ * @define          kIOPMAssertionSensorsActive
+ *
+ * @abstract        The CFDictionary key in assertion info dictionary for enabling WindowServer to hold off sleep
+ *                  when sensors are active
+ *
+ * @discussion      The value for this key will be a CFBooleanRef, with value <code>kCFBooleanTrue</code>
+ *                  This property is valid only for assertion <code>@link kIOPMAssertionTypePreventSystemSleep @/link</code>
+ *                  and should be used only by WindowServer. When an assertion with this property is created the device will
+ *                  not sleep on lid close.
+ */
+
+#define kIOPMAssertionSensorsActive                     CFSTR("SensorsActive")
+
 /*
  * Resource strings that can be used with kIOPMAssertionResourcesUsed key.
  */

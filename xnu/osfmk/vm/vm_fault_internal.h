@@ -103,7 +103,7 @@ extern kern_return_t vm_fault_enter(
 	boolean_t wired,
 	vm_tag_t  wire_tag,             /* if wiring must pass tag != VM_KERN_MEMORY_NONE */
 	vm_object_fault_info_t fault_info,
-	boolean_t *need_retry,
+	bool *need_retry,
 	int *type_of_fault,
 	uint8_t *object_lock_type,
 	bool *page_sleep_needed);

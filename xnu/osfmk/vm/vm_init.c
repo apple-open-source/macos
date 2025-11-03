@@ -76,6 +76,9 @@
 #include <vm/memory_object.h>
 #include <vm/vm_fault_xnu.h>
 #include <vm/vm_init_xnu.h>
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#endif /* HAS_MTE */
 
 #include <pexpert/pexpert.h>
 

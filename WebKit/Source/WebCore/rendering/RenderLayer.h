@@ -143,11 +143,12 @@ enum class ShouldAllowCrossOriginScrolling : bool { No, Yes };
 
 struct ScrollRectToVisibleOptions {
     SelectionRevealMode revealMode { SelectionRevealMode::Reveal };
-    const ScrollAlignment& alignX { ScrollAlignment::alignCenterIfNeeded };
-    const ScrollAlignment& alignY { ScrollAlignment::alignCenterIfNeeded };
+    ScrollAlignment alignX { ScrollAlignment::alignCenterIfNeeded };
+    ScrollAlignment alignY { ScrollAlignment::alignCenterIfNeeded };
     ShouldAllowCrossOriginScrolling shouldAllowCrossOriginScrolling { ShouldAllowCrossOriginScrolling::No };
     ScrollBehavior behavior { ScrollBehavior::Auto };
     OnlyAllowForwardScrolling onlyAllowForwardScrolling { OnlyAllowForwardScrolling::No };
+    AllowScrollingOverflowHidden allowScrollingOverflowHidden { AllowScrollingOverflowHidden::Yes };
     std::optional<LayoutRect> visibilityCheckRect { std::nullopt };
 };
 
@@ -503,7 +504,7 @@ public:
     void updateScrollbarSteps();
 
     // Returns true if this RenderLayer is a candidate for scrolling during scrollIntoView operations.
-    bool shouldTryToScrollForScrollIntoView() const;
+    bool shouldTryToScrollForScrollIntoView(const ScrollRectToVisibleOptions&) const;
     void autoscroll(const IntPoint&);
 
     bool canResize() const;
@@ -565,6 +566,8 @@ public:
     
     void setBehavesAsFixed(bool);
     bool behavesAsFixed() const { return m_behavesAsFixed; }
+
+    bool behavesAsSticky() const { return m_hasStickyAncestor || renderer().isStickilyPositioned(); }
 
     struct PaintedContentRequest {
         PaintedContentRequest() = default;
@@ -819,9 +822,9 @@ public:
     bool hasTransformedAncestor() const { return m_hasTransformedAncestor; }
     bool participatesInPreserve3D() const;
 
-    std::optional<LayoutSize> snapshottedScrollOffsetForAnchorPositioning() const { return m_snapshottedScrollOffsetForAnchorPositioning; };
-    void setSnapshottedScrollOffsetForAnchorPositioning(LayoutSize);
-    void clearSnapshottedScrollOffsetForAnchorPositioning();
+    std::optional<LayoutSize> anchorScrollAdjustment() const { return m_anchorScrollAdjustment; };
+    bool setAnchorScrollAdjustment(LayoutSize); // Returns true if changed.
+    void clearAnchorScrollAdjustment();
 
     bool hasFixedContainingBlockAncestor() const { return m_hasFixedContainingBlockAncestor; }
 
@@ -1446,7 +1449,7 @@ private:
     // If the RenderLayer contains an anchor-positioned box, this is the "default scroll shift"
     // for scroll compensation purpose. This offset aligns the anchor-positioned box with the anchor
     // after scroll, and is applied as a transform.
-    std::optional<LayoutSize> m_snapshottedScrollOffsetForAnchorPositioning;
+    std::optional<LayoutSize> m_anchorScrollAdjustment;
 
     // May ultimately be extended to many replicas (with their own paint order).
     RenderPtr<RenderReplica> m_reflection;

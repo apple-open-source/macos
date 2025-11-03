@@ -5,7 +5,8 @@
 #include <stdlib.h>
 #include "sanitizer/asan_interface.h"
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_NOT_PREFERRED);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE);
 
 T_DECL(asan_sanity, "ASan Sanity Check", T_META_CHECK_LEAKS(NO))
 {

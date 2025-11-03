@@ -59,6 +59,120 @@
 
 static const NSTimeInterval DefaultWatchdogTimerInterval = 1;
 
+@interface WKFullScreenPlaceholderView : WebCoreFullScreenPlaceholderView <NSScrollViewSeparatorTrackingAdapter>
+
+@end
+
+@implementation WKFullScreenPlaceholderView {
+#if HAVE(LIQUID_GLASS)
+    RetainPtr<NSScrollPocket> _scrollPocket;
+    RetainPtr<NSHashTable<NSView *>> _scrollPocketContainers;
+#endif
+    WebCore::FloatBoxExtent _obscuredContentInsets;
+}
+
+- (NSRect)scrollViewFrame
+{
+    WebCore::FloatRect boundsAdjustedByHorizontalInsets = self.bounds;
+    boundsAdjustedByHorizontalInsets.shiftXEdgeBy(_obscuredContentInsets.left());
+    boundsAdjustedByHorizontalInsets.shiftMaxXEdgeBy(-_obscuredContentInsets.right());
+    return [self convertRect:boundsAdjustedByHorizontalInsets toView:nil];
+}
+
+- (BOOL)hasScrolledContentsUnderTitlebar
+{
+    return NO;
+}
+
+#if HAVE(LIQUID_GLASS)
+
+- (void)setTopScrollPocket:(NSScrollPocket *)scrollPocket obscuredContentInsets:(const WebCore::FloatBoxExtent&)obscuredContentInsets
+{
+    _scrollPocket = scrollPocket;
+    if (!_scrollPocket)
+        return;
+
+    _scrollPocketContainers = [NSHashTable<NSView *> weakObjectsHashTable];
+    _obscuredContentInsets = obscuredContentInsets;
+    [self _recomputeScrollPocketFrame];
+    [self addSubview:_scrollPocket.get()];
+}
+
+- (void)setFrame:(NSRect)frame
+{
+    super.frame = frame;
+
+    [self _recomputeScrollPocketFrame];
+}
+
+- (void)setBounds:(NSRect)bounds
+{
+    super.bounds = bounds;
+
+    [self _recomputeScrollPocketFrame];
+}
+
+- (void)setFrameSize:(NSSize)newSize
+{
+    super.frameSize = newSize;
+
+    [self _recomputeScrollPocketFrame];
+}
+
+- (void)setBoundsSize:(NSSize)newSize
+{
+    super.boundsSize = newSize;
+
+    [self _recomputeScrollPocketFrame];
+}
+
+- (void)_recomputeScrollPocketFrame
+{
+    [_scrollPocket setFrame:NSMakeRect(0, NSHeight(self.bounds) - _obscuredContentInsets.top(), NSWidth(self.bounds), _obscuredContentInsets.top())];
+}
+
+- (BOOL)scrollViewDrawsMagicPocket
+{
+    return !!_scrollPocket;
+}
+
+- (void)registerPocketContainer:(NSView *)container onEdge:(NSScrollPocketEdge)edge
+{
+    if (edge != NSScrollPocketEdgeTop)
+        return;
+
+    if (!container)
+        return;
+
+    if ([_scrollPocketContainers containsObject:container])
+        return;
+
+    if (!_scrollPocketContainers)
+        _scrollPocketContainers = [NSHashTable<NSView *> weakObjectsHashTable];
+
+    [_scrollPocketContainers addObject:container];
+    [_scrollPocket addElementContainer:container];
+}
+
+- (void)unregisterPocketContainer:(NSView *)container onEdge:(NSScrollPocketEdge)edge
+{
+    if (edge != NSScrollPocketEdgeTop)
+        return;
+
+    if (!container)
+        return;
+
+    if (![_scrollPocketContainers containsObject:container])
+        return;
+
+    [_scrollPocketContainers removeObject:container];
+    [_scrollPocket removeElementContainer:container];
+}
+
+#endif // HAVE(LIQUID_GLASS)
+
+@end
+
 @interface WKFullScreenWindowController (VideoPresentationManagerProxyClient)
 - (void)didEnterPictureInPicture;
 - (void)didExitPictureInPicture;
@@ -111,7 +225,7 @@ static void makeResponderFirstResponderIfDescendantOfView(NSWindow *window, NSRe
 
 #pragma mark -
 #pragma mark Initialization
-- (id)initWithWindow:(NSWindow *)window webView:(NSView *)webView page:(std::reference_wrapper<WebKit::WebPageProxy>)pageWrapper
+- (instancetype)initWithWindow:(NSWindow *)window webView:(WKWebView *)webView page:(std::reference_wrapper<WebKit::WebPageProxy>)pageWrapper
 {
     self = [super initWithWindow:window];
     if (!self)
@@ -185,7 +299,7 @@ static void makeResponderFirstResponderIfDescendantOfView(NSWindow *window, NSRe
         || _fullScreenState == InFullScreen;
 }
 
-- (WebCoreFullScreenPlaceholderView*)webViewPlaceholder
+- (WebCoreFullScreenPlaceholderView *)webViewPlaceholder
 {
     return _webViewPlaceholder.get();
 }
@@ -280,6 +394,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RefPtr page = _page.get();
     page->startDeferringResizeEvents();
     page->startDeferringScrollEvents();
+#if HAVE(LIQUID_GLASS)
+    RetainPtr scrollPocketForPlaceholder = [_webView _copyTopScrollPocket];
+#endif
     _savedObscuredContentInsets = page->obscuredContentInsets();
     page->setObscuredContentInsets({ });
     [[self window] setFrame:screenFrame display:NO];
@@ -292,11 +409,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     // Swap the webView placeholder into place.
     if (!_webViewPlaceholder)
-        _webViewPlaceholder = adoptNS([[WebCoreFullScreenPlaceholderView alloc] initWithFrame:[_webView frame]]);
+        _webViewPlaceholder = adoptNS([[WKFullScreenPlaceholderView alloc] initWithFrame:[_webView frame]]);
     [_webViewPlaceholder setTarget:nil];
     [_webViewPlaceholder setContents:(__bridge id)webViewContents.get()];
     [self _saveConstraintsOf:[_webView superview]];
     [self _replaceView:_webView.get().get() with:_webViewPlaceholder.get()];
+#if HAVE(LIQUID_GLASS)
+    [_webViewPlaceholder setTopScrollPocket:scrollPocketForPlaceholder.get() obscuredContentInsets:_savedObscuredContentInsets];
+    [[_webViewPlaceholder window] registerScrollViewSeparatorTrackingAdapter:_webViewPlaceholder.get()];
+#endif
     
     // Then insert the WebView into the full screen window
     RetainPtr contentView = [[self window] contentView];
@@ -648,6 +769,9 @@ static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captu
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
 
+#if HAVE(LIQUID_GLASS)
+    [[_webViewPlaceholder window] unregisterScrollViewSeparatorTrackingAdapter:_webViewPlaceholder.get()];
+#endif
     [_webViewPlaceholder removeFromSuperview];
     [[self window] orderOut:self];
     RetainPtr contentView = [[self window] contentView];

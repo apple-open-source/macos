@@ -1471,8 +1471,15 @@ struct  tcpstat {
 	u_int32_t       tcps_mptcp_triggered_cell;      /* Total number of times an MPTCP-connection triggered cell bringup */
 
 	u_int32_t       tcps_fin_timeout_drops;
+
+	/* RST compression statistics */
+	u_int64_t       tcps_rst_dup_suppressed;
+	u_int64_t       tcps_rst_not_suppressed;
 };
 
+#ifdef PRIVATE
+#define HAS_TCPSTAT_RST_SUPPRESSION 1
+#endif /* PRIVATE */
 
 struct tcpstat_local {
 	u_int64_t badformat;
@@ -2011,6 +2018,8 @@ __private_extern__ void tcp_update_stats_per_flow(
 
 extern void tcp_set_rto(struct tcpcb *tp);
 extern void tcp_set_pto(struct tcpcb *tp);
+
+extern bool tcp_rst_rlc_compress(void *ipgen __sized_by(ipgen_size), size_t ipgen_size, struct tcphdr *th);
 
 extern struct mem_acct *tcp_memacct;
 

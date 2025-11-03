@@ -4127,6 +4127,10 @@ NumberFormatTest::TestCurrencyIsoPluralFormat() {
         {"root", "-1.23", "USD", "-US$\\u00A01.23", "-USD\\u00A01.23", "-1.23 USD"},
         // test choice format
         {"es_AR", "1", "INR", "INR\\u00A01,00", "INR\\u00A01,00", "1,00 rupia india"},
+#if APPLE_ICU_CHANGES
+// rdar://155521176 ([Calculate]?: LT: CrystalG22G76: <spelling issue> Calculator app > Conversion - Incorrectly translated name of the Falkland Islands pound)
+        {"lt", "123", "FKP", "123,00\\u00a0FKP", "123,00\\u00a0FKP", "123,00 Folklando Sal\\u0173 svarai"},
+#endif // APPLE_ICU_CHANGES
     };
     static const UNumberFormatStyle currencyStyles[] = {
         UNUM_CURRENCY,
@@ -4814,9 +4818,9 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Guinea-Bissau Peso1.00",
         "Guinea-Bissau peso1.00",
         "Guinea-Bissau pesos1.00",
-        "Guyanaese Dollar1.00",
-        "Guyanaese dollar1.00",
-        "Guyanaese dollars1.00",
+        "Guyanese Dollar1.00",
+        "Guyanese dollar1.00",
+        "Guyanese dollars1.00",
         "HK$1.00",
         "HKD1.00",
         "HNL1.00",
@@ -5882,9 +5886,9 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Guinea-Bissau Peso random",
         "1.00 Guinea-Bissau peso random",
         "1.00 Guinea-Bissau pesos random",
-        "1.00 Guyanaese Dollar random",
-        "1.00 Guyanaese dollar random",
-        "1.00 Guyanaese dollars random",
+        "1.00 Guyanese Dollar random",
+        "1.00 Guyanese dollar random",
+        "1.00 Guyanese dollars random",
         "1.00 Haitian Gourde random",
         "1.00 Haitian gourde random",
         "1.00 Haitian gourdes random",
@@ -6573,7 +6577,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Guinean Fran1.00",
         "Guinean Syl1.00",
         "Guinea-Bissau Pes1.00",
-        "Guyanaese Dolla1.00",
+        "Guyanese Dolla1.00",
         "HK1.00",
         "HN1.00",
         "HR1.00",

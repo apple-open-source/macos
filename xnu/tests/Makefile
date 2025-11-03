@@ -50,6 +50,10 @@ OTHER_CFLAGS += --std=gnu17 -isystem $(SDKROOT)/System/Library/Frameworks/System
 OTHER_CFLAGS += -UT_NAMESPACE_PREFIX -DT_NAMESPACE_PREFIX=xnu -DT_LEAKS_DISABLE=1
 OTHER_CFLAGS += -F $(SDKROOT)/System/Library/PrivateFrameworks
 
+# IPC utils for tests that need ipc_utils.c
+IPC_UTILS = ipc/ipc_utils.c
+EXCLUDED_SOURCES += $(IPC_UTILS)
+
 ipc/%: OTHER_CFLAGS += -Wno-format-pedantic $(WERROR)
 
 
@@ -91,6 +95,7 @@ endif
 # Subsystems
 
 include ktrace/Makefile
+include signals/Makefile
 
 INCLUDED_TEST_SOURCE_DIRS += recount
 include recount/Makefile
@@ -104,8 +109,6 @@ include sched/Makefile
 
 mach_eventlink: OTHER_LDFLAGS += $(SCHED_UTILS_FLAGS)
 mach_eventlink: $(SCHED_UTILS)
-
-signal_exit_reason: CODE_SIGN_ENTITLEMENTS = signal_exit_reason.entitlements
 
 atm_diagnostic_flag: OTHER_CFLAGS += drop_priv.c
 
@@ -202,6 +205,7 @@ vm_test_mach_map: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
 vm_test_mach_map: CODE_SIGN_ENTITLEMENTS = ./vm_test_mach_map.plist
 
 OTHER_TEST_TARGETS += vm/vm_parameter_validation
+vm/vm_parameter_validation: CODE_SIGN_ENTITLEMENTS = vm/vm_parameter_validation.entitlements
 
 # vm_parameter_validation builds each arch as a separate build command
 # so we can pass architecture-specific linker flags.
@@ -228,7 +232,7 @@ VM_PARAMETER_VALIDATION_SLICES=$(addprefix $(SYMROOT)/vm/vm_parameter_validation
 
 vm/vm_parameter_validation: assets $(VM_PARAMETER_VALIDATION_SLICES)
 	$(LIPO) -create $(VM_PARAMETER_VALIDATION_SLICES) -output $(SYMROOT)/$@
-	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --entitlements $(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@
 
 $(SYMROOT)/vm/vm_parameter_validation_%: ../osfmk/tests/vm_parameter_validation.h \
                                          $(OBJROOT)/vm_parameter_validation_%_vm32_map_user.c \
@@ -296,20 +300,21 @@ exception_tests: OTHER_CFLAGS += -DENTITLED=1
 
 ipc/hardened_exceptions: excserver_protect_state exc_helpers.c
 ipc/hardened_exceptions: ipc/hardened_exceptions_entitled ipc/hardened_exceptions_entitled_debugger
-ipc/hardened_exceptions: OTHER_CFLAGS += $(OBJROOT)/excserver_protect_state.c -I $(OBJROOT)
+ipc/hardened_exceptions: $(OBJROOT)/excserver_protect_state.c
 
 ipc/hardened_exceptions_entitled: excserver_protect_state
 ipc/hardened_exceptions_entitled: CODE_SIGN_ENTITLEMENTS = entitlements/only_one_exception_port.entitlement
 ipc/hardened_exceptions_entitled: OTHER_CFLAGS += -I $(OBJROOT)
-ipc/hardened_exceptions_entitled: exc_helpers.c ipc/hardened_exceptions.c
+ipc/hardened_exceptions_entitled: exc_helpers.c ipc/hardened_exceptions.c $(OBJROOT)/excserver_protect_state.c
+	mkdir -p $(SYMROOT)/ipc
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(OTHER_CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$(filter-out $(CUSTOM_TARGETS), $^) -o $(SYMROOT)/$@
 	$(CODESIGN) --force --sign - --entitlements $(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@
 
 ipc/hardened_exceptions_entitled_debugger: excserver_protect_state
 ipc/hardened_exceptions_entitled_debugger: CODE_SIGN_ENTITLEMENTS = entitlements/only_one_exception_port_debugger.entitlement
-ipc/hardened_exceptions_entitled_debugger: OTHER_CFLAGS += -I $(OBJROOT)
-ipc/hardened_exceptions_entitled_debugger: exc_helpers.c ipc/hardened_exceptions.c
+ipc/hardened_exceptions_entitled_debugger: exc_helpers.c ipc/hardened_exceptions.c $(OBJROOT)/excserver_protect_state.c
+	mkdir -p $(SYMROOT)/ipc
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(OTHER_CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$(filter-out $(CUSTOM_TARGETS), $^) -o $(SYMROOT)/$@
 	$(CODESIGN) --force --sign -  --entitlements $(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@
@@ -348,6 +353,7 @@ ipc/sys_perf_notify_test: CODE_SIGN_ENTITLEMENTS=entitlements/sys_perf_notify_te
 ipc/port_type_policy: CODE_SIGN_ENTITLEMENTS = entitlements/port_type_policy.entitlements
 ipc/port_type_policy: OTHER_CFLAGS += -I $(OBJROOT)
 ipc/port_type_policy: ipc/port_type_policy.c
+ipc/port_type_policy: $(IPC_UTILS)
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(OTHER_CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$(filter-out $(CUSTOM_TARGETS), $^) -o $(SYMROOT)/$@
 	$(CODESIGN) --force --sign - --entitlements $(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@
@@ -464,33 +470,47 @@ install-vm_spawn_tool: vm_spawn_tool
 	mkdir -p $(INSTALLDIR)/tools
 	cp $(SYMROOT)/vm_spawn_tool $(INSTALLDIR)/tools/
 
-CUSTOM_TARGETS += imm_pinned_control_port_crasher
-CUSTOM_TARGETS += imm_pinned_control_port_crasher_3P_hardened
+CUSTOM_TARGETS += ipc/imm_pinned_control_port_crasher
+CUSTOM_TARGETS += ipc/imm_pinned_control_port_crasher_3P_hardened
 
-imm_pinned_control_port: excserver_protect
-imm_pinned_control_port: CODE_SIGN_ENTITLEMENTS = task_for_pid_entitlement.plist
-imm_pinned_control_port: OTHER_CFLAGS += $(OBJROOT)/excserver_protect.c -I $(OBJROOT)
-imm_pinned_control_port: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
-imm_pinned_control_port: imm_pinned_control_port_crasher imm_pinned_control_port_crasher_3P_hardened
+ipc/imm_pinned_control_port: excserver_protect
+ipc/imm_pinned_control_port: CODE_SIGN_ENTITLEMENTS = entitlements/imm_pinned_control_port.entitlements
+ipc/imm_pinned_control_port: OTHER_CFLAGS += $(OBJROOT)/excserver_protect.c -I $(OBJROOT)
+ipc/imm_pinned_control_port: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
+ipc/imm_pinned_control_port: ipc/imm_pinned_control_port_crasher ipc/imm_pinned_control_port_crasher_3P_hardened
 
-imm_pinned_control_port_crasher: imm_pinned_control_port_crasher.c cs_helpers.c
+ipc/imm_pinned_control_port_crasher: ipc/imm_pinned_control_port_crasher.c cs_helpers.c
+	mkdir -p $(SYMROOT)/ipc
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$^ -o $(SYMROOT)/$@
 	$(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@
 
-imm_pinned_control_port_crasher_3P_hardened: CODE_SIGN_ENTITLEMENTS = entitlements/enhanced-security-binary-entitlements-1.plist
-imm_pinned_control_port_crasher_3P_hardened: imm_pinned_control_port_crasher.c cs_helpers.c
+ipc/imm_pinned_control_port_crasher_3P_hardened: CODE_SIGN_ENTITLEMENTS = entitlements/enhanced-security-binary-entitlements-1.plist
+ipc/imm_pinned_control_port_crasher_3P_hardened: ipc/imm_pinned_control_port_crasher.c cs_helpers.c
+	mkdir -p $(SYMROOT)/ipc
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$^ -o $(SYMROOT)/$@
 	$(CODESIGN) --force --sign - --entitlements $(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@
 
-install-imm_pinned_control_port_crasher: imm_pinned_control_port_crasher
-	mkdir -p $(INSTALLDIR)
-	cp $(SYMROOT)/$^ $(INSTALLDIR)/
+install-ipc/imm_pinned_control_port: ipc/imm_pinned_control_port
+	mkdir -p $(INSTALLDIR)/ipc
+	cp $(SYMROOT)/$< $(INSTALLDIR)/ipc/
 
-install-imm_pinned_control_port_crasher_3P_hardened: imm_pinned_control_port_crasher_3P_hardened
-	mkdir -p $(INSTALLDIR)
-	cp $(SYMROOT)/$^ $(INSTALLDIR)/
+install-ipc/imm_pinned_control_port_crasher: ipc/imm_pinned_control_port_crasher
+	mkdir -p $(INSTALLDIR)/ipc
+	cp $(SYMROOT)/$< $(INSTALLDIR)/ipc/
+
+install-ipc/imm_pinned_control_port_crasher_3P_hardened: ipc/imm_pinned_control_port_crasher_3P_hardened
+	mkdir -p $(INSTALLDIR)/ipc
+	cp $(SYMROOT)/$< $(INSTALLDIR)/ipc/
+
+# Allow this test to pull {TASK, THREAD}_KERNEL_PORT via get-movable-control-port
+ipc/imm_pinned_control_port_entitled: CODE_SIGN_ENTITLEMENTS = task_for_pid_entitlement.plist
+ipc/imm_pinned_control_port_entitled: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
+
+install-ipc/imm_pinned_control_port_entitled: ipc/imm_pinned_control_port_entitled
+	mkdir -p $(INSTALLDIR)/ipc
+	cp $(SYMROOT)/$< $(INSTALLDIR)/ipc/
 
 CUSTOM_TARGETS += reply_port_defense_client
 CUSTOM_TARGETS += reply_port_defense_client_3P_hardened
@@ -500,6 +520,7 @@ reply_port_defense: OTHER_CFLAGS += $(OBJROOT)/excserver_protect_state.c -I $(OB
 reply_port_defense: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
 reply_port_defense: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
 reply_port_defense: reply_port_defense_client reply_port_defense_client_3P_hardened
+reply_port_defense: $(IPC_UTILS)
 
 reply_port_defense_client: CODE_SIGN_ENTITLEMENTS=exception_tests.entitlements
 reply_port_defense_client: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
@@ -1040,9 +1061,28 @@ sendmsg_test: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 
 network_elevated_logging: CODE_SIGN_ENTITLEMENTS = entitlements/network_elevated_logging.entitlements
 
+rvi_doublefree: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
 ipc/platform_restrictions_entitlements: CODE_SIGN_ENTITLEMENTS = entitlements/platform-restrictions.plist
 
 ipc/tpro_entitlements: CODE_SIGN_ENTITLEMENTS = entitlements/tpro.plist
+
+EXCLUDED_SOURCES += ipc/control_port_movability_common.c
+
+ipc/entitled_control_port_movability: CODE_SIGN_ENTITLEMENTS = entitlements/entitled_control_port_movability.entitlements
+ipc/entitled_control_port_movability: ipc/control_port_movability_common.c
+ipc/entitled_control_port_movability: $(IPC_UTILS)
+
+
+ifeq ($(PLATFORM),MacOSX)
+
+ipc/rosetta_control_port_movability: INVALID_ARCHS = arm64 arm64e arm
+ipc/rosetta_control_port_movability: ipc/control_port_movability_common.c $(IPC_UTILS)
+
+else
+EXCLUDED_SOURCES += ipc/rosetta_control_port_movability.c
+endif
+
 
 CUSTOM_TARGETS += posix_spawn_archpref_helper
 
@@ -1184,6 +1224,199 @@ arm_matrix: excserver exc_helpers.c arm_matrix_sme.c
 arm_matrix: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT) -Wno-language-extension-token -Wno-c++98-compat -mcpu=firestorm+nofp+sme2
 arm_matrix: CODE_SIGN_ENTITLEMENTS = arm_matrix.entitlements
 
+MTE_CFLAGS = -march=armv8.5a+memtag -Wno-declaration-after-statement -Wno-format-pedantic -Wno-language-extension-token
+
+arm_mte: arm_mte_spawn_client_with_hardened_process_entitlement arm_mte_spawn_client_without_hardened_process_entitlement arm_mte_utilities.c
+arm_mte: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte: OTHER_LDFLAGS += -ldarwintest_utils
+arm_mte: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+
+proc_core_name_mte: proc_core_name_mte.c
+proc_core_name_mte: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+proc_core_name_mte: OTHER_CFLAGS += $(MTE_CFLAGS)
+proc_core_name_mte: OTHER_LDFLAGS += -ldarwintest_utils
+proc_core_name_mte: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+
+
+arm_mte_compress: arm_mte_utilities.c
+arm_mte_compress: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_compress: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_compress: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+
+arm_mte_unentitled: arm_mte_utilities.c arm_mte_debugger_helper
+arm_mte_unentitled: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_unentitled: OTHER_CFLAGS += $(MTE_CFLAGS)
+
+arm_mte_stress: arm_mte_utilities.c
+arm_mte_stress: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_stress: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_stress: OTHER_LDFLAGS += -ldarwintest_utils
+arm_mte_stress: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+
+EXCLUDED_SOURCES += arm_mte_debugger_helper.c
+CUSTOM_TARGETS += arm_mte_debugger_helper
+arm_mte_debugger_helper: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_debugger_helper: OTHER_CFLAGS += -march=armv8.5a+memtag
+arm_mte_debugger_helper: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+arm_mte_debugger_helper: arm_mte_debugger_helper.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) -f -s- --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@
+
+install-arm_mte_debugger_helper: arm_mte_debugger_helper
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+arm_mte_mach_msg: arm_mte_utilities.c
+arm_mte_mach_msg: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_mach_msg: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_mach_msg: OTHER_LDFLAGS += -ldarwintest_utils
+
+arm_mte_knobs_policies: arm_mte_utilities.c
+arm_mte_knobs_policies: arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out
+arm_mte_knobs_policies: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_knobs_policies: OTHER_CFLAGS += -march=armv8.5a+memtag -Wno-declaration-after-statement -Wno-format-pedantic -Wno-language-extension-token -Wno-bad-function-cast
+arm_mte_knobs_policies: OTHER_LDFLAGS += -ldarwintest_utils
+arm_mte_knobs_policies: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+
+arm_mte_launchd: arm_mte_launchd.c
+arm_mte_launchd: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_launchd: OTHER_CFLAGS += -march=armv8.5a+memtag -Wno-declaration-after-statement -Wno-format-pedantic -Wno-language-extension-token
+arm_mte_launchd: OTHER_LDFLAGS += -ldarwintest_utils
+arm_mte_launchd: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+
+arm_mte_spawn_policies: arm_mte_utilities.c
+arm_mte_spawn_policies: arm_mte_spawn_client_without_hardened_process_entitlement
+arm_mte_spawn_policies: arm_mte_spawn_client_with_hardened_process_entitlement
+arm_mte_spawn_policies: arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out
+arm_mte_spawn_policies: arm_mte_driverkit_standin
+arm_mte_spawn_policies: arm_mte_spawn_client_with_invalid_entitlement_setting
+arm_mte_spawn_policies: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_spawn_policies: OTHER_CFLAGS += $(MTE_CFLAGS)
+
+EXCLUDED_SOURCES += arm_mte_spawn_policies_helper.c
+EXCLUDED_SOURCES += arm_mte_utilities.c
+
+CUSTOM_TARGETS += arm_mte_spawn_client_without_hardened_process_entitlement
+arm_mte_spawn_client_without_hardened_process_entitlement: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_spawn_client_without_hardened_process_entitlement: OTHER_CFLAGS += -march=armv8.5a+memtag
+arm_mte_spawn_client_without_hardened_process_entitlement: arm_mte_spawn_policies_helper.c arm_mte_utilities.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(MTE_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@
+
+CUSTOM_TARGETS += arm_mte_spawn_client_with_hardened_process_entitlement
+arm_mte_spawn_client_with_hardened_process_entitlement: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_spawn_client_with_hardened_process_entitlement: OTHER_CFLAGS += -march=armv8.5a+memtag
+arm_mte_spawn_client_with_hardened_process_entitlement: arm_mte_spawn_policies_helper.c arm_mte_utilities.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(MTE_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) -f -s- --entitlements $(SRCROOT)/entitlements/hardened-proc.entitlements $(SYMROOT)/$@
+
+CUSTOM_TARGETS += arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out
+arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out: OTHER_CFLAGS += -march=armv8.5a+memtag
+arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out: arm_mte_spawn_policies_helper.c arm_mte_utilities.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(MTE_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) -i com.apple.internal.arm_mte_opt_out_test -s- -f --entitlements $(SRCROOT)/entitlements/hardened-proc.entitlements $(SYMROOT)/$@
+
+CUSTOM_TARGETS += arm_mte_spawn_client_with_invalid_entitlement_setting
+arm_mte_spawn_client_with_invalid_entitlement_setting: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_spawn_client_with_invalid_entitlement_setting: OTHER_CFLAGS += -march=armv8.5a+memtag
+arm_mte_spawn_client_with_invalid_entitlement_setting: arm_mte_spawn_policies_helper.c arm_mte_utilities.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(MTE_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) -s- -f --entitlements $(SRCROOT)/entitlements/hardened-proc-invalid.entitlements $(SYMROOT)/$@
+
+CUSTOM_TARGETS += mte_posix_spawn_tool
+mte_posix_spawn_tool: INVALID_ARCHS = i386
+mte_posix_spawn_tool: mte_posix_spawn_tool.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) mte_posix_spawn_tool.c -o $(SYMROOT)/mte_posix_spawn_tool -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+	$(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@
+
+install-mte_posix_spawn_tool: mte_posix_spawn_tool
+	mkdir -p $(INSTALLDIR)/tools
+	cp $(SYMROOT)/mte_posix_spawn_tool $(INSTALLDIR)/tools/
+
+install-arm_mte_spawn_client_without_hardened_process_entitlement: arm_mte_spawn_client_without_hardened_process_entitlement
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+install-arm_mte_spawn_client_with_hardened_process_entitlement: arm_mte_spawn_client_with_hardened_process_entitlement
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+install-arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out: arm_mte_spawn_client_with_top_level_hardened_proc_entitlement_and_in_amfi_opt_out
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+install-arm_mte_spawn_client_with_invalid_entitlement_setting: arm_mte_spawn_client_with_invalid_entitlement_setting
+	mkdir -p $(INSTALLDIR)/tools
+	cp $(SYMROOT)/$< $(INSTALLDIR)/tools/
+
+vm/vm_mteinfo: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+vm/vm_mteinfo: OTHER_CFLAGS += -Wno-implicit-int-conversion -Wno-sign-conversion -Wno-sign-compare -Wno-format-pedantic
+
+vm/vm_mte_reclamation_withmte: arm_mte_utilities.c
+vm/vm_mte_reclamation_withmte: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+vm/vm_mte_reclamation_withmte: OTHER_CFLAGS += $(MTE_CFLAGS)
+vm/vm_mte_reclamation_withmte: OTHER_LDFLAGS += -ldarwintest_utils
+vm/vm_mte_reclamation_withmte: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+
+CODESIGN_MTE_SOFT:=$(CODESIGN) -i com.apple.internal.arm_mte_soft_mode_test
+arm_mte_soft_mode: arm_mte_utilities.c
+arm_mte_soft_mode: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_soft_mode: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_soft_mode: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+arm_mte_soft_mode: CODESIGN = $(CODESIGN_MTE_SOFT)
+
+CODESIGN_MTE_API:=$(CODESIGN) -i com.apple.internal.arm_mte_api_test
+arm_mte_api: arm_mte_utilities.c
+arm_mte_api: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_api: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_api: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+arm_mte_api: CODESIGN = $(CODESIGN_MTE_API)
+
+CUSTOM_TARGETS += arm_mte_alias_restriction
+arm_mte_alias_restriction: arm_mte_utilities.c
+arm_mte_alias_restriction: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_alias_restriction: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+arm_mte_alias_restriction: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_alias_restriction: arm_mte_alias_restriction.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(MTE_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	arm_mte_alias_restriction.c arm_mte_utilities.c -o $(SYMROOT)/$@
+	$(CODESIGN) -f -s- --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@
+
+install-arm_mte_alias_restriction: arm_mte_alias_restriction
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+CUSTOM_TARGETS += arm_mte_alias_restriction_helper
+EXCLUDED_SOURCES += arm_mte_alias_restriction_helper.c
+CODESIGN_MTE_ALIAS_RESTRICTION:=$(CODESIGN) -i com.apple.internal.arm_mte_alias_restriction_opt_in_test
+arm_mte_alias_restriction_helper: CODESIGN = $(CODESIGN_MTE_ALIAS_RESTRICTION)
+arm_mte_alias_restriction_helper: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_alias_restriction_helper: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
+arm_mte_alias_restriction_helper: arm_mte_alias_restriction_helper.c
+
+install-arm_mte_alias_restriction_helper: arm_mte_alias_restriction_helper
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+CUSTOM_TARGETS += arm_mte_driverkit_standin
+EXCLUDED_SOURCES += arm_mte_driverkit_standin.c
+arm_mte_driverkit_standin: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_driverkit_standin: CODE_SIGN_ENTITLEMENTS = arm_mte_driverkit_standin.entitlements
+arm_mte_driverkit_standin: arm_mte_driverkit_standin.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) -f -s- --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@
+
+install-arm_mte_driverkit_standin: arm_mte_driverkit_standin
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
 
 x18_entitled: OTHER_CFLAGS += -ffixed-x18 -Wno-language-extension-token
 x18_entitled: CODE_SIGN_ENTITLEMENTS = x18-entitlements.plist
@@ -1417,6 +1650,7 @@ endif
 EXCLUDED_SOURCES += benchmark/helpers.c
 
 vm/fault_throughput: OTHER_CFLAGS += benchmark/helpers.c
+vm/fault_throughput: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
 
 .PHONY: install-vm/fault_throughput
 install-vm/fault_throughput: vm/fault_throughput
@@ -1472,6 +1706,7 @@ CUSTOM_TARGETS += manual_wq_cooperative
 BATS_PLISTS += $(SRCROOT)/vm/perf_madvise.plist
 
 vm/perf_madvise: OTHER_CFLAGS += benchmark/helpers.c
+vm/perf_madvise: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
 
 .PHONY: install-vm/perf_madvise
 install-vm/perf_madvise: vm/perf_madvise
@@ -1495,6 +1730,7 @@ BATS_PLISTS += $(SRCROOT)/vm/perf_compressor.plist
 EXCLUDED_SOURCES += vm/perf_compressor.plist
 
 vm/perf_compressor: OTHER_CFLAGS += benchmark/helpers.c
+vm/perf_compressor: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
 
 .PHONY: install-vm/perf_compressor
 install-vm/perf_compressor: vm/perf_compressor
@@ -1690,6 +1926,7 @@ iopolicy: CODE_SIGN_ENTITLEMENTS = iopolicy.entitlements
 
 INCLUDED_TEST_SOURCE_DIRS += vfs
 vfs/freeable_vnodes: OTHER_LDFLAGS += -ldarwintest_utils
+vfs/statfs_ext: OTHER_LDFLAGS += -lsandbox
 vfs/sandbox_fstat: OTHER_LDFLAGS += -lsandbox
 vfs/named_fork_path: OTHER_LDFLAGS += -lsandbox
 vfs/sandbox_type_error: OTHER_LDFLAGS += -lsandbox
@@ -1769,8 +2006,8 @@ vfs/longpaths: vfs/longpaths.c
 vfs/longpaths: OTHER_LDFLAGS += -ldarwintest_utils
 vfs/longpaths: CODE_SIGN_ENTITLEMENTS = vfs/longpaths.entitlements
 
-vfs/devfd_access: vfs/devfd_access.c
-vfs/devfd_access: CODE_SIGN_ENTITLEMENTS = vfs/devfd_access.entitlements
+vfs/devfs_fdesc: vfs/devfs_fdesc.c
+vfs/devfs_fdesc: CODE_SIGN_ENTITLEMENTS = vfs/devfs_fdesc.entitlements
 
 vfs/openbyid_stress: vfs/openbyid_stress.c
 vfs/openbyid_stress: CODE_SIGN_ENTITLEMENTS = vfs/openbyid_stress.entitlements
@@ -1803,3 +2040,6 @@ endif
 vm/memorystatus_rearm: excserver
 vm/memorystatus_rearm: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
 vm/memorystatus_rearm: CODE_SIGN_ENTITLEMENTS = vm/memorystatus_rearm.entitlements
+
+ksancov: OTHER_LDFLAGS += -framework IOKit
+ksancov: CODE_SIGN_ENTITLEMENTS = ksancov.entitlements

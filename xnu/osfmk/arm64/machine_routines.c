@@ -209,6 +209,9 @@ static const struct vm_reserved_region vm_reserved_regions[] = {
 
 uint32_t get_arm_cpu_version(void);
 
+#if HAS_MTE
+static uint64_t arm_mte_random_rgsr_el1_seed(void);
+#endif
 
 #if defined(HAS_IPI)
 static inline void
@@ -1700,6 +1703,18 @@ ml_processor_register(ml_processor_info_t *in_processor_info,
 	this_cpu_datap->cpm_reg_paddr = topology_info.clusters[cluster_id].cpm_IMPL_pa;
 #endif
 
+#if HAS_MTE
+	/*
+	 * To avoid predictable allocation tags, we want to initialize
+	 * RGSR_EL1.SEED as early as possible.  Unfortunately this happens
+	 * too early during secondary CPU startup to safely use the
+	 * corecrypto-backed PRNG.  So the primary CPU will generate
+	 * the seeds on their behalf.
+	 */
+	if (!is_boot_cpu) {
+		this_cpu_datap->mte_rgsr_el1_seed = arm_mte_random_rgsr_el1_seed();
+	}
+#endif
 
 	if (!is_boot_cpu) {
 		random_cpu_init(this_cpu_datap->cpu_number);
@@ -2220,7 +2235,11 @@ ml_nofault_copy(vm_offset_t virtsrc, vm_offset_t virtdst, vm_size_t size)
 			count = size;
 		}
 
+#if HAS_MTE
+		bcopy_phys_with_options(cur_phys_src, cur_phys_dst, count, cppvDisableTagCheck);
+#else /* HAS_MTE */
 		bcopy_phys(cur_phys_src, cur_phys_dst, count);
+#endif /* HAS_MTE */
 
 		nbytes += count;
 		virtsrc += count;
@@ -3141,6 +3160,65 @@ ml_panic_on_invalid_new_cpsr(const arm_saved_state_t *ss, uint32_t cpsr)
 	panic("attempt to set non-user CPSR %#010x on user saved-state %p", cpsr, ss);
 }
 
+#if HAS_MTE
+
+#if APPLEVIRTUALPLATFORM
+static SECURITY_READ_ONLY_LATE(bool) have_apple_mte_tag_generator;
+#else
+static const bool have_apple_mte_tag_generator = true;
+#endif
+
+static uint64_t
+arm_mte_random_rgsr_el1_seed(void)
+{
+	uint64_t seed;
+	/*
+	 * RGSR_EL1.SEED must be non-zero.  Otherwise the LFSR used during
+	 * random tag generation will just produce an endless stream of 0 bits.
+	 */
+	do {
+		seed = early_random();
+		if (have_apple_mte_tag_generator) {
+			seed &= RGSR_EL1_SEED_RRND_1_MASK;
+			seed |= (0b111 << RGSR_EL1_SEED_OFFSET);
+		} else {
+			seed &= RGSR_EL1_SEED_RRND_0_MASK;
+		}
+	} while (seed == 0);
+	return seed;
+}
+
+void
+arm_mte_tag_generator_init(bool is_boot_cpu)
+{
+#if APPLEVIRTUALPLATFORM
+	if (is_boot_cpu) {
+		uint64_t aidr_mtever = __builtin_arm_rsr64("AIDR_EL1") & AIDR_MTEVER_MASK;
+		if (aidr_mtever == AIDR_MTEVER_V1) {
+			have_apple_mte_tag_generator = true;
+		}
+	}
+#else
+#pragma unused(is_boot_cpu)
+#endif
+
+	/*
+	 * Note: ARM guarantees that all accesses to RGSR_EL1 occur in program
+	 * order relative to other instructions.  So no barriers are needed to
+	 * ensure that the GCR_EL1 write is ordered before the RGSR_EL1 write,
+	 * or that the RGSR_EL1 write is ordered before any instructions that
+	 * use RGSR_EL1 to generate tags.
+	 */
+	if (have_apple_mte_tag_generator) {
+		uint64_t gcr_el1 = __builtin_arm_rsr64("GCR_EL1");
+		gcr_el1 |= GCR_EL1_RRND;
+		__builtin_arm_wsr64("GCR_EL1", gcr_el1);
+	}
+
+	uint64_t seed = is_boot_cpu ? arm_mte_random_rgsr_el1_seed() : getCpuDatap()->mte_rgsr_el1_seed;
+	__builtin_arm_wsr64("RGSR_EL1", seed);
+}
+#endif /* HAS_MTE */
 
 /**
  * Explicitly preallocates a floating point save area.
@@ -3164,6 +3242,42 @@ ml_task_post_signature_processing_hook(__unused task_t task)
 
 }
 
+#if HAS_MTE
+/**
+ * Gets a flag indicating whether a thread should have MTE tag access disabled,
+ * even when the current map has MTE tag access enabled.
+ *
+ * @param thread the thread to inspect
+ * @returns whether to override MTE tag access for this thread
+ */
+bool
+ml_thread_get_sec_override(thread_t thread)
+{
+	return thread->machine.sec_override;
+}
+
+/**
+ * Sets a flag on the thread to indicate that MTE tag access should be disabled,
+ * even when the current map has MTE tag access enabled.
+ *
+ * @warning This function is intended to be used by `vm_map_switch_*`, where the
+ * caller switches pmaps after setting this flag.  `ml_thread_set_sec_override`
+ * and the accompanying `pmap_switch` MUST be called together in a
+ * preemption-disabled context.
+ *
+ * @note Currently this function can only safely update current_thread().
+ *
+ * @param thread the target thread
+ * @param sec_override the new override setting
+ */
+void
+ml_thread_set_sec_override(thread_t thread, bool sec_override)
+{
+	assert(!preemption_enabled());
+	assert(thread == current_thread());
+	thread->machine.sec_override = sec_override;
+}
+#endif /* HAS_MTE */
 
 #if DEVELOPMENT || DEBUG || CONFIG_DTRACE || CONFIG_CSR_FROM_DT
 static bool SECURITY_READ_ONLY_LATE(_unsafe_kernel_text_initialized) = false;

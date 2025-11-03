@@ -951,9 +951,12 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node& node, IsPartOfRelation isP
     if (RefPtr object = get(node))
         return object.get();
 
-    CheckedPtr renderer = node.renderer();
-    if (renderer && !renderer->isYouTubeReplacement())
-        return getOrCreate(*renderer);
+    bool isYouTubeReplacement = false;
+    if (CheckedPtr renderer = node.renderer()) {
+        if (!renderer->isYouTubeReplacement()) [[likely]]
+            return getOrCreate(*renderer);
+        isYouTubeReplacement = true;
+    }
 
     RefPtr composedParent = node.parentElementInComposedTree();
     if (!composedParent)
@@ -999,7 +1002,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node& node, IsPartOfRelation isP
         bool isAreaElement = is<HTMLAreaElement>(element);
         // YouTube embeds specifically create a render hierarchy with two elements that share a renderer.
         // In this instance, we want the <embed> element to associate its node with an AX element, so we need to create one here.
-        bool replacementWillCreateRenderer = renderer && renderer->isYouTubeReplacement();
+        bool replacementWillCreateRenderer = isYouTubeReplacement;
         if (!inCanvasSubtree && !insideMeterElement && !hasDisplayContents && !isPopover && !isNodeFocused(node) && !isAreaElement && !replacementWillCreateRenderer)
             return nullptr;
     }
@@ -2042,7 +2045,7 @@ void AXObjectCache::onScrollbarFrameRectChange(const Scrollbar& scrollbar)
         return;
 
     if (RefPtr axScrollbar = get(const_cast<Scrollbar*>(&scrollbar)))
-        m_geometryManager->cacheRect(axScrollbar->objectID(), enclosingIntRect(axScrollbar->relativeFrame()));
+        std::ignore = m_geometryManager->cacheRectIfNeeded(axScrollbar->objectID(), enclosingIntRect(axScrollbar->relativeFrame()));
 #else
     UNUSED_PARAM(scrollbar);
 #endif
@@ -2070,6 +2073,19 @@ void AXObjectCache::onSelectedChanged(Element& element)
 void AXObjectCache::onSlottedContentChange(const HTMLSlotElement& slot)
 {
     childrenChanged(get(const_cast<HTMLSlotElement&>(slot)));
+}
+
+void AXObjectCache::onRadioGroupMembershipChanged(HTMLElement& radio)
+{
+    if (auto* radioElement = dynamicDowncast<HTMLInputElement>(radio)) {
+        for (auto& sibling : radioElement->radioButtonGroup()) {
+            if (sibling.ptr() == &radio)
+                continue;
+
+            if (auto* axObject = get(sibling.ptr()))
+                postNotification(axObject, &sibling->document(), AXNotification::RadioGroupMembershipChanged);
+        }
+    }
 }
 
 static bool isContentVisibilityHidden(const RenderStyle& style)
@@ -3052,12 +3068,14 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         postNotification(element, AXNotification::DisabledStateChanged);
     else if (attrName == forAttr) {
         if (RefPtr label = dynamicDowncast<HTMLLabelElement>(element)) {
-            updateLabelFor(*label);
+            bool updatedLabelFor = updateLabelFor(*label);
 
-            if (RefPtr oldControl = element->treeScope().elementByIdResolvingReferenceTarget(oldValue))
-                postNotification(oldControl.get(), AXNotification::TextChanged);
-            if (RefPtr newControl = element->treeScope().elementByIdResolvingReferenceTarget(newValue))
-                postNotification(newControl.get(), AXNotification::TextChanged);
+            if (updatedLabelFor) {
+                if (RefPtr oldControl = element->treeScope().elementByIdResolvingReferenceTarget(oldValue))
+                    postNotification(oldControl.get(), AXNotification::TextChanged);
+                if (RefPtr newControl = element->treeScope().elementByIdResolvingReferenceTarget(newValue))
+                    postNotification(newControl.get(), AXNotification::TextChanged);
+            }
         }
     } else if (attrName == requiredAttr)
         postNotification(element, AXNotification::RequiredStatusChanged);
@@ -3105,6 +3123,7 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
             if (RefPtr object = get(*element)) {
                 postNotification(*object, AXNotification::ExpandedChanged);
                 childrenChanged(object.get());
+                object->recomputeIsIgnoredForDescendants();
             }
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -3231,11 +3250,8 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         postNotification(element, AXNotification::HasPopupChanged);
     else if (attrName == aria_hiddenAttr) {
 #if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
-        if (RefPtr axObject = getOrCreate(*element)) {
-            Accessibility::enumerateDescendantsIncludingIgnored<AXCoreObject>(*axObject, /* includeSelf */ true, [] (auto& descendant) {
-                downcast<AccessibilityObject>(descendant).recomputeIsIgnored();
-            });
-        }
+        if (RefPtr axObject = getOrCreate(*element))
+            axObject->recomputeIsIgnoredForDescendants(/* includeSelf */ true);
 #else
         if (RefPtr parent = get(element->parentNode()))
             childrenChanged(parent.get());
@@ -3286,6 +3302,13 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         handleInputTypeChanged(*element);
 }
 
+static bool hasAnyARIALabelling(Element& element)
+{
+    return element.hasAttributeWithoutSynchronization(aria_labelAttr)
+        || element.hasAttributeWithoutSynchronization(aria_labelledbyAttr)
+        || element.hasAttributeWithoutSynchronization(aria_labeledbyAttr);
+}
+
 void AXObjectCache::handleLabelChanged(AccessibilityObject* object)
 {
     AXTRACE("AXObjectCache::handleLabelChanged"_s);
@@ -3293,9 +3316,11 @@ void AXObjectCache::handleLabelChanged(AccessibilityObject* object)
     if (!object)
         return;
 
+    bool updatedLabelFor = false;
     if (RefPtr label = dynamicDowncast<HTMLLabelElement>(object->element()))
-        updateLabelFor(*label);
-    else {
+        updatedLabelFor = updateLabelFor(*label);
+
+    if (!updatedLabelFor) {
         auto labeledObjects = object->labelForObjects();
         for (auto& labeledObject : labeledObjects) {
             updateLabeledBy(RefPtr { labeledObject->element() }.get());
@@ -3306,10 +3331,16 @@ void AXObjectCache::handleLabelChanged(AccessibilityObject* object)
     postNotification(object, protectedDocument().get(), AXNotification::LabelChanged);
 }
 
-void AXObjectCache::updateLabelFor(HTMLLabelElement& label)
+bool AXObjectCache::updateLabelFor(HTMLLabelElement& label)
 {
+    if (RefPtr control = Accessibility::controlForLabelElement(label)) {
+        if (hasAnyARIALabelling(*control))
+            return false;
+    }
+
     removeRelation(label, AXRelation::LabelFor);
     addLabelForRelation(label);
+    return true;
 }
 
 void AXObjectCache::updateLabeledBy(Element* element)
@@ -5106,6 +5137,9 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<Ref<AccessibilityO
         case AXNotification::IdAttributeChanged:
             tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IdentifierAttribute });
             break;
+        case AXNotification::RadioGroupMembershipChanged:
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::RadioButtonGroupMembers });
+            break;
         case AXNotification::ReadOnlyStatusChanged:
             tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::CanSetValueAttribute });
             break;
@@ -5224,14 +5258,31 @@ void AXObjectCache::onPaint(const RenderObject& renderer, IntRect&& paintRect) c
 {
     if (!m_pageID)
         return;
-    m_geometryManager->cacheRect(m_renderObjectMapping.getOptional(const_cast<RenderObject&>(renderer)), WTFMove(paintRect));
+
+    if (std::optional axID = m_renderObjectMapping.getOptional(const_cast<RenderObject&>(renderer))) {
+        bool cachedNewRect = m_geometryManager->cacheRectIfNeeded(*axID, WTFMove(paintRect));
+
+        if (cachedNewRect) {
+            auto* renderImage = dynamicDowncast<RenderImage>(renderer);
+            if (RefPtr imageMap = renderImage ? renderImage->imageMap() : nullptr) {
+                // <area> elements have no renderers and thus will never be painted themselves.
+                // If the image was repainted in a new location, the associated area elements
+                // probably need new rects cached too.
+                for (Ref area : descendantsOfType<HTMLAreaElement>(*imageMap)) {
+                    if (RefPtr areaObject = get(area.get()))
+                        std::ignore = m_geometryManager->cacheRectIfNeeded(areaObject->objectID(), snappedIntRect(LayoutRect(areaObject->relativeFrame())));
+                }
+            }
+        }
+    }
 }
 
 void AXObjectCache::onPaint(const Widget& widget, IntRect&& paintRect) const
 {
     if (!m_pageID)
         return;
-    m_geometryManager->cacheRect(m_widgetObjectMapping.getOptional(const_cast<Widget&>(widget)), WTFMove(paintRect));
+    if (std::optional axID = m_widgetObjectMapping.getOptional(const_cast<Widget&>(widget)))
+        std::ignore = m_geometryManager->cacheRectIfNeeded(*axID, WTFMove(paintRect));
 }
 
 void AXObjectCache::onPaint(const RenderText& renderText, size_t lineIndex)
@@ -5534,9 +5585,7 @@ bool AXObjectCache::addRelation(Element& origin, Element& target, AXRelation rel
 
     if (relation == AXRelation::LabelFor) {
         // Add a LabelFor relation if the target doesn't have an ARIA label which should take precedence.
-        if (target.hasAttributeWithoutSynchronization(aria_labelAttr)
-            || target.hasAttributeWithoutSynchronization(aria_labelledbyAttr)
-            || target.hasAttributeWithoutSynchronization(aria_labeledbyAttr))
+        if (hasAnyARIALabelling(target))
             return false;
     }
 

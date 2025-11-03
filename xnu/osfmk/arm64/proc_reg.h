@@ -235,6 +235,14 @@
 /* D-Cache, 128KB for AppleH16 PCore, 8-way. 64KB for ECore, 8-way. */
 #define MMU_CLINE   6                      /* cache line size is 1<<MMU_CLINE (64) */
 
+#elif defined (APPLEACC8)
+
+/* I-Cache, 192KB for Acc8 PCore, 128KB for ECore, 6-way. */
+#define MMU_I_CLINE 6                      /* cache line size as 1<<MMU_I_CLINE (64) */
+
+/* D-Cache, 128KB for Acc8 PCore, 8-way. 64KB for ECore, 8-way. */
+#define MMU_CLINE   6                      /* cache line size is 1<<MMU_CLINE (64) */
+
 #elif defined (VMAPPLE)
 
 /* I-Cache. */
@@ -556,6 +564,10 @@
  * System Control Register (SCTLR)
  */
 
+#if HAS_MTE
+#define SCTLR_TCSO_ENABLED        (1ULL << 59)
+#define SCTLR_TCSO0_ENABLED       (1ULL << 58)
+#endif /* HAS_MTE */
 
 #if HAS_ARM_FEAT_SME
 // 60   EnTP2           Enable TPIDR2_EL0 at EL0
@@ -566,9 +578,33 @@
 
 #define SCTLR_DSSBS               (1ULL << 44)
 
+#if HAS_MTE
+
+#define SCTLR_ATA_ENABLED         (1ULL << 43)
+#define SCTLR_ATA0_ENABLED        (1ULL << 42)
+
+#define SCTLR_TCF_SHIFT           (40)
+#define SCTLR_TCF_NOP             (0b00ULL << SCTLR_TCF_SHIFT)
+#define SCTLR_TCF_SYNC            (0b01ULL << SCTLR_TCF_SHIFT)
+#define SCTLR_TCF_ASYNC           (0b10ULL << SCTLR_TCF_SHIFT)
+#define SCTLR_TCF_ASYMM           (0b11ULL << SCTLR_TCF_SHIFT)
+#define SCTLR_TCF_MASK            (0b11ULL << SCTLR_TCF_SHIFT)
+
+#define SCTLR_TCF0_SHIFT          (38)
+#define SCTLR_TCF0_NOP            (0b00ULL << SCTLR_TCF0_SHIFT)
+#define SCTLR_TCF0_SYNC           (0b01ULL << SCTLR_TCF0_SHIFT)
+#define SCTLR_TCF0_ASYNC          (0b10ULL << SCTLR_TCF0_SHIFT)
+#define SCTLR_TCF0_ASYMM          (0b11ULL << SCTLR_TCF0_SHIFT)
+#define SCTLR_TCF0_MASK           (0b11ULL << SCTLR_TCF0_SHIFT)
+
+#define SCTLR_EXTRA               (SCTLR_ATA_ENABLED | SCTLR_ATA0_ENABLED | SCTLR_TCF_SYNC | SCTLR_TCF0_SYNC)
+#define SCTLR_MTE_CONFIG          SCTLR_EXTRA
+
+#else /* !HAS_MTE */
 
 #define SCTLR_EXTRA               (0)
 
+#endif /* HAS_MTE */
 
 #define SCTLR_RESERVED     ((3ULL << 28) | (1ULL << 20))
 #if defined(HAS_APPLE_PAC)
@@ -988,9 +1024,18 @@
 #define TCR_E0PD_VALUE           0
 #endif
 
+#if HAS_MTE
+
+#define TCR_MTX0_ENABLE          (1ULL << 60)
+#define TCR_MTX1_ENABLE          (1ULL << 61)
+
+#define TCR_EL1_EXTRA            (TCR_MTX0_ENABLE | TCR_MTX1_ENABLE)
+
+#else /* !HAS_MTE */
 
 #define TCR_EL1_EXTRA            0
 
+#endif /* HAS_MTE */
 
 
 /*
@@ -1696,6 +1741,9 @@
 #define MAIR_WRITETHRU                    0xA0 /* Normal Memory, Write-through, XS=0 */
 #define MAIR_WRITEBACK                    0xFF /* Normal Memory, Write-back, XS=0 */
 
+#if HAS_MTE
+#define MAIR_MTE_WRITEBACK                0xF0 /* Normal Tagged Memory, Outer Write-back, Inner Write-back */
+#endif /* HAS_MTE  */
 
 /*
  * Memory Attribute Index. If these values change, please also update the pmap
@@ -1728,6 +1776,9 @@
 #define MAIR_WRITECOMB                 0x44 /* Normal Memory, Outer Non-Cacheable, Inner Non-Cacheable */
 #define MAIR_WRITETHRU                 0xBB /* Normal Memory, Outer Write-through, Inner Write-through */
 #define MAIR_WRITEBACK                 0xFF /* Normal Memory, Outer Write-back, Inner Write-back */
+#if HAS_MTE
+#define MAIR_MTE_WRITEBACK             0xF0 /* Normal Tagged Memory, Outer Write-back, Inner Write-back */
+#endif /* HAS_MTE */
 
 /*
  * Memory Attribute Index. If these values change, please also update the pmap
@@ -1753,6 +1804,9 @@
 #define CACHE_ATTRINDX_RT CACHE_ATTRINDX_POSTED_COMBINED_REORDERED
 #endif /* HAS_UCNORMAL_MEM || APPLEVIRTUALPLATFORM */
 
+#if HAS_MTE
+#define CACHE_ATTRINDX_MTE                       CACHE_ATTRINDX_RESERVED
+#endif /* HAS_MTE */
 
 
 /*
@@ -1775,6 +1829,14 @@
 #define SH_OUTER_MEMORY 0x2 /* Normal memory Inner shareable - Outer shareable */
 #define SH_INNER_MEMORY 0x3 /* Normal memory Inner shareable - Outer non shareable */
 
+#if HAS_MTE
+/*
+ * Legacy MTE emulation relies on marking "MTE" pages with 0x1 shareability
+ * attribute, which is otherwise unused in xnu. This communicates back to
+ * mSim that the page should be treated specially in the emulation.
+ */
+#define SH_MTE                  SH_OUTER_MEMORY
+#endif /* HAS_MTE */
 
 /*
  * ARM Page Granule
@@ -2435,6 +2497,9 @@
 #define ESR_ISS_MASK           0x01FFFFFF
 #define ESR_ISS(x)             (x & ESR_ISS_MASK)
 
+#define ESR_ISS2_SHIFT         32
+#define ESR_ISS2_MASK          0xFFFFFF00000000
+#define ESR_ISS2(x)            ((x & ESR_ISS2_MASK) >> ESR_ISS2_SHIFT)
 
 #ifdef __ASSEMBLER__
 /* Define only the classes we need to test in the exception vectors. */
@@ -2502,6 +2567,7 @@ typedef enum {
 	FSC_PERMISSION_FAULT_L2    = 0x0E,
 	FSC_PERMISSION_FAULT_L3    = 0x0F,
 	FSC_SYNC_EXT_ABORT         = 0x10,
+	FSC_SYNC_TAG_CHECK_FAULT   = 0x11,
 	FSC_SYNC_EXT_ABORT_TT_L1   = 0x15,
 	FSC_SYNC_EXT_ABORT_TT_L2   = 0x16,
 	FSC_SYNC_EXT_ABORT_TT_L3   = 0x17,
@@ -2685,6 +2751,16 @@ typedef enum {
 #define ISS_BRK_COMMENT_MASK    0xFFFF
 #define ISS_BRK_COMMENT(x)      (x & ISS_BRK_COMMENT_MASK)
 
+/*
+ * Data Abort ISS2 (EL1)
+ *
+ *  23          12    11     10        9        8         7           6         5      4  0
+ * +--------------+--------+-----+-----------+-----+-------------+---------+----------+----+
+ * | 000000000000 | HDBSSF | TnD | TagAccess | GCS | AssuredOnly | Overlay | DirtyBit | Xs |
+ * +--------------+--------+-----+-----------+-----+-------------+---------+----------+----+
+ */
+#define ISS2_DA_TND_SHIFT       10
+#define ISS2_DA_TND             (0x1 << ISS2_DA_TND_SHIFT)
 
 
 /*
@@ -2879,6 +2955,11 @@ typedef enum {
 #define MIDR_BRAVA_ACCE    (0x054 << MIDR_EL1_PNUM_SHIFT)
 #define MIDR_BRAVA_ACCP    (0x055 << MIDR_EL1_PNUM_SHIFT)
 
+#if defined(APPLEACC8)
+/*Hidra*/
+#define MIDR_HIDRA_ACCE    (0x062 << MIDR_EL1_PNUM_SHIFT)
+#define MIDR_HIDRA_ACCP    (0x063 << MIDR_EL1_PNUM_SHIFT)
+#endif /* defined(APPLEACC8) */
 
 
 
@@ -2890,6 +2971,11 @@ typedef enum {
 #define AIDR_ARCHRETENTION    (1ULL << 2)
 
 
+#if HAS_MTE
+#define AIDR_MTEVER_SHIFT     41
+#define AIDR_MTEVER_MASK      (0b11ULL << AIDR_MTEVER_SHIFT)
+#define AIDR_MTEVER_V1        (0b01ULL << AIDR_MTEVER_SHIFT)
+#endif
 
 
 /*
@@ -3128,7 +3214,13 @@ typedef enum {
  */
 
 
+#define ID_AA64PFR1_EL1_MTEX_OFFSET     52
+#define ID_AA64PFR1_EL1_MTEX_MASK       (0xfull << ID_AA64PFR1_EL1_MTEX_OFFSET)
+#define ID_AA64PFR1_EL1_MTEX_EN         (1ull << ID_AA64PFR1_EL1_MTEX_OFFSET)
 
+#define ID_AA64PFR1_EL1_MTE_FRAC_OFFSET 40
+#define ID_AA64PFR1_EL1_MTE_FRAC_MASK   (0xfull << ID_AA64PFR1_EL1_MTE_FRAC_OFFSET)
+#define ID_AA64PFR1_EL1_MTE_FRAC_EN     (1ull << ID_AA64PFR1_EL1_MTE_FRAC_OFFSET)
 
 #define ID_AA64PFR1_EL1_SME_OFFSET      24
 #define ID_AA64PFR1_EL1_SME_MASK        (0xfull << ID_AA64PFR1_EL1_SME_OFFSET)
@@ -3138,6 +3230,8 @@ typedef enum {
 #define ID_AA64PFR1_EL1_CSV2_frac_1p1           (1ull << ID_AA64PFR1_EL1_CSV2_frac_OFFSET)
 #define ID_AA64PFR1_EL1_CSV2_frac_1p2           (2ull << ID_AA64PFR1_EL1_CSV2_frac_OFFSET)
 
+#define ID_AA64PFR1_EL1_MTE_OFFSET      8
+#define ID_AA64PFR1_EL1_MTE_MASK        (0xfull << ID_AA64PFR1_EL1_MTE_OFFSET)
 
 #define ID_AA64PFR1_EL1_SSBS_OFFSET     4
 #define ID_AA64PFR1_EL1_SSBS_MASK       (0xfull << ID_AA64PFR1_EL1_SSBS_OFFSET)
@@ -3152,8 +3246,17 @@ typedef enum {
  */
 
 
+#define ID_AA64PFR2_EL1_MTE_FAR_OFFSET     8
+#define ID_AA64PFR2_EL1_MTE_FAR_MASK       (0xfull << ID_AA64PFR2_EL1_MTE_FAR_OFFSET)
+#define ID_AA64PFR2_EL1_MTE_FAR_EN         (1ull << ID_AA64PFR2_EL1_MTE_FAR_OFFSET)
 
+#define ID_AA64PFR2_EL1_MTE_STORE_ONLY_OFFSET     4
+#define ID_AA64PFR2_EL1_MTE_STORE_ONLY_MASK       (0xfull << ID_AA64PFR2_EL1_MTE_STORE_ONLY_OFFSET)
+#define ID_AA64PFR2_EL1_MTE_STORE_ONLY_EN         (1ull << ID_AA64PFR2_EL1_MTE_STORE_ONLY_OFFSET)
 
+#define ID_AA64PFR2_EL1_MTE_PERM_OFFSET     0
+#define ID_AA64PFR2_EL1_MTE_PERM_MASK       (0xfull << ID_AA64PFR2_EL1_MTE_PERM_OFFSET)
+#define ID_AA64PFR2_EL1_MTE_PERM_EN         (1ull << ID_AA64PFR2_EL1_MTE_PERM_OFFSET)
 
 /*
  * ID_AA64MMFR1_EL1 - AArch64 Memory Model Feature Register 1
@@ -3186,6 +3289,7 @@ typedef enum {
 #define ID_AA64SMFR0_EL1_SMEver_MASK    (0xfull << ID_AA64SMFR0_EL1_SMEver_OFFSET)
 #define ID_AA64SMFR0_EL1_SMEver_SME     (0ull << ID_AA64SMFR0_EL1_SMEver_OFFSET)
 #define ID_AA64SMFR0_EL1_SMEver_SME2    (1ull << ID_AA64SMFR0_EL1_SMEver_OFFSET)
+#define ID_AA64SMFR0_EL1_SMEver_SME2p1  (2ull << ID_AA64SMFR0_EL1_SMEver_OFFSET)
 
 #define ID_AA64SMFR0_EL1_I16I64_OFFSET  52
 #define ID_AA64SMFR0_EL1_I16I64_MASK    (0xfull << ID_AA64SMFR0_EL1_I16I64_OFFSET)
@@ -3199,6 +3303,13 @@ typedef enum {
 #define ID_AA64SMFR0_EL1_I16I32_MASK    (0xfull << ID_AA64SMFR0_EL1_I16I32_OFFSET)
 #define ID_AA64SMFR0_EL1_I16I32_EN      (0x5ull << ID_AA64SMFR0_EL1_I16I32_OFFSET)
 
+#define ID_AA64SMFR0_EL1_B16B16_OFFSET  43
+#define ID_AA64SMFR0_EL1_B16B16_MASK    (1ull << ID_AA64SMFR0_EL1_B16B16_OFFSET)
+#define ID_AA64SMFR0_EL1_B16B16_EN      (1ull << ID_AA64SMFR0_EL1_B16B16_OFFSET)
+
+#define ID_AA64SMFR0_EL1_F16F16_OFFSET  42
+#define ID_AA64SMFR0_EL1_F16F16_MASK    (1ull << ID_AA64SMFR0_EL1_F16F16_OFFSET)
+#define ID_AA64SMFR0_EL1_F16F16_EN      (1ull << ID_AA64SMFR0_EL1_F16F16_OFFSET)
 
 
 #define ID_AA64SMFR0_EL1_I8I32_OFFSET   36
@@ -3222,6 +3333,73 @@ typedef enum {
 #define ID_AA64SMFR0_EL1_F32F32_EN      (1ull << ID_AA64SMFR0_EL1_F32F32_OFFSET)
 
 
+#if HAS_MTE
+
+/*
+ * MTE tag metadata is kept in DRAM. The metadata is 4-bit per 16-bytes of memory.
+ * This translates to (potentially) using 3% of DRAM to represent the whole
+ * memory space and also to one single TAG page to contain metadata covering
+ * 32 regular pages.
+ */
+#define MTE_PAGES_PER_TAG_PAGE                  32
+
+/*
+ * TagOffset_EL2 is the register that contains the start of the stolen DRAM
+ * memory that contains MTE tags metadata. This definition is currently here,
+ * but should probably be moved to a more suitable place as part of the
+ * final support for H17g.
+ *
+ * The MTE tag array is physically contiguous and aligned to 1MB.
+ */
+#define MTE_TAG_OFFSET_EL2                      "S3_0_C11_C9_0"
+#define MTE_TAG_OFFSET_EL2_PA_SHIFT             (20)
+#define MTE_TAG_OFFSET_PA_ALIGN                 (1ULL << MTE_TAG_OFFSET_EL2_PA_SHIFT)
+#define MTE_TAG_OFFSET_EL2_PA_MASK              (0x3FFFFFULL << MTE_TAG_OFFSET_EL2_PA_SHIFT)
+#define MTE_TAG_OFFSET_EL2_LOCK_BIT             (63)
+
+/*
+ * GCR_EL1 - Tag Control Register
+ *
+ *  63  17     16 15      0
+ * +------+------+---------+
+ * | res0 | RRND | Exclude |
+ * +------+------+---------+
+ */
+
+#define GCR_EL1_RRND_OFFSET                     16
+#define GCR_EL1_RRND                            (1ULL << GCR_EL1_RRND_OFFSET)
+#define GCR_EL1_RRND_ASM                        0x10000
+
+#define GCR_EL1_EXCLUDE_OFFSET                  0
+#define GCR_EL1_EXCLUDE_MASK                    (0xFFFFULL << GCR_EL1_EXCLUDE_OFFSET)
+
+/* Default exclude masks to skip canonical tags in user and kernel. */
+
+#define GCR_EL1_EXCLUDE_TAGS_KERNEL             (0x8000)
+#define GCR_EL1_EXCLUDE_TAGS_USER               (0x0001)
+
+/*
+ * RGSR_EL1 - Random Allocation Tag Seed Register
+ *
+ *  63  24 23   8 7    4 3   0
+ * +------+------+------+-----+
+ * | res0 | SEED | res0 | TAG |  (GCR_EL1.RRND == 0)
+ * +------+------+------+-----+
+ *
+ *  63  56 55   8 7    4 3   0
+ * +------+------+------+-----+
+ * | res0 | SEED | res0 | TAG |  (GCR_EL1.RRND == 1)
+ * +------+------+------+-----+
+ */
+
+#define RGSR_EL1_SEED_OFFSET            8
+#define RGSR_EL1_SEED_RRND_0_MASK       (0xFFFFULL << RGSR_EL1_SEED_OFFSET)
+#define RGSR_EL1_SEED_RRND_1_MASK       (0xFFFFFFFFFFFFULL << RGSR_EL1_SEED_OFFSET)
+
+#define RGSR_EL1_TAG_OFFSET             0
+#define RGSR_EL1_TAG                    (0xFULL << RGSR_EL1_TAG_OFFSET)
+
+#endif /* HAS_MTE */
 
 
 #define APSTATE_G_SHIFT  (0)

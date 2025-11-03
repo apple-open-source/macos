@@ -4080,6 +4080,9 @@ retry_space:
 		    uap->s, 0, 0, 0, 0);
 		error = (*so->so_proto->pr_usrreqs->pru_send)(so, 0, m0,
 		    NULL, control, p);
+		if (error == EJUSTRETURN) {
+			error = 0;
+		}
 		KERNEL_DEBUG_CONSTANT((DBG_FNC_SENDFILE_SEND | DBG_FUNC_START),
 		    uap->s, 0, 0, 0, 0);
 		if (error) {

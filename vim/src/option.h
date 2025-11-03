@@ -231,10 +231,11 @@ typedef enum {
 #define CPO_CHDIR	'.'	// don't chdir if buffer is modified
 #define CPO_SCOLON	';'	// using "," and ";" will skip over char if
 				// cursor would not move
+#define CPO_NOSYMLINKS	'~'	// don't resolve symlinks when changing directory
 // default values for Vim, Vi and POSIX
 #define CPO_VIM		"aABceFsz"
 #define CPO_VI		"aAbBcCdDeEfFgHiIjJkKlLmMnoOpPqrRsStuvwWxXyZz$!%*-+<>;"
-#define CPO_ALL		"aAbBcCdDeEfFgHiIjJkKlLmMnoOpPqrRsStuvwWxXyZz$!%*-+<>#{|&/\\.;"
+#define CPO_ALL		"aAbBcCdDeEfFgHiIjJkKlLmMnoOpPqrRsStuvwWxXyZz$!%*-+<>#{|&/\\.;~"
 
 // characters for p_ww option:
 #define WW_ALL		"bshl<>[]~"
@@ -369,12 +370,14 @@ typedef enum {
 #define WIM_LONGEST	0x02
 #define WIM_LIST	0x04
 #define WIM_BUFLASTUSED	0x08
+#define WIM_NOSELECT	0x10
 
 // flags for the 'wildoptions' option
 // each defined char should be unique over all values.
 #define WOP_FUZZY	'z'
-#define WOP_TAGFILE	't'
+#define WOP_TAGFILE	'g'
 #define WOP_PUM		'p'
+#define WOP_EXACTTEXT	'x'
 
 // arguments for can_bs()
 // each defined char should be unique over all values
@@ -505,20 +508,27 @@ EXTERN char_u	*p_cedit;	// 'cedit'
 EXTERN long	p_cwh;		// 'cmdwinheight'
 #ifdef FEAT_CLIPBOARD
 EXTERN char_u	*p_cb;		// 'clipboard'
+EXTERN char_u	*p_cpm;		// 'clipmethod'
 #endif
 EXTERN long	p_ch;		// 'cmdheight'
 #ifdef FEAT_FOLDING
 EXTERN char_u	*p_cms;		// 'commentstring'
 #endif
 EXTERN char_u	*p_cpt;		// 'complete'
+EXTERN long	p_cto;		// 'completetimeout'
 #if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
 EXTERN int	p_confirm;	// 'confirm'
 #endif
 EXTERN int	p_cp;		// 'compatible'
+EXTERN char_u	*p_cfc;		// 'completefuzzycollect'
+EXTERN unsigned cfc_flags;	// flags from "completefuzzycollect"
 EXTERN char_u	*p_cia;		// 'completeitemalign'
 EXTERN unsigned cia_flags;	// order flags of 'completeitemalign'
 EXTERN char_u	*p_cot;		// 'completeopt'
 EXTERN unsigned	cot_flags;	// flags from 'completeopt'
+EXTERN int	p_ac;		// 'autocomplete'
+EXTERN long	p_act;		// 'autocompletetimeout'
+EXTERN long	p_acl;		// 'autocompletedelay'
 // Keep in sync with p_cot_values in optionstr.c
 #define COT_MENU	0x001
 #define COT_MENUONE	0x002
@@ -532,11 +542,20 @@ EXTERN unsigned	cot_flags;	// flags from 'completeopt'
 #define COT_NOINSERT	    0x040   // FALSE: select & insert, TRUE: noinsert
 #define COT_NOSELECT	    0x080   // FALSE: select & insert, TRUE: noselect
 #define COT_FUZZY	    0x100   // TRUE: fuzzy match enabled
+#define COT_NOSORT	    0x200   // TRUE: fuzzy match without qsort score
+#define COT_PREINSERT	    0x400   // TRUE: preinsert
+#define COT_NEAREST	    0x800   // TRUE: prioritize matches close to cursor
+
+#define CFC_KEYWORD         0x001
+#define CFC_FILES           0x002
+#define CFC_WHOLELINE       0x004
+
 #ifdef BACKSLASH_IN_FILENAME
 EXTERN char_u	*p_csl;		// 'completeslash'
 #endif
 EXTERN long	p_ph;		// 'pumheight'
 EXTERN long	p_pw;		// 'pumwidth'
+EXTERN long	p_pmw;		// 'pummaxwidth'
 EXTERN char_u	*p_com;		// 'comments'
 EXTERN char_u	*p_cpo;		// 'cpoptions'
 #ifdef FEAT_CSCOPE
@@ -558,6 +577,7 @@ EXTERN char_u	*p_def;		// 'define'
 EXTERN char_u	*p_inc;
 #endif
 #ifdef FEAT_DIFF
+EXTERN char_u	*p_dia;		// 'diffanchors'
 EXTERN char_u	*p_dip;		// 'diffopt'
 # ifdef FEAT_EVAL
 EXTERN char_u	*p_dex;		// 'diffexpr'
@@ -598,6 +618,9 @@ EXTERN char_u	*p_ffs;		// 'fileformats'
 EXTERN int	p_fic;		// 'fileignorecase'
 EXTERN char_u	*p_ft;		// 'filetype'
 EXTERN char_u	*p_fcs;		// 'fillchar'
+#ifdef FEAT_EVAL
+EXTERN char_u	*p_ffu;		// 'findfunc'
+#endif
 EXTERN int	p_fixeol;	// 'fixendofline'
 #ifdef FEAT_FOLDING
 EXTERN char_u	*p_fcl;		// 'foldclose'
@@ -718,6 +741,7 @@ EXTERN char_u	*p_inde;	// 'indentexpr'
 EXTERN char_u	*p_indk;	// 'indentkeys'
 #endif
 EXTERN int	p_im;		// 'insertmode'
+EXTERN char_u	*p_ise;		// 'isexpand'
 EXTERN char_u	*p_isf;		// 'isfname'
 EXTERN char_u	*p_isi;		// 'isident'
 EXTERN char_u	*p_isk;		// 'iskeyword'
@@ -774,6 +798,8 @@ EXTERN long	p_mmt;		// 'maxmemtot'
 #ifdef FEAT_MENU
 EXTERN long	p_mis;		// 'menuitems'
 #endif
+EXTERN char_u	*p_mopt;	// 'messagesopt'
+EXTERN long	p_msc;		// 'maxsearchcount'
 #ifdef FEAT_SPELL
 EXTERN char_u	*p_msm;		// 'mkspellmem'
 #endif
@@ -804,6 +830,7 @@ EXTERN char_u	*p_nf;		// 'nrformats'
 #if defined(MSWIN)
 EXTERN int	p_odev;		// 'opendevice'
 #endif
+EXTERN long	p_ost;		// 'osctimeoutlen'
 EXTERN char_u	*p_opfunc;	// 'operatorfunc'
 EXTERN char_u	*p_para;	// 'paragraphs'
 EXTERN int	p_paste;	// 'paste'
@@ -846,6 +873,7 @@ EXTERN char_u	*p_rop;		// 'renderoptions'
 EXTERN long	p_report;	// 'report'
 #if defined(FEAT_QUICKFIX)
 EXTERN long	p_pvh;		// 'previewheight'
+EXTERN long     p_chi;          // 'chistory'
 #endif
 #ifdef MSWIN
 EXTERN int	p_rs;		// 'restorescreen'
@@ -968,7 +996,15 @@ EXTERN unsigned	swb_flags;
 #define SWB_NEWTAB		0x008
 #define SWB_VSPLIT		0x010
 #define SWB_USELAST		0x020
+
 EXTERN char_u	*p_spk;		// 'splitkeep'
+
+#if defined(FEAT_TABPANEL)
+EXTERN char_u	*p_tpl;		// 'tabpanel'
+EXTERN long	p_stpl;		// 'showtabpanel'
+EXTERN char_u	*p_tplo;	// 'tabpanelopt'
+#endif
+
 #ifdef FEAT_SYN_HL
 EXTERN char_u	*p_syn;		// 'syntax'
 #endif
@@ -1108,6 +1144,13 @@ EXTERN long	p_wh;		// 'winheight'
 EXTERN long	p_wmh;		// 'winminheight'
 EXTERN long	p_wmw;		// 'winminwidth'
 EXTERN long	p_wiw;		// 'winwidth'
+#ifdef FEAT_WAYLAND
+EXTERN char_u	*p_wse;		// 'wlseat'
+# ifdef FEAT_WAYLAND_CLIPBOARD
+EXTERN int	p_wst;		// 'wlsteal'
+# endif
+EXTERN long     p_wtm;		// 'wltimeoutlen'
+#endif
 #if defined(MSWIN) && defined(FEAT_TERMINAL)
 EXTERN char_u	*p_winptydll;	// 'winptydll'
 #endif
@@ -1133,6 +1176,7 @@ enum
     , BV_BT
 #ifdef FEAT_QUICKFIX
     , BV_EFM
+    , BV_GEFM
     , BV_GP
     , BV_MP
 #endif
@@ -1153,6 +1197,9 @@ enum
     , BV_COT
     , BV_CPT
     , BV_DICT
+#ifdef FEAT_DIFF
+    , BV_DIA
+#endif
     , BV_TSR
 #ifdef BACKSLASH_IN_FILENAME
     , BV_CSL
@@ -1174,6 +1221,7 @@ enum
 #ifdef FEAT_EVAL
     , BV_BEXPR
     , BV_FEX
+    , BV_FFU
 #endif
     , BV_FF
     , BV_FLP
@@ -1189,6 +1237,7 @@ enum
     , BV_INEX
 #endif
     , BV_INF
+    , BV_ISE
     , BV_ISK
 #ifdef FEAT_CRYPT
     , BV_KEY
@@ -1283,6 +1332,7 @@ enum
 #ifdef FEAT_DIFF
     , WV_DIFF
 #endif
+    , WV_EIW
 #ifdef FEAT_FOLDING
     , WV_FDC
     , WV_FEN
@@ -1308,6 +1358,7 @@ enum
 #endif
 #if defined(FEAT_QUICKFIX)
     , WV_PVW
+    , WV_LHI
 #endif
 #ifdef FEAT_RIGHTLEFT
     , WV_RL

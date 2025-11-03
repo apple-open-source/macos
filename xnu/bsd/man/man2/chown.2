@@ -142,6 +142,13 @@ If
 does not reside in the hierarchy beneath the starting directory,
 an error is returned.
 .El
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
+.It Dv AT_UNIQUE
+If
+.Fa path
+resolves to a vnode with multiple hard links,
+an error is returned.
+.El
 .Pp
 If
 .Fn fchownat
@@ -269,6 +276,10 @@ nor a file descriptor associated with a directory.
 if AT_RESOLVE_BENEATH was passed and
 .Fa path
 does not reside in the directory hierarchy beneath the starting directory.
+.It Bq Er ENOTCAPABLE
+if AT_UNIQUE was passed and
+.Fa path
+resolves to a vnode with multiple links.
 .El
 .Sh SEE ALSO
 .Xr chgrp 1 ,

@@ -53,10 +53,10 @@
 
 // This is VTermScreenCell without the characters, thus much smaller.
 typedef struct {
-  VTermScreenCellAttrs	attrs;
-  char			width;
-  VTermColor		fg;
-  VTermColor		bg;
+    VTermScreenCellAttrs	attrs;
+    char			width;
+    VTermColor			fg;
+    VTermColor			bg;
 } cellattr_T;
 
 typedef struct sb_line_S {
@@ -446,6 +446,7 @@ term_start(
     buf_T	*newbuf;
     int		vertical = opt->jo_vertical || (cmdmod.cmod_split & WSP_VERT);
     jobopt_T	orig_opt;  // only partly filled
+    pos_T	save_cursor;
 
     if (check_restricted() || check_secure())
 	return NULL;
@@ -518,6 +519,7 @@ term_start(
 	old_curbuf = curbuf;
 	--curbuf->b_nwindows;
 	curbuf = buf;
+	save_cursor = curwin->w_cursor;
 	curwin->w_buffer = buf;
 	++curbuf->b_nwindows;
     }
@@ -763,6 +765,7 @@ term_start(
 	    --curbuf->b_nwindows;
 	    curbuf = old_curbuf;
 	    curwin->w_buffer = curbuf;
+	    curwin->w_cursor = save_cursor;
 	    ++curbuf->b_nwindows;
 	}
 	else if (vgetc_busy
@@ -1427,6 +1430,10 @@ write_to_term(buf_T *buffer, char_u *msg, channel_T *channel)
 	if (buffer == curbuf && (State & MODE_CMDLINE) == 0)
 	{
 	    update_screen(UPD_VALID_NO_UPDATE);
+#if defined(FEAT_TABPANEL)
+	    if (redraw_tabpanel)
+		draw_tabpanel();
+#endif
 	    // update_screen() can be slow, check the terminal wasn't closed
 	    // already
 	    if (buffer == curbuf && curbuf->b_term != NULL)
@@ -3433,7 +3440,8 @@ limit_scrollback(term_T *term, garray_T *gap, int update_buffer)
     if (gap->ga_len < term->tl_buffer->b_p_twsl)
 	return;
 
-    int	todo = term->tl_buffer->b_p_twsl / 10;
+    int	todo = MAX(term->tl_buffer->b_p_twsl / 10,
+				     gap->ga_len - term->tl_buffer->b_p_twsl);
     int	i;
 
     curbuf = term->tl_buffer;
@@ -3450,11 +3458,23 @@ limit_scrollback(term_T *term, garray_T *gap, int update_buffer)
 	    (sb_line_T *)gap->ga_data + todo,
 	    sizeof(sb_line_T) * gap->ga_len);
     if (update_buffer)
+    {
+	win_T *curwin_save = curwin;
+	win_T *wp = NULL;
+
 	term->tl_scrollback_scrolled -= todo;
 
-    // make sure cursor is on a valid line
-    if (curbuf == term->tl_buffer)
-	check_cursor();
+	FOR_ALL_WINDOWS(wp)
+	{
+	    if (wp->w_buffer == term->tl_buffer)
+	    {
+		curwin = wp;
+		check_cursor();
+		update_topline();
+	    }
+	}
+	curwin = curwin_save;
+    }
 }
 
 /*
@@ -3618,15 +3638,15 @@ handle_bell(void *user UNUSED)
 }
 
 static VTermScreenCallbacks screen_callbacks = {
-  handle_damage,	// damage
-  handle_moverect,	// moverect
-  handle_movecursor,	// movecursor
-  handle_settermprop,	// settermprop
-  handle_bell,		// bell
-  handle_resize,	// resize
-  handle_pushline,	// sb_pushline
-  NULL,			// sb_popline
-  NULL			// sb_clear
+    handle_damage,		// damage
+    handle_moverect,		// moverect
+    handle_movecursor,		// movecursor
+    handle_settermprop,		// settermprop
+    handle_bell,		// bell
+    handle_resize,		// resize
+    handle_pushline,		// sb_pushline
+    NULL,			// sb_popline
+    NULL			// sb_clear
 };
 
 /*
@@ -4842,13 +4862,13 @@ parse_csi(
 }
 
 static VTermStateFallbacks state_fallbacks = {
-  NULL,		// control
-  parse_csi,	// csi
-  parse_osc,	// osc
-  NULL,		// dcs
-  NULL,		// apc
-  NULL,		// pm
-  NULL		// sos
+    NULL,		// control
+    parse_csi,		// csi
+    parse_osc,		// osc
+    NULL,		// dcs
+    NULL,		// apc
+    NULL,		// pm
+    NULL		// sos
 };
 
 /*
@@ -5077,7 +5097,7 @@ set_ref_in_term(int copyID)
 	{
 	    tv.v_type = VAR_JOB;
 	    tv.vval.v_job = term->tl_job;
-	    abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
+	    abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL, NULL);
 	}
     return abort;
 }
@@ -7064,7 +7084,11 @@ conpty_term_and_job_init(
     if (cmd_wchar == NULL)
 	goto failed;
     if (opt->jo_cwd != NULL)
+    {
 	cwd_wchar = enc_to_utf16(opt->jo_cwd, NULL);
+	if (cwd_wchar == NULL)
+	    goto failed;
+    }
 
     win32_build_env(opt->jo_env, &ga_env, TRUE);
     env_wchar = ga_env.ga_data;
@@ -7406,7 +7430,11 @@ winpty_term_and_job_init(
     if (cmd_wchar == NULL)
 	goto failed;
     if (opt->jo_cwd != NULL)
+    {
 	cwd_wchar = enc_to_utf16(opt->jo_cwd, NULL);
+	if (cwd_wchar == NULL)
+	    goto failed;
+    }
 
     win32_build_env(opt->jo_env, &ga_env, TRUE);
     env_wchar = ga_env.ga_data;
@@ -7566,7 +7594,11 @@ failed:
 	char *msg = (char *)utf16_to_enc(
 				(short_u *)winpty_error_msg(winpty_err), NULL);
 
-	emsg(msg);
+	if (msg != NULL)
+	{
+	    emsg(msg);
+	    vim_free(msg);
+	}
 	winpty_error_free(winpty_err);
     }
     return FAIL;

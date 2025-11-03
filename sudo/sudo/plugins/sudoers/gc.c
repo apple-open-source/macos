@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sudoers.h"
+#include <sudoers.h>
 
 struct sudoers_gc_entry {
     SLIST_ENTRY(sudoers_gc_entry) entries;
@@ -152,13 +152,3 @@ sudoers_gc_run(void)
     debug_return;
 #endif /* NO_LEAKS */
 }
-
-#ifndef notyet
-void
-sudoers_gc_init(void)
-{
-#ifdef NO_LEAKS
-    atexit(sudoers_gc_run);
-#endif
-}
-#endif

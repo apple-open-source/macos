@@ -3456,7 +3456,7 @@ get_interface_list(void)
     STATIC interface_list_t *	S_interfaces;
 
     if (S_interfaces == NULL) {
-	S_interfaces = ifl_init();
+	S_interfaces = ifl_create(NULL);
     }
     return (S_interfaces);
 }

@@ -150,6 +150,7 @@ void HIDTimeSyncPropertyHandler(void *refcon, io_service_t service, uint32_t mes
 - (void)activate
 {
     io_service_t device_ref = IO_OBJECT_NULL;
+    BOOL ok = YES;
 
     os_assert(_state == HIDTimeSyncStateInit);
 
@@ -162,8 +163,12 @@ void HIDTimeSyncPropertyHandler(void *refcon, io_service_t service, uint32_t mes
 
     device_ref = [self findDevice];
 
-    [self registerPropertyNotification:device_ref];
+    ok = [self registerPropertyNotification:device_ref];
     IOObjectRelease(device_ref);
+
+    if (!ok) {
+        return;
+    }
 
     [self handleActivate];
 
@@ -292,7 +297,7 @@ exit:
     return device;
 }
 
-- (void)registerPropertyNotification:(io_service_t)service
+- (BOOL)registerPropertyNotification:(io_service_t)service
 {
     kern_return_t status = 0;
 
@@ -306,7 +311,11 @@ exit:
                                                (__bridge void *)self,
                                                &_propertyNotify
                                                );
-    os_assert(0 == status, "IOServiceAddInterestNotification:%x", status);
+    if (KERN_SUCCESS != status) {
+        os_log_error(_IOHIDLog(), "IOServiceAddInterestNotification 0x%x", status);
+    }
+
+    return (KERN_SUCCESS == status);
 }
 
 - (void)handlePropertyUpdate:(NSDictionary *)properties

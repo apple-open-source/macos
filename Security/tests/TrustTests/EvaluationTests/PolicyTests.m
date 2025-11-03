@@ -163,11 +163,13 @@ errOut:
     CFArrayAppendValue(nonemtpySPKISHA256, random_data256);
     CFReleaseNull(random_data256);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // kSecPolicyCheckPinningRequired should be unset after reconciliation.
     // Empty values for both SPKI policies signal a pinning exception.
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
     CFDictionaryRef policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), true);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -178,9 +180,9 @@ errOut:
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckCAspkiSHA256), false);
 
     // kSecPolicyCheckPinningRequired overrules the other two policies.
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, nonemtpySPKISHA256);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, nonemtpySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
     policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), true);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -191,9 +193,9 @@ errOut:
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckCAspkiSHA256), false);
 
     // kSecPolicyCheckPinningRequired overrules the other two policies.
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, nonemtpySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, nonemtpySPKISHA256);
     policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), true);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -206,8 +208,8 @@ errOut:
     // In the absence of kSecPolicyCheckPinningRequired there is nothing to reconcile.
     CFReleaseNull(policy);
     policy = SecPolicyCreateSSL(true, CFSTR("www.example.org"));
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
     policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), false);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -216,6 +218,7 @@ errOut:
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), false);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckCAspkiSHA256), true);
+#pragma clang diagnostic pop
 
     CFReleaseNull(policy);
     CFReleaseNull(emptySPKISHA256);
@@ -659,19 +662,21 @@ static SecTrustResultType test_with_policy(SecPolicyRef CF_CONSUMED policy) {
 - (void)testPinningRequired {
     SecPolicyRef policy = NULL;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // init domains are excluded from IDS pinning rules
     policy = SecPolicyCreateSSL(true, CFSTR("init.ess.apple.com"));
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultRecoverableTrustFailure, "Unpinned connection succeeeded when pinning required");
 
     policy = SecPolicyCreateAppleIDSServiceContext(CFSTR("init.ess.apple.com"), NULL);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Policy pinned connection failed when pinning required");
 
 #if !TARGET_OS_BRIDGE
     /* BridgeOS doesn't have pinning DB */
     policy = SecPolicyCreateSSL(true, CFSTR("profile.ess.apple.com"));
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide hostname pinned connection failed when pinning required");
 #endif
 
@@ -680,12 +685,13 @@ static SecTrustResultType test_with_policy(SecPolicyRef CF_CONSUMED policy) {
                                         (__bridge NSString *)kSecPolicyPolicyName : @"IDS",
                                         };
     policy = SecPolicyCreateWithProperties(kSecPolicyAppleSSL, (__bridge CFDictionaryRef)policy_properties);
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide policy name pinned connection failed when pinning required");
 
     policy = SecPolicyCreateSSL(true, CFSTR("init.ess.apple.com"));
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy_exception(policy, true), kSecTrustResultUnspecified, "Unpinned connection failed when pinning exception set");
+#pragma clang diagnostic pop
 }
 
 static void test_escrow_with_anchor_roots(CFArrayRef anchors)
@@ -832,7 +838,7 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
      */
 
     /* Case 1: verify signature with good values */
-    isnt(policy = SecFrameworkPolicyCreatePassbookCardSigner(CFSTR("pass.com.apple.cardman"), CFSTR("A1B2C3D4E5")),
+    isnt(policy = SecPolicyCreatePassbookCardSigner(CFSTR("pass.com.apple.cardman"), CFSTR("A1B2C3D4E5")),
          NULL, "create policy");
     ok_status(SecCMSVerifySignedData(goodSig, goodManifest, policy, NULL, NULL, NULL, NULL), "verify signed data 1");
     CFReleaseNull(policy);
@@ -841,7 +847,7 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
     policy = NULL;
 
     /* Case 2: verify signature with bad values */
-    isnt(policy = SecFrameworkPolicyCreatePassbookCardSigner(CFSTR("pass.com.apple.cardman"), CFSTR("IAMBOGUS")),
+    isnt(policy = SecPolicyCreatePassbookCardSigner(CFSTR("pass.com.apple.cardman"), CFSTR("IAMBOGUS")),
          NULL, "create policy");
     isnt(SecCMSVerifySignedData(badSig, badManifest, policy, NULL, NULL, NULL, NULL), errSecSuccess, "verify signed data 2");
     CFReleaseNull(policy);
@@ -851,7 +857,7 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
     /* Case 3: get trust reference back from SecCMSVerifySignedData and verify it ourselves */
     SecTrustRef trust = NULL;
     SecTrustResultType trustResult;
-    isnt(policy = SecFrameworkPolicyCreatePassbookCardSigner(CFSTR("pass.com.apple.cardman"), CFSTR("IAMBOGUS")),
+    isnt(policy = SecPolicyCreatePassbookCardSigner(CFSTR("pass.com.apple.cardman"), CFSTR("IAMBOGUS")),
          NULL, "create policy");
     ok_status(SecCMSVerifySignedData(badSig, badManifest, policy, &trust, NULL, NULL, NULL), "verify signed data 3");
     isnt(trust, NULL, "get trust");
@@ -995,8 +1001,11 @@ static void test_shortcut_signing(CFDateRef date, bool disableTemporalCheck, boo
     }
     if (!policy) { goto exit; }
     if (disableTemporalCheck && !useShortcutPolicy) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         // this call would be redundant if using the shortcut policy
-        SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+        SecPolicySetOptionsValue(policy, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+#pragma clang diagnostic pop
     }
     err = SecTrustCreateWithCertificates(certs, policy, &trust);
     is(err, errSecSuccess, "error creating trust reference");
@@ -1218,7 +1227,11 @@ exit:
 
 - (void)testMDLTerminalAuthWithConstrainedAnchorSource
 {
-    BOOL expectTrusted = (_SecTrustStoreRootConstraintsEnabled()) ? YES : NO;
+    BOOL expectTrusted = YES;
+#if TARGET_OS_BRIDGE
+    /* Bridge OS doesn't have certificates bundle */
+    expectTrusted = NO;
+#endif
     MDLTestFlags flags = useConstrainedAnchorSource;
     [self MDLTerminalAuth:flags expectTrusted:expectTrusted];
 }

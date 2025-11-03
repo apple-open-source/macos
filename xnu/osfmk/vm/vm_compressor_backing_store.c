@@ -664,16 +664,6 @@ int vm_swap_defragment_swapin = 0;
 int vm_swap_defragment_free = 0;
 int vm_swap_defragment_busy = 0;
 
-#if CONFIG_FREEZE
-extern int32_t c_segment_pages_compressed_incore;
-extern int32_t c_segment_pages_compressed_incore_late_swapout;
-extern uint32_t c_segment_pages_compressed_nearing_limit;
-extern uint32_t c_segment_count;
-extern uint32_t c_segments_nearing_limit;
-
-extern bool freezer_incore_cseg_acct;
-#endif /* CONFIG_FREEZE */
-
 static void
 vm_swap_defragment()
 {

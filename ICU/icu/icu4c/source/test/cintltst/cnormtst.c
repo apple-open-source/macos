@@ -67,6 +67,9 @@ TestGetRawDecomposition(void);
 static void TestAppendRestoreMiddle(void);
 static void TestGetEasyToUseInstance(void);
 static void TestAPICoverage(void);
+#if APPLE_ICU_CHANGES // rdar://160634825
+static void TestHeapBufferOverflow(void);
+#endif
 
 static const char* const canonTests[][3] = {
     /* Input*/                    /*Decomposed*/                /*Composed*/
@@ -159,6 +162,9 @@ void addNormTest(TestNode** root)
     addTest(root, &TestAppendRestoreMiddle, "tsnorm/cnormtst/TestAppendRestoreMiddle");
     addTest(root, &TestGetEasyToUseInstance, "tsnorm/cnormtst/TestGetEasyToUseInstance");
     addTest(root, &TestAPICoverage, "tsnorm/cnormtst/TestAPICoverage");
+#if APPLE_ICU_CHANGES // rdar://160634825
+    addTest(root, &TestHeapBufferOverflow, "tsnorm/cnormtst/TestHeapBufferOverflow");
+#endif
 }
 
 static const char* const modeStrings[]={
@@ -1766,4 +1772,55 @@ TestAPICoverage(void) {
     }
 }
 
+#if APPLE_ICU_CHANGES
+// rdar://160634825
+static void
+TestHeapBufferOverflow(void) {
+    // Filling the huge text buffer with UChars causes this test to take several seconds,
+    // so skip it if we're not using the exhaustive testing mode.
+    if (getTestOption(QUICK_OPTION)) {
+        log_verbose("Skipping TestHeapBufferOverflow in quick mode (use -e for exhaustive tests)\n");
+    } else {
+        UErrorCode errorCode = U_ZERO_ERROR;
+        UErrorCode expectedError = U_BUFFER_OVERFLOW_ERROR;
+
+        const UNormalizer2 *nfkc = unorm2_getNFKCInstance(&errorCode);
+        if (U_FAILURE(errorCode)) {
+            log_data_err("unorm2_getNFKCInstance() failed: %s\n", u_errorName(errorCode));
+            return;
+        }
+
+        const int32_t len = 0x7FFFFFF0;
+        const int32_t numExpandChars = 16;
+        const UChar expandChar = 0x00A8;
+        const UChar fillChar = 0x0061;
+        
+        UChar *input = (UChar*)malloc((size_t)len * sizeof(UChar));
+        if (input == NULL) {
+            log_verbose("SKIPPED - Could not allocate memory for test\n");
+            return;
+        }
+        
+        u_memset(input, expandChar, numExpandChars);
+        u_memset(input + numExpandChars, fillChar, len - numExpandChars);
+        
+        UChar *output = (UChar*)malloc((size_t)len * sizeof(UChar));
+        if (output == NULL) {
+            free(input);
+            log_verbose("SKIPPED - Could not allocate memory for test\n");
+            return;
+        }
+        
+        // Without the fix, this will trigger AddressSanitizer: heap-buffer-overflow.
+        // With the fix, it should return early with a U_BUFFER_OVERFLOW_ERROR.
+        unorm2_normalize(nfkc, input, len, output, len, &errorCode);
+        if(errorCode!= expectedError) {
+            log_data_err("error in unorm2_normalize, expected:%s, got:%s\n", u_errorName(expectedError), u_errorName(errorCode));
+        }
+        
+        free(input);
+        free(output);
+    }
+}
+#endif /* #if APPLE_ICU_CHANGES */
 #endif /* #if !UCONFIG_NO_NORMALIZATION */

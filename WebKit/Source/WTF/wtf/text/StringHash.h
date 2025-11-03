@@ -212,7 +212,7 @@ namespace WTF {
         static unsigned avoidDeletedValue(unsigned hash)
         {
             ASSERT(hash);
-            unsigned newHash = hash | (!(hash + 1) << 31);
+            unsigned newHash = hash ^ (!(hash + 1) << 31);
             ASSERT(newHash);
             ASSERT(newHash != 0xFFFFFFFF);
             return newHash;

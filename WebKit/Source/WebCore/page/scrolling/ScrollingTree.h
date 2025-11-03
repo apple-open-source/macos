@@ -190,7 +190,7 @@ public:
     std::optional<ScrollingNodeID> latchedNodeID() const;
     WEBCORE_EXPORT void clearLatchedNode();
 
-    bool hasFixedOrSticky() const;
+    WEBCORE_EXPORT bool hasFixedOrSticky() const;
     void fixedOrStickyNodeAdded(ScrollingTreeNode&);
 
     // A map of overflow scrolling nodes to positioned nodes which need to be updated

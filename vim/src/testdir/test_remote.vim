@@ -1,13 +1,10 @@
 " Test for the --remote functionality
 
-source check.vim
 CheckFeature clientserver
 CheckFeature terminal
 
-source shared.vim
-source screendump.vim
-source mouse.vim
-source term_util.vim
+source util/screendump.vim
+source util/mouse.vim
 
 let s:remote_works = 0
 let s:skip = 'Skipped: --remote feature is not possible'
@@ -18,6 +15,19 @@ func Verify_remote_feature_works()
   enew
   let buf = RunVimInTerminal('--servername XVIMTEST', {'rows': 8})
   call TermWait(buf)
+
+  " For some reason when the socket server is being used, the terminal Vim never
+  " receives the `:w! XVimRemoteTest.txt` command from term_sendkeys.
+  if has('socketserver') && !has('X11')
+    if match(serverlist(), "XVIMTEST") == -1
+      call StopVimInTerminal(buf)
+      throw s:skip
+    endif
+
+    let s:remote = 1
+    return
+  endif
+
   let cmd = GetVimCommandCleanTerm() .. '--serverlist'
   call term_sendkeys(buf, ":r! " .. cmd .. "\<CR>")
   call TermWait(buf)

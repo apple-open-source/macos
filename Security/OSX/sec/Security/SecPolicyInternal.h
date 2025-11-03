@@ -33,6 +33,7 @@
 #include <xpc/xpc.h>
 
 #include <Security/SecPolicy.h>
+#include <Security/SecPolicyPriv.h>
 #include <Security/SecTrust.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFString.h>
@@ -51,8 +52,6 @@ struct __SecPolicy {
 };
 
 CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreate(CFStringRef oid, CFStringRef name, CFDictionaryRef options);
-
-CFDictionaryRef SecPolicyGetOptions(SecPolicyRef policy);
 
 XPC_RETURNS_RETAINED xpc_object_t SecPolicyArrayCopyXPCArray(CFArrayRef policies, CFErrorRef *error);
 

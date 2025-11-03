@@ -889,7 +889,7 @@ T_DECL(test_eventlink_wait_signal_suspend_loop, "eventlink wait_signal + thread_
 	int i;
 	uint64_t handoffs_start, handoffs_end;
 
-	size_t handoffs_start_size = sizeof(handoffs_start_size);
+	size_t handoffs_start_size = sizeof(handoffs_start);
 	kr = sysctlbyname("kern.mach_eventlink_handoff_success_count", &handoffs_start, &handoffs_start_size, NULL, 0);
 	T_QUIET; T_ASSERT_POSIX_SUCCESS(kr, "sysctlbyname(kern.mach_eventlink_handoff_success_count)");
 	T_LOG("handoffs_start: %llu", handoffs_start);

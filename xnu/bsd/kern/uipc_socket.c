@@ -2440,6 +2440,9 @@ sosend(struct socket *so, struct sockaddr *addr, struct uio *uio,
 			}
 			error = (*so->so_proto->pr_usrreqs->pru_send)
 			    (so, sendflags, top, addr, control, p);
+			if (error == EJUSTRETURN) {
+				error = 0;
+			}
 
 packet_consumed:
 			if (dontroute) {
@@ -2548,6 +2551,9 @@ sosend_reinject(struct socket *so, struct sockaddr *addr, struct mbuf *top, stru
 
 	int error = (*so->so_proto->pr_usrreqs->pru_send)
 	    (so, sendflags, top, addr, control, current_proc());
+	if (error == EJUSTRETURN) {
+		error = 0;
+	}
 
 	return error;
 }
@@ -2758,6 +2764,9 @@ sosend_list(struct socket *so, struct mbuf *pktlist, size_t total_len, u_int *pk
 
 				error = (*so->so_proto->pr_usrreqs->pru_send)
 				    (so, 0, m, NULL, control, current_proc());
+				if (error == EJUSTRETURN) {
+					error = 0;
+				}
 				if (error != 0) {
 					if (error != ENOBUFS) {
 						os_log(OS_LOG_DEFAULT, "sosend_list: pru_send error %d",

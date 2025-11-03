@@ -109,6 +109,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorRateLimited                                     = 88,
     OctagonErrorFollowUpRequired                                = 89,
     OctagonErrorNoEscrowCheckOnTV                               = 90,
+    OctagonErrorEscrowRepairIgnoredError                        = 91,
 };
 
 /* used for defaults writes */
@@ -162,6 +163,25 @@ typedef NS_ERROR_ENUM(TrustedPeersHelperRecoveryKeySetErrorDomain, TrustedPeersH
     TrustedPeersHelperRecoveryKeySetErrorUnsupportedKeyType = 4,
     TrustedPeersHelperRecoveryKeySetErrorCoreCryptoKeyGeneration = 5,
     TrustedPeersHelperRecoveryKeySetErrorFailedToGenerateRandomKey = 6
+};
+
+/*
+ AppleKeyStorePasscodeCacheReason map to
+ typedef enum : uint8_t {
+     cache_flow_enabled_passcode_changed = 0,
+     cache_flow_enabled_passcode_validated = 1,
+     cache_flow_enabled_passcode_unlocked = 2,
+     cache_flow_enabled_last = 3, // invalid
+ } cache_flow_enabled_context_t;
+
+ HOWEVER we chose AppleKeyStorePasscodeCacheReason to start at 100 instead of 0
+ so that the contextType passed to OTEscrowRepairOperation should always have an explicit value.
+ */
+typedef NS_ENUM(NSInteger, AppleKeyStorePasscodeCacheReason) {
+    AppleKeyStorePasscodeCacheReasonUnknown = -1,
+    AppleKeyStorePasscodeCacheReasonPasscodeChanged = 100,
+    AppleKeyStorePasscodeCacheReasonValidated = 101,
+    AppleKeyStorePasscodeCacheReasonPasscodeUnlocked = 102,
 };
 
 

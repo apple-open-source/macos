@@ -409,6 +409,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
                                                     skipRateLimitingCheck: false,
                                                     repair: false,
                                                     danglingPeerCleanup: false,
+                                                    caesarPeerCleanup: false,
                                                     updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(response, "response should not be nil")

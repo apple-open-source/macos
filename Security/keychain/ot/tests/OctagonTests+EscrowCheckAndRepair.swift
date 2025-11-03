@@ -36,12 +36,12 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
 #endif
 
         // make sure enum values are all correct
-        XCTAssertEqual(EscrowRepairReason.recordRepairReasonUnknown.rawValue, OTEscrowCheckRepairReason.unknown.rawValue);
-        XCTAssertEqual(EscrowRepairReason.recordOk.rawValue, OTEscrowCheckRepairReason.recordOK.rawValue);
-        XCTAssertEqual(EscrowRepairReason.noRecordMatchingPeer.rawValue, OTEscrowCheckRepairReason.noRecordMatchingPeer.rawValue);
-        XCTAssertEqual(EscrowRepairReason.noRecordMatchingPasscodeGeneration.rawValue, OTEscrowCheckRepairReason.noRecordMatchingPasscodeGeneration.rawValue);
-        XCTAssertEqual(EscrowRepairReason.noRecordMatchingRecoverable.rawValue, OTEscrowCheckRepairReason.noRecordMatchingRecoverable.rawValue);
-        XCTAssertEqual(EscrowRepairReason.recordNeedsMigration.rawValue, OTEscrowCheckRepairReason.recordNeedsMigration.rawValue);
+        XCTAssertEqual(EscrowRepairReason.recordRepairReasonUnknown.rawValue, OTEscrowCheckRepairReason.unknown.rawValue)
+        XCTAssertEqual(EscrowRepairReason.recordOk.rawValue, OTEscrowCheckRepairReason.recordOK.rawValue)
+        XCTAssertEqual(EscrowRepairReason.noRecordMatchingPeer.rawValue, OTEscrowCheckRepairReason.noRecordMatchingPeer.rawValue)
+        XCTAssertEqual(EscrowRepairReason.noRecordMatchingPasscodeGeneration.rawValue, OTEscrowCheckRepairReason.noRecordMatchingPasscodeGeneration.rawValue)
+        XCTAssertEqual(EscrowRepairReason.noRecordMatchingRecoverable.rawValue, OTEscrowCheckRepairReason.noRecordMatchingRecoverable.rawValue)
+        XCTAssertEqual(EscrowRepairReason.recordNeedsMigration.rawValue, OTEscrowCheckRepairReason.recordNeedsMigration.rawValue)
 
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
@@ -219,17 +219,193 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.accountMetadataStore.persistLastEscrowRepairAttempted(Date.now))
         SecMockAKS.resetCacheFlow()
 
-        // Repair (CFU). No test for CFU, because in this case we don't post it. radar:148048053
         self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = true
+        // Rate-limited repair attempt (CFU). No test for CFU, because in this case, the CFU is posted by CoreCDP. radar:148048053
         escrowCheckAndValidateResponse { response in
             XCTAssertTrue(response.needsReenroll)
             XCTAssertTrue(response.octagonTrusted)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
         }
+
+        // Rate-limited on an older version, so we should repair anyway.
+        XCTAssertNoThrow(try self.cuttlefishContext.accountMetadataStore._persistEscrowRepairAttemptVersion(-1))
+        escrowCheckAndValidateResponse { response in
+            XCTAssertTrue(response.needsReenroll)
+            XCTAssertTrue(response.octagonTrusted)
+            XCTAssertNil(response.moveRequest)
+            XCTAssertTrue(SecMockAKS.cacheFlowEnabled())
+        }
         self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = false
 
         self.aksLockState = false
+    }
+    func testErrorCodes() throws {
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        _ = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        self.mockSecureBackupAdapter.enableError = NSError(domain: kCloudServicesErrorDomain, code: Int(kCloudServicesBadParametersError.rawValue), userInfo: nil)
+        var pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        var underlyingError = NSError(domain: "securityd", code: Int(errSecInteractionNotAllowed), userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: TrustedPeersHelperErrorDomain, code: Int(TrustedPeersHelperErrorCode.failedToLoadSecret.rawValue), userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotFindHost, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorDNSLookupFailed, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotLoadFromNetwork, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorInternationalRoamingOff, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+
+        // test to expect rate limiting
+
+        underlyingError = NSError(domain: NSURLErrorDomain, code: NSURLErrorBadURL, userInfo: nil)
+        self.mockSecureBackupAdapter.enableError = NSError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [NSUnderlyingErrorKey: underlyingError])
+        pendingFlagCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, pendingFlagCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
+            XCTAssertNotEqual(0, accountState.lastEscrowRepairAttempted, "lastEscrowRepairAttempted should not be 0")
+        } catch {
+            XCTFail("error loading account state: \(error)")
+        }
+    }
+
+    func testIgnorePasscodeStashWhenUntrusted() throws {
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // Untrusted. Assert that notification is ignored (no flag set).
+        let unexpectedCondition = self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable)
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertNotEqual(0, unexpectedCondition.wait(1 * NSEC_PER_SEC), "State machine should NOT have handled the notification")
+
+        // Get trusted.
+        _ = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        // Assert that the notification is NOT ignored (flag is set).
+        let expectedCondition = try XCTUnwrap(self.cuttlefishContext.stateMachine.flags.condition(forFlag: OctagonFlagPasscodeStashAvailable))
+        self.cuttlefishContext.passcodeStashAvailable(NSNumber(value: 2))
+        XCTAssertEqual(0, expectedCondition.wait(10 * NSEC_PER_SEC), "State machine should have handled the notification")
     }
 }
 

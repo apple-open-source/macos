@@ -244,8 +244,34 @@ void ViewGestureController::beginSwipeGesture(_UINavigationInteractiveTransition
         BOOL shouldRestoreScrollPosition = targetItem->mainFrameState()->shouldRestoreScrollPosition;
         WebCore::IntPoint currentScrollPosition = WebCore::roundedIntPoint(page->viewScrollPosition());
 
-        if (snapshot->hasImage() && snapshot->size() == swipeLayerSizeInDeviceCoordinates && deviceScaleFactor == snapshot->deviceScaleFactor() && (shouldRestoreScrollPosition || (currentScrollPosition == snapshot->viewScrollPosition())))
+        bool canUseSnapshot = [&] {
+            if (!snapshot->hasImage())
+                return false;
+
+            if (snapshot->size() != swipeLayerSizeInDeviceCoordinates)
+                return false;
+
+            if (deviceScaleFactor != snapshot->deviceScaleFactor())
+                return false;
+
+            if (!shouldRestoreScrollPosition && (currentScrollPosition != snapshot->viewScrollPosition()))
+                return false;
+
+            auto insetDelta = snapshot->computedObscuredInset() - m_webPageProxyForBackForwardListForCurrentSwipe->computedObscuredInset();
+            bool insetChangedSignificantly = insetDelta.anyOf([](auto value) {
+                static constexpr auto minimumSignificantChange = 100;
+                return std::abs(value) >= minimumSignificantChange;
+            });
+
+            if (insetChangedSignificantly)
+                return false;
+
+            return true;
+        }();
+
+        if (canUseSnapshot)
             [m_snapshotView layer].contents = snapshot->asLayerContents();
+
         WebCore::Color coreColor = snapshot->backgroundColor();
         if (coreColor.isValid())
             backgroundColor = cocoaColor(coreColor);

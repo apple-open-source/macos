@@ -1027,7 +1027,7 @@ Value BBQJIT::topValue(TypeKind type)
 
 Value BBQJIT::exception(const ControlData& control)
 {
-    ASSERT(ControlData::isTry(control) || ControlData::isAnyCatch(control));
+    ASSERT(ControlData::isAnyCatch(control));
     return Value::fromTemp(TypeKind::Externref, control.enclosedHeight());
 }
 
@@ -3284,46 +3284,51 @@ StackMap BBQJIT::makeStackMap(const ControlData& data, Stack& enclosingStack)
     StackMap stackMap(numElements);
     unsigned stackMapIndex = 0;
     for (unsigned i = 0; i < m_locals.size(); i ++)
-        stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(m_locals[i]), toB3Type(m_localTypes[i]));
+        stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(m_locals[i]), toB3Type(m_localTypes[i]));
 
     if (Options::useWasmIPInt()) {
         // Do rethrow slots first because IPInt has them in a shadow stack.
         for (const ControlEntry& entry : m_parser->controlStack()) {
-            unsigned numSlots = entry.controlData.implicitSlots();
-            if (BBQJIT::ControlData::isTry(entry.controlData))
-                ++numSlots;
-            for (unsigned i = 0; i < numSlots; i ++) {
+            if (ControlData::isAnyCatch(entry.controlData)) {
+                ASSERT(entry.controlData.implicitSlots() == 1);
                 Value exception = this->exception(entry.controlData);
-                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(exception)), B3::Int64); // Exceptions are EncodedJSValues, so they are always Int64
-            }
+                stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(locationOf(exception)), B3::Int64); // Exceptions are EncodedJSValues, so they are always Int64
+            } else if (BBQJIT::ControlData::isTry(entry.controlData)) {
+                // IPInt reserves rethrow slots based on Try blocks, but there is no exception to rethrow until Catch,
+                // and BBQ and OMG do not represent the implicit exception slot/variable except within the Catch, so
+                // use Void to signify we shouldn't load and constant 0 to zero fill this slot when storing.
+                ASSERT(!entry.controlData.implicitSlots());
+                stackMap[stackMapIndex++] = OSREntryValue(B3::ValueRep::constant(0), B3::Void);
+            } else
+                ASSERT(!entry.controlData.implicitSlots());
         }
 
         for (const ControlEntry& entry : m_parser->controlStack()) {
             for (const TypedExpression& expr : entry.enclosedExpressionStack)
-                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+                stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
         }
 
         for (const TypedExpression& expr : enclosingStack)
-            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
-        for (unsigned i = 0; i < data.argumentLocations().size(); i ++)
-            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
+            stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+        for (unsigned i = 0; i < data.argumentLocations().size(); i++)
+            stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
 
 
     } else {
         for (const ControlEntry& entry : m_parser->controlStack()) {
             for (const TypedExpression& expr : entry.enclosedExpressionStack)
-                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+                stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
             if (ControlData::isAnyCatch(entry.controlData)) {
-                for (unsigned i = 0; i < entry.controlData.implicitSlots(); i ++) {
+                for (unsigned i = 0; i < entry.controlData.implicitSlots(); i++) {
                     Value exception = this->exception(entry.controlData);
-                    stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(exception)), B3::Int64); // Exceptions are EncodedJSValues, so they are always Int64
+                    stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(locationOf(exception)), B3::Int64); // Exceptions are EncodedJSValues, so they are always Int64
                 }
             }
         }
         for (const TypedExpression& expr : enclosingStack)
-            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
-        for (unsigned i = 0; i < data.argumentLocations().size(); i ++)
-            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
+            stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+        for (unsigned i = 0; i < data.argumentLocations().size(); i++)
+            stackMap[stackMapIndex++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
     }
 
     RELEASE_ASSERT(stackMapIndex == numElements);

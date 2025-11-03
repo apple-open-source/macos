@@ -107,6 +107,8 @@ enum class WebKit::NavigatingToAppBoundDomain : bool;
 
     bool linkPreconnectEarlyHintsEnabled;
     bool shouldRecordFrameLoadForStorageAccess;
+
+    bool isInitiatorPrefetch;
 };
 
 using WebCore::FetchingWorkerIdentifier = Variant<std::monostate, WebCore::SharedWorkerIdentifier, WebCore::ServiceWorkerIdentifier>;

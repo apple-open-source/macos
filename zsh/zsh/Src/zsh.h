@@ -2547,6 +2547,9 @@ enum {
     XTRACE,
     USEZLE,
     DVORAK,
+#ifdef __APPLE__
+    PARANOID,
+#endif
     OPT_SIZE
 };
 

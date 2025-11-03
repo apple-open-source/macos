@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # filehandler.rb -- FileHandler Module
 #
@@ -212,9 +212,18 @@ module WEBrick
 
       # :stopdoc:
 
+      def set_filesystem_encoding(str)
+        enc = Encoding.find('filesystem')
+        if enc == Encoding::US_ASCII
+          str.b
+        else
+          str.dup.force_encoding(enc)
+        end
+      end
+
       def service(req, res)
         # if this class is mounted on "/" and /~username is requested.
-        # we're going to override path informations before invoking service.
+        # we're going to override path information before invoking service.
         if defined?(Etc) && @options[:UserDir] && req.script_name.empty?
           if %r|^(/~([^/]+))| =~ req.path_info
             script_name, user = $1, $2
@@ -241,7 +250,7 @@ module WEBrick
 
       def do_POST(req, res)
         unless exec_handler(req, res)
-          raise HTTPStatus::NotFound, "`#{req.path}' not found."
+          raise HTTPStatus::NotFound, "'#{req.path}' not found."
         end
       end
 
@@ -298,7 +307,7 @@ module WEBrick
       end
 
       def exec_handler(req, res)
-        raise HTTPStatus::NotFound, "`#{req.path}' not found" unless @root
+        raise HTTPStatus::NotFound, "'#{req.path}' not found." unless @root
         if set_filename(req, res)
           handler = get_handler(req, res)
           call_callback(:HandlerCallback, req, res)
@@ -324,11 +333,12 @@ module WEBrick
       end
 
       def set_filename(req, res)
-        res.filename = @root.dup
+        res.filename = @root
         path_info = req.path_info.scan(%r|/[^/]*|)
 
         path_info.unshift("")  # dummy for checking @root dir
         while base = path_info.first
+          base = set_filesystem_encoding(base)
           break if base == "/"
           break unless File.directory?(File.expand_path(res.filename + base))
           shift_path_info(req, res, path_info)
@@ -336,6 +346,7 @@ module WEBrick
         end
 
         if base = path_info.first
+          base = set_filesystem_encoding(base)
           if base == "/"
             if file = search_index_file(req, res)
               shift_path_info(req, res, path_info, file)
@@ -348,7 +359,7 @@ module WEBrick
             call_callback(:FileCallback, req, res)
             return true
           else
-            raise HTTPStatus::NotFound, "`#{req.path}' not found."
+            raise HTTPStatus::NotFound, "'#{req.path}' not found."
           end
         end
 
@@ -357,14 +368,14 @@ module WEBrick
 
       def check_filename(req, res, name)
         if nondisclosure_name?(name) || windows_ambiguous_name?(name)
-          @logger.warn("the request refers nondisclosure name `#{name}'.")
-          raise HTTPStatus::NotFound, "`#{req.path}' not found."
+          @logger.warn("the request refers nondisclosure name '#{name}'.")
+          raise HTTPStatus::NotFound, "'#{req.path}' not found."
         end
       end
 
       def shift_path_info(req, res, path_info, base=nil)
         tmp = path_info.shift
-        base = base || tmp
+        base = base || set_filesystem_encoding(tmp)
         req.path_info = path_info.join
         req.script_name << base
         res.filename = File.expand_path(res.filename + base)
@@ -426,7 +437,7 @@ module WEBrick
       def set_dir_list(req, res)
         redirect_to_directory_uri(req, res)
         unless @options[:FancyIndexing]
-          raise HTTPStatus::Forbidden, "no access permission to `#{req.path}'"
+          raise HTTPStatus::Forbidden, "no access permission to '#{req.path}'"
         end
         local_path = res.filename
         list = Dir::entries(local_path).collect{|name|
@@ -470,9 +481,9 @@ module WEBrick
         elsif !namewidth or (namewidth = namewidth.to_i) < 2
           namewidth = 25
         end
-        query = query.inject('') {|s, (k, v)| s << '&' << HTMLUtils::escape("#{k}=#{v}")}
+        query = query.inject('') {|s, (k, v)| s << '&' << HTMLUtils::escape("#{k}=#{v}")}.dup
 
-        type = "text/html"
+        type = +"text/html"
         case enc = Encoding.find('filesystem')
         when Encoding::US_ASCII, Encoding::ASCII_8BIT
         else
@@ -481,7 +492,7 @@ module WEBrick
         res['content-type'] = type
 
         title = "Index of #{HTMLUtils::escape(req.path)}"
-        res.body = <<-_end_of_html_
+        res.body = +<<-_end_of_html_
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
 <HTML>
   <HEAD>
@@ -517,7 +528,7 @@ module WEBrick
           else
             dname = name
           end
-          s =  "<TR><TD class=\"name\"><A HREF=\"#{HTTPUtils::escape(name)}#{query if name.end_with?('/')}\">#{HTMLUtils::escape(dname)}</A></TD>"
+          s =  +"<TR><TD class=\"name\"><A HREF=\"#{HTTPUtils::escape(name)}#{query if name.end_with?('/')}\">#{HTMLUtils::escape(dname)}</A></TD>"
           s << "<TD class=\"mtime\">" << (time ? time.strftime("%Y/%m/%d %H:%M") : "") << "</TD>"
           s << "<TD class=\"size\">" << (size >= 0 ? size.to_s : "-") << "</TD></TR>\n"
           res.body << s

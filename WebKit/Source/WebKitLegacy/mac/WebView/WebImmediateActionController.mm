@@ -38,12 +38,12 @@
 #import "WebViewInternal.h"
 #import <WebCore/DataDetection.h>
 #import <WebCore/DictionaryLookup.h>
+#import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FontMetrics.h>
 #import <WebCore/GeometryUtilities.h>
-#import <WebCore/HTMLConverter.h>
 #import <WebCore/ImmediateActionStage.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>

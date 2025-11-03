@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -243,7 +243,7 @@ static __inline__ NSString *
 listInterfaces(void)
 {
 	NSMutableString *ret = [NSMutableString string];
-	interface_list_t *ifl = ifl_init();
+	interface_list_t *ifl = ifl_create(NULL);
 
 	for (int i = 0; i < ifl_count(ifl); i++) {
 		interface_t *if_ = ifl_at_index(ifl, i);

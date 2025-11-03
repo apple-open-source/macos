@@ -919,11 +919,10 @@ def ShowPid(cmd_args=None):
     if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("No arguments passed")
     pidval = ArgumentStringToInt(cmd_args[0])
-    for t in kern.tasks:
-        pval = GetProcFromTask(t)
-        if pval is not None and GetProcPID(pval) == pidval:
+    for task, proc in GetAllTasks():
+        if proc is not None and GetProcPID(proc) == pidval:
             print(GetTaskSummary.header + " " + GetProcSummary.header)
-            print(GetTaskSummary(t) + " " + GetProcSummary(pval))
+            print(GetTaskSummary(task) + " " + GetProcSummary(proc))
             break
 
 # EndMacro: showpid
@@ -1298,24 +1297,43 @@ def ShowTaskStacks(task, O=None, regex=None):
                 print(GetThreadBackTrace(th, prefix="    ") + "\n")
 
 
+def GetAllTasks():
+    """ Generator that yields all tasks (both active and zombie).
+        returns:
+            Generator of (task, proc) tuples for all tasks
+    """
+    # Yield active tasks
+    for t in kern.tasks:
+        pval = GetProcFromTask(t)
+        yield (t, pval)
+
+    # Yield zombie tasks
+    for proc in kern.zombprocs:
+        if proc.p_stat != 5:  # Skip if process state is 5 (SIDL - intermediate state during process creation)
+            t = GetTaskFromProc(proc)
+            if t is not None:
+                yield (t, proc)
+
 def FindTasksByName(searchstr, ignore_case=True):
-    """ Search the list of tasks by name. 
+    """ Search the list of tasks by name.
         params:
             searchstr: str - a regex like string to search for task
             ignore_case: bool - If False then exact matching will be enforced
         returns:
             [] - array of task object. Empty if not found any
     """
-    re_options = 0   
+    re_options = 0
     if ignore_case:
         re_options = re.IGNORECASE
     search_regex = re.compile(searchstr, re_options)
     retval = []
-    for t in kern.tasks: 
-        pval = GetProcFromTask(t)
-        process_name = "{:s}".format(GetProcName(pval))
-        if search_regex.search(process_name):
-            retval.append(t)
+
+    for task, proc in GetAllTasks():
+        if proc is not None:
+            process_name = "{:s}".format(GetProcName(proc))
+            if search_regex.search(process_name):
+                retval.append(task)
+
     return retval
 
 @lldb_command('showtaskstacks', 'F:', fancy=True)

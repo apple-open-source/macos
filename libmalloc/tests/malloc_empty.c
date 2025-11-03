@@ -2,7 +2,8 @@
 #include <darwintest.h>
 #include <malloc_private.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_ALL_ALLOCATORS);
 
 T_DECL(empty_malloc_valid, "Zero size allocation returns valid pointer")
 {

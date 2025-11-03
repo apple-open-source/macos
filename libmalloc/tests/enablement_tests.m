@@ -9,7 +9,7 @@
 #include <darwintest_utils.h>
 #include <../src/internal.h>
 
-#if CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX || TARGET_OS_VISION)
+#if CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX || TARGET_OS_VISION || TARGET_OS_WATCH)
 
 #include <Foundation/Foundation.h>
 #include <Foundation/NSJSONSerialization.h>
@@ -385,6 +385,9 @@ security_critical_configuration_checks_with_space_efficiency(
 #elif TARGET_OS_OSX
 		.batch_size = space_efficient ? 0 : 10,
 		.ptr_bucket_count = 4,
+#elif TARGET_OS_WATCH
+		.batch_size = 0,
+		.ptr_bucket_count = 2,
 #else
 		.batch_size = 0,
 		.ptr_bucket_count = 3,
@@ -419,6 +422,8 @@ security_critical_configuration_checks(const char *process)
 		.batch_size = 0,
 #if TARGET_OS_OSX || TARGET_OS_VISION
 		.ptr_bucket_count = 4,
+#elif TARGET_OS_WATCH
+		.ptr_bucket_count = 2,
 #else
 		.ptr_bucket_count = 3,
 #endif
@@ -434,11 +439,12 @@ security_critical_configuration_checks(const char *process)
 			&configuration);
 }
 
-void terminate_process(pid_t pid) {
-	char terminate_process_buffer[PID_BUFFER_SIZE] = {};
-	snprintf(terminate_process_buffer, PID_BUFFER_SIZE, "kill -9 %d", pid);
-	T_ASSERT_POSIX_ZERO(system(terminate_process_buffer), "terminated process");
+void terminate_process(pid_t pid)
+{
+	T_EXPECT_POSIX_SUCCESS(kill(pid, SIGKILL), "terminated process");
 }
+
+T_GLOBAL_META(T_META_TAG_NO_ALLOCATOR_OVERRIDE);
 
 T_DECL(xzone_enabled_launchd,
 		"Verify enablement configuration for security critical processes"
@@ -465,6 +471,8 @@ T_DECL(xzone_enabled_notifyd,
 {
 	security_critical_configuration_checks("notifyd");
 }
+
+#if !TARGET_OS_WATCH
 
 // This test needs to be run as the local (non-root) user on macOS in order to
 // successfully launch Safari
@@ -503,6 +511,11 @@ T_DECL(xzone_enabled_safari,
 #endif
 }
 
+#endif // !TARGET_OS_WATCH
+
+// TODO: port this test to watchOS
+#if !TARGET_OS_WATCH
+
 T_DECL(xzone_enabled_driverkit,
 		"Verify enablement configuration for Driverkit processes",
 		T_META_TAG_VM_NOT_ELIGIBLE,
@@ -524,6 +537,8 @@ T_DECL(xzone_enabled_driverkit,
 		.batch_size = 0,
 #if TARGET_OS_OSX || TARGET_OS_VISION
 		.ptr_bucket_count = 4,
+#elif TARGET_OS_WATCH
+		.ptr_bucket_count = 2,
 #else
 		.ptr_bucket_count = 3,
 #endif
@@ -543,6 +558,8 @@ T_DECL(xzone_enabled_driverkit,
 	terminate_process(driver_test_pid);
 }
 
+#endif // !TARGET_OS_WATCH
+
 T_DECL(xzone_enabled_general_process_test_runner,
 		"Verify enablement configuration for general processes (the test" "process itself)",
 		T_META_TAG_VM_NOT_ELIGIBLE,
@@ -561,6 +578,8 @@ T_DECL(xzone_enabled_general_process_test_runner,
 #endif
 #if TARGET_OS_OSX || TARGET_OS_VISION
 		.ptr_bucket_count = 4,
+#elif TARGET_OS_WATCH
+		.ptr_bucket_count = 1,
 #else
 		.ptr_bucket_count = 2,
 #endif
@@ -599,6 +618,8 @@ T_DECL(xzone_enabled_general_daemon,
 		.batch_size = 0,
 #if TARGET_OS_VISION || TARGET_OS_OSX
 		.ptr_bucket_count = 4,
+#elif TARGET_OS_WATCH
+		.ptr_bucket_count = 1,
 #else
 		.ptr_bucket_count = 2,
 #endif
@@ -649,6 +670,8 @@ T_DECL(xzone_enabled_overridden_app,
 	terminate_process(pid);
 }
 #endif // TARGET_OS_OSX
+
+#if !TARGET_OS_WATCH
 
 T_DECL(xzone_enabled_general_app,
 		"Verify enablement configuration for a general app (Notes)",
@@ -717,6 +740,8 @@ T_DECL(xzone_enabled_general_app,
 #endif // TARGET_OS_OSX
 }
 
+#endif // !TARGET_OS_WATCH
+
 T_DECL(xzone_enabled_hardened_heap_entitlement_space_efficient,
 		"Verify enablement configuration for hardened-heap entitled process"
 		" (SpaceEfficient configuration)",
@@ -746,6 +771,8 @@ T_DECL(xzone_enabled_hardened_heap_entitlement_space_efficient,
 
 	terminate_process(pid);
 }
+
+#if !TARGET_OS_WATCH
 
 T_DECL(xzone_enabled_hardened_heap_entitlement_non_space_efficient,
 		"Verify enablement configuration for hardened-heap entitled process"
@@ -781,6 +808,8 @@ T_DECL(xzone_enabled_hardened_heap_entitlement_non_space_efficient,
 	terminate_process(pid);
 }
 
+#endif // !TARGET_OS_WATCH
+
 #if MALLOC_TARGET_IOS_ONLY
 
 T_DECL(xzone_enabled_hardened_browser_entitlement,
@@ -802,13 +831,14 @@ T_DECL(xzone_enabled_hardened_browser_entitlement,
 	terminate_process(pid);
 }
 
-#endif
+#endif // MALLOC_TARGET_IOS_ONLY
 
 #else // CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX ||
-// TARGET_OS_VISION)
-T_DECL(skip_json_printer_tests, "Skip printer tests")
+// TARGET_OS_VISION || TARGET_OS_WATCH)
+T_DECL(skip_json_printer_tests, "Skip printer tests",
+		T_META_TAG_VM_PREFERRED, T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
-	T_SKIP("Nothing to test without xzone malloc on ios/macos/visionos");
+	T_SKIP("Nothing to test without xzone malloc");
 }
 #endif // CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX ||
 // TARGET_OS_VISION)

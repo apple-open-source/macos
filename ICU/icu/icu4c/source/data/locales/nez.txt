@@ -1,0 +1,8 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+nez{
+    AuxExemplarCharacters{"[ʷ ƛ š {x̂}]"}
+    ExemplarCharacters{"[a á e é i í o ó u ú b c d f g h j k l ł m n p q r s t v w x {x̣} y z ʼ]"}
+    ExemplarCharactersPunctuation{"[·]"}
+}

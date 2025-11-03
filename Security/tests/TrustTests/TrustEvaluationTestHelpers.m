@@ -334,7 +334,10 @@ errOut:
             CFReleaseNull(spkiSHA256Data);
         }
 
-        SecPolicySetOptionsValue_internal(policy, spkiSHA256Options[i], spkiSHA256DataArray);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        SecPolicySetOptionsValue(policy, spkiSHA256Options[i], spkiSHA256DataArray);
+#pragma clang diagnostic pop
         CFReleaseNull(spkiSHA256DataArray);
     }
 

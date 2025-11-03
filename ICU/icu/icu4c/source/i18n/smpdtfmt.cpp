@@ -470,11 +470,18 @@ SimpleDateFormat::SimpleDateFormat(const UnicodeString& pattern,
     fLocale(locale)
 {
 
+#if APPLE_ICU_CHANGES
+    initializeCalendar(nullptr,fLocale,status);
+    setIndianDateOverride();
+    fTimeOverride.setToBogus();
+    initializeBooleanAttributes();
+#else
     fDateOverride.setToBogus();
     fTimeOverride.setToBogus();
     initializeBooleanAttributes();
 
     initializeCalendar(nullptr,fLocale,status);
+#endif // APPLE_ICU_CHANGES
     fSymbols = DateFormatSymbols::createForLocale(fLocale, status);
     initialize(fLocale, status);
     initializeDefaultCentury();
@@ -4643,18 +4650,20 @@ SimpleDateFormat::applyPattern(const UnicodeString& pattern)
         }
     }
 #if APPLE_ICU_CHANGES
-    // rdar://145772893 A hack
-    // for Hindu calendars days are represented as strings *except* when the date format is "d" i.e. the stand alone day
-    // in that case, it should be formatted as a short, numeric, value
-    // string representation is applied through rbnf, using d=tithi<language> for rules
-    // when we apply a new format, this rbnf is not cleared, so its rule still applies
-    // this hack makes sure rbnf rulees are cleared, but as mentioned above, only for the stand alone day "d" format
-    else if(fCalendar != nullptr && isHinduCalendar() &&  useNumericDaysInFormat()) {
-      if (fSharedNumberFormatters) {
-          freeSharedNumberFormatters(fSharedNumberFormatters);
-          fSharedNumberFormatters = nullptr;
-      }
-      fDateOverride.setToBogus();
+    // rdar://159235412 (J614c/25B31: Different calendar output with/without setting Full style)
+    // rdar://145772893 (Day numbers for alternate Vikram calendar should use a shorter (numeric) style in month view)
+    else if(fCalendar != nullptr && isHinduCalendar()) {
+        // use setIndianDateOverride() to set fDateOverride, then delete and recreate the number formatters
+        setIndianDateOverride();
+        
+        if (fSharedNumberFormatters) {
+            freeSharedNumberFormatters(fSharedNumberFormatters);
+            fSharedNumberFormatters = nullptr;
+        }
+        if (!fDateOverride.isBogus()) {
+            UErrorCode dummy = U_ZERO_ERROR;
+            initNumberFormatters(fLocale, dummy);
+        }
     }
 #endif // APPLE_ICU_CHANGES
 }
@@ -5037,6 +5046,7 @@ void SimpleDateFormat::parsePattern() {
     }
 }
           
+#if APPLE_ICU_CHANGES
 // rdar://145772893 Utility function checking if a calendar is one of Hindu calendars
 bool SimpleDateFormat::isHinduCalendar()
 {
@@ -5051,11 +5061,48 @@ bool SimpleDateFormat::isHinduCalendar()
         uprv_strcmp(fCalendar->getType(),"telugu") == 0
   ;
 }
-// rdar://145772893 Utility function for checking if a pattern should use numeric values for days
-bool SimpleDateFormat::useNumericDaysInFormat()
-{
-    return (u_strcmp(fPattern.getTerminatedBuffer(), u"d") == 0);
+// rdar://145772893 (Day numbers for alternate Vikram calendar should use a shorter (numeric) style in month view)
+// rdar://159235412 (J614c/25B31: Different calendar output with/without setting Full style)
+void SimpleDateFormat::setIndianDateOverride() {
+    // For non-Indian calendars, this function just sets fDateOverride to bogus.  But for Indian calendars,
+    // it sets it to whatever is most appropriate for the pattern (which might also be bogus).  It does this
+    // by checking the month field in the pattern.  Depending on the length (or presence) of the month field,
+    // it looks up the standard date pattern with the same month length and uses that pattern's override
+    // string (if it has one) as the override string for the pattern the caller asked for.  (The fDateOverride
+    // string specifies which numbering system to use for each field in the pattern and is how we get
+    // paksha and tithi names for the days when appropriate.)
+    if (isHinduCalendar()) {
+        EStyle dateStyle = kNone;
+        if (fPattern.indexOf(u"MMMM", -1, 0) >= 0) {
+            dateStyle = (EStyle)(kFull + kDateOffset);
+        } else if (fPattern.indexOf(u"MMM", -1, 0) >= 0) {
+            dateStyle = (EStyle)(kMedium + kDateOffset);
+        } else {
+            dateStyle = (EStyle)(kShort + kDateOffset);
+        }
+        
+        UErrorCode status = U_ZERO_ERROR;
+        LocalUResourceBundlePointer bundle(ures_open(nullptr, fLocale.getName(), &status));
+        LocalUResourceBundlePointer dateTimePatterns;
+        CharString resourcePath("calendar/", status);
+        resourcePath.append(fCalendar->getType(), status).append("/DateTimePatterns", status);
+        dateTimePatterns.adoptInstead(
+            ures_getByKeyWithFallback(bundle.getAlias(), resourcePath.data(),
+                                      (UResourceBundle*)nullptr, &status));
+        UnicodeString overStr;
+        UBool fallingBackByCountry = false;
+        getPatternForDateStyle(dateStyle, dateTimePatterns.getAlias(), dateTimePatterns.getAlias(), fallingBackByCountry, overStr, status);
+        
+        if (U_FAILURE(status) || overStr.isEmpty() || overStr.isBogus()) {
+            fDateOverride.setToBogus();
+        } else {
+            fDateOverride.setTo(overStr);
+        }
+    } else {
+        fDateOverride.setToBogus();
+    }
 }
+#endif  // APPLE_ICU_CHANGES
 
 U_NAMESPACE_END
 

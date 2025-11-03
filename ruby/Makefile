@@ -7,6 +7,8 @@ FW_VERSION_DIR	= $(FW_DIR)/Versions/$(VERSION)
 LOCAL_FW_RES_DIR = $(EXTRAS_DIR)/framework_resources
 SITEDIR		= /Library/Ruby/Site
 USRGEMDIR	= /Library/Ruby/Gems/$(VERSION0)
+TESTCONFDIR	= /AppleInternal/CoreOS/BATS/unit_tests
+TESTDIR		= /AppleInternal/Tests/ruby
 
 Project		= ruby
 UserType	= Developer
@@ -76,8 +78,8 @@ EXTRAS_DIR = $(SRCROOT)/extras
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = $(shell /usr/libexec/PlistBuddy -c 'Print :OpenSourceVersion' $(AEP_Project).plist)
-AEP_URL        = $(shell /usr/libexec/PlistBuddy -c 'Print :OpenSourceURL' $(AEP_Project).plist)
+AEP_Version    = $(shell /usr/libexec/PlistBuddy -c 'Print :0:OpenSourceVersion' $(AEP_Project).plist)
+AEP_URL        = $(shell /usr/libexec/PlistBuddy -c 'Print :0:OpenSourceURL' $(AEP_Project).plist)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(shell basename $(AEP_URL) | cut -d. -f1,2,3)
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -167,7 +169,15 @@ post-install:
 	$(INSTALL_DIRECTORY) $(DSTROOT)/$(USRGEMDIR)
 	find "$(OBJROOT)" -name "*.log" -print0 | while IFS= read -r -d $$'\0' mkmflog; do echo "Printing $$mkmflog"; cat "$$mkmflog"; done
 	darwinvers=`$(SRCROOT)/ruby/tool/config.guess | sed -e 's/.*-//' | sed -e 's/\..*//'`; if [ ! -e "$(DSTROOT)/$(FW_VERSION_DIR)/$(USRLIBDIR)/ruby/$(VERSION0)/universal-$${darwinvers}/socket.bundle" ]; then exit 1; fi
-
+	$(INSTALL_DIRECTORY) $(DSTROOT)/$(TESTCONFDIR)
+	$(INSTALL_FILE) $(SRCROOT)/tests/ruby.plist $(DSTROOT)/$(TESTCONFDIR)
+	plutil $(DSTROOT)/$(TESTCONFDIR)/ruby.plist
+	$(INSTALL_DIRECTORY) $(DSTROOT)/$(TESTDIR)
+	$(INSTALL_SCRIPT) $(SRCROOT)/tests/test_webrick.sh $(DSTROOT)/$(TESTDIR)
+	$(INSTALL_FILE) $(SRCROOT)/tests/test_rexml.rb $(DSTROOT)/$(TESTDIR)
+	$(INSTALL_FILE) $(SRCROOT)/tests/webrick_simple.rb $(DSTROOT)/$(TESTDIR)
+	# Our plist doubles as an REXML test input.
+	$(INSTALL_FILE) $(SRCROOT)/tests/ruby.plist $(DSTROOT)/$(TESTDIR)
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses

@@ -44,6 +44,9 @@
 #include <ptrauth.h>
 #endif // defined(HAS_APPLE_PAC)
 
+#if HAS_MTE
+#include <arm64/mte.h>
+#endif // HAS_MTE
 
 #if __x86_64__
 static void
@@ -364,7 +367,13 @@ backtrace_unpack(backtrace_pack_t packing, uintptr_t *dst, unsigned int dst_len,
 static errno_t
 _backtrace_copyin(void * __unused ctx, void *dst, user_addr_t src, size_t size)
 {
+#if HAS_MTE
+    mte_disable_tag_checking();
+#endif // HAS_MTE
 	int error = copyin((user_addr_t)src, dst, size);
+#if HAS_MTE
+	mte_enable_tag_checking();
+#endif // HAS_MTE
 	return error;
 }
 

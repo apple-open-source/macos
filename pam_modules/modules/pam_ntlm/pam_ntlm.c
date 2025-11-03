@@ -25,6 +25,7 @@
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
 #include <security/openpam.h>
+#include "SharedMem.h"
 
 #include "Common.h"
 #include "Logging.h"
@@ -37,6 +38,7 @@ PAM_DEFINE_LOG(NTLM)
 #define PAM_OPT_DEBUG		"debug"
 
 static const char *password_key = "NTLMPWD";
+static const char *password_shm_key = "NTLMPWD_shm";
 
 
 /*
@@ -56,11 +58,18 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 	retval = pam_get_authtok(pamh, PAM_AUTHTOK, &password, NULL);
 	if (retval != PAM_SUCCESS)
 		return retval;
-
-	retval = pam_setenv(pamh, password_key, password, 1);
-	if (retval != PAM_SUCCESS)
-		return retval;
-
+    
+    const char *shared_mem_id = pam_shm_write(password, strlen(password));
+    if (shared_mem_id == NULL) {
+        _LOG_ERROR("Unable to store to shm.");
+        return PAM_IGNORE;
+    }
+    
+    if (PAM_SUCCESS != pam_setenv(pamh, password_shm_key, shared_mem_id, 1)) {
+        _LOG_ERROR("Unable to set the authtok in the environment.");
+        return PAM_IGNORE;
+    }
+    
 	return PAM_IGNORE;
 }
 
@@ -79,7 +88,8 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
     int argc __unused, const char *argv[] __unused)
 {
 	gss_auth_identity_desc identity;
-	const char *user, *password;
+    const char *user;
+    char *password = NULL;
 	struct passwd *pwd;
 	struct passwd pwdbuf;
 	char pwbuffer[2 * PATH_MAX];
@@ -107,13 +117,13 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		goto cleanup;
 	}
 
-	password = pam_getenv(pamh, password_key);
-	if (password == NULL) {
-        _LOG_ERROR("pam_sm_setcred: ntlm user %s doesn't have a password", user);
-		retval = PAM_IGNORE;
-		goto cleanup;
-	}
-
+ password = pam_copy_secret_with_fallback(pamh, password_key, password_shm_key);
+ if (password == NULL) {
+  _LOG_ERROR("pam_sm_setcred: ntlm user %s doesn't have a password", user);
+  retval = PAM_IGNORE;
+  goto cleanup;
+ }
+    
 	retval = od_record_create_cstring(pamh, &record, user);
 	if (retval || record == NULL) {
 		retval = PAM_IGNORE;
@@ -191,6 +201,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 	_LOG_DEBUG("pam_sm_setcred: ntlm done, used domain: %s", identity.realm);
 
 cleanup:
+    pam_safe_string_release(password);
 	if (record)
 		CFRelease(record);
 	if (array)
@@ -198,6 +209,7 @@ cleanup:
 	if (identity.realm)
 		free(identity.realm);
 	pam_unsetenv(pamh, password_key);
+	pam_unsetenv(pamh, password_shm_key);
 	return retval;
 }
 

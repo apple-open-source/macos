@@ -108,11 +108,14 @@
             SO_REUSEPORT
             SO_TIMESTAMP)))
 
+(deny network-outbound (literal "/private/var/run/mDNSResponder"))
+(deny network-outbound (remote tcp) (remote udp))
+
 (with-filter (mac-policy-name "vnguard")
     (allow system-mac-syscall (mac-syscall-number 1)))
 
 (with-filter (mac-policy-name "Sandbox")
-    (allow system-mac-syscall (mac-syscall-number 5)))
+    (allow system-mac-syscall (mac-syscall-number 5 65)))
 
 (allow file-link
     (subpath "/private/var/mobile/Containers/Data/Application"))
@@ -205,7 +208,8 @@
         (allow network-outbound (literal "/private/var/run/mDNSResponder"))
         (allow mach-lookup (global-name "com.apple.dnssd.service"))) ;; <rdar://problem/55562091>
 #else
-    (allow network-outbound (literal "/private/var/run/mDNSResponder"))
+    (with-filter (require-not (state-flag "BlockNetworkAccess"))
+        (allow network-outbound (literal "/private/var/run/mDNSResponder")))
     (allow mach-lookup (global-name "com.apple.dnssd.service")) ;; <rdar://problem/55562091>
 #endif
 
@@ -257,7 +261,7 @@
     ;; <rdar://problem/30452093>
     (multipath-tcp))
 
-(define-once (network-client . filters)
+(define-once (network-client)
     (allow-network-common)
 
     ;; <rdar://problem/9193431>
@@ -341,10 +345,8 @@
     ;; <rdar://problem/33277999>
     (mobile-preferences-read "com.apple.CFNetwork")
 
-    (if (null? filters)
-        (allow network-outbound)
-    ; else
-        (allow network-outbound (apply require-any filters))))
+    (with-filter (require-not (state-flag "BlockNetworkAccess"))
+        (allow network-outbound (remote tcp) (remote udp))))
 
 (define-once (multipath-tcp)
     (allow system-socket (socket-domain 39)))
@@ -497,9 +499,7 @@
 ;; ObjC map_images needs to send logging data to syslog. <rdar://problem/39778918>
 (with-filter (system-attribute apple-internal)
     (allow network-outbound
-       (literal "/private/var/run/syslog")
-    )
-)
+       (literal "/private/var/run/syslog")))
 
 (allow mach-lookup
     (global-name "com.apple.system.notification_center"))
@@ -593,7 +593,7 @@
 (deny mach-lookup 
        (global-name "com.apple.PowerManagement.control"))
 
-(network-client (remote tcp) (remote udp))
+(network-client)
 
 ;; allow 3rd party applications to access nsurlstoraged's top level domain data cache
 (allow-well-known-system-group-container-subpath-read

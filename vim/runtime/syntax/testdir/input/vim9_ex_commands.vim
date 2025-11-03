@@ -1,6 +1,6 @@
 vim9script
-
 # Vim9 Ex commands
+
 
 # START NOT MATCHED
 :@
@@ -12,10 +12,8 @@ vim9script
 :help
  :help
 : help
- : help
+ : help # FIXME
 
-:2match
-:3match
 :abbreviate
 :abclear
 :aboveleft
@@ -92,7 +90,6 @@ vim9script
 :checkpath
 :checktime
 :chistory
-:class
 :class
 :clast
 :clearjumps
@@ -172,7 +169,6 @@ vim9script
 :elseif
 :emenu
 :endclass
-:endclass
 :enddef
 :endenum
 :endfor
@@ -205,7 +201,7 @@ vim9script
 :folddoclosed
 :folddoopen
 :foldopen
-:for
+:for foo in bar | endfor
 :function
 :global/.../
 :goto
@@ -385,8 +381,6 @@ vim9script
 :ptprevious
 :ptrewind
 :ptselect
-:public
-:public
 :put
 :pwd
 :py3
@@ -479,8 +473,6 @@ vim9script
 :startgreplace
 :startinsert
 :startreplace
-:static
-:static
 :stjump
 :stop
 :stopinsert
@@ -546,6 +538,7 @@ vim9script
 :undojoin
 :undolist
 :unhide
+:uniq
 :unlockvar
 :unmap
 :unmenu
@@ -603,8 +596,6 @@ Foo() | help
 Foo() |help
 Foo()| help
 
-Foo() | 2match
-Foo() | 3match
 Foo() | abbreviate
 Foo() | abclear
 Foo() | aboveleft
@@ -680,7 +671,6 @@ Foo() | chdir
 Foo() | checkpath
 Foo() | checktime
 Foo() | chistory
-Foo() | class
 Foo() | class
 Foo() | clast
 Foo() | clearjumps
@@ -760,7 +750,6 @@ Foo() | else
 Foo() | elseif
 Foo() | emenu
 Foo() | endclass
-Foo() | endclass
 Foo() | enddef
 Foo() | endenum
 Foo() | endfor
@@ -793,7 +782,7 @@ Foo() | foldclose
 Foo() | folddoclosed
 Foo() | folddoopen
 Foo() | foldopen
-Foo() | for
+Foo() | for foo in bar | endfor
 Foo() | function
 Foo() | global/.../
 Foo() | goto
@@ -972,8 +961,6 @@ Foo() | ptNext
 Foo() | ptprevious
 Foo() | ptrewind
 Foo() | ptselect
-Foo() | public
-Foo() | public
 Foo() | put
 Foo() | pwd
 Foo() | py3
@@ -1066,8 +1053,6 @@ Foo() | stag
 Foo() | startgreplace
 Foo() | startinsert
 Foo() | startreplace
-Foo() | static
-Foo() | static
 Foo() | stjump
 Foo() | stop
 Foo() | stopinsert
@@ -1133,6 +1118,7 @@ Foo() | undo
 Foo() | undojoin
 Foo() | undolist
 Foo() | unhide
+Foo() | uniq
 Foo() | unlockvar
 Foo() | unmap
 Foo() | unmenu

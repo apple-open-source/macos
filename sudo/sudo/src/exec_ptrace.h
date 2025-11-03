@@ -55,18 +55,18 @@
 
 /* Align address to a (compat) word boundary. */
 #define WORDALIGN(_a, _r)	\
-	(((_a) + ((long)(_r).wordsize - 1L)) & ~((long)(_r).wordsize - 1L))
+	(((_a) + ((unsigned long)(_r).wordsize - 1UL)) & ~((unsigned long)(_r).wordsize - 1UL))
 
 /* Align pointer to a native word boundary. */
 #define LONGALIGN(_p)	\
-	(((unsigned long)(_p) + (sizeof(long) - 1)) & ~(sizeof(long) - 1))
+	(((unsigned long)(_p) + (sizeof(unsigned long) - 1UL)) & ~(sizeof(unsigned long) - 1UL))
 
 /*
  * See syscall(2) for a list of registers used in system calls.
  * For example code, see tools/testing/selftests/seccomp/seccomp_bpf.c
  *
  * The structs and registers vary among the different platforms.
- * We define user_regs_struct as the struct to use for gettings
+ * We define user_regs_struct as the struct to use for getting
  * and setting the general registers and define accessor
  * macros to get/set the individual struct members.
  *

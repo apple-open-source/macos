@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -253,20 +253,52 @@ setLowDataMode(CFStringRef interface_name)
 	return;
 }
 
+/*
+ * Global: S_infra_wifi
+ * - cache the infrastructure Wi-Fi interface(s) to avoid the expensive
+ *   IOKit registry search in `_SCNetworkInterfaceCreateWithBSDName()`
+ */
+static CFMutableDictionaryRef	S_infra_wifi;
+
 __private_extern__
 CFBooleanRef
 interface_update_expensive(const char *if_name)
 {
 	CFBooleanRef		expensive = NULL;
-	SCNetworkInterfaceRef	interface;
+	SCNetworkInterfaceRef	interface = NULL;
 	CFStringRef		interface_name = NULL;
+	bool			new_interface = false;
 	int			s;
 	Boolean			supports_low_data_mode = FALSE;
 
 	interface_name = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingUTF8);
-	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, interface_name, kIncludeNoVirtualInterfaces);
+	if (S_infra_wifi != NULL) {
+		interface = CFDictionaryGetValue(S_infra_wifi, interface_name);
+		if (interface != NULL) {
+			SC_log(LOG_DEBUG, "%s: FOUND %s = %@", __func__,
+			       if_name, interface);
+			CFRetain(interface);
+		}
+	}
+	if (interface == NULL) {
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, interface_name,
+								 kIncludeNoVirtualInterfaces);
+		new_interface = true;
+	}
 	if (interface == NULL) {
 		goto done;
+	}
+	if (_SCNetworkInterfaceIsWiFiInfra(interface) && new_interface) {
+		if (S_infra_wifi == NULL) {
+			S_infra_wifi
+				= CFDictionaryCreateMutable(NULL,
+							    0,
+							    &kCFTypeDictionaryKeyCallBacks,
+							    &kCFTypeDictionaryValueCallBacks);
+		}
+		CFDictionarySetValue(S_infra_wifi, interface_name, interface);
+		SC_log(LOG_DEBUG, "%s: SAVED %s = %@", __func__,
+		       if_name, interface);
 	}
 	expensive = is_expensive(interface);
 	if (os_feature_enabled(Network, low_data_mode)) {
@@ -297,7 +329,7 @@ interface_update_expensive(const char *if_name)
 }
 
 
-#ifdef	MAIN
+#ifdef TEST_INTERFACE_EXPENSIVE
 
 int
 dgram_socket(int domain)
@@ -317,18 +349,19 @@ main(int argc, char * const argv[])
 {
 	CFBooleanRef	expensive;
 
-	if (argc < 1 + 1) {
+	if (argc < 2) {
 		SCPrint(TRUE, stderr, CFSTR("usage: %s <interface>\n"), argv[0]);
 		exit(1);
 	}
 
-	expensive = interface_update_expensive(argv[1]);
-	if (expensive != NULL) {
-		SCPrint(TRUE, stdout, CFSTR("%s: set expensive to %@\n"), argv[1], expensive);
-	} else {
-		SCPrint(TRUE, stdout, CFSTR("%s: not changing expensive\n"), argv[1]);
+	for (int i = 0; i < 2; i++) {
+		expensive = interface_update_expensive(argv[1]);
+		if (expensive != NULL) {
+			SCPrint(TRUE, stdout, CFSTR("%s: set expensive to %@\n"), argv[1], expensive);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("%s: not changing expensive\n"), argv[1]);
+		}
 	}
-
 	exit(0);
 }
-#endif	// MAIN
+#endif /* TEST_INTERFACE_EXPENSIVE */

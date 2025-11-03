@@ -48,6 +48,11 @@
     CFArrayAppendValue(certs, cert0);
     CFArrayAppendValue(certs, cert1);
 
+    NSURL *trustedLogsURL = [[NSBundle bundleForClass:[self class]] URLForResource:@"ev_trusted_logs"
+                                                                     withExtension:@"plist"
+                                                                      subdirectory:@"RevocationTests"];
+    NSArray *trustedCTLogs = [NSArray arrayWithContentsOfURL:trustedLogsURL];
+
     SecPolicyRef sslPolicy = SecPolicyCreateSSL(true, CFSTR("www.apple.com"));
     SecPolicyRef ocspPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod);
     const void *v_policies[] = { sslPolicy, ocspPolicy };
@@ -59,6 +64,7 @@
         "create trust");
     CFDateRef date = CFDateCreate(NULL, _ocsp_c0_eval_abs_time);
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+    ok_status(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs));
 
     is(SecTrustGetVerifyTime(trust), _ocsp_c0_eval_abs_time, "get date");
 

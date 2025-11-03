@@ -39,6 +39,11 @@
 namespace WebKit {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebSocketTask);
 
+Ref<WebSocketTask> WebSocketTask::create(NetworkSocketChannel& channel, WebPageProxyIdentifier webProxyPageID, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin)
+{
+    return adoptRef(*new WebSocketTask(channel, webProxyPageID, request, protocol, clientOrigin));
+}
+
 WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, WebPageProxyIdentifier webProxyPageID, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin)
     : m_channel(channel)
     , m_webProxyPageID(webProxyPageID)
@@ -64,7 +69,7 @@ WebSocketTask::~WebSocketTask()
     destructStream();
 }
 
-Ref<NetworkSocketChannel> WebSocketTask::protectedChannel() const
+RefPtr<NetworkSocketChannel> WebSocketTask::protectedChannel() const
 {
     return m_channel.get();
 }
@@ -176,8 +181,9 @@ void WebSocketTask::didReceiveData(WebCore::CurlStreamID, const WebCore::SharedB
     if (!validateResult.value())
         return;
 
-    auto frameResult = receiveFrames([this, weakThis = WeakPtr { *this }](WebCore::WebSocketFrame::OpCode opCode, std::span<const uint8_t> data) {
-        if (!weakThis)
+    auto frameResult = receiveFrames([this, weakThis = ThreadSafeWeakPtr { *this }](WebCore::WebSocketFrame::OpCode opCode, std::span<const uint8_t> data) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
 
         switch (opCode) {
@@ -318,10 +324,10 @@ Expected<bool, String> WebSocketTask::validateOpeningHandshake()
     m_state = State::Opened;
     m_didCompleteOpeningHandshake = true;
 
-    Ref channel = m_channel.get();
-    channel->didConnect(m_handshake->serverWebSocketProtocol(), m_handshake->acceptedExtensions());
-    channel->didReceiveHandshakeResponse(WebCore::ResourceResponse(m_handshake->serverHandshakeResponse()));
-
+    if (RefPtr channel = m_channel.get()) {
+        channel->didConnect(m_handshake->serverWebSocketProtocol(), m_handshake->acceptedExtensions());
+        channel->didReceiveHandshakeResponse(WebCore::ResourceResponse(m_handshake->serverHandshakeResponse()));
+    }
     m_handshake = nullptr;
     return true;
 }
@@ -476,9 +482,9 @@ void WebSocketTask::didClose(int32_t code, const String& reason)
 
     m_state = State::Closed;
 
-    callOnMainRunLoop([weakThis = WeakPtr { *this }, code, reason] {
-        if (weakThis)
-            weakThis->protectedChannel()->didClose(code, reason);
+    callOnMainRunLoop([weakThis = ThreadSafeWeakPtr { *this }, code, reason] {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->protectedChannel()->didClose(code, reason);
     });
 }
 

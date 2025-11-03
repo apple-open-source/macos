@@ -1,4 +1,4 @@
-*term.txt*      For Vim version 9.1.  Last change: 2024 May 05
+*term.txt*      For Vim version 9.1.  Last change: 2025 Sep 02
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -292,11 +292,11 @@ entry in /etc/termcap and everything should work.
 On some systems (at least on FreeBSD with XFree86 3.1.2) the codes that the
 <End> and <Home> keys send contain a <Nul> character.  To make these keys send
 the proper key code, add these lines to your ~/.Xdefaults file:
-
-*VT100.Translations:		#override \n\
-		<Key>Home: string("0x1b") string("[7~") \n\
-		<Key>End: string("0x1b") string("[8~")
-
+>
+	*VT100.Translations:		#override \n\
+			<Key>Home: string("0x1b") string("[7~") \n\
+			<Key>End: string("0x1b") string("[8~")
+<
 						*xterm-8bit* *xterm-8-bit*
 Xterm can be run in a mode where it uses 8-bit escape sequences.  The CSI code
 is used instead of <Esc>[.  The advantage is that an <Esc> can quickly be
@@ -472,13 +472,13 @@ Added by Vim (there are no standard codes for these):
 	t_RV	request terminal version string (works for	*t_RV* *'t_RV'*
 		xterm and other terminal emulators)  The
 		response is stored in |v:termresponse| |xterm-8bit|
-		|'ttymouse'| |xterm-codes|
+		'ttymouse' |xterm-codes|
 	t_XM	enable/disable mouse reporting,			*t_XM* *'t_XM'*
 		see |mouse-reporting| below
 	t_RK	request terminal keyboard protocol state;	*t_RK* *'t_RK'*
 		sent after |t_TI|
 	t_u7	request cursor position (for xterm)		*t_u7* *'t_u7'*
-		see |'ambiwidth'|
+		see 'ambiwidth'
 		The response is stored in |v:termu7resp|
 	t_RF	request terminal foreground color		*t_RF* *'t_RF'*
 		The response is stored in |v:termrfgresp|
@@ -688,10 +688,11 @@ The default values are set like this: >
 	 let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
 	 let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
 
-Some terminals accept the same sequences, but with all semicolons replaced by
-colons (this is actually more compatible, but less widely supported): >
-	 let &t_8f = "\<Esc>[38:2:%lu:%lu:%lum"
-	 let &t_8b = "\<Esc>[48:2:%lu:%lu:%lum"
+Some terminals accept similar sequences, with semicolons replaced by colons
+and an extra colon after the number 2 (this is conformant to the ISO 8613-6
+standard, but less widely supported): >
+	 let &t_8f = "\<Esc>[38:2::%lu:%lu:%lum"
+	 let &t_8b = "\<Esc>[48:2::%lu:%lu:%lum"
 
 These options contain printf strings, with |printf()| (actually, its C
 equivalent hence `l` modifier) invoked with the t_ option value and three
@@ -719,9 +720,9 @@ If this feature is enabled by the 't_fe' sequence, special key sequences are
 sent from the terminal to Vim every time the terminal gains or loses focus.
 Vim fires focus events (|FocusGained|/|FocusLost|) by handling them accordingly.
 Focus event tracking is disabled by a 't_fd' sequence when exiting "raw" mode.
-If you would like to disable this feature, add the following to your .vimrc:
-	`set t_fd=`
-	`set t_fe=`
+If you would like to disable this feature, add the following to your .vimrc: >
+	set t_fd=
+	set t_fe=
 If your terminal does support this but Vim does not recognize the terminal,
 you may have to set the options yourself: >
 	let &t_fe = "\<Esc>[?1004h"
@@ -810,13 +811,13 @@ region.  It should be set to an empty string otherwise.
 Note for xterm users: The shifted cursor keys normally don't work.  You can
 	make them work with the xmodmap command and some mappings in Vim.
 
-	Give these commands in the xterm:
+	Give these commands in the xterm: >
 		xmodmap -e "keysym Up = Up F13"
 		xmodmap -e "keysym Down = Down F16"
 		xmodmap -e "keysym Left = Left F18"
 		xmodmap -e "keysym Right = Right F19"
-
-	And use these mappings in Vim:
+<
+	And use these mappings in Vim: >
 		:map <t_F3> <S-Up>
 		:map! <t_F3> <S-Up>
 		:map <t_F6> <S-Down>
@@ -990,7 +991,7 @@ When the X-server clipboard is available, the command server described in
 							*xterm-copy-paste*
 NOTE: In some (older) xterms, it's not possible to move the cursor past column
 95 or 223.  This is an xterm problem, not Vim's.  Get a newer xterm
-|color-xterm|.  Also see |'ttymouse'|.
+|color-xterm|.  Also see 'ttymouse'.
 
 Copy/paste in xterm with (current mode NOT included in 'mouse'):
 1. Press left mouse button on first letter of text, move mouse pointer to last

@@ -29,23 +29,24 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_fatal.h"
-#include "sudo_gettext.h"
-#include "sudo_iolog.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_fatal.h>
+#include <sudo_gettext.h>
+#include <sudo_iolog.h>
+#include <sudo_util.h>
 #ifdef __APPLE__
 #include "logging.h"
 #include <rootless.h>
 #include <System/sys/codesign.h>
 #include <sys/csr.h>
+#include <sudoers.h>
 #endif /* __APPLE__ */
 
 /*
@@ -107,7 +108,8 @@ iolog_openat(int dfd, const char *path, int flags)
 		bool sipEnabled = (csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0);
 		bool pathProtected = (rootless_check_trusted_fd(fd) == 0);
 		if (sipEnabled && pathProtected) {
-		    log_warningx(SLOG_NO_STDERR|SLOG_AUDIT, N_("Protected logpath detected"));
+		    const struct sudoers_context *ctx = sudoers_get_context();
+		    log_warningx(ctx, SLOG_NO_STDERR|SLOG_AUDIT, N_("Protected logpath detected"));
 		    sudo_warnx(U_("%s: %s %s"), __func__, U_("Protected logpath detected"), path);
 		    close(fd);
 		    fd = -1;

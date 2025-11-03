@@ -1190,11 +1190,11 @@ print_buffer_pem(FILE *stream, const char *headerString, size_t length, const vo
 }
 
 char*
-prompt_password(const char* keychainName) {
-    const char *const fmt = "password to unlock %s: ";
+prompt_password(const char* keychainName, Boolean deprecated) {
+    const char *const fmt = "%spassword to unlock %s: ";
     const char *name = keychainName ? keychainName : "default";
     char *prompt = NULL;
-    asprintf(&prompt, fmt, name);
+    asprintf(&prompt, fmt, deprecated ? "(deprecated) " : "", name);
     char *password = getpass(prompt);
     free(prompt);
     return password;

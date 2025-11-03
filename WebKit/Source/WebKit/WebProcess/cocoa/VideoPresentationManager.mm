@@ -41,6 +41,7 @@
 #import <QuartzCore/CoreAnimation.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/Color.h>
+#import <WebCore/DocumentFullscreen.h>
 #import <WebCore/DocumentInlines.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventNames.h>
@@ -281,6 +282,12 @@ void VideoPresentationManager::removeClientForContext(WebCore::MediaPlayerClient
 bool VideoPresentationManager::canEnterVideoFullscreen(HTMLVideoElement& videoElement, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode) const
 {
     ASSERT(mode != HTMLMediaElementEnums::VideoFullscreenModeNone);
+
+#if ENABLE(FULLSCREEN_API)
+    if (videoElement.document().fullscreen().isAnimatingFullscreen())
+        return false;
+#endif
+
 #if PLATFORM(IOS) || PLATFORM(VISION)
     if (m_currentVideoFullscreenMode == mode)
         return videoElement.document().quirks().allowLayeredFullscreenVideos();

@@ -59,6 +59,12 @@
 #if PLATFORM(COCOA)
     bool enableMetalDebugDeviceForTesting;
     bool enableMetalShaderValidationForTesting;
+#if ENABLE(VP9)
+    std::optional<bool> hasVP9HardwareDecoder;
+#endif
+#if ENABLE(AV1)
+    std::optional<bool> hasAV1HardwareDecoder;
+#endif
 #endif
 };
 

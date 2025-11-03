@@ -97,6 +97,18 @@ using namespace JSC;
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(KeyframeEffect);
 
+KeyframeEffect::~KeyframeEffect()
+{
+    if (m_inTargetEffectStack) {
+        if (auto target = targetStyleable()) {
+            if (auto* keyframeEffectStack = target->keyframeEffectStack())
+                keyframeEffectStack->removeEffect(*this);
+        }
+    }
+
+    ASSERT(!m_inTargetEffectStack);
+}
+
 KeyframeEffect::ParsedKeyframe::ParsedKeyframe()
     : style(MutableStyleProperties::create())
 {

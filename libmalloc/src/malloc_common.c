@@ -168,6 +168,13 @@ void
 ___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED(
 		int flags, void *__unsafe_indexable ptr)
 {
+#if CONFIG_MTE
+	if (malloc_has_sec_transition && memtag_handle_mismatch(ptr)) {
+		// If the tag is wrong and memtag_check_mismatch(ptr) didn't abort, we
+		// must be in soft mode, so we'll ignore it
+		return;
+	}
+#endif
 
 	malloc_report(flags, "*** error for object %p: "
 		"pointer being freed was not allocated\n", ptr);

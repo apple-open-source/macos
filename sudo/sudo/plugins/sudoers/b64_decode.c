@@ -23,7 +23,7 @@
 
 #include <config.h>
 
-#include "sudoers.h"
+#include <sudoers.h>
 
 /*
  * Derived from code with the following declaration:
@@ -54,7 +54,7 @@ static const unsigned char base64dec_tab[256]= {
  * result in dst.
  */
 size_t
-base64_decode(const char *in, unsigned char *out, size_t out_size)
+base64_decode(const char * restrict in, unsigned char * restrict out, size_t out_size)
 {
     unsigned char *out_end = out + out_size;
     const unsigned char *out0 = out;

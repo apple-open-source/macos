@@ -408,7 +408,9 @@ rvi_ctl_send(kern_ctl_ref kctlref, uint32_t unit, void *unitinfo, mbuf_t m, int 
 
 	rvi_lock_done_shared(&rvi_mtx);
 done:
-	mbuf_freem(m);
+	if (err == 0) {
+		mbuf_freem(m);
+	}
 	return err;
 }
 
@@ -529,8 +531,8 @@ rvi_bpf_tap(ifnet_t ifp, mbuf_t m, int outgoing, struct rvi_client_t *client,
 		if (pktap_hdr->pth_frame_pre_length > mbuf_len(m)) {
 			err = mbuf_pullup(&m, pktap_hdr->pth_frame_pre_length);
 			if (err != 0) {
-				os_log(OS_LOG_DEFAULT, "%s mbuf_pullup failed", __func__);
-				return 0;
+				os_log_error(OS_LOG_DEFAULT, "%s mbuf_pullup failed", __func__);
+				return err;
 			}
 		}
 

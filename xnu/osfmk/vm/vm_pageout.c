@@ -123,6 +123,9 @@
 #include <vm/vm_phantom_cache_internal.h>
 #endif
 
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#endif /* HAS_MTE */
 
 #if UPL_DEBUG
 #include <libkern/OSDebug.h>
@@ -948,6 +951,27 @@ struct vm_pageout_stat {
 	unsigned int forcereclaimed_realtime;
 	unsigned int protected_sharedcache;
 	unsigned int protected_realtime;
+
+	unsigned long cswap_unripe_under_30s;
+	unsigned long cswap_unripe_under_60s;
+	unsigned long cswap_unripe_under_300s;
+	unsigned long cswap_reclaim_swapins;
+	unsigned long cswap_defrag_swapins;
+	unsigned long cswap_swap_threshold_exceeded;
+	unsigned long cswap_external_q_throttled;
+	unsigned long cswap_free_below_reserve;
+	unsigned long cswap_thrashing_detected;
+	unsigned long cswap_fragmentation_detected;
+
+	unsigned long major_compactions_considered;
+	unsigned long major_compactions_completed;
+	unsigned long major_compactions_bailed;
+	unsigned long major_compaction_bytes_freed;
+	unsigned long major_compaction_bytes_moved;
+	unsigned long major_compaction_slots_moved;
+	unsigned long major_compaction_segments_freed;
+	unsigned long swapouts_queued;
+	unsigned long swapout_bytes_wasted;
 } vm_pageout_stats[VM_PAGEOUT_STAT_SIZE];
 
 unsigned int vm_pageout_stat_now = 0;
@@ -1683,6 +1707,7 @@ vm_pageout_prepare_to_block(vm_object_t *object, int *delayed_unlock,
 
 
 static struct vm_pageout_vminfo last;
+static struct vm_compressor_swapper_stats last_vmcs;
 static uint64_t last_swapouts;
 static uint64_t last_swapins;
 
@@ -1849,6 +1874,84 @@ update_vm_info(void)
 		last.vm_pageout_protected_realtime = tmp;
 	}
 
+	tmp64 = vm_pageout_vminfo.vm_compactor_major_compactions_considered;
+	vm_pageout_stats[vm_pageout_stat_now].major_compactions_considered = (unsigned int)(tmp - last.vm_compactor_major_compactions_considered);
+	last.vm_compactor_major_compactions_considered = tmp64;
+
+	if (vm_pageout_stats[vm_pageout_stat_now].major_compactions_considered) {
+		tmp64 = vm_pageout_vminfo.vm_compactor_major_compactions_completed;
+		vm_pageout_stats[vm_pageout_stat_now].major_compactions_completed = (unsigned int)(tmp - last.vm_compactor_major_compactions_completed);
+		last.vm_compactor_major_compactions_completed = tmp64;
+
+		tmp64 = vm_pageout_vminfo.vm_compactor_major_compactions_bailed;
+		vm_pageout_stats[vm_pageout_stat_now].major_compactions_bailed = (unsigned int)(tmp - last.vm_compactor_major_compactions_bailed);
+		last.vm_compactor_major_compactions_bailed = tmp64;
+
+		tmp64 = vm_pageout_vminfo.vm_compactor_major_compaction_bytes_freed;
+		vm_pageout_stats[vm_pageout_stat_now].major_compaction_bytes_freed = (unsigned int)(tmp - last.vm_compactor_major_compaction_bytes_freed);
+		last.vm_compactor_major_compaction_bytes_freed = tmp64;
+
+		tmp64 = vm_pageout_vminfo.vm_compactor_swapouts_queued;
+		vm_pageout_stats[vm_pageout_stat_now].swapouts_queued = (unsigned int)(tmp - last.vm_compactor_swapouts_queued);
+		last.vm_compactor_swapouts_queued = tmp64;
+
+		tmp64 = vm_pageout_vminfo.vm_compactor_swapout_bytes_wasted;
+		vm_pageout_stats[vm_pageout_stat_now].swapout_bytes_wasted = (unsigned int)(tmp - last.vm_compactor_swapout_bytes_wasted);
+		last.vm_compactor_swapout_bytes_wasted = tmp64;
+
+		tmp64 = vm_pageout_vminfo.vm_compactor_major_compaction_bytes_moved;
+		vm_pageout_stats[vm_pageout_stat_now].major_compaction_bytes_moved = (unsigned int)(tmp - last.vm_compactor_major_compaction_bytes_moved);
+		last.vm_compactor_major_compaction_bytes_moved = tmp64;
+
+		tmp64 = vm_pageout_vminfo.vm_compactor_major_compaction_slots_moved;
+		vm_pageout_stats[vm_pageout_stat_now].major_compaction_slots_moved = (unsigned int)(tmp - last.vm_compactor_major_compaction_slots_moved);
+		last.vm_compactor_major_compaction_slots_moved = tmp64;
+
+		tmp64 = vm_pageout_vminfo.vm_compactor_major_compaction_segments_freed;
+		vm_pageout_stats[vm_pageout_stat_now].major_compaction_segments_freed = (unsigned int)(tmp - last.vm_compactor_major_compaction_segments_freed);
+		last.vm_compactor_major_compaction_segments_freed = tmp64;
+	}
+
+	tmp64 = vmcs_stats.unripe_under_30s;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_unripe_under_30s = (unsigned int)(tmp - last_vmcs.unripe_under_30s);
+	last_vmcs.unripe_under_30s = tmp64;
+
+	tmp64 = vmcs_stats.unripe_under_60s;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_unripe_under_60s = (unsigned int)(tmp - last_vmcs.unripe_under_60s);
+	last_vmcs.unripe_under_60s = tmp64;
+
+	tmp64 = vmcs_stats.unripe_under_300s;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_unripe_under_300s = (unsigned int)(tmp - last_vmcs.unripe_under_300s);
+	last_vmcs.unripe_under_300s = tmp64;
+
+	tmp64 = vmcs_stats.reclaim_swapins;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_reclaim_swapins = (unsigned int)(tmp - last_vmcs.reclaim_swapins);
+	last_vmcs.reclaim_swapins = tmp64;
+
+	tmp64 = vmcs_stats.defrag_swapins;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_defrag_swapins = (unsigned int)(tmp - last_vmcs.defrag_swapins);
+	last_vmcs.defrag_swapins = tmp64;
+
+	tmp64 = vmcs_stats.compressor_swap_threshold_exceeded;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_swap_threshold_exceeded = (unsigned int)(tmp - last_vmcs.compressor_swap_threshold_exceeded);
+	last_vmcs.compressor_swap_threshold_exceeded = tmp64;
+
+	tmp64 = vmcs_stats.external_q_throttled;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_external_q_throttled = (unsigned int)(tmp - last_vmcs.external_q_throttled);
+	last_vmcs.external_q_throttled = tmp64;
+
+	tmp64 = vmcs_stats.free_count_below_reserve;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_free_below_reserve = (unsigned int)(tmp - last_vmcs.free_count_below_reserve);
+	last_vmcs.free_count_below_reserve = tmp64;
+
+	tmp64 = vmcs_stats.thrashing_detected;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_thrashing_detected = (unsigned int)(tmp - last_vmcs.thrashing_detected);
+	last_vmcs.thrashing_detected = tmp64;
+
+	tmp64 = vmcs_stats.fragmentation_detected;
+	vm_pageout_stats[vm_pageout_stat_now].cswap_fragmentation_detected = (unsigned int)(tmp - last_vmcs.fragmentation_detected);
+	last_vmcs.fragmentation_detected = tmp64;
+
 	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_PGCNT1) | DBG_FUNC_NONE,
 	    vm_pageout_stats[vm_pageout_stat_now].vm_page_active_count,
 	    vm_pageout_stats[vm_pageout_stat_now].vm_page_speculative_count,
@@ -1869,6 +1972,48 @@ update_vm_info(void)
 	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_PGCNT4) | DBG_FUNC_NONE,
 	    vm_pageout_stats[vm_pageout_stat_now].vm_page_swapped_count);
 
+#if HAS_MTE
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_PGCNT5) | DBG_FUNC_NONE,
+	    mte_info_lists[MTE_LIST_INACTIVE_IDX].count,
+	    mte_info_lists[MTE_LIST_ACTIVE_IDX].count,
+	    vm_page_free_taggable_count,
+	    vm_page_tagged_count);
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_PGCNT6) | DBG_FUNC_NONE,
+	    mte_info_lists[MTE_LIST_PINNED_IDX].count +
+	    mte_info_lists[MTE_LIST_CLAIMED_IDX].count,
+	    mte_info_lists[MTE_LIST_RECLAIMING_IDX].count,
+	    vm_page_wired_tag_storage_count,
+	    mte_info_lists[MTE_LIST_ACTIVE_0_IDX].count);
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_PGCNT7) | DBG_FUNC_NONE,
+	    counter_load(&vm_cpu_free_claimed_count),
+	    vm_page_free_unmanaged_tag_storage_count,
+	    counter_load(&compressor_tag_storage_pages_in_pool),
+	    counter_load(&compressor_tagged_pages));
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_PGCNT8) | DBG_FUNC_NONE,
+	    mte_claimable_queue.vmpfq_count,
+	    mte_info_lists[MTE_LIST_PINNED_IDX].count);
+#endif /* HAS_MTE */
+
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_CSEG1) | DBG_FUNC_NONE,
+	    c_segment_count,
+	    c_empty_count,
+	    c_bad_count,
+	    c_age_count);
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_CSEG2) | DBG_FUNC_NONE,
+	    c_major_count,
+	    c_minor_count,
+	    c_swappedout_count,
+	    c_swappedout_sparse_count);
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_CSEG3) | DBG_FUNC_NONE,
+	    c_early_swapout_count,
+	    c_regular_swapout_count,
+	    c_late_swapout_count,
+	    c_swapio_count);
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_CSEG4) | DBG_FUNC_NONE,
+	    c_early_swappedin_count,
+	    c_regular_swappedin_count,
+	    c_late_swappedin_count,
+	    c_filling_count);
 
 	if (vm_pageout_stats[vm_pageout_stat_now].considered ||
 	    vm_pageout_stats[vm_pageout_stat_now].pages_compressed ||
@@ -1909,13 +2054,43 @@ update_vm_info(void)
 		    vm_pageout_stats[vm_pageout_stat_now].protected_sharedcache,
 		    vm_pageout_stats[vm_pageout_stat_now].protected_realtime);
 	}
-	KDBG(MEMINFO_CODE(DBG_MEMINFO_DEMAND1) | DBG_FUNC_NONE,
+
+	if (vm_pageout_stats[vm_pageout_stat_now].major_compactions_considered) {
+		KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_COMPACTOR1) | DBG_FUNC_NONE,
+		    vm_pageout_stats[vm_pageout_stat_now].major_compactions_considered,
+		    vm_pageout_stats[vm_pageout_stat_now].major_compactions_completed,
+		    vm_pageout_stats[vm_pageout_stat_now].major_compactions_bailed,
+		    vm_pageout_stats[vm_pageout_stat_now].major_compaction_bytes_freed);
+		KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_COMPACTOR2) | DBG_FUNC_NONE,
+		    vm_pageout_stats[vm_pageout_stat_now].major_compaction_segments_freed,
+		    vm_pageout_stats[vm_pageout_stat_now].major_compaction_bytes_moved,
+		    vm_pageout_stats[vm_pageout_stat_now].major_compaction_slots_moved);
+		KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_COMPACTOR3) | DBG_FUNC_NONE,
+		    vm_pageout_stats[vm_pageout_stat_now].swapouts_queued,
+		    vm_pageout_stats[vm_pageout_stat_now].swapout_bytes_wasted);
+	}
+
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_CSWAP1) | DBG_FUNC_NONE,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_unripe_under_30s,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_unripe_under_60s,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_unripe_under_300s,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_reclaim_swapins);
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_CSWAP2) | DBG_FUNC_NONE,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_defrag_swapins,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_swap_threshold_exceeded,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_external_q_throttled,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_free_below_reserve);
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_CSWAP3) | DBG_FUNC_NONE,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_thrashing_detected,
+	    vm_pageout_stats[vm_pageout_stat_now].cswap_fragmentation_detected);
+
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_DEMAND1) | DBG_FUNC_NONE,
 	    vm_pageout_stats[vm_pageout_stat_now].pages_grabbed,
 	    vm_pageout_stats[vm_pageout_stat_now].pages_freed,
 	    vm_pageout_stats[vm_pageout_stat_now].phantom_ghosts_found,
 	    vm_pageout_stats[vm_pageout_stat_now].phantom_ghosts_added);
 
-	KDBG(MEMINFO_CODE(DBG_MEMINFO_DEMAND2) | DBG_FUNC_NONE,
+	KDBG_RELEASE(MEMINFO_CODE(DBG_MEMINFO_DEMAND2) | DBG_FUNC_NONE,
 	    vm_pageout_stats[vm_pageout_stat_now].swapouts,
 	    vm_pageout_stats[vm_pageout_stat_now].swapins);
 
@@ -3466,6 +3641,14 @@ reclaim_page:
 
 			if (object->internal) {
 				DTRACE_VM2(anonfree, int, 1, (uint64_t *), NULL);
+#if HAS_MTE
+				if (vm_object_is_mte_mappable(object)) {
+					KDBG(VMDBG_CODE(DBG_VM_PAGEOUT_FREE_MTE) | DBG_FUNC_NONE,
+					    VM_KERNEL_ADDRHIDE(m), VM_KERNEL_ADDRHIDE(object),
+					    m->vmp_offset,
+					    mteinfo_tag_storage_free_pages_for_covered(m));
+				}
+#endif /* HAS_MTE */
 			} else {
 				DTRACE_VM2(fsfree, int, 1, (uint64_t *), NULL);
 			}
@@ -4517,6 +4700,11 @@ vm_pageout_compress_page(void **current_chead, char *scratch_buf, vm_page_t m)
 	}
 #endif /* CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
 
+#if HAS_MTE
+	if (vm_object_is_mte_mappable(object)) {
+		flags |= C_MTE;
+	}
+#endif /* HAS_MTE */
 
 	retval = vm_compressor_pager_put(
 		pager,
@@ -5985,6 +6173,7 @@ vm_object_upl_request(
 	pmap_flush_context      pmap_flush_context_storage;
 	boolean_t               pmap_flushes_delayed = FALSE;
 	task_t                  task = current_task();
+	thread_pri_floor_t      token;
 
 	dwp_start = dwp = NULL;
 
@@ -6088,6 +6277,10 @@ vm_object_upl_request(
 
 	vm_object_lock(object);
 	vm_object_activity_begin(object);
+	if (cntrl_flags & UPL_WILL_MODIFY) {
+		token = thread_priority_floor_start();
+		vm_object_pl_req_begin(object);
+	}
 
 	grab_options = VM_PAGE_GRAB_OPTIONS_NONE;
 #if CONFIG_SECLUDED_MEMORY
@@ -6759,6 +6952,13 @@ try_next_page:
 		dwp_start = dwp = NULL;
 	}
 
+	vm_object_lock(object);
+	if (cntrl_flags & UPL_WILL_MODIFY) {
+		vm_object_pl_req_end(object);
+		thread_priority_floor_end(&token);
+	}
+	vm_object_unlock(object);
+
 	return KERN_SUCCESS;
 }
 
@@ -6896,6 +7096,16 @@ start_with_map:
 		goto done;
 	}
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/* We expect only canonical addresses down this path. */
+	if (offset != vm_memtag_canonicalize(map, offset)) {
+#if HAS_MTE
+		mte_report_non_canonical_address((caddr_t)offset, map, __func__);
+#endif /* HAS_MTE */
+		ret = KERN_INVALID_ARGUMENT;
+		goto done;
+	}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS  */
 
 	original_offset = offset;
 	original_size = *upl_size;
@@ -7269,6 +7479,16 @@ REDISCOVER_ENTRY:
 	local_offset = (vm_map_offset_t)VME_OFFSET(entry);
 	local_start = entry->vme_start;
 
+#if HAS_MTE
+	if (local_object && vm_object_is_mte_mappable(local_object)) {
+		vm_size_t size = entry->vme_end - entry->vme_start;
+		if (!vm_map_allow_mte_operation(map, local_start, size, VM_MTE_OPERATION_TYPE_CREATE_UPL, optional_vm_object_none() /* irrelevant here */)) {
+			vm_map_unlock(map);
+			ret = KERN_NOT_SUPPORTED;
+			goto done;
+		}
+	}
+#endif /* HAS_MTE */
 
 	/*
 	 * Wiring will copy the pages to the shadow object.
@@ -7850,6 +8070,9 @@ iopl_valid_data(
 				panic("iopl_valid_data: %p already wired", m);
 			}
 
+#if HAS_MTE
+			mteinfo_increment_wire_count(m);
+#endif /* HAS_MTE */
 
 			vm_page_wakeup_done(object, m);
 		}
@@ -8067,6 +8290,9 @@ vm_object_iopl_wire_empty(
 			assert(dst_page->vmp_wire_count);
 			pages_wired++;
 
+#if HAS_MTE
+			mteinfo_increment_wire_count(dst_page);
+#endif /* HAS_MTE */
 
 			vm_page_wakeup_done(object, dst_page);
 		}
@@ -8077,6 +8303,9 @@ vm_object_iopl_wire_empty(
 		if (no_zero_fill == FALSE) {
 			vm_page_zero_fill(
 				dst_page
+#if HAS_MTE
+				, true /* zero_tags */
+#endif /* HAS_MTE */
 				);
 		}
 
@@ -8213,6 +8442,8 @@ vm_object_iopl_request(
 	int                     io_tracking_flag = 0;
 	int                     interruptible;
 	ppnum_t                 phys_page;
+	bool                    need_pl_req_end = false;
+	thread_pri_floor_t      token;
 
 	boolean_t               set_cache_attr_needed = FALSE;
 	boolean_t               free_wired_pages = FALSE;
@@ -8344,6 +8575,11 @@ vm_object_iopl_request(
 #endif
 	} else {
 		vm_object_lock(object);
+		if (!(cntrl_flags & UPL_COPYOUT_FROM)) {
+			token = thread_priority_floor_start();
+			vm_object_pl_req_begin(object);
+			need_pl_req_end = true;
+		}
 		vm_object_activity_begin(object);
 	}
 	/*
@@ -8371,7 +8607,10 @@ vm_object_iopl_request(
 			assert(!object->blocked_access);
 			object->blocked_access = TRUE;
 		}
-
+		if (need_pl_req_end) {
+			vm_object_pl_req_end(object);
+			thread_priority_floor_end(&token);
+		}
 		vm_object_unlock(object);
 
 		/*
@@ -8947,6 +9186,15 @@ finish:
 		dwp_start = dwp = NULL;
 	}
 
+	if (need_pl_req_end) {
+		/* object should still be alive due to its "pl_req_in_progress" */
+		vm_object_lock(object);
+		vm_object_pl_req_end(object);
+		vm_object_unlock(object);
+		object = VM_OBJECT_NULL; /* object might no longer be valid */
+		thread_priority_floor_end(&token);
+	}
+
 	return KERN_SUCCESS;
 
 return_err:
@@ -9044,6 +9292,16 @@ return_err:
 		vm_page_delayed_work_finish_ctx(dwp_start);
 		dwp_start = dwp = NULL;
 	}
+
+	if (need_pl_req_end) {
+		/* object should still be alive due to its "pl_req_in_progress" */
+		vm_object_lock(object);
+		vm_object_pl_req_end(object);
+		vm_object_unlock(object);
+		thread_priority_floor_end(&token);
+		object = VM_OBJECT_NULL; /* object might no longer be valid */
+	}
+
 	return ret;
 }
 

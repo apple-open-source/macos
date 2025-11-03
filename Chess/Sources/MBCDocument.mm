@@ -56,7 +56,7 @@
 NSString * const sProperties[] = {
     kMBCBoardStyle, kMBCPieceStyle,
     kMBCDefaultVoice, kMBCAlternateVoice,
-    kMBCSpeakMoves, kMBCSpeakHumanMoves, kMBCListenForMoves,
+    kMBCSpeakMoves, kMBCSpeakHumanMoves,
     kMBCSearchTime, kMBCBoardAngle, kMBCBoardSpin, kMBCShowGameLog,
     kMBCShowEdgeNotation,
     NULL

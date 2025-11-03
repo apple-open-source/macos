@@ -12,7 +12,7 @@
 #include <malloc/malloc.h>
 #include <stdlib.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_ALL_ALLOCATORS);
 
 extern int32_t malloc_num_zones;
 extern malloc_zone_t **malloc_zones;
@@ -29,7 +29,7 @@ get_wrapped_zone(malloc_zone_t *zone)
 
 T_DECL(malloc_zone_unregister_establish_custom_default_zone,
 		"Unregister all initial zones and register a custom default zone",
-		T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_VM_NOT_PREFERRED)
+		T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_VM_PREFERRED)
 {
   void *ptr = malloc(7);
   T_EXPECT_NOTNULL(malloc_zone_from_ptr(ptr), "can find zone for allocation");

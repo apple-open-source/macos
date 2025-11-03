@@ -5018,7 +5018,7 @@ IGNORE_WARNINGS_END
         return;
     initialized = YES;
 
-    if (WTF::CocoaApplication::isAppleApplication() && !((rand() * 100) % 100))
+    if (WTF::CocoaApplication::shouldOSFaultLogForAppleApplicationUsingWebKit1())
         os_fault_with_payload(OS_REASON_WEBKIT, 0, nullptr, 0, "WebView initialized", 0);
 
 #if !PLATFORM(IOS_FAMILY)

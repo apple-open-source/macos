@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # utils.rb -- Miscellaneous utilities
 #
@@ -45,12 +45,7 @@ module WEBrick
     ##
     # The server hostname
     def getservername
-      host = Socket::gethostname
-      begin
-        Socket::gethostbyname(host)[0]
-      rescue
-        host
-      end
+      Socket::gethostname
     end
     module_function :getservername
 
@@ -83,7 +78,7 @@ module WEBrick
     # Generates a random string of length +len+
     def random_string(len)
       rand_max = RAND_CHARS.bytesize
-      ret = ""
+      ret = +""
       len.times{ ret << RAND_CHARS[rand(rand_max)] }
       ret
     end

@@ -279,8 +279,13 @@ void GPUCanvasContextCocoa::reshape()
         m_currentTexture = nullptr;
     }
     auto newSize = canvasBase().size();
-    m_width = static_cast<GPUIntegerCoordinate>(newSize.width());
-    m_height = static_cast<GPUIntegerCoordinate>(newSize.height());
+    auto newWidth = static_cast<GPUIntegerCoordinate>(newSize.width());
+    auto newHeight = static_cast<GPUIntegerCoordinate>(newSize.height());
+    if (m_width == newWidth && m_height == newHeight)
+        return;
+
+    m_width = newWidth;
+    m_height = newHeight;
 
     auto configuration = WTFMove(m_configuration);
     m_configuration.reset();

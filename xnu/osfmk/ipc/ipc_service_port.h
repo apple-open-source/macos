@@ -34,14 +34,15 @@
 
 #ifdef MACH_KERNEL_PRIVATE
 
+#define XPC_DOMAIN_PORT 7 /* This value should match what is in <xpc/launch_private.h> */
+
 struct ipc_service_port_label {
 	/* points to the Sandbox's message filtering data structure */
 	struct ipc_conn_port_label *XNU_PTRAUTH_SIGNED_PTR_AUTH_NULL("ipc_service_port_label.ispl_sblabel") ispl_sblabel;
 	mach_port_context_t     ispl_launchd_context;     /* context used to guard the port, specific to launchd */
 	mach_port_name_t        ispl_launchd_name;        /* port name in launchd's ipc space */
-	uint8_t                 ispl_bootstrap_port : 1;  /* port is a boostrap port */
 	uint8_t                 ispl_throttled : 1;       /* service throttled by launchd */
-	uint8_t                 __ispl_unused : 6;
+	uint8_t                 __ispl_unused : 7;
 #if CONFIG_SERVICE_PORT_INFO
 	uint8_t                 ispl_domain;             /* launchd domain */
 	char                   *ispl_service_name;       /* string name used to identify the service port */

@@ -5964,6 +5964,9 @@ doshfunc(Shfunc shfunc, LinkList doshargs, int noreturnval)
 	    /* restore all shell options except PRIVILEGED and RESTRICTED */
 	    funcsave->opts[PRIVILEGED] = opts[PRIVILEGED];
 	    funcsave->opts[RESTRICTED] = opts[RESTRICTED];
+#ifdef __APPLE__
+	    funcsave->opts[PARANOID] = opts[PARANOID];
+#endif
 	    memcpy(opts, funcsave->opts, sizeof(opts));
 	    emulation = funcsave->emulation;
 	} else {

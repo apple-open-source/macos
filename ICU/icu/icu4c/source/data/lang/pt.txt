@@ -389,6 +389,7 @@ pt{
         nds_NL{"baixo saxão"}
         ne{"nepalês"}
         new{"newari"}
+        nez{"nez perce"}
         ng{"dongo"}
         nia{"nias"}
         niu{"niueano"}

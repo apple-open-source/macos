@@ -1,3 +1,16 @@
+<div align="center" markdown="1">
+   <sup>Special thanks for supporting Vim by donating to the <a href="https://iccf-holland.org/">ICCF</a>:</sup>
+   <br>
+   <br>
+   <a href="https://go.warp.dev/vim">
+      <img alt="Warp sponsorship" width="400" src="https://raw.githubusercontent.com/warpdotdev/brand-assets/refs/heads/main/Github/Sponsor/Warp-Github-LG-03.png">
+   </a>
+
+### [Warp, built for coding with multiple AI agents.](https://www.warp.dev/vim)
+[Available for MacOS, Linux, & Windows](https://www.warp.dev/vim)<br>
+</div>
+<hr>
+
 # [![Vim The editor](https://github.com/vim/vim/raw/master/runtime/vimlogo.gif)](https://www.vim.org)
 
 [![Github Build status](https://github.com/vim/vim/workflows/GitHub%20CI/badge.svg)](https://github.com/vim/vim/actions?query=workflow%3A%22GitHub+CI%22)
@@ -31,6 +44,10 @@ This editor is very useful for editing programs and other plain text files.
 All commands are given with normal keyboard characters, so those who can type
 with ten fingers can work very fast.  Additionally, function keys can be
 mapped to commands by the user, and the mouse can be used.
+
+Vim also aims to provide a (mostly) POSIX-compatible vi implementation, when
+compiled with a minimal feature set (typically called vim.tiny), which is used
+by many Linux distributions as the default vi editor.
 
 Vim runs under MS-Windows (7, 8, 10, 11), macOS, Haiku, VMS and almost all
 flavours of UNIX.  Porting to other systems should not be very difficult.

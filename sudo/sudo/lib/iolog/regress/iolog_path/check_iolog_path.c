@@ -27,10 +27,10 @@
 
 #define SUDO_ERROR_WRAP 0
 
-#include "sudo_compat.h"
-#include "sudo_util.h"
-#include "sudo_fatal.h"
-#include "sudo_iolog.h"
+#include <sudo_compat.h>
+#include <sudo_util.h>
+#include <sudo_fatal.h>
+#include <sudo_iolog.h>
 
 static struct iolog_escape_data {
     char sessid[7];
@@ -44,7 +44,7 @@ static struct iolog_escape_data {
 
 sudo_dso_public int main(int argc, char *argv[]);
 
-static void
+sudo_noreturn static void
 usage(void)
 {
     fprintf(stderr, "usage: %s datafile\n", getprogname());
@@ -64,7 +64,7 @@ reset_escape_data(struct iolog_escape_data *data)
 }
 
 static size_t
-fill_seq(char *str, size_t strsize, void *unused)
+fill_seq(char *restrict str, size_t strsize, void *restrict unused)
 {
     int len;
 
@@ -74,41 +74,41 @@ fill_seq(char *str, size_t strsize, void *unused)
 	escape_data.sessid[4], escape_data.sessid[5]);
     if (len < 0)
 	return strsize; /* handle non-standard snprintf() */
-    return len;
+    return (size_t)len;
 }
 
 static size_t
-fill_user(char *str, size_t strsize, void *unused)
+fill_user(char *restrict str, size_t strsize, void * restrict unused)
 {
     return strlcpy(str, escape_data.user, strsize);
 }
 
 static size_t
-fill_group(char *str, size_t strsize, void *unused)
+fill_group(char *restrict str, size_t strsize, void * restrict unused)
 {
     return strlcpy(str, escape_data.group, strsize);
 }
 
 static size_t
-fill_runas_user(char *str, size_t strsize, void *unused)
+fill_runas_user(char * restrict str, size_t strsize, void * restrict unused)
 {
     return strlcpy(str, escape_data.runas_user, strsize);
 }
 
 static size_t
-fill_runas_group(char *str, size_t strsize, void *unused)
+fill_runas_group(char * restrict str, size_t strsize, void *restrict unused)
 {
     return strlcpy(str, escape_data.runas_group, strsize);
 }
 
 static size_t
-fill_hostname(char *str, size_t strsize, void *unused)
+fill_hostname(char *restrict str, size_t strsize, void * restrict unused)
 {
     return strlcpy(str, escape_data.host, strsize);
 }
 
 static size_t
-fill_command(char *str, size_t strsize, void *unused)
+fill_command(char * restrict str, size_t strsize, void * restrict unused)
 {
     return strlcpy(str, escape_data.command, strsize);
 }
@@ -133,7 +133,7 @@ do_check(char *dir_in, char *file_in, char *tdir_out, char *tfile_out)
     int error = 0;
     struct tm tm;
     time_t now;
-    int len;
+    size_t len;
 
     /*
      * Expand any strftime(3) escapes
@@ -252,24 +252,24 @@ main(int argc, char *argv[])
 		sudo_fatal(NULL);
 	    break;
 	case 7:
-	    if (dir_in != NULL)
-		free(dir_in);
-	    dir_in = strdup(line);
+	    free(dir_in);
+	    if ((dir_in = strdup(line)) == NULL)
+		sudo_fatal(NULL);
 	    break;
 	case 8:
-	    if (file_in != NULL)
-		free(file_in);
-	    file_in = strdup(line);
+	    free(file_in);
+	    if ((file_in = strdup(line)) == NULL)
+		sudo_fatal(NULL);
 	    break;
 	case 9:
-	    if (dir_out != NULL)
-		free(dir_out);
-	    dir_out = strdup(line);
+	    free(dir_out);
+	    if ((dir_out = strdup(line)) == NULL)
+		sudo_fatal(NULL);
 	    break;
 	case 10:
-	    if (file_out != NULL)
-		free(file_out);
-	    file_out = strdup(line);
+	    free(file_out);
+	    if ((file_out = strdup(line)) == NULL)
+		sudo_fatal(NULL);
 	    break;
 	case 11:
 	    errors += do_check(dir_in, file_in, dir_out, file_out);

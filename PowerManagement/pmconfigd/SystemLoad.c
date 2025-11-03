@@ -187,7 +187,7 @@ void userActiveHandleRootDomainActivity(bool active)
         return;
     }
     if (active == true) {
-        _unclamp_silent_running(true);
+        _unclamp_silent_running(true, false);
         cancel_NotificationDisplayWake();
         cancelPowerNapStates();
         cancelDarkWakeCapabilitiesTimer();

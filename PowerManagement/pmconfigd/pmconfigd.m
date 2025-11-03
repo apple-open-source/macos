@@ -224,7 +224,7 @@ powerd_init(void *__unused context)
     ads_prime();
     standbyTimer_prime();
 
-    _unclamp_silent_running(false);
+    _unclamp_silent_running(false, false);
     logASLMessagePMStart();
 
 
@@ -1433,6 +1433,7 @@ initializeShutdownNotifications(void)
     dispatch_mach_connect(shutdownNotifChannel, our_port, MACH_PORT_NULL, NULL);
 }
 
+
 static void handleDWThermalMsg(CFStringRef wakeType)
 {
     CFMutableDictionaryRef options = NULL;
@@ -1466,7 +1467,7 @@ static void handleDWThermalMsg(CFStringRef wakeType)
     }
     else {
         // For all other cases, let system run in non-silent running mode
-        _unclamp_silent_running(true);
+        _unclamp_silent_running(true, false);
 
         // Cancel Dark Wake capabilities timer
         cancelDarkWakeCapabilitiesTimer();
@@ -1522,6 +1523,7 @@ RootDomainInterest(
         PMSystemEventsRootDomainInterest();
     }
 
+
     if(messageType == kIOPMMessageDarkWakeThermalEmergency)
     {
         mt2RecordThermalEvent(kThermalStateSleepRequest);
@@ -1543,7 +1545,6 @@ RootDomainInterest(
                 logASLAssertionTypeSummary(kInteractivePushServiceType);
             });
         }
-
     }
 
     if (messageType == kIOPMMessageLaunchBootSpinDump)

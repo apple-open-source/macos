@@ -221,6 +221,14 @@ ml{
     }
     calendar{
         bangla{
+            eras{
+                abbreviated{
+                    "ബംഗാ.",
+                }
+                wide{
+                    "ബംഗാബ്ദ",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -780,12 +788,20 @@ ml{
                     "MMM, d",
                     "d=tithimla",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "വി.സം.",
+                }
+                wide{
+                    "വിക്രം സംവത്",
+                }
             }
             monthNames{
                 format{
@@ -1075,12 +1091,20 @@ ml{
                     "MMM, d",
                     "d=tithimla",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "ശാ.ശകെ",
+                }
+                wide{
+                    "ശാലിവാഹന ശകെ",
+                }
             }
             monthNames{
                 format{
@@ -1191,6 +1215,14 @@ ml{
             }
         }
         malayalam{
+            eras{
+                abbreviated{
+                    "കൊ.വ.",
+                }
+                wide{
+                    "കൊല്ലവർഷം",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -1300,12 +1332,20 @@ ml{
                     "MMM, d",
                     "d=tithimla",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "കശ.സം.",
+                }
+                wide{
+                    "ശക സംവത്",
+                }
             }
             monthPatterns{
                 format{
@@ -1466,6 +1506,14 @@ ml{
             }
         }
         tamil{
+            eras{
+                abbreviated{
+                    "ശ.വ.",
+                }
+                wide{
+                    "ശക വരുഡം",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -1575,12 +1623,20 @@ ml{
                     "MMM, d",
                     "d=tithimla",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "ശാ.ശകം",
+                }
+                wide{
+                    "ശാലിവാഹന ശകം",
+                }
             }
             monthNames{
                 format{
@@ -1708,7 +1764,7 @@ ml{
                     "MMM, d",
                     "d=tithimlp",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -1718,6 +1774,14 @@ ml{
             availableFormats{
                 GyMd{"M/d G"}
                 yMEd{"d-M, E"}
+            }
+            eras{
+                abbreviated{
+                    "വി.സം.",
+                }
+                wide{
+                    "വിക്രം സംവത്",
+                }
             }
             monthNames{
                 format{

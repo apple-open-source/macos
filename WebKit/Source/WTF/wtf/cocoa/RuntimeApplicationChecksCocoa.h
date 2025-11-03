@@ -73,6 +73,7 @@ enum class SDKAlignedBehavior {
     ModernCompabilityModeByDefault,
     MutationEventsDisabledByDefault,
     NavigationActionSourceFrameNonNull,
+    AllowBackgroundAudioPlayback,
     NoClientCertificateLookup,
     NoExpandoIndexedPropertiesOnWindow,
     NoPokerBrosBuiltInTagQuirk,
@@ -126,6 +127,7 @@ enum class SDKAlignedBehavior {
     BlobFileAccessEnforcement,
     SupportGameControllerEventInteractionAPI,
     DidFailProvisionalNavigationWithErrorForFileURLNavigation,
+    CrashWhenPreconnectingFromBackgroundThread,
 
     NumberOfBehaviors
 };
@@ -152,7 +154,9 @@ namespace CocoaApplication {
 
 WTF_EXPORT_PRIVATE bool isAppleApplication();
 WTF_EXPORT_PRIVATE bool isIBooks();
+WTF_EXPORT_PRIVATE bool isDumpRenderTree();
 WTF_EXPORT_PRIVATE bool isWebkitTestRunner();
+WTF_EXPORT_PRIVATE bool shouldOSFaultLogForAppleApplicationUsingWebKit1();
 
 }
 
@@ -182,7 +186,6 @@ namespace IOSApplication {
 WTF_EXPORT_PRIVATE bool isAmazon();
 WTF_EXPORT_PRIVATE bool isAppleWebApp();
 WTF_EXPORT_PRIVATE bool isDataActivation();
-WTF_EXPORT_PRIVATE bool isDumpRenderTree();
 WTF_EXPORT_PRIVATE bool isEssentialSkeleton();
 WTF_EXPORT_PRIVATE bool isFeedly();
 WTF_EXPORT_PRIVATE bool isHimalaya();
@@ -201,6 +204,8 @@ WTF_EXPORT_PRIVATE bool isMobileStore();
 WTF_EXPORT_PRIVATE bool isUNIQLOApp();
 WTF_EXPORT_PRIVATE bool isDOFUSTouch();
 WTF_EXPORT_PRIVATE bool isMyRideK12();
+WTF_EXPORT_PRIVATE bool isFirefox();
+WTF_EXPORT_PRIVATE bool isFirefoxFocus();
 
 } // IOSApplication
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -228,7 +228,7 @@ main(int argc, char * argv[])
     int			sockfd;
 
     (void) openlog("ndadvert", LOG_PERROR | LOG_PID, LOG_DAEMON);
-    interfaces = ifl_init();
+    interfaces = ifl_create(NULL);
     if (argc != 2) {
 	fprintf(stderr, "ndadvert <ifname>\n");
 	exit(1);

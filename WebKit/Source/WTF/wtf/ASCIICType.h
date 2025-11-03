@@ -50,6 +50,7 @@ template<typename CharacterType> constexpr bool isASCIIHexDigit(CharacterType);
 template<typename CharacterType> constexpr bool isASCIILower(CharacterType);
 template<typename CharacterType> constexpr bool isASCIIOctalDigit(CharacterType);
 template<typename CharacterType> constexpr bool isASCIIPrintable(CharacterType);
+template<typename CharacterType> constexpr bool isASCIIGraphic(CharacterType);
 template<typename CharacterType> constexpr bool isTabOrSpace(CharacterType);
 template<typename CharacterType> constexpr bool isASCIIWhitespace(CharacterType);
 template<typename CharacterType> constexpr bool isUnicodeCompatibleASCIIWhitespace(CharacterType);
@@ -132,6 +133,11 @@ template<typename CharacterType> constexpr bool isASCIIOctalDigit(CharacterType 
 template<typename CharacterType> constexpr bool isASCIIPrintable(CharacterType character)
 {
     return character >= ' ' && character <= '~';
+}
+
+template<typename CharacterType> constexpr bool isASCIIGraphic(CharacterType character)
+{
+    return character >= '!' && character <= '~';
 }
 
 template<typename CharacterType> constexpr bool isTabOrSpace(CharacterType character)

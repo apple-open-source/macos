@@ -53,7 +53,16 @@ static _Atomic unsigned int kcov_enabled = 0;
  */
 SYSCTL_DECL(_kern_kcov);
 SYSCTL_NODE(_kern, OID_AUTO, kcov, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "kcov");
+SYSCTL_COMPAT_INT(_kern_kcov, OID_AUTO, available, CTLFLAG_RD, NULL, 1, "");
 
+/*
+ * kern.kcov.sancov_compiled is 1 when XNU itself is compiled with SanitizerCoverage
+ */
+#if __has_feature(coverage_sanitizer)
+SYSCTL_COMPAT_INT(_kern_kcov, OID_AUTO, sancov_compiled, CTLFLAG_RD, NULL, 1, "");
+#else
+SYSCTL_COMPAT_INT(_kern_kcov, OID_AUTO, sancov_compiled, CTLFLAG_RD, NULL, 0, "");
+#endif
 
 /*
  * Coverage sanitizer bootstrap.

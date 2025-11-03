@@ -433,6 +433,7 @@ lt{
         nds_NL{"Žemutinės Saksonijos (Nyderlandai)"}
         ne{"nepaliečių"}
         new{"nevari"}
+        nez{"nezpersų"}
         ng{"ndongų"}
         nia{"nias"}
         niu{"niujiečių"}
@@ -886,11 +887,11 @@ lt{
             gujarati{"gudžaratų kalendorius"}
             hebrew{"hebrajų kalendorius"}
             indian{"nacionalinis indų kalendorius"}
-            islamic{"islamo kalendorius"}
-            islamic-civil{"Islamo kalendorius (lentelinis, pilietinė era)"}
-            islamic-rgsa{"Islamo kalendorius (Saudo Arabija)"}
-            islamic-tbla{"Islamo kalendorius (lentelinis, astronominė era)"}
-            islamic-umalqura{"Islamo kalendorius (Umm al-Qura)"}
+            islamic{"musulmonų kalendorius"}
+            islamic-civil{"musulmonų kalendorius (lentelinis, pilietinė era)"}
+            islamic-rgsa{"musulmonų kalendorius (Saudo Arabija)"}
+            islamic-tbla{"musulmonų kalendorius (lentelinis, astronominė era)"}
+            islamic-umalqura{"musulmonų kalendorius (Umm al-Qura)"}
             iso8601{"ISO 8601 kalendorius"}
             japanese{"japonų kalendorius"}
             kannada{"kanadų kalendorius"}

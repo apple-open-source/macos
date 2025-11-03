@@ -73,6 +73,7 @@ typedef enum {
 	ARM_SME_UNSUPPORTED = 0,
 	ARM_FEAT_SME,
 	ARM_FEAT_SME2,
+	ARM_FEAT_SME2p1,
 	ARM_SME_VERSION_MAX,
 } arm_sme_version_t;
 

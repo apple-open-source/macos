@@ -62,6 +62,7 @@ struct WEBCORE_EXPORT QuirksData {
     bool needsResettingTransitionCancelsRunningTransitionQuirk : 1 { false };
     bool needsScrollbarWidthThinDisabledQuirk : 1 { false };
     bool needsSeekingSupportDisabledQuirk : 1 { false };
+    bool needsTextInputBoxSizingBorderBoxQuirk : 1 { false };
     bool needsVP9FullRangeFlagQuirk : 1 { false };
     bool needsVideoShouldMaintainAspectRatioQuirk : 1 { false };
     bool returnNullPictureInPictureElementDuringFullscreenChangeQuirk : 1 { false };
@@ -114,6 +115,7 @@ struct WEBCORE_EXPORT QuirksData {
     bool shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreasQuirk : 1 { false };
     bool shouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk : 1 { false };
     bool shouldTreatAddingMouseOutEventListenerAsContentChange : 1 { false };
+    bool requirePageVisibilityToPlayAudioQuirk : 1 { false };
 #endif // PLATFORM(IOS_FAMILY)
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
@@ -187,12 +189,18 @@ struct WEBCORE_EXPORT QuirksData {
     bool shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk : 1 { false };
 #endif
 
+    bool needsNavigatorUserAgentDataQuirk : 1 { false };
+    bool needsCustomUserAgentData : 1 { false };
     bool needsNowPlayingFullscreenSwapQuirk : 1 { false };
     bool needsWebKitMediaTextTrackDisplayQuirk : 1 { false };
     bool needsMediaRewriteRangeRequestQuirk : 1 { false };
     bool shouldEnterNativeFullscreenWhenCallingElementRequestFullscreen : 1 { false };
     bool shouldDelayReloadWhenRegisteringServiceWorker : 1 { false };
     bool shouldDisableDOMAudioSession : 1 { false };
+
+#if HAVE(PIP_SKIP_PREROLL)
+    bool shouldDisableAdSkippingInPip : 1 { false };
+#endif
 };
 
 } // namespace WebCore

@@ -240,6 +240,58 @@ out:
 	return ret;
 }
 
+/* Walk up to the root to find out the depth of this nested directory. */
+static int
+devfs_nested_dirs_depth(devnode_t *dir_p)
+{
+	devdirent_t *dirent_p;
+	int depth = 0;
+
+	while ((dir_p = dir_p->dn_typeinfo.Dir.parent) != NULL) {
+		dirent_p = dir_p->dn_typeinfo.Dir.myname;
+		/* If 'de_parent' is NULL, then we are at root. */
+		if (dirent_p->de_parent == NULL) {
+			break;
+		}
+		depth++;
+	}
+
+	return depth;
+}
+
+/*
+ * Recurse down to all subdirs to figure out the max depths of the deepest
+ * subdir.
+ */
+static int
+devfs_subdirs_depth(devdirent_t *parent_dirent_p)
+{
+	devnode_t *parent_dnp = parent_dirent_p->de_dnp;
+	devdirent_t *dirent_p;
+	int max_depths = 0;
+
+	/* Return depth of 0 when there is no more subdir(s). */
+	if (parent_dnp->dn_typeinfo.Dir.entrycount == 0) {
+		return 0;
+	}
+
+	/*
+	 * Traverse each subdir at this level to find out the max depth of its
+	 * subdirs.
+	 */
+	for (dirent_p = parent_dnp->dn_typeinfo.Dir.dirlist; dirent_p;
+	    dirent_p = dirent_p->de_next) {
+		if (dirent_p->de_dnp->dn_type == DEV_DIR) {
+			int depths;
+
+			depths = devfs_subdirs_depth(dirent_p);
+			max_depths = MAX(depths, max_depths);
+		}
+	}
+
+	return max_depths + 1;
+}
+
 /*
  * Convert a component of a pathname into a pointer to a locked node.
  * This is a very central and rather complicated routine.
@@ -977,6 +1029,8 @@ out1:
 	return error;
 }
 
+#define MAX_NESTED_DIRS  16
+
 /*
  * Rename system call. Seems overly complicated to me...
  *      rename("foo", "bar");
@@ -1112,6 +1166,18 @@ devfs_rename(struct vnop_rename_args *ap)
 		} while ((tmp = tmp->dn_typeinfo.Dir.parent) != ntmp);
 	}
 
+	/*
+	 * If we are renaming a directory, fail the rename if the deepest subdir
+	 * in the target after rename is going to exceed the MAX_NESTED_DIRS limit.
+	 */
+	if (doingdirectory) {
+		if ((devfs_subdirs_depth(fnp) + devfs_nested_dirs_depth(tdp)) >=
+		    MAX_NESTED_DIRS) {
+			error = EMLINK;
+			goto out;
+		}
+	}
+
 	/***********************************
 	* Start actually doing things.... *
 	***********************************/
@@ -1183,12 +1249,19 @@ devfs_mkdir(struct vnop_mkdir_args *ap)
 	devnode_t * dir_p;
 	devdirent_t * nm_p;
 	devnode_t * dev_p;
-	struct vnode_attr *     vap = ap->a_vap;
+	struct vnode_attr * vap = ap->a_vap;
 	struct vnode * * vpp = ap->a_vpp;
 
 	DEVFS_LOCK();
 
 	dir_p = VTODN(ap->a_dvp);
+
+	/* Fail the mkdir if the depth of parent dir is already at the limit. */
+	if (devfs_nested_dirs_depth(dir_p) >= MAX_NESTED_DIRS) {
+		error = EMLINK;
+		goto failure;
+	}
+
 	error = dev_add_entry(cnp->cn_nameptr, dir_p, DEV_DIR,
 	    NULL, NULL, NULL, &nm_p);
 	if (error) {

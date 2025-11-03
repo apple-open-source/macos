@@ -116,6 +116,7 @@
 #include <mach/resource_monitors.h>
 #include <machine/machine_routines.h>
 #include <sys/proc_require.h>
+#include <vm/vm_compressor_internal.h>
 
 #include <os/log_private.h>
 
@@ -132,8 +133,9 @@ extern volatile struct xnu_hw_shmem_dbg_command_info *hwsd_info;
 
 #if CONFIG_XNUPOST
 #include <tests/xnupost.h>
-extern int vsnprintf(char *, size_t, const char *, va_list);
 #endif
+
+extern int vsnprintf(char *, size_t, const char *, va_list);
 
 #if CONFIG_CSR
 #include <sys/csr.h>
@@ -186,13 +188,11 @@ struct additional_panic_data_buffer *panic_data_buffers = NULL;
 #define panic_stop()    panic_spin_forever()
 #endif
 
-#if defined(__arm64__) && (DEVELOPMENT || DEBUG)
 /*
  * More than enough for any typical format string passed to panic();
  * anything longer will be truncated but that's better than nothing.
  */
 #define EARLY_PANIC_BUFLEN 256
-#endif
 
 struct debugger_state {
 	uint64_t        db_panic_options;
@@ -568,6 +568,8 @@ phys_carveout_init(void)
 			&phys_carveout_pa,
 			&phys_carveout_size,
 			phys_carveout_mb != 0,
+
+			/* Before Donan, XNU allocates the panic-trace carveout. */
 		}
 	};
 
@@ -1220,6 +1222,15 @@ panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args, unsign
 #if defined(__x86_64__) && (DEVELOPMENT || DEBUG)
 	read_lbr();
 #endif
+
+	/* For very early panics before XNU serial initialization. */
+	if (PE_kputc == NULL) {
+		char buf[EARLY_PANIC_BUFLEN];
+		vsnprintf(buf, EARLY_PANIC_BUFLEN, panic_format_str, *panic_args);
+		paniclog_append_noflush("panic: %s\n", buf);
+		paniclog_append_noflush("Kernel panicked very early before serial init, spinning forever...\n");
+		panic_spin_forever();
+	}
 
 	/* optionally call sync, to reduce lost logs on restart, avoid on recursive panic. Unsafe due to unbounded sync() duration */
 	if ((panic_options_mask & DEBUGGER_OPTION_SYNC_ON_PANIC_UNSAFE) && (CPUDEBUGGERCOUNT == 0)) {
@@ -2125,17 +2136,6 @@ panic_display_ecc_errors(void)
 }
 #endif /* CONFIG_ECC_LOGGING */
 
-#if CONFIG_FREEZE
-extern bool freezer_incore_cseg_acct;
-extern int32_t c_segment_pages_compressed_incore;
-#endif
-
-extern uint32_t c_segment_pages_compressed;
-extern uint32_t c_segment_count;
-extern uint32_t c_segments_limit;
-extern uint32_t c_segment_pages_compressed_limit;
-extern uint32_t c_segment_pages_compressed_nearing_limit;
-extern uint32_t c_segments_nearing_limit;
 extern int vm_num_swap_files;
 
 void

@@ -3,10 +3,15 @@
 import argparse
 import json
 import os
+import re
+import sys
+import plistlib
+from datetime import datetime
 
 from validate_update_json import validate_update_against_schema
 from validate_update_json import readJson
 from validate_update_json import readPlist
+from oid_validation import validate_update_json_oids
 
 from cryptography import x509
 from cryptography.hazmat.primitives.hashes import SHA256
@@ -204,21 +209,233 @@ def modify(srcroot, dry_run, update, cert):
     if "ev_tls_oids" in update:
         updateEVRoots(srcroot, dry_run, cert, update["ev_tls_oids"])
 
+def generate_new_trust_store_version():
+    """Generate a new trust store version based on current date (YYYYMMDDXX format)"""
+    now = datetime.now()
+    base_version = now.strftime("%Y%m%d")
+    return int(base_version + "00")  # XX starts at 00 for each day
+
+def increment_asset_version(current_version, override_version=None):
+    """Increment the PKITrustStoreAssetsVersion by 1 on the last number after the last dot, or use override"""
+    if override_version:
+        return override_version
+
+    version_parts = current_version.split('.')
+    if len(version_parts) > 1:
+        # Increment the last part
+        last_part = int(version_parts[-1]) + 1
+        version_parts[-1] = str(last_part)
+        return '.'.join(version_parts)
+    else:
+        # If no dots, just increment the whole number
+        return str(int(current_version) + 1)
+
+def update_asset_version_plist(srcroot, dry_run, override_asset_version=None):
+    """Update AssetVersion.plist with new VersionNumber and incremented PKITrustStoreAssetsVersion"""
+    asset_version_file = srcroot + "/config/AssetVersion.plist"
+
+    try:
+        asset_version_plist = readPlist(asset_version_file)
+    except FileNotFoundError as e:
+        if dry_run:
+            print(f"Warning: {asset_version_file} not found, would skip AssetVersion.plist update")
+            return None, None
+        else:
+            raise FileNotFoundError(f"Required file {asset_version_file} not found") from e
+
+    # Generate new trust store version
+    new_trust_store_version = generate_new_trust_store_version()
+    old_trust_store_version = asset_version_plist.get("VersionNumber", 0)
+
+    # Increment asset version
+    current_asset_version = asset_version_plist.get("PKITrustStoreAssetsVersion", "1.0.0")
+    new_asset_version = increment_asset_version(current_asset_version, override_asset_version)
+
+    print(f"Updating trust store version: {old_trust_store_version} -> {new_trust_store_version}")
+    print(f"Updating asset version: {current_asset_version} -> {new_asset_version}")
+
+    if dry_run:
+        print(f"[DRY RUN] Would update {asset_version_file}:")
+        print(f"  VersionNumber: {old_trust_store_version} -> {new_trust_store_version}")
+        print(f"  PKITrustStoreAssetsVersion: {current_asset_version} -> {new_asset_version}")
+    else:
+        asset_version_plist["VersionNumber"] = new_trust_store_version
+        asset_version_plist["PKITrustStoreAssetsVersion"] = new_asset_version
+
+        with open(asset_version_file, 'wb') as f:
+            plistlib.dump(asset_version_plist, f)
+
+    return new_trust_store_version, new_asset_version
+
+def update_info_asset_plist(srcroot, dry_run, new_trust_store_version, new_asset_version):
+    """Update Info-Asset.plist with new versions"""
+    info_asset_file = srcroot + "/config/Info-Asset.plist"
+    new_ma_asset_version = new_asset_version + ".0.0,0"
+
+    try:
+        info_asset_plist = readPlist(info_asset_file)
+    except FileNotFoundError as e:
+        if dry_run:
+            print(f"Warning: {info_asset_file} not found, would skip Info-Asset.plist update")
+            return
+        else:
+            raise FileNotFoundError(f"Required file {info_asset_file} not found") from e
+
+    if dry_run:
+        print(f"[DRY RUN] Would update {info_asset_file}:")
+        print(f"  CFBundleShortVersionString: {info_asset_plist.get('CFBundleShortVersionString', 'N/A')} -> {new_asset_version}")
+        print(f"  CFBundleVersion: {info_asset_plist.get('CFBundleVersion', 'N/A')} -> {new_asset_version}")
+
+        mobile_asset_props = info_asset_plist.get("MobileAssetProperties", {})
+        print(f"  MobileAssetProperties/AssetVersion: {mobile_asset_props.get('AssetVersion', 'N/A')} -> {new_ma_asset_version}")
+        print(f"  MobileAssetProperties/ContentVersion: {mobile_asset_props.get('ContentVersion', 'N/A')} -> {new_trust_store_version}")
+    else:
+        # Update CFBundleShortVersionString and CFBundleVersion
+        info_asset_plist["CFBundleShortVersionString"] = new_asset_version
+        info_asset_plist["CFBundleVersion"] = new_asset_version
+
+        # Update MobileAssetProperties
+        if "MobileAssetProperties" not in info_asset_plist:
+            info_asset_plist["MobileAssetProperties"] = {}
+
+        mobile_asset_props = info_asset_plist["MobileAssetProperties"]
+        mobile_asset_props["AssetVersion"] = new_ma_asset_version
+        mobile_asset_props["ContentVersion"] = new_trust_store_version
+
+        print(f"Updated Info-Asset.plist CFBundleShortVersionString: {new_asset_version}")
+        print(f"Updated Info-Asset.plist CFBundleVersion: {new_asset_version}")
+        print(f"Updated Info-Asset.plist MobileAssetProperties/AssetVersion: {new_ma_asset_version}")
+        print(f"Updated Info-Asset.plist MobileAssetProperties/ContentVersion: {new_trust_store_version}")
+
+        with open(info_asset_file, 'wb') as f:
+            plistlib.dump(info_asset_plist, f)
+
+def update_security_certificates_xcconfig(srcroot, dry_run, new_trust_store_version):
+    """Update security_certificates.xcconfig with new TRUST_STORE_VERSION"""
+    xcconfig_file = srcroot + "/config/security_certificates.xcconfig"
+
+    try:
+        with open(xcconfig_file, 'r') as f:
+            content = f.read()
+    except FileNotFoundError as e:
+        if dry_run:
+            print(f"Warning: {xcconfig_file} not found, would skip xcconfig update")
+            return
+        else:
+            raise FileNotFoundError(f"Required file {xcconfig_file} not found") from e
+
+    # Update TRUST_STORE_VERSION
+    pattern = r'^TRUST_STORE_VERSION\s*=\s*\d+$'
+    new_line = f"TRUST_STORE_VERSION = {new_trust_store_version}"
+
+    # Find current value for dry run output
+    import re
+    match = re.search(pattern, content, flags=re.MULTILINE)
+    current_value = match.group() if match else "TRUST_STORE_VERSION = <not found>"
+
+    if dry_run:
+        print(f"[DRY RUN] Would update {xcconfig_file}:")
+        print(f"  {current_value} -> {new_line}")
+    else:
+        updated_content = re.sub(pattern, new_line, content, flags=re.MULTILINE)
+        print(f"Updated security_certificates.xcconfig TRUST_STORE_VERSION: {new_trust_store_version}")
+
+        with open(xcconfig_file, 'w') as f:
+            f.write(updated_content)
+
+def update_version_files(srcroot, dry_run, override_asset_version=None):
+    """Update all version-related files"""
+    if dry_run:
+        print("[DRY RUN] Would update version files:")
+    else:
+        print("Updating version files...")
+
+    # Update AssetVersion.plist and get new versions
+    new_trust_store_version, new_asset_version = update_asset_version_plist(srcroot, dry_run, override_asset_version)
+
+    if new_trust_store_version is None or new_asset_version is None:
+        error_msg = "Failed to update AssetVersion.plist, cannot proceed with version updates"
+        if dry_run:
+            print(f"[DRY RUN] {error_msg}")
+            return
+        else:
+            raise RuntimeError(error_msg)
+
+    # Update Info-Asset.plist
+    update_info_asset_plist(srcroot, dry_run, new_trust_store_version, new_asset_version)
+
+    # Update security_certificates.xcconfig
+    update_security_certificates_xcconfig(srcroot, dry_run, new_trust_store_version)
+
+def validate_update_json(srcroot, update_json_file):
+    # Validate file against json schema
+    schema_file = srcroot + "/update_scripts/trust_store_updates_schema_v2.json"
+    validate_update_against_schema(update_json_file, schema_file)
+    print("✅ schema validation completed successfully!")
+
+    updates = readJson(update_json_file)
+
+    # Validate oids in update json
+    oid_validation_result = validate_update_json_oids(updates)
+    if not oid_validation_result["valid"]:
+        print("\\033[91mOID Validation Errors:\\033[0m")
+        for error in oid_validation_result["errors"]:
+            print(f"  ❌ {error}")
+        print("\\nPlease fix the OID validation errors before proceeding.")
+        sys.exit(1)
+
+    if oid_validation_result["warnings"]:
+        print("\\033[93mOID Validation Warnings:\\033[0m")
+        for warning in oid_validation_result["warnings"]:
+            print(f"  ⚠️  {warning}")
+
+    # Show detailed validation results for each certificate
+    if oid_validation_result["certificate_results"]:
+        print("\\nOID Validation Results:")
+        for cert_result in oid_validation_result["certificate_results"]:
+            cert_name = cert_result["certificate"]
+            print(f"📋 {cert_name}:")
+
+            # Policy constraints results
+            policy_valid = cert_result["policy_constraints"]["valid"]
+            policy_invalid = cert_result["policy_constraints"]["invalid"]
+            if policy_valid:
+                print(f"  ✅ Valid policy constraints: {policy_valid}")
+            if policy_invalid:
+                print(f"  ❌ Invalid policy constraints: {policy_invalid}")
+
+            # EV OIDs results
+            ev_valid = cert_result["ev_oids"]["valid"]
+            ev_invalid = cert_result["ev_oids"]["invalid"]
+            if ev_valid:
+                print(f"  ✅ Valid EV OIDs: {ev_valid}")
+            if ev_invalid:
+                print(f"  ❌ Invalid EV OIDs: {ev_invalid}")
+
+    print("✅ OID validation completed successfully!")
+
+    return updates
+
 def main():
     parser = argparse.ArgumentParser(description="Update the certificates and constraints json",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--update_json', help="json describing updates", required=True)
     parser.add_argument('--srcroot', help="source root path", required=True)
     parser.add_argument('--dry_run', action='store_true', help="run without modifying trust store")
+    parser.add_argument('--no_version_update', action='store_true', help="skip automatic version updates")
+    parser.add_argument('--asset_version', help="override asset version (e.g., '2.1.0') instead of auto-incrementing")
 
     args = parser.parse_args()
 
-    schema_file = args.srcroot + "/update_scripts/trust_store_updates_schema_v2.json"
-    validate_update_against_schema(args.update_json, schema_file)
-
-    updates = readJson(args.update_json)
+    print("Validating input update json...")
+    updates = validate_update_json(args.srcroot, args.update_json)
 
     print("----------------------\n")
+
+    # Track if any changes would be made that require version updates
+    # For dry_run, we consider all operations as "changes made" to show version updates
+    changes_made = False
+
     for update in updates:
         type = update["change_type"]
         cert = getCertFromUpdate(update)
@@ -227,26 +444,33 @@ def main():
 
         if type == "Addition":
             add(args.srcroot, args.dry_run, update, cert)
+            changes_made = True
         elif type == "Modification":
             modify(args.srcroot, args.dry_run, update, cert)
+            changes_made = True
         elif type == "Removal":
             remove(args.srcroot, args.dry_run, update, cert)
+            changes_made = True
 
         print("----------------------\n")
 
+    # Update version files if changes were made and not explicitly disabled
+    if changes_made and not args.no_version_update:
+        update_version_files(args.srcroot, args.dry_run, args.asset_version)
+        if args.dry_run:
+            print("[DRY RUN] Version files would be updated automatically")
+        else:
+            print("Version files updated automatically")
+    elif args.no_version_update:
+        if args.dry_run:
+            print("[DRY RUN] Would skip version updates (--no_version_update specified)")
+        else:
+            print("Skipping version updates (--no_version_update specified)")
+    else:
+        if args.dry_run:
+            print("[DRY RUN] No changes would be made, would skip version updates")
+        else:
+            print("No changes made, skipping version updates")
+
 if __name__ == "__main__":
     main()
-
-
-#TODO: update trust store version and asset info automagically!
-# AssetVersion.plist:
-#   VersionNumber to date
-#   PKITrustStoreAssetsVersion +1 on last # after last .
-    # TODO: What should cause us to change major, minor, and minor-minor versions??
-# Info-Asset.plist
-#   CFBundleShortVersionString to new asset version
-#   CFBundleVersion to new asset version
-#   MobileAssetProperties/AssetVersion to new asset version
-#   MobileAssetProperties/ContentVersion to trust store version
-# security_certificates.xcconfig
-#   TRUST_STORE_VERSION to strust store version

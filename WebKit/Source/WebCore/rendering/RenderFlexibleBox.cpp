@@ -391,11 +391,8 @@ void RenderFlexibleBox::layoutBlock(RelayoutChildren relayoutChildren, LayoutUni
 {
     ASSERT(needsLayout());
 
-    if (relayoutChildren == RelayoutChildren::No) {
-        auto simplifiedLayoutScope = SetForScope(m_inSimplifiedLayout, true);
-        if (simplifiedLayout())
-            return;
-    }
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
+        return;
 
     LayoutRepainter repainter(*this);
 
@@ -1706,12 +1703,6 @@ bool RenderFlexibleBox::canUseFlexItemForPercentageResolution(const RenderBox& f
     ASSERT(flexItem.isFlexItem());
 
     auto canUseByLayoutPhase = [&] {
-        if (m_inSimplifiedLayout) {
-            // While in simplified layout, we should only re-compute overflow and/or re-position out-of-flow boxes, some renderers (e.g. RenderReplaced and subclasses)
-            // currently ignore this optimization and run regular layout.
-            return true;
-        }
-
         if (m_inPostFlexUpdateScrollbarLayout) {
             // Unfortunately we run layout on flex content _after_ performing flex layout to ensure scrollbars are up to date (see endAndCommitUpdateScrollInfoAfterLayoutTransaction/updateScrollInfoAfterLayout).
             // We need to let this content run percent resolution as if we were still in flex item layout.
@@ -1728,12 +1719,6 @@ bool RenderFlexibleBox::canUseFlexItemForPercentageResolution(const RenderBox& f
 
         if (m_inCrossAxisLayout)
             return true;
-
-        if (&flexItem == view().frameView().layoutContext().subtreeLayoutRoot()) {
-            ASSERT(!needsLayout());
-            // When the flex item is the root of a subtree layout, flex layout is not running (as we only layout the flex item's subtree).
-            return false;
-        }
 
         // Let's decide based on style when we are outside of layout (i.e. relative percent position).
         return !m_inLayout;
@@ -1753,6 +1738,19 @@ bool RenderFlexibleBox::canUseFlexItemForPercentageResolution(const RenderBox& f
     return canUseByStyle();
 }
 
+bool RenderFlexibleBox::canUseFlexItemForPercentageResolutionByStyle(const RenderBox& flexItem)
+{
+    ASSERT(flexItem.isFlexItem());
+
+    if (mainAxisIsFlexItemInlineAxis(flexItem))
+        return alignmentForFlexItem(flexItem) == ItemPosition::Stretch;
+
+    if (flexItem.style().flexGrow() == RenderStyle::initialFlexGrow() && flexItem.style().flexShrink() == 0.0f && flexItemMainSizeIsDefinite(flexItem, flexBasisForFlexItem(flexItem)))
+        return true;
+
+    return canComputePercentageFlexBasis(flexItem, Style::PreferredSize { 0_css_percentage }, UpdatePercentageHeightDescendants::Yes);
+}
+
 // This method is only called whenever a descendant of a flex item wants to resolve a percentage in its
 // block axis (logical height). The key here is that percentages should be generally resolved before the
 // flex item is flexed, meaning that they shouldn't be recomputed once the flex item has been flexed. There
@@ -1761,7 +1759,7 @@ bool RenderFlexibleBox::canUseFlexItemForPercentageResolution(const RenderBox& f
 // https://drafts.csswg.org/css-flexbox/#definite-sizes for additional details.
 std::optional<LayoutUnit> RenderFlexibleBox::usedFlexItemOverridingLogicalHeightForPercentageResolution(const RenderBox& flexItem)
 {
-    return canUseFlexItemForPercentageResolution(flexItem) ? flexItem.overridingBorderBoxLogicalHeight() : std::nullopt;
+    return canUseFlexItemForPercentageResolutionByStyle(flexItem) ? flexItem.overridingBorderBoxLogicalHeight() : std::nullopt;
 }
 
 LayoutUnit RenderFlexibleBox::adjustFlexItemSizeForAspectRatioCrossAxisMinAndMax(const RenderBox& flexItem, LayoutUnit flexItemSize)

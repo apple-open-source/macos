@@ -3,7 +3,7 @@ dnl Use the top-level autogen.sh script to generate configure and config.h.in
 dnl
 dnl SPDX-License-Identifier: ISC
 dnl
-dnl Copyright (c) 1994-1996, 1998-2023 Todd C. Miller <Todd.Miller@sudo.ws>
+dnl Copyright (c) 1994-1996, 1998-2025 Todd C. Miller <Todd.Miller@sudo.ws>
 dnl
 dnl Permission to use, copy, modify, and distribute this software for any
 dnl purpose with or without fee is hereby granted, provided that the above
@@ -18,120 +18,123 @@ dnl ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 dnl OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 dnl
 AC_PREREQ([2.69])
-AC_INIT([sudo], [1.9.13p2], [https://bugzilla.sudo.ws/], [sudo])
+AC_INIT([sudo], [1.9.17p2], [https://bugzilla.sudo.ws/], [sudo])
 AC_CONFIG_HEADERS([config.h pathnames.h])
 AC_CONFIG_SRCDIR([src/sudo.c])
 AC_CONFIG_AUX_DIR([scripts])
 dnl
 dnl Variables that get substituted in the Makefile and man pages
 dnl
-AC_SUBST([SHELL])
-AC_SUBST([LIBTOOL])
-AC_SUBST([CFLAGS])
-AC_SUBST([PROGS])
-AC_SUBST([CPPFLAGS])
-AC_SUBST([LDFLAGS])
-AC_SUBST([SUDO_LDFLAGS])
-AC_SUBST([SUDOERS_LDFLAGS])
-AC_SUBST([LIBUTIL_LDFLAGS])
-AC_SUBST([ZLIB_LDFLAGS])
-AC_SUBST([LT_LDFLAGS])
-AC_SUBST([LT_LDDEP])
-AC_SUBST([LT_LDEXPORTS])
-AC_SUBST([LT_STATIC])
-AC_SUBST([LT_DEP_LIBS])
-AC_SUBST([COMMON_OBJS])
-AC_SUBST([SUDOERS_LT_STATIC])
-AC_SUBST([SUDOERS_OBJS])
-AC_SUBST([SUDO_OBJS])
-AC_SUBST([LIBS])
-AC_SUBST([SUDO_LIBS])
-AC_SUBST([SUDOERS_LIBS])
-AC_SUBST([STATIC_SUDOERS])
-AC_SUBST([NET_LIBS])
-AC_SUBST([AFS_LIBS])
-AC_SUBST([REPLAY_LIBS])
-AC_SUBST([GETGROUPS_LIB])
-AC_SUBST([AUTH_OBJS])
-AC_SUBST([MANTYPE])
-AC_SUBST([MANDIRTYPE])
-AC_SUBST([MANCOMPRESS])
-AC_SUBST([MANCOMPRESSEXT])
-AC_SUBST([SHLIB_ENABLE])
-AC_SUBST([SHLIB_MODE])
-AC_SUBST([SUDOERS_MODE])
-AC_SUBST([SUDOERS_UID])
-AC_SUBST([SUDOERS_GID])
-AC_SUBST([DEVEL])
-AC_SUBST([EXAMPLES])
-AC_SUBST([BAMAN])
-AC_SUBST([LCMAN])
-AC_SUBST([PSMAN])
-AC_SUBST([SEMAN])
-AC_SUBST([AAMAN])
-AC_SUBST([devdir])
-AC_SUBST([mansectsu])
-AC_SUBST([mansectform])
-AC_SUBST([mansectmisc])
-AC_SUBST([INTERCEPTFILE])
-AC_SUBST([INTERCEPTDIR])
-AC_SUBST([intercept_file])
-AC_SUBST([NOEXECFILE])
-AC_SUBST([NOEXECDIR])
-AC_SUBST([noexec_file])
-AC_SUBST([sesh_file])
-AC_SUBST([INSTALL_BACKUP])
-AC_SUBST([INSTALL_INTERCEPT])
-AC_SUBST([INSTALL_NOEXEC])
-AC_SUBST([PRELOAD_MODULE])
-AC_SUBST([DONT_LEAK_PATH_INFO])
-AC_SUBST([BSDAUTH_USAGE])
-AC_SUBST([SELINUX_USAGE])
-AC_SUBST([LDAP])
-AC_SUBST([LOGINCAP_USAGE])
-AC_SUBST([ZLIB])
-AC_SUBST([ZLIB_SRC])
-AC_SUBST([LIBTOOL_DEPS])
-AC_SUBST([CONFIGURE_ARGS])
-AC_SUBST([LIBDL])
-AC_SUBST([LIBRT])
-AC_SUBST([LIBINTL])
-AC_SUBST([LIBCRYPTO])
-AC_SUBST([LIBMD])
-AC_SUBST([LIBTLS])
-AC_SUBST([LIBPTHREAD])
-AC_SUBST([SUDO_NLS])
-AC_SUBST([LOCALEDIR_SUFFIX])
-AC_SUBST([COMPAT_TEST_PROGS])
-AC_SUBST([SUDOERS_TEST_PROGS])
-AC_SUBST([CROSS_COMPILING])
-AC_SUBST([ASAN_LDFLAGS])
-AC_SUBST([ASAN_CFLAGS])
-AC_SUBST([PIE_LDFLAGS])
-AC_SUBST([PIE_CFLAGS])
-AC_SUBST([HARDENING_LDFLAGS])
-AC_SUBST([HARDENING_CFLAGS])
-AC_SUBST([INIT_SCRIPT])
-AC_SUBST([INIT_DIR])
-AC_SUBST([RC_LINK])
-AC_SUBST([COMPAT_EXP])
-AC_SUBST([TMPFILES_D])
-AC_SUBST([exampledir])
-AC_SUBST([DIGEST])
-AC_SUBST([devsearch])
-AC_SUBST([SIGNAME])
-AC_SUBST([PYTHON_PLUGIN])
-AC_SUBST([PYTHON_PLUGIN_SRC])
-AC_SUBST([LOGSRV])
-AC_SUBST([LOGSRV_SRC])
-AC_SUBST([LOGSRVD_SRC])
-AC_SUBST([LOGSRVD_CONF])
-AC_SUBST([LIBLOGSRV])
-AC_SUBST([PPFILES])
-AC_SUBST([FUZZ_ENGINE])
-AC_SUBST([FUZZ_LD])
-AC_SUBST([INTERCEPT_EXP])
-
+AC_SUBST([PROGS], [sudo])dnl
+AC_SUBST([SUDO_LDFLAGS])dnl
+AC_SUBST([SUDOERS_LDFLAGS])dnl
+AC_SUBST([LIBUTIL_LDFLAGS])dnl
+AC_SUBST([ZLIB_LDFLAGS])dnl
+AC_SUBST([LT_LDFLAGS])dnl
+AC_SUBST([LT_LDDEP], ["\$(shlib_exp)"])dnl
+AC_SUBST([LT_LDEXPORTS], ["-export-symbols \$(shlib_exp)"])dnl
+AC_SUBST([LT_STATIC])dnl
+AC_SUBST([LT_DEP_LIBS])dnl
+AC_SUBST([COMMON_OBJS])dnl
+AC_SUBST([SUDOERS_LT_STATIC])dnl
+AC_SUBST([SUDOERS_OBJS])dnl
+AC_SUBST([SUDO_OBJS])dnl
+AC_SUBST([SUDO_LIBS])dnl
+AC_SUBST([SUDOERS_LIBS])dnl
+AC_SUBST([STATIC_SUDOERS])dnl
+AC_SUBST([NET_LIBS])dnl
+AC_SUBST([AFS_LIBS])dnl
+AC_SUBST([REPLAY_LIBS])dnl
+AC_SUBST([GETGROUPS_LIB])dnl
+AC_SUBST([AUTH_OBJS])dnl
+AC_SUBST([MANTYPE])dnl
+AC_SUBST([MANDIRTYPE])dnl
+AC_SUBST([MANCOMPRESS])dnl
+AC_SUBST([MANCOMPRESSEXT])dnl
+AC_SUBST([POSTINSTALL])dnl
+AC_SUBST([SHLIB_ENABLE])dnl
+AC_SUBST([SHLIB_MODE])dnl
+AC_SUBST([SUDOERS_MODE])dnl
+AC_SUBST([SUDOERS_UID])dnl
+AC_SUBST([SUDOERS_GID])dnl
+AC_SUBST([DEVEL])dnl
+AC_SUBST([EXAMPLES])dnl
+AC_SUBST([BAMAN], [0])dnl
+AC_SUBST([LCMAN], [0])dnl
+AC_SUBST([PSMAN], [0])dnl
+AC_SUBST([SEMAN], [0])dnl
+AC_SUBST([AAMAN], [0])dnl
+AC_SUBST([devdir], ['$(srcdir)'])dnl
+AC_SUBST([mansectsu])dnl
+AC_SUBST([mansectform])dnl
+AC_SUBST([mansectmisc])dnl
+AC_SUBST([INTERCEPTFILE])dnl
+AC_SUBST([INTERCEPTDIR])dnl
+AC_SUBST([intercept_file])dnl
+AC_SUBST([NOEXECFILE])dnl
+AC_SUBST([NOEXECDIR])dnl
+AC_SUBST([noexec_file])dnl
+AC_SUBST([sesh_file])dnl
+AC_SUBST([visudo])dnl
+AC_SUBST([INSTALL_BACKUP])dnl
+AC_SUBST([INSTALL_INTERCEPT])dnl
+AC_SUBST([INSTALL_NOEXEC])dnl
+AC_SUBST([PRELOAD_MODULE], ['-module'])dnl
+AC_SUBST([DONT_LEAK_PATH_INFO])dnl
+AC_SUBST([BSDAUTH_USAGE])dnl
+AC_SUBST([SELINUX_USAGE])dnl
+AC_SUBST([LDAP], ['#'])dnl
+AC_SUBST([LOGINCAP_USAGE])dnl
+AC_SUBST([ZLIB])dnl
+AC_SUBST([ZLIB_SRC])dnl
+AC_SUBST([LIBTOOL_DEPS])dnl
+AC_SUBST([LIBDL])dnl
+AC_SUBST([LIBRT])dnl
+AC_SUBST([LIBINTL])dnl
+AC_SUBST([LIBCRYPTO])dnl
+AC_SUBST([LIBTLS])dnl
+AC_SUBST([LIBPTHREAD])dnl
+AC_SUBST([SUDO_NLS], [disabled])dnl
+AC_SUBST([LOCALEDIR_SUFFIX])dnl
+AC_SUBST([COMPAT_TEST_PROGS])dnl
+AC_SUBST([SUDOERS_TEST_PROGS])dnl
+AC_SUBST([CROSS_COMPILING])dnl
+AC_SUBST([ASAN_LDFLAGS])dnl
+AC_SUBST([ASAN_CFLAGS])dnl
+AC_SUBST([PIE_LDFLAGS])dnl
+AC_SUBST([PIE_CFLAGS])dnl
+AC_SUBST([HARDENING_LDFLAGS])dnl
+AC_SUBST([HARDENING_CFLAGS])dnl
+AC_SUBST([INIT_SCRIPT])dnl
+AC_SUBST([INIT_DIR])dnl
+AC_SUBST([RC_LINK])dnl
+AC_SUBST([COMPAT_EXP])dnl
+AC_SUBST([TMPFILES_D])dnl
+AC_SUBST([exampledir], ['$(docdir)/examples'])dnl
+AC_SUBST([adminconfdir], ['$(prefix)/etc'])dnl
+AC_SUBST([DIGEST])dnl
+AC_SUBST([devsearch])dnl
+AC_SUBST([SIGNAME])dnl
+AC_SUBST([PYTHON_PLUGIN], ['#'])dnl
+AC_SUBST([PYTHON_PLUGIN_SRC])dnl
+AC_SUBST([SSL_COMPAT_SRC])dnl
+AC_SUBST([LOGSRV])dnl
+AC_SUBST([LOGSRV_SRC], ['lib/logsrv'])dnl
+AC_SUBST([LOGSRVD_SRC], ['logsrvd'])dnl
+AC_SUBST([LOGSRVD_CONF], ['sudo_logsrvd.conf'])dnl
+AC_SUBST([LIBLOGSRV], ['$(top_builddir)/lib/logsrv/liblogsrv.la $(top_builddir)/lib/protobuf-c/libprotobuf-c.la'])dnl
+AC_SUBST([PPFILES], ['$(srcdir)/etc/sudo.pp'])dnl
+AC_SUBST([FUZZ_ENGINE])dnl
+AC_SUBST([FUZZ_LD], ['$(CC)'])dnl
+AC_SUBST([INTERCEPT_EXP])dnl
+dnl
+dnl Config file paths
+dnl Either a single file or a colon-separated list of paths.
+dnl
+AC_SUBST([cvtsudoers_conf], ['$(sysconfdir)/cvtsudoers.conf'])dnl
+AC_SUBST([sudo_conf], ['$(sysconfdir)/sudo.conf'])dnl
+AC_SUBST([sudo_logsrvd_conf], ['$(sysconfdir)/sudo_logsrvd.conf'])dnl
+AC_SUBST([sudoers_path], ['$(sysconfdir)/sudoers'])dnl
 dnl
 dnl Variables that get substituted in docs (not overridden by environment)
 dnl
@@ -174,6 +177,8 @@ AC_SUBST([sssd_lib])
 AC_SUBST([nsswitch_conf])
 AC_SUBST([netsvc_conf])
 AC_SUBST([secure_path])
+AC_SUBST([secure_path_config])
+AC_SUBST([secure_path_status])
 AC_SUBST([editor])
 AC_SUBST([pam_session])
 AC_SUBST([pam_login_service])
@@ -200,7 +205,7 @@ logfac=auth
 goodpri=notice
 badpri=alert
 loglen=80
-ignore_dot=off
+ignore_dot=on
 mail_no_user=on
 mail_no_host=off
 mail_no_perms=off
@@ -223,8 +228,11 @@ netsvc_conf=/etc/netsvc.conf
 intercept_file="$libexecdir/sudo/sudo_intercept.so"
 noexec_file="$libexecdir/sudo/sudo_noexec.so"
 sesh_file="$libexecdir/sudo/sesh"
+visudo="$sbindir/visudo"
 nsswitch_conf=/etc/nsswitch.conf
-secure_path="not set"
+secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+secure_path_config=
+secure_path_status="disabled"
 pam_session=on
 pam_login_service=sudo
 plugindir="$libexecdir/sudo"
@@ -239,73 +247,23 @@ dnl
 dnl Initial values for Makefile variables listed above
 dnl May be overridden by environment variables..
 dnl
-INSTALL_BACKUP=
-INSTALL_INTERCEPT=
-INSTALL_NOEXEC=
-PRELOAD_MODULE=-module
-exampledir='$(docdir)/examples'
-devdir='$(srcdir)'
-PROGS="sudo"
 : ${MANDIRTYPE='man'}
 : ${SHLIB_MODE='0644'}
 : ${SUDOERS_MODE='0440'}
 : ${SUDOERS_UID='0'}
 : ${SUDOERS_GID='0'}
-DEVEL=
-LDAP="#"
-BAMAN=0
-LCMAN=0
-PSMAN=0
-SEMAN=0
-AAMAN=0
-LIBINTL=
-LIBCRYPTO=
-LIBMD=
-LIBTLS=
-ZLIB=
-ZLIB_SRC=
-AUTH_OBJS=
+dnl
+dnl Other variables
+dnl
+CONFIGURE_ARGS="$@"
 AUTH_REG=
 AUTH_EXCL=
 AUTH_EXCL_DEF=
 AUTH_DEF=passwd
-SUDO_NLS=disabled
-LOCALEDIR_SUFFIX=
-LT_LDEXPORTS="-export-symbols \$(shlib_exp)"
-LT_LDDEP="\$(shlib_exp)"
-OS_INIT=os_init_common
-INIT_SCRIPT=
-INIT_DIR=
-RC_LINK=
-COMPAT_EXP=
-SIGNAME=
-FUZZ_ENGINE=
-FUZZ_LD='$(CC)'
-INTERCEPT_EXP=
-dnl
-dnl Other variables
-dnl
-WEAK_ALIAS=no
 CHECKSHADOW=true
 shadow_funcs=
 shadow_libs=
-TMPFILES_D=
-CONFIGURE_ARGS="$@"
-PYTHON_PLUGIN=#
-LOGSRVD=
-LOGSRVD_SRC=logsrvd
-LOGSRV_SRC=lib/logsrv
-LOGSRVD_CONF='sudo_logsrvd.conf'
-LIBLOGSRV='$(top_builddir)/lib/logsrv/liblogsrv.la $(top_builddir)/lib/protobuf-c/libprotobuf-c.la'
-PPFILES='$(srcdir)/etc/sudo.pp'
-
-dnl
-dnl LD_PRELOAD equivalents
-dnl
-RTLD_PRELOAD_VAR="LD_PRELOAD"
-RTLD_PRELOAD_ENABLE_VAR=
-RTLD_PRELOAD_DELIM=":"
-RTLD_PRELOAD_DEFAULT=
+OS_INIT=os_init_common
 
 dnl
 dnl libc replacement functions live in libsudo_util.a
@@ -344,16 +302,6 @@ AC_ARG_WITH(alertmail, [AS_HELP_STRING([--with-alertmail], [deprecated])],
 [case $with_alertmail in
     *)		with_mailto="$with_alertmail"
 		AC_MSG_NOTICE([--with-alertmail option deprecated, treating as --mailto])
-		;;
-esac])
-
-AC_ARG_WITH(pc-insults, [AS_HELP_STRING([--with-pc-insults], [deprecated])],
-[case $with_pc_insults in
-    yes)	enable_offensive_insults=no
-		AC_MSG_NOTICE([--with-pc-insults option deprecated, it is now the default])
-		;;
-    no)		enable_offensive_insults=yes
-		AC_MSG_NOTICE([--without-pc-insults option deprecated, use --enable-offensive-insults])
 		;;
 esac])
 
@@ -496,11 +444,7 @@ AC_ARG_WITH(csops, [AS_HELP_STRING([--with-csops], [add CSOps standard options])
 [case $with_csops in
     yes)	AC_MSG_NOTICE([adding CSOps standard options])
 		CHECKSIA=false
-		with_ignore_dot=yes
 		insults=on
-		with_classic_insults=yes
-		with_csops_insults=yes
-		with_env_editor=yes
 		: ${mansectsu='8'}
 		: ${mansectform='5'}
 		: ${mansectmisc='7'}
@@ -719,16 +663,7 @@ AC_ARG_WITH(loglen, [AS_HELP_STRING([--with-loglen], [maximum length of a log fi
 esac])
 AC_DEFINE_UNQUOTED(MAXLOGFILELEN, $loglen, [The max number of chars per log file line (for line wrapping).])
 
-AC_ARG_WITH(ignore-dot, [AS_HELP_STRING([--with-ignore-dot], [ignore '.' in the PATH])],
-[case $with_ignore_dot in
-    yes)	ignore_dot=on
-		AC_DEFINE(IGNORE_DOT_PATH)
-		;;
-    no)		ignore_dot=off
-		;;
-    *)		AC_MSG_ERROR([--with-ignore-dot does not take an argument.])
-		;;
-esac])
+AC_ARG_WITH(ignore-dot, [AS_HELP_STRING([--with-ignore-dot], [deprecated, use --disable-ignore-dot])], [enable_ignore_dot="$with_ignore_dot"])
 
 AC_ARG_WITH(mail-if-no-user, [AS_HELP_STRING([--without-mail-if-no-user], [do not send mail if user not in sudoers])],
 [case $with_mail_if_no_user in
@@ -1021,18 +956,23 @@ AC_ARG_WITH(tty-tickets, [AS_HELP_STRING([--with-tty-tickets], [use a different 
 		;;
 esac])
 
+dnl
+dnl The order of the insults options is important.  The main option
+dnl must come first, followed by all-insults, then the individual ones.
+dnl The classic and csops insult sets are always included by default.
+dnl
+with_classic_insults=yes
+with_csops_insults=yes
 AC_ARG_WITH(insults, [AS_HELP_STRING([--with-insults], [insult the user for entering an incorrect password])],
 [case $with_insults in
     yes)	insults=on
 		AC_DEFINE(USE_INSULTS)
-		with_classic_insults=yes
-		with_csops_insults=yes
 		;;
     disabled)	insults=off
-		with_classic_insults=yes
-		with_csops_insults=yes
 		;;
     no)		insults=off
+		with_classic_insults=no
+		with_csops_insults=no
 		;;
     *)		AC_MSG_ERROR([--with-insults does not take an argument.])
 		;;
@@ -1119,17 +1059,28 @@ AC_ARG_WITH(ldap-secret-file, [AS_HELP_STRING([--with-ldap-secret-file], [path t
 test -n "$with_ldap_secret_file" && ldap_secret="$with_ldap_secret_file"
 SUDO_DEFINE_UNQUOTED(_PATH_LDAP_SECRET, "$ldap_secret", [Path to the ldap.secret file])
 
-AC_ARG_WITH(secure-path, [AS_HELP_STRING([--with-secure-path], [override the user's path with a built-in one])],
-[case $with_secure_path in
-    yes)	with_secure_path="/bin:/usr/ucb:/usr/bin:/usr/sbin:/sbin:/usr/etc:/etc"
-		AC_DEFINE_UNQUOTED(SECURE_PATH, "$with_secure_path")
-		secure_path="set to $with_secure_path"
+AC_ARG_WITH(secure-path-value, [AS_HELP_STRING([--with-secure-path-value], [value of secure_path in the default sudoers file, or "no" to comment out by default])],
+[case $with_secure_path_value in
+    yes)	AC_MSG_ERROR([must give --with-secure-path-value an argument.])
 		;;
-    no)		;;
-    *)		AC_DEFINE_UNQUOTED(SECURE_PATH, "$with_secure_path")
-		secure_path="set to $with_secure_path"
+    no)		secure_path_config="# "
+		;;
+    *)		secure_path="$with_secure_path_value"
 		;;
 esac])
+
+AC_ARG_WITH(secure-path, [AS_HELP_STRING([--with-secure-path], [override the user's path with a built-in one])],
+[case $with_secure_path in
+    yes)	with_secure_path="$secure_path"
+		;;
+    no)		;;
+    *)		secure_path="$with_secure_path"
+		;;
+esac])
+AS_IF([test "${with_secure_path-no}" != "no"], [
+	AC_DEFINE_UNQUOTED(SECURE_PATH, "$secure_path")
+	secure_path_status="set to $secure_path"
+])
 
 AC_ARG_WITH(interfaces, [AS_HELP_STRING([--without-interfaces], [don't try to read the ip addr of network interfaces])],
 [case $with_interfaces in
@@ -1317,6 +1268,31 @@ AC_ARG_ENABLE(env_debug,
   esac
 ])
 
+AC_ARG_ENABLE(ignore-dot,
+[AS_HELP_STRING([--disable-ignore-dot], [allow '.' and "" in the PATH])],
+[ case "$enableval" in
+    yes)	ignore_dot=on
+		;;
+    no)		ignore_dot=off
+		AC_DEFINE(ALLOW_DOT_PATH)
+		;;
+    *)		AC_MSG_WARN([ignoring unknown argument to --enable-ignore-dot: $enableval])
+		;;
+  esac
+])
+
+AC_ARG_ENABLE(postinstall,
+[AS_HELP_STRING([--enable-postinstall], [Script to run after the install phase])],
+[ case "$enableval" in
+    yes)	AC_MSG_ERROR([must give --enable-postinstall an argument.])
+		;;
+    no)		AC_MSG_ERROR([--enable-postinstall not supported.])
+		;;
+    *)		POSTINSTALL="$enableval"
+		;;
+  esac
+])
+
 AC_ARG_ENABLE(zlib,
 [AS_HELP_STRING([--enable-zlib[[=PATH]]], [Whether to enable or disable zlib])],
 [], [enable_zlib=yes])
@@ -1410,7 +1386,7 @@ AC_ARG_ENABLE(leaks,
     yes)    ;;
     no)	    AC_DEFINE(NO_LEAKS)
 	    ;;
-    *)	    AC_MSG_WARN([ignoring unknown argument to --disable-leaks: $enableval])
+    *)	    AC_MSG_WARN([ignoring unknown argument to --enable-leaks: $enableval])
 	    ;;
   esac
 ])
@@ -1519,11 +1495,6 @@ AC_ARG_ENABLE(timestamp-type,
 ])
 AC_DEFINE_UNQUOTED(TIMESTAMP_TYPE, $timestamp_type)
 
-AC_ARG_ENABLE(offensive_insults,
-[AS_HELP_STRING([--enable-offensive-insults], [Enable potentially offensive sudo insults.])],
-[], [enable_offensive_insults=no])
-AS_IF([test "$enable_offensive_insults" = "yes"], [AC_DEFINE(OFFENSIVE_INSULTS)])
-
 AC_ARG_ENABLE(package_build,
 [AS_HELP_STRING([--enable-package-build], [Enable options for package building.])],
 [], [enable_package_build=no])
@@ -1613,6 +1584,17 @@ AC_ARG_ENABLE(python,
   esac
 ])
 
+AC_ARG_ENABLE(adminconf,
+[AS_HELP_STRING([--enable-adminconf[[=DIR]]], [Use configuration files from adminconfdir in preference to sysconfdir])],
+[ case "$enableval" in
+    yes|no)
+	;;
+    *)	adminconfdir="$enableval"
+	enable_adminconf=yes
+	;;
+  esac
+], [enable_adminconf=no])
+
 dnl
 dnl C compiler checks
 dnl
@@ -1623,6 +1605,7 @@ AS_IF([test X"$AR" = X"false"], [
     AC_MSG_ERROR([the "ar" utility is required to build sudo])
 ])
 AX_PROG_CC_FOR_BUILD
+AC_CHECK_PROGS(JQ, jq, :)
 
 AS_IF([test "x$ac_cv_prog_cc_c89" = "xno"], [
     AC_MSG_ERROR([Sudo version $PACKAGE_VERSION requires an ANSI C compiler to build.])
@@ -1727,7 +1710,7 @@ AC_ARG_ENABLE(intercept,
   esac
 ], [enable_intercept="$intercept_file"])
 INTERCEPTFILE="sudo_intercept.so"
-INTERCEPTDIR="`echo $intercept_file|sed -e 's:^${\([[^}]]*\)}:$(\1):' -e 's:^\(.*\)/[[^/]]*:\1:'`"
+INTERCEPTDIR="`echo $intercept_file|sed -e 's:^${\([[^}]]*\)}:$(\1):' -e 's:^\([[^:]]*\)/[[^/]].*$:\1:'`"
 
 AC_ARG_WITH(noexec, [AS_HELP_STRING([--with-noexec[[=PATH]]], [fully qualified pathname of sudo_noexec.so])],
 [case $with_noexec in
@@ -1737,7 +1720,7 @@ AC_ARG_WITH(noexec, [AS_HELP_STRING([--with-noexec[[=PATH]]], [fully qualified p
 		;;
 esac], [with_noexec="$noexec_file"])
 NOEXECFILE="sudo_noexec.so"
-NOEXECDIR="`echo $noexec_file|sed -e 's:^${\([[^}]]*\)}:$(\1):' -e 's:^\(.*\)/[[^/]]*:\1:'`"
+NOEXECDIR="`echo $noexec_file|sed -e 's:^${\([[^}]]*\)}:$(\1):' -e 's:^\([[^:]]*\)/[[^/]].*$:\1:'`"
 
 dnl
 dnl Find programs we use
@@ -1745,36 +1728,40 @@ dnl
 AC_PATH_PROG(SHA1SUM, [sha1sum], [openssl dgst -sha1])
 AC_PATH_PROG(UNAMEPROG, [uname], [uname])
 AC_PATH_PROG(TRPROG, [tr], [tr])
-AC_CACHE_CHECK([for mandoc or nroff], [ac_cv_path_NROFF], [
-    AC_PATH_PROGS_FEATURE_CHECK([NROFF], [mandoc nroff], [ac_cv_path_NROFF="$ac_path_NROFF"], [ac_cv_path_NROFF=no])
+AC_PATH_PROG(GROFFPROG, [groff], [groff])
+AC_PATH_PROG(MANDOCPROG, [mandoc], [mandoc])
+AS_IF([test "$ac_cv_path_MANDOCPROG" != "mandoc"], [
+    ac_cv_path_NROFFPROG="$ac_cv_path_MANDOCPROG"
+], [
+    AC_PATH_PROG(NROFFPROG, [nroff], [nroff])
 ])
-case "$ac_cv_path_NROFF" in
-*mandoc|no)
-    # Prefer mdoc format for mandoc (or when no formatter is present).
-    : ${MANTYPE='mdoc'}
-    ;;
-*)
-    # Check whether nroff supports -mdoc, this may produce incorrect
-    # results when cross-compiling.
-    test -n "$MANTYPE" && sudo_cv_var_mantype="$MANTYPE"
-    AC_CACHE_CHECK([which macro set to use for manual pages],
-	[sudo_cv_var_mantype],
-	[
+# Check whether nroff supports -mdoc, this may produce incorrect
+# results when cross-compiling.
+test -n "$MANTYPE" && sudo_cv_var_mantype="$MANTYPE"
+AC_CACHE_CHECK([which macro set to use for manual pages],
+    [sudo_cv_var_mantype],
+    [
+	case "$ac_cv_path_NROFFPROG" in
+	*mandoc|nroff)
+	    # Prefer mdoc format for mandoc (or when no formatter is present).
+	    sudo_cv_var_mantype="mdoc"
+	    ;;
+	*)
 	    sudo_cv_var_mantype="man"
 	    echo ".Sh NAME" > conftest
 	    echo ".Nm sudo" >> conftest
 	    echo ".Nd sudo" >> conftest
 	    echo ".Sh DESCRIPTION" >> conftest
 	    echo "sudo" >> conftest
-	    if $ac_cv_path_NROFF -mdoc conftest >/dev/null 2>&1; then
+	    if $ac_cv_path_NROFFPROG -mdoc conftest >/dev/null 2>&1; then
 		sudo_cv_var_mantype="mdoc"
 	    fi
 	    rm -f conftest
-	]
-    )
-    MANTYPE="$sudo_cv_var_mantype"
-    ;;
-esac
+	    ;;
+	esac
+    ]
+)
+MANTYPE="$sudo_cv_var_mantype"
 
 dnl
 dnl If a config.cache exists make sure it matches the current host.
@@ -1785,6 +1772,11 @@ AS_IF([test -n "$sudo_cv_prev_host"], [
     ])
 ])
 sudo_cv_prev_host="$host"
+
+dnl
+dnl Store configure arguments for "sudo -V"
+dnl
+SUDO_DEFINE_UNQUOTED([CONFIGURE_ARGS], "$CONFIGURE_ARGS")
 
 dnl
 dnl We want to be able to differentiate between different rev's
@@ -1800,9 +1792,6 @@ AS_IF([test -n "$host_os"], [
 case "$host" in
     *-*-solaris2*)
 		AC_DEFINE([PAM_SUN_CODEBASE])
-
-		# LD_PRELOAD is space-delimited
-		RTLD_PRELOAD_DELIM=" "
 
 		# illumos has a broken fmemopen(3)
 		if test X"`uname -o 2>/dev/null`" = X"illumos"; then
@@ -1847,13 +1836,6 @@ case "$host" in
 		AS_IF([test -z "$with_nsswitch" -a -z "$with_netsvc"], [
 		    with_netsvc="/etc/netsvc.conf"
 		])
-
-		# LDR_PRELOAD is only supported in AIX 5.3 and later
-		case "$OSREV" in
-		    [[1-4]].*)	with_noexec=no;;
-		    5.[[1-2]]*)	with_noexec=no;;
-		    *)		RTLD_PRELOAD_VAR="LDR_PRELOAD";;
-		esac
 
 		# cfmakeraw is broken on AIX (and is not documented)
 		: ${ac_cv_func_cfmakeraw='no'}
@@ -1916,9 +1898,6 @@ case "$host" in
 		shadow_funcs="getprpwnam dispcrypt"
 		shadow_libs="-lsecurity"
 
-		# ":DEFAULT" must be appended to _RLD_LIST
-		RTLD_PRELOAD_VAR="_RLD_LIST"
-		RTLD_PRELOAD_DEFAULT="DEFAULT"
 		: ${mansectsu='8'}
 		: ${mansectform='4'}
 		: ${mansectmisc='5'}
@@ -2043,9 +2022,7 @@ case "$host" in
 		]], [[return(0);]])], [AC_MSG_RESULT(no)], [AC_MSG_RESULT([yes, fixing locally])
 		sed 's:<acl.h>:<sys/acl.h>:g' < /usr/include/prot.h > prot.h
 		])
-		# ":DEFAULT" must be appended to _RLD_LIST
-		RTLD_PRELOAD_VAR="_RLD_LIST"
-		RTLD_PRELOAD_DEFAULT="DEFAULT"
+
 		: ${mansectsu='8'}
 		: ${mansectform='4'}
 		: ${mansectmisc='5'}
@@ -2063,9 +2040,7 @@ case "$host" in
 		AS_IF([test "$OSMAJOR" -le 4], [
 		    AC_CHECK_LIB([sun], [getpwnam], [LIBS="${LIBS} -lsun"])
 		])
-		# ":DEFAULT" must be appended to _RLD_LIST
-		RTLD_PRELOAD_VAR="_RLD_LIST"
-		RTLD_PRELOAD_DEFAULT="DEFAULT"
+
 		: ${mansectsu='1m'}
 		: ${mansectform='4'}
 		: ${mansectmisc='5'}
@@ -2248,14 +2223,6 @@ case "$host" in
 		: ${with_logincap='yes'}
 		# Darwin has a broken poll(), Apple radar 3710161
 		: ${enable_poll='no'}
-		# Darwin 8 and above can interpose library symbols cleanly
-		AS_IF([test $OSMAJOR -ge 8], [
-		    AC_DEFINE(HAVE___INTERPOSE)
-		    dlyld_interpose=yes
-		], [
-		    RTLD_PRELOAD_ENABLE_VAR="DYLD_FORCE_FLAT_NAMESPACE"
-		])
-		RTLD_PRELOAD_VAR="DYLD_INSERT_LIBRARIES"
 
 		# Build sudo_noexec.so as a shared library, not a module.
 		# On Darwin, modules and shared libraries are incompatible.
@@ -2270,9 +2237,19 @@ case "$host" in
 		# We use proc_pidinfo() to emulate closefrom() on macOS.
 		AC_CHECK_HEADERS([libproc.h], [AC_CHECK_FUNCS([proc_pidinfo])])
 
-		# We need to force a flat namespace to make libc
-		# symbol hooking work like it does on ELF.
-		AX_CHECK_LINK_FLAG([-Wl,-force_flat_namespace], [AX_APPEND_FLAG([-Wl,-force_flat_namespace], [SUDO_LDFLAGS])])
+		# We cannot directly access environ from a shared object
+		AC_CHECK_HEADERS([crt_externs.h], [AC_CHECK_FUNCS([_NSGetEnviron])])
+
+		# We need to force a flat namespace on macOS to make libc
+		# symbol hooking work like it does on ELF.  Newer versions of
+		# macOS treat -force_flat_namespace as -flat_namespace.
+		AX_CHECK_LINK_FLAG([-Wl,-force_flat_namespace], [
+		    AX_APPEND_FLAG([-Wl,-force_flat_namespace], [SUDO_LDFLAGS])
+		], [
+		    AX_CHECK_LINK_FLAG([-Wl,-flat_namespace], [
+			AX_APPEND_FLAG([-Wl,-flat_namespace], [SUDO_LDFLAGS])
+		    ])
+		])
 
 		# Examples go in share/examples/sudo
 		AS_IF([test X"$with_exampledir" = X""], [
@@ -2282,8 +2259,6 @@ case "$host" in
     *-*-nextstep*)
 		# lockf() is broken on the NeXT
 		ac_cv_func_lockf=no
-		RTLD_PRELOAD_VAR="DYLD_INSERT_LIBRARIES"
-		RTLD_PRELOAD_ENABLE_VAR="DYLD_FORCE_FLAT_NAMESPACE"
 		;;
     *-*-*sysv4*)
 		: ${mansectsu='1m'}
@@ -2318,26 +2293,6 @@ case "$host" in
 		: ${mansectmisc='5'}
 		;;
 esac
-
-dnl
-dnl Library preloading to support NOEXEC
-dnl
-AS_IF([test X"$enable_intercept" = X"no"], [
-    intercept_file=disabled
-])
-AS_IF([test X"$with_noexec" = X"no"], [
-    noexec_file=disabled
-])
-AS_IF([test X"${intercept_file} ${noexec_file}" != X"disabled disabled"], [
-    SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_VAR, "$RTLD_PRELOAD_VAR")
-    SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_DELIM, '$RTLD_PRELOAD_DELIM')
-    AS_IF([test -n "$RTLD_PRELOAD_DEFAULT"], [
-	SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_DEFAULT, "$RTLD_PRELOAD_DEFAULT")
-    ])
-    AS_IF([test -n "$RTLD_PRELOAD_ENABLE_VAR"], [
-	SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_ENABLE_VAR, "$RTLD_PRELOAD_ENABLE_VAR")
-    ])
-])
 
 dnl
 dnl Check for mixing mutually exclusive and regular auth methods
@@ -2387,6 +2342,7 @@ dnl AC_PROG_CC_STDC is deprecated in autoconf 2.70 and above.
 dnl
 m4_bmatch(m4_defn([AC_AUTOCONF_VERSION]), [^2\.69], [AC_PROG_CC_STDC])
 AC_C_CONST
+AC_C_RESTRICT
 AC_C_INLINE
 AC_C_VOLATILE
 SUDO_CPP_VARIADIC_MACROS
@@ -2443,7 +2399,7 @@ break)
 AC_SYS_LARGEFILE
 m4_ifdef([AC_SYS_YEAR2038], [AC_SYS_YEAR2038], [
     # GNU libc only allows setting _TIME_BITS when FILE_OFFSET_BITS is also set.    # GNU libc defines __TIMESIZE on systems where _TIME_BITS can be set.
-    AS_IF([test X"$ac_cv_sys_file_offset_bits" = X"yes"], [
+    AS_IF([test X"$ac_cv_sys_file_offset_bits" = X"64"], [
 	AC_CHECK_DECL(__TIMESIZE, [
 	    AC_DEFINE([_TIME_BITS], [64], [Number of bits in a timestamp, on hosts where this is settable.])
 	], [], [
@@ -2460,28 +2416,34 @@ AC_INCLUDES_DEFAULT
 # We must set this *before* the library tests.
 #
 AS_IF([test -n "$GCC" -a X"${enable_sanitizer}${enable_fuzzer}" = X"nono"], [
-    # On FreeBSD and Dragonfly, environ is filled in by the dynamic loader
-    # so -Wl,--no-undefined causes a link error when environ is used.
-    # https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=263265
-    # We use errno because OpenBSD shared libraries don't explicitly
-    # link with libc, which can result in undefined reference errors.
-    AC_CACHE_CHECK([the linker accepts -Wl,--no-undefined],
-	[sudo_cv_var_ld___no_undefined],
-	[
-	    sudo_cv_var_ld___no_undefined=no
-	    _CFLAGS="$CFLAGS"
-	    CFLAGS="$CFLAGS $lt_prog_compiler_pic"
-	    _LDFLAGS="$LDFLAGS"
-	    LDFLAGS="$LDFLAGS $lt_prog_compiler_pic -shared -Wl,--no-undefined"
-	    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <errno.h>
-extern char **environ;]], [[int ret = ((long)environ & 0xff) + errno; return ret;]])],
-		[sudo_cv_var_ld___no_undefined=yes])
-	    CFLAGS="$_CFLAGS"
-	    LDFLAGS="$_LDFLAGS"
-	]
-    )
-    AS_IF([test "$sudo_cv_var_ld___no_undefined" = "yes"], [
-	AX_APPEND_FLAG([-Wl,--no-undefined], [LDFLAGS])
+    AS_CASE([$host_os], [darwin*], [
+	# On macOS 13, using "-undefined dynamic_lookup" produces a
+	# warning.  Use the -no-undefined libtool option to avoid this.
+	    AX_APPEND_FLAG([-no-undefined], [LT_LDFLAGS])
+    ], [
+	# On FreeBSD and Dragonfly, environ is filled in by the dynamic loader
+	# so -Wl,--no-undefined causes a link error when environ is used.
+	# https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=263265
+	# We use errno because OpenBSD shared libraries don't explicitly
+	# link with libc, which can result in undefined reference errors.
+	AC_CACHE_CHECK([the linker accepts -Wl,--no-undefined],
+	    [sudo_cv_var_ld___no_undefined],
+	    [
+		sudo_cv_var_ld___no_undefined=no
+		_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS $lt_prog_compiler_pic"
+		_LDFLAGS="$LDFLAGS"
+		LDFLAGS="$LDFLAGS $lt_prog_compiler_pic -shared -Wl,--no-undefined"
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <errno.h>
+    extern char **environ;]], [[int ret = ((long)environ & 0xff) + errno; return ret;]])],
+		    [sudo_cv_var_ld___no_undefined=yes])
+		CFLAGS="$_CFLAGS"
+		LDFLAGS="$_LDFLAGS"
+	    ]
+	)
+	AS_IF([test "$sudo_cv_var_ld___no_undefined" = "yes"], [
+	    AX_APPEND_FLAG([-Wl,--no-undefined], [LDFLAGS])
+	])
     ])
 ])
 
@@ -2539,7 +2501,16 @@ dnl
 dnl typedef checks
 dnl
 AS_IF([test X"${ac_cv_header_stdint_h}${ac_cv_header_inttypes_h}" = X"nono"], [
-    AC_CHECK_TYPES([int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t, intmax_t, uintmax_t])
+    AC_TYPE_INT8_T
+    AC_TYPE_UINT8_T
+    AC_TYPE_INT16_T
+    AC_TYPE_UINT16_T
+    AC_TYPE_INT32_T
+    AC_TYPE_UINT32_T
+    AC_TYPE_INT64_T
+    AC_TYPE_UINT64_T
+    AC_TYPE_INTMAX_T
+    AC_TYPE_UINTMAX_T
 ])
 AC_CHECK_TYPES([sig_atomic_t], [], [], [
 AC_INCLUDES_DEFAULT
@@ -2549,18 +2520,117 @@ AC_CHECK_TYPES([struct in6_addr], [], [], [#include <sys/types.h>
 AC_CHECK_TYPES(socklen_t, [], [], [
 AC_INCLUDES_DEFAULT
 #include <sys/socket.h>])
-SUDO_UID_T_LEN
 SUDO_SOCK_SA_LEN
 SUDO_SOCK_SIN_LEN
-AC_CHECK_SIZEOF([id_t])
+AC_CHECK_SIZEOF([long])
 AC_CHECK_SIZEOF([long long])
+AC_CHECK_SIZEOF([id_t])
+AC_CHECK_SIZEOF([off_t])
 AC_CHECK_SIZEOF([time_t])
+AC_CHECK_SIZEOF([uid_t])
+# sudo current assumes uid_t can be cast to unsigned int without problems
+AS_IF([test $ac_cv_sizeof_uid_t -gt 4], [AC_MSG_ERROR([sudo does not support systems where uid_t is larger than 32-bit])])
 AS_IF([test X"$ac_cv_header_utmps_h" = X"yes"], [
     SUDO_CHECK_UTMP_MEMBERS([utmps])
 ], [test X"$ac_cv_header_utmpx_h" = X"yes"], [
     SUDO_CHECK_UTMP_MEMBERS([utmpx])
 ], [
     SUDO_CHECK_UTMP_MEMBERS([utmp])
+])
+
+dnl
+dnl Default values for LD_PRELOAD and related settings.
+dnl
+RTLD_PRELOAD_VAR="LD_PRELOAD"
+if test $ac_cv_sizeof_long -eq 4; then
+    RTLD_PRELOAD_VAR_32="LD_PRELOAD"
+else
+    RTLD_PRELOAD_VAR_64="LD_PRELOAD"
+fi
+RTLD_PRELOAD_ENABLE_VAR=
+RTLD_PRELOAD_DELIM=":"
+RTLD_PRELOAD_DEFAULT=
+
+dnl
+dnl System-specific LD_PRELOAD equivalents.
+dnl The below tests rely on ac_cv_sizeof_long being defined.
+dnl
+case "$host" in
+    *-*-solaris2*)
+		# LD_PRELOAD is space-delimited
+		RTLD_PRELOAD_DELIM=" "
+		RTLD_PRELOAD_VAR_32="LD_PRELOAD_32"
+		RTLD_PRELOAD_VAR_64="LD_PRELOAD_64"
+		;;
+    *-*-aix*)
+		# LDR_PRELOAD and LDR_PRELOAD64 are only supported on 
+		# AIX 5.3 and above.
+		case "$OSREV" in
+		    [[1-4]].*|5.[[1-2]]*)
+			with_noexec=no
+			;;
+		    *)
+			# AIX uses LDR_PRELOAD for 32-bit executables
+			# and LDR_PRELOAD64 for 64-bit executable.
+			RTLD_PRELOAD_VAR_32="LDR_PRELOAD"
+			RTLD_PRELOAD_VAR_64="LDR_PRELOAD64"
+			if test $ac_cv_sizeof_long -eq 4; then
+			    RTLD_PRELOAD_VAR="LDR_PRELOAD"
+			else
+			    RTLD_PRELOAD_VAR="LDR_PRELOAD64"
+			fi
+			;;
+		esac
+		;;
+    *-dec-osf*|*-*-hiuxmpp*|*-*-irix*)
+		# ":DEFAULT" must be appended to _RLD_LIST
+		RTLD_PRELOAD_VAR="_RLD_LIST"
+		RTLD_PRELOAD_DEFAULT="DEFAULT"
+		;;
+    *-*-darwin*)
+		# Darwin 8 and above can interpose library symbols cleanly
+		AS_IF([test $OSMAJOR -ge 8], [
+		    AC_DEFINE(HAVE___INTERPOSE)
+		    dlyld_interpose=yes
+		], [
+		    RTLD_PRELOAD_ENABLE_VAR="DYLD_FORCE_FLAT_NAMESPACE"
+		])
+		RTLD_PRELOAD_VAR="DYLD_INSERT_LIBRARIES"
+
+		# Build sudo_noexec.so as a shared library, not a module.
+		# On Darwin, modules and shared libraries are incompatible.
+		PRELOAD_MODULE=
+		;;
+    *-*-nextstep*)
+		RTLD_PRELOAD_VAR="DYLD_INSERT_LIBRARIES"
+		RTLD_PRELOAD_ENABLE_VAR="DYLD_FORCE_FLAT_NAMESPACE"
+		;;
+esac
+
+dnl
+dnl Library preloading to support NOEXEC
+dnl
+AS_IF([test X"$enable_intercept" = X"no"], [
+    intercept_file=disabled
+])
+AS_IF([test X"$with_noexec" = X"no"], [
+    noexec_file=disabled
+])
+AS_IF([test X"${intercept_file} ${noexec_file}" != X"disabled disabled"], [
+    SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_VAR, "$RTLD_PRELOAD_VAR")
+    if test -n "$RTLD_PRELOAD_VAR_32"; then
+	SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_VAR_32, "$RTLD_PRELOAD_VAR_32")
+    fi
+    if test -n "$RTLD_PRELOAD_VAR_64"; then
+	SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_VAR_64, "$RTLD_PRELOAD_VAR_64")
+    fi
+    SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_DELIM, '$RTLD_PRELOAD_DELIM')
+    AS_IF([test -n "$RTLD_PRELOAD_DEFAULT"], [
+	SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_DEFAULT, "$RTLD_PRELOAD_DEFAULT")
+    ])
+    AS_IF([test -n "$RTLD_PRELOAD_ENABLE_VAR"], [
+	SUDO_DEFINE_UNQUOTED(RTLD_PRELOAD_ENABLE_VAR, "$RTLD_PRELOAD_ENABLE_VAR")
+    ])
 ])
 
 dnl
@@ -2610,7 +2680,7 @@ dnl Function checks
 dnl
 AC_FUNC_GETGROUPS
 AC_FUNC_FSEEKO
-AC_CHECK_FUNCS_ONCE([fexecve fmemopen killpg nl_langinfo faccessat wordexp strtoull])
+AC_CHECK_FUNCS_ONCE([faccessat fexecve fmemopen killpg nl_langinfo renameat strtoull wordexp])
 AC_CHECK_FUNCS([execvpe], [SUDO_APPEND_INTERCEPT_EXP(execvpe)])
 AC_CHECK_FUNCS([pread], [
     # pread/pwrite on 32-bit HP-UX 11.x may not support large files
@@ -2733,6 +2803,8 @@ AC_CHECK_FUNCS([arc4random], [
 	AC_CHECK_FUNCS([pthread_atfork])
     ])
 ])
+AX_GCC_BUILTIN(__builtin_clz)
+AX_GCC_BUILTIN(__builtin_clzl)
 
 utmp_style=LEGACY
 AC_CHECK_FUNCS([getutsid getutxid getutid], [utmp_style=POSIX; break])
@@ -2811,6 +2883,7 @@ AC_CHECK_FUNCS([openpty], [AC_CHECK_HEADERS([libutil.h util.h pty.h], [break])],
 ])
 AC_CHECK_FUNCS([unsetenv], [SUDO_FUNC_UNSETENV_VOID], [])
 SUDO_FUNC_PUTENV_CONST
+SUDO_FUNC_IOCTL_REQ_INT
 AS_IF([test -z "$SKIP_SETRESUID"], [
     AC_CHECK_FUNCS([setresuid], [
 	SKIP_SETREUID=yes
@@ -2933,6 +3006,10 @@ AC_CHECK_FUNCS([pw_dup], [], [
     AC_LIBOBJ(pw_dup)
     SUDO_APPEND_COMPAT_EXP(sudo_pw_dup)
 ])
+AC_CHECK_FUNCS([realpath], [], [
+    AC_LIBOBJ(realpath)
+    SUDO_APPEND_COMPAT_EXP(sudo_realpath)
+])
 AC_CHECK_FUNCS([strlcpy], [], [
     AC_LIBOBJ(strlcpy)
     SUDO_APPEND_COMPAT_EXP(sudo_strlcpy)
@@ -3001,7 +3078,16 @@ AS_IF([test X"$sudo_mktemp" = X"yes"], [
     SUDO_APPEND_COMPAT_EXP(sudo_mkdtemp sudo_mkdtempat sudo_mkostempsat sudo_mkstemp sudo_mkstemps)
     COMPAT_TEST_PROGS="${COMPAT_TEST_PROGS}${COMPAT_TEST_PROGS+ }mktemp_test"
 ])
-AX_FUNC_SNPRINTF
+AS_IF([test X"$ac_cv_prog_cc_c99" != X"no" -a X"$cross_compiling" = X"yes"], [
+    # If we have a C99 compiler and are cross-compiling, assume
+    # C99-compliant v?snprintf().
+    AC_CHECK_FUNCS(snprintf vsnprintf)
+    ac_cv_have_working_snprintf="$ac_cv_func_snprintf"
+    ac_cv_have_working_vsnprintf="$ac_cv_func_vsnprintf"
+], [
+    # Check for C99-compliant v?snprintf().
+    AX_FUNC_SNPRINTF
+])
 AS_IF([test X"$ac_cv_have_working_snprintf$ac_cv_have_working_vsnprintf" = X"yesyes"], [
     # System has a C99-compliant v?snprintf(), check for v?asprintf()
     AC_CHECK_FUNCS([asprintf], [], [
@@ -3068,7 +3154,7 @@ AS_IF([test "$DIGEST" = "digest.lo"], [
 	# Use gcrypt's sha2 functions
 	AC_DEFINE(HAVE_GCRYPT)
 	DIGEST=digest_gcrypt.lo
-	LIBMD="-lgcrypt"
+	LIBCRYPTO="-lgcrypt"
 	AS_IF([test "$enable_gcrypt" != "yes"], [
 	    AX_APPEND_FLAG([-I${enable_gcrypt}/include], [CPPFLAGS])
 	    SUDO_APPEND_LIBPATH(LDFLAGS, [${enable_gcrypt}/lib])
@@ -3083,7 +3169,7 @@ AS_IF([test "$DIGEST" = "digest.lo"], [
 		AC_CHECK_LIB([md], [SHA224Update], [
 		    AC_DEFINE(HAVE_SHA224UPDATE)
 		    SUDO_FUNC_SHA2_VOID_PTR
-		    LIBMD="-lmd"
+		    LIBCRYPTO="-lmd"
 		], [
 		    # Does not have SHA224Update
 		    FOUND_SHA2=no
@@ -4255,6 +4341,13 @@ while test X"$noexec_file" != X"$_noexec_file"; do
     eval "noexec_file=\"$_noexec_file\""
 done
 
+# Update exec_prefix in visudo
+_visudo=
+while test X"$visudo" != X"$_visudo"; do
+    _visudo="$visudo"
+    eval "visudo=\"$_visudo\""
+done
+
 # Update exec_prefix in sesh_file
 _sesh_file=
 while test X"$sesh_file" != X"$_sesh_file"; do
@@ -4269,26 +4362,6 @@ while test X"$plugindir" != X"$_plugindir"; do
     eval "plugindir=\"$_plugindir\""
 done
 exec_prefix="$oexec_prefix"
-
-# Convert exampledir to something that can be used in the man pages
-# I wish there was a better way to expand this.
-EXAMPLES="$exampledir"
-while :; do
-    EXAMPLES="`echo \"$EXAMPLES\" | sed -e 's/(/{/g' -e 's/)/}/g'`"
-    case "$EXAMPLES" in
-    *\${[[A-Za-z]]*}*)
-	eval EXAMPLES="$EXAMPLES"
-	;;
-    *)
-	break
-	;;
-    esac
-done
-case "$EXAMPLES" in
-    NONE/*)
-	EXAMPLES="${ac_default_prefix}${EXAMPLES#NONE}"
-	;;
-esac
 
 dnl
 dnl Defer setting _PATH_SUDO_NOEXEC, etc until after exec_prefix is set
@@ -4353,20 +4426,45 @@ dnl
 dnl Override default configure dirs for the Makefile
 dnl
 if test X"$prefix" = X"NONE"; then
-    test "$mandir" = '${datarootdir}/man' && mandir='$(prefix)/man'
+    test X"$mandir" = X'${datarootdir}/man' && mandir='$(prefix)/man'
 else
-    test "$mandir" = '${datarootdir}/man' && mandir='$(datarootdir)/man'
+    test X"$mandir" = X'${datarootdir}/man' && mandir='$(datarootdir)/man'
 fi
-test "$bindir" = '${exec_prefix}/bin' && bindir='$(exec_prefix)/bin'
-test "$sbindir" = '${exec_prefix}/sbin' && sbindir='$(exec_prefix)/sbin'
-test "$libexecdir" = '${exec_prefix}/libexec' && libexecdir='$(exec_prefix)/libexec'
-test "$includedir" = '${prefix}/include' && includedir='$(prefix)/include'
-test "$datarootdir" = '${prefix}/share' && datarootdir='$(prefix)/share'
-test "$docdir" = '${datarootdir}/doc/${PACKAGE_TARNAME}' && docdir='$(datarootdir)/doc/$(PACKAGE_TARNAME)'
-test "$localedir" = '${datarootdir}/locale' && localedir='$(datarootdir)/locale'
-test "$localstatedir" = '${prefix}/var' && localstatedir='$(prefix)/var'
-test "$runstatedir" = '${localstatedir}/run' && runstatedir='$(localstatedir)/run'
-test "$sysconfdir" = '${prefix}/etc' && sysconfdir='/etc'
+test X"$bindir" = X'${exec_prefix}/bin' && bindir='$(exec_prefix)/bin'
+test X"$sbindir" = X'${exec_prefix}/sbin' && sbindir='$(exec_prefix)/sbin'
+test X"$libexecdir" = X'${exec_prefix}/libexec' && libexecdir='$(exec_prefix)/libexec'
+test X"$includedir" = X'${prefix}/include' && includedir='$(prefix)/include'
+test X"$datarootdir" = X'${prefix}/share' && datarootdir='$(prefix)/share'
+test X"$docdir" = X'${datarootdir}/doc/${PACKAGE_TARNAME}' && docdir='$(datarootdir)/doc/$(PACKAGE_TARNAME)'
+test X"$localedir" = X'${datarootdir}/locale' && localedir='$(datarootdir)/locale'
+test X"$localstatedir" = X'${prefix}/var' && localstatedir='$(prefix)/var'
+test X"$runstatedir" = X'${localstatedir}/run' && runstatedir='$(localstatedir)/run'
+test X"$adminconfdir" = X'${prefix}/etc' && adminconfdir='$(prefix)/etc'
+test X"$sysconfdir" = X'${prefix}/etc' && sysconfdir='/etc'
+
+# The configuration file search path is to check adminconfdir first and
+# fall back to sysconfdir.  This can support systems with read-only
+# sysconfdir (/etc) that contains a set of default configuration files.
+SUDO_EXPAND_PATH([$sysconfdir], [_sysconfdir])
+SUDO_EXPAND_PATH([$adminconfdir], [_adminconfdir])
+AS_IF([test $enable_adminconf = yes], [
+    # Only use adminconfdir if different from sysconfdir
+    AS_IF([test X"$_sysconfdir" != X"$_adminconfdir"], [
+	cvtsudoers_conf='$(adminconfdir)/cvtsudoers.conf:'$cvtsudoers_conf
+	sudo_conf='$(adminconfdir)/sudo.conf:'$sudo_conf
+	sudo_logsrvd_conf='$(adminconfdir)/sudo_logsrvd.conf:'$sudo_logsrvd_conf
+	sudoers_path='$(adminconfdir)/sudoers:'$sudoers_path
+    ])
+])
+
+# Expand config file paths for use in pathnames.h (after config dir override)
+SUDO_DEFINE_PATH([$cvtsudoers_conf], [_PATH_CVTSUDOERS_CONF])
+SUDO_DEFINE_PATH([$sudo_conf], [_PATH_SUDO_CONF])
+SUDO_DEFINE_PATH([$sudo_logsrvd_conf], [_PATH_SUDO_LOGSRVD_CONF])
+SUDO_DEFINE_PATH([$sudoers_path], [_PATH_SUDOERS])
+
+# Convert exampledir to something that can be used in the man pages
+SUDO_EXPAND_PATH([$exampledir], [EXAMPLES])
 
 dnl
 dnl Substitute into the Makefile and man pages
@@ -4377,7 +4475,7 @@ AS_IF([test X"$INIT_SCRIPT" != X""], [
     AC_CONFIG_FILES([etc/init.d/sudo.conf])
 ])
 
-AC_CONFIG_FILES([Makefile docs/Makefile examples/Makefile examples/sudoers examples/sudo.conf examples/sudo_logsrvd.conf examples/syslog.conf include/Makefile lib/eventlog/Makefile lib/fuzzstub/Makefile lib/iolog/Makefile lib/logsrv/Makefile lib/protobuf-c/Makefile lib/util/Makefile lib/util/regress/harness lib/util/util.exp logsrvd/Makefile src/intercept.exp src/sudo_usage.h src/Makefile plugins/audit_json/Makefile plugins/sample/Makefile plugins/group_file/Makefile plugins/sample_approval/Makefile plugins/system_group/Makefile plugins/sudoers/Makefile plugins/sudoers/regress/harness plugins/sudoers/sudoers])
+AC_CONFIG_FILES([Makefile docs/Makefile examples/Makefile examples/sudoers examples/sudo.conf examples/sudo_logsrvd.conf examples/syslog.conf include/Makefile lib/eventlog/Makefile lib/fuzzstub/Makefile lib/iolog/Makefile lib/logsrv/Makefile lib/protobuf-c/Makefile lib/ssl_compat/Makefile lib/util/Makefile lib/util/regress/harness lib/util/util.exp logsrvd/Makefile src/intercept.exp src/sudo_usage.h src/Makefile plugins/audit_json/Makefile plugins/sample/Makefile plugins/group_file/Makefile plugins/sample_approval/Makefile plugins/system_group/Makefile plugins/sudoers/Makefile plugins/sudoers/regress/harness plugins/sudoers/sudoers scripts/check_man])
 AC_CONFIG_COMMANDS([harness], [chmod +x lib/util/regress/harness plugins/sudoers/regress/harness])
 
 AC_OUTPUT
@@ -4391,13 +4489,14 @@ fi
 echo "" >&AS_MESSAGE_FD
 echo "Configured Sudo version $PACKAGE_VERSION" >&AS_MESSAGE_FD
 echo " Compiler settings:" >&AS_MESSAGE_FD
-echo "  prefix			: $prefix" >&AS_MESSAGE_FD
 echo "  compiler			: $CC" >&AS_MESSAGE_FD
 echo "  compiler options		: $CFLAGS" >&AS_MESSAGE_FD
 echo "  preprocessor options		: $CPPFLAGS" >&AS_MESSAGE_FD
 echo "  front-end libraries		: $SUDO_LIBS" >&AS_MESSAGE_FD
 echo "  front-end linker options	: $SUDO_LDFLAGS" >&AS_MESSAGE_FD
 echo "  network libraries		: $NET_LIBS" >&AS_MESSAGE_FD
+echo "  Crypto library		: $LIBCRYPTO" >&AS_MESSAGE_FD
+echo "  TLS libraries			: $LIBTLS" >&AS_MESSAGE_FD
 echo "  extra libraries		: $LIBS" >&AS_MESSAGE_FD
 echo "  extra linker options		: $LDFLAGS" >&AS_MESSAGE_FD
 echo "  sudoers libraries		: $SUDOERS_LIBS" >&AS_MESSAGE_FD
@@ -4461,18 +4560,18 @@ echo "  password prompt		: ${passprompt}" >&AS_MESSAGE_FD
 echo "  password prompt timeout	: ${password_timeout} minutes" >&AS_MESSAGE_FD
 echo "  password tries		: ${passwd_tries}" >&AS_MESSAGE_FD
 echo "  bad password message		: ${badpass_message}" >&AS_MESSAGE_FD
-if test "$insults" = "on"; then
-    i=""
-    test "$enable_offensive_insults" = "yes" && i="offensive ${i}"
-    test "$with_python_insults" = "yes" && i="python ${i}"
-    test "$with_goons_insults" = "yes" && i="goons ${i}"
-    test "$with_hal_insults" = "yes" && i="hal ${i}"
-    test "$with_csops_insults" = "yes" && i="csops ${i}"
-    test "$with_classic_insults" = "yes" && i="classic ${i}"
-else
-    i=no
+insult_sets=""
+test "$with_python_insults" = "yes" && insult_sets="python ${insult_sets}"
+test "$with_goons_insults" = "yes" && insult_sets="goons ${insult_sets}"
+test "$with_hal_insults" = "yes" && insult_sets="hal ${insult_sets}"
+test "$with_csops_insults" = "yes" && insult_sets="csops ${insult_sets}"
+test "$with_classic_insults" = "yes" && insult_sets="classic ${insult_sets}"
+if test -z "$insult_sets"; then
+    insult_sets=no
+elif test "$insults" != "on"; then
+    insult_sets="${insult_sets} (disabled)"
 fi
-echo "  insults			: $i" >&AS_MESSAGE_FD
+echo "  insults			: $insult_sets" >&AS_MESSAGE_FD
 echo "  display lecture		: ${lecture}" >&AS_MESSAGE_FD
 echo "  timestamp (credential) type	: ${timestamp_type}" >&AS_MESSAGE_FD
 echo "  timestamp (credential) timeout: ${timeout} minutes" >&AS_MESSAGE_FD
@@ -4497,18 +4596,30 @@ echo "  mail if user not in sudoers	: ${mail_no_user}" >&AS_MESSAGE_FD
 echo "  mail if user not on host	: ${mail_no_host}" >&AS_MESSAGE_FD
 echo "  mail if command not allowed	: ${mail_no_perms}" >&AS_MESSAGE_FD
 echo " Pathnames:" >&AS_MESSAGE_FD
-echo "  log directory			: ${log_dir}" >&AS_MESSAGE_FD
-echo "  plugin directory		: ${plugindir}" >&AS_MESSAGE_FD
-echo "  sudoers plugin			: ${sudoers_plugin}" >&AS_MESSAGE_FD
-if test "${enable_python-no}" != "no"; then
-    echo "  python plugin			: ${python_plugin}" >&AS_MESSAGE_FD
+echo "  prefix			: $prefix" >&AS_MESSAGE_FD
+echo "  sysconfdir			: $_sysconfdir" >&AS_MESSAGE_FD
+if test "${enable_adminconf-no}" != "no"; then
+    echo "  adminconfdir			: $_adminconfdir" >&AS_MESSAGE_FD
 fi
+echo "  log directory			: ${log_dir}" >&AS_MESSAGE_FD
 echo "  run directory			: ${rundir}" >&AS_MESSAGE_FD
 echo "  var directory			: ${vardir}" >&AS_MESSAGE_FD
 echo "  I/O log directory		: ${iolog_dir}" >&AS_MESSAGE_FD
 echo "  sudo_logsrvd relay directory	: ${relay_dir}" >&AS_MESSAGE_FD
-echo "  time zone directory		: ${tzdir}" >&AS_MESSAGE_FD
+if test X"$with_exampledir" != X""; then
+    echo "  exampledir			: $exampledir" >&AS_MESSAGE_FD
+fi
+echo "  plugin directory		: ${plugindir}" >&AS_MESSAGE_FD
+echo "  sudoers plugin		: ${sudoers_plugin}" >&AS_MESSAGE_FD
+if test "${enable_python-no}" != "no"; then
+    echo "  python plugin			: ${python_plugin}" >&AS_MESSAGE_FD
+fi
+echo "  sudoers file			: ${sudoers_path}" >&AS_MESSAGE_FD
+echo "  cvtsudoers.conf file		: ${cvtsudoers_conf}" >&AS_MESSAGE_FD
+echo "  sudo.conf file		: ${sudo_conf}" >&AS_MESSAGE_FD
+echo "  sudo_logsrvd.conf file	: ${sudo_logsrvd_conf}" >&AS_MESSAGE_FD
 echo "  path to sendmail		: ${with_sendmail}" >&AS_MESSAGE_FD
+echo "  time zone directory		: ${tzdir}" >&AS_MESSAGE_FD
 if test -n "$TMPFILES_D"; then
     echo "  systemd tempfiles dir	: ${TMPFILES_D}" >&AS_MESSAGE_FD
 fi
@@ -4517,7 +4628,7 @@ if test ${with_netsvc-"no"} != "no"; then
 elif test ${with_nsswitch-"yes"} != "no"; then
     echo "  nsswitch file			: ${nsswitch_conf}" >&AS_MESSAGE_FD
 fi
-echo "  intercept file			: ${intercept_file}" >&AS_MESSAGE_FD
+echo "  intercept file		: ${intercept_file}" >&AS_MESSAGE_FD
 echo "  noexec file			: ${noexec_file}" >&AS_MESSAGE_FD
 echo "  secure path			: ${with_secure_path-no}" >&AS_MESSAGE_FD
 echo "  askpass helper file		: ${with_askpass-no}" >&AS_MESSAGE_FD
@@ -4650,7 +4761,7 @@ AH_TEMPLATE(HAVE_ST_MTIMESPEC, [Define to 1 if your struct stat has an st_mtimes
 AH_TEMPLATE(HAVE_ST_NMTIME, [Define to 1 if your struct stat has an st_nmtime member.])
 AH_TEMPLATE(HAVE___PROGNAME, [Define to 1 if your crt0.o defines the __progname symbol for you.])
 AH_TEMPLATE(HOST_IN_LOG, [Define to 1 if you want the hostname to be entered into the log file.])
-AH_TEMPLATE(IGNORE_DOT_PATH, [Define to 1 if you want to ignore '.' and empty PATH elements.])
+AH_TEMPLATE(ALLOW_DOT_PATH, [Define to 1 if you want sudo to honor '.' and "" in the PATH.])
 AH_TEMPLATE(LOGGING, [Define to SLOG_SYSLOG, SLOG_FILE, or SLOG_BOTH.])
 AH_TEMPLATE(LONG_OTP_PROMPT, [Define to 1 if you want a two line OTP (S/Key or OPIE) prompt.])
 AH_TEMPLATE(NO_AUTHENTICATION, [Define to 1 if you don't want sudo to prompt for a password by default.])
@@ -4660,8 +4771,6 @@ AH_TEMPLATE(NO_PAM_SESSION, [Define to 1 if you don't want to use sudo's PAM ses
 AH_TEMPLATE(NO_ROOT_MAILER, [Define to avoid running the mailer as root.])
 AH_TEMPLATE(NO_ROOT_SUDO, [Define to 1 if root should not be allowed to use sudo.])
 AH_TEMPLATE(TIMESTAMP_TYPE, [Define to global, ppid or tty to set the default timestamp record type.])
-AH_TEMPLATE(OFFENSIVE_INSULTS, [Define to 1 to include offensive insults from the classic version of sudo.])
-AH_TEMPLATE(PREFER_PORTABLE_GETCWD, [Define to 1 to enable replacement getcwd if system getcwd is broken.])
 AH_TEMPLATE(SECURE_PATH, [A colon-separated list of directories to override the user's PATH with.])
 AH_TEMPLATE(SEND_MAIL_WHEN_NOT_OK, [Define to 1 to send mail when the user is not allowed to run a command.])
 AH_TEMPLATE(SEND_MAIL_WHEN_NO_HOST, [Define to 1 to send mail when the user is not allowed to run sudo on this host.])
@@ -4678,6 +4787,8 @@ AH_TEMPLATE(HAVE___FUNC__, [Define to 1 if the compiler supports the C99 __func_
 AH_TEMPLATE(HAVE___INTERPOSE, [Define to 1 if you have dyld with __interpose attribute support.])
 AH_TEMPLATE(SUDO_KRB5_INSTANCE, [An instance string to append to the username (separated by a slash) for Kerberos V authentication.])
 AH_TEMPLATE(RTLD_PRELOAD_VAR, [The environment variable that controls preloading of dynamic objects.])
+AH_TEMPLATE(RTLD_PRELOAD_VAR_32, [The environment variable that controls preloading of 32-bit dynamic objects.])
+AH_TEMPLATE(RTLD_PRELOAD_VAR_64, [The environment variable that controls preloading of 64-bit dynamic objects.])
 AH_TEMPLATE(RTLD_PRELOAD_ENABLE_VAR, [An extra environment variable that is required to enable preloading (if any).])
 AH_TEMPLATE(RTLD_PRELOAD_DELIM, [The delimiter to use when defining multiple preloaded objects.])
 AH_TEMPLATE(RTLD_PRELOAD_DEFAULT, [The default value of preloaded objects (if any).])
@@ -4710,43 +4821,12 @@ dnl
 dnl Bits to copy verbatim into config.h.in
 dnl
 AH_TOP([#ifndef SUDO_CONFIG_H
-#define SUDO_CONFIG_H])
+#define SUDO_CONFIG_H
 
-AH_BOTTOM([/* Define C99 types if stdint.h and inttypes.h are missing. */
-#if !defined(HAVE_STDINT_H) && !defined(HAVE_INTTYPES_H)
-# ifndef HAVE_INT8_T
-typedef char			int8_t;
-# endif
-# ifndef HAVE_UINT8_T
-typedef	unsigned char		uint8_t;
-# endif
-# ifndef HAVE_INT16_T
-typedef short			int16_t;
-# endif
-# ifndef HAVE_UINT16_T
-typedef unsigned short		uint16_t;
-# endif
-# ifndef HAVE_INT32_T
-typedef int			int32_t;
-# endif
-# ifndef HAVE_UINT32_T
-typedef unsigned int		uint32_t;
-# endif
-# ifndef HAVE_INT64_T
-typedef long long		int64_t;
-# endif
-# ifndef HAVE_UINT64_T
-typedef unsigned long long	uint64_t;
-# endif
-# ifndef HAVE_INTMAX_T
-typedef long long		intmax_t;
-# endif
-# ifndef HAVE_UINTMAX_T
-typedef unsigned long long	uintmax_t;
-# endif
-#endif /* !HAVE_STDINT_H && !HAVE_INTTYPES_H */
+/* Configure script arguments used to build sudo. */
+#undef CONFIGURE_ARGS])
 
-#ifndef HAVE_SIG_ATOMIC_T
+AH_BOTTOM([#ifndef HAVE_SIG_ATOMIC_T
 typedef int			sig_atomic_t;
 #endif
 

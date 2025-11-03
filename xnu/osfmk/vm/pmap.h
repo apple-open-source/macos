@@ -116,9 +116,20 @@ extern kern_return_t    copypv(
 #define cppvNoRefSrcb           26
 #define cppvKmap                0x000000040     /* Use the kernel's vm_map */
 #define cppvKmapb               25
+#if HAS_MTE
+#define cppvCopyTags                0x000000080     /* Copy tag metadata along with the physical copy operation */
+#define cppvDisableTagCheck         0x000000100     /* Perform the physical copy operation with tag checking disabled */
+#define cppvFixupPhysmapTag         0x000000200     /* Fixup the physmap address with the tag stashed on the input pointer */
+#define cppvZeroPageTags            0x000000400     /* Zero ATags as part of the operation. Operates in page sized chunks  */
+#define cppvDenoteAccessMayFault    0x000000800     /* Hint that we expect a possibility of TCF during the copy */
+#endif /* HAS_MTE */
 
 extern boolean_t pmap_has_managed_page(ppnum_t first, ppnum_t last);
 
+#if HAS_MTE
+extern bool pmap_is_tagged_page(ppnum_t);
+extern bool pmap_is_tagged_mapping(pmap_t, vm_map_offset_t);
+#endif /* HAS_MTE */
 
 #if MACH_KERNEL_PRIVATE || BSD_KERNEL_PRIVATE
 #include <mach/mach_types.h>
@@ -174,6 +185,9 @@ extern void             pmap_disable_user_jop(
 
 extern void *pmap_steal_memory(vm_size_t size, vm_size_t alignment); /* Early memory allocation */
 extern void *pmap_steal_freeable_memory(vm_size_t size); /* Early memory allocation */
+#if HAS_MTE
+extern void *pmap_steal_zone_memory(vm_size_t size, vm_size_t alignment); /* Early zone-specific allocations */
+#endif /* HAS_MTE */
 
 extern uint_t pmap_free_pages(void); /* report remaining unused physical pages */
 #if defined(__arm__) || defined(__arm64__)
@@ -465,6 +479,48 @@ extern void pmap_batch_set_cache_attributes(
 extern void pmap_sync_page_data_phys(ppnum_t pa);
 extern void pmap_sync_page_attributes_phys(ppnum_t pa);
 
+#if HAS_MTE
+extern pmap_paddr_t mte_tag_storage_start;
+extern pmap_paddr_t mte_tag_storage_end;
+extern uint_t       mte_tag_storage_count; /* in number of pages */
+extern ppnum_t      mte_tag_storage_start_pnum;
+
+extern void pmap_make_tag_storage_page(ppnum_t);
+extern void pmap_unmake_tag_storage_page(ppnum_t);
+extern ppnum_t map_tag_ppnum_to_first_covered_ppnum(ppnum_t tag_ppnum);
+extern void pmap_make_tagged_page(ppnum_t);
+extern void pmap_make_tagged_pages(const unified_page_list_t *page_list);
+extern void pmap_unmake_tagged_page(ppnum_t);
+extern void pmap_unmake_tagged_pages(const unified_page_list_t *page_list);
+extern bool pmap_is_tag_storage_page(ppnum_t pnum);
+extern bool pmap_in_tag_storage_range(ppnum_t pnum) __pure2;
+
+/*
+ * Routines for classifying tag storage pages.  Recursive and unmanaged tag
+ * storage pages should never be used for tag storage.
+ */
+
+/*
+ * pmap_tag_storage_is_recursive:
+ * Given a tag storage page number, returns whether the tag storage page is
+ * recursive.
+ */
+extern bool pmap_tag_storage_is_recursive(ppnum_t pnum) __pure2;
+
+/*
+ * pmap_tag_storage_is_unmanaged:
+ * Given a tag storage page number, returns whether the tag storage page is
+ * for unmanaged memory.
+ */
+extern bool pmap_tag_storage_is_unmanaged(ppnum_t pnum) __pure2;
+
+/*
+ * pmap_tag_storage_is_discarded:
+ * Given a tag storage page number, returns whether the tag storage (and the associated
+ * pages) have been discarded by a maxmem= boot-arg.
+ */
+extern bool pmap_tag_storage_is_discarded(ppnum_t pnum) __pure2;
+#endif /* HAS_MTE */
 
 /**
  * pmap entry point for performing platform-specific integrity checks and cleanup when
@@ -707,6 +763,9 @@ extern const pmap_t     kernel_pmap;            /* The kernel's map */
 
 #define VM_MEM_SUPERPAGE        0x100           /* map a superpage instead of a base page */
 #define VM_MEM_STACK            0x200
+#if HAS_MTE
+#define VM_MEM_MAP_MTE          0x400           /* map an MTE enabled page */
+#endif /* HAS_MTE */
 
 /* N.B. These use the same numerical space as the PMAP_EXPAND_OPTIONS
  * definitions in i386/pmap_internal.h

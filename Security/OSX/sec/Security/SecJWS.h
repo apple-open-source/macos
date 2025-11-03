@@ -25,6 +25,11 @@
    SecJWS.h
 */
 
+#ifndef SECURITY_SECJWS_H
+#define SECURITY_SECJWS_H
+
+#ifdef __OBJC__
+
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 
@@ -71,3 +76,7 @@ typedef NS_ERROR_ENUM(SecJWSErrorDomain, SecJWSError) {
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif // __OBJC__
+
+#endif // SECURITY_SECJWS_H

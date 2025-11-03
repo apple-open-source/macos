@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2012-2018 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2012-2018, 2024 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,8 +29,6 @@
 # include <sys/mkdev.h>
 #elif defined(MAJOR_IN_SYSMACROS)
 # include <sys/sysmacros.h>
-#else
-# include <sys/param.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,11 +39,11 @@
 #include <limits.h>
 #include <dirent.h>
 
-#include "pathnames.h"
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_conf.h"
-#include "sudo_util.h"
+#include <pathnames.h>
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_conf.h>
+#include <sudo_util.h>
 
 #if defined(HAVE_DEVNAME)
 /*
@@ -121,7 +119,7 @@ sudo_ttyname_scan(const char *dir, dev_t rdev, char *name, size_t namelen)
     char *ret = NULL;
     struct dirent *dp;
     struct stat sb;
-    unsigned int i;
+    size_t i;
     DIR *d = NULL;
     debug_decl(sudo_ttyname_scan, SUDO_DEBUG_UTIL);
 
@@ -223,7 +221,7 @@ done:
 }
 
 static char *
-sudo_dev_check(dev_t rdev, const char *devname, char *buf, size_t buflen)
+sudo_dev_check(dev_t rdev, const char * restrict devname, char * restrict buf, size_t buflen)
 {
     struct stat sb;
     debug_decl(sudo_dev_check, SUDO_DEBUG_UTIL);
@@ -255,10 +253,38 @@ char *
 sudo_ttyname_dev_v1(dev_t rdev, char *buf, size_t buflen)
 {
     const char *devsearch, *devsearch_end;
-    char path[PATH_MAX], *ret;
+    char path[PATH_MAX], *ret = NULL;
     const char *cp, *ep;
     size_t len;
     debug_decl(sudo_ttyname_dev, SUDO_DEBUG_UTIL);
+
+#ifdef __linux__
+    /*
+     * First check std{in,out,err} and use /proc/self/fd/{0,1,2} if possible.
+     */
+    for (int fd = STDIN_FILENO; fd <= STDERR_FILENO; fd++) {
+	char fdpath[] = "/proc/self/fd/N";
+	struct stat sb;
+
+	if (fstat(fd, &sb) == -1 || !S_ISCHR(sb.st_mode))
+	    continue;
+	if (rdev != sb.st_rdev)
+	    continue;
+
+	fdpath[sizeof("/proc/self/fd/N") - 2] = '0' + fd;
+	len = (size_t)readlink(fdpath, buf, buflen);
+	if (len != (size_t)-1) {
+	    if (len == buflen) {
+		errno = ERANGE;	/* buf too small */
+	    } else {
+		/* readlink(2) does not NUL-terminate. */
+		buf[len] = '\0';
+		ret = buf;
+	    }
+	    goto done;
+	}
+    }
+#endif
 
     /*
      * First, check /dev/console.

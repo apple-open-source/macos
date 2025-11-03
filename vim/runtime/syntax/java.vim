@@ -3,16 +3,32 @@
 " Maintainer:		Aliaksei Budavei <0x000c70 AT gmail DOT com>
 " Former Maintainer:	Claudio Fleiner <claudio@fleiner.com>
 " Repository:		https://github.com/zzzyxwvut/java-vim.git
-" Last Change:		2024 Sep 28
+" Last Change:		2025 Aug 30
 
-" Please check :help java.vim for comments on some of the options available.
+" Please check ":help java.vim" for comments on some of the options
+" available.
 
-" quit when a syntax file was already loaded
-if !exists("g:main_syntax")
-  if exists("b:current_syntax")
-    finish
+" Do not aggregate syntax items from circular inclusion.
+if exists("b:current_syntax")
+  finish
+endif
+
+if exists("g:main_syntax")
+  " Reject attendant circularity for every :syn-included syntax file,
+  " but ACCEPT FAILURE when "g:main_syntax" is set to "java".
+  if g:main_syntax == 'html'
+    if !exists("g:java_ignore_html")
+      let g:java_ignore_html = 1
+      let s:clear_java_ignore_html = 1
+    endif
+  elseif g:main_syntax == 'markdown'
+    if !exists("g:java_ignore_markdown")
+      let g:java_ignore_markdown = 1
+      let s:clear_java_ignore_markdown = 1
+    endif
   endif
-  " we define it here so that included files can test for it
+else
+  " Allow syntax files that include this file test for its inclusion.
   let g:main_syntax = 'java'
 endif
 
@@ -30,8 +46,10 @@ function! s:ff.RightConstant(x, y) abort
   return a:y
 endfunction
 
-function! s:ff.IsRequestedPreviewFeature(n) abort
-  return exists("g:java_syntax_previews") && index(g:java_syntax_previews, a:n) + 1
+function! s:ff.IsAnyRequestedPreviewFeatureOf(ns) abort
+  return exists("g:java_syntax_previews") &&
+    \ !empty(filter(a:ns, printf('index(%s, v:val) + 1',
+			    \ string(g:java_syntax_previews))))
 endfunction
 
 if !exists("*s:ReportOnce")
@@ -92,7 +110,7 @@ syn keyword javaTypedef		this super
 syn keyword javaOperator	new instanceof
 syn match   javaOperator	"\<var\>\%(\s*(\)\@!"
 
-if s:ff.IsRequestedPreviewFeature(476)
+if s:ff.IsAnyRequestedPreviewFeatureOf([476, 494])
   " Module imports can be used in any source file.
   syn match   javaExternal	"\<import\s\+module\>" contains=javaModuleImport
   syn keyword javaModuleImport	contained module
@@ -107,11 +125,29 @@ endif
 " if necessary, on the line before that (h: \@<=), trying to match
 " neither a method reference nor a qualified method invocation.
 try
-  syn match  javaOperator	"\%(\%(::\|\.\)[[:space:]\n]*\)\@80<!\<yield\>"
+  if !empty(get(g:, 'java_lookbehind_byte_counts', {}))
+    exec 'syn match javaOperator "\%(\%(::\|\.\)[[:space:]\n]*\)\@' . max([0, get(g:java_lookbehind_byte_counts, 'javaOperator', 80)]) . '<!\<yield\>"'
+
+    function! s:ff.PeekFor(item, count) abort
+      return string(max([0, get(g:java_lookbehind_byte_counts, a:item, a:count)]))
+    endfunction
+  else
+    syn match  javaOperator	"\%(\%(::\|\.\)[[:space:]\n]*\)\@80<!\<yield\>"
+
+    function! s:ff.PeekFor(dummy, count) abort
+      return string(a:count)
+    endfunction
+  endif
+
   let s:ff.Peek = s:ff.LeftConstant
 catch /\<E59:/
   call s:ReportOnce(v:exception)
   syn match  javaOperator	"\%(\%(::\|\.\)[[:space:]\n]*\)\@<!\<yield\>"
+
+  function! s:ff.PeekFor(dummy_a, dummy_b) abort
+    return ""
+  endfunction
+
   let s:ff.Peek = s:ff.RightConstant
 endtry
 
@@ -184,52 +220,31 @@ if fnamemodify(bufname("%"), ":t") =~ '^module-info\>\%(\.class\>\)\@!'
   endif
 endif
 
-" Fancy parameterised types (JLS-17, §4.5).
-"
-" Note that false positives may elsewhere occur whenever an identifier
-" is butted against a less-than operator.  Cf. (X<Y) and (X < Y).
-if exists("g:java_highlight_generics")
-  syn keyword javaWildcardBound contained extends super
-
-  " Parameterised types are delegated to javaGenerics (s:ctx.gsg) and
-  " are not matched with javaTypeArgument.
-  exec 'syn match javaTypeArgument contained "' . s:ff.Engine('\%#=2', '') . '?\|\%(\<\%(b\%(oolean\|yte\)\|char\|short\|int\|long\|float\|double\)\[\]\|\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\>\)\%(\[\]\)*"'
-
-  for s:ctx in [{'dsg': 'javaDimExpr', 'gsg': 'javaGenerics', 'ghg': 'javaGenericsC1', 'csg': 'javaGenericsX', 'c': ''},
-      \ {'dsg': 'javaDimExprX', 'gsg': 'javaGenericsX', 'ghg': 'javaGenericsC2', 'csg': 'javaGenerics', 'c': ' contained'}]
-    " Consider array creation expressions of reifiable types.
-    exec 'syn region ' . s:ctx.dsg . ' contained transparent matchgroup=' . s:ctx.ghg . ' start="\[" end="\]" nextgroup=' . s:ctx.dsg . ' skipwhite skipnl'
-    exec 'syn region ' . s:ctx.gsg . s:ctx.c . ' transparent matchgroup=' . s:ctx.ghg . ' start=/' . s:ff.Engine('\%#=2', '') . '\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\><\%([[:space:]\n]*\%([?@]\|\<\%(b\%(oolean\|yte\)\|char\|short\|int\|long\|float\|double\)\[\]\|\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\>\)\)\@=/ end=/>/ contains=' . s:ctx.csg . ',javaAnnotation,javaTypeArgument,javaWildcardBound,javaType,@javaClasses nextgroup=' . s:ctx.dsg . ' skipwhite skipnl'
-  endfor
-
-  unlet s:ctx
-  hi def link javaWildcardBound	Question
-  hi def link javaGenericsC1	Function
-  hi def link javaGenericsC2	Type
-endif
-
 if exists("g:java_highlight_java_lang_ids")
   let g:java_highlight_all = 1
 endif
+
 if exists("g:java_highlight_all") || exists("g:java_highlight_java") || exists("g:java_highlight_java_lang")
   " java.lang.*
   "
-  " The keywords of javaR_JavaLang, javaC_JavaLang, javaE_JavaLang,
-  " and javaX_JavaLang are sub-grouped according to the Java version
-  " of their introduction, and sub-group keywords (that is, class
-  " names) are arranged in alphabetical order, so that future newer
-  " keywords can be pre-sorted and appended without disturbing
-  " the current keyword placement. The below _match_es follow suit.
+  " The type names in ":syn-keyword"s (and in ":syn-match"es) of the
+  " "java[CEIRX]_JavaLang" syntax groups are sub-grouped according to
+  " the Java version of their introduction, and sub-group names are
+  " arranged in alphabetical order, so that future newer names can be
+  " pre-sorted and appended without disturbing their placement.
 
   syn keyword javaR_JavaLang ArithmeticException ArrayIndexOutOfBoundsException ArrayStoreException ClassCastException IllegalArgumentException IllegalMonitorStateException IllegalThreadStateException IndexOutOfBoundsException NegativeArraySizeException NullPointerException NumberFormatException RuntimeException SecurityException StringIndexOutOfBoundsException IllegalStateException UnsupportedOperationException EnumConstantNotPresentException TypeNotPresentException IllegalCallerException LayerInstantiationException WrongThreadException MatchException
   syn cluster javaClasses add=javaR_JavaLang
   hi def link javaR_JavaLang javaR_Java
-  " Member enumerations:
-  exec 'syn match javaC_JavaLang "\%(\<Thread\.\)\@' . s:ff.Peek('7', '') . '<=\<State\>"'
-  exec 'syn match javaC_JavaLang "\%(\<Character\.\)\@' . s:ff.Peek('10', '') . '<=\<UnicodeScript\>"'
-  exec 'syn match javaC_JavaLang "\%(\<ProcessBuilder\.Redirect\.\)\@' . s:ff.Peek('24', '') . '<=\<Type\>"'
-  exec 'syn match javaC_JavaLang "\%(\<StackWalker\.\)\@' . s:ff.Peek('12', '') . '<=\<Option\>"'
-  exec 'syn match javaC_JavaLang "\%(\<System\.Logger\.\)\@' . s:ff.Peek('14', '') . '<=\<Level\>"'
+  syn keyword javaC_JavaLang Boolean Character ClassLoader Compiler Double Float Integer Long Math Number Object Process Runtime SecurityManager String StringBuffer Thread ThreadGroup Byte Short Void Package RuntimePermission StrictMath StackTraceElement ProcessBuilder StringBuilder Module ModuleLayer StackWalker Record
+  syn match   javaC_JavaLang "\<System\>"	" See javaDebug.
+  " Generic non-interfaces:
+  syn match   javaC_JavaLang "\<Class\>"
+  syn match   javaC_JavaLang "\<InheritableThreadLocal\>"
+  syn match   javaC_JavaLang "\<ThreadLocal\>"
+  syn match   javaC_JavaLang "\<Enum\>"
+  syn match   javaC_JavaLang "\<ClassValue\>"
+  exec 'syn match javaC_JavaLang "\%(\<Enum\.\)\@' . s:ff.Peek('5', '') . '<=\<EnumDesc\>"'
   " Member classes:
   exec 'syn match javaC_JavaLang "\%(\<Character\.\)\@' . s:ff.Peek('10', '') . '<=\<Subset\>"'
   exec 'syn match javaC_JavaLang "\%(\<Character\.\)\@' . s:ff.Peek('10', '') . '<=\<UnicodeBlock\>"'
@@ -237,17 +252,12 @@ if exists("g:java_highlight_all") || exists("g:java_highlight_java") || exists("
   exec 'syn match javaC_JavaLang "\%(\<ModuleLayer\.\)\@' . s:ff.Peek('12', '') . '<=\<Controller\>"'
   exec 'syn match javaC_JavaLang "\%(\<Runtime\.\)\@' . s:ff.Peek('8', '') . '<=\<Version\>"'
   exec 'syn match javaC_JavaLang "\%(\<System\.\)\@' . s:ff.Peek('7', '') . '<=\<LoggerFinder\>"'
-  syn keyword javaC_JavaLang Boolean Character ClassLoader Compiler Double Float Integer Long Math Number Object Process Runtime SecurityManager String StringBuffer Thread ThreadGroup Byte Short Void Package RuntimePermission StrictMath StackTraceElement ProcessBuilder StringBuilder Module ModuleLayer StackWalker Record
-  syn match   javaC_JavaLang "\<System\>"	" See javaDebug.
-
-  if !exists("g:java_highlight_generics")
-    " The non-interface parameterised names of java.lang members.
-    exec 'syn match javaC_JavaLang "\%(\<Enum\.\)\@' . s:ff.Peek('5', '') . '<=\<EnumDesc\>"'
-    syn keyword javaC_JavaLang Class InheritableThreadLocal ThreadLocal Enum ClassValue
-  endif
-
-  " As of JDK 21, java.lang.Compiler is no more (deprecated in JDK 9).
-  syn keyword javaLangDeprecated Compiler
+  " Member enumerations:
+  exec 'syn match javaC_JavaLang "\%(\<Thread\.\)\@' . s:ff.Peek('7', '') . '<=\<State\>"'
+  exec 'syn match javaC_JavaLang "\%(\<Character\.\)\@' . s:ff.Peek('10', '') . '<=\<UnicodeScript\>"'
+  exec 'syn match javaC_JavaLang "\%(\<ProcessBuilder\.Redirect\.\)\@' . s:ff.Peek('24', '') . '<=\<Type\>"'
+  exec 'syn match javaC_JavaLang "\%(\<StackWalker\.\)\@' . s:ff.Peek('12', '') . '<=\<Option\>"'
+  exec 'syn match javaC_JavaLang "\%(\<System\.Logger\.\)\@' . s:ff.Peek('14', '') . '<=\<Level\>"'
   syn cluster javaClasses add=javaC_JavaLang
   hi def link javaC_JavaLang javaC_Java
   syn keyword javaE_JavaLang AbstractMethodError ClassCircularityError ClassFormatError Error IllegalAccessError IncompatibleClassChangeError InstantiationError InternalError LinkageError NoClassDefFoundError NoSuchFieldError NoSuchMethodError OutOfMemoryError StackOverflowError ThreadDeath UnknownError UnsatisfiedLinkError VerifyError VirtualMachineError ExceptionInInitializerError UnsupportedClassVersionError AssertionError BootstrapMethodError
@@ -256,15 +266,32 @@ if exists("g:java_highlight_all") || exists("g:java_highlight_java") || exists("
   syn keyword javaX_JavaLang ClassNotFoundException CloneNotSupportedException Exception IllegalAccessException InstantiationException InterruptedException NoSuchMethodException Throwable NoSuchFieldException ReflectiveOperationException
   syn cluster javaClasses add=javaX_JavaLang
   hi def link javaX_JavaLang javaX_Java
+  syn keyword javaI_JavaLang Cloneable Runnable CharSequence Appendable Deprecated Override Readable SuppressWarnings AutoCloseable SafeVarargs FunctionalInterface ProcessHandle
+  " Generic non-classes:
+  syn match   javaI_JavaLang "\<Comparable\>"
+  syn match   javaI_JavaLang "\<Iterable\>"
+  " Member interfaces:
+  exec 'syn match javaI_JavaLang "\%(\<Thread\.\)\@' . s:ff.Peek('7', '') . '<=\<UncaughtExceptionHandler\>"'
+  exec 'syn match javaI_JavaLang "\%(\<ProcessHandle\.\)\@' . s:ff.Peek('14', '') . '<=\<Info\>"'
+  exec 'syn match javaI_JavaLang "\%(\<System\.\)\@' . s:ff.Peek('7', '') . '<=\<Logger\>"'
+  exec 'syn match javaI_JavaLang "\%(\<StackWalker\.\)\@' . s:ff.Peek('12', '') . '<=\<StackFrame\>"'
+  exec 'syn match javaI_JavaLang "\%(\<Thread\.\)\@' . s:ff.Peek('7', '') . '<=\<Builder\>"'
+  exec 'syn match javaI_JavaLang "\%(\<Thread\.Builder\.\)\@' . s:ff.Peek('15', '') . '<=\<OfPlatform\>"'
+  exec 'syn match javaI_JavaLang "\%(\<Thread\.Builder\.\)\@' . s:ff.Peek('15', '') . '<=\<OfVirtual\>"'
+  syn cluster javaClasses add=javaI_JavaLang
+  hi def link javaI_JavaLang javaI_Java
 
+  " Common groups for generated "javaid.vim" syntax items:
   hi def link javaR_Java javaR_
   hi def link javaC_Java javaC_
   hi def link javaE_Java javaE_
   hi def link javaX_Java javaX_
+  hi def link javaI_Java javaI_
   hi def link javaX_ javaExceptions
   hi def link javaR_ javaExceptions
   hi def link javaE_ javaExceptions
   hi def link javaC_ javaConstant
+  hi def link javaI_ javaTypedef
 
   syn keyword javaLangObject getClass notify notifyAll wait
 
@@ -277,10 +304,41 @@ if exists("g:java_highlight_all") || exists("g:java_highlight_java") || exists("
   syn match javaLangObject "\<hashCode\>"
   syn match javaLangObject "\<toString\>"
   hi def link javaLangObject javaConstant
+
+  " As of JDK 24, SecurityManager is rendered non-functional
+  "	(JDK-8338625).
+  "	(Note that SecurityException and RuntimePermission are still
+  "	not deprecated.)
+  " As of JDK 21, Compiler is no more (JDK-8205129).
+  syn keyword javaLangDeprecated Compiler SecurityManager
 endif
 
-if filereadable(expand("<sfile>:p:h") . "/javaid.vim")
-  source <sfile>:p:h/javaid.vim
+runtime syntax/javaid.vim
+
+" Type parameter sections (JLS-17, §4.4, §4.5).
+"
+" Note that false positives may elsewhere occur whenever an identifier
+" is butted against a less-than operator.  Cf. (X<Y) and (X < Y).
+if exists("g:java_highlight_generics")
+  syn keyword javaWildcardBound contained extends super
+  syn cluster javaTypeParams contains=javaAnnotation,javaWildcardBound,javaType,@javaClasses,javaComment,javaLineComment
+
+  " Match sections of generic methods and constructors and their
+  " parameterised use.
+  exec 'syn region javaTypeParamSection transparent matchgroup=javaGenericsCX start=/' . s:ff.Engine('\%#=2', '') . '\%(^\|\s\)\@' . s:ff.Peek('1', '') . '<=<\%(\%([^(){}]\|\n\)\+[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\_s\+\%(\%(void\|\%(b\%(oolean\|yte\)\|char\|short\|int\|long\|float\|double\|\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\>\%(<\%([^(){}]\|\n\)\+[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\)\=\)\%(\[\]\)*\)\_s\+\)\=\<\K\k*\>\s*(\)\@=/ end=/>/ contains=javaGenerics,@javaTypeParams'
+  exec 'syn region javaTypeParamSection transparent matchgroup=javaGenericsCX start=/\%(\%(\<new\|::\|\.\)[[:space:]\n]*\)\@' . s:ff.PeekFor('javaTypeParamSection', 80) . '<=<>\@!/ end=/>/ contains=javaGenerics,@javaTypeParams'
+
+  for s:ctx in [{'gsg': 'javaGenerics', 'ghg': 'javaGenericsC1', 'csg': 'javaGenericsX', 'c': ''},
+      \ {'gsg': 'javaGenericsX', 'ghg': 'javaGenericsC2', 'csg': 'javaGenerics', 'c': ' contained'}]
+    " Match sections of generic types and their parameterised use.
+    exec 'syn region ' . s:ctx.gsg . s:ctx.c . ' transparent matchgroup=' . s:ctx.ghg . ' start=/' . s:ff.Engine('\%#=2', '') . '\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\><\%([[:space:]\n]*\%([?@]\|\<\%(b\%(oolean\|yte\)\|char\|short\|int\|long\|float\|double\)\|\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\>\)\)\@=/ end=/>/ contains=' . s:ctx.csg . ',@javaTypeParams'
+  endfor
+
+  unlet s:ctx
+  hi def link javaWildcardBound	Question
+  hi def link javaGenericsC1	Function
+  hi def link javaGenericsC2	Type
+  hi def link javaGenericsCX	javaGenericsC2
 endif
 
 if exists("g:java_space_errors")
@@ -295,7 +353,7 @@ endif
 
 exec 'syn match javaUserLabel "^\s*\<\K\k*\>\%(\<default\>\)\@' . s:ff.Peek('7', '') . '<!\s*::\@!"he=e-1'
 
-if s:ff.IsRequestedPreviewFeature(455)
+if s:ff.IsAnyRequestedPreviewFeatureOf([455, 488])
   syn region  javaLabelRegion	transparent matchgroup=javaLabel start="\<case\>" matchgroup=NONE end=":\|->" contains=javaBoolean,javaNumber,javaCharacter,javaString,javaConstant,@javaClasses,javaGenerics,javaType,javaLabelDefault,javaLabelVarType,javaLabelWhenClause
 else
   syn region  javaLabelRegion	transparent matchgroup=javaLabel start="\<case\>" matchgroup=NONE end=":\|->" contains=javaLabelCastType,javaLabelNumber,javaCharacter,javaString,javaConstant,@javaClasses,javaGenerics,javaLabelDefault,javaLabelVarType,javaLabelWhenClause
@@ -336,7 +394,7 @@ syn match   javaCommentStar	contained "^\s*\*$"
 syn match   javaLineComment	"//.*" contains=@javaCommentSpecial2,javaTodo,javaCommentMarkupTag,javaSpaceError,@Spell
 syn match   javaCommentMarkupTag contained "@\%(end\|highlight\|link\|replace\|start\)\>" nextgroup=javaCommentMarkupTagAttr,javaSpaceError skipwhite
 syn match   javaCommentMarkupTagAttr contained "\<region\>" nextgroup=javaCommentMarkupTagAttr,javaSpaceError skipwhite
-exec 'syn region javaCommentMarkupTagAttr contained transparent matchgroup=javaHtmlArg start=/\<\%(re\%(gex\|gion\|placement\)\|substring\|t\%(arget\|ype\)\)\%(\s*=\)\@=/ matchgroup=javaHtmlString end=/\%(=\s*\)\@' . s:ff.Peek('80', '') . '<=\%("[^"]\+"\|' . "\x27[^\x27]\\+\x27" . '\|\%([.-]\|\k\)\+\)/ nextgroup=javaCommentMarkupTagAttr,javaSpaceError skipwhite oneline'
+exec 'syn region javaCommentMarkupTagAttr contained transparent matchgroup=javaHtmlArg start=/\<\%(re\%(gex\|gion\|placement\)\|substring\|t\%(arget\|ype\)\)\%(\s*=\)\@=/ matchgroup=javaHtmlString end=/\%(=\s*\)\@' . s:ff.PeekFor('javaCommentMarkupTagAttr', 80) . '<=\%("[^"]\+"\|' . "\x27[^\x27]\\+\x27" . '\|\%([.-]\|\k\)\+\)/ nextgroup=javaCommentMarkupTagAttr,javaSpaceError skipwhite oneline'
 syn match   javaCommentError contained "/\*"me=e-1 display
 
 if !exists("g:java_ignore_javadoc") && (s:with_html || s:with_markdown) && g:main_syntax != 'jsp'
@@ -364,25 +422,73 @@ if !exists("g:java_ignore_javadoc") && (s:with_html || s:with_markdown) && g:mai
 
   " Include HTML syntax coloring for Javadoc comments.
   if s:with_html
-    syntax include @javaHtml syntax/html.vim
-    unlet b:current_syntax
+    try
+      if exists("g:html_syntax_folding") && !exists("g:java_consent_to_html_syntax_folding")
+	let s:html_syntax_folding_copy = g:html_syntax_folding
+	unlet g:html_syntax_folding
+      endif
+
+      syntax include @javaHtml syntax/html.vim
+    finally
+      unlet! b:current_syntax
+
+      if exists("s:html_syntax_folding_copy")
+	let g:html_syntax_folding = s:html_syntax_folding_copy
+	unlet s:html_syntax_folding_copy
+      endif
+    endtry
   endif
 
   " Include Markdown syntax coloring (v7.2.437) for Javadoc comments.
   if s:with_markdown
     try
+      if exists("g:html_syntax_folding") && !exists("g:java_consent_to_html_syntax_folding")
+	let s:html_syntax_folding_copy = g:html_syntax_folding
+	unlet g:html_syntax_folding
+      endif
+
+      if !empty(get(g:, 'markdown_fenced_languages', []))
+	let s:markdown_fenced_languages_copy = g:markdown_fenced_languages
+	unlet g:markdown_fenced_languages
+      endif
+
       syntax include @javaMarkdown syntax/markdown.vim
-      unlet b:current_syntax
-      let s:ff.WithMarkdown = s:ff.LeftConstant
+
+      try
+	syn clear markdownId markdownLineStart markdownH1 markdownH2 markdownHeadingRule markdownRule markdownCode markdownCodeBlock markdownIdDeclaration
+	let s:ff.WithMarkdown = s:ff.LeftConstant
+      catch /\<E28:/
+	call s:ReportOnce(v:exception)
+	let s:no_support = 1
+	unlet! g:java_ignore_markdown
+	let g:java_ignore_markdown = 28
+      endtry
     catch /\<E48[45]:/
       call s:ReportOnce(v:exception)
-      unlockvar s:with_markdown
-      let s:with_markdown = 0
-      lockvar s:with_markdown
-      hi clear markdownCode
-      hi clear markdownCodeBlock
-      hi clear markdownCodeDelimiter
-      hi clear markdownLinkDelimiter
+      let s:no_support = 1
+    finally
+      unlet! b:current_syntax
+
+      if exists("s:markdown_fenced_languages_copy")
+	let g:markdown_fenced_languages = s:markdown_fenced_languages_copy
+	unlet s:markdown_fenced_languages_copy
+      endif
+
+      if exists("s:html_syntax_folding_copy")
+	let g:html_syntax_folding = s:html_syntax_folding_copy
+	unlet s:html_syntax_folding_copy
+      endif
+
+      if exists("s:no_support")
+	unlet s:no_support
+	unlockvar s:with_markdown
+	let s:with_markdown = 0
+	lockvar s:with_markdown
+	hi clear markdownCode
+	hi clear markdownCodeBlock
+	hi clear markdownCodeDelimiter
+	hi clear markdownLinkDelimiter
+      endif
     endtry
   endif
 
@@ -398,11 +504,10 @@ if !exists("g:java_ignore_javadoc") && (s:with_html || s:with_markdown) && g:mai
   if s:with_markdown
     syn region javaMarkdownComment	start="///" skip="^\s*///.*$" end="^" keepend contains=javaMarkdownCommentTitle,javaMarkdownShortcutLink,@javaMarkdown,@javaDocTags,javaTodo,@Spell nextgroup=javaMarkdownCommentTitle fold
     syn match javaMarkdownCommentMask	contained "^\s*///"
-    exec 'syn region javaMarkdownCommentTitle contained matchgroup=javaMarkdownComment start="\%(///.*\r\=\n\s*\)\@' . s:ff.Peek('80', '') . '<!///" matchgroup=javaMarkdownCommentTitle end="\.$" end="\.[ \t\r]\@=" end="\n\%(\s*///\s*$\)\@=" end="\%(^\s*///\s*\)\@' . s:ff.Peek('80', '') . '<=@"me=s-2,he=s-1 contains=javaMarkdownShortcutLink,@javaMarkdown,javaMarkdownCommentMask,javaTodo,@Spell,@javaDocTags'
-    exec 'syn region javaMarkdownCommentTitle contained matchgroup=javaMarkdownComment start="\%(///.*\r\=\n\s*\)\@' . s:ff.Peek('80', '') . '<!///\s*\%({@return\>\)\@=" matchgroup=javaMarkdownCommentTitle end="}\%(\s*\.*\)*" contains=javaMarkdownShortcutLink,@javaMarkdown,javaMarkdownCommentMask,javaTodo,@Spell,@javaDocTags,javaTitleSkipBlock'
-    exec 'syn region javaMarkdownCommentTitle contained matchgroup=javaMarkdownComment start="\%(///.*\r\=\n\s*\)\@' . s:ff.Peek('80', '') . '<!///\s*\%({@summary\>\)\@=" matchgroup=javaMarkdownCommentTitle end="}" contains=javaMarkdownShortcutLink,@javaMarkdown,javaMarkdownCommentMask,javaTodo,@Spell,@javaDocTags,javaTitleSkipBlock'
+    exec 'syn region javaMarkdownCommentTitle contained matchgroup=javaMarkdownComment start="\%(///.*\r\=\n\s*\)\@' . s:ff.PeekFor('javaMarkdownCommentTitle', 120) . '<!///" matchgroup=javaMarkdownCommentTitle end="\.$" end="\.[ \t\r]\@=" end="\n\%(\s*///\s*$\)\@=" end="\%(^\s*///\s*\)\@' . s:ff.PeekFor('javaMarkdownCommentTitle', 120) . '<=@"me=s-2,he=s-1 contains=javaMarkdownShortcutLink,@javaMarkdown,javaMarkdownCommentMask,javaTodo,@Spell,@javaDocTags'
+    exec 'syn region javaMarkdownCommentTitle contained matchgroup=javaMarkdownComment start="\%(///.*\r\=\n\s*\)\@' . s:ff.PeekFor('javaMarkdownCommentTitle', 120) . '<!///\s*\%({@return\>\)\@=" matchgroup=javaMarkdownCommentTitle end="}\%(\s*\.*\)*" contains=javaMarkdownShortcutLink,@javaMarkdown,javaMarkdownCommentMask,javaTodo,@Spell,@javaDocTags,javaTitleSkipBlock'
+    exec 'syn region javaMarkdownCommentTitle contained matchgroup=javaMarkdownComment start="\%(///.*\r\=\n\s*\)\@' . s:ff.PeekFor('javaMarkdownCommentTitle', 120) . '<!///\s*\%({@summary\>\)\@=" matchgroup=javaMarkdownCommentTitle end="}" contains=javaMarkdownShortcutLink,@javaMarkdown,javaMarkdownCommentMask,javaTodo,@Spell,@javaDocTags,javaTitleSkipBlock'
 
-    syn clear markdownId markdownLineStart markdownH1 markdownH2 markdownHeadingRule markdownRule markdownCode markdownCodeBlock markdownIdDeclaration
     " REDEFINE THE MARKDOWN ITEMS ANCHORED WITH "^", OBSERVING THE
     " DEFINITION ORDER.
     syn match markdownLineStart		contained "^\s*///\s*[<@]\@!" contains=@markdownBlock,javaMarkdownCommentTitle,javaMarkdownCommentMask nextgroup=@markdownBlock,htmlSpecialChar
@@ -453,7 +558,7 @@ if !exists("g:java_ignore_javadoc") && (s:with_html || s:with_markdown) && g:mai
 
   if s:with_html
     syn region javaDocComment	start="/\*\*" end="\*/" keepend contains=javaCommentTitle,@javaHtml,@javaDocTags,javaTodo,javaCommentError,javaSpaceError,@Spell fold
-    exec 'syn region javaCommentTitle contained matchgroup=javaDocComment start="/\*\*" matchgroup=javaCommentTitle end="\.$" end="\.[ \t\r]\@=" end="\%(^\s*\**\s*\)\@' . s:ff.Peek('80', '') . '<=@"me=s-2,he=s-1 end="\*/"me=s-1,he=s-1 contains=@javaHtml,javaCommentStar,javaTodo,javaCommentError,javaSpaceError,@Spell,@javaDocTags'
+    exec 'syn region javaCommentTitle contained matchgroup=javaDocComment start="/\*\*" matchgroup=javaCommentTitle end="\.$" end="\.[ \t\r]\@=" end="\%(^\s*\**\s*\)\@' . s:ff.PeekFor('javaCommentTitle', 120) . '<=@"me=s-2,he=s-1 end="\*/"me=s-1,he=s-1 contains=@javaHtml,javaCommentStar,javaTodo,javaCommentError,javaSpaceError,@Spell,@javaDocTags'
     syn region javaCommentTitle	contained matchgroup=javaDocComment start="/\*\*\s*\r\=\n\=\s*\**\s*\%({@return\>\)\@=" matchgroup=javaCommentTitle end="}\%(\s*\.*\)*" contains=@javaHtml,javaCommentStar,javaTodo,javaCommentError,javaSpaceError,@Spell,@javaDocTags,javaTitleSkipBlock
     syn region javaCommentTitle	contained matchgroup=javaDocComment start="/\*\*\s*\r\=\n\=\s*\**\s*\%({@summary\>\)\@=" matchgroup=javaCommentTitle end="}" contains=@javaHtml,javaCommentStar,javaTodo,javaCommentError,javaSpaceError,@Spell,@javaDocTags,javaTitleSkipBlock
     hi def link javaDocComment		Comment
@@ -528,7 +633,7 @@ if !exists("g:java_ignore_javadoc") && (s:with_html || s:with_markdown) && g:mai
   syn region javaCodeSkipBlock	contained transparent start="{\%(@code\>\)\@!" end="}" contains=javaCodeSkipBlock,javaDocCodeTag
   syn region javaDocCodeTag	contained start="{@code\>" end="}" contains=javaDocCodeTag,javaCodeSkipBlock
 
-  exec 'syn region javaDocSnippetTagAttr contained transparent matchgroup=javaHtmlArg start=/\<\%(class\|file\|id\|lang\|region\)\%(\s*=\)\@=/ matchgroup=javaHtmlString end=/:$/ end=/\%(=\s*\)\@' . s:ff.Peek('80', '') . '<=\%("[^"]\+"\|' . "\x27[^\x27]\\+\x27" . '\|\%([.\\/-]\|\k\)\+\)/ nextgroup=javaDocSnippetTagAttr skipwhite skipnl'
+  exec 'syn region javaDocSnippetTagAttr contained transparent matchgroup=javaHtmlArg start=/\<\%(class\|file\|id\|lang\|region\)\%(\s*=\)\@=/ matchgroup=javaHtmlString end=/:$/ end=/\%(=\s*\)\@' . s:ff.PeekFor('javaDocSnippetTagAttr', 80) . '<=\%("[^"]\+"\|' . "\x27[^\x27]\\+\x27" . '\|\%([.\\/-]\|\k\)\+\)/ nextgroup=javaDocSnippetTagAttr skipwhite skipnl'
   syn region javaSnippetSkipBlock contained transparent start="{\%(@snippet\>\)\@!" end="}" contains=javaSnippetSkipBlock,javaDocSnippetTag,javaCommentMarkupTag
   syn region javaDocSnippetTag	contained start="{@snippet\>" end="}" contains=javaDocSnippetTag,javaSnippetSkipBlock,javaDocSnippetTagAttr,javaCommentMarkupTag
 
@@ -576,10 +681,10 @@ syn region  javaString		start=+"+ end=+"+ end=+$+ contains=javaSpecialChar,javaS
 syn region  javaString		start=+"""[ \t\x0c\r]*$+hs=e+1 end=+"""+he=s-1 contains=javaSpecialChar,javaSpecialError,javaTextBlockError,@Spell
 syn match   javaTextBlockError	+"""\s*"""+
 
-if s:ff.IsRequestedPreviewFeature(430)
+if s:ff.IsAnyRequestedPreviewFeatureOf([430])
   syn region javaStrTemplEmbExp	contained matchgroup=javaStrTempl start="\\{" end="}" contains=TOP
-  exec 'syn region javaStrTempl start=+\%(\.[[:space:]\n]*\)\@' . s:ff.Peek('80', '') . '<="+ end=+"+ contains=javaStrTemplEmbExp,javaSpecialChar,javaSpecialError,@Spell'
-  exec 'syn region javaStrTempl start=+\%(\.[[:space:]\n]*\)\@' . s:ff.Peek('80', '') . '<="""[ \t\x0c\r]*$+hs=e+1 end=+"""+he=s-1 contains=javaStrTemplEmbExp,javaSpecialChar,javaSpecialError,javaTextBlockError,@Spell'
+  exec 'syn region javaStrTempl start=+\%(\.[[:space:]\n]*\)\@' . s:ff.PeekFor('javaStrTempl', 80) . '<="+ end=+"+ contains=javaStrTemplEmbExp,javaSpecialChar,javaSpecialError,@Spell'
+  exec 'syn region javaStrTempl start=+\%(\.[[:space:]\n]*\)\@' . s:ff.PeekFor('javaStrTempl', 80) . '<="""[ \t\x0c\r]*$+hs=e+1 end=+"""+he=s-1 contains=javaStrTemplEmbExp,javaSpecialChar,javaSpecialError,javaTextBlockError,@Spell'
   hi def link javaStrTempl	Macro
 endif
 
@@ -609,7 +714,7 @@ if exists("g:java_highlight_functions")
     syn cluster javaFuncParams add=javaParamModifier
     hi def link javaFuncDefStart javaFuncDef
   else
-    syn cluster javaFuncParams add=javaScopeDecl,javaConceptKind,javaStorageClass,javaExternal
+    syn cluster javaFuncParams add=javaScopeDecl,javaConceptKind,javaStorageClass,javaExternal,javaTypeParamSection
   endif
 
   if g:java_highlight_functions =~# '^indent[1-8]\=$'
@@ -622,18 +727,18 @@ if exists("g:java_highlight_functions")
     " definitions take care of constructor declarations and enum
     " constants (with no support for @Foo(value = "bar")).  Also,
     " reject inlined declarations with "[^{]" for signature.
-    exec 'syn region javaFuncDef ' . s:ff.GroupArgs('transparent matchgroup=javaFuncDefStart', '') . ' start=/' . s:ff.PeekTo('\%(', '') . '^' . s:indent . '\%(<[^>]\+>\+\s\+\|\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)\+\)\=\%(\<\K\k*\>\.\)*\K\k*\>[^={]*\%(\<record\)\@' . s:ff.Peek('6', '') . '<!\s' . s:ff.PeekFrom('\)\@' . s:ff.Peek('80', '') . '<=', '') . '\K\k*\s*(/ end=/)/ contains=@javaFuncParams'
+    exec 'syn region javaFuncDef ' . s:ff.GroupArgs('transparent matchgroup=javaFuncDefStart', '') . ' start="' . s:ff.PeekTo('\%(', '') . '^' . s:indent . '\%(<\%(/\*.\{-}\*/\|[^(){}>]\|\n\)\+>\+\s\+\|\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)\+\)\=\%(\<\K\k*\>\.\)*\K\k*\>[^={]*\%(\<record\)\@' . s:ff.Peek('6', '') . '<!\s' . s:ff.PeekFrom('\)\@' . s:ff.PeekFor('javaFuncDef', 120) . '<=', '') . '\K\k*\s*(" end=")" contains=@javaFuncParams'
     " As long as package-private constructors cannot be matched with
     " javaFuncDef, do not look with javaConstructorSkipDeclarator for
-    " them.
-    exec 'syn match javaConstructorSkipDeclarator transparent /^' . s:indent . '\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)*p\%(ublic\|rotected\|rivate\)\s\+\%(<[^>]\+>\+\s\+\)\=\K\k*\s*\ze(/ contains=javaAnnotation,javaScopeDecl,javaClassDecl,javaTypedef,javaGenerics'
+    " them.  (Approximate "javaTypeParamSection" if necessary.)
+    exec 'syn match javaConstructorSkipDeclarator transparent "^' . s:indent . '\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)*p\%(ublic\|rotected\|rivate\)\s\+\%(<\%(/\*.\{-}\*/\|[^(){}>]\|\n\)\+>\+\s\+\)\=\K\k*\s*(\@=" contains=javaAnnotation,javaScopeDecl,javaTypeParamSection,javaClassDecl,javaTypedef,javaType,@javaClasses,javaGenerics,javaComment,javaLineComment'
     " With a zero-width span for signature applicable on demand to
     " javaFuncDef, make related adjustments:
     " (1) Claim all enum constants of a line as a unit.
     exec 'syn match javaEnumSkipConstant contained transparent /^' . s:indent . '\%(\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)*\K\k*\s*\%((.*)\)\=\s*[,;({]\s*\)\+/ contains=@javaEnumConstants'
     " (2) Define a syntax group for top level enumerations and tell
     " apart their constants from method declarations.
-    exec 'syn region javaTopEnumDeclaration transparent start=/\%(^\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)*\%(p\%(ublic\|rotected\|rivate\)\s\+\)\=\%(strictfp\s\+\)\=\<enum\_s\+\)\@' . s:ff.Peek('80', '') . '<=\K\k*\%(\_s\+implements\_s.\+\)\=\_s*{/ end=/}/ contains=@javaTop,javaEnumSkipConstant'
+    exec 'syn region javaTopEnumDeclaration transparent start=/\%(^\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)*\%(p\%(ublic\|rotected\|rivate\)\s\+\)\=\%(strictfp\s\+\)\=\<enum\_s\+\)\@' . s:ff.PeekFor('javaTopEnumDeclaration', 80) . '<=\K\k*\%(\_s\+implements\_s.\+\)\=\_s*{/ end=/}/ contains=@javaTop,javaEnumSkipConstant'
     " (3) Define a base variant of javaParenT without using @javaTop
     " in order to not include javaFuncDef.
     syn region javaParenE transparent matchgroup=javaParen start="(" end=")" contains=@javaEnumConstants,javaInParen
@@ -645,7 +750,7 @@ if exists("g:java_highlight_functions")
 
     " Match arbitrarily indented camelCasedName method declarations.
     " Match: [@ɐ] [abstract] [<α, β>] Τʬ[<γ>][[][]] μʭʭ(/* ... */);
-    exec 'syn region javaFuncDef ' . s:ff.GroupArgs('transparent matchgroup=javaFuncDefStart', '') . ' start=/' . s:ff.Engine('\%#=2', '') . s:ff.PeekTo('\%(', '') . '^\s\+\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)*\%(p\%(ublic\|rotected\|rivate\)\s\+\)\=\%(\%(abstract\|default\)\s\+\|\%(\%(final\|\%(native\|strictfp\)\|s\%(tatic\|ynchronized\)\)\s\+\)*\)\=\%(<.*[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\s\+\)\=\%(void\|\%(b\%(oolean\|yte\)\|char\|short\|int\|long\|float\|double\|\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\>\%(<[^(){}]*[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\)\=\)\%(\[\]\)*\)\s\+' . s:ff.PeekFrom('\)\@' . s:ff.Peek('80', '') . '<=', '') . '\<' . s:ff.LowerCase('[$_[:lower:]]', '[^A-Z0-9]') . '\k*\>\s*(/ end=/)/ skip=/\/\*.\{-}\*\/\|\/\/.*$/ contains=@javaFuncParams'
+    exec 'syn region javaFuncDef ' . s:ff.GroupArgs('transparent matchgroup=javaFuncDefStart', '') . ' start=/' . s:ff.Engine('\%#=2', '') . s:ff.PeekTo('\%(', '') . '^\s\+\%(\%(@\%(\K\k*\.\)*\K\k*\>\)\s\+\)*\%(p\%(ublic\|rotected\|rivate\)\s\+\)\=\%(\%(abstract\|default\)\s\+\|\%(\%(final\|\%(native\|strictfp\)\|s\%(tatic\|ynchronized\)\)\s\+\)*\)\=\%(<\%([^(){}]\|\n\)\+[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\s\+\)\=\%(void\|\%(b\%(oolean\|yte\)\|char\|short\|int\|long\|float\|double\|\%(\<\K\k*\>\.\)*\<' . s:ff.UpperCase('[$_[:upper:]]', '[^a-z0-9]') . '\k*\>\%(<\%([^(){}]\|\n\)\+[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\)\=\)\%(\[\]\)*\)\s\+' . s:ff.PeekFrom('\)\@' . s:ff.PeekFor('javaFuncDef', 120) . '<=', '') . '\<' . s:ff.LowerCase('[$_[:lower:]]', '[^A-Z0-9]') . '\k*\>\s*(/ end=/)/ skip=/\/\*.\{-}\*\/\|\/\/.*$/ contains=@javaFuncParams'
   endif
 endif
 
@@ -655,12 +760,12 @@ if exists("g:java_highlight_debug")
   syn region  javaDebugString		contained start=+"+ end=+"+ contains=javaDebugSpecial
   syn region  javaDebugString		contained start=+"""[ \t\x0c\r]*$+hs=e+1 end=+"""+he=s-1 contains=javaDebugSpecial,javaDebugTextBlockError
 
-  if s:ff.IsRequestedPreviewFeature(430)
+  if s:ff.IsAnyRequestedPreviewFeatureOf([430])
     " The highlight groups of java{StrTempl,Debug{,Paren,StrTempl}}\,
     " share one colour by default. Do not conflate unrelated parens.
     syn region javaDebugStrTemplEmbExp	contained matchgroup=javaDebugStrTempl start="\\{" end="}" contains=javaComment,javaLineComment,javaDebug\%(Paren\)\@!.*
-    exec 'syn region javaDebugStrTempl contained start=+\%(\.[[:space:]\n]*\)\@' . s:ff.Peek('80', '') . '<="+ end=+"+ contains=javaDebugStrTemplEmbExp,javaDebugSpecial'
-    exec 'syn region javaDebugStrTempl contained start=+\%(\.[[:space:]\n]*\)\@' . s:ff.Peek('80', '') . '<="""[ \t\x0c\r]*$+hs=e+1 end=+"""+he=s-1 contains=javaDebugStrTemplEmbExp,javaDebugSpecial,javaDebugTextBlockError'
+    exec 'syn region javaDebugStrTempl contained start=+\%(\.[[:space:]\n]*\)\@' . s:ff.PeekFor('javaDebugStrTempl', 80) . '<="+ end=+"+ contains=javaDebugStrTemplEmbExp,javaDebugSpecial'
+    exec 'syn region javaDebugStrTempl contained start=+\%(\.[[:space:]\n]*\)\@' . s:ff.PeekFor('javaDebugStrTempl', 80) . '<="""[ \t\x0c\r]*$+hs=e+1 end=+"""+he=s-1 contains=javaDebugStrTemplEmbExp,javaDebugSpecial,javaDebugTextBlockError'
     hi def link javaDebugStrTempl	Macro
   endif
 
@@ -704,10 +809,15 @@ if exists("g:java_highlight_debug")
   hi def link DebugType			Type
 endif
 
+" Complement javaBlock and javaInParen for highlighting.
+syn region javaBlockOther transparent matchgroup=javaBlockOtherStart start="{" end="}"
+
 " Try not to fold top-level-type bodies under assumption that there is
 " but one such body.
-exec 'syn region javaBlock transparent start="\%(^\|^\S[^:]\+\)\@' . s:ff.Peek('120', '') . '<!{" end="}" fold'
+exec 'syn region javaBlock transparent matchgroup=javaBlockStart start="\%(^\|^\S[^:]\+\)\@' . s:ff.PeekFor('javaBlock', 120) . '<!{" end="}" fold'
 
+" See "D.2.1 Anonymous Classes" at
+" https://web.archive.org/web/20010821025330/java.sun.com/docs/books/jls/first_edition/html/1.1Update.html#12959.
 if exists("g:java_mark_braces_in_parens_as_errors")
   syn match javaInParen contained "[{}]"
   hi def link javaInParen javaError
@@ -743,10 +853,8 @@ if exists("g:java_highlight_functions")
   "
   " Match: ([@A [@B ...] final] var a[, var b, ...]) ->
   "	| ([@A [@B ...] final] T[<α>][[][]] a[, T b, ...]) ->
-  " There is no recognition of expressions interspersed with comments
-  " or of expressions whose parameterised parameter types are written
-  " across multiple lines.
-  exec 'syn ' . s:ff.LambdaDef('region javaLambdaDef transparent matchgroup=javaLambdaDefStart start=/', 'match javaLambdaDef "') . '\k\@' . s:ff.Peek('4', '') . '<!(' . s:ff.LambdaDef('\%(', '') . '[[:space:]\n]*\%(\%(@\%(\K\k*\.\)*\K\k*\>\%((\_.\{-1,})\)\{-,1}[[:space:]\n]\+\)*\%(final[[:space:]\n]\+\)\=\%(\<\K\k*\>\.\)*\<\K\k*\>\%(<[^(){}]*[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\)\=\%(\%(\%(\[\]\)\+\|\.\.\.\)\)\=[[:space:]\n]\+\<\K\k*\>\%(\[\]\)*\%(,[[:space:]\n]*\)\=\)\+)[[:space:]\n]*' . s:ff.LambdaDef('\z(->\)\)\@=/ end=/)[[:space:]\n]*\z1/', '->"') . ' contains=javaAnnotation,javaParamModifier,javaLambdaVarType,javaType,@javaClasses,javaGenerics,javaVarArg'
+  " Expressions interspersed with comments are not recognised.
+  exec 'syn ' . s:ff.LambdaDef('region javaLambdaDef transparent matchgroup=javaLambdaDefStart start=/', 'match javaLambdaDef "') . '\k\@' . s:ff.Peek('4', '') . '<!(' . s:ff.LambdaDef('\%(', '') . '[[:space:]\n]*\%(\%(@\%(\K\k*\.\)*\K\k*\>\%((\_.\{-1,})\)\{-,1}[[:space:]\n]\+\)*\%(final[[:space:]\n]\+\)\=\%(\<\K\k*\>\.\)*\<\K\k*\>\%(<\%([^(){}]\|\n\)\+[[:space:]-]\@' . s:ff.Peek('1', '') . '<!>\)\=\%(\%(\%(\[\]\)\+\|\.\.\.\)\)\=[[:space:]\n]\+\<\K\k*\>\%(\[\]\)*\%(,[[:space:]\n]*\)\=\)\+)[[:space:]\n]*' . s:ff.LambdaDef('\z(->\)\)\@=/ end=/)[[:space:]\n]*\z1/', '->"') . ' contains=javaAnnotation,javaParamModifier,javaLambdaVarType,javaType,@javaClasses,javaGenerics,javaVarArg'
   " Match: () ->
   "	| (a[, b, ...]) ->
   exec 'syn ' . s:ff.LambdaDef('region javaLambdaDef transparent matchgroup=javaLambdaDefStart start=/', 'match javaLambdaDef "') . '\k\@' . s:ff.Peek('4', '') . '<!(' . s:ff.LambdaDef('\%(', '') . '[[:space:]\n]*\%(\<\K\k*\>\%(,[[:space:]\n]*\)\=\)*)[[:space:]\n]*' . s:ff.LambdaDef('\z(->\)\)\@=/ end=/)[[:space:]\n]*\z1/', '->"')
@@ -837,6 +945,14 @@ let b:current_syntax = "java"
 
 if g:main_syntax == 'java'
   unlet g:main_syntax
+endif
+
+if exists("s:clear_java_ignore_html")
+  unlet! s:clear_java_ignore_html g:java_ignore_html
+endif
+
+if exists("s:clear_java_ignore_markdown")
+  unlet! s:clear_java_ignore_markdown g:java_ignore_markdown
 endif
 
 let b:spell_options = "contained"

@@ -1,0 +1,12 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+ht{
+    %%Parent{"fr_HT"}
+    AuxExemplarCharacters{"[à]"}
+    ExemplarCharacters{
+        "[a {an} b {ch} d e è {en} f g h i j k l m n {ng} o ò {on} {ou} {oun} p r s t"
+        " {ui} v w y z]"
+    }
+    ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P R S T U V W Y Z]"}
+}

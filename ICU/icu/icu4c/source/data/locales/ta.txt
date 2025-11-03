@@ -214,6 +214,14 @@ ta{
     }
     calendar{
         bangla{
+            eras{
+                abbreviated{
+                    "பங்க.",
+                }
+                wide{
+                    "பங்கப்த",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -936,12 +944,20 @@ ta{
                     "MMM, d",
                     "d=tithitaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "விக்ரம்",
+                }
+                wide{
+                    "விக்ரம் சம்வத்",
+                }
             }
             monthNames{
                 format{
@@ -1180,12 +1196,20 @@ ta{
                     "MMM, d",
                     "d=tithitaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "சாலி.",
+                }
+                wide{
+                    "சாலிவாகன சகே",
+                }
             }
             monthNames{
                 format{
@@ -1295,6 +1319,16 @@ ta{
                 }
             }
         }
+        malayalam{
+            eras{
+                abbreviated{
+                    "கொல்லம்",
+                }
+                wide{
+                    "கொல்லம் வருடம்",
+                }
+            }
+        }
         marathi{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
@@ -1313,12 +1347,20 @@ ta{
                     "MMM, d",
                     "d=tithitaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "சக",
+                }
+                wide{
+                    "சக சம்வத்",
+                }
             }
             monthPatterns{
                 format{
@@ -1477,6 +1519,14 @@ ta{
             }
         }
         tamil{
+            eras{
+                abbreviated{
+                    "சக",
+                }
+                wide{
+                    "சக வருடம்",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -1586,12 +1636,20 @@ ta{
                     "MMM, d",
                     "d=tithitaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "சாலி.",
+                }
+                wide{
+                    "சாலிவாகன சகம்",
+                }
             }
             monthNames{
                 format{
@@ -1719,7 +1777,7 @@ ta{
                     "MMM, d",
                     "d=tithitap",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
@@ -1733,6 +1791,14 @@ ta{
                 MMMEd{"E, MMM d"}
                 MMMMEEEEd{"EEEE, MMMM d"}
                 Md{"M/d"}
+            }
+            eras{
+                abbreviated{
+                    "விக்ரம்",
+                }
+                wide{
+                    "விக்ரம் சம்வத்",
+                }
             }
             monthNames{
                 format{

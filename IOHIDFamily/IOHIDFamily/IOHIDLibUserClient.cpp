@@ -742,11 +742,6 @@ IOReturn IOHIDLibUserClient::close()
 
     require_quiet(fNub && fClientOpened, exit);
 
-    // Disable TimeSync on the device if HIDBasicTimeSync crashed or exited abruptly.
-    if (kOSBooleanTrue == fNub->getProperty(kIOHIDTimeSyncEnabledKey)) {
-        fNub->setProperty(kIOHIDTimeSyncEnabledKey, kOSBooleanFalse);
-    }
-
     fNub->close(this, fCachedOptionBits);
     setValid(false);
 

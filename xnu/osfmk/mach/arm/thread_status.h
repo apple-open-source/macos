@@ -460,6 +460,9 @@ struct arm_kernel_saved_state {
 	uint8_t ssbs;
 	uint8_t dit;
 	uint8_t uao;
+#if HAS_MTE
+	uint8_t tco;
+#endif
 } __attribute__((aligned(16)));
 
 typedef struct arm_kernel_saved_state arm_kernel_saved_state_t;

@@ -114,7 +114,6 @@
 - (IBAction) profileDraw:(id)sender;
 - (void)adjustLogViewForReusedWindow;
 - (void)checkEdgeNotationVisibilityForReusedWindow;
-- (BOOL)listenForMoves;
 - (NSString *)speakOpponentTitle;
 - (BOOL)speakMoves;
 - (BOOL)speakHumanMoves;

@@ -926,9 +926,8 @@ send_iflags(struct sess *sess, void **wb, size_t *wbsz, size_t *wbmax,
  * change) so that the sender may start working on the metadata.
  */
 static int
-send_dl_enqueue(struct sess *sess, struct send_dlq *q,
-    void **wb, size_t *wbsz, size_t *wbmax,
-    int32_t idx, struct flist *fl, size_t flsz, int fd, struct iobuf *buf,
+send_dl_enqueue(struct sess *sess, struct send_dlq *q, int32_t idx,
+    struct flist *fl, size_t flsz, int fd, struct iobuf *buf,
     struct send_dl **mdl)
 {
 	struct send_dl	*s;
@@ -1166,9 +1165,30 @@ static int
 file_deleted(void *cookie, const void *data, size_t datasz)
 {
 	struct success_ctx *sctx = cookie;
+	struct sess *sess = sctx->sess;
+	const char *fmt = "*deleting %s\n";
+	char pathbuf[datasz + 1];
+	char *path;
 
-	if (sctx->sess->itemize)
-		LOG0("*deleting %.*s\n", (int)datasz, (const char *)data);
+	assert(sess->itemize || verbose > 0);
+	assert(sess->mode == FARGS_SENDER);
+
+	memcpy(pathbuf, data, datasz);
+	path = pathbuf;
+
+	/* Directories are sent with trailing NUL.
+	 */
+	if (path[datasz - 1] == '\0')
+		fmt = "*deleting %s/\n";
+	path[datasz] = '\0';
+
+	if (!sess->itemize)
+		fmt++;
+
+	while (strncmp(path, "./", 2) == 0 && path[2] != '\0')
+		path += 2;
+
+	print_7_or_8_bit(sess, fmt, path, NULL);
 
 	return 1;
 }
@@ -1351,15 +1371,13 @@ rsync_sender(struct sess *sess, int fdin,
 	if (sess->opts->remove_source) {
 		if (!io_register_handler(IT_SUCCESS, &file_success, &sctx)) {
 			ERRX("Failed to install remove-source-files handler; exiting");
-			rc = 1;
 			goto out;
 		}
 	}
 
-	if (sess->itemize) {
+	if ((sess->itemize || verbose > 0) && !sess->opts->server) {
 		if (!io_register_handler(IT_DELETED, &file_deleted, &sctx)) {
 			ERRX("Failed to install delete handler; exiting");
-			rc = 1;
 			goto out;
 		}
 	}
@@ -1530,9 +1548,8 @@ rsync_sender(struct sess *sess, int fdin,
 				metadata_phase++;
 			}
 			assert(mdl == NULL);
-			if (!send_dl_enqueue(sess,
-			    &sdlq, &wbuf, &wbufsz, &wbufmax,
-			    idx, fl.flp, fl.sz, fdin, &rbuf, &mdl)) {
+			if (!send_dl_enqueue(sess, &sdlq, idx, fl.flp, fl.sz,
+			    fdin, &rbuf, &mdl)) {
 				ERRX1("send_dl_enqueue");
 				goto out;
 			}
@@ -1548,7 +1565,7 @@ rsync_sender(struct sess *sess, int fdin,
 				bret = sender_get_iflags(&rbuf, fl.flp, mdl);
 				if (bret < 0) {
 					ERRX1("sender_get_iflags");
-					return 0;
+					goto out;
 				} else if (bret == 0) {
 					goto check_other;
 				}
@@ -1569,7 +1586,7 @@ rsync_sender(struct sess *sess, int fdin,
 				if (mdl->dlstate != SDL_META &&
 				    mdl->blks == NULL) {
 					ERRX1("blk_recv");
-					return 0;
+					goto out;
 				}
 			}
 
@@ -1942,7 +1959,6 @@ out:
 		free(dl);
 	}
 	flist_free(fl.flp, fl.sz);
-	free(wbuf);
 	blkhash_free(up.stat.blktab);
 	cleanup_filesfrom(sess);
 
@@ -1952,12 +1968,35 @@ out:
 	 * an error message.
 	 */
 	if (sess->wbufp != NULL) {
-		if (wbufsz > 0) {
-			assert(wbufsz > wbufpos);
-			write(fdout, wbuf + wbufpos, wbufsz - wbufpos);
-		}
+		/*
+		 * Don't try to log errors over the socket anymore.
+		 */
 		sess->wbufp = NULL;
+
+		while (wbufsz > 0 && wbufpos != wbufsz) {
+			ssize_t writesz;
+
+			assert(wbufsz > wbufpos);
+			writesz = write(fdout, wbuf + wbufpos, wbufsz - wbufpos);
+			if (writesz == -1) {
+				if (errno == EINTR)
+					continue;
+
+				/*
+				 * Just stop at the first sign of problems, log
+				 * it in case we're the daemon.
+				 */
+				ERRX1("write");
+				break;
+			} else if (writesz == 0) {
+				break;
+			}
+
+			wbufpos += writesz;
+		}
 	}
+
+	free(wbuf);
 
 	return rc;
 }

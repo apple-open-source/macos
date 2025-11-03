@@ -540,7 +540,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     id retrievedKey;
     status = SecItemCopyMatching((CFDictionaryRef)copyQueryAttrs, (void *)&retrievedKey);
     XCTAssertEqual(status, errSecSuccess, @"query created key from keychain");
-    
+
     NSDictionary *deleteQueryAttrs = @{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecAttrLabel: @"SecKeyTests:testSecKeyGeneratePair",
@@ -555,5 +555,163 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     [self _generateCopyAndDeleteKeyPairAndReqirePublicKey:YES requirePrivate:YES];
 }
 
+#if TARGET_OS_OSX
+
+/// Test for rdar://156935718 - Ensure non-extractable keys cannot be exported
+- (void)testNonExtractableCDSAKeys {
+    NSString *testLabel = @"SecKeyTests:testNonExtractableKey";
+    
+    [self cleanupKeyWithLabel:testLabel];
+    
+    NSDictionary *keyParams = [self createKeyParametersWithExtractable:NO permanent:NO label:testLabel];
+    
+    NSError *error = nil;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)keyParams, (void *)&error));
+    XCTAssertNotNil(privateKey, @"Failed to create non-extractable key: %@", error);
+    XCTAssert([self isCDSAKey:privateKey], @"Expected CDSA key for this test");
+    
+    [self verifyExportFailsForKey:(SecKeyRef)privateKey expectingError:YES];
+    [self verifyKeyAttributesForKey:(SecKeyRef)privateKey isExtractable:NO];
+    
+    NSDictionary *extractableParams = [self createKeyParametersWithExtractable:YES permanent:NO label:testLabel];
+    error = nil;
+    id extractableKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)extractableParams, (void *)&error));
+    XCTAssertNotNil(extractableKey, @"Failed to create extractable key: %@", error);
+    
+    [self verifyKeyAttributesForKey:(SecKeyRef)extractableKey isExtractable:YES];
+    [self verifyExportSucceedsForKey:(SecKeyRef)extractableKey];
+    
+    [self cleanupKeyWithLabel:testLabel];
+}
+
+- (void)testNonExtractablePermanentCDSAKeys {
+    NSString *testLabel = @"SecKeyTests:testNonExtractableKeyPermanent";
+    NSString *extractableLabel = @"SecKeyTests:testNonExtractableKeyPermanentExtractable";
+    
+    [self cleanupKeyWithLabel:testLabel];
+    [self cleanupKeyWithLabel:extractableLabel];
+    
+    NSDictionary *keyParams = [self createKeyParametersWithExtractable:NO permanent:YES label:testLabel];
+    
+    NSError *error = nil;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)keyParams, (void *)&error));
+    XCTAssertNotNil(privateKey, @"Failed to create non-extractable permanent key: %@", error);
+    XCTAssert([self isCDSAKey:privateKey], @"Expected CDSA key for this test");
+    
+    [self verifyExportFailsForKey:(SecKeyRef)privateKey expectingError:YES];
+    
+    NSDictionary *retrieveQuery = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseSystemKeychain: @YES,
+        (id)kSecAttrLabel: testLabel,
+        (id)kSecReturnRef: @YES,
+    };
+    
+    id retrievedKey = nil;
+    OSStatus status = SecItemCopyMatching((CFDictionaryRef)retrieveQuery, (void *)&retrievedKey);
+    XCTAssertEqual(status, errSecSuccess, @"Failed to retrieve key from keychain");
+    XCTAssertNotNil(retrievedKey, @"Retrieved key should not be nil");
+    
+    [self verifyExportFailsForKey:(SecKeyRef)retrievedKey expectingError:YES];
+    [self verifyKeyAttributesForKey:(SecKeyRef)privateKey isExtractable:NO];
+    [self verifyKeyAttributesForKey:(SecKeyRef)retrievedKey isExtractable:NO];
+    
+    NSDictionary *extractableParams = [self createKeyParametersWithExtractable:YES permanent:YES label:extractableLabel];
+    error = nil;
+    id extractableKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)extractableParams, (void *)&error));
+    XCTAssertNotNil(extractableKey, @"Failed to create extractable key: %@", error);
+    
+    NSDictionary *extractableQuery = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseSystemKeychain: @YES,
+        (id)kSecAttrLabel: extractableLabel,
+        (id)kSecReturnRef: @YES,
+    };
+    
+    id retrievedExtractableKey = nil;
+    status = SecItemCopyMatching((CFDictionaryRef)extractableQuery, (void *)&retrievedExtractableKey);
+    XCTAssertEqual(status, errSecSuccess, @"Failed to retrieve extractable key");
+    
+    [self verifyExportSucceedsForKey:(SecKeyRef)retrievedExtractableKey];
+    
+    [self cleanupKeyWithLabel:extractableLabel];
+    [self cleanupKeyWithLabel:testLabel];
+}
+
+- (NSDictionary *)createKeyParametersWithExtractable:(BOOL)extractable permanent:(BOOL)permanent label:(NSString *)label {
+    NSDictionary *privateKeyAttrs = permanent ? @{ (id)kSecAttrIsPermanent: @YES } : @{ (id)kSecAttrIsPermanent: @NO };
+
+    return @{
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+        (id)kSecAttrKeySizeInBits: @256,
+        (id)kSecAttrIsExtractable: @(extractable),
+        (id)kSecAttrLabel: label,
+        (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
+        (id)kSecUseDataProtectionKeychain: @NO,
+        (id)kSecUseSystemKeychain: @YES,
+        (id)kSecPrivateKeyAttrs: privateKeyAttrs,
+    };
+}
+
+- (void)verifyExportFailsForKey:(SecKeyRef)key expectingError:(BOOL)expectError {
+    NSError *error = nil;
+    NSData *exportData = CFBridgingRelease(SecKeyCopyExternalRepresentation(key, (void *)&error));
+    XCTAssertNil(exportData, @"Export of non-extractable key should fail");
+    if (expectError) {
+        XCTAssertNotNil(error, @"Should have error when exporting non-extractable key");
+    }
+
+    CFDataRef itemExportData = NULL;
+    OSStatus status = SecItemExport(key, kSecFormatOpenSSL, kSecItemPemArmour, NULL, &itemExportData);
+    XCTAssertNotEqual(status, errSecSuccess, @"SecItemExport of non-extractable key should fail");
+    XCTAssertTrue(status == errSecDataNotAvailable || status == errSecParam, @"Should get errSecDataNotAvailable or errSecParam");
+    if (itemExportData) {
+        CFRelease(itemExportData);
+    }
+}
+
+- (void)verifyExportSucceedsForKey:(SecKeyRef)key {
+    NSError *error = nil;
+    NSData *exportData = CFBridgingRelease(SecKeyCopyExternalRepresentation(key, (void *)&error));
+    XCTAssertNotNil(exportData, @"Export of extractable key should succeed: %@", error);
+    XCTAssertNil(error, @"Should not have error when exporting extractable key");
+
+    CFDataRef itemExportData = NULL;
+    OSStatus status = SecItemExport(key, kSecFormatOpenSSL, kSecItemPemArmour, NULL, &itemExportData);
+    XCTAssertEqual(status, errSecSuccess, @"SecItemExport of extractable key should succeed");
+    if (itemExportData) {
+        CFRelease(itemExportData);
+    }
+}
+
+- (void)verifyKeyAttributesForKey:(SecKeyRef)key isExtractable:(BOOL)isExtractable {
+    NSDictionary *keyAttrs = CFBridgingRelease(SecKeyCopyAttributes(key));
+    XCTAssertNotNil(keyAttrs, @"Should be able to get key attributes");
+    XCTAssertEqualObjects(keyAttrs[(id)kSecAttrKeyClass], (id)kSecAttrKeyClassPrivate);
+
+    NSNumber *extractableAttr = keyAttrs[(id)kSecAttrIsExtractable];
+    XCTAssertNotNil(extractableAttr, @"Should have extractable attribute");
+    XCTAssertEqual([extractableAttr boolValue], isExtractable, @"Key extractable attribute should match expected value");
+
+    if (!isExtractable) {
+        XCTAssertNil(keyAttrs[(id)kSecValueData], @"Non-extractable key attributes should not include raw key data");
+    }
+}
+
+- (void)cleanupKeyWithLabel:(NSString *)label {
+    NSDictionary *deleteQuery = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecAttrLabel: label,
+        (id)kSecUseSystemKeychain: @YES,
+    };
+    NSDictionary *deleteQuery1 = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecAttrLabel: label,
+    };
+    SecItemDelete((CFDictionaryRef)deleteQuery);
+    SecItemDelete((CFDictionaryRef)deleteQuery1);
+}
+
+#endif
 
 @end

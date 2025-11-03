@@ -524,6 +524,7 @@ device_object_create(void)
 	device_object->dev_pgr_hdr.mo_ikot = IKOT_MEMORY_OBJECT;
 	device_object->dev_pgr_hdr.mo_pager_ops = &device_pager_ops;
 	device_object->dev_pgr_hdr.mo_control = MEMORY_OBJECT_CONTROL_NULL;
+	device_object->dev_pgr_hdr.mo_last_unmap_ctid = 0;
 
 	device_pager_lock_init(device_object);
 	os_ref_init_raw(&device_object->dev_pgr_hdr_ref, NULL);

@@ -936,7 +936,58 @@ API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_copy_tls_negotiated_group
 const char * __nullable
 sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata);
 
+/*!
+ * @enum sec_protocol_pake_scheme_t
+ *
+ * @abstract An enumeration of supported PAKE schemes for TLS.
+ */
+typedef CF_ENUM(uint16_t, sec_protocol_pake_scheme_t) {
+    sec_protocol_pake_scheme_spake2plus_v1 = 0x7d96, // SPAKE2PLUSV1 as defined in draft-bmw-tls-pake13-01
+};
+
+#define SEC_PROTOCOL_HAS_PAKE_CHALLENGE
+
 #ifdef __OBJC__
+@interface SecOfferedPAKEIdentity : NSObject
+@property (retain) NSData *client_identity;
+@property (retain) NSData *server_identity;
+@property sec_protocol_pake_scheme_t pake_scheme;
+
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithClientIdentity:(NSData * _Nullable)client_identity :(NSData * _Nullable)server_identity :(sec_protocol_pake_scheme_t)pake_scheme;
+@end
+
+/*!
+ * @block sec_protocol_pake_challenge_complete_t
+ *
+ * @abstract
+ *      Block to be invoked when a PAKE credential has been chosen.
+ *@param credential
+ *      PAKE credential selected or Nil if none chosen.
+ */
+typedef void (^sec_protocol_pake_challenge_complete_t)(sec_identity_t _Nullable pake_credential);
+
+typedef void (^sec_protocol_pake_challenge_t)(sec_protocol_metadata_t metadata, SecOfferedPAKEIdentity *offered_pake_identity, sec_protocol_pake_challenge_complete_t complete);
+
+/*!
+ * @function sec_protocol_options_set_pake_challenge_block
+ *
+ * @abstract
+ *      Set the challenge block for a server to select between offered client pak shares
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @params pake_challenge_block
+ *      A `sec_protocol_pake_challenge_t` block.
+ *
+ * @params pake_challenge_queue
+ *      A `dispatch_queue_t` on which the pake challenge block should be called.
+ */
+API_AVAILABLE(macos(26.1), ios(26.1), watchos(26.1), tvos(26.1), visionos(26.1))
+void
+sec_protocol_options_set_pake_challenge_block(sec_protocol_options_t options, sec_protocol_pake_challenge_t pake_challenge_block, dispatch_queue_t pake_challenge_queue);
+
 /*!
  * @function sec_protocol_metadata_get_sec_session_ticket_info
  *
@@ -2080,14 +2131,18 @@ struct sec_protocol_options_content {
     _Nullable CFTypeRef session_ticket_info;
     #define sec_protocol_options_content_get_session_ticket_info(options) ((__bridge SecSessionInfo*)((options)->session_ticket_info))
 
+    // external pre shared keys
     _Nullable CFTypeRef external_pre_shared_keys;
     #define sec_protocol_options_content_get_external_pre_shared_keys(options) ((__bridge NSMutableArray*)((options)->external_pre_shared_keys))
-    
     _Nullable CFTypeRef external_psk_selection_block;
     #define sec_protocol_options_content_get_external_psk_selection_block(options) ((__bridge sec_protocol_external_pre_shared_key_selection_t)((options)->external_psk_selection_block))
-
     dispatch_queue_t external_psk_selection_queue;
     unsigned enable_raw_external_pre_shared_keys : 1;
+
+    // pake challenge block (for server)
+    _Nullable CFTypeRef pake_challenge_block;
+    #define sec_protocol_options_content_get_pake_challenge_block(options) ((__bridge sec_protocol_pake_challenge_t)((options)->pake_challenge_block))
+    dispatch_queue_t pake_challenge_queue;
 };
 
 /*

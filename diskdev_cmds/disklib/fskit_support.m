@@ -43,10 +43,34 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
             NSString            *shortName;
     __block FSModuleIdentity    *module;
     __block NSError             *error;
+            const char          *sudo_uid;
 
     if ([FSClient class] == nil) {
         // FSKit not present. Perhaps we are on an OS without it (darwin?)
         return ENOTSUP;
+    }
+
+    if ((sudo_uid = getenv("SUDO_UID")) != NULL && getuid() == 0) {
+        /*
+         * $SUDO_UID is set. It is the UID of the user which most-recently ran `sudo`.
+         * If this is true AND we are real_uid == 0 (root) and the value of sudo_uid is > 0,
+         * try to adjust our permissions so that it looks like our command was run as a
+         * setuid-root command. When this succeeds, our real_uid will be sudo_uid and our
+         * effective uid will be root. fskitd will then open devices as our effective uid
+         * and find modules as our real uid.
+         *
+         * We try this only when we are root as only root can play uid games.
+         */
+        u_long  temp;
+
+        errno = 0;
+        temp = strtoul(sudo_uid, NULL, 0); // Don't particularly care what the base is
+        if (errno == 0 && temp <= UINT32_MAX) {
+            // We got a value we can shove into a uid_t, so use it
+
+            // Now change our real id.
+            setreuid((uid_t)temp, -1);
+        }
     }
 
 #pragma mark - Find Extension

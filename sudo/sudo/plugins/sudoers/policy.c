@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2024 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -31,12 +31,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
 
-#include "sudoers.h"
-#include "sudoers_version.h"
-#include "interfaces.h"
+#include <sudoers.h>
+#include <sudoers_version.h>
+#include <timestamp.h>
+#include <interfaces.h>
+#include "auth/sudo_auth.h"
 
 static char **command_info;
 
@@ -54,19 +57,13 @@ static const char *interfaces_string;
 sudo_conv_t sudo_conv;
 sudo_printf_t sudo_printf;
 struct sudo_plugin_event * (*plugin_event_alloc)(void);
-const char *path_ldap_conf = _PATH_LDAP_CONF;
-const char *path_ldap_secret = _PATH_LDAP_SECRET;
+static const char *path_sudoers = _PATH_SUDOERS;
 static bool session_opened;
-int sudoedit_nfiles;
 
 extern sudo_dso_public struct policy_plugin sudoers_policy;
 
-#ifdef HAVE_BSD_AUTH_H
-char *login_style;
-#endif /* HAVE_BSD_AUTH_H */
-
 static int
-parse_bool(const char *line, int varlen, int *flags, int fval)
+parse_bool(const char *line, int varlen, unsigned int *flags, unsigned int fval)
 {
     debug_decl(parse_bool, SUDOERS_DEBUG_PLUGIN);
 
@@ -92,17 +89,19 @@ parse_bool(const char *line, int varlen, int *flags, int fval)
 
 /*
  * Deserialize args, settings and user_info arrays.
- * Fills in struct sudo_user and other common sudoers state.
+ * Fills in struct sudoers_user_context and other common sudoers state.
  */
-int
-sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
+unsigned int
+sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
+    struct defaults_list *defaults)
 {
-    struct sudoers_open_info *info = v;
     const char *p, *errstr, *groups = NULL;
+    struct sudoers_open_info *info = v;
+    unsigned int flags = MODE_UPDATE_TICKET;
+    const char *host = NULL;
     const char *remhost = NULL;
     unsigned char uuid[16];
     char * const *cur;
-    int flags = MODE_UPDATE_TICKET;
     debug_decl(sudoers_policy_deserialize_info, SUDOERS_DEBUG_PLUGIN);
 
 #define MATCHES(s, v)	\
@@ -120,16 +119,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
     } \
 } while (0)
 
-    if (sudo_gettime_real(&sudo_user.submit_time) == -1) {
-	sudo_warn("%s", U_("unable to get time of day"));
-	goto bad;
-    }
-
     /* Parse sudo.conf plugin args. */
-    sudoers_file = _PATH_SUDOERS;
-    sudoers_mode = SUDOERS_MODE;
-    sudoers_uid = SUDOERS_UID;
-    sudoers_gid = SUDOERS_GID;
     if (info->plugin_args != NULL) {
 	for (cur = info->plugin_args; *cur != NULL; cur++) {
 	    if (MATCHES(*cur, "error_recovery=")) {
@@ -137,18 +127,27 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 		if (val == -1) {
 		    INVALID("error_recovery=");	/* Not a fatal error. */
 		} else {
-		    sudoers_recovery = val;
+		    ctx->parser_conf.recovery = val;
+		}
+		continue;
+	    }
+	    if (MATCHES(*cur, "ignore_perms=")) {
+		int val = sudo_strtobool(*cur + sizeof("ignore_perms=") - 1);
+		if (val == -1) {
+		    INVALID("ignore_perms=");	/* Not a fatal error. */
+		} else {
+		    ctx->parser_conf.ignore_perms = val;
 		}
 		continue;
 	    }
 	    if (MATCHES(*cur, "sudoers_file=")) {
 		CHECK(*cur, "sudoers_file=");
-		sudoers_file = *cur + sizeof("sudoers_file=") - 1;
+		path_sudoers = *cur + sizeof("sudoers_file=") - 1;
 		continue;
 	    }
 	    if (MATCHES(*cur, "sudoers_uid=")) {
 		p = *cur + sizeof("sudoers_uid=") - 1;
-		sudoers_uid = (uid_t) sudo_strtoid(p, &errstr);
+		ctx->parser_conf.sudoers_uid = (uid_t)sudo_strtoid(p, &errstr);
 		if (errstr != NULL) {
 		    sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		    goto bad;
@@ -157,7 +156,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	    }
 	    if (MATCHES(*cur, "sudoers_gid=")) {
 		p = *cur + sizeof("sudoers_gid=") - 1;
-		sudoers_gid = (gid_t) sudo_strtoid(p, &errstr);
+		ctx->parser_conf.sudoers_gid = (gid_t)sudo_strtoid(p, &errstr);
 		if (errstr != NULL) {
 		    sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		    goto bad;
@@ -166,7 +165,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	    }
 	    if (MATCHES(*cur, "sudoers_mode=")) {
 		p = *cur + sizeof("sudoers_mode=") - 1;
-		sudoers_mode = sudo_strtomode(p, &errstr);
+		ctx->parser_conf.sudoers_mode = sudo_strtomode(p, &errstr);
 		if (errstr != NULL) {
 		    sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		    goto bad;
@@ -175,28 +174,28 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	    }
 	    if (MATCHES(*cur, "ldap_conf=")) {
 		CHECK(*cur, "ldap_conf=");
-		path_ldap_conf = *cur + sizeof("ldap_conf=") - 1;
+		ctx->settings.ldap_conf = *cur + sizeof("ldap_conf=") - 1;
 		continue;
 	    }
 	    if (MATCHES(*cur, "ldap_secret=")) {
 		CHECK(*cur, "ldap_secret=");
-		path_ldap_secret = *cur + sizeof("ldap_secret=") - 1;
+		ctx->settings.ldap_secret = *cur + sizeof("ldap_secret=") - 1;
 		continue;
 	    }
 	}
     }
+    ctx->parser_conf.sudoers_path = path_sudoers;
 
     /* Parse command line settings. */
-    sudo_user.flags = 0;
-    user_closefrom = -1;
-    sudoedit_nfiles = 0;
-    sudo_mode = 0;
+    ctx->settings.flags = 0;
+    ctx->user.closefrom = -1;
+    ctx->sudoedit_nfiles = 0;
+    ctx->mode = 0;
     for (cur = info->settings; *cur != NULL; cur++) {
 	if (MATCHES(*cur, "closefrom=")) {
-	    errno = 0;
 	    p = *cur + sizeof("closefrom=") - 1;
-	    user_closefrom = sudo_strtonum(p, 3, INT_MAX, &errstr);
-	    if (user_closefrom == 0) {
+	    ctx->user.closefrom = (int)sudo_strtonum(p, 3, INT_MAX, &errstr);
+	    if (ctx->user.closefrom == 0) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
 	    }
@@ -204,8 +203,8 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "cmnd_chroot=")) {
 	    CHECK(*cur, "cmnd_chroot=");
-	    user_runchroot = *cur + sizeof("cmnd_chroot=") - 1;
-	    if (strlen(user_runchroot) >= PATH_MAX) {
+	    ctx->runas.chroot = *cur + sizeof("cmnd_chroot=") - 1;
+	    if (strlen(ctx->runas.chroot) >= PATH_MAX) {
 		sudo_warnx(U_("path name for \"%s\" too long"), "cmnd_chroot");
 		goto bad;
 	    }
@@ -213,8 +212,8 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "cmnd_cwd=")) {
 	    CHECK(*cur, "cmnd_cwd=");
-	    user_runcwd = *cur + sizeof("cmnd_cwd=") - 1;
-	    if (strlen(user_runcwd) >= PATH_MAX) {
+	    ctx->runas.cwd = *cur + sizeof("cmnd_cwd=") - 1;
+	    if (strlen(ctx->runas.cwd) >= PATH_MAX) {
 		sudo_warnx(U_("path name for \"%s\" too long"), "cmnd_cwd");
 		goto bad;
 	    }
@@ -222,19 +221,19 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "runas_user=")) {
 	    CHECK(*cur, "runas_user=");
-	    sudo_user.runas_user = *cur + sizeof("runas_user=") - 1;
-	    SET(sudo_user.flags, RUNAS_USER_SPECIFIED);
+	    ctx->runas.user = *cur + sizeof("runas_user=") - 1;
+	    SET(ctx->settings.flags, RUNAS_USER_SPECIFIED);
 	    continue;
 	}
 	if (MATCHES(*cur, "runas_group=")) {
 	    CHECK(*cur, "runas_group=");
-	    sudo_user.runas_group = *cur + sizeof("runas_group=") - 1;
-	    SET(sudo_user.flags, RUNAS_GROUP_SPECIFIED);
+	    ctx->runas.group = *cur + sizeof("runas_group=") - 1;
+	    SET(ctx->settings.flags, RUNAS_GROUP_SPECIFIED);
 	    continue;
 	}
 	if (MATCHES(*cur, "prompt=")) {
-	    /* Allow epmpty prompt. */
-	    user_prompt = *cur + sizeof("prompt=") - 1;
+	    /* Allow empty prompt. */
+	    ctx->user.prompt = *cur + sizeof("prompt=") - 1;
 	    if (!append_default("passprompt_override", NULL, true, NULL, defaults))
 		goto oom;
 	    continue;
@@ -301,55 +300,44 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "login_class=")) {
 	    CHECK(*cur, "login_class=");
-	    login_class = *cur + sizeof("login_class=") - 1;
+	    ctx->runas.class = *cur + sizeof("login_class=") - 1;
 	    if (!append_default("use_loginclass", NULL, true, NULL, defaults))
 		goto oom;
 	    continue;
 	}
 	if (MATCHES(*cur, "intercept_ptrace=")) {
-	    if (parse_bool(*cur, sizeof("intercept_ptrace") - 1, &sudo_user.flags,
+	    if (parse_bool(*cur, sizeof("intercept_ptrace") - 1, &ctx->settings.flags,
 		    HAVE_INTERCEPT_PTRACE) == -1)
 		goto bad;
 	    continue;
 	}
 	if (MATCHES(*cur, "intercept_setid=")) {
-	    if (parse_bool(*cur, sizeof("intercept_setid") - 1, &sudo_user.flags,
+	    if (parse_bool(*cur, sizeof("intercept_setid") - 1, &ctx->settings.flags,
 		    CAN_INTERCEPT_SETID) == -1)
 		goto bad;
 	    continue;
 	}
-#ifdef HAVE_SELINUX
 	if (MATCHES(*cur, "selinux_role=")) {
 	    CHECK(*cur, "selinux_role=");
-	    free(user_role);
-	    user_role = strdup(*cur + sizeof("selinux_role=") - 1);
-	    if (user_role == NULL)
+	    free(ctx->runas.role);
+	    ctx->runas.role = strdup(*cur + sizeof("selinux_role=") - 1);
+	    if (ctx->runas.role == NULL)
 		goto oom;
 	    continue;
 	}
 	if (MATCHES(*cur, "selinux_type=")) {
 	    CHECK(*cur, "selinux_type=");
-	    free(user_type);
-	    user_type = strdup(*cur + sizeof("selinux_type=") - 1);
-	    if (user_type == NULL)
+	    free(ctx->runas.type);
+	    ctx->runas.type = strdup(*cur + sizeof("selinux_type=") - 1);
+	    if (ctx->runas.type == NULL)
 		goto oom;
 	    continue;
 	}
-#endif /* HAVE_SELINUX */
-#ifdef HAVE_APPARMOR
-	if (MATCHES(*cur, "apparmor_profile=")) {
-	    CHECK(*cur, "apparmor_profile=");
-	    free(user_apparmor_profile);
-	    user_apparmor_profile = strdup(*cur + sizeof("apparmor_profile=") - 1);
-	    if (user_apparmor_profile == NULL)
-		goto oom;
-	    continue;
-	}
-#endif /* HAVE_APPARMOR */
 #ifdef HAVE_BSD_AUTH_H
 	if (MATCHES(*cur, "bsdauth_type=")) {
 	    CHECK(*cur, "bsdauth_type=");
-	    login_style = *cur + sizeof("bsdauth_type=") - 1;
+	    p = *cur + sizeof("bsdauth_type=") - 1;
+	    bsdauth_set_style(p);
 	    continue;
 	}
 #endif /* HAVE_BSD_AUTH_H */
@@ -362,13 +350,14 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	    continue;
 	}
 	if (MATCHES(*cur, "max_groups=")) {
-	    errno = 0;
+	    int max_groups;
 	    p = *cur + sizeof("max_groups=") - 1;
-	    sudo_user.max_groups = sudo_strtonum(p, 1, 1024, &errstr);
-	    if (sudo_user.max_groups == 0) {
+	    max_groups = (int)sudo_strtonum(p, 1, 1024, &errstr);
+	    if (max_groups == 0) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
 	    }
+	    sudo_pwutil_set_max_groups(max_groups);
 	    continue;
 	}
 	if (MATCHES(*cur, "remote_host=")) {
@@ -378,8 +367,8 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "timeout=")) {
 	    p = *cur + sizeof("timeout=") - 1;
-	    user_timeout = parse_timeout(p);
-	    if (user_timeout == -1) {
+	    ctx->user.timeout = parse_timeout(p);
+	    if (ctx->user.timeout == -1) {
 		if (errno == ERANGE)
 		    sudo_warnx(U_("%s: %s"), p, U_("timeout value too large"));
 		else
@@ -397,7 +386,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 #ifdef ENABLE_SUDO_PLUGIN_API
 	if (MATCHES(*cur, "plugin_dir=")) {
 	    CHECK(*cur, "plugin_dir=");
-	    path_plugin_dir = *cur + sizeof("plugin_dir=") - 1;
+	    ctx->settings.plugin_dir = *cur + sizeof("plugin_dir=") - 1;
 	    continue;
 	}
 #endif
@@ -406,20 +395,39 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
     if (ISSET(flags, MODE_IGNORE_TICKET))
 	CLR(flags, MODE_UPDATE_TICKET);
 
-    user_gid = (gid_t)-1;
-    user_uid = (gid_t)-1;
-    user_umask = (mode_t)-1;
+    ctx->user.gid = (gid_t)-1;
+    ctx->user.uid = (gid_t)-1;
+    ctx->user.umask = (mode_t)-1;
+    ctx->user.ttydev = NODEV;
     for (cur = info->user_info; *cur != NULL; cur++) {
 	if (MATCHES(*cur, "user=")) {
 	    CHECK(*cur, "user=");
-	    free(user_name);
-	    if ((user_name = strdup(*cur + sizeof("user=") - 1)) == NULL)
+	    free(ctx->user.name);
+	    if ((ctx->user.name = strdup(*cur + sizeof("user=") - 1)) == NULL)
 		goto oom;
+	    continue;
+	}
+	if (MATCHES(*cur, "euid=")) {
+	    p = *cur + sizeof("euid=") - 1;
+	    ctx->user.euid = (uid_t) sudo_strtoid(p, &errstr);
+	    if (errstr != NULL) {
+		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
+		goto bad;
+	    }
 	    continue;
 	}
 	if (MATCHES(*cur, "uid=")) {
 	    p = *cur + sizeof("uid=") - 1;
-	    user_uid = (uid_t) sudo_strtoid(p, &errstr);
+	    ctx->user.uid = (uid_t) sudo_strtoid(p, &errstr);
+	    if (errstr != NULL) {
+		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
+		goto bad;
+	    }
+	    continue;
+	}
+	if (MATCHES(*cur, "egid=")) {
+	    p = *cur + sizeof("egid=") - 1;
+	    ctx->user.egid = (gid_t) sudo_strtoid(p, &errstr);
 	    if (errstr != NULL) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
@@ -428,7 +436,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "gid=")) {
 	    p = *cur + sizeof("gid=") - 1;
-	    user_gid = (gid_t) sudo_strtoid(p, &errstr);
+	    ctx->user.gid = (gid_t) sudo_strtoid(p, &errstr);
 	    if (errstr != NULL) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
@@ -442,52 +450,75 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "cwd=")) {
 	    CHECK(*cur, "cwd=");
-	    free(user_cwd);
-	    if ((user_cwd = strdup(*cur + sizeof("cwd=") - 1)) == NULL)
+	    free(ctx->user.cwd);
+	    if ((ctx->user.cwd = strdup(*cur + sizeof("cwd=") - 1)) == NULL)
 		goto oom;
 	    continue;
 	}
 	if (MATCHES(*cur, "tty=")) {
 	    CHECK(*cur, "tty=");
-	    free(user_ttypath);
-	    if ((user_ttypath = strdup(*cur + sizeof("tty=") - 1)) == NULL)
+	    free(ctx->user.ttypath);
+	    if ((ctx->user.ttypath = strdup(*cur + sizeof("tty=") - 1)) == NULL)
 		goto oom;
-	    user_tty = user_ttypath;
-	    if (strncmp(user_tty, _PATH_DEV, sizeof(_PATH_DEV) - 1) == 0)
-		user_tty += sizeof(_PATH_DEV) - 1;
+	    ctx->user.tty = ctx->user.ttypath;
+	    if (strncmp(ctx->user.tty, _PATH_DEV, sizeof(_PATH_DEV) - 1) == 0)
+		ctx->user.tty += sizeof(_PATH_DEV) - 1;
+	    continue;
+	}
+	if (MATCHES(*cur, "ttydev=")) {
+	    long long llval;
+
+	    /*
+	     * dev_t can be signed or unsigned.  The front-end formats it
+	     * as long long (signed).  We allow the full range of values
+	     * which should work with either signed or unsigned dev_t.
+	     */
+	    p = *cur + sizeof("ttydev=") - 1;
+	    llval = sudo_strtonum(p, LLONG_MIN, LLONG_MAX, &errstr);
+	    if (errstr != NULL) {
+		/* Front end bug?  Not a fatal error. */
+		INVALID("ttydev=");
+		continue;
+	    }
+	    ctx->user.ttydev = (dev_t)llval;
 	    continue;
 	}
 	if (MATCHES(*cur, "host=")) {
 	    CHECK(*cur, "host=");
-	    if (user_shost != user_host)
-		free(user_shost);
-	    free(user_host);
-	    if ((user_host = strdup(*cur + sizeof("host=") - 1)) == NULL)
-		goto oom;
-	    if ((p = strchr(user_host, '.')) != NULL) {
-		user_shost = strndup(user_host, (size_t)(p - user_host));
-		if (user_shost == NULL)
-		    goto oom;
-	    } else {
-		user_shost = user_host;
-	    }
+	    host = *cur + sizeof("host=") - 1;
 	    continue;
 	}
 	if (MATCHES(*cur, "lines=")) {
-	    errno = 0;
 	    p = *cur + sizeof("lines=") - 1;
-	    sudo_user.lines = sudo_strtonum(p, 1, INT_MAX, &errstr);
-	    if (sudo_user.lines == 0) {
+	    ctx->user.lines = (int)sudo_strtonum(p, 1, INT_MAX, &errstr);
+	    if (ctx->user.lines == 0) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
 	    }
 	    continue;
 	}
 	if (MATCHES(*cur, "cols=")) {
-	    errno = 0;
 	    p = *cur + sizeof("cols=") - 1;
-	    sudo_user.cols = sudo_strtonum(p, 1, INT_MAX, &errstr);
-	    if (sudo_user.cols == 0) {
+	    ctx->user.cols = (int)sudo_strtonum(p, 1, INT_MAX, &errstr);
+	    if (ctx->user.cols == 0) {
+		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
+		goto bad;
+	    }
+	    continue;
+	}
+	if (MATCHES(*cur, "pid=")) {
+	    p = *cur + sizeof("pid=") - 1;
+	    ctx->user.pid = (pid_t) sudo_strtoid(p, &errstr);
+	    if (errstr != NULL) {
+		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
+		goto bad;
+	    }
+	    continue;
+	}
+	if (MATCHES(*cur, "ppid=")) {
+	    p = *cur + sizeof("ppid=") - 1;
+	    ctx->user.ppid = (pid_t) sudo_strtoid(p, &errstr);
+	    if (errstr != NULL) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
 	    }
@@ -495,7 +526,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "sid=")) {
 	    p = *cur + sizeof("sid=") - 1;
-	    user_sid = (pid_t) sudo_strtoid(p, &errstr);
+	    ctx->user.sid = (pid_t) sudo_strtoid(p, &errstr);
 	    if (errstr != NULL) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
@@ -504,7 +535,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "tcpgid=")) {
 	    p = *cur + sizeof("tcpgid=") - 1;
-	    user_tcpgid = (pid_t) sudo_strtoid(p, &errstr);
+	    ctx->user.tcpgid = (pid_t) sudo_strtoid(p, &errstr);
 	    if (errstr != NULL) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
@@ -513,7 +544,7 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	}
 	if (MATCHES(*cur, "umask=")) {
 	    p = *cur + sizeof("umask=") - 1;
-	    sudo_user.umask = sudo_strtomode(p, &errstr);
+	    ctx->user.umask = sudo_strtomode(p, &errstr);
 	    if (errstr != NULL) {
 		sudo_warnx(U_("%s: %s"), *cur, U_(errstr));
 		goto bad;
@@ -523,60 +554,61 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
     }
 
     /* User name, user-ID, group-ID and host name must be specified. */
-    if (user_name == NULL) {
+    if (ctx->user.name == NULL) {
 	sudo_warnx("%s", U_("user name not set by sudo front-end"));
 	goto bad;
     }
-    if (user_uid == (uid_t)-1) {
+    if (ctx->user.uid == (uid_t)-1) {
 	sudo_warnx("%s", U_("user-ID not set by sudo front-end"));
 	goto bad;
     }
-    if (user_gid == (gid_t)-1) {
+    if (ctx->user.gid == (gid_t)-1) {
 	sudo_warnx("%s", U_("group-ID not set by sudo front-end"));
 	goto bad;
     }
-    if (user_host == NULL) {
+    if (host == NULL) {
 	sudo_warnx("%s", U_("host name not set by sudo front-end"));
 	goto bad;
     }
 
-    if (user_srunhost != user_runhost)
-	free(user_srunhost);
-    free(user_runhost);
-    if ((user_runhost = strdup(remhost ? remhost : user_host)) == NULL)
-	goto oom;
-    if ((p = strchr(user_runhost, '.')) != NULL) {
-	user_srunhost = strndup(user_runhost, (size_t)(p - user_runhost));
-	if (user_srunhost == NULL)
-	    goto oom;
-    } else {
-	user_srunhost = user_runhost;
+    if (!sudoers_sethost(ctx, host, remhost)) {
+	/* sudoers_sethost() will print a warning on error. */
+	goto bad;
     }
-    if (user_cwd == NULL) {
-	if ((user_cwd = strdup("unknown")) == NULL)
+    if (ctx->user.tty == NULL) {
+	if ((ctx->user.tty = strdup("unknown")) == NULL)
 	    goto oom;
-    }
-    if (user_runcwd == NULL) {
-	/* Unlike user_cwd, user_runcwd is not free()d. */
-	user_runcwd = user_cwd;
-    }
-    if (user_tty == NULL) {
-	if ((user_tty = strdup("unknown")) == NULL)
-	    goto oom;
-	/* user_ttypath remains NULL */
+	/* ctx->user.ttypath remains NULL */
     }
 
-    if (groups != NULL) {
+    ctx->user.pw = sudo_getpwnam(ctx->user.name);
+    if (ctx->user.pw != NULL && groups != NULL) {
 	/* sudo_parse_gids() will print a warning on error. */
-	user_ngids = sudo_parse_gids(groups, &user_gid, &user_gids);
-	if (user_ngids == -1)
+	GETGROUPS_T *gids;
+	int ngids = sudo_parse_gids(groups, &ctx->user.gid, &gids);
+	if (ngids == -1)
 	    goto bad;
+
+	/* sudo_set_gidlist will adopt gids[] */
+	if (sudo_set_gidlist(ctx->user.pw, ngids, gids, NULL, ENTRY_TYPE_FRONTEND) == -1) {
+	    free(gids);
+	    goto bad;
+	}
+    }
+
+    /* ttydev is only set in user_info[] for API 1.22 and above. */
+    if (ctx->user.ttydev == NODEV && ctx->user.ttypath != NULL) {
+	struct stat sb;
+	if (stat(ctx->user.ttypath, &sb) == 0)
+	    ctx->user.ttydev = sb.st_rdev;
+	else
+	    sudo_warn("%s", ctx->user.ttypath);
     }
 
     /* umask is only set in user_info[] for API 1.10 and above. */
-    if (user_umask == (mode_t)-1) {
-	user_umask = umask(0);
-	umask(user_umask);
+    if (ctx->user.umask == (mode_t)-1) {
+	ctx->user.umask = umask(0);
+	umask(ctx->user.umask);
     }
 
     /* Always reset the environment for a login shell. */
@@ -584,11 +616,11 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 	def_env_reset = true;
 
     /* Some systems support fexecve() which we use for digest matches. */
-    cmnd_fd = -1;
+    ctx->runas.execfd = -1;
 
     /* Create a UUID to store in the event log. */
     sudo_uuid_create(uuid);
-    if (sudo_uuid_to_string(uuid, sudo_user.uuid_str, sizeof(sudo_user.uuid_str)) == NULL) {
+    if (sudo_uuid_to_string(uuid, ctx->uuid_str, sizeof(ctx->uuid_str)) == NULL) {
 	sudo_warnx("%s", U_("unable to generate UUID"));
 	goto bad;
     }
@@ -597,17 +629,17 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
      * Set intercept defaults based on flags set above.
      * We pass -1 as the operator to indicate it is set by the front end.
      */
-    if (ISSET(sudo_user.flags, HAVE_INTERCEPT_PTRACE)) {
+    if (ISSET(ctx->settings.flags, HAVE_INTERCEPT_PTRACE)) {
 	if (!append_default("intercept_type", "trace", -1, NULL, defaults))
 	    goto oom;
     }
-    if (ISSET(sudo_user.flags, CAN_INTERCEPT_SETID)) {
+    if (ISSET(ctx->settings.flags, CAN_INTERCEPT_SETID)) {
 	if (!append_default("intercept_allow_setid", NULL, -1, NULL, defaults))
 	    goto oom;
     }
 
 #ifdef NO_ROOT_MAILER
-    eventlog_set_mailuid(user_uid);
+    eventlog_set_mailuid(ctx->user.uid);
 #endif
 
     /* Dump settings and user info (XXX - plugin args) */
@@ -619,12 +651,12 @@ sudoers_policy_deserialize_info(void *v, struct defaults_list *defaults)
 #undef MATCHES
 #undef INVALID
 #undef CHECK
-    debug_return_int(flags);
+    debug_return_uint(flags);
 
 oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 bad:
-    debug_return_int(MODE_ERROR);
+    debug_return_uint(MODE_ERROR);
 }
 
 /*
@@ -634,11 +666,11 @@ bad:
  * Returns true on success, else false.
  */
 bool
-sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
-    mode_t cmnd_umask, char *iolog_path, void *v)
+sudoers_policy_store_result(struct sudoers_context *ctx, bool accepted,
+    char *argv[], char *envp[], mode_t cmnd_umask, char *iolog_path, void *v)
 {
     struct sudoers_exec_args *exec_args = v;
-    int info_len = 0;
+    unsigned int info_len = 0;
     debug_decl(sudoers_policy_store_result, SUDOERS_DEBUG_PLUGIN);
 
     if (exec_args == NULL)
@@ -654,12 +686,12 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
     }
 
     /* Increase the length of command_info as needed, it is *not* checked. */
-    command_info = calloc(73, sizeof(char *));
+    command_info = calloc(74, sizeof(char *));
     if (command_info == NULL)
 	goto oom;
 
-    if (safe_cmnd != NULL) {
-	command_info[info_len] = sudo_new_key_val("command", safe_cmnd);
+    if (ctx->runas.cmnd != NULL) {
+	command_info[info_len] = sudo_new_key_val("command", ctx->runas.cmnd);
 	if (command_info[info_len++] == NULL)
 	    goto oom;
     }
@@ -713,12 +745,12 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
 		goto oom;
 	}
     }
-    if (ISSET(sudo_mode, MODE_EDIT)) {
+    if (ISSET(ctx->mode, MODE_EDIT)) {
 	if ((command_info[info_len++] = strdup("sudoedit=true")) == NULL)
 	    goto oom;
-	if (sudoedit_nfiles > 0) {
+	if (ctx->sudoedit_nfiles > 0) {
 	    if (asprintf(&command_info[info_len++], "sudoedit_nfiles=%d",
-		sudoedit_nfiles) == -1)
+		ctx->sudoedit_nfiles) == -1)
 		goto oom;
 	}
 	if (!def_sudoedit_checkdir) {
@@ -731,47 +763,47 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
 	}
     }
     if (def_runcwd && strcmp(def_runcwd, "*") != 0) {
-	/* Set cwd to explicit value in sudoers. */
-	if (!expand_tilde(&def_runcwd, runas_pw->pw_name)) {
+	/* Set cwd to explicit value (sudoers or user-specified). */
+	if (!expand_tilde(&def_runcwd, ctx->runas.pw->pw_name)) {
 	    sudo_warnx(U_("invalid working directory: %s"), def_runcwd);
 	    goto bad;
 	}
 	if ((command_info[info_len++] = sudo_new_key_val("cwd", def_runcwd)) == NULL)
 	    goto oom;
-    } else if (ISSET(sudo_mode, MODE_LOGIN_SHELL)) {
+    } else if (ISSET(ctx->mode, MODE_LOGIN_SHELL)) {
 	/* Set cwd to run user's homedir. */
-	if ((command_info[info_len++] = sudo_new_key_val("cwd", runas_pw->pw_dir)) == NULL)
+	if ((command_info[info_len++] = sudo_new_key_val("cwd", ctx->runas.pw->pw_dir)) == NULL)
 	    goto oom;
 	if ((command_info[info_len++] = strdup("cwd_optional=true")) == NULL)
 	    goto oom;
     }
-    if ((command_info[info_len++] = sudo_new_key_val("runas_user", runas_pw->pw_name)) == NULL)
+    if ((command_info[info_len++] = sudo_new_key_val("runas_user", ctx->runas.pw->pw_name)) == NULL)
 	goto oom;
-    if (runas_gr != NULL) {
-	if ((command_info[info_len++] = sudo_new_key_val("runas_group", runas_gr->gr_name)) == NULL)
+    if (ctx->runas.gr != NULL) {
+	if ((command_info[info_len++] = sudo_new_key_val("runas_group", ctx->runas.gr->gr_name)) == NULL)
 	    goto oom;
     }
     if (def_stay_setuid) {
 	if (asprintf(&command_info[info_len++], "runas_uid=%u",
-	    (unsigned int)user_uid) == -1)
+	    (unsigned int)ctx->user.uid) == -1)
 	    goto oom;
 	if (asprintf(&command_info[info_len++], "runas_gid=%u",
-	    (unsigned int)user_gid) == -1)
+	    (unsigned int)ctx->user.gid) == -1)
 	    goto oom;
 	if (asprintf(&command_info[info_len++], "runas_euid=%u",
-	    (unsigned int)runas_pw->pw_uid) == -1)
+	    (unsigned int)ctx->runas.pw->pw_uid) == -1)
 	    goto oom;
 	if (asprintf(&command_info[info_len++], "runas_egid=%u",
-	    runas_gr ? (unsigned int)runas_gr->gr_gid :
-	    (unsigned int)runas_pw->pw_gid) == -1)
+	    ctx->runas.gr ? (unsigned int)ctx->runas.gr->gr_gid :
+	    (unsigned int)ctx->runas.pw->pw_gid) == -1)
 	    goto oom;
     } else {
 	if (asprintf(&command_info[info_len++], "runas_uid=%u",
-	    (unsigned int)runas_pw->pw_uid) == -1)
+	    (unsigned int)ctx->runas.pw->pw_uid) == -1)
 	    goto oom;
 	if (asprintf(&command_info[info_len++], "runas_gid=%u",
-	    runas_gr ? (unsigned int)runas_gr->gr_gid :
-	    (unsigned int)runas_pw->pw_gid) == -1)
+	    ctx->runas.gr ? (unsigned int)ctx->runas.gr->gr_gid :
+	    (unsigned int)ctx->runas.pw->pw_gid) == -1)
 	    goto oom;
     }
     if (def_preserve_groups) {
@@ -785,11 +817,11 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
 	struct gid_list *gidlist;
 
 	/* Only use results from a group db query, not the front end. */
-	gidlist = sudo_get_gidlist(runas_pw, ENTRY_TYPE_QUERIED);
+	gidlist = sudo_get_gidlist(ctx->runas.pw, ENTRY_TYPE_QUERIED);
 
 	/* We reserve an extra spot in the list for the effective gid. */
 	glsize = sizeof("runas_groups=") - 1 +
-	    ((gidlist->ngids + 1) * (MAX_UID_T_LEN + 1));
+	    (((size_t)gidlist->ngids + 1) * (STRLEN_MAX_UNSIGNED(gid_t) + 1));
 	gid_list = malloc(glsize);
 	if (gid_list == NULL) {
 	    sudo_gidlist_delref(gidlist);
@@ -797,29 +829,32 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
 	}
 	memcpy(gid_list, "runas_groups=", sizeof("runas_groups=") - 1);
 	cp = gid_list + sizeof("runas_groups=") - 1;
+	glsize -= (size_t)(cp - gid_list);
 
 	/* On BSD systems the effective gid is the first group in the list. */
-	egid = runas_gr ? (unsigned int)runas_gr->gr_gid :
-	    (unsigned int)runas_pw->pw_gid;
-	len = snprintf(cp, glsize - (cp - gid_list), "%u", (unsigned int)egid);
-	if (len < 0 || (size_t)len >= glsize - (cp - gid_list)) {
+	egid = ctx->runas.gr ? (unsigned int)ctx->runas.gr->gr_gid :
+	    (unsigned int)ctx->runas.pw->pw_gid;
+	len = snprintf(cp, glsize, "%u", (unsigned int)egid);
+	if (len < 0 || (size_t)len >= glsize) {
 	    sudo_warnx(U_("internal error, %s overflow"), __func__);
 	    free(gid_list);
 	    sudo_gidlist_delref(gidlist);
 	    goto bad;
 	}
 	cp += len;
+	glsize -= (size_t)len;
 	for (i = 0; i < gidlist->ngids; i++) {
 	    if (gidlist->gids[i] != egid) {
-		len = snprintf(cp, glsize - (cp - gid_list), ",%u",
-		     (unsigned int) gidlist->gids[i]);
-		if (len < 0 || (size_t)len >= glsize - (cp - gid_list)) {
+		len = snprintf(cp, glsize, ",%u",
+		     (unsigned int)gidlist->gids[i]);
+		if (len < 0 || (size_t)len >= glsize) {
 		    sudo_warnx(U_("internal error, %s overflow"), __func__);
 		    free(gid_list);
 		    sudo_gidlist_delref(gidlist);
 		    goto bad;
 		}
 		cp += len;
+		glsize -= (size_t)len;
 	    }
 	}
 	command_info[info_len++] = gid_list;
@@ -862,7 +897,7 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
 	    goto oom;
     }
     if (def_utmp_runas) {
-	if ((command_info[info_len++] = sudo_new_key_val("utmp_user", runas_pw->pw_name)) == NULL)
+	if ((command_info[info_len++] = sudo_new_key_val("utmp_user", ctx->runas.pw->pw_name)) == NULL)
 	    goto oom;
     }
     if (def_iolog_mode != (S_IRUSR|S_IWUSR)) {
@@ -908,15 +943,15 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
             goto oom;
     }
 
-    if (def_command_timeout > 0 || user_timeout > 0) {
-	int timeout = user_timeout;
+    if (def_command_timeout > 0 || ctx->user.timeout > 0) {
+	int timeout = ctx->user.timeout;
     if (timeout == 0 || (def_command_timeout > 0 && def_command_timeout < timeout))
 	    timeout = def_command_timeout;
 	if (asprintf(&command_info[info_len++], "timeout=%u", timeout) == -1)
 	    goto oom;
     }
     if (def_runchroot != NULL && strcmp(def_runchroot, "*") != 0) {
-	if (!expand_tilde(&def_runchroot, runas_pw->pw_name)) {
+	if (!expand_tilde(&def_runchroot, ctx->runas.pw->pw_name)) {
 	    sudo_warnx(U_("invalid chroot directory: %s"), def_runchroot);
 	    goto bad;
 	}
@@ -927,17 +962,17 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
 	if (asprintf(&command_info[info_len++], "umask=0%o", (unsigned int)cmnd_umask) == -1)
 	    goto oom;
     }
-    if (force_umask) {
+    if (sudoers_override_umask()) {
 	if ((command_info[info_len++] = strdup("umask_override=true")) == NULL)
 	    goto oom;
     }
-    if (cmnd_fd != -1) {
+    if (ctx->runas.execfd != -1) {
 	if (sudo_version < SUDO_API_MKVERSION(1, 9)) {
 	    /* execfd only supported by plugin API 1.9 and higher */
-	    close(cmnd_fd);
-	    cmnd_fd = -1;
+	    close(ctx->runas.execfd);
+	    ctx->runas.execfd = -1;
 	} else {
-	    if (asprintf(&command_info[info_len++], "execfd=%d", cmnd_fd) == -1)
+	    if (asprintf(&command_info[info_len++], "execfd=%d", ctx->runas.execfd) == -1)
 		goto oom;
 	}
     }
@@ -985,38 +1020,45 @@ sudoers_policy_store_result(bool accepted, char *argv[], char *envp[],
         if ((command_info[info_len++] = sudo_new_key_val("rlimit_stack", def_rlimit_stack)) == NULL)
             goto oom;
     }
+    if (ctx->source != NULL) {
+	command_info[info_len] = sudo_new_key_val("source", ctx->source);
+	if (command_info[info_len++] == NULL)
+	    goto oom;
+    }
 #ifdef HAVE_LOGIN_CAP_H
     if (def_use_loginclass) {
-	if ((command_info[info_len++] = sudo_new_key_val("login_class", login_class)) == NULL)
+	if ((command_info[info_len++] = sudo_new_key_val("login_class", ctx->runas.class)) == NULL)
 	    goto oom;
     }
 #endif /* HAVE_LOGIN_CAP_H */
-#ifdef HAVE_SELINUX
-    if (def_selinux && user_role != NULL) {
-	if ((command_info[info_len++] = sudo_new_key_val("selinux_role", user_role)) == NULL)
+    if (def_selinux && ctx->runas.role != NULL) {
+	if ((command_info[info_len++] = sudo_new_key_val("selinux_role", ctx->runas.role)) == NULL)
 	    goto oom;
     }
-    if (def_selinux && user_type != NULL) {
-	if ((command_info[info_len++] = sudo_new_key_val("selinux_type", user_type)) == NULL)
+    if (def_selinux && ctx->runas.type != NULL) {
+	if ((command_info[info_len++] = sudo_new_key_val("selinux_type", ctx->runas.type)) == NULL)
 	    goto oom;
     }
-#endif /* HAVE_SELINUX */
-#ifdef HAVE_APPARMOR
-	if (user_apparmor_profile != NULL) {
-	    if ((command_info[info_len++] = sudo_new_key_val("apparmor_profile", user_apparmor_profile)) == NULL)
-		goto oom;
+    if (ctx->runas.apparmor_profile != NULL) {
+	if ((command_info[info_len++] = sudo_new_key_val("apparmor_profile", ctx->runas.apparmor_profile)) == NULL)
+	    goto oom;
+    }
+    if (ctx->runas.privs != NULL) {
+	if ((command_info[info_len++] = sudo_new_key_val("runas_privs", ctx->runas.privs)) == NULL)
+	    goto oom;
+    }
+    if (ctx->runas.limitprivs != NULL) {
+	if ((command_info[info_len++] = sudo_new_key_val("runas_limitprivs", ctx->runas.limitprivs)) == NULL)
+	    goto oom;
+    }
+
+    /* Set command start time (monotonic) for the first accepted command. */
+    if (accepted && !ISSET(ctx->mode, MODE_POLICY_INTERCEPTED)) {
+	if (sudo_gettime_awake(&ctx->start_time) == -1) {
+	    sudo_warn("%s", U_("unable to get time of day"));
+	    goto bad;
 	}
-#endif /* HAVE_APPARMOR */
-#ifdef HAVE_PRIV_SET
-    if (runas_privs != NULL) {
-	if ((command_info[info_len++] = sudo_new_key_val("runas_privs", runas_privs)) == NULL)
-	    goto oom;
     }
-    if (runas_limitprivs != NULL) {
-	if ((command_info[info_len++] = sudo_new_key_val("runas_limitprivs", runas_limitprivs)) == NULL)
-	    goto oom;
-    }
-#endif /* HAVE_PRIV_SET */
 
     /* Fill in exec environment info. */
     *(exec_args->argv) = argv;
@@ -1033,10 +1075,26 @@ oom:
 bad:
     free(audit_msg);
     audit_msg = NULL;
-    while (info_len--)
-	free(command_info[info_len]);
+    while (info_len)
+	free(command_info[--info_len]);
     free(command_info);
+    command_info = NULL;
     debug_return_bool(false);
+}
+
+bool
+sudoers_tty_present(struct sudoers_context *ctx)
+{
+    debug_decl(sudoers_tty_present, SUDOERS_DEBUG_PLUGIN);
+    
+    if (ctx->user.tcpgid == 0 && ctx->user.ttypath == NULL) {
+	/* No job control or terminal, check /dev/tty. */
+	int fd = open(_PATH_TTY, O_RDWR);
+	if (fd == -1)
+	    debug_return_bool(false);
+	close(fd);
+    }
+    debug_return_bool(true);
 }
 
 static int
@@ -1096,30 +1154,28 @@ sudoers_policy_open(unsigned int version, sudo_conv_t conversation,
 static void
 sudoers_policy_close(int exit_status, int error_code)
 {
+    const struct sudoers_context *ctx = sudoers_get_context();
     debug_decl(sudoers_policy_close, SUDOERS_DEBUG_PLUGIN);
 
     if (session_opened) {
 	/* Close the session we opened in sudoers_policy_init_session(). */
-	(void)sudo_auth_end_session(runas_pw);
+	(void)sudo_auth_end_session();
 
 	if (error_code) {
 	    errno = error_code;
-	    sudo_warn(U_("unable to execute %s"), safe_cmnd);
+	    sudo_warn(U_("unable to execute %s"), ctx->runas.cmnd);
 	} else {
-	    log_exit_status(exit_status);
+	    log_exit_status(ctx, exit_status);
 	}
     }
 
     /* Deregister the callback for sudo_fatal()/sudo_fatalx(). */
     sudo_fatal_callback_deregister(sudoers_cleanup);
 
-    /* Free stashed copy of the environment. */
-    (void)env_init(NULL);
-
-    /* Free sudoers sources, sudo_user and passwd/group caches. */
+    /* Free sudoers sources, ctx->user.and passwd/group caches. */
     sudoers_cleanup();
 
-    /* command_info is freed by the g/c code. */
+    /* command_info was freed by the g/c code. */
     command_info = NULL;
 
     /* Free error message passed back to front-end, if any. */
@@ -1139,6 +1195,7 @@ static int
 sudoers_policy_init_session(struct passwd *pwd, char **user_env[],
     const char **errstr)
 {
+    const struct sudoers_context *ctx = sudoers_get_context();
     int ret;
     debug_decl(sudoers_policy_init_session, SUDOERS_DEBUG_PLUGIN);
 
@@ -1146,7 +1203,7 @@ sudoers_policy_init_session(struct passwd *pwd, char **user_env[],
     if (sudo_version < SUDO_API_MKVERSION(1, 2))
 	user_env = NULL;
 
-    ret = sudo_auth_begin_session(pwd, user_env);
+    ret = sudo_auth_begin_session(ctx, pwd, user_env);
 
     if (ret == 1) {
 	session_opened = true;
@@ -1163,19 +1220,20 @@ sudoers_policy_check(int argc, char * const argv[], char *env_add[],
     char **command_infop[], char **argv_out[], char **user_env_out[],
     const char **errstr)
 {
-    int valid_flags = RUN_VALID_FLAGS;
+    const struct sudoers_context *ctx = sudoers_get_context();
+    unsigned int valid_flags = RUN_VALID_FLAGS;
+    unsigned int flags = MODE_RUN;
     struct sudoers_exec_args exec_args;
     int ret;
     debug_decl(sudoers_policy_check, SUDOERS_DEBUG_PLUGIN);
 
-    if (ISSET(sudo_mode, MODE_EDIT))
+    if (ISSET(ctx->mode, MODE_EDIT)) {
 	valid_flags = EDIT_VALID_FLAGS;
-    else
-	SET(sudo_mode, MODE_RUN);
-
-    if ((sudo_mode & valid_flags) != sudo_mode) {
+	flags = 0;
+    }
+    if (!sudoers_set_mode(flags, valid_flags)) {
 	sudo_warnx(U_("%s: invalid mode flags from sudo front end: 0x%x"),
-	    __func__, sudo_mode);
+	    __func__, ctx->mode);
 	debug_return_int(-1);
     }
 
@@ -1183,7 +1241,7 @@ sudoers_policy_check(int argc, char * const argv[], char *env_add[],
     exec_args.envp = user_env_out;
     exec_args.info = command_infop;
 
-    ret = sudoers_policy_main(argc, argv, 0, env_add, false, &exec_args);
+    ret = sudoers_check_cmnd(argc, argv, env_add, &exec_args);
 #ifndef NO_LEAKS
     if (ret == true && sudo_version >= SUDO_API_MKVERSION(1, 3)) {
 	/* Unset close function if we don't need it to avoid extra process. */
@@ -1204,19 +1262,17 @@ sudoers_policy_check(int argc, char * const argv[], char *env_add[],
 static int
 sudoers_policy_validate(const char **errstr)
 {
-    char *argv[] = { (char *)"validate", NULL };
-    const int argc = 1;
+    const struct sudoers_context *ctx = sudoers_get_context();
     int ret;
     debug_decl(sudoers_policy_validate, SUDOERS_DEBUG_PLUGIN);
 
-    SET(sudo_mode, MODE_VALIDATE);
-    if ((sudo_mode & VALIDATE_VALID_FLAGS) != sudo_mode) {
+    if (!sudoers_set_mode(MODE_VALIDATE, VALIDATE_VALID_FLAGS)) {
 	sudo_warnx(U_("%s: invalid mode flags from sudo front end: 0x%x"),
-	    __func__, sudo_mode);
+	    __func__, ctx->mode);
 	debug_return_int(-1);
     }
 
-    ret = sudoers_policy_main(argc, argv, I_VERIFYPW, NULL, false, NULL);
+    ret = sudoers_validate_user();
 
     /* The audit functions set audit_msg on failure. */
     if (ret != 1 && audit_msg != NULL) {
@@ -1229,14 +1285,14 @@ sudoers_policy_validate(const char **errstr)
 static void
 sudoers_policy_invalidate(int unlinkit)
 {
+    const struct sudoers_context *ctx = sudoers_get_context();
     debug_decl(sudoers_policy_invalidate, SUDOERS_DEBUG_PLUGIN);
 
-    SET(sudo_mode, MODE_INVALIDATE);
-    if ((sudo_mode & INVALIDATE_VALID_FLAGS) != sudo_mode) {
+    if (!sudoers_set_mode(MODE_INVALIDATE, INVALIDATE_VALID_FLAGS)) {
 	sudo_warnx(U_("%s: invalid mode flags from sudo front end: 0x%x"),
-	    __func__, sudo_mode);
+	    __func__, ctx->mode);
     } else {
-	timestamp_remove(unlinkit);
+	timestamp_remove(ctx, unlinkit);
     }
 
     debug_return;
@@ -1246,41 +1302,17 @@ static int
 sudoers_policy_list(int argc, char * const argv[], int verbose,
     const char *list_user, const char **errstr)
 {
-    char *list_argv[] = { (char *)"list", NULL };
+    const struct sudoers_context *ctx = sudoers_get_context();
     int ret;
     debug_decl(sudoers_policy_list, SUDOERS_DEBUG_PLUGIN);
 
-    if (argc == 0) {
-	SET(sudo_mode, MODE_LIST);
-	argc = 1;
-	argv = list_argv;
-    } else {
-	SET(sudo_mode, MODE_CHECK);
-    }
-
-    if ((sudo_mode & LIST_VALID_FLAGS) != sudo_mode) {
+    if (!sudoers_set_mode(argc ? MODE_CHECK : MODE_LIST, LIST_VALID_FLAGS)) {
 	sudo_warnx(U_("%s: invalid mode flags from sudo front end: 0x%x"),
-	    __func__, sudo_mode);
+	    __func__, ctx->mode);
 	debug_return_int(-1);
     }
 
-    if (list_user) {
-	list_pw = sudo_getpwnam(list_user);
-	if (list_pw == NULL) {
-	    sudo_warnx(U_("unknown user %s"), list_user);
-	    debug_return_int(-1);
-	}
-	/* A user may only list another user they have runas access to. */
-	if (runas_pw != NULL)
-	    sudo_pw_delref(runas_pw);
-	runas_pw = list_pw;
-	sudo_pw_addref(list_pw);
-    }
-    ret = sudoers_policy_main(argc, argv, I_LISTPW, NULL, verbose, NULL);
-    if (list_user) {
-	sudo_pw_delref(list_pw);
-	list_pw = NULL;
-    }
+    ret = sudoers_list(argc, argv, list_user, verbose);
 
     /* The audit functions set audit_msg on failure. */
     if (ret != 1 && audit_msg != NULL) {
@@ -1293,6 +1325,9 @@ sudoers_policy_list(int argc, char * const argv[], int verbose,
 static int
 sudoers_policy_version(int verbose)
 {
+#ifdef HAVE_LDAP
+    const struct sudoers_context *ctx = sudoers_get_context();
+#endif
     debug_decl(sudoers_policy_version, SUDOERS_DEBUG_PLUGIN);
 
     sudo_printf(SUDO_CONV_INFO_MSG, _("Sudoers policy plugin version %s\n"),
@@ -1301,13 +1336,15 @@ sudoers_policy_version(int verbose)
 	SUDOERS_GRAMMAR_VERSION);
 
     if (verbose) {
-	sudo_printf(SUDO_CONV_INFO_MSG, _("\nSudoers path: %s\n"), sudoers_file);
+	sudo_printf(SUDO_CONV_INFO_MSG, _("\nSudoers path: %s\n"), path_sudoers);
 #ifdef HAVE_LDAP
 # ifdef _PATH_NSSWITCH_CONF
 	sudo_printf(SUDO_CONV_INFO_MSG, _("nsswitch path: %s\n"), _PATH_NSSWITCH_CONF);
 # endif
-	sudo_printf(SUDO_CONV_INFO_MSG, _("ldap.conf path: %s\n"), path_ldap_conf);
-	sudo_printf(SUDO_CONV_INFO_MSG, _("ldap.secret path: %s\n"), path_ldap_secret);
+	if (ctx->settings.ldap_conf != NULL)
+	    sudo_printf(SUDO_CONV_INFO_MSG, _("ldap.conf path: %s\n"), ctx->settings.ldap_conf);
+	if (ctx->settings.ldap_secret != NULL)
+	    sudo_printf(SUDO_CONV_INFO_MSG, _("ldap.secret path: %s\n"), ctx->settings.ldap_secret);
 #endif
 	dump_auth_methods();
 	dump_defaults();
@@ -1321,10 +1358,10 @@ sudoers_policy_version(int verbose)
 }
 
 static struct sudo_hook sudoers_hooks[] = {
-    { SUDO_HOOK_VERSION, SUDO_HOOK_SETENV, sudoers_hook_setenv, NULL },
-    { SUDO_HOOK_VERSION, SUDO_HOOK_UNSETENV, sudoers_hook_unsetenv, NULL },
-    { SUDO_HOOK_VERSION, SUDO_HOOK_GETENV, sudoers_hook_getenv, NULL },
-    { SUDO_HOOK_VERSION, SUDO_HOOK_PUTENV, sudoers_hook_putenv, NULL },
+    { SUDO_HOOK_VERSION, SUDO_HOOK_SETENV, (sudo_hook_fn_t)sudoers_hook_setenv, NULL },
+    { SUDO_HOOK_VERSION, SUDO_HOOK_UNSETENV, (sudo_hook_fn_t)sudoers_hook_unsetenv, NULL },
+    { SUDO_HOOK_VERSION, SUDO_HOOK_GETENV, (sudo_hook_fn_t)sudoers_hook_getenv, NULL },
+    { SUDO_HOOK_VERSION, SUDO_HOOK_PUTENV, (sudo_hook_fn_t)sudoers_hook_putenv, NULL },
     { 0, 0, NULL, NULL }
 };
 

@@ -923,6 +923,13 @@ OSStatus _SecLookupIndirectUnlockKey(CFStringRef _Nonnull identifier, uint32_t* 
 OSStatus _SecAssociateIndirectUnlockKey(CFStringRef _Nonnull identifier, uint32_t handle);
 #endif
 
+#if SEC_OS_OSX_INCLUDES
+/* Determines whether current process (calling Security framework) can use the System DP keychain.
+ * This function MUST NOT be used to make security decisions. It is available for skipping code
+ * that would otherwise error due to the entitlement checks in secd. */
+bool  SecItemCanUseSystemDataProtectionKeychain(void);
+#endif
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECITEMPRIV_H_ */

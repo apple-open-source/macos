@@ -26,6 +26,8 @@
 
 #include "CSSValueKeywords.h"
 #include "EventTarget.h"
+#include "LayoutPoint.h"
+#include "LayoutSize.h"
 #include "LayoutUnit.h"
 #include "PositionTryOrder.h"
 #include "PseudoElementIdentifier.h"
@@ -34,6 +36,7 @@
 #include "WritingMode.h"
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/Vector.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/AtomStringHash.h>
@@ -42,14 +45,65 @@ namespace WebCore {
 
 class Document;
 class Element;
+class LayoutPoint;
 class LayoutRect;
 class LayoutSize;
 class RenderBlock;
 class RenderBox;
 class RenderBoxModelObject;
+class RenderElement;
 class RenderStyle;
+class RenderView;
 
 enum CSSPropertyID : uint16_t;
+
+struct AnchorScrollSnapshot {
+    SingleThreadWeakPtr<const RenderBox> m_scroller;
+    LayoutPoint m_scrollSnapshot { };
+    inline LayoutSize adjustmentForCurrentScrollPosition() const;
+    AnchorScrollSnapshot(const RenderBox& scroller, LayoutPoint snapshot);
+    AnchorScrollSnapshot(LayoutPoint snapshot);
+    bool operator==(const AnchorScrollSnapshot&) const = default;
+};
+
+class AnchorScrollAdjuster {
+public:
+    AnchorScrollAdjuster(RenderBox& anchored, const RenderBoxModelObject& defaultAnchor);
+    RenderBox* anchored() const;
+
+    bool mayNeedAdjustment() const { return m_needsXAdjustment | m_needsYAdjustment; }
+    inline bool isEmpty() const;
+    bool isHidden() const { return m_isHidden; }
+    void setHidden(bool hide) { m_isHidden = hide; }
+
+    inline void addSnapshot(const RenderBox& scroller);
+    inline void addViewportSnapshot(const RenderView&);
+
+    enum Diff : uint8_t { New, SnapshotsDiffer, SnapshotsMatch };
+    bool recaptureDiffers(const AnchorScrollAdjuster&) const; // Snapshot differences can require invalidation.
+
+    void setFallbackLimits(const RenderBox& anchored);
+    bool hasFallbackLimits() const { return m_hasFallback; }
+    bool exceedsFallbackLimits(LayoutSize adjustment) { return !m_fallbackLimits.fits(adjustment); }
+
+    LayoutSize accumulateAdjustments(const RenderView&, const RenderBox& anchored) const;
+
+    bool invalidateForScroller(const RenderBox& scroller);
+private:
+    LayoutSize adjustmentForViewport(const RenderView&) const;
+
+    CheckedRef<RenderBox> m_anchored;
+    Vector<AnchorScrollSnapshot, 1> m_scrollSnapshots;
+    bool m_needsXAdjustment : 1 { false };
+    bool m_needsYAdjustment : 1 { false };
+    bool m_adjustForViewport : 1 { false };
+    bool m_hasChainedAnchor : 1 { false };
+    bool m_hasStickyAnchor : 1 { false };
+    bool m_isHidden : 1 { false };
+    bool m_hasFallback : 1 { false };
+    LayoutSize m_stickySnapshot;
+    LayoutSizeLimits m_fallbackLimits;
+};
 
 namespace Style {
 
@@ -116,15 +170,16 @@ public:
     static std::optional<double> evaluateSize(BuilderState&, std::optional<ScopedName> elementName, std::optional<AnchorSizeDimension>);
 
     static void updateAnchorPositioningStatesAfterInterleavedLayout(Document&, AnchorPositionedStates&);
-    static void updateSnapshottedScrollOffsets(Document&);
-    static void updatePositionsAfterScroll(Document&);
+    static void updateScrollAdjustments(RenderView&);
     static void updateAnchorPositionedStateForDefaultAnchor(Element&, const RenderStyle&, AnchorPositionedStates&);
 
-    static LayoutRect computeAnchorRectRelativeToContainingBlock(CheckedRef<const RenderBoxModelObject> anchorBox, const RenderBlock& containingBlock);
+    static LayoutRect computeAnchorRectRelativeToContainingBlock(CheckedRef<const RenderBoxModelObject> anchorBox, const RenderElement& containingBlock, const RenderBox& anchoredBox);
+    static void captureScrollSnapshots(RenderBox& anchored, bool invalidateStyleForScrollPositionChanges = true);
 
     static AnchorToAnchorPositionedMap makeAnchorPositionedForAnchorMap(AnchorPositionedToAnchorMap&);
 
     static bool isAnchorPositioned(const RenderStyle&);
+    static bool isStyleTimeAnchorPositioned(const RenderStyle&);
     static bool isLayoutTimeAnchorPositioned(const RenderStyle&);
 
     static CSSPropertyID resolvePositionTryFallbackProperty(CSSPropertyID, WritingMode, const BuilderPositionTryFallback&);

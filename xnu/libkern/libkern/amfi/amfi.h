@@ -131,7 +131,7 @@ typedef struct _OSEntitlementsInterface {
 
 #include <TrustCache/API.h>
 #define KERN_AMFI_SUPPORTS_TRUST_CACHE_API 1
-#define TRUST_CACHE_INTERFACE_VERSION 3u
+#define TRUST_CACHE_INTERFACE_VERSION 4u
 
 typedef TCReturn_t (*constructInvalid_t)(
 	TrustCache_t *trustCache,
@@ -217,6 +217,11 @@ typedef TCReturn_t (*queryGetConstraintCategory_t)(
 	uint8_t *constraintCategoryRet
 	);
 
+typedef TCReturn_t (*queryGetUUID_t)(
+	const TrustCacheQueryToken_t *queryToken,
+	uint8_t returnUUID[kUUIDSize]
+	);
+
 typedef struct _TrustCacheInterface {
 	uint32_t version;
 	loadModule_t loadModule;
@@ -228,6 +233,7 @@ typedef struct _TrustCacheInterface {
 	queryGetHashType_t queryGetHashType;
 	queryGetFlags_t queryGetFlags;
 	queryGetConstraintCategory_t queryGetConstraintCategory;
+	queryGetUUID_t queryGetUUID;
 
 	/* Available since interface version 3 */
 	constructInvalid_t constructInvalid;
@@ -237,7 +243,18 @@ typedef struct _TrustCacheInterface {
 	getUUID_t getUUID;
 } TrustCacheInterface_t;
 
+#define APPLE_FEATURE_MTE 1
 
+#pragma mark AMFI MTE support
+#define KERN_AMFI_SUPPORTS_MTE 3
+/* KERN_AMFI_SUPPORTS_MTE >= 1 */
+typedef bool (*amfi_has_mte_soft_mode)(const proc_t proc);
+/* KERN_AMFI_SUPPORTS_MTE >= 2 */
+typedef bool (*amfi_has_mte_opt_out)(struct cs_blob*);
+typedef bool (*amfi_has_mte_inheritance_opt_out)(struct cs_blob*);
+typedef bool (*amfi_has_mte_data_tagging_opt_in)(struct cs_blob*);
+/* KERN_AMFI_SUPPORTS_MTE >= 3 */
+typedef bool (*amfi_has_mte_alias_restriction_opt_in)(struct cs_blob*);
 
 #pragma mark Main AMFI Structure
 
@@ -262,6 +279,18 @@ typedef struct _amfi {
 	OSEntitlementsInterface_t OSEntitlements;
 #endif
 
+#if KERN_AMFI_SUPPORTS_MTE
+	/* Interface to interact with MTEPolicy.c */
+	amfi_has_mte_soft_mode has_mte_soft_mode;
+#if KERN_AMFI_SUPPORTS_MTE >= 2
+	amfi_has_mte_opt_out has_mte_opt_out;
+	amfi_has_mte_inheritance_opt_out has_mte_inheritance_opt_out;
+	amfi_has_mte_data_tagging_opt_in has_mte_data_tagging_opt_in;
+#endif /* KERN_AMFI_SUPPORTS_MTE >= 2 */
+#if KERN_AMFI_SUPPORTS_MTE >= 3
+	amfi_has_mte_alias_restriction_opt_in has_mte_alias_restriction_opt_in;
+#endif /* KERN_AMFI_SUPPORTS_MTE >= 3 */
+#endif /* KERN_AMFI_SUPPORTS_MTE */
 } amfi_t;
 
 __BEGIN_DECLS

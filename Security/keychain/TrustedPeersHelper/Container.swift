@@ -1050,6 +1050,7 @@ class Container: NSObject, ConfiguredCloudKit {
     var egoMachineIDGhosted: Bool = false
     var egoMachineIDRolled: Bool = false
     var sentMetric: Bool = false
+    var trustStatus: TrustedPeersHelperEgoPeerStatus?
 
     // test variables
     var testHashMismatchDetected: Bool = false
@@ -1825,6 +1826,7 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func resetContainer() {
+        self.trustStatus = nil
         self.moc.delete(self.containerMO)
         self.containerMO = ContainerMO(context: self.moc)
         self.containerMO.name = self.name.asSingleString()
@@ -2000,7 +2002,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                     peerCountsByMachineID: peerCountsByMachineID,
                                                                     isExcluded: true,
                                                                     isLocked: false)
-
+                    self.trustStatus = egoStatus
                     reply(egoStatus, loadError)
                     return
                 }
@@ -2012,6 +2014,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                 peerCountsByMachineID: peerCountsByMachineID,
                                                                 isExcluded: isExcluded,
                                                                 isLocked: false)
+                self.trustStatus = egoStatus
                 reply(egoStatus, nil)
                 return
             }
@@ -2027,6 +2030,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                     peerCountsByMachineID: peerCountsByMachineID,
                                                                     isExcluded: true,
                                                                     isLocked: false)
+                    self.trustStatus = egoStatus
                     reply(egoStatus, nil)
                     return
                 } else {
@@ -2038,6 +2042,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                                                     peerCountsByMachineID: peerCountsByMachineID,
                                                                     isExcluded: false,
                                                                     isLocked: false)
+                    self.trustStatus = egoStatus
                     reply(egoStatus, nil)
                     return
                 }
@@ -2066,6 +2071,13 @@ class Container: NSObject, ConfiguredCloudKit {
             reply($0, $1)
         }
         self.moc.performAndWait {
+            if let egoPeerID = self.containerMO.egoPeerID {
+                loadEgoKeys(peerID: egoPeerID) { _, loadError in
+                    if loadError != nil {
+                        self.trustStatus = nil
+                    }
+                }
+            }
             // Knowledge of your peer status only exists if you know about other peers. If you haven't fetched, fetch.
             if self.containerMO.changeToken == nil {
                 self.onqueueFetchAndPersistChanges { fetchError in
@@ -2084,12 +2096,20 @@ class Container: NSObject, ConfiguredCloudKit {
                         reply(egoStatus, fetchError)
                         return
                     }
+                    if let trustStatus = self.trustStatus {
+                        reply(trustStatus, nil)
+                        return
+                    }
 
                     self.moc.performAndWait {
                         self.onQueueDetermineLocalTrustStatus(reply: reply)
                     }
                 }
             } else {
+                if let trustStatus = self.trustStatus {
+                    reply(trustStatus, nil)
+                    return
+                }
                 self.onQueueDetermineLocalTrustStatus(reply: reply)
             }
         }
@@ -3998,7 +4018,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
                                                                stableInfo: beneficiaryStableInfo,
                                                                withSponsorID: sponsorPeerID,
-                                                               reason: TPVoucherReason.recoveryKey,
+                                                               reason: TPVoucherReason.recoveryKey2,
                                                                signing: recoveryKeys.peerKeys.signingKey)
 
                     let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
@@ -4260,7 +4280,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     let voucher = try self.model.createVoucher(forCandidate: beneficiaryPermanentInfo,
                                                                stableInfo: beneficiaryStableInfo,
                                                                withSponsorID: sponsorPeerID,
-                                                               reason: TPVoucherReason.recoveryKey,
+                                                               reason: TPVoucherReason.recoveryContact,
                                                                signing: recoveryCRK.peerKeys.signingKey)
 
                     let newSelfTLKShares = try makeCKKSTLKShares(ckksTLKs: recoveredTLKs, asPeer: egoPeerKeys, toPeer: egoPeerKeys, epoch: Int(beneficiaryPermanentInfo.epoch))
@@ -5945,6 +5965,7 @@ class Container: NSObject, ConfiguredCloudKit {
     func requestHealthCheck(requiresEscrowCheck: Bool,
                             repair: Bool,
                             danglingPeerCleanup: Bool,
+                            caesarPeerCleanup: Bool,
                             updateIdMS: Bool,
                             knownFederations: [String],
                             flowID: String?,
@@ -5979,6 +6000,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 $0.knownFederations = knownFederations
                 $0.performCleanup = repair
                 $0.performDanglingPeerCleanup = danglingPeerCleanup
+                $0.performCaesarPeerCleanup = caesarPeerCleanup
                 $0.updateIdms = updateIdMS
                 $0.metrics = metrics
             }
@@ -7349,6 +7371,8 @@ class Container: NSObject, ConfiguredCloudKit {
             self.onQueueRemoveAccountSettings()
 
             self.darwinNotifier.post(OTCliqueChanged)
+
+            self.trustStatus = nil
         }
 
         try changes.differences.forEach { peerDifference in

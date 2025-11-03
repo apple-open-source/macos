@@ -465,6 +465,7 @@ srpl_domain_t *NULLABLE srpl_domain_create_or_copy(srp_server_t *NONNULL server_
 void srpl_dump_connection_states(srp_server_t *NONNULL server_state);
 void srpl_change_server_priority(srp_server_t *NONNULL server_state, uint32_t new);
 void srpl_thread_service_set_changed(srp_server_t *NONNULL server_state);
+void srpl_primary_resident_updated(srp_server_t *NONNULL server_state, bool is_primary);
 #endif // __SRP_REPLICATION_H__
 
 // Local Variables:

@@ -625,6 +625,9 @@ extern NSString * const UIPresentationControllerDismissalTransitionDidEndComplet
 @interface UIActivityViewController ()
 @property (nonatomic) BOOL allowsCustomPresentationStyle;
 @end
+@interface UIView ()
+- (void)_requestRemoteEffects:(NSArray *)effects forKey:(NSString *)key;
+@end
 #endif // PLATFORM(VISION)
 
 @interface UIView ()
@@ -1259,6 +1262,10 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 
 @interface UIScrollView (ScrollPocket_IPI)
 - (_UIScrollPocket *)_pocketForEdge:(UIRectEdge)edge makeIfNeeded:(BOOL)makeIfNeeded;
+@end
+
+@interface UIScrollView (Staging_155261419)
+- (void)_setPrefersSolidColorHardPocket:(BOOL)prefersSolidColorHardPocket forEdge:(UIRectEdge)edge;
 @end
 
 #endif // HAVE(LIQUID_GLASS)

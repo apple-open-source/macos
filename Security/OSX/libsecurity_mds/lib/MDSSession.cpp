@@ -83,7 +83,7 @@ namespace Security
  */
 #define MDS_SYSTEM_PATH		"/System/Library/Frameworks"
 #define MDS_SYSTEM_FRAME	"Security.framework"
-
+#define MDS_SYSTEM_RESOURCES "Resources"
 /*
  * Nominal location of standard plugins.
  */
@@ -97,6 +97,7 @@ namespace Security
 #define MDS_BASE_DB_DIR			"/private/var/db/mds"
 #define MDS_SYSTEM_DB_COMP		"system"
 #define MDS_SYSTEM_DB_DIR		MDS_BASE_DB_DIR "/" MDS_SYSTEM_DB_COMP
+#define MDS_SYSTEM_DB_DIR_RO    MDS_SYSTEM_PATH "/" MDS_SYSTEM_FRAME "/" MDS_SYSTEM_RESOURCES
 #define MDS_USER_DB_COMP		"mds"
 
 #define MDS_LOCK_FILE_NAME		"mds.lock"			
@@ -106,7 +107,9 @@ namespace Security
 
 #define MDS_INSTALL_LOCK_PATH	MDS_SYSTEM_DB_DIR "/" MDS_INSTALL_LOCK_NAME
 #define MDS_OBJECT_DB_PATH		MDS_SYSTEM_DB_DIR "/" MDS_OBJECT_DB_NAME
+#define MDS_OBJECT_DB_RO_PATH   MDS_SYSTEM_DB_DIR_RO "/" MDS_OBJECT_DB_NAME
 #define MDS_DIRECT_DB_PATH		MDS_SYSTEM_DB_DIR "/" MDS_DIRECT_DB_NAME
+#define MDS_DIRECT_DB_RO_PATH   MDS_SYSTEM_DB_DIR_RO "/" MDS_DIRECT_DB_NAME
 
 /* hard coded modes and a symbolic UID for root */
 #define MDS_BASE_DB_DIR_MODE	(mode_t)0755
@@ -134,11 +137,19 @@ namespace Security
 /* Trace cleanDir() */
 #define MSCleanDirDbg(args...)	secinfo("MDS_CleanDir", ## args)
 
+// We have committed a local copy of `MDS_OBJECT_DB_NAME` and `MDS_DIRECT_DB_NAME` under `MDS_SYSTEM_DB_DIR_RO` local. Add global flag for skipping database write/update operations and return early from any operation which tries to create these databases from scratch.
+static bool g_mds_use_static_databases = true;
+
+
 static std::string GetMDSBaseDBDir(bool isRoot)
 {
 	// what we return depends on whether or not we are root
 	string retValue;
-	if (isRoot)
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "%s", __FUNCTION__);
+        retValue = MDS_SYSTEM_DB_DIR_RO;
+    }
+	else if (isRoot)
 	{
 		retValue = MDS_SYSTEM_DB_DIR;
 	}
@@ -165,8 +176,11 @@ static std::string GetMDSDBDir()
 {
 	string retValue;
 	bool isRoot = geteuid() == 0;
-	
-	if (isRoot)
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "%s", __FUNCTION__);
+        retValue = MDS_SYSTEM_DB_DIR_RO;
+    }
+	else if (isRoot)
 	{
 		retValue = MDS_SYSTEM_DB_DIR;
 	}
@@ -409,6 +423,7 @@ static bool doFilesExist(
 			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 	}
+    MSDebug("%s returning false", __FUNCTION__);
 	return false;
 }
 
@@ -478,6 +493,12 @@ static int createDir(
 	uid_t forUid,			// for checking - we don't try to set this
 	mode_t dirMode)
 {
+    
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "[%s]: Directories already exist for static databases", __FUNCTION__);
+        return 0;
+    }
+    
 	MdsDirectStatus directStatus;
 	
 	if(doesDirectExist(dirPath, forUid, dirMode, directStatus)) {
@@ -574,7 +595,7 @@ const char* kExceptionDeletePath = "messages";
 
 
 /*
- * Called by security server via MDS_Install().
+ * Called by security server via MDS_Install()
  */
 void
 MDSSession::install ()
@@ -591,7 +612,17 @@ MDSSession::install ()
 	// Mark "server mode" so we don't end up waiting for ourselves when the databases open.
 	//
 	mModule.setServerMode();
-	
+    
+    //
+    // If we are in a static database usage mode, dynamic MDS install is not possible.
+    // We assume the static db files already exist in the framework bundle and we
+    // will never be writing anything, including shared memory messages.
+    //
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "[%s]: Databases already exist; Nothing to install", __FUNCTION__);
+        return;
+    }
+    
 	try {
 		/* ensure MDS base directory exists with correct permissions */
 		if(createDir(MDS_BASE_DB_DIR, MDS_SYSTEM_UID, MDS_BASE_DB_DIR_MODE)) {
@@ -715,7 +746,7 @@ void MDSSession::DbOpen(const char *DbName,
 	}
 	char fullPath[MAXPATHLEN];
 	dbFullPath(dbName, fullPath);
-	MSIoDbg("open %s in dbOpen(name, loc, accessReq...)", dbName);
+	MSIoDbg("open %s in dbOpen(name, loc, accessReq...) with fullPath: %s", dbName, fullPath);
 	DatabaseSession::DbOpen(fullPath, DbLocation, AccessRequest, AccessCred,
 		OpenParameters, DbHandle);
 }
@@ -883,6 +914,11 @@ static void safeCopyFile(
 	const char *toPath,
 	mode_t toMode)
 {
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "%s Should not issue any file copy", __FUNCTION__);
+        return;
+    }
+    
 	int error = 0;
 	bool haveLock = false;
 	int destFd = 0;
@@ -891,7 +927,7 @@ static void safeCopyFile(
 	char tmpToPath[MAXPATHLEN+1];
 		
 	MSIoDbg("open %s, %s in safeCopyFile", fromPath, toPath);
-
+    
 	if(!doesFileExist(fromPath, fromUid, false, sb)) {
 		MSDebug("safeCopyFile: bad system DB file %s", fromPath);
 		CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
@@ -1018,6 +1054,10 @@ static void safeCopyFile(
 static void copySystemDbs(
 	const char *userDbFileDir)
 {
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "%s: Should not issue any copy system dbs", __FUNCTION__);
+        return;
+    }
 	char toPath[MAXPATHLEN+1];
 	
 	snprintf(toPath, sizeof(toPath), "%s/%s", userDbFileDir, MDS_OBJECT_DB_NAME);
@@ -1045,7 +1085,13 @@ void MDSSession::updateDataBases()
 	if(delta < (double)MDS_SCAN_INTERVAL) {
 		return;
 	}
-
+    
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "[%s]: Databases already exist; Nothing to Update", __FUNCTION__);
+        mModule.setDbPath(MDS_SYSTEM_DB_DIR_RO);
+        mModule.lastScanIsNow();
+        return;
+    }
 	/*
 	 * If we're root, the first thing we do is to ensure that system DBs are present.
 	 * Note that this is a necessary artifact of the problem behind Radar 3800811.
@@ -1244,7 +1290,10 @@ bool MDSSession::systemDatabasesPresent(bool purge)
 		 * But if that happens while we're root, our goose is fully cooked. 
 		 */
 		struct stat objDbSb, directDbSb;
-		if(doFilesExist(MDS_OBJECT_DB_PATH, MDS_DIRECT_DB_PATH, 
+        if (g_mds_use_static_databases) {
+            secnotice("MDSStaticDatabase", "%s returning", __FUNCTION__);
+            rtn = true;
+        } else if(doFilesExist(MDS_OBJECT_DB_PATH, MDS_DIRECT_DB_PATH,
 				MDS_SYSTEM_UID, purge, objDbSb, directDbSb)) {
 			rtn = true;
 		}
@@ -1268,6 +1317,11 @@ MDSSession::createSystemDatabase(
 	mode_t mode,
 	CSSM_DB_HANDLE &dbHand)			// RETURNED
 {
+    if (g_mds_use_static_databases) {
+        secnotice("MDSStaticDatabase", "%s, System databases already exist; Shouldn't issue any create database", __FUNCTION__);
+        return;
+    }
+    
 	CSSM_DBINFO dbInfo;
 	CSSM_DBINFO_PTR dbInfoP = &dbInfo;
 	

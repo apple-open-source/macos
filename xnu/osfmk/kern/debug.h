@@ -301,6 +301,7 @@ __options_decl(stackshot_flags_t, uint64_t, {
 	STACKSHOT_EXCLAVES                         = 0x200000000,
 	/* Skip Exclaves stack collection */
 	STACKSHOT_SKIP_EXCLAVES                    = 0x400000000,
+	STACKSHOT_MTEINFO                          = 0x800000000,
 }); // Note: Add any new flags to kcdata.py (stackshot_in_flags)
 
 __options_decl(microstackshot_flags_t, uint32_t, {

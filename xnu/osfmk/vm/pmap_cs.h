@@ -310,6 +310,7 @@ typedef enum {
 	/*
 	 * These signatures represent platform binaries which have the highest trust level.
 	 */
+	PMAP_CS_IN_MOBILE_ASSET_TRUST_CACHE,
 	PMAP_CS_IN_LOADED_TRUST_CACHE,
 	PMAP_CS_IN_STATIC_TRUST_CACHE,
 
@@ -323,7 +324,7 @@ typedef enum {
 } pmap_cs_trust_t;
 
 /* Everything with greater or equal trust is a platform binary */
-#define PMAP_CS_LOWEST_PLATFORM_BINARY_TRUST PMAP_CS_IN_LOADED_TRUST_CACHE
+#define PMAP_CS_LOWEST_PLATFORM_BINARY_TRUST PMAP_CS_IN_MOBILE_ASSET_TRUST_CACHE
 
 /* Minimum trust level of a code signature to be run/mapped */
 #define PMAP_CS_LOWEST_ACCEPTABLE_TRUST PMAP_CS_COMPILATION_SERVICE

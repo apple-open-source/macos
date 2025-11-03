@@ -194,7 +194,7 @@ int writev_uio(struct proc *p, int fd, user_addr_t user_iovp, int iovcnt, off_t 
  *             ENXIO
  */
 static int
-valid_for_random_access(struct fileproc *fp)
+valid_for_random_access(struct fileproc *fp, bool check_for_pwrite)
 {
 	if (__improbable(fp->f_type != DTYPE_VNODE)) {
 		return ESPIPE;
@@ -207,6 +207,10 @@ valid_for_random_access(struct fileproc *fp)
 
 	if (__improbable(vp->v_flag & VISTTY)) {
 		return ENXIO;
+	}
+
+	if (check_for_pwrite && vnode_isappendonly(vp)) {
+		return EPERM;
 	}
 
 	return 0;
@@ -242,7 +246,7 @@ preparefileread(struct proc *p, struct fileproc **fp_ret, int fd, int check_for_
 		goto out;
 	}
 	if (check_for_pread) {
-		if ((error = valid_for_random_access(fp))) {
+		if ((error = valid_for_random_access(fp, false))) {
 			goto out;
 		}
 	}
@@ -558,7 +562,7 @@ preparefilewrite(struct proc *p, struct fileproc **fp_ret, int fd, int check_for
 	}
 
 	if (check_for_pwrite) {
-		if ((error = valid_for_random_access(fp))) {
+		if ((error = valid_for_random_access(fp, true))) {
 			goto out;
 		}
 	}

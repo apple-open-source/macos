@@ -1992,7 +1992,11 @@ __private_extern__ void batteryTimeRemainingGetBatteryHealthState(xpc_object_t c
         if (svcFlags & (kBHSvcFlagAuthFailure)) { // sideband update until rdar://105691933. Regardless, make a distinction between service due to auth and other reasons. This strategy follows the UI flow.
             battState = kBatteryHealthStateNonGenuine;
         } else if (svcState > kBHSvcStateNone) {
-            battState = kBatteryHealthStateServiceNeeded;
+            if (svcState == kBHSvcStateRecalibrating) { // special case for recalibration. Ideally, service state > 0 means service condition.
+                battState = kBatteryHealthStateNormal;
+            } else {
+                battState = kBatteryHealthStateServiceNeeded;
+            }
         } else if (svcState == kBHSvcStateNone) {
             battState = kBatteryHealthStateNormal;
         } else if ((svcState == kBHSvcStateUnknown) && batteryCapacityMonitor_isQmaxUnknown(&svcFlags)) {

@@ -569,8 +569,8 @@ struct kcdata_type_definition {
 #define STACKSHOT_KCTYPE_LATENCY_INFO_CPU            0x956u /* struct stackshot_latency_cpu */
 #define STACKSHOT_KCTYPE_TASK_EXEC_META              0x957u /* struct task_exec_meta */
 #define STACKSHOT_KCTYPE_TASK_MEMORYSTATUS           0x958u /* struct task_memorystatus_snapshot */
+#define STACKSHOT_KCTYPE_MTEINFO_CELL                0x959u /* struct mteinfo_cell */
 #define STACKSHOT_KCTYPE_LATENCY_INFO_BUFFER         0x95au /* struct stackshot_latency_buffer */
-
 
 struct stack_snapshot_frame32 {
 	uint32_t lr;
@@ -735,6 +735,27 @@ struct task_exec_meta {
 } __attribute__((packed));
 
 
+/* MTE info cell state, must match mte_cell_state_t */
+__enum_closed_decl(mte_info_cell_state_t, uint8_t, {
+	MTE_INFO_STATE_DISABLED,
+	MTE_INFO_STATE_PINNED,
+	MTE_INFO_STATE_DEACTIVATING,
+	MTE_INFO_STATE_CLAIMED,
+	MTE_INFO_STATE_INACTIVE,
+	MTE_INFO_STATE_RECLAIMING,
+	MTE_INFO_STATE_ACTIVATING,
+	MTE_INFO_STATE_ACTIVE,
+});
+
+/* MTE info cell data */
+struct mte_info_cell {
+	uint8_t mic_state;
+	uint8_t mic_tagged_count;              /* Number of tagged pages in this tag storage page */
+	uint8_t mic_free_count;                /* Number of free pages in this tag storage page */
+	uint8_t mic_wired_count;               /* Number of wired pages in this tag storage page, regardless of tagging */
+	uint8_t mic_wired_tagged_count;        /* Number of tagged pages wired that aren't used by kernel memory allocators */
+	uint8_t mic_kernel_wired_tagged_count; /* Number of tagged pages wired for use by the kernel memory allocators, kmem and zalloc */
+} __attribute__((packed));
 
 enum thread_snapshot_flags {
 	/* k{User,Kernel}64_p (values 0x1 and 0x2) are defined in generic_snapshot_flags */

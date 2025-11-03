@@ -306,6 +306,35 @@ OSStatus AuthorizationCopyPreloginPreferencesValue(const char * _Nonnull const v
 */
 OSStatus AuthorizationHandlePreloginOverride(const char * _Nonnull const volumeUuid, const char operation, Boolean * _Nullable result);
 
+/*!
+    @function AuthorizationMakeSafePlugin
+    @abstract Securely copies a plugin to a safe location for authorization usage
+    @discussion This function validates the plugin path, prevents path traversal attacks, and copies
+                the plugin to a secure staging area managed by authd. The staged plugin can then be
+                safely loaded and executed by the authorization system. The caller is responsible for
+                freeing the returned safePath string.
+    @param pluginPath Path to the plugin to be staged (must be non-NULL and valid)
+    @param safePath Output parameter that receives the safe path where the plugin was copied.
+                    This parameter is mandatory and cannot be NULL. The caller must free this
+                    string using free() when no longer needed.
+    @result OSStatus indicating success (errAuthorizationSuccess) or specific error condition:
+            - errAuthorizationInvalidPointer: Invalid input parameters
+            - errAuthorizationDenied: Path validation failed or access denied
+            - errAuthorizationInternal: Internal error during staging operation
+*/
+OSStatus AuthorizationMakeSafePlugin(const char * _Nonnull pluginPath, char * _Nonnull * _Nonnull safePath);
+
+/*!
+    @function AuthorizationRemoveSafePlugins
+    @abstract Removes all previously staged plugins for the calling process
+    @discussion This function cleans up all plugins that were staged by the calling process.
+                It should be called when the process no longer needs the staged plugins to
+                free up system resources and maintain security hygiene.
+    @result OSStatus indicating success (errAuthorizationSuccess) or specific error condition:
+            - errAuthorizationInternal: Internal error during cleanup operation
+*/
+OSStatus AuthorizationRemoveSafePlugins(void);
+
 #if defined(__cplusplus)
 }
 #endif

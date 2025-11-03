@@ -116,6 +116,28 @@
 			<key>IOProbeScore</key>
 			<integer>1</integer>
 		</dict>
+#if APPLE_FEATURE_P192
+		<key>HID Button IOFastPath</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOFastPathHIDButtonService</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDEventService</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>SupportsIOFastPath</key>
+				<true/>
+				<key>SupportsButtonEvents</key>
+				<true/>
+			</dict>
+			<key>IOMatchCategory</key>
+			<string>IOFastPathHIDButtonService</string>
+			<key>IOProbeScore</key>
+			<integer>1</integer>
+		</dict>
+#endif
 		<key>HID LED Constellation IOFastPath</key>
 		<dict>
 			<key>CFBundleIdentifier</key>

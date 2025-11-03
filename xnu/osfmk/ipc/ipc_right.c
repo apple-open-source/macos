@@ -1988,7 +1988,7 @@ ipc_right_copyin_check_reply(
 		 */
 		if (reply_entry->ie_bits & IE_BITS_IMMOVABLE_SEND) {
 			mach_port_guard_exception_immovable(space, reply_name, reply_port, MACH_MSG_TYPE_MOVE_SEND_ONCE, reply_entry);
-			return FALSE;
+			return false;
 		}
 
 		if (reply_type == MACH_MSG_TYPE_MOVE_SEND_ONCE) {

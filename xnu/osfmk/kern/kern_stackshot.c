@@ -84,6 +84,9 @@
 #include <libkern/OSKextLibPrivate.h>
 #include <os/log.h>
 
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#endif /* HAS_MTE */
 
 
 #ifdef CONFIG_EXCLAVES
@@ -440,6 +443,9 @@ static kern_return_t    stackshot_finalize_singlethreaded_kcdata(void);
 static kern_return_t    stackshot_collect_kcdata(void);
 static int              kdp_stackshot_kcdata_format();
 static void             kdp_mem_and_io_snapshot(struct mem_and_io_snapshot *memio_snap);
+#if HAS_MTE
+static kern_return_t    stackshot_mteinfo_snapshot(kcdata_descriptor_t data);
+#endif
 static vm_offset_t      stackshot_find_phys(vm_map_t map, vm_offset_t target_addr, kdp_fault_flags_t fault_flags, uint32_t *kdp_fault_result_flags);
 static boolean_t        stackshot_copyin(vm_map_t map, uint64_t uaddr, void *dest, size_t size, boolean_t try_fault, uint32_t *kdp_fault_result);
 static int              stackshot_copyin_string(task_t task, uint64_t addr, char *buf, int buf_sz, boolean_t try_fault, uint32_t *kdp_fault_results);
@@ -1511,6 +1517,11 @@ get_stackshot_estsize(
 	est_extra_size += sizeof(struct stackshot_latency_collection_v2);
 #endif
 
+#if HAS_MTE
+	if (trace_flags & STACKSHOT_MTEINFO) {
+		est_extra_size += mte_tag_storage_count * sizeof(struct mte_info_cell);
+	}
+#endif
 	est_extra_size += real_ncpus * MAX_FRAMES * sizeof(uintptr_t); /* Stacktrace buffers */
 	est_extra_size += FUDGED_SIZE(tasks_count, 10) * sizeof(uintptr_t) * STACKSHOT_NUM_WORKQUEUES; /* Work queues */
 	est_extra_size += sizeof_if_traceflag(sizeof(uintptr_t) * STACKSHOT_PAGETABLE_BUFSZ * real_ncpus, STACKSHOT_PAGE_TABLES);
@@ -3691,6 +3702,25 @@ kdp_task_exec_meta_flags(task_t task)
 		flags |= kTaskExecHardenedHeap;
 	}
 
+#if (HAS_MTE || HAS_MTE_EMULATION_SHIMS) && APPLE_FEATURE_MTE
+	if (task_has_sec(task)) {
+		flags |= kTaskExecSec;
+
+		if (task_has_sec_inherit(task)) {
+			flags |= kTaskExecSecInherit;
+		}
+
+		if (task_has_sec_user_data(task)) {
+			flags |= kTaskExecSecUserData;
+		}
+#if HAS_MTE
+		if (task_has_sec_soft_mode(task)) {
+			flags |= kTaskExecSecSoftMode;
+		}
+#endif /* HAS_MTE */
+	}
+
+#endif /* (HAS_MTE || HAS_MTE_EMULATION_SHIMS) && APPLE_FEATURE_MTE */
 
 	return flags;
 }
@@ -3707,6 +3737,12 @@ stackshot_available_task_exec_flags(void)
 
 	flags_mask |= kTaskExecHardenedHeap;
 
+#if (HAS_MTE || HAS_MTE_EMULATION_SHIMS) && APPLE_FEATURE_MTE
+	flags_mask |= kTaskExecSec;
+	flags_mask |= kTaskExecSecUserData;
+	flags_mask |= kTaskExecSecSoftMode;
+	flags_mask |= kTaskExecSecInherit;
+#endif /* (HAS_MTE || HAS_MTE_EMULATION_SHIMS) && APPLE_FEATURE_MTE */
 
 	return flags_mask;
 }
@@ -4278,7 +4314,21 @@ _stackshot_backtrace_copy(void *vctx, void *dst, user_addr_t src, size_t size)
 	kasan_notify_address_nopoison(src_kva, size);
 #endif
 
+#if HAS_MTE
+	/*
+	 * Disable tag checking during the copy operation. While in the general case,
+	 * if the src page is tagged, we are dealing with a Swift async stack and
+	 * therefore a single tag value, we cannot merely fixup the tag here as
+	 * userspace could place any target address to be dereferenced in the
+	 * backtrace walk, leading to a Denial of Service. We TCO the access instead
+	 * although we should improve this to only TCO loads and not stores.
+	 */
+	mte_disable_tag_checking();
+#endif /* HAS_MTE */
 	memcpy(dst, (const void *)src_kva, size);
+#if HAS_MTE
+	mte_enable_tag_checking();
+#endif /* HAS_MTE */
 
 	return 0;
 }
@@ -5330,6 +5380,11 @@ kdp_stackshot_kcdata_format(void)
 		kcd_exit_on_error(kcdata_push_data(stackshot_kcdata_p, STACKSHOT_KCTYPE_GLOBAL_MEM_STATS, sizeof(mais), &mais));
 	}
 
+#if HAS_MTE
+	if (stackshot_flags & STACKSHOT_MTEINFO) {
+		kcd_exit_on_error(stackshot_mteinfo_snapshot(stackshot_kcdata_p));
+	}
+#endif
 
 #if CONFIG_THREAD_GROUPS
 	struct thread_group_snapshot_v3 *thread_groups = NULL;
@@ -5683,6 +5738,24 @@ kdp_mem_and_io_snapshot(struct mem_and_io_snapshot *memio_snap)
 	}
 }
 
+#if HAS_MTE
+static kern_return_t
+stackshot_mteinfo_snapshot(kcdata_descriptor_t data)
+{
+	kern_return_t error = KERN_SUCCESS;
+	mach_vm_address_t out_addr = 0;
+
+	kcdata_compression_window_open(stackshot_kcdata_p);
+	kcd_exit_on_error(kcdata_get_memory_addr_for_array(data, STACKSHOT_KCTYPE_MTEINFO_CELL, sizeof(struct mte_info_cell), mte_tag_storage_count, &out_addr));
+
+	kdp_mteinfo_snapshot((struct mte_info_cell*)out_addr, mte_tag_storage_count);
+
+	kcd_exit_on_error(kcdata_compression_window_close(stackshot_kcdata_p));
+
+error_exit:
+	return error;
+}
+#endif
 
 static vm_offset_t
 stackshot_find_phys(vm_map_t map, vm_offset_t target_addr, kdp_fault_flags_t fault_flags, uint32_t *kdp_fault_result_flags)

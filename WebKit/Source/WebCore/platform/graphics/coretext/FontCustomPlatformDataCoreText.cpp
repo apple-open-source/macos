@@ -60,14 +60,13 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     return platformData;
 }
 
-static RetainPtr<CFDataRef> extractFontCustomPlatformData(SharedBuffer& buffer, const String& itemInCollection)
+static RetainPtr<CFDataRef> extractFontCustomPlatformDataShared(RetainPtr<CFArrayRef>&& array, const String& itemInCollection)
 {
-    RetainPtr<CFDataRef> bufferData = buffer.createCFData();
-
-    FPFontRef font = nullptr;
-    auto array = adoptCF(FPFontCreateFontsFromData(bufferData.get()));
     if (!array)
         return nullptr;
+
+    FPFontRef font = nullptr;
+
     auto length = CFArrayGetCount(array.get());
     if (length <= 0)
         return nullptr;
@@ -91,9 +90,27 @@ static RetainPtr<CFDataRef> extractFontCustomPlatformData(SharedBuffer& buffer, 
     return adoptCF(FPFontCopySFNTData(font));
 }
 
+static RetainPtr<CFDataRef> extractFontCustomPlatformDataSystemParser(const SharedBuffer& buffer, const String& itemInCollection)
+{
+    RetainPtr bufferData = buffer.createCFData();
+
+    RetainPtr array = adoptCF(FPFontCreateFontsFromData(bufferData.get()));
+    return extractFontCustomPlatformDataShared(WTFMove(array), itemInCollection);
+}
+
+#if HAVE(CTFONTMANAGER_CREATEMEMORYSAFEFONTDESCRIPTORFROMDATA)
+static RetainPtr<CFDataRef> extractFontCustomPlatformDataMemorySafe(const SharedBuffer& buffer, const String& itemInCollection)
+{
+    RetainPtr bufferData = buffer.createCFData();
+
+    RetainPtr array = adoptCF(FPFontCreateMemorySafeFontsFromData(bufferData.get()));
+    return extractFontCustomPlatformDataShared(WTFMove(array), itemInCollection);
+}
+#endif
+
 RefPtr<FontCustomPlatformData> FontCustomPlatformData::create(SharedBuffer& buffer, const String& itemInCollection)
 {
-    RetainPtr extractedData = extractFontCustomPlatformData(buffer, itemInCollection);
+    RetainPtr extractedData = extractFontCustomPlatformDataSystemParser(buffer, itemInCollection);
     if (!extractedData) {
         // Something is wrong with the font.
         return nullptr;
@@ -109,7 +126,7 @@ RefPtr<FontCustomPlatformData> FontCustomPlatformData::create(SharedBuffer& buff
 RefPtr<FontCustomPlatformData> FontCustomPlatformData::createMemorySafe(SharedBuffer& buffer, const String& itemInCollection)
 {
 #if HAVE(CTFONTMANAGER_CREATEMEMORYSAFEFONTDESCRIPTORFROMDATA)
-    RetainPtr extractedData = extractFontCustomPlatformData(buffer, itemInCollection);
+    RetainPtr extractedData = extractFontCustomPlatformDataMemorySafe(buffer, itemInCollection);
     if (!extractedData) {
         // Something is wrong with the font.
         return nullptr;

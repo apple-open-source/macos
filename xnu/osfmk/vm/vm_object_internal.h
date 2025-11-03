@@ -73,6 +73,10 @@ extern uint16_t vm_object_pagein_throttle;
  * pageout_scan try getting the object lock if it's trying to
  * reclaim pages from that object (see vm_pageout_scan_wants_object).
  */
+/*
+ * This is also used by the fill thread when reclaiming tag storage
+ * pages because we don't want to block while holding the page queues lock.
+ */
 #define vm_object_lock_try_scan(object) _vm_object_lock_try(object)
 
 /*
@@ -427,6 +431,9 @@ __private_extern__ kern_return_t        vm_object_copy_slowly(
 	vm_object_offset_t      src_offset,
 	vm_object_size_t        size,
 	boolean_t               interruptible,
+#if HAS_MTE
+	bool                    create_mte_object,
+#endif /* HAS_MTE */
 	vm_object_t             *_result_object);
 
 __private_extern__ vm_object_t  vm_object_copy_delayed(
@@ -575,7 +582,7 @@ vm_object_pageout(
  *	Event waiting handling
  */
 __enum_closed_decl(vm_object_wait_reason_t, uint8_t, {
-	VM_OBJECT_EVENT_PAGER_INIT = 0,
+	VM_OBJECT_EVENT_PL_REQ_IN_PROGRESS = 0,
 	VM_OBJECT_EVENT_PAGER_READY = 1,
 	VM_OBJECT_EVENT_PAGING_IN_PROGRESS = 2,
 	VM_OBJECT_EVENT_MAPPING_IN_PROGRESS = 3,
@@ -646,6 +653,29 @@ extern void vm_object_wakeup(
 #endif  /* VM_PIP_DEBUG */
 
 static inline void
+vm_object_pl_req_begin(vm_object_t object)
+{
+	vm_object_lock_assert_exclusive(object);
+//	VM_PIP_DEBUG_BEGIN(object);
+	if (os_inc_overflow(&object->vmo_pl_req_in_progress)) {
+		panic("vm_object_pl_req_begin(%p): overflow\n", object);
+	}
+}
+
+static inline void
+vm_object_pl_req_end(vm_object_t object)
+{
+	vm_object_lock_assert_exclusive(object);
+	if (os_dec_overflow(&object->vmo_pl_req_in_progress)) {
+		panic("vm_object_pl_req_end(%p): underflow\n", object);
+	}
+	if (object->vmo_pl_req_in_progress == 0) {
+		vm_object_wakeup((object),
+		    VM_OBJECT_EVENT_PL_REQ_IN_PROGRESS);
+	}
+}
+
+static inline void
 vm_object_activity_begin(vm_object_t object)
 {
 	vm_object_lock_assert_exclusive(object);
@@ -705,6 +735,7 @@ vm_object_paging_end(vm_object_t object)
 	}
 }
 
+extern wait_result_t vm_object_pl_req_wait(vm_object_t object, wait_interrupt_t interruptible);
 /* Wait for *all* paging and activities on this object to complete */
 extern wait_result_t vm_object_paging_wait(vm_object_t object, wait_interrupt_t interruptible);
 /* Wait for *all* paging on this object to complete */

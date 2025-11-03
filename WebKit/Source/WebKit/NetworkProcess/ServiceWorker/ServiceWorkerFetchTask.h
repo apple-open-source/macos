@@ -67,7 +67,7 @@ public:
     static RefPtr<ServiceWorkerFetchTask> fromNavigationPreloader(WebSWServerConnection&, NetworkResourceLoader&, const WebCore::ResourceRequest&, NetworkSession*);
 
     static Ref<ServiceWorkerFetchTask> create(WebSWServerConnection&, NetworkResourceLoader&, WebCore::ResourceRequest&&, WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::SWServerRegistration&, NetworkSession*, bool isWorkerReady);
-    static Ref<ServiceWorkerFetchTask> create(WebSWServerConnection&, NetworkResourceLoader&, std::unique_ptr<ServiceWorkerNavigationPreloader>&&);
+    static Ref<ServiceWorkerFetchTask> create(WebSWServerConnection&, NetworkResourceLoader&, RefPtr<ServiceWorkerNavigationPreloader>&&);
 
     ~ServiceWorkerFetchTask();
 
@@ -92,7 +92,7 @@ public:
 
 private:
     ServiceWorkerFetchTask(WebSWServerConnection&, NetworkResourceLoader&, WebCore::ResourceRequest&&, WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::SWServerRegistration&, NetworkSession*, bool isWorkerReady);
-    ServiceWorkerFetchTask(WebSWServerConnection&, NetworkResourceLoader&, std::unique_ptr<ServiceWorkerNavigationPreloader>&&);
+    ServiceWorkerFetchTask(WebSWServerConnection&, NetworkResourceLoader&, RefPtr<ServiceWorkerNavigationPreloader>&&);
 
     enum class ShouldSetSource : bool { No, Yes };
     void didReceiveRedirectResponse(WebCore::ResourceResponse&&);
@@ -126,7 +126,7 @@ private:
     RefPtr<NetworkResourceLoader> protectedLoader() const;
     void sendNavigationPreloadUpdate();
 
-    CheckedPtr<ServiceWorkerNavigationPreloader> checkedPreloader();
+    RefPtr<ServiceWorkerNavigationPreloader> protectedPreloader();
 
     WeakPtr<WebSWServerConnection> m_swServerConnection;
     WeakPtr<NetworkResourceLoader> m_loader;
@@ -137,7 +137,7 @@ private:
     WebCore::ResourceRequest m_currentRequest;
     std::unique_ptr<WebCore::Timer> m_timeoutTimer;
     Markable<WebCore::ServiceWorkerRegistrationIdentifier> m_serviceWorkerRegistrationIdentifier;
-    std::unique_ptr<ServiceWorkerNavigationPreloader> m_preloader;
+    RefPtr<ServiceWorkerNavigationPreloader> m_preloader;
     bool m_wasHandled { false };
     bool m_isDone { false };
     bool m_shouldSoftUpdate { false };

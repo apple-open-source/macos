@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2021-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2021-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -37,14 +37,15 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 
-#include "sudo.h"
-#include "sudo_exec.h"
-#include "sudo_plugin.h"
-#include "sudo_plugin_int.h"
-#include "sudo_rand.h"
-#include "intercept.pb-c.h"
-#include "exec_intercept.h"
+#include <sudo.h>
+#include <sudo_exec.h>
+#include <sudo_plugin.h>
+#include <sudo_plugin_int.h>
+#include <sudo_rand.h>
+#include <intercept.pb-c.h>
+#include <exec_intercept.h>
 
 #ifdef _PATH_SUDO_INTERCEPT
 static union sudo_token_un intercept_token;
@@ -98,7 +99,7 @@ enable_write_event(int fd, sudo_ev_callback_t callback,
  */
 void *
 intercept_setup(int fd, struct sudo_event_base *evbase,
-    struct command_details *details)
+    const struct command_details *details)
 {
     struct intercept_closure *closure;
     debug_decl(intercept_setup, SUDO_DEBUG_EXEC);
@@ -144,7 +145,7 @@ bad:
 }
 
 /*
- * Reset intercept_closure so it can be re-used.
+ * Reset intercept_closure so it can be reused.
  */
 void
 intercept_closure_reset(struct intercept_closure *closure)
@@ -199,13 +200,19 @@ intercept_connection_close(struct intercept_closure *closure)
 }
 
 void
-intercept_cleanup(void)
+intercept_cleanup(struct exec_closure *ec)
 {
     debug_decl(intercept_cleanup, SUDO_DEBUG_EXEC);
 
     if (accept_closure != NULL) {
+	/* DSO-based intercept. */
 	intercept_connection_close(accept_closure);
 	accept_closure = NULL;
+    } else if (ec->intercept != NULL) {
+	/* ptrace-based intercept. */
+	intercept_closure_reset(ec->intercept);
+	free(ec->intercept);
+	ec->intercept = NULL;
     }
 
     debug_return;
@@ -368,7 +375,8 @@ intercept_check_policy(const char *command, int argc, char **argv, int envc,
     char **command_info_copy = NULL;
     char **user_env_out = NULL;
     char **run_argv = NULL;
-    int i, rc, saved_dir = -1;
+    int rc, saved_dir = -1;
+    size_t i;
     bool ret = true;
     struct stat sb;
     debug_decl(intercept_check_policy, SUDO_DEBUG_EXEC);
@@ -450,10 +458,11 @@ intercept_check_policy(const char *command, int argc, char **argv, int envc,
 	    goto oom;
 
 	/* Rebuild command_info[] with new command and runcwd. */
-	command_info = update_command_info(closure->details->info,
+	command_info_copy = update_command_info(closure->details->info,
 	    command, runcwd, NULL, closure);
-	if (command_info == NULL)
+	if (command_info_copy == NULL)
 	    goto oom;
+	command_info = command_info_copy;
 	closure->state = POLICY_ACCEPT;
 	run_argv = argv;
     }
@@ -463,11 +472,11 @@ intercept_check_policy(const char *command, int argc, char **argv, int envc,
 	    "run_command: %s", closure->command);
 	for (i = 0; command_info[i] != NULL; i++) {
 	    sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
-		"command_info[%d]: %s", i, command_info[i]);
+		"command_info[%zu]: %s", i, command_info[i]);
 	}
 	for (i = 0; run_argv[i] != NULL; i++) {
 	    sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
-		"run_argv[%d]: %s", i, run_argv[i]);
+		"run_argv[%zu]: %s", i, run_argv[i]);
 	}
     }
 
@@ -485,10 +494,10 @@ intercept_check_policy(const char *command, int argc, char **argv, int envc,
     closure->run_argv[i] = NULL;
 
     /* Make a copy of envp, which may not be NULL-terminated. */
-    closure->run_envp = reallocarray(NULL, envc + 1, sizeof(char *));
+    closure->run_envp = reallocarray(NULL, (size_t)envc + 1, sizeof(char *));
     if (closure->run_envp == NULL)
 	goto oom;
-    for (i = 0; i < envc; i++) {
+    for (i = 0; i < (size_t)envc; i++) {
 	closure->run_envp[i] = strdup(envp[i]);
 	if (closure->run_envp[i] == NULL)
 	    goto oom;
@@ -555,7 +564,7 @@ intercept_check_policy_req(PolicyCheckRequest *req,
     size_t n;
     debug_decl(intercept_check_policy_req, SUDO_DEBUG_EXEC);
 
-    if (req->command == NULL) {
+    if (req->command == NULL || req->n_argv > INT_MAX || req->n_envp > INT_MAX) {
 	closure->errstr = N_("invalid PolicyCheckRequest");
 	goto done;
     }
@@ -588,8 +597,8 @@ intercept_check_policy_req(PolicyCheckRequest *req,
     }
     argv[n] = NULL;
 
-    ret = intercept_check_policy(req->command, req->n_argv, argv, req->n_envp,
-	req->envp, req->cwd, &oldcwd, closure);
+    ret = intercept_check_policy(req->command, (int)req->n_argv, argv,
+	(int)req->n_envp, req->envp, req->cwd, &oldcwd, closure);
 
 done:
     if (oldcwd != -1) {
@@ -628,7 +637,7 @@ intercept_verify_token(int fd, struct intercept_closure *closure)
 	if (nread + closure->off == sizeof(closure->token))
 	    break;
 	/* partial read, update offset and try again */
-	closure->off += nread;
+	closure->off += (uint32_t)nread;
 	errno = EAGAIN;
 	debug_return_int(-1);
     }
@@ -727,7 +736,7 @@ intercept_read(int fd, struct intercept_closure *closure)
 	sudo_warn("recv");
 	goto done;
     default:
-	closure->off += nread;
+	closure->off += (uint32_t)nread;
 	break;
     }
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: received %zd bytes from client",
@@ -768,7 +777,7 @@ unpack:
 	if (!ret)
 	    goto done;
 	if (!ISSET(closure->details->flags, CD_INTERCEPT)) {
-	    /* Just logging, re-use event to read next InterceptHello. */
+	    /* Just logging, reuse event to read next InterceptHello. */
 	    ret = enable_read_event(fd, RECV_HELLO, intercept_cb, closure);
 	    goto done;
 	}
@@ -813,7 +822,7 @@ fmt_intercept_response(InterceptResponse *resp,
     bool ret = false;
     debug_decl(fmt_intercept_response, SUDO_DEBUG_EXEC);
 
-    closure->len = intercept_response__get_packed_size(resp);
+    closure->len = (uint32_t)intercept_response__get_packed_size(resp);
     if (closure->len > MESSAGE_SIZE_MAX) {
 	sudo_warnx(U_("server message too large: %zu"), (size_t)closure->len);
 	goto done;
@@ -961,7 +970,7 @@ intercept_write(int fd, struct intercept_closure *closure)
 	sudo_warn("send");
 	goto done;
     }
-    closure->off += nwritten;
+    closure->off += (uint32_t)nwritten;
 
     if (closure->off != closure->len) {
 	/* Partial write. */
@@ -978,7 +987,7 @@ intercept_write(int fd, struct intercept_closure *closure)
 
     switch (closure->state) {
     case RECV_HELLO_INITIAL:
-	/* Re-use the listener event. */
+	/* Reuse the listener event. */
 	close(fd);
 	if (!enable_read_event(closure->listen_sock, RECV_CONNECTION,
 		intercept_accept_cb, closure))
@@ -988,7 +997,7 @@ intercept_write(int fd, struct intercept_closure *closure)
 	accept_closure = closure;
 	break;
     case POLICY_ACCEPT:
-	/* Re-use event to read InterceptHello from sudo_intercept.so ctor. */
+	/* Reuse event to read InterceptHello from sudo_intercept.so ctor. */
 	if (!enable_read_event(fd, RECV_HELLO, intercept_cb, closure))
 	    goto done;
 	break;
@@ -1079,7 +1088,7 @@ bad:
 #else /* _PATH_SUDO_INTERCEPT */
 void *
 intercept_setup(int fd, struct sudo_event_base *evbase,
-    struct command_details *details)
+    const struct command_details *details)
 {
     debug_decl(intercept_setup, SUDO_DEBUG_EXEC);
 
@@ -1089,7 +1098,7 @@ intercept_setup(int fd, struct sudo_event_base *evbase,
 }
 
 void
-intercept_cleanup(void)
+intercept_cleanup(struct exec_closure *ec)
 {
     debug_decl(intercept_cleanup, SUDO_DEBUG_EXEC);
 

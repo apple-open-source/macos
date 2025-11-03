@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -779,7 +779,7 @@ main(int argc, char * argv[])
     interface_list_t *	interfaces = NULL;
     RTADVInfo		rtadv;
 
-    interfaces = ifl_init();
+    interfaces = ifl_create(NULL);
     if (argc != 2) {
 	fprintf(stderr, "rtadv <ifname>\n");
 	exit(1);

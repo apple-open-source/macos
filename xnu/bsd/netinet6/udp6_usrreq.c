@@ -607,6 +607,12 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 			drop_reason = DROP_REASON_IP_MULTICAST_NO_PORT;
 			goto bad;
 		}
+
+		if (udp6_port_unreach_rlc_compress(&ip6->ip6_src, uh->uh_sport,
+		    &ip6->ip6_dst, uh->uh_dport) == true) {
+			drop_reason = DROP_REASON_IP_UNREACHABLE_PORT;
+			goto bad;
+		}
 		icmp6_error(m, ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT, 0);
 		return IPPROTO_DONE;
 	}
@@ -1212,6 +1218,9 @@ udp6_send(struct socket *so, int flags, struct mbuf *m, struct sockaddr *addr,
 			pru = ip_protox[IPPROTO_UDP]->pr_usrreqs;
 			error = ((*pru->pru_send)(so, flags, m, addr,
 			    control, p));
+			if (error == EJUSTRETURN) {
+				error = 0;
+			}
 #if CONTENT_FILTER
 			if (cfil_tag) {
 				m_tag_free(cfil_tag);

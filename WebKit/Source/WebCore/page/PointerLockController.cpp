@@ -41,6 +41,7 @@
 #include "UserGestureIndicator.h"
 #include "VoidCallback.h"
 #include <wtf/TZoneMallocInlines.h>
+#include <JavaScriptCore/ConsoleTypes.h>
 
 namespace WebCore {
 

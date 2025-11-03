@@ -17,7 +17,10 @@
 typedef void (*PE_kputc_t)(char);
 SECURITY_READ_ONLY_LATE(PE_kputc_t) PE_kputc;
 
-// disable_serial_output disables kprintf() *and* unbuffered panic output.
+/**
+ * disable_serial_output disables kprintf() *and* unbuffered panic output
+ * except for SPTM based early panic serial output via `sptm_serial_putc()`.
+ */
 SECURITY_READ_ONLY_LATE(bool) disable_serial_output = true;
 // disable_kprintf_output only disables kprintf().
 SECURITY_READ_ONLY_LATE(bool) disable_kprintf_output = true;

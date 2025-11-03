@@ -38,14 +38,27 @@
 #include <mach/vm_types.h>
 #include <sys/_types/_caddr_t.h>
 
+#if HAS_MTE
+#define ENABLE_MEMTAG_INTERFACES        1
+#define ENABLE_MEMTAG_MANIPULATION_API  1
+#endif
 
 #if KASAN_TBI
 #define ENABLE_MEMTAG_INTERFACES        1
 #define ENABLE_MEMTAG_MANIPULATION_API  1
 #endif
 
+#if HAS_MTE_EMULATION_SHIMS
+#define ENABLE_MEMTAG_MANIPULATION_API  1
+#endif
 
+#if HAS_MTE && HAS_MTE_EMULATION_SHIMS
+#error HAS_MTE and HAS_MTE_EMULATION_SHIMS is not a supported configuration
+#endif /* HAS_MTE && HAS_MTE_EMULATION_SHIMS */
 
+#if HAS_MTE_EMULATION_SHIMS && KASAN_TBI
+#error HAS_MTE_EUMATION_SHIMS and KASAN_TBI is not a supported configuration
+#endif /* KASAN_TBI && HAS_MTE_EMULATION_SHIMS */
 
 #if defined(ENABLE_MEMTAG_INTERFACES)
 
@@ -105,6 +118,9 @@ __END_DECLS
 
 #else /* ENABLE_MEMTAG_INTERFACES */
 
+#if HAS_MTE
+#error "vm_memtag interfaces should be defined whenever MTE is available"
+#endif /* HAS_MTE */
 
 #if KASAN_TBI
 #error "vm_memtag interfaces should be defined whenever KASAN-TBI is enabled"
@@ -188,6 +204,9 @@ __END_DECLS
 
 #else /* ENABLE_MEMTAG_MANIPULATION_API */
 
+#if HAS_MTE
+#error "vm_memtag manipulation APIs should be defined whenever MTE is available"
+#endif /* HAS_MTE */
 
 #if KASAN_TBI
 #error "vm_memtag manipulation APIs should be defined whenever KASAN-TBI is enabled"

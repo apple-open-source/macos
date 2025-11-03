@@ -4719,6 +4719,7 @@ smb2_dur_handle_init(struct smb_share *share, uint64_t flags,
          */
         if ((sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) &&
             (share->ss_share_caps & SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY)) {
+            dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_REQUEST;
             dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_REQUEST;
         }
     }

@@ -4,6 +4,8 @@
 
 #include <darwintest.h>
 
+T_GLOBAL_META(T_META_TAG_ALL_ALLOCATORS);
+
 T_DECL(reallocarray, "reallocarray(3)",
 	   T_META_TAG_VM_PREFERRED,
 	   T_META_RUN_CONCURRENTLY(true),

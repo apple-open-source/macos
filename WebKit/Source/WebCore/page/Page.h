@@ -634,7 +634,7 @@ public:
     float initialScaleIgnoringContentSize() const { return m_initialScaleIgnoringContentSize; }
     WEBCORE_EXPORT void setInitialScaleIgnoringContentSize(float);
 
-    WEBCORE_EXPORT void screenPropertiesDidChange();
+    WEBCORE_EXPORT void screenPropertiesDidChange(bool affectsStyle = true);
     void windowScreenDidChange(PlatformDisplayID, std::optional<FramesPerSecond> nominalFramesPerSecond);
     PlatformDisplayID displayID() const { return m_displayID; }
     std::optional<FramesPerSecond> displayNominalFramesPerSecond() const { return m_displayNominalFramesPerSecond; }
@@ -1734,6 +1734,7 @@ private:
     Color m_underPageBackgroundColorOverride;
     std::optional<Color> m_sampledPageTopColor;
     std::pair<UniqueRef<FixedContainerEdges>, WeakElementEdges> m_fixedContainerEdgesAndElements;
+    bool m_userHasInteractedSinceLastPageLoad { false };
 
     const bool m_httpsUpgradeEnabled { true };
     mutable Markable<MediaSessionGroupIdentifier> m_mediaSessionGroupIdentifier;

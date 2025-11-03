@@ -27,6 +27,8 @@
  */
 #ifndef _VM_VM_COMPRESSOR_XNU_H_
 #define _VM_VM_COMPRESSOR_XNU_H_
+#include <stdbool.h>
+#include <stdint.h>
 
 #ifdef MACH_KERNEL_PRIVATE
 
@@ -45,6 +47,9 @@
 #include <arm64/proc_reg.h>
 #endif
 
+#if HAS_MTE
+#include <arm64/mte_xnu.h>
+#endif
 
 #define C_SEG_OFFSET_BITS       16
 
@@ -94,6 +99,17 @@
 #define C_SLOT_C_PADDING_BITS           3
 
 #elif defined(__arm64__)                /* 32G from the heap start */
+
+#if HAS_MTE
+#define C_MTE_SIZE                      MTE_SIZE_TO_ATAG_STORAGE(PAGE_SIZE)
+#define C_SLOT_EXTRA_METADATA           16            /* 16 possible tags */
+#define C_SLOT_C_MTE_SIZE_BITS          10            /* ceil(log2(C_MTE_SIZE + C_SLOT_EXTRA_METADATA))  */
+#define C_SLOT_C_MTE_SIZE_MAX           (C_MTE_SIZE + C_SLOT_EXTRA_METADATA + 1)
+#define C_SLOT_C_PADDING_BITS           22
+#else /* !HAS_MTE */
+#define C_SLOT_C_PADDING_BITS           0
+#endif /* HAS_MTE */
+
 #define C_SLOT_PACKED_PTR_BITS          33
 #define C_SLOT_PACKED_PTR_SHIFT         2
 #define C_SLOT_PACKED_PTR_BASE          ((uintptr_t)KERNEL_PMAP_HEAP_RANGE_START)
@@ -101,7 +117,6 @@
 #define C_SLOT_C_SIZE_BITS              14
 #define C_SLOT_C_CODEC_BITS             1
 #define C_SLOT_C_POPCOUNT_BITS          0
-#define C_SLOT_C_PADDING_BITS           0
 
 #elif defined(__x86_64__)               /* 256G from the heap start */
 #define C_SLOT_PACKED_PTR_BITS          36
@@ -126,6 +141,9 @@
 #define C_SLOT_NO_POPCOUNT              ((16u << C_SLOT_C_SIZE_BITS) - 1)
 
 static_assert((C_SEG_OFFSET_BITS + C_SLOT_C_SIZE_BITS +
+#if HAS_MTE
+    C_SLOT_C_MTE_SIZE_BITS +
+#endif
     C_SLOT_C_CODEC_BITS + C_SLOT_C_POPCOUNT_BITS +
     C_SLOT_C_PADDING_BITS + C_SLOT_PACKED_PTR_BITS) % 32 == 0);
 
@@ -136,6 +154,13 @@ struct c_slot {
 	 * [5 : PAGE_SIZE-1] means it is normally compressed
 	 * PAGE_SIZE means it was incompressible (see tag:WK-INCOMPRESSIBLE) */
 	uint64_t        c_size:C_SLOT_C_SIZE_BITS;
+#if HAS_MTE
+	/* 0 means there are no MTE
+	 * [1 : C_MTE_SIZE-1] means normally compressed tags
+	 * C_MTE_SIZE means incompressible tags
+	 * [C_MTE_SIZE + 1 : C_SLOT_C_MTE_SIZE_MAX] means single-tag and encodes the tag */
+	uint64_t        c_mte_size:C_SLOT_C_MTE_SIZE_BITS;
+#endif /* HAS_MTE */
 #if C_SLOT_C_CODEC_BITS
 	uint64_t        c_codec:C_SLOT_C_CODEC_BITS;
 #endif
@@ -398,11 +423,6 @@ void vm_compressor_do_warmup(void);
 
 extern kern_return_t    vm_swap_get(c_segment_t, uint64_t, uint64_t);
 
-extern uint32_t         c_age_count;
-extern uint32_t         c_early_swapout_count, c_regular_swapout_count, c_late_swapout_count;
-extern uint32_t         c_swappedout_count;
-extern uint32_t         c_swappedout_sparse_count;
-
 extern _Atomic uint64_t compressor_bytes_used;
 extern uint32_t         swapout_target_age;
 
@@ -550,6 +570,9 @@ uint32_t vm_compressor_get_swapped_segment_count(void);
 #if DEVELOPMENT || DEBUG
 __enum_closed_decl(vm_c_serialize_add_data_t, uint32_t, {
 	VM_C_SERIALIZE_DATA_NONE,
+#if HAS_MTE
+	VM_C_SERIALIZE_DATA_TAGS,
+#endif /* HAS_MTE */
 });
 kern_return_t vm_compressor_serialize_segment_debug_info(int segno, char *buf, size_t *size, vm_c_serialize_add_data_t with_data);
 #endif /* DEVELOPMENT || DEBUG */
@@ -558,5 +581,29 @@ extern bool vm_compressor_low_on_space(void);
 extern bool vm_compressor_compressed_pages_nearing_limit(void);
 extern bool vm_compressor_out_of_space(void);
 
+#if HAS_MTE
+// number of tagged pages ever sent to the compressor
+SCALABLE_COUNTER_DECLARE(compressor_tagged_pages_compressed);
+// different reasons why tagged pages were removed from the compressor
+SCALABLE_COUNTER_DECLARE(compressor_tagged_pages_decompressed);
+SCALABLE_COUNTER_DECLARE(compressor_tagged_pages_freed);
+SCALABLE_COUNTER_DECLARE(compressor_tagged_pages_corrupted);
+// current number of bytes taken by compressed tags in the compressor
+SCALABLE_COUNTER_DECLARE(compressor_tags_overhead_bytes);
+// current number of tagged pages that reside in the compressor
+SCALABLE_COUNTER_DECLARE(compressor_tagged_pages);
+// current number of tag storage pages composing the compressor pool
+SCALABLE_COUNTER_DECLARE(compressor_tag_storage_pages_in_pool);
+// current number of non-tag storage pages composing the compressor pool
+SCALABLE_COUNTER_DECLARE(compressor_non_tag_storage_pages_in_pool);
+// the following is a breakdown of tagged_pages_compressed
+#if DEVELOPMENT || DEBUG
+SCALABLE_COUNTER_DECLARE(compressor_tags_all_zero);
+SCALABLE_COUNTER_DECLARE(compressor_tags_same_value);
+SCALABLE_COUNTER_DECLARE(compressor_tags_below_align);
+SCALABLE_COUNTER_DECLARE(compressor_tags_above_align);
+SCALABLE_COUNTER_DECLARE(compressor_tags_incompressible);
+#endif /* DEVELOPMENT || DEBUG */
+#endif /* HAS_MTE */
 
 #endif /* _VM_VM_COMPRESSOR_XNU_H_ */

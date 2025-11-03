@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 42;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -354,8 +354,12 @@
 		D427C3DF2D66D7E3000AAB9A /* custom */ = {isa = PBXFileReference; lastKnownFileType = folder; path = custom; sourceTree = "<group>"; };
 		D427C5012D66D7E3000AAB9A /* removed */ = {isa = PBXFileReference; lastKnownFileType = folder; path = removed; sourceTree = "<group>"; };
 		D427C5A82D66D7E3000AAB9A /* roots */ = {isa = PBXFileReference; lastKnownFileType = folder; path = roots; sourceTree = "<group>"; };
+		D44D5C542DF0C71300A6DBF0 /* test-roots */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "test-roots"; sourceTree = "<group>"; };
+		D44D5C572DF0C71F00A6DBF0 /* test-platform */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "test-platform"; sourceTree = "<group>"; };
 		D457A5042DEE7E01006DDCF7 /* create_human_names.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = create_human_names.py; sourceTree = "<group>"; };
 		D457A5052DEE803C006DDCF7 /* hash_to_human_name.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = hash_to_human_name.json; sourceTree = "<group>"; };
+		D45EF5412E5D2CB500A7AAE9 /* oid_validation.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = oid_validation.py; sourceTree = "<group>"; };
+		D45EF5602E5D34F000A7AAE9 /* Tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tests; sourceTree = "<group>"; };
 		D46127412552199000CFA05B /* TrustedCTLogs_nonTLS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = TrustedCTLogs_nonTLS.plist; sourceTree = "<group>"; };
 		D46BF2E32D1238DF006F2495 /* constraints.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = constraints.json; sourceTree = "<group>"; };
 		D46BF2E62D12395F006F2495 /* update_trust_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = update_trust_store.py; sourceTree = "<group>"; };
@@ -382,11 +386,6 @@
 		D4FDC8ED2DD2C87900FBA581 /* convert_evroot.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_evroot.py; sourceTree = "<group>"; };
 		D4FDC8EF2DD2D79600FBA581 /* EVRoots.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = EVRoots.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		D44D5C542DF0C71300A6DBF0 /* test-roots */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "test-roots"; sourceTree = "<group>"; };
-		D44D5C572DF0C71F00A6DBF0 /* test-platform */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "test-platform"; sourceTree = "<group>"; };
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		BE7F81F81A3F697800784BBB /* Frameworks */ = {
@@ -431,6 +430,7 @@
 				BE5C26DC1EA82F1200943012 /* valid_db_snapshot */,
 				D4D71DCB1E26F524009CF310 /* Pinning */,
 				D4AE942A1FD6428D002FE721 /* TrustSupplementalsAsset */,
+				D45EF5602E5D34F000A7AAE9 /* Tests */,
 				BE7F81FC1A3F697800784BBB /* Products */,
 				BED60BD41A6F470200A395C2 /* CertificateTool.xcodeproj */,
 			);
@@ -536,6 +536,7 @@
 				D4B8150E2DCD6EEA00CB9DA4 /* generate_trust_store_update_description.py */,
 				D4FDC8EA2DCEB54B00FBA581 /* convert_roots.py */,
 				D4FDC8ED2DD2C87900FBA581 /* convert_evroot.py */,
+				D45EF5412E5D2CB500A7AAE9 /* oid_validation.py */,
 			);
 			path = update_scripts;
 			sourceTree = "<group>";

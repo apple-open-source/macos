@@ -187,8 +187,9 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     if (error) {
         if (forcedLoad) {
             // If the force option is present, should set the container error state to NSError error EPROTONOSUPPORT and reply with no error and no volume.
-            self.containerStatus = [FSContainerStatus notReadyWithStatus:fs_errorForPOSIXError(EPROTONOSUPPORT)];
-            return reply(nil, nil);
+            NSError *containerErr = fs_errorForPOSIXError(EPROTONOSUPPORT);
+            self.containerStatus = [FSContainerStatus notReadyWithStatus:containerErr];
+            return reply(nil, containerErr);
         }
         // Return probe error
         return reply(nil, error);
@@ -197,8 +198,9 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     if (probeResult.result != FSMatchResultUsable) {
         if (forcedLoad) {
             // If the force option is present, should set the container error state to NSError error EPROTONOSUPPORT and reply with no error and no volume.
-            self.containerStatus = [FSContainerStatus notReadyWithStatus:fs_errorForPOSIXError(EPROTONOSUPPORT)];
-            return reply(nil, nil);
+            NSError *containerErr = fs_errorForPOSIXError(EPROTONOSUPPORT);
+            self.containerStatus = [FSContainerStatus notReadyWithStatus:containerErr];
+            return reply(nil, containerErr);
         }
 
         if (probeResult.result != FSMatchResultNotRecognized) {

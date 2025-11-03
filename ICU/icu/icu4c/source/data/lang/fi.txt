@@ -444,6 +444,7 @@ fi{
         nds_NL{"alankomaidenalasaksa"}
         ne{"nepali"}
         new{"newari"}
+        nez{"nez percé"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niue"}

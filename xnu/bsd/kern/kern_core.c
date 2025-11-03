@@ -73,6 +73,9 @@
 #include <security/mac_framework.h>
 #endif /* CONFIG_MACF */
 
+#if HAS_MTE
+#include <arm64/mte_xnu.h>
+#endif /* HAS_MTE */
 
 #include <kdp/core_notes.h>
 
@@ -465,6 +468,26 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 
 	(void) task_suspend_internal(task);
 
+#if HAS_MTE
+	/*
+	 * At this point we have suspended all proc threads, so we are
+	 * safe disabling tag checking for an MTE enabled process.
+	 * This will be necessary later when we loop through the process
+	 * memory segment and copy them in, as we would inevitably generate
+	 * a tag check fault.
+	 */
+
+	/*
+	 * Do not disable tag checking and take the "faulty" path if high watermaks
+	 * cores are enabled. We want a better fix here, but for the time being
+	 * that's a debugging feature that can run under -disable_mte.
+	 */
+	extern int hwm_user_cores;
+
+	if (task_has_sec(task) && hwm_user_cores == 0) {
+		mte_disable_user_checking(task);
+	}
+#endif /* HAS_MTE */
 
 	alloced_name = zalloc_flags(ZV_NAMEI, Z_NOWAIT | Z_ZERO);
 

@@ -129,6 +129,7 @@ static inline bool needsDesktopUserAgentInternal(const URL&) { return false; }
 static inline bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscapeInternal(const URL&) { return false; }
 static inline String standardUserAgentWithApplicationNameIncludingCompatOverridesInternal(const String&, const String&, UserAgentType) { return { }; }
 static inline bool shouldNotAutoUpgradeToHTTPSNavigationInternal(const URL&) { return false; }
+static inline bool shouldDisableBlobFileAccessEnforcementInternal() { return false; }
 #endif
 
 Quirks::Quirks(Document& document)
@@ -147,6 +148,11 @@ inline bool Quirks::needsQuirks() const
 bool Quirks::shouldIgnoreInvalidSignal() const
 {
     return needsQuirks();
+}
+
+bool Quirks::shouldDisableBlobFileAccessEnforcement()
+{
+    return shouldDisableBlobFileAccessEnforcementInternal();
 }
 
 // FIXME: Add more options to the helper to cover more patterns.
@@ -523,7 +529,7 @@ bool Quirks::needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const
 // docs.google.com https://bugs.webkit.org/show_bug.cgi?id=199587
 bool Quirks::inputMethodUsesCorrectKeyEventOrder() const
 {
-    return needsQuirks() && m_quirksData.inputMethodUsesCorrectKeyEventOrder;
+    return false;
 }
 
 // FIXME: Remove after the site is fixed, <rdar://problem/50374200>
@@ -1192,6 +1198,7 @@ bool Quirks::requiresUserGestureToPauseInPictureInPicture() const
 }
 
 // bbc.co.uk: rdar://126494734
+// bbc.com: rdar://157499149
 bool Quirks::returnNullPictureInPictureElementDuringFullscreenChange() const
 {
     return needsQuirks() && m_quirksData.returnNullPictureInPictureElementDuringFullscreenChangeQuirk;
@@ -1283,6 +1290,14 @@ bool Quirks::shouldEnableFontLoadingAPIQuirk() const
 
     return m_quirksData.shouldEnableFontLoadingAPIQuirk;
 }
+
+#if HAVE(PIP_SKIP_PREROLL)
+// play.hbomax.com rdar://158430821
+bool Quirks::shouldDisableAdSkippingInPip() const
+{
+    return needsQuirks() && m_quirksData.shouldDisableAdSkippingInPip;
+}
+#endif
 
 // hulu.com rdar://100199996
 bool Quirks::needsVideoShouldMaintainAspectRatioQuirk() const
@@ -1443,6 +1458,16 @@ bool Quirks::shouldFlipScreenDimensions() const
 #endif
 }
 
+// Firefox and Firefox Focus (rdar://159977164)
+bool Quirks::requirePageVisibilityToPlayAudioQuirk() const
+{
+#if PLATFORM(IOS_FAMILY)
+    return needsQuirks() && m_quirksData.requirePageVisibilityToPlayAudioQuirk;
+#else
+    return false;
+#endif
+}
+
 // This section is dedicated to UA override for iPad. iPads (but iPad Mini) are sending a desktop user agent
 // to websites. In some cases, the website breaks in some ways, not expecting a touch interface for the website.
 // Controls not active or too small, form factor, etc. In this case it is better to send the iPad Mini UA.
@@ -1455,10 +1480,6 @@ bool Quirks::needsIPadMiniUserAgent(const URL& url)
 
     // FIXME: Remove this quirk when <rdar://problem/61733101> is complete.
     if (host == "roblox.com"_s || host.endsWith(".roblox.com"_s))
-        return true;
-
-    // FIXME: Remove this quirk when <rdar://122481999> is complete.
-    if (host == "spotify.com"_s || host.endsWith(".spotify.com"_s) || host.endsWith(".spotifycdn.com"_s))
         return true;
 
     // FIXME: Remove this quirk if seatguru decides to adjust their site. See https://webkit.org/b/276947
@@ -1561,10 +1582,31 @@ bool Quirks::needsLaxSameSiteCookieQuirk(const URL& requestURL) const
     return url.protocolIs("https"_s) && url.host() == "login.microsoftonline.com"_s && requestURL.protocolIs("https"_s) && requestURL.host() == "www.bing.com"_s;
 }
 
+#if PLATFORM(COCOA)
+
+#if !PLATFORM(IOS_FAMILY)
+static constexpr auto frozenVersion = "10_15_7"_s;
+#elif PLATFORM(WATCHOS)
+static constexpr auto frozenVersion = "11_6_1"_s;
+#elif PLATFORM(APPLETV)
+static constexpr auto frozenVersion = "18_6"_s;
+#else
+static constexpr auto frozenVersion = "18_7"_s;
+#endif
+
 String Quirks::standardUserAgentWithApplicationNameIncludingCompatOverrides(const String& applicationName, const String& userAgentOSVersion, UserAgentType type)
 {
-    return standardUserAgentWithApplicationNameIncludingCompatOverridesInternal(applicationName, userAgentOSVersion, type);
+    auto overriddenUAString = standardUserAgentWithApplicationNameIncludingCompatOverridesInternal(applicationName, userAgentOSVersion, type);
+    if (overriddenUAString.length())
+        return overriddenUAString;
+
+    if (userAgentOSVersion == frozenVersion)
+        return { };
+
+    return standardUserAgentWithApplicationName(applicationName, frozenVersion, type);
 }
+
+#endif
 
 #if ENABLE(TEXT_AUTOSIZING)
 // news.ycombinator.com: rdar://127246368
@@ -1900,6 +1942,16 @@ bool Quirks::needsLimitedMatroskaSupport() const
 #endif
 }
 
+bool Quirks::needsCustomUserAgentData() const
+{
+    return needsQuirks() && m_quirksData.needsCustomUserAgentData;
+}
+
+bool Quirks::needsNavigatorUserAgentDataQuirk() const
+{
+    return needsQuirks() && m_quirksData.needsNavigatorUserAgentDataQuirk;
+}
+
 bool Quirks::needsNowPlayingFullscreenSwapQuirk() const
 {
     return needsQuirks() && m_quirksData.needsNowPlayingFullscreenSwapQuirk;
@@ -1908,6 +1960,12 @@ bool Quirks::needsNowPlayingFullscreenSwapQuirk() const
 bool Quirks::needsWebKitMediaTextTrackDisplayQuirk() const
 {
     return needsQuirks() && m_quirksData.needsWebKitMediaTextTrackDisplayQuirk;
+}
+
+// logic-masters.de rdar://159975950
+bool Quirks::needsTextInputBoxSizingBorderBoxQuirk() const
+{
+    return needsQuirks() && m_quirksData.needsTextInputBoxSizingBorderBoxQuirk;
 }
 
 // rdar://138806698
@@ -2185,6 +2243,18 @@ static void handleICloudQuirks(QuirksData& quirksData, const URL& quirksURL, con
 }
 #endif
 
+static void handleTMobileQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
+{
+    UNUSED_PARAM(quirksDomainString);
+    UNUSED_PARAM(documentURL);
+    auto topDocumentHost = quirksURL.host();
+    if (topDocumentHost != "digits.t-mobile.com")
+        return;
+
+    quirksData.needsNavigatorUserAgentDataQuirk = true;
+    quirksData.needsCustomUserAgentData = true;
+}
+
 #if PLATFORM(MAC)
 static void handleCEACStateGovQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
 {
@@ -2403,8 +2473,9 @@ static void handleBBCQuirks(QuirksData& quirksData, const URL& quirksURL, const 
     UNUSED_PARAM(quirksURL);
     UNUSED_PARAM(documentURL);
 
-    if (quirksDomainString == "bbc.co.uk"_s) {
+    if (quirksDomainString == "bbc.co.uk"_s || quirksDomainString == "bbc.com"_s) {
         // bbc.co.uk rdar://126494734
+        // bbc.com rdar://157499149
         quirksData.returnNullPictureInPictureElementDuringFullscreenChangeQuirk = true;
     }
 }
@@ -2513,7 +2584,7 @@ static void handleGoogleQuirks(QuirksData& quirksData, const URL& quirksURL, con
         quirksData.needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommandQuirk = startsWithLettersIgnoringASCIICase(quirksURL.path(), "/spreadsheets/"_s);
     } else if (topDocumentHost == "mail.google.com"_s) {
         // mail.google.com rdar://49403416
-        quirksData.needsGMailOverflowScrollQuirk =true;
+        quirksData.needsGMailOverflowScrollQuirk = true;
     } else if (topDocumentHost == "translate.google.com"_s) {
         // translate.google.com rdar://106539018
         quirksData.needsGoogleTranslateScrollingQuirk = true;
@@ -2548,6 +2619,11 @@ static void handleHBOMaxQuirks(QuirksData& quirksData, const URL& quirksURL, con
 
     // play.hbomax.com https://bugs.webkit.org/show_bug.cgi?id=244737
     quirksData.shouldEnableFontLoadingAPIQuirk = true;
+
+#if HAVE(PIP_SKIP_PREROLL)
+    // play.hbomax.com rdar://158430821
+    quirksData.shouldDisableAdSkippingInPip = true;
+#endif
 }
 
 static void handleHotelsQuirks(QuirksData& quirksData, const URL&, const String& quirksDomainString, const URL&)
@@ -2602,6 +2678,14 @@ static void handleLiveQuirks(QuirksData& quirksData, const URL& quirksURL, const
     // onedrive.live.com rdar://26013388
     quirksData.isNeverRichlyEditableForTouchBarQuirk = topDocumentHost == "onedrive.live.com"_s;
 #endif
+}
+
+static void handleLogicMastersQuirks(QuirksData& quirksData, const URL&, const String& quirksDomainString, const URL&)
+{
+    if (quirksDomainString != "logic-masters.de"_s)
+        return;
+
+    quirksData.needsTextInputBoxSizingBorderBoxQuirk = true;
 }
 
 static void handleMarcusQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
@@ -2956,6 +3040,8 @@ void Quirks::determineRelevantQuirks()
     m_quirksData.shouldDisableLazyIframeLoadingQuirk = shouldDisableLazyIframeLoadingQuirk;
     // DOFUS Touch app (rdar://112679186)
     m_quirksData.needsResettingTransitionCancelsRunningTransitionQuirk = needsResettingTransitionCancelsRunningTransitionQuirk;
+
+    m_quirksData.requirePageVisibilityToPlayAudioQuirk = (WTF::IOSApplication::isFirefox() || WTF::IOSApplication::isFirefoxFocus()) && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::AllowBackgroundAudioPlayback);
 #endif
 
 #if PLATFORM(MAC)
@@ -2999,6 +3085,7 @@ void Quirks::determineRelevantQuirks()
         { "digitaltrends"_s, &handleDigitalTrendsQuirks },
         { "steampowered"_s, &handleSteamQuirks },
 #endif
+        { "t-mobile"_s, &handleTMobileQuirks },
         { "descript"_s, &handleDescriptQuirks },
 #if PLATFORM(IOS_FAMILY)
         { "disneyplus"_s, &handleDisneyPlusQuirks },
@@ -3024,6 +3111,7 @@ void Quirks::determineRelevantQuirks()
         { "instagram"_s, &handleInstagramQuirks },
 #endif
         { "live"_s, &handleLiveQuirks },
+        { "logic-masters"_s, &handleLogicMastersQuirks },
 #if PLATFORM(IOS_FAMILY)
         { "mailchimp"_s, &handleMailChimpQuirks },
 #endif
@@ -3045,7 +3133,7 @@ void Quirks::determineRelevantQuirks()
         { "ralphlauren"_s, &handleRalphLaurenQuirks },
 #endif
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-        { "reddit"_s, & handleRedditQuirks },
+        { "reddit"_s, &handleRedditQuirks },
 #endif
         { "sfusd"_s, &handleSFUSDQuirks },
 #if PLATFORM(IOS_FAMILY)

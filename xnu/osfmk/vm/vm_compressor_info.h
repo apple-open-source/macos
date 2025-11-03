@@ -41,7 +41,12 @@
  */
 struct c_slot_info {
 	uint16_t       csi_size;
+#if HAS_MTE
+	uint16_t       csi_mte_size:15,
+	    csi_mte_has_data:1;
+#else /* HAS_MTE */
 	uint16_t       csi_unused;
+#endif /* HAS_MTE */
 } __attribute__((packed));
 
 struct c_segment_info {
@@ -65,6 +70,9 @@ struct c_segment_info {
 } __attribute__((packed));
 
 #define VM_C_SEGMENT_INFO_MAGIC 'C002'
+#if HAS_MTE
+#define VM_C_SEGMENT_INFO_MAGIC_WITH_TAGS 'C103'
+#endif /* HAS_MTE */
 
 /*
  * vm_map_info_hdr and vm_map_entry_info are used for output of ###

@@ -213,6 +213,8 @@ Another process currently holds a reference to
 .It Bq Er EFAULT
 .Fa Dir
 points outside the process's allocated address space.
+.It Bq Er ENOTSUP
+The operation is not supported for the '/dev/fd' filesystem.
 .El
 .Pp
 .Fn unmount
@@ -252,6 +254,8 @@ An I/O error occurred while writing cached filesystem information.
 .It Bq Er EFAULT
 .Fa Dir
 points outside the process's allocated address space.
+.It Bq Er ENOTSUP
+The operation is not supported for the '/dev/fd' filesystem.
 .El
 .Sh SEE ALSO
 .Xr mount 8 ,

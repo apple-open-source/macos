@@ -24,12 +24,12 @@
 
 #define SUDO_ERROR_WRAP 0
 
-#include "sudo_compat.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_util.h>
 
 /* From parse.h */
-extern size_t base64_decode(const char *str, unsigned char *dst, size_t dsize);
-extern size_t base64_encode(const unsigned char *in, size_t in_len, char *out, size_t out_len);
+extern size_t base64_decode(const char * restrict str, unsigned char * restrict dst, size_t dsize);
+extern size_t base64_encode(const unsigned char * restrict in, size_t in_len, char * restrict out, size_t out_len);
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -68,12 +68,25 @@ struct base64_test {
 int
 main(int argc, char *argv[])
 {
-    int ntests = nitems(test_strings);
+    int ch, ntests = nitems(test_strings);
     int i, errors = 0;
     unsigned char buf[64];
     size_t len;
 
     initprogname(argc > 0 ? argv[0] : "check_base64");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignored */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     for (i = 0; i < ntests; i++) {
 	/* Test decode. */

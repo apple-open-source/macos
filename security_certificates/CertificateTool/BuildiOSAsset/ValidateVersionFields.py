@@ -31,10 +31,33 @@ def checkTrustStoreVersion(srcroot):
     assetVersionPlist = readPlist(srcroot + "/config/AssetVersion.plist")
     infoAssetPlist = readPlist(srcroot + "/config/Info-Asset.plist")
     infoAssetProperties = infoAssetPlist["MobileAssetProperties"]
+
+    # Check trust store version consistency
     if assetVersionPlist["VersionNumber"] != infoAssetProperties["ContentVersion"]:
         raise ValueError("Trust Store Version in config/AssetVersion.plist does not match version in config/Info-Asset.plist")
     if assetVersionPlist["VersionNumber"] != readXcconfigTrustStoreVersion(srcroot):
         raise ValueError("Trust Store Version in config/AssetVersion.plist does not match version in config/security_certificates.xconfig")
+
+def checkTrustStoreAssetVersion(srcroot):
+    assetVersionPlist = readPlist(srcroot + "/config/AssetVersion.plist")
+    infoAssetPlist = readPlist(srcroot + "/config/Info-Asset.plist")
+    infoAssetProperties = infoAssetPlist["MobileAssetProperties"]
+
+    # Get the PKITrustStoreAssetsVersion from AssetVersion.plist
+    pkiAssetVersion = assetVersionPlist["PKITrustStoreAssetsVersion"]
+
+    # Check that CFBundleShortVersionString matches PKITrustStoreAssetsVersion
+    if infoAssetPlist["CFBundleShortVersionString"] != pkiAssetVersion:
+        raise ValueError("PKITrustStoreAssetsVersion in config/AssetVersion.plist does not match CFBundleShortVersionString in config/Info-Asset.plist")
+
+    # Check that CFBundleVersion matches PKITrustStoreAssetsVersion
+    if infoAssetPlist["CFBundleVersion"] != pkiAssetVersion:
+        raise ValueError("PKITrustStoreAssetsVersion in config/AssetVersion.plist does not match CFBundleVersion in config/Info-Asset.plist")
+
+    # Check that MobileAssetProperties/AssetVersion matches PKITrustStoreAssetsVersion
+    maAssetVersion = infoAssetProperties["AssetVersion"]
+    if maAssetVersion.removesuffix(".0.0,0") != pkiAssetVersion:
+        raise ValueError("PKITrustStoreAssetsVersion in config/AssetVersion.plist does not match MobileAssetProperties/AssetVersion in config/Info-Asset.plist")
 
 def readVersionFromAssetMakefile(fullpath):
     f = open(fullpath)
@@ -73,8 +96,6 @@ def checkSupplementalsAssetVersion(srcroot):
     infoProperties = infoPlist["MobileAssetProperties"]
     if assetVersionPlist["MobileAssetContentVersion"] != infoProperties["_ContentVersion"]:
         raise ValueError("Trust Supplementals Asset Version in config/AssetVersion.plist does not match version in TrustSupplementalsAsset/Info.plist")
-    if assetVersionPlist["MobileAssetContentVersion"] != readVersionFromAssetMakefile(srcroot + "/TrustSupplementalsAsset/Makefile"):
-        raise ValueError("Trust Supplementals Asset Version in config/AssetVersion.plist does not match version in TrustSupplementalsAsset/Makefile")
     log_list = readJson(srcroot + "/certificate_transparency/log_list.json")
     if assetVersionPlist["MobileAssetContentVersion"] != log_list["assetVersionV2"]:
         raise ValueError("Trust Supplementals Asset Version in config/AssetVersion.plist does not match version in certificate_transparency/log_list.json")
@@ -85,6 +106,7 @@ parser.add_argument('-srcroot', help="The source root path", required=True)
 
 args = parser.parse_args()
 checkTrustStoreVersion(args.srcroot)
+checkTrustStoreAssetVersion(args.srcroot)
 checkPinningVersion(args.srcroot)
 checkValidVersion(args.srcroot)
 checkSupplementalsAssetVersion(args.srcroot)

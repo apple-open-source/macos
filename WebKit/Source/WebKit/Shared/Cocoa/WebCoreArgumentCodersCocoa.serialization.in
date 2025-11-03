@@ -528,7 +528,3 @@ using WebCore::WritingTools::Session::ID = WTF::UUID
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 using WebCore::MediaControlsContextMenuItem::ID = uint64_t;
 #endif
-
-#if PLATFORM(IOS_FAMILY)
-[Nested] enum class WebCore::MediaSessionHelper::ShouldOverride : bool
-#endif

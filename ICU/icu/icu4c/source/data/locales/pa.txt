@@ -226,6 +226,14 @@ pa{
     }
     calendar{
         bangla{
+            eras{
+                abbreviated{
+                    "ਬਬੰਗਾ.",
+                }
+                wide{
+                    "ਬੰਗਾਬਦ",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -586,7 +594,7 @@ pa{
                         "ਬੁੱਧ",
                         "ਵੀਰ",
                         "ਸ਼ੁੱਕਰ",
-                        "ਸ਼ਨਿੱਚਰ",
+                        "ਸ਼ਨੀ",
                     }
                     short{
                         "ਐਤ",
@@ -595,7 +603,7 @@ pa{
                         "ਬੁੱਧ",
                         "ਵੀਰ",
                         "ਸ਼ੁੱਕ",
-                        "ਸ਼ਨਿੱ",
+                        "ਸ਼ਨੀ",
                     }
                     wide{
                         "ਐਤਵਾਰ",
@@ -604,7 +612,7 @@ pa{
                         "ਬੁੱਧਵਾਰ",
                         "ਵੀਰਵਾਰ",
                         "ਸ਼ੁੱਕਰਵਾਰ",
-                        "ਸ਼ਨਿੱਚਰਵਾਰ",
+                        "ਸ਼ਨੀਵਾਰ",
                     }
                 }
                 stand-alone{
@@ -804,12 +812,20 @@ pa{
                     "MMM, d",
                     "d=tithipaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "ਬਿ. ਸੰ",
+                }
+                wide{
+                    "ਬਿਕਰਮੀ ਸੰਮਤ",
+                }
             }
             monthNames{
                 format{
@@ -1053,12 +1069,20 @@ pa{
                     "MMM, d",
                     "d=tithipaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "ਸ਼ਾ. ਸ਼",
+                }
+                wide{
+                    "ਸ਼ਾਲੀਵਾਹਨ ਸ਼ਕੇ",
+                }
             }
             monthNames{
                 format{
@@ -1168,6 +1192,16 @@ pa{
                 }
             }
         }
+        malayalam{
+            eras{
+                abbreviated{
+                    "ਕੋ. ਵ",
+                }
+                wide{
+                    "ਕੋਲਾਵਰਸ਼ਮ",
+                }
+            }
+        }
         marathi{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
@@ -1186,12 +1220,20 @@ pa{
                     "MMM, d",
                     "d=tithipaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "ਸ਼. ਸੰ",
+                }
+                wide{
+                    "ਸ਼ਕ ਸੰਮਤ",
+                }
             }
             monthPatterns{
                 format{
@@ -1220,7 +1262,7 @@ pa{
                 "EEEE, d MMMM, y",
                 "d, MMMM",
                 "d, MMM",
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -1357,6 +1399,14 @@ pa{
             }
         }
         tamil{
+            eras{
+                abbreviated{
+                    "ਸ਼. ਵ",
+                }
+                wide{
+                    "ਸ਼ਕ ਵਰੁਡਮ",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -1466,12 +1516,20 @@ pa{
                     "MMM, d",
                     "d=tithipaa",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "ਸ਼ਾ. ਸ਼",
+                }
+                wide{
+                    "ਸ਼ਾਲੀਵਾਹਨ ਸ਼ਕਮ",
+                }
             }
             monthNames{
                 format{
@@ -1588,32 +1646,31 @@ pa{
                 "h:mm:ss a",
                 "h:mm a",
                 {
-                    "EEEE, d MMMM y",
+                    "EEEE, G y, MMMM d",
                     "d=tithipap",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithipap",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithipap",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
             }
-            availableFormats{
-                GyMMM{"MMM, G"}
-                GyMMMEd{"E MMM d, G"}
-                MEd{"E, M/d"}
-                MMMEEEd{"EEE, MMM d"}
-                MMMEd{"E, MMM d"}
-                MMMMEEEEd{"EEEE, MMMM d"}
-                Md{"M/d"}
+            eras{
+                abbreviated{
+                    "ਬਿ. ਸੰ",
+                }
+                wide{
+                    "ਬਿਕਰਮੀ ਸੰਮਤ",
+                }
             }
             monthNames{
                 format{

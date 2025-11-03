@@ -1,0 +1,8 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+shp{
+    AuxExemplarCharacters{"[á é í ó]"}
+    ExemplarCharacters{"[a b {ch} e i j k m n o p r s {sh} t {ts} w x y]"}
+    ExemplarCharactersIndex{"[A B {CH} E I J K M N O P R S T W X Y]"}
+}

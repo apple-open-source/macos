@@ -12,7 +12,8 @@
 
 #include <darwintest.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
+		T_META_TAG_VM_PREFERRED, T_META_TAG_NO_ALLOCATOR_OVERRIDE);
 
 // Use weird page size to expose implicit assumptions and help prevent issues
 // caused by different page sizes on macOS and iOS.
@@ -25,7 +26,7 @@ T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"));
 #pragma mark -
 #pragma mark Allocator Functions
 
-T_DECL(lookup_size, "lookup_size", T_META_TAG_VM_PREFERRED)
+T_DECL(lookup_size, "lookup_size")
 {
 	zone.begin = 640000; zone.end = 650240; // lookup_slot
 	slots[0] = (slot_t){
@@ -42,7 +43,7 @@ T_DECL(lookup_size, "lookup_size", T_META_TAG_VM_PREFERRED)
 	T_EXPECT_EQ(lookup_size(&zone, 641031),  0ul, "freed block address");
 }
 
-T_DECL(allocate, "allocate", T_META_TAG_VM_PREFERRED)
+T_DECL(allocate, "allocate")
 {
 	T_EXPECT_NULL(allocate(&zone, 5, 16), "zone full");
 
@@ -74,7 +75,7 @@ T_DECL(allocate, "allocate", T_META_TAG_VM_PREFERRED)
 	T_EXPECT_EQ(zone.max_size_in_use, 55ul, "max_size_in_use is high water mark");
 }
 
-T_DECL(deallocate, "deallocate", T_META_TAG_VM_PREFERRED)
+T_DECL(deallocate, "deallocate")
 {
 	zone.begin = 640000; zone.end = 650240; // lookup_slot
 	slots[0] = (slot_t){
@@ -105,7 +106,7 @@ T_DECL(deallocate, "deallocate", T_META_TAG_VM_PREFERRED)
 
 // TODO(yln): test for reallocate with bad ptr
 
-T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled", T_META_TAG_VM_PREFERRED)
+T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled")
 {
 	zone.begin = 640000; zone.end = 650240; // is_guarded
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size
@@ -126,7 +127,7 @@ T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled", T_META_T
 	T_EXPECT_EQ((unsigned int)(slots[1].state), ss_allocated, "destination slot");
 }
 
-T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled", T_META_TAG_VM_PREFERRED)
+T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled")
 {
 	expected_size_ptr = 1337; size_ret_value = 5; // wrapped_size
 	zone.max_allocations = 2; // is_full
@@ -144,7 +145,7 @@ T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled", T_ME
 	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_allocated, "destination slot");
 }
 
-T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled", T_META_TAG_VM_PREFERRED)
+T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled")
 {
 	zone.begin = 640000; zone.end = 650240; // is_guarded
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size
@@ -159,7 +160,7 @@ T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled", T_ME
 	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_freed, "source slot");
 }
 
-T_DECL(reallocate_guarded_to_unsampled_zone_full, "reallocate: guarded -> unsampled (zone full)", T_META_TAG_VM_PREFERRED)
+T_DECL(reallocate_guarded_to_unsampled_zone_full, "reallocate: guarded -> unsampled (zone full)")
 {
 	zone.begin = 640000; zone.end = 650240; // is_guarded
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size

@@ -851,6 +851,7 @@ start_pcap() {
 		echo "`date +"%Y-%m-%d %H:%M:%S"`: start_pcap"		>> get-network-info.txt
 		trap stop_pcap SIGINT
 		/usr/local/bin/netdiagnose -p "${REQUESTED_OUTDIR}" start sysdiagpcap		2>&1 	1>/dev/null
+		/usr/local/bin/netdiagnose -p "${REQUESTED_OUTDIR}" start droptappcap		2>&1 	1>/dev/null
 		PCAP_STARTED=1
 	fi
 }
@@ -859,6 +860,7 @@ stop_pcap () {
 	if [ ${PCAP_STARTED} -ne 0 ]; then
 		trap '' SIGINT
 		/usr/local/bin/netdiagnose stop sysdiagpcap					2>&1	1>/dev/null
+		/usr/local/bin/netdiagnose stop droptappcap					2>&1	1>/dev/null
 		echo "`date +"%Y-%m-%d %H:%M:%S"`: stop_pcap"		>> get-network-info.txt
 	fi
 }

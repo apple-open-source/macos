@@ -5,7 +5,7 @@ module REXML
     # ID ---> Encoding name
     attr_reader :encoding
     def encoding=(encoding)
-      encoding = encoding.name if encoding.is_a?(Encoding)
+      encoding = encoding.name if encoding.is_a?(::Encoding)
       if encoding.is_a?(String)
         original_encoding = encoding
         encoding = find_encoding(encoding)
@@ -13,12 +13,9 @@ module REXML
           raise ArgumentError, "Bad encoding name #{original_encoding}"
         end
       end
+      encoding = encoding.upcase if encoding
       return false if defined?(@encoding) and encoding == @encoding
-      if encoding
-        @encoding = encoding.upcase
-      else
-        @encoding = 'UTF-8'
-      end
+      @encoding = encoding || "UTF-8"
       true
     end
 

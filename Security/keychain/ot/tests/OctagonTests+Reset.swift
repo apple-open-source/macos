@@ -640,6 +640,7 @@ class OctagonResetTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "results should not be nil")
             XCTAssertNil(error, "error should be nil")

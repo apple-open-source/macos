@@ -2,18 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>OpenSourceProject</key>
-	<string>sudo</string>
-	<key>OpenSourceVersion</key>
-	<string>1.9.13p2</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.sudo.ws/</string>
-	<key>OpenSourceURL</key>
-	<string>http://www.sudo.ws/dist/sudo-1.9.13p2.tar.gz</string>
-	<key>OpenSourceSHA256</key>
-	<string>92334a12bb93e0c056b09f53e255ccb7d6f67c6350e2813cd9593ceeca78560b</string>
 	<key>OpenSourceImportDate</key>
 	<string>2023-03-22</string>
+	<key>OpenSourceLicense</key>
+	<string>other|bsd</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>LICENSE.md</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Disable sudoedit.</string>
@@ -23,10 +17,17 @@
 		<string>Add library validation support.</string>
 		<string>Add event auditing.</string>
 		<string>Add MDM support.</string>
+		<string>Security fixes for CS_INSTALLER.</string>
 	</array>
-	<key>OpenSourceLicense</key>
-	<string>other|bsd</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>LICENSE.md</string>
+	<key>OpenSourceProject</key>
+	<string>sudo</string>
+	<key>OpenSourceSHA256</key>
+	<string>4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb</string>
+	<key>OpenSourceURL</key>
+	<string>https://www.sudo.ws/dist/sudo-1.9.17p2.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>sudo-1.9.17p2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.sudo.ws/</string>
 </dict>
 </plist>

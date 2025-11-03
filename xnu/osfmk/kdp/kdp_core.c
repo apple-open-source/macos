@@ -374,6 +374,64 @@ kernel_vaddr_in_coredump_stages(uint64_t vaddr, uint64_t *vincr)
 	return false;
 }
 
+#if CONFIG_SPTM && HAS_MTE && (DEVELOPMENT || DEBUG)
+static bool
+is_tag_space_page_used_for_mte(ppnum_t tag_space_page)
+{
+	bool is_tag_space_page_used = false;
+	ppnum_t first_covered_ppn = map_tag_ppnum_to_first_covered_ppnum(tag_space_page);
+
+	for (int i = 0; i < MTE_PAGES_PER_TAG_PAGE; i++) {
+		vm_page_t covered_page = vm_page_find_canonical(first_covered_ppn + i);
+		if (covered_page && covered_page->vmp_using_mte) {
+			is_tag_space_page_used = true;
+			break;
+		}
+	}
+
+	return is_tag_space_page_used;
+}
+
+static void
+dump_mte_tag_space_into_coredump(pmap_traverse_callback cb, void *ctx)
+{
+	uintptr_t tag_space_page_vaddr = 0;
+	uintptr_t virt_range_start = 0;
+	uintptr_t virt_range_end = 0;
+
+	// For each tag storage page, check if exists at least one covered page that's actually tagged.
+	// If found, it'd mean the tag storage page is used and should be included in the core dump.
+	// By iterating over all tag space page numbers continously, we can guarentee that we'll store
+	// the pages in the coredump as grouped-together as possible.
+	for (int i = 0; i < mte_tag_storage_count; i++) {
+		ppnum_t tag_space_pnum = mte_tag_storage_start_pnum + i;
+		tag_space_page_vaddr = phystokv(ptoa(tag_space_pnum));
+
+		if (is_tag_space_page_used_for_mte(tag_space_pnum)) {
+			if (0 == virt_range_start) {
+				virt_range_start = tag_space_page_vaddr;
+			}
+
+			// Encountered a new range of pages, continue until range of range is reached.
+			virt_range_end = tag_space_page_vaddr + PAGE_SIZE;
+			continue;
+		}
+
+		// If we got here, current page is not used for mte, so we got to the end of a tag-space-pages range.
+		if (virt_range_start && virt_range_end) {
+			cb(virt_range_start, virt_range_end, ctx);
+			virt_range_start = 0;
+			virt_range_end = 0;
+		}
+	}
+
+	// If the last pages-range continues until the end of the tag space, we'd exit the for-loop without running into a page that cuts the range.
+	// This ensure that last range is also saved to the coredump.
+	if (virt_range_start && virt_range_end) {
+		cb(virt_range_start, virt_range_end, ctx);
+	}
+}
+#endif /* CONFIG_SPTM && HAS_MTE && (DEVELOPMENT || DEBUG) */
 
 ppnum_t
 kernel_pmap_present_mapping(uint64_t vaddr, uint64_t * pvincr, uintptr_t * pvphysaddr)
@@ -564,6 +622,11 @@ pmap_traverse_present_mappings(pmap_t __unused pmap,
 	}
 #endif
 
+#if CONFIG_SPTM && HAS_MTE && (DEVELOPMENT || DEBUG)
+	if (ret == KERN_SUCCESS) {
+		dump_mte_tag_space_into_coredump(callback, context);
+	}
+#endif /* CONFIG_SPTM && HAS_MTE && (DEVELOPMENT || DEBUG) */
 
 	return ret;
 }

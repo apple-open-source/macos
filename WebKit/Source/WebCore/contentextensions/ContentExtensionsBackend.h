@@ -99,7 +99,8 @@ private:
     HashMap<String, Ref<ContentExtension>> m_contentExtensions;
 };
 
-WEBCORE_EXPORT void applyResultsToRequest(ContentRuleListResults&&, Page*, ResourceRequest&);
+WEBCORE_EXPORT void applyResultsToRequest(ContentRuleListResults&&, Page*, ResourceRequest&, const URL& redirectURL = URL { });
+WEBCORE_EXPORT void applyResultsToRequestIfCrossOriginRedirect(ContentRuleListResults&&, Page*, ResourceRequest&);
 std::optional<String> customTrackerBlockingMessageForConsole(const ContentRuleListResults&, const URL& urlString = { }, const URL& mainDocumentURL = { });
 
 } // namespace WebCore::ContentExtensions

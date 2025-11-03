@@ -1,5 +1,6 @@
 " Ex commands
 
+
 " START NOT MATCHED
 :@
 :@@
@@ -11,10 +12,8 @@
 :help
  :help
 : help
- : help
+ : help # FIXME
 
-:2match
-:3match
 :append
     text
 .
@@ -198,7 +197,7 @@
 :folddoopen
 :folddoclosed
 :foldopen
-:for
+:for foo in bar | endfor
 :function
 :global/.../
 :goto
@@ -383,7 +382,6 @@
 :ptprevious
 :ptrewind
 :ptselect
-:public
 :put
 :pwd
 :py3
@@ -478,7 +476,6 @@
 :startinsert
 :startgreplace
 :startreplace
-:static
 :stopinsert
 :stjump
 :stselect
@@ -542,6 +539,7 @@
 :unabbreviate
 :unabbreviate
 :unhide
+:uniq
 :unlet
 :unlockvar
 :unmap
@@ -599,8 +597,6 @@ call Foo() | help
 call Foo() |help
 call Foo()| help
 
-call Foo() | 2match
-call Foo() | 3match
 " FIXME
 call Foo() | append
     text
@@ -785,7 +781,7 @@ call Foo() | foldclose
 call Foo() | folddoopen
 call Foo() | folddoclosed
 call Foo() | foldopen
-call Foo() | for
+call Foo() | for foo in bar | endfor
 call Foo() | function
 call Foo() | global/.../
 call Foo() | goto
@@ -971,7 +967,6 @@ call Foo() | ptnext
 call Foo() | ptprevious
 call Foo() | ptrewind
 call Foo() | ptselect
-call Foo() | public
 call Foo() | put
 call Foo() | pwd
 call Foo() | py3
@@ -1066,7 +1061,6 @@ call Foo() | stag
 call Foo() | startinsert
 call Foo() | startgreplace
 call Foo() | startreplace
-call Foo() | static
 call Foo() | stopinsert
 call Foo() | stjump
 call Foo() | stselect
@@ -1130,6 +1124,7 @@ call Foo() | undolist
 call Foo() | unabbreviate
 call Foo() | unabbreviate
 call Foo() | unhide
+call Foo() | uniq
 call Foo() | unlet
 call Foo() | unlockvar
 call Foo() | unmap
@@ -1187,8 +1182,6 @@ call Foo() | z
 
 :abstract
 :class
-:defcompile
-:disassemble
 :endclass
 :endinterface
 :endenum
@@ -1203,8 +1196,6 @@ call Foo() | z
 
 Foo() | abstract
 Foo() | class
-Foo() | defcompile
-Foo() | disassemble
 Foo() | endclass
 Foo() | endenum
 Foo() | endinterface

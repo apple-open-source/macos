@@ -261,6 +261,18 @@ typedef union {
 
 
 
+/* H17G Hidra e-Core. */
+#define CPU_PART_ECORE_HIDRA 0x62
+
+/* H17G Hidra p-Core. */
+#define CPU_PART_PCORE_HIDRA 0x63
+
+
+
+
+
+
+
 
 
 /* Cache type identification */

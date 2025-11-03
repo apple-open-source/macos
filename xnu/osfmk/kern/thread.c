@@ -3098,6 +3098,25 @@ thread_sched_call(
 	thread->sched_call = call;
 }
 
+#if HAS_MTE
+void
+current_thread_enter_iomd_faultable_access_with_buffer_provider(task_t provider)
+{
+	current_thread()->iomd_faultable_buffer_provider = provider;
+}
+
+void
+current_thread_exit_iomd_faultable_access(void)
+{
+	current_thread()->iomd_faultable_buffer_provider = NULL;
+}
+
+task_t
+current_thread_get_iomd_faultable_access_buffer_provider(void)
+{
+	return current_thread()->iomd_faultable_buffer_provider;
+}
+#endif /* HAS_MTE */
 
 uint64_t
 thread_tid(

@@ -641,7 +641,7 @@ bool RenderLayerBacking::shouldSetContentsDisplayDelegate() const
 #if PLATFORM(IOS_FAMILY)
 bool RenderLayerBacking::needsIOSDumpRenderTreeMainFrameRenderViewLayerIsAlwaysOpaqueHack(const GraphicsLayer& layer) const
 {
-    if (m_isMainFrameRenderViewLayer && WTF::IOSApplication::isDumpRenderTree()) {
+    if (m_isMainFrameRenderViewLayer && WTF::CocoaApplication::isDumpRenderTree()) {
         // In iOS WebKit1 the main frame's RenderView layer is always transparent. We lie that it is opaque so that
         // internals.layerTreeAsText() tests succeed.
         ASSERT_UNUSED(layer, !layer.contentsOpaque());
@@ -726,7 +726,7 @@ void RenderLayerBacking::updateTransform(const RenderStyle& style)
                 t.translate(-scrollPosition.x(), -scrollPosition.y());
             }
         }
-    } else if (m_owningLayer.isTransformed() || m_owningLayer.snapshottedScrollOffsetForAnchorPositioning())
+    } else if (m_owningLayer.isTransformed())
         m_owningLayer.updateTransformFromStyle(t, style, RenderStyle::individualTransformOperations());
     
     if (m_contentsContainmentLayer) {
@@ -1089,7 +1089,7 @@ void RenderLayerBacking::updateAllowsBackingStoreDetaching(bool allowDetachingFo
             m_scrolledContentsLayer->setAllowsBackingStoreDetaching(allowDetaching);
     };
 
-    if (!m_owningLayer.behavesAsFixed()) {
+    if (!m_owningLayer.behavesAsFixed() && !m_owningLayer.behavesAsSticky()) {
         setAllowsBackingStoreDetaching(true);
         return;
     }

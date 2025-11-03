@@ -159,10 +159,22 @@ exclaves_memory_alloc(const uint32_t npages, uint32_t *pages, const exclaves_mem
 	unsigned p = 0;
 
 	uint64_t start_time = mach_continuous_approximate_time();
-	kma_flags_t kma_flags = KMA_ZERO | KMA_NOFAIL;
+	kma_flags_t kma_flags = KMA_NOFAIL;
 	vm_object_t vm_obj = exclaves_object;
 
+#if HAS_MTE
+	/**
+	 * Avoid specifying KMA_TAG if MTE has been disabled by boot arg.
+	 * Otherwise, sptm_retype() will panic if asked to produce a tagged SK page
+	 * without tag storage space to back it.
+	 */
+	if ((flags & EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED) && is_mte_enabled) {
+		kma_flags |= KMA_TAG;
+		vm_obj = exclaves_object_tagged;
+	}
+#else /* !HAS_MTE */
 	(void)flags;
+#endif /* HAS_MTE */
 
 	while (pages_left) {
 		vm_page_t next;
@@ -191,6 +203,12 @@ exclaves_memory_alloc(const uint32_t npages, uint32_t *pages, const exclaves_mem
 			sptm_retype_params_t retype_params = {
 				.raw = SPTM_RETYPE_PARAMS_NULL
 			};
+#if HAS_MTE
+			if (kma_flags & KMA_TAG) {
+				retype_params.sk_flags |= SPTM_SK_PAGE_FLAGS_TAGGABLE;
+				pmap_unmake_tagged_page(VM_PAGE_GET_PHYS_PAGE(mem));
+			}
+#endif /* HAS_MTE */
 			sptm_retype(ptoa(VM_PAGE_GET_PHYS_PAGE(mem)),
 			    XNU_DEFAULT, SK_DEFAULT, retype_params);
 
@@ -224,7 +242,13 @@ void
 exclaves_memory_free(const uint32_t npages, const uint32_t *pages, const exclaves_memory_pagekind_t kind, const exclaves_memory_page_flags_t flags)
 {
 	vm_object_t vm_obj = exclaves_object;
+#if HAS_MTE
+	if (flags & EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED) {
+		vm_obj = exclaves_object_tagged;
+	}
+#else /* !HAS_MTE */
 	(void)flags;
+#endif /* HAS_MTE */
 
 	vm_object_lock(vm_obj);
 	for (size_t p = 0; p < npages; p++) {
@@ -239,6 +263,14 @@ exclaves_memory_free(const uint32_t npages, const uint32_t *pages, const exclave
 		assert3u(sptm_get_frame_type(ptoa(VM_PAGE_GET_PHYS_PAGE(m))),
 		    ==, XNU_DEFAULT);
 
+#if HAS_MTE
+		if (vm_obj == exclaves_object_tagged) {
+			/* pmap_make_tagged_page works lazily, hence we need to mark page m as `using_mte == false` */
+			m->vmp_using_mte = false;
+			pmap_make_tagged_page(VM_PAGE_GET_PHYS_PAGE(m));
+			m->vmp_using_mte = true;
+		}
+#endif /* HAS_MTE */
 
 		/* Free the page */
 		vm_page_lock_queues();
@@ -401,6 +433,11 @@ exclaves_memory_upcall_legacy_alloc_ext(uint32_t npages, xnuupcalls_pageallocfla
 	if (flags & XNUUPCALLS_PAGEALLOCFLAGS_CONCLAVE) {
 		kind = EXCLAVES_MEMORY_PAGEKIND_CONCLAVE;
 	}
+#if HAS_MTE
+	if (flags & XNUUPCALLS_PAGEALLOCFLAGS_SEC_TRANSITION) {
+		alloc_flags |= EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED;
+	}
+#endif /* HAS_MTE */
 	exclaves_memory_alloc(npages, pagelist.pages, kind, alloc_flags);
 	return completion(pagelist);
 }
@@ -437,6 +474,11 @@ exclaves_memory_upcall_legacy_free_ext(const uint32_t pages[EXCLAVES_MEMORY_MAX_
 	if (flags & XNUUPCALLS_PAGEALLOCFLAGS_CONCLAVE) {
 		kind = EXCLAVES_MEMORY_PAGEKIND_CONCLAVE;
 	}
+#if HAS_MTE
+	if (flags & XNUUPCALLS_PAGEFREEFLAGS_SEC_TRANSITION) {
+		free_flags |= EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED;
+	}
+#endif /* HAS_MTE */
 
 	exclaves_memory_free(npages, pages, kind, free_flags);
 
@@ -483,6 +525,11 @@ exclaves_memory_upcall_alloc_ext(uint32_t npages, xnuupcallsv2_pageallocflagsv2_
 	if (flags & XNUUPCALLSV2_PAGEALLOCFLAGSV2_CONCLAVE) {
 		kind = EXCLAVES_MEMORY_PAGEKIND_CONCLAVE;
 	}
+#if HAS_MTE
+	if (flags & XNUUPCALLSV2_PAGEALLOCFLAGSV2_SEC_TRANSITION) {
+		alloc_flags |= EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED;
+	}
+#endif /* HAS_MTE */
 
 	exclaves_memory_alloc(npages, pages, kind, alloc_flags);
 
@@ -532,6 +579,11 @@ exclaves_memory_upcall_free_ext(const xnuupcallsv2_pagelist_s pages,
 	if (flags & XNUUPCALLSV2_PAGEFREEFLAGSV2_CONCLAVE) {
 		kind = EXCLAVES_MEMORY_PAGEKIND_CONCLAVE;
 	}
+#if HAS_MTE
+	if (flags & XNUUPCALLSV2_PAGEFREEFLAGSV2_SEC_TRANSITION) {
+		free_flags |= EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED;
+	}
+#endif /* HAS_MTE */
 
 	exclaves_memory_free(npages, _pages, kind, free_flags);
 

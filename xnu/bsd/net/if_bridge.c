@@ -799,8 +799,8 @@ static mbuf_t bridge_mac_nat_translate_list(struct bridge_softc * sc,
 static mbuf_t bridge_mac_nat_copy_and_translate_list(struct bridge_softc * sc,
     struct bridge_iflist *sbif, ifnet_t dst_if, mbuf_t m);
 
-static mbuf_t   bridge_pf_list(mbuf_t m, ifnet_t ifp,
-    uint32_t sc_filter_flags, bool input);
+static mbuf_t   bridge_pf_list_out(mbuf_t m, ifnet_t ifp,
+    uint32_t sc_filter_flags);
 
 static inline ifnet_t
 bridge_rtlookup(struct bridge_softc *sc, const uint8_t addr[ETHER_ADDR_LEN],
@@ -2403,6 +2403,7 @@ bridge_iff_input(void *cookie, ifnet_t ifp, protocol_family_t protocol,
 	bool is_promisc;
 	mblist list;
 	mbuf_t m = *data;
+	uint32_t sc_filter_flags;
 
 	if ((m->m_flags & M_PROTO1)) {
 		goto out;
@@ -2454,6 +2455,14 @@ bridge_iff_input(void *cookie, ifnet_t ifp, protocol_family_t protocol,
 		if (m != *data) {
 			m = *data;
 			*frame_ptr = mtod(m, char *);
+		}
+	}
+	sc_filter_flags = sc->sc_filter_flags;
+	if ((sc_filter_flags & IFBF_FILT_MEMBER) != 0 && PF_IS_ENABLED) {
+		error = bridge_pf(data, ifp, sc_filter_flags, true);
+		m = *data;
+		if (error != 0 || m == NULL) {
+			return EJUSTRETURN;
 		}
 	}
 	mblist_init(&list);
@@ -6462,8 +6471,8 @@ bridge_broadcast_list(struct bridge_softc *sc, struct bridge_iflist * sbif,
 
 		if (sbif != NULL &&
 		    PF_IS_ENABLED && (sc_filter_flags & IFBF_FILT_MEMBER)) {
-			out_m = bridge_pf_list(out_m, dst_if,
-			    sc_filter_flags, false);
+			out_m = bridge_pf_list_out(out_m, dst_if,
+			    sc_filter_flags);
 		}
 		if (out_m != NULL) {
 			/* verify checksum if necessary */
@@ -6582,7 +6591,7 @@ bridge_forward_list(struct bridge_softc *sc, struct bridge_iflist * sbif,
 	sc_filter_flags = sc->sc_filter_flags;
 	BRIDGE_UNLOCK(sc);
 	if (PF_IS_ENABLED && (sc_filter_flags & IFBF_FILT_MEMBER)) {
-		m = bridge_pf_list(m, dst_if, sc_filter_flags, false);
+		m = bridge_pf_list_out(m, dst_if, sc_filter_flags);
 	}
 
 	/*
@@ -9926,7 +9935,7 @@ update_mbuf_flags(struct ifnet * ifp, mbuf_t m, struct ether_header * eh)
 }
 
 static mbuf_t
-bridge_pf_list(mbuf_t m, ifnet_t ifp, uint32_t sc_filter_flags, bool input)
+bridge_pf_list_out(mbuf_t m, ifnet_t ifp, uint32_t sc_filter_flags)
 {
 	mbuf_t  next_packet = NULL;
 	mblist  ret;
@@ -9937,8 +9946,7 @@ bridge_pf_list(mbuf_t m, ifnet_t ifp, uint32_t sc_filter_flags, bool input)
 
 		/* remove packet from list, and pass through PF */
 		scan->m_nextpkt = NULL;
-		MBUF_INPUT_CHECK(scan, ifp);
-		bridge_pf(&scan, ifp, sc_filter_flags, input);
+		bridge_pf(&scan, ifp, sc_filter_flags, false);
 		if (scan != NULL) {
 			/* add packet back to the list */
 			mblist_append(&ret, scan);
@@ -9984,6 +9992,7 @@ bridge_early_input(struct ifnet *ifp, mbuf_t in_list, u_int32_t cnt)
 	mblist          list;
 	volatile bool   list_is_promisc;
 	int             n_lists = 0;
+	bool            need_pf;
 	mbuf_t          next_packet = NULL;
 	mblist          ret;
 	struct bridge_softc * __single sc = ifp->if_bridge;
@@ -9992,16 +10001,13 @@ bridge_early_input(struct ifnet *ifp, mbuf_t in_list, u_int32_t cnt)
 	BRIDGE_LOG(LOG_DEBUG, BR_DBGF_INPUT_LIST,
 	    "(%s): count %u", ifp->if_xname, cnt);
 
-	/* run packet list through PF first */
 	sc_filter_flags = sc->sc_filter_flags;
-	if (PF_IS_ENABLED && (sc_filter_flags & IFBF_FILT_MEMBER)) {
-		in_list = bridge_pf_list(in_list, ifp, sc_filter_flags, true);
-	}
+	need_pf = (sc_filter_flags & IFBF_FILT_MEMBER) != 0 && PF_IS_ENABLED;
 
 	/* form sublists with the same ethernet header */
 	mblist_init(&list);
 	mblist_init(&ret);
-	for (mbuf_t scan = in_list; scan != NULL; scan = next_packet) {
+	for (mbuf_ref_t scan = in_list; scan != NULL; scan = next_packet) {
 		struct ether_header *   eh_p;
 		volatile bool           is_promisc;
 		mblist                  resid;
@@ -10023,12 +10029,20 @@ bridge_early_input(struct ifnet *ifp, mbuf_t in_list, u_int32_t cnt)
 			mblist_append(&ret, scan);
 			continue;
 		}
-		eh_p = __unsafe_forge_single(struct ether_header *,
-		    scan->m_pkthdr.pkt_hdr);
-		update_mbuf_flags(ifp, scan, eh_p);
-
 		/* set start back to include ether header */
 		_mbuf_adjust_pkthdr_and_data(scan, -ETHER_HDR_LEN);
+		eh_p = mtod(scan, struct ether_header *);
+		update_mbuf_flags(ifp, scan, eh_p);
+
+		/* pass through PF if required */
+		if (need_pf) {
+			bridge_pf(&scan, ifp, sc_filter_flags, true);
+			if (scan == NULL) {
+				continue;
+			}
+			/* `eh_p` could have changed */
+			eh_p = mtod(scan, struct ether_header *);
+		}
 
 		is_promisc = get_and_clear_promisc(scan);
 		if (list.head == NULL) {

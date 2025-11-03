@@ -24,6 +24,73 @@ fileprivate func toData<T>(value: T) -> NSData {
     }
 }
 
+enum TimespecError: Error {
+    case overflow
+    case underflow
+}
+
+fileprivate func addNanosecondsToTimespec(_ timespec: timespec, nanoseconds: UInt64) throws -> timespec {
+    var result = timespec
+    
+    // Add the nanoseconds with overflow checking
+    let totalNanoseconds = UInt64(result.tv_nsec).addingReportingOverflow(nanoseconds)
+    guard !totalNanoseconds.overflow else {
+        throw TimespecError.overflow
+    }
+    
+    // Calculate how many seconds the nanoseconds represent
+    let additionalSeconds = totalNanoseconds.partialValue / NSEC_PER_SEC
+    let remainingNanoseconds = totalNanoseconds.partialValue % NSEC_PER_SEC
+    
+    // Check for overflow when adding seconds
+    let newSeconds = result.tv_sec.addingReportingOverflow(__darwin_time_t(additionalSeconds))
+    guard !newSeconds.overflow else {
+        throw TimespecError.overflow
+    }
+    
+    // Update the timespec
+    result.tv_sec = newSeconds.partialValue
+    result.tv_nsec = Int(remainingNanoseconds)
+    
+    return result
+}
+
+fileprivate func subtractNanosecondsFromTimespec(_ timespec: timespec, nanoseconds: UInt64) throws -> timespec {
+    var result = timespec
+    
+    let currentNanoseconds = UInt64(result.tv_nsec)
+    let secondsToSubtract = nanoseconds / NSEC_PER_SEC
+    let nanosecondsToSubtract = nanoseconds % NSEC_PER_SEC
+    
+    // Check for underflow when subtracting seconds
+    let newSeconds = result.tv_sec.subtractingReportingOverflow(__darwin_time_t(secondsToSubtract))
+    guard !newSeconds.overflow else {
+        throw TimespecError.underflow
+    }
+    result.tv_sec = newSeconds.partialValue
+    
+    // Handle nanosecond subtraction with potential borrow from seconds
+    if currentNanoseconds >= nanosecondsToSubtract {
+        // Simple case: no need to borrow from seconds
+        result.tv_nsec = Int(currentNanoseconds - nanosecondsToSubtract)
+    } else {
+        // Need to borrow 1 second (1,000,000,000 nanoseconds) from seconds
+        // Check if we can borrow (would underflow)
+        let borrowSeconds = result.tv_sec.subtractingReportingOverflow(1)
+        guard !borrowSeconds.overflow else {
+            throw TimespecError.underflow
+        }
+        result.tv_sec = borrowSeconds.partialValue
+        let (borrowedNanoseconds, borrowOverflow) = NSEC_PER_SEC.addingReportingOverflow(currentNanoseconds)
+        guard !borrowOverflow else {
+            throw TimespecError.underflow
+        }
+        result.tv_nsec = Int(borrowedNanoseconds - nanosecondsToSubtract)
+    }
+    
+    return result
+}
+
 class Stats {
     private var lastEMA: Double = 0
     private let smoothingFactor: Double
@@ -193,12 +260,11 @@ class Stats {
         }
         
         let tsPrecision = getPrecision()
-        
         var currentTs: UInt64 = 0
-        var continuousTime: UInt64 = 0
+        var currentContTs: UInt64 = 0
         var currentTimeSpec = timespec(tv_sec: 0, tv_nsec: 0)
 
-        let kr = machGetTimes(&currentTs, &continuousTime,  &currentTimeSpec)
+        let kr = machGetTimes(&currentTs, &currentContTs, &currentTimeSpec)
         guard kr == KERN_SUCCESS else {
             logger.error("\(self.serviceIDStr): machGetTimes:\(kr)")
             return event
@@ -228,26 +294,26 @@ class Stats {
             sampleTimeType = .arrival
             ts = event.timestamp
         }
- 
-        let delta = machAbsoluteToNanoseconds(currentTs - ts)
         
-        let delta_sec = delta / 1000000000
-        let delta_nsec = delta % UInt64(1000000000)
-
-        guard delta_sec < currentTimeSpec.tv_sec else {
-            logger.error("\(self.serviceIDStr): delta_sec:\(delta_sec) tv_sec:\(currentTimeSpec.tv_sec)")
+        let eventTimespec:timespec
+        do {
+            if (currentTs > ts) {
+                eventTimespec = try subtractNanosecondsFromTimespec(currentTimeSpec, nanoseconds:  machAbsoluteToNanoseconds(currentTs - ts))
+            } else {
+                eventTimespec = try addNanosecondsToTimespec(currentTimeSpec, nanoseconds:  machAbsoluteToNanoseconds(ts - currentTs))
+            }
+        } catch TimespecError.overflow {
+            logger.error("\(self.serviceIDStr): timespec calculation would overflow")
+            return event
+        } catch TimespecError.underflow {
+            logger.error("\(self.serviceIDStr): timespec calculation would underflow")
+            return event
+        } catch {
+            logger.error("\(self.serviceIDStr): unexpected timespec calculation error: \(error)")
             return event
         }
         
-        var tv_nsec_sample:UInt64 = 1000000000 + UInt64(currentTimeSpec.tv_nsec) - delta_nsec
-        var tv_sec_sample = UInt64 (currentTimeSpec.tv_sec) - delta_sec
-        if tv_nsec_sample  >= 1000000000 {
-            tv_nsec_sample = tv_nsec_sample  - 1000000000
-        } else {
-            tv_sec_sample = tv_sec_sample - 1
-        }
-   
-        var sampleTime = IOHIDSensorSampleTime(type:sampleTimeType, reserved:(0,0,0),  precision_nsec:tsPrecision, tv_sec:UInt32 (tv_sec_sample), tv_nsec:UInt32(tv_nsec_sample));
+        var sampleTime = IOHIDSensorSampleTime(type:sampleTimeType, reserved:(0,0,0),  precision_nsec:tsPrecision, tv_sec:UInt32 (eventTimespec.tv_sec), tv_nsec:UInt32(eventTimespec.tv_nsec));
 
         let sampleTimeEvent = HIDEvent.vendorDefinedEvent(event.timestamp, usagePage: UInt16(kHIDPage_AppleVendorSensor), usage: UInt16(kHIDUsage_AppleVendorSensor_SampleTime), version: 0, data: &sampleTime, length: UInt32(MemoryLayout.size(ofValue:sampleTime)), options: 0)
 
@@ -264,7 +330,7 @@ class Stats {
             if child.type == kIOHIDEventTypeVendorDefined && UInt16(child.integerValue(forField: kIOHIDEventFieldVendorDefinedUsagePage)) == UInt16(kHIDPage_AppleVendorSensor) && UInt16(child.integerValue(forField: kIOHIDEventFieldVendorDefinedUsage)) == UInt16(kHIDUsage_AppleVendorSensor_BTRemoteTimestamp) {
                 
                 let tsLen = child.integerValue(forField:kIOHIDEventFieldVendorDefinedDataLength)
-                guard tsLen == 8  else {
+                guard tsLen == MemoryLayout<UInt64>.size else {
                     return nil
                 }
                 

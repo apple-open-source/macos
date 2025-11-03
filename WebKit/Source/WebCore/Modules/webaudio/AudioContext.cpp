@@ -720,24 +720,6 @@ void AudioContext::isActiveNowPlayingSessionChanged()
     }
 }
 
-std::optional<ProcessID> AudioContext::mediaSessionPresentingApplicationPID() const
-{
-    RefPtr document = this->document();
-    if (!document)
-        return std::nullopt;
-
-    RefPtr page = document->page();
-    if (!page)
-        return std::nullopt;
-
-#if ENABLE(EXTENSION_CAPABILITIES)
-    if (page->settings().mediaCapabilityGrantsEnabled())
-        return std::nullopt;
-#endif
-
-    return page->presentingApplicationPID();
-}
-
 #if !RELEASE_LOG_DISABLED
 const Logger& AudioContext::logger() const
 {

@@ -171,6 +171,10 @@ void RenderBox::willBeDestroyed()
             view().unregisterAnchor(*this);
         if (!style().positionTryFallbacks().isEmpty())
             view().unregisterPositionTryBox(*this);
+        if (Style::AnchorPositionEvaluator::isAnchorPositioned(style())) // Keep this in sync with styleDidChange().
+            layoutContext().unregisterAnchorScrollAdjusterFor(*this);
+        if (hasPotentiallyScrollableOverflow()) // Keep this in sync with AnchorScrollAdjuster::addSnapshot() calls.
+            layoutContext().removeScrollerFromAnchorScrollAdjusters(*this);
     }
 
     RenderBoxModelObject::willBeDestroyed();
@@ -407,6 +411,16 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
             containingBlock->setNeedsLayoutAndPreferredWidthsUpdate();
         }
     }
+    if (oldStyle && Style::AnchorPositionEvaluator::isAnchorPositioned(*oldStyle)
+        && !Style::AnchorPositionEvaluator::isAnchorPositioned(style())) {
+        // Only out-of-flow code manages these, so if we're changing we need to clear them.
+        // Keep this in sync with willBeDestroyed().
+        layoutContext().unregisterAnchorScrollAdjusterFor(*this);
+    }
+
+    if ((layer() && diff == StyleDifference::Layout && hasNonVisibleOverflow())
+        || (oldStyle && oldStyle->isOverflowVisible() != style().isOverflowVisible()))
+        layoutContext().invalidateAnchorDependenciesForScroller(*this);
 }
 
 static bool hasEquivalentGridPositioningStyle(const RenderStyle& style, const RenderStyle& oldStyle)
@@ -1219,6 +1233,19 @@ ScrollPosition RenderBox::scrollPosition() const
         return { 0, 0 };
 
     return scrollableArea->scrollPosition();
+}
+
+ScrollPosition RenderBox::constrainedScrollPosition() const
+{
+    if (!hasPotentiallyScrollableOverflow())
+        return { 0, 0 };
+
+    ASSERT(hasLayer());
+    auto* scrollableArea = layer()->scrollableArea();
+    if (!scrollableArea)
+        return { 0, 0 };
+
+    return scrollableArea->constrainedScrollPosition(scrollableArea->scrollPosition());
 }
 
 LayoutSize RenderBox::cachedSizeForOverflowClip() const
@@ -2289,23 +2316,25 @@ LayoutUnit RenderBox::shrinkLogicalWidthToAvoidFloats(LayoutUnit childMarginStar
 
 LayoutUnit RenderBox::containingBlockLogicalWidthForContent() const
 {
+    CheckedPtr containingBlock = this->containingBlock();
+    if (!containingBlock) {
+        // Should not be called on detached renderer (e.g. during initial style setting).
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
     if (isOutOfFlowPositioned()) {
         PositionedLayoutConstraints constraints(*this, LogicalBoxAxis::Inline);
         return constraints.containingInlineSize();
     }
 
     if (isGridItem()) {
-        if (auto gridAreaContentLogicalWidth = this->gridAreaContentLogicalWidth()) {
-            ASSERT(is<RenderGrid>(containingBlock()));
+        ASSERT(is<RenderGrid>(containingBlock));
+        if (auto gridAreaContentLogicalWidth = this->gridAreaContentLogicalWidth())
             return gridAreaContentLogicalWidth->value_or(0_lu);
-        }
     }
 
-    if (auto* containingBlock = this->containingBlock())
-        return containingBlock->contentBoxLogicalWidth();
-
-    ASSERT_NOT_REACHED();
-    return 0_lu;
+    return containingBlock->contentBoxLogicalWidth();
 }
 
 LayoutUnit RenderBox::containingBlockLogicalHeightForContent(AvailableLogicalHeightType heightType) const
@@ -4021,7 +4050,8 @@ template<typename SizeType> LayoutUnit RenderBox::computeReplacedLogicalHeightUs
             && !(container->style().top().isAuto() || container->style().bottom().isAuto())) {
             auto& block = downcast<RenderBlock>(*container);
             auto computedValues = block.computeLogicalHeight(block.logicalHeight(), 0);
-            LayoutUnit newContentHeight = computedValues.m_extent - block.borderAndPaddingLogicalHeight() - block.scrollbarLogicalHeight();
+            LayoutUnit borderPaddingAdjustment = isOutOfFlowPositioned() ? block.borderLogicalHeight() : block.borderAndPaddingLogicalHeight();
+            LayoutUnit newContentHeight = computedValues.m_extent - block.scrollbarLogicalHeight() - borderPaddingAdjustment;
             return adjustContentBoxLogicalHeightForBoxSizing(Style::evaluate(logicalHeight, newContentHeight));
         }
         
@@ -5546,8 +5576,10 @@ bool RenderBox::hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHei
     if (updatePercentageDescendants == UpdatePercentageHeightDescendants::Yes && logicalHeight.isPercentOrCalculated() && containingBlock)
         containingBlock->addPercentHeightDescendant(const_cast<RenderBox&>(*this));
 
-    if (isFlexItem() && downcast<RenderFlexibleBox>(*parent()).canUseFlexItemForPercentageResolution(*this))
-        return false;
+    if (isFlexItem()) {
+        if (downcast<RenderFlexibleBox>(*parent()).canUseFlexItemForPercentageResolutionByStyle(*this) && overridingBorderBoxLogicalHeight())
+            return false;
+    }
 
     if (isGridItem()) {
         if (auto containingBlockContentLogicalHeight = gridAreaContentLogicalHeight())

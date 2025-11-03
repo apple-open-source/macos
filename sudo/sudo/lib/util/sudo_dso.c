@@ -38,9 +38,9 @@
 #endif
 #include <errno.h>
 
-#include "sudo_compat.h"
-#include "sudo_dso.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_dso.h>
+#include <sudo_util.h>
 
 /*
  * Pointer for statically compiled symbols.
@@ -124,7 +124,7 @@ sudo_dso_findsym_v1(void *vhandle, const char *symbol)
     }
 
     /*
-     * Note that the behavior of of SUDO_DSO_NEXT and SUDO_DSO_SELF
+     * Note that the behavior of SUDO_DSO_NEXT and SUDO_DSO_SELF
      * differs from most implementations when called from
      * a shared library.
      */
@@ -329,7 +329,7 @@ sudo_dso_load_v1(const char *path, int mode)
 	
     /* On failure, try again with a multi-arch path where possible. */
     if (ret == NULL)
-	ret = dlopen_multi_arch(path, flags);
+	ret = dlopen_multi_arch(path, flags); // -V1048
 
     return ret;
 }

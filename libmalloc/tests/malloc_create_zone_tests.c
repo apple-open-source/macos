@@ -11,6 +11,23 @@
 #include <malloc/malloc.h>
 #include <../src/internal.h>
 
+T_DECL(malloc_create_many_zones, "Register lots of zones",
+		T_META_CHECK_LEAKS(false), T_META_TAG_ALL_ALLOCATORS,
+		T_META_TAG_VM_NOT_PREFERRED, T_META_ENABLED(MALLOC_TARGET_64BIT))
+{
+	const int num_zones = 4097;
+
+	for (int i = 0; i < num_zones; i++) {
+		malloc_zone_t *zone = malloc_create_zone(0, 0);
+		T_QUIET; T_ASSERT_NOTNULL(zone, "create zone %d", i);
+
+		void *p = malloc_zone_malloc(zone, 16);
+		T_QUIET; T_ASSERT_NOTNULL(p, "malloc_zone_malloc %d", i);
+		T_QUIET; T_ASSERT_GE(malloc_size(p), 16ul, "malloc_size %d", i);
+		free(p);
+	}
+}
+
 #if CONFIG_XZONE_MALLOC
 
 #define PTR_EQUALS(a, b) (((uintptr_t)a & (XZM_LIMIT_ADDRESS - 1)) == \
@@ -18,7 +35,7 @@
 
 T_DECL(malloc_xzone_create_zone, "Test malloc_create_zone with xzones enabled",
 		T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	// Check that we can create a new zone, and that it is an xzone
 	malloc_zone_t *new_zone = malloc_create_zone(0, 0);
@@ -49,34 +66,17 @@ T_DECL(malloc_xzone_create_zone, "Test malloc_create_zone with xzones enabled",
 	T_PASS("success");
 }
 
-T_DECL(malloc_xzone_create_many_zones, "Register 2048 xzm zones, 256 at a time",
-		T_META_TAG_XZONE_ONLY)
-{
-	const int num_zones = 256;
-	malloc_zone_t *zone_array[num_zones];
-	for (int i = 0; i < (2048 / num_zones); i++) {
-		for (int j = 0; j < num_zones; j++) {
-			zone_array[j] = malloc_create_zone(0, 0);
-			T_QUIET;
-			T_ASSERT_NOTNULL(zone_array[j], "create zone %d", i * num_zones + j);
-		}
-		for (int j = 0; j < num_zones; j++) {
-			zone_array[j] = NULL;
-		}
-	}
-}
-
 // This test would exhaust the 64GB embedded address space, so only run on OSX
 #if TARGET_OS_OSX
 T_DECL(malloc_xzone_too_many_zones, "Register more zones than xzm supports",
 		T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	// XZM uses a uint16_t for the mzone unique ID, so we can only register
-	// UINT16_MAX - 2 new zones (ID 1 is reserved for the main zone, and ID 0 is
+	// (1 << 16) - 2 new zones (ID 1 is reserved for the main zone, and ID 0 is
 	// a magic invalid value). After running out of IDs, check that
 	// malloc_create_zone falls back to a scalable zone
-	const size_t num_xzone_zones = UINT16_MAX - 2;
+	const size_t num_xzone_zones = (1 << 16) - 2;
 	malloc_zone_t *xzm_zones[num_xzone_zones];
 	for (int i = 0; i < num_xzone_zones; i++) {
 		xzm_zones[i] = malloc_create_zone(0, 0);
@@ -91,7 +91,7 @@ T_DECL(malloc_xzone_too_many_zones, "Register more zones than xzm supports",
 	malloc_zone_t *szone = malloc_create_zone(0, 0);
 	T_ASSERT_NOTNULL(szone, "Fallback to new scalable zone");
 	if (szone->version >= 14) {
-		T_ASSERT_EQ(szone->introspect->zone_type, MALLOC_ZONE_TYPE_XZONE,
+		T_ASSERT_NE(szone->introspect->zone_type, MALLOC_ZONE_TYPE_XZONE,
 				"Fallback shouldn't be xzone malloc zone");
 	} else {
 		T_LOG("Fallback malloc zone doesn't support zone_type");
@@ -156,7 +156,7 @@ memory_reader(task_t remote_task, vm_address_t remote_address, vm_size_t size,
 
 T_DECL(malloc_new_xzone_enumerate, "Test non-default xzone enumerator",
 		T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *new_zone = malloc_create_zone(0, 0);
 	T_ASSERT_GE(new_zone->version, 14, "New zone isn't an xzone");
@@ -228,7 +228,7 @@ worker_thread(void *arg)
 
 T_DECL(malloc_fork_with_xzone, "Test that we can fork with a non-default xzone",
 		T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
 {
 	malloc_zone_t *new_zone = malloc_create_zone(0, 0);
 	T_ASSERT_GE(new_zone->version, 14, "New zone isn't an xzone");
@@ -313,7 +313,7 @@ T_DECL(malloc_fork_with_xzone, "Test that we can fork with a non-default xzone",
 
 T_DECL(malloc_statistics, "Make sure the main and new zone support statistics",
 		T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *default_zone = malloc_default_zone();
 	malloc_zone_t *new_zone = malloc_create_zone(0, 0);
@@ -342,7 +342,7 @@ T_DECL(malloc_statistics, "Make sure the main and new zone support statistics",
 
 T_DECL(malloc_free_pointers_on_destroy,
 		"Make many allocations, make sure they're freed on zone destroy",
-		T_META_TAG_XZONE)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *new_zone = malloc_create_zone(0, 0);
 
@@ -525,7 +525,7 @@ create_zone_stress(void)
 T_DECL(malloc_create_zone_stress,
 		"Create and destroy zones while stressing main zone",
 		T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_NOT_PREFERRED)
 {
 	create_zone_stress();
 }
@@ -534,15 +534,15 @@ T_DECL(malloc_create_zone_stress_guarded,
 		"Create and destroy zones while stressing main zone, guard pages enabled",
 		T_META_ENVVAR("MallocXzoneGuarded=1"),
 		T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_NOT_PREFERRED)
 {
 	create_zone_stress();
 }
 
 T_DECL(free_default_with_scribble,
 		"Test freeing from a non-default zone while MALLOC_SCRIBBLE is enabled",
-		T_META_TAG_XZONE,
-		T_META_ENVVAR("MallocScribble=1"))
+		T_META_TAG_ALL_ALLOCATORS,
+		T_META_ENVVAR("MallocScribble=1"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	malloc_zone_t *zone = malloc_create_zone(0, 0);
 	void *ptr = malloc_zone_malloc(zone, 16384);
@@ -554,7 +554,8 @@ T_DECL(free_default_with_scribble,
 #else // CONFIG_XZONE_MALLOC
 
 T_DECL(skip_create_zone, "Do nothing test for !CONFIG_XZONE_MALLOC",
-	T_META_ENABLED(false))
+	T_META_ENABLED(false), T_META_TAG_VM_PREFERRED,
+	T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	T_SKIP("Nothing to test under !CONFIG_XZONE_MALLOC");
 

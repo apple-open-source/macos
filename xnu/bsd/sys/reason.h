@@ -147,8 +147,7 @@ void os_reason_set_description_data(os_reason_t cur_reason, uint32_t type, void 
 #define OS_REASON_ROSETTA 34
 #define OS_REASON_LIBIGNITION 35
 #define OS_REASON_BOOTMOUNT 36
-
-
+#define OS_REASON_MTE_FAIL   37
 #define OS_REASON_REALITYKIT 38
 #define OS_REASON_AUDIO      39
 #define OS_REASON_WAKEBOARD  40

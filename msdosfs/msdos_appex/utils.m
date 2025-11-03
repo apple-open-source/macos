@@ -321,9 +321,7 @@ uint16_t dos2unicodeConv[32] = {
 
 +(CFStringEncoding)getDefaultDOSEncoding
 {
-    NSString *tmp = [[[NSProcessInfo processInfo] environment] objectForKey:@"__CF_USER_TEXT_ENCODING"];
-    tmp = [tmp substringFromIndex:tmp.length - 3]; /* Remove the user prefix, only leave the encoding */
-    CFStringEncoding encoding = (unsigned int)strtol(tmp.UTF8String, NULL, 0);
+    CFStringEncoding encoding = CFStringGetSystemEncoding();
 
     /* Convert the Mac encoding to DOS/Windows one */
     switch (encoding) {
@@ -359,7 +357,7 @@ uint16_t dos2unicodeConv[32] = {
         case kCFStringEncodingMacFarsi:
             return kCFStringEncodingDOSArabic;
         default:
-            return kCFStringEncodingInvalidId;
+            return kCFStringEncodingDOSLatin1; /* Default to Roman/Latin */
     }
 }
 

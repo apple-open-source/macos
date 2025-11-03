@@ -157,6 +157,12 @@ while ($#argv >= 1)
 	case "-sptm":
 	    set DEF_SPTM="-DMASTER_CONFIG_ENABLE_SPTM"
 	    breaksw
+	case "-exclaves":
+	    set DEF_EXCLAVES="-DMASTER_CONFIG_ENABLE_EXCLAVES"
+	    breaksw
+	case "-tag":
+	    set DEF_TAG="-DMASTER_CONFIG_ENABLE_KERNEL_TAG"
+	    breaksw
 	default:
 	    echo "${prog}: ${argv[1]}: unknown switch"
 	    exit 1

@@ -567,9 +567,13 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 
 			passwordItem->getCssmData(data);
 
+            CssmDataContainer derivedPass;
+            bool isDerived = const_cast<KeychainDatabase*>(mPassphraseCheck)->derivePassphraseIfNecessary(data, derivedPass);
+            const CssmData thePass = isDerived ? static_cast<CssmData>(derivedPass) : static_cast<CssmData>(data);
+
             // decode() replaces the master key, so do this only if we know the passphrase is correct.
             // I suspect decode() is redundant but something might rely on its side effects so let's keep it.
-            if (const_cast<KeychainDatabase*>(mPassphraseCheck)->validatePassphrase(data) && const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data)) {
+            if (const_cast<KeychainDatabase*>(mPassphraseCheck)->validatePassphrase(thePass) && const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(thePass)) {
                 reason = SecurityAgent::noReason;
             } else {
                 reason = SecurityAgent::invalidPassphrase;
@@ -677,9 +681,14 @@ Reason QueryUnlock::accept(CssmManagedData &passphrase)
     // Must hold the 'common' lock to call decode; otherwise there's a data corruption issue
     StLock<Mutex> _(safer_cast<KeychainDatabase &>(database).common());
 
+    // Be sure to use the derived passphrase if necessary
+    CssmDataContainer derivedPass;
+    bool isDerived = safer_cast<KeychainDatabase &>(database).derivePassphraseIfNecessary(passphrase, derivedPass);
+    const CssmData thePass = isDerived ? static_cast<CssmData>(derivedPass) : static_cast<CssmData>(passphrase);
+
     // Calling validatePassphrase here throws when trying to constitute a key.
     // Unsure why but since this is for the KC unlock path and not a validation path the wrong password won't make things worse.
-	if (safer_cast<KeychainDatabase &>(database).decode(passphrase))
+	if (safer_cast<KeychainDatabase &>(database).decode(thePass))
 		return SecurityAgent::noReason;
 	else
 		return SecurityAgent::invalidPassphrase;

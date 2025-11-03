@@ -157,16 +157,16 @@ module REXML
         if ( @events[@current].matches?(event) )
           @current += 1
           if @events[@current].nil?
-            return @previous.pop
+            @previous.pop
           elsif @events[@current].kind_of? State
             @current += 1
             @events[@current-1].previous = self
-            return @events[@current-1]
+            @events[@current-1]
           else
-            return self
+            self
           end
         else
-          return nil
+          nil
         end
       end
 
@@ -186,7 +186,7 @@ module REXML
       end
 
       def expected
-        return [@events[@current]]
+        [@events[@current]]
       end
 
       def <<( event )
@@ -244,7 +244,7 @@ module REXML
             evt = :end_attribute
           end
         end
-        return Event.new( evt, arg )
+        Event.new( evt, arg )
       end
     end
 
@@ -262,9 +262,10 @@ module REXML
           rv = super
           return rv if rv
           @prior = @previous.pop
-          return @prior.next( event )
+          @prior.next( event )
+        else
+          super
         end
-        super
       end
 
       def matches?(event)
@@ -274,7 +275,7 @@ module REXML
 
       def expected
         return [ @prior.expected, @events[0] ].flatten if @current == 0
-        return [@events[@current]]
+        [@events[@current]]
       end
     end
 
@@ -286,24 +287,24 @@ module REXML
           @current += 1
           if @events[@current].nil?
             @current = 0
-            return self
+            self
           elsif @events[@current].kind_of? State
             @current += 1
             @events[@current-1].previous = self
-            return @events[@current-1]
+            @events[@current-1]
           else
-            return self
+            self
           end
         else
           @prior = @previous.pop
           return @prior.next( event ) if @current == 0
-          return nil
+          nil
         end
       end
 
       def expected
         return [ @prior.expected, @events[0] ].flatten if @current == 0
-        return [@events[@current]]
+        [@events[@current]]
       end
     end
 
@@ -326,17 +327,17 @@ module REXML
           @ord += 1
           if @events[@current].nil?
             @current = 0
-            return self
+            self
           elsif @events[@current].kind_of? State
             @current += 1
             @events[@current-1].previous = self
-            return @events[@current-1]
+            @events[@current-1]
           else
-            return self
+            self
           end
         else
           return @previous.pop.next( event ) if @current == 0 and @ord > 0
-          return nil
+          nil
         end
       end
 
@@ -347,9 +348,9 @@ module REXML
 
       def expected
         if @current == 0 and @ord > 0
-          return [@previous[-1].expected, @events[0]].flatten
+          [@previous[-1].expected, @events[0]].flatten
         else
-          return [@events[@current]]
+          [@events[@current]]
         end
       end
     end
@@ -403,7 +404,7 @@ module REXML
 
       def expected
         return [@events[@current]] if @events.size > 0
-        return @choices.collect do |x|
+        @choices.collect do |x|
           if x[0].kind_of? State
             x[0].expected
           else
@@ -490,16 +491,16 @@ module REXML
           @current += 1
           if @events[@current].nil?
             return self unless @choices[@choice].nil?
-            return @previous.pop
+            @previous.pop
           elsif @events[@current].kind_of? State
             @current += 1
             @events[@current-1].previous = self
-            return @events[@current-1]
+            @events[@current-1]
           else
-            return self
+            self
           end
         else
-          return nil
+          nil
         end
       end
 
@@ -510,7 +511,7 @@ module REXML
 
       def expected
         return [@events[@current]] if @events[@current]
-        return @choices[@choice..-1].collect do |x|
+        @choices[@choice..-1].collect do |x|
           if x[0].kind_of? State
             x[0].expected
           else

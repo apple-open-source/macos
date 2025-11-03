@@ -69,7 +69,15 @@ static void initializeSQLiteIfNecessary()
         // completely threadsafe. But in the past it was not safe, and the SQLite developers still
         // aren't confident that it really is, and we still support ancient versions of SQLite. So
         // std::call_once is used to stay on the safe side. See bug #143245.
-        int ret = sqlite3_initialize();
+        int ret;
+        callOnMainThreadAndWait([&] {
+            // In the Network process, this function can be called on a background thread when
+            // creating WebKit::ResourceLoadStatisticsStore, which then races with
+            // WebKit::NetworkProcess::initializeNetworkProcess(). Since both of those calls query
+            // the Darwin user temp directory via confstr(), this should only be called from the
+            // main thread.
+            ret = sqlite3_initialize();
+        });
         if (ret != SQLITE_OK) {
 #if SQLITE_VERSION_NUMBER >= 3007015
             WTFLogAlways("Failed to initialize SQLite: %s", sqlite3_errstr(ret));

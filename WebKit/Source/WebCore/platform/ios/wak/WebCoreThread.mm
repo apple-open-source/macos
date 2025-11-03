@@ -948,7 +948,7 @@ WebThreadContext* WebThreadCurrentContext(void)
 void WebThreadEnable(void)
 {
     RELEASE_ASSERT_WITH_MESSAGE(!WTF::IOSApplication::isWebProcess(), "The WebProcess should never run a Web Thread");
-    if (WTF::CocoaApplication::isAppleApplication() && !((rand() * 100) % 100))
+    if (WTF::CocoaApplication::shouldOSFaultLogForAppleApplicationUsingWebKit1())
         os_fault_with_payload(OS_REASON_WEBKIT, 0, nullptr, 0, "WebThread enabled", 0);
 
     static std::once_flag flag;

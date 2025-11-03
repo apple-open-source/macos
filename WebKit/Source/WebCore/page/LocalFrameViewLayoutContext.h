@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "AnchorPositionEvaluator.h"
 #include "LayoutUnit.h"
 #include "RenderLayerModelObject.h"
 #include "Timer.h"
@@ -161,6 +162,13 @@ public:
     bool addToDetachedRendererList(RenderPtr<RenderObject>&& renderer) const { return m_detachedRendererList.append(WTFMove(renderer)); }
     void deleteDetachedRenderersNow() const { m_detachedRendererList.clear(); }
 
+    Vector<AnchorScrollAdjuster>& anchorScrollAdjusters() { return m_anchorScrollAdjusters; }
+    const AnchorScrollAdjuster* anchorScrollAdjusterFor(const RenderBox& anchored) const;
+    AnchorScrollAdjuster::Diff registerAnchorScrollAdjuster(AnchorScrollAdjuster&&);
+    void unregisterAnchorScrollAdjusterFor(const RenderBox& anchored);
+    void invalidateAnchorDependenciesForScroller(const RenderBox& scroller);
+    void removeScrollerFromAnchorScrollAdjusters(const RenderBox& scroller);
+
 private:
     friend class LayoutScope;
     friend class LayoutStateMaintainer;
@@ -244,6 +252,7 @@ private:
     std::unique_ptr<UpdateScrollInfoAfterLayoutTransaction> m_updateScrollInfoAfterLayoutTransaction;
     SingleThreadWeakHashMap<RenderBlock, Vector<SingleThreadWeakPtr<RenderBox>>> m_containersWithDescendantsNeedingTransformUpdate;
     SingleThreadWeakHashSet<RenderBox> m_percentHeightIgnoreList;
+    Vector<AnchorScrollAdjuster> m_anchorScrollAdjusters;
     std::optional<TextBoxTrim> m_textBoxTrim;
 
     struct UpdateLayerPositions {

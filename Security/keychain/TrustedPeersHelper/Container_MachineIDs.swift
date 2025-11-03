@@ -283,7 +283,7 @@ extension Container {
                         flowID: flowID,
                         deviceSessionID: deviceSessionID,
                         eventName: kSecurityRTCEventNameMIDVanishedFromTDL,
-                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDVanished],
+                        metrics: [kSecurityRTCFieldIsCurrentDevice: self.egoMachineIDVanished],
                         result: false,
                         error: ContainerError.machineIDVanishedFromTDL as NSError)
     }
@@ -299,7 +299,7 @@ extension Container {
                         flowID: flowID,
                         deviceSessionID: deviceSessionID,
                         eventName: kSecurityRTCEventNameOctagonTrustLost,
-                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDEvicted],
+                        metrics: [kSecurityRTCFieldIsCurrentDevice: self.egoMachineIDEvicted],
                         result: true,
                         error: error)
     }
@@ -315,7 +315,7 @@ extension Container {
                         flowID: flowID,
                         deviceSessionID: deviceSessionID,
                         eventName: kSecurityRTCEventNameOctagonTrustLost,
-                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDUserInitiated],
+                        metrics: [kSecurityRTCFieldIsCurrentDevice: self.egoMachineIDUserInitiated],
                         result: true,
                         error: error)
     }
@@ -331,7 +331,7 @@ extension Container {
                         flowID: flowID,
                         deviceSessionID: deviceSessionID,
                         eventName: kSecurityRTCEventNameOctagonTrustLost,
-                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDUnknownReason],
+                        metrics: [kSecurityRTCFieldIsCurrentDevice: self.egoMachineIDUnknownReason],
                         result: true,
                         error: error)
     }
@@ -347,7 +347,7 @@ extension Container {
                         flowID: flowID,
                         deviceSessionID: deviceSessionID,
                         eventName: kSecurityRTCEventNameOctagonTrustLost,
-                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDUnknown],
+                        metrics: [kSecurityRTCFieldIsCurrentDevice: self.egoMachineIDUnknown],
                         result: true,
                         error: error)
     }
@@ -363,7 +363,7 @@ extension Container {
                         flowID: flowID,
                         deviceSessionID: deviceSessionID,
                         eventName: kSecurityRTCEventNameOctagonTrustLost,
-                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDGhosted],
+                        metrics: [kSecurityRTCFieldIsCurrentDevice: self.egoMachineIDGhosted],
                         result: true,
                         error: error)
     }
@@ -663,10 +663,17 @@ extension Container {
                             machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
                             machine.modified = Date()
                             differences = true
+
                             if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
                                 self.egoMachineIDUnknown = true
                             }
-                            shouldSendUnknownMetric = true
+                            do {
+                                if let machineID = machine.machineID, try self.model.doAnyTrustedPeersMatchMachineID(machineID) {
+                                    shouldSendUnknownMetric = true
+                                }
+                            } catch {
+                                logger.error("error calling doAnyTrustedPeersMatchMachineID: \(error, privacy: .public)")
+                            }
                         }
                     }
                 }

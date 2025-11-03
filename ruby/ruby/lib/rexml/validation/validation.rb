@@ -80,26 +80,26 @@ module REXML
       end
 
       def single?
-        return (@event_type != :start_element and @event_type != :start_attribute)
+        (@event_type != :start_element and @event_type != :start_attribute)
       end
 
       def matches?( event )
         return false unless event[0] == @event_type
         case event[0]
         when nil
-          return true
+          true
         when :start_element
-          return true if event[1] == @event_arg
+          event[1] == @event_arg
         when :end_element
-          return true
+          true
         when :start_attribute
-          return true if event[1] == @event_arg
+          event[1] == @event_arg
         when :end_attribute
-          return true
+          true
         when :end_document
-          return true
+          true
         when :text
-          return (@event_arg.nil? or @event_arg == event[1])
+          @event_arg.nil? || @event_arg == event[1]
 =begin
         when :processing_instruction
           false

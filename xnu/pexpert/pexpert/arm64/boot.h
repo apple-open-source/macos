@@ -15,23 +15,7 @@
 #include <pexpert/arm/consistent_debug.h>
 #include <pexpert/arm/protos.h>
 
-#if !TARGET_OS_SIMULATOR
-/*
- * Maximum size of an environment variable value. This particular value is
- * chosen to accommodate the maximum encoded size of the system token as
- * computed in https://confluence.sd.apple.com/display/TK/System+Token.
- *
- * This value matches iBoot's IBOOT_MAX_ENV_VAR_DATA_SIZE.
- */
-#include <iBoot/boot_args_abi.h>
-#define BOOT_LINE_LENGTH (IBOOT_MAX_ENV_VAR_DATA_SIZE)
-#else /* TARGET_OS_SIMULATOR */
-/**
- * Since iBoot does not import IBOOT_MAX_ENV_VAR_DATA_SIZE for simulators,
- * hardcode it here.
- */
 #define BOOT_LINE_LENGTH 1024
-#endif /* !TARGET_OS_SIMULATOR */
 
 /*
  * Video information..

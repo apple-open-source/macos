@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>114</integer>
+	<integer>118</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -66,6 +66,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -458,6 +460,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -546,6 +550,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -634,6 +640,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -818,6 +826,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -1157,6 +1167,8 @@
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 			</dict>
 			<dict>
@@ -1197,6 +1209,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -1258,6 +1272,8 @@
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 			</dict>
 			<dict>
@@ -1298,6 +1314,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -1398,6 +1416,8 @@
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 			</dict>
 			<dict>
@@ -1438,6 +1458,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -1522,6 +1544,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -1577,6 +1601,8 @@
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 			</dict>
 			<dict>
@@ -1617,6 +1643,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -1834,6 +1862,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -1916,6 +1946,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -2082,6 +2114,8 @@
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 			</dict>
 			<dict>
@@ -2122,6 +2156,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -2296,6 +2332,8 @@
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 			</dict>
 			<dict>
@@ -2336,6 +2374,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -2634,6 +2674,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -2806,6 +2848,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -2867,6 +2911,8 @@
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 			</dict>
 			<dict>
@@ -2907,6 +2953,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -3149,6 +3197,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -3271,6 +3321,54 @@
 				<key>comment</key>
 				<string>rdar://150801742</string>
 			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^demounit$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+				<key>comment</key>
+				<string>rdar://125777372</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^apple$</string>
+				<key>suffix</key>
+				<string>channel.support</string>
+				<key>comment</key>
+				<string>rdar://125777372</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>.*</string>
+				<key>suffix</key>
+				<string>ext.pos.apple.com</string>
+				<key>comment</key>
+				<string>rdar://155799260</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^re-perf-gateway$</string>
+				<key>suffix</key>
+				<string>retail.ist.apple.com</string>
+				<key>comment</key>
+				<string>rdar://147442412</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^re-perf-edge-hz1$</string>
+				<key>suffix</key>
+				<string>awusw2.sbz.apple.com</string>
+				<key>comment</key>
+				<string>rdar://147442412</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^re-perf-edge-hz1$</string>
+				<key>suffix</key>
+				<string>awuse1.sbz.apple.com</string>
+				<key>comment</key>
+				<string>rdar://147442412</string>
+			</dict>
 		</array>
 		<key>policyName</key>
 		<string>AppleIssued</string>
@@ -3300,6 +3398,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>
@@ -3359,6 +3459,8 @@
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+					<data>e7ZHpirurIi/JXqlItAf/qOV4KtFxz+T9lZU7DjyWgY=</data>
+					<data>yQ8m8PsbQBiyIidRm1yitT4spbO+XPGO/hvvRzgMU4M=</data>
 				</array>
 				<key>ChainLength</key>
 				<integer>3</integer>

@@ -86,8 +86,8 @@ static NSDictionary* cleanDictionaryForJSON(NSDictionary* dict) {
         return nil;
     }
     NSMutableDictionary* mutDict = [dict mutableCopy];
-    for(id key in mutDict.allKeys) {
-        id obj = mutDict[key];
+    for(id key in dict.allKeys) {
+        id obj = dict[key];
         mutDict[key] = cleanObjectForJSON(obj);
     }
     return mutDict;

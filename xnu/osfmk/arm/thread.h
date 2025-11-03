@@ -163,8 +163,13 @@ struct machine_thread {
 	unsigned int              preemption_count;       /* preemption count */
 	uint16_t                  exception_trace_code;
 	bool                      reserved7;
+#if HAS_MTE
+	bool                      sec_override;           /* disable MTE for this thread, regardless of the current map's MTE policy */
+	bool                      el0_synchronous_trap;   /* is this thread inside an EL0 synchronous trap handler? */
+#else
 	bool                      reserved8;
 	bool                      reserved9;
+#endif
 #if defined(HAS_APPLE_PAC)
 	uint64_t                  rop_pid;
 	uint64_t                  jop_pid;
@@ -183,7 +188,11 @@ struct machine_thread {
 
 	uint64_t                  reserved14;
 
+#if HAS_MTE
+	bool                      in_unprivileged_access;
+#else
 	bool                      reserved15;
+#endif
 };
 #endif
 
@@ -225,7 +234,6 @@ extern void act_thread_cfree(void *ctx);
 #if HAS_ARM_FEAT_SME
 extern arm_sme_saved_state_t *machine_thread_get_sme_state(thread_t thread);
 extern kern_return_t machine_thread_sme_state_alloc(thread_t thread);
-extern void machine_thread_sme_state_free(thread_t thread);
 #endif
 
 #if HAVE_MACHINE_THREAD_MATRIX_STATE

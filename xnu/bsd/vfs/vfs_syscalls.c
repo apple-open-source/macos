@@ -120,6 +120,7 @@
 #include <bsm/audit_kevents.h>
 
 #include <mach/mach_types.h>
+#include <kern/exc_guard.h>
 #include <kern/kern_types.h>
 #include <kern/kalloc.h>
 #include <kern/task.h>
@@ -574,10 +575,13 @@ out:
 }
 
 #if XNU_TARGET_OS_OSX
+#define BASESYSTEM_PATH "/System/Library/BaseSystem/"
 #if defined(__arm64e__)
 #define MOBILE_ASSET_DATA_VAULT_PATH "/System/Library/AssetsV2/manifests/"
+#define MOBILE_ASSET_DATA_VAULT_RECOVERYOS_PATH "/System/Volumes/Data/System/Library/AssetsV2/manifests/"
 #else /* x86_64 */
 #define MOBILE_ASSET_DATA_VAULT_PATH "/System/Library/AssetsV2/"
+#define MOBILE_ASSET_DATA_VAULT_RECOVERYOS_PATH "/System/Volumes/Update/MobileAsset/AssetsV2/"
 #endif /* x86_64 */
 #else /* !XNU_TARGET_OS_OSX */
 #define MOBILE_ASSET_DATA_VAULT_PATH "/private/var/MobileAsset/AssetsV2/manifests/"
@@ -595,8 +599,24 @@ graft_secureboot_read_metadata(uint32_t graft_type, secure_boot_cryptex_args_t *
 	int error;
 
 	// For Mobile Asset, make sure that the manifest comes from a data vault.
-	if (graft_type == GRAFTDMG_CRYPTEX_MOBILE_ASSET) {
+	if ((graft_type == GRAFTDMG_CRYPTEX_MOBILE_ASSET) ||
+	    (graft_type == GRAFTDMG_CRYPTEX_MOBILE_ASSET_WITH_CODE)) {
 		manifest_path_prefix = MOBILE_ASSET_DATA_VAULT_PATH;
+#if XNU_TARGET_OS_OSX
+		// Check if we're in RecoveryOS by checking for BaseSystem path
+		// existence, and if so use the Data volume path of the data vault.
+		struct nameidata nd;
+		NDINIT(&nd, LOOKUP, OP_LOOKUP, NOFOLLOW, UIO_SYSSPACE,
+		    CAST_USER_ADDR_T(BASESYSTEM_PATH), vctx);
+		if (!namei(&nd)) {
+			vnode_t vp = nd.ni_vp;
+			if (vp->v_type == VDIR) {
+				manifest_path_prefix = MOBILE_ASSET_DATA_VAULT_RECOVERYOS_PATH;
+			}
+			vnode_put(vp);
+			nameidone(&nd);
+		}
+#endif
 	}
 
 	// Read the authentic manifest.
@@ -4592,6 +4612,7 @@ __pthread_chdir(proc_t p, struct __pthread_chdir_args *uap, __unused int32_t *re
 	return common_chdir(p, (void *)uap, 1);
 }
 
+#define CHROOT_ENTITLEMENT    "com.apple.private.vfs.chroot"
 
 /*
  * Change notion of root (``/'') directory.
@@ -4609,6 +4630,23 @@ chroot(proc_t p, struct chroot_args *uap, __unused int32_t *retval)
 	if ((error = suser(kauth_cred_get(), &p->p_acflag))) {
 		return error;
 	}
+
+#if XNU_TARGET_OS_IOS && (DEVELOPMENT || DEBUG)
+	if (!IOTaskHasEntitlement(vfs_context_task(ctx), CHROOT_ENTITLEMENT)) {
+		mach_exception_code_t code = 0;
+
+		os_log_error(OS_LOG_DEFAULT,
+		    "%s: proc %s[%d] calls chroot(2) without entitlement\n",
+		    __func__, proc_best_name(p), proc_getpid(p));
+
+		/*
+		 * Generate a simulated EXC_GUARD crash report so we know about the
+		 * violation.
+		 */
+		EXC_GUARD_ENCODE_TYPE(code, GUARD_TYPE_REJECTED_SC);
+		task_violated_guard(code, 61 /* SYS_chroot */, NULL, true);
+	}
+#endif
 
 	NDINIT(&nd, LOOKUP, OP_CHROOT, FOLLOW | AUDITVNPATH1,
 	    UIO_USERSPACE, uap->path, ctx);
@@ -5951,6 +5989,9 @@ retry:
 	if (flag & AT_RESOLVE_BENEATH) {
 		nd.ni_flag |= NAMEI_RESOLVE_BENEATH;
 	}
+	if (flag & AT_UNIQUE) {
+		nd.ni_flag |= NAMEI_UNIQUE;
+	}
 
 	error = nameiat(&nd, fd1);
 	if (error) {
@@ -5990,6 +6031,7 @@ retry:
 	nd.ni_op = OP_LINK;
 #endif
 	nd.ni_cnd.cn_nameiop = CREATE;
+	nd.ni_flag &= ~NAMEI_UNIQUE;
 	nd.ni_cnd.cn_flags = LOCKPARENT | AUDITVNPATH2 | CN_NBMOUNTLOOK;
 	nd.ni_dirp = link;
 	error = nameiat(&nd, fd2);
@@ -6048,9 +6090,7 @@ retry:
 	(void)mac_vnode_notify_link(ctx, vp, dvp, &nd.ni_cnd);
 #endif
 
-	vnode_lock_spin(vp);
-	vp->v_ext_flag &= ~VE_NOT_HARDLINK;
-	vnode_unlock(vp);
+	os_atomic_andnot(&vp->v_ext_flag, VE_NOT_HARDLINK, relaxed);
 
 	assert(locked_vp == vp);
 	vnode_link_unlock(locked_vp);
@@ -6179,7 +6219,7 @@ link(__unused proc_t p, struct link_args *uap, __unused int32_t *retval)
 int
 linkat(__unused proc_t p, struct linkat_args *uap, __unused int32_t *retval)
 {
-	if (uap->flag & ~(AT_SYMLINK_FOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH)) {
+	if (uap->flag & ~(AT_SYMLINK_FOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH | AT_UNIQUE)) {
 		return EINVAL;
 	}
 
@@ -6416,21 +6456,25 @@ unlinkat_internal(vfs_context_t ctx, int fd, vnode_t start_dvp,
 	int do_retry;
 	int retry_count = 0;
 	int cn_flags;
-	int nofollow_any = 0;
-	int resolve_beneath = 0;
+	int namei_flags = 0;
 
 	cn_flags = LOCKPARENT;
 	if (!(unlink_flags & VNODE_REMOVE_NO_AUDIT_PATH)) {
 		cn_flags |= AUDITVNPATH1;
 	}
 	if (unlink_flags & VNODE_REMOVE_NOFOLLOW_ANY) {
-		nofollow_any = NAMEI_NOFOLLOW_ANY;
+		namei_flags |= NAMEI_NOFOLLOW_ANY;
 		unlink_flags &= ~VNODE_REMOVE_NOFOLLOW_ANY;
 	}
 	if (unlink_flags & VNODE_REMOVE_RESOLVE_BENEATH) {
-		resolve_beneath = NAMEI_RESOLVE_BENEATH;
+		namei_flags |= NAMEI_RESOLVE_BENEATH;
 		unlink_flags &= ~VNODE_REMOVE_RESOLVE_BENEATH;
 	}
+	if (unlink_flags & VNODE_REMOVE_UNIQUE) {
+		namei_flags |= NAMEI_UNIQUE;
+		unlink_flags &= ~VNODE_REMOVE_UNIQUE;
+	}
+
 	/* If a starting dvp is passed, it trumps any fd passed. */
 	if (start_dvp) {
 		cn_flags |= USEDVP;
@@ -6459,7 +6503,7 @@ retry:
 	NDINIT(ndp, DELETE, OP_UNLINK, cn_flags, segflg, path_arg, ctx);
 
 	ndp->ni_dvp = start_dvp;
-	ndp->ni_flag |= NAMEI_COMPOUNDREMOVE | nofollow_any | resolve_beneath;
+	ndp->ni_flag |= NAMEI_COMPOUNDREMOVE | namei_flags;
 	cnp = &ndp->ni_cnd;
 
 continue_lookup:
@@ -6727,7 +6771,7 @@ unlinkat(__unused proc_t p, struct unlinkat_args *uap, __unused int32_t *retval)
 {
 	int unlink_flags = 0;
 
-	if (uap->flag & ~(AT_REMOVEDIR | AT_REMOVEDIR_DATALESS | AT_SYMLINK_NOFOLLOW_ANY | AT_SYSTEM_DISCARDED | AT_RESOLVE_BENEATH | AT_NODELETEBUSY)) {
+	if (uap->flag & ~(AT_REMOVEDIR | AT_REMOVEDIR_DATALESS | AT_SYMLINK_NOFOLLOW_ANY | AT_SYSTEM_DISCARDED | AT_RESOLVE_BENEATH | AT_NODELETEBUSY | AT_UNIQUE)) {
 		return EINVAL;
 	}
 
@@ -6737,13 +6781,14 @@ unlinkat(__unused proc_t p, struct unlinkat_args *uap, __unused int32_t *retval)
 	if (uap->flag & AT_RESOLVE_BENEATH) {
 		unlink_flags |= VNODE_REMOVE_RESOLVE_BENEATH;
 	}
-
 	if (uap->flag & AT_SYSTEM_DISCARDED) {
 		unlink_flags |= VNODE_REMOVE_SYSTEM_DISCARDED;
 	}
-
 	if (uap->flag & AT_NODELETEBUSY) {
 		unlink_flags |= VNODE_REMOVE_NODELETEBUSY;
+	}
+	if (uap->flag & AT_UNIQUE) {
+		unlink_flags |= VNODE_REMOVE_UNIQUE;
 	}
 
 	if (uap->flag & (AT_REMOVEDIR | AT_REMOVEDIR_DATALESS)) {
@@ -7262,6 +7307,9 @@ faccessat_internal(vfs_context_t ctx, int fd, user_addr_t path, int amode,
 	if (flag & AT_RESOLVE_BENEATH) {
 		nd.ni_flag |= NAMEI_RESOLVE_BENEATH;
 	}
+	if (flag & AT_UNIQUE) {
+		nd.ni_flag |= NAMEI_UNIQUE;
+	}
 
 #if NAMEDRSRCFORK
 	/* access(F_OK) calls are allowed for resource forks. */
@@ -7319,7 +7367,7 @@ int
 faccessat(__unused proc_t p, struct faccessat_args *uap,
     __unused int32_t *retval)
 {
-	if (uap->flag & ~(AT_EACCESS | AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH)) {
+	if (uap->flag & ~(AT_EACCESS | AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH | AT_UNIQUE)) {
 		return EINVAL;
 	}
 
@@ -7368,6 +7416,9 @@ fstatat_internal(vfs_context_t ctx, user_addr_t path, user_addr_t ub,
 	}
 	if (flag & AT_RESOLVE_BENEATH) {
 		ndp->ni_flag |= NAMEI_RESOLVE_BENEATH;
+	}
+	if (flag & AT_UNIQUE) {
+		ndp->ni_flag |= NAMEI_UNIQUE;
 	}
 
 #if NAMEDRSRCFORK
@@ -7655,7 +7706,7 @@ lstat64_extended(__unused proc_t p, struct lstat64_extended_args *uap, __unused 
 int
 fstatat(__unused proc_t p, struct fstatat_args *uap, __unused int32_t *retval)
 {
-	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_REALDEV | AT_FDONLY | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH)) {
+	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_REALDEV | AT_FDONLY | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH | AT_UNIQUE)) {
 		return EINVAL;
 	}
 
@@ -7667,7 +7718,7 @@ int
 fstatat64(__unused proc_t p, struct fstatat64_args *uap,
     __unused int32_t *retval)
 {
-	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_REALDEV | AT_FDONLY | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH)) {
+	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_REALDEV | AT_FDONLY | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH | AT_UNIQUE)) {
 		return EINVAL;
 	}
 
@@ -7856,11 +7907,16 @@ chflags0(vnode_t vp, struct vnode_attr *va,
 	}
 	error = (*setattr)(vp, arg, ctx);
 
-#if CONFIG_MACF
 	if (error == 0) {
+		if (va->va_flags & APPEND) {
+			os_atomic_or(&vp->v_ext_flag, VE_APPENDONLY, relaxed);
+		} else {
+			os_atomic_andnot(&vp->v_ext_flag, VE_APPENDONLY, relaxed);
+		}
+#if CONFIG_MACF
 		mac_vnode_notify_setflags(ctx, vp, va->va_flags);
-	}
 #endif
+	}
 
 out:
 	return error;
@@ -8072,6 +8128,9 @@ chmodat(vfs_context_t ctx, user_addr_t path, struct vnode_attr *vap,
 	if (flag & AT_RESOLVE_BENEATH) {
 		nd.ni_flag |= NAMEI_RESOLVE_BENEATH;
 	}
+	if (flag & AT_UNIQUE) {
+		nd.ni_flag |= NAMEI_UNIQUE;
+	}
 	if ((error = nameiat(&nd, fd))) {
 		return error;
 	}
@@ -8205,7 +8264,7 @@ chmod(__unused proc_t p, struct chmod_args *uap, __unused int32_t *retval)
 int
 fchmodat(__unused proc_t p, struct fchmodat_args *uap, __unused int32_t *retval)
 {
-	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH)) {
+	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH | AT_UNIQUE)) {
 		return EINVAL;
 	}
 
@@ -8382,6 +8441,9 @@ fchownat_internal(vfs_context_t ctx, int fd, user_addr_t path, uid_t uid,
 	if (flag & AT_RESOLVE_BENEATH) {
 		nd.ni_flag |= NAMEI_RESOLVE_BENEATH;
 	}
+	if (flag & AT_UNIQUE) {
+		nd.ni_flag |= NAMEI_UNIQUE;
+	}
 
 	error = nameiat(&nd, fd);
 	if (error) {
@@ -8413,7 +8475,7 @@ lchown(__unused proc_t p, struct lchown_args *uap, __unused int32_t *retval)
 int
 fchownat(__unused proc_t p, struct fchownat_args *uap, __unused int32_t *retval)
 {
-	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH)) {
+	if (uap->flag & ~(AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY | AT_RESOLVE_BENEATH | AT_UNIQUE)) {
 		return EINVAL;
 	}
 
@@ -8739,7 +8801,6 @@ truncate(proc_t p, struct truncate_args *uap, __unused int32_t *retval)
 int
 ftruncate(proc_t p, struct ftruncate_args *uap, int32_t *retval)
 {
-	struct vnode_attr va;
 	vnode_t vp = NULLVP;
 	struct fileproc *fp;
 	bool need_vnode_put = false;
@@ -8779,16 +8840,8 @@ ftruncate(proc_t p, struct ftruncate_args *uap, int32_t *retval)
 	}
 	need_vnode_put = true;
 
-	VATTR_INIT(&va);
-	VATTR_WANTED(&va, va_flags);
-
-	error = vnode_getattr(vp, &va, vfs_context_current());
-	if (error) {
-		goto out;
-	}
-
 	/* Don't allow ftruncate if the file has append-only flag set. */
-	if (va.va_flags & APPEND) {
+	if (vnode_isappendonly(vp)) {
 		error = EPERM;
 		goto out;
 	}
@@ -10479,19 +10532,22 @@ rmdirat_internal(vfs_context_t ctx, int fd, user_addr_t dirpath,
 	int batched;
 
 	int restart_flag;
-	int nofollow_any = 0;
-	int resolve_beneath = 0;
+	int namei_flags = 0;
 
 	__rmdir_data = kalloc_type(typeof(*__rmdir_data), Z_WAITOK);
 	ndp = &__rmdir_data->nd;
 
 	if (unlink_flags & VNODE_REMOVE_NOFOLLOW_ANY) {
-		nofollow_any = NAMEI_NOFOLLOW_ANY;
+		namei_flags |= NAMEI_NOFOLLOW_ANY;
 		unlink_flags &= ~VNODE_REMOVE_NOFOLLOW_ANY;
 	}
 	if (unlink_flags & VNODE_REMOVE_RESOLVE_BENEATH) {
-		resolve_beneath = NAMEI_RESOLVE_BENEATH;
+		namei_flags |= NAMEI_RESOLVE_BENEATH;
 		unlink_flags &= ~VNODE_REMOVE_RESOLVE_BENEATH;
+	}
+	if (unlink_flags & VNODE_REMOVE_UNIQUE) {
+		namei_flags |= NAMEI_UNIQUE;
+		unlink_flags &= ~VNODE_REMOVE_UNIQUE;
 	}
 
 	/*
@@ -10502,7 +10558,7 @@ rmdirat_internal(vfs_context_t ctx, int fd, user_addr_t dirpath,
 	do {
 		NDINIT(ndp, DELETE, OP_RMDIR, LOCKPARENT | AUDITVNPATH1,
 		    segflg, dirpath, ctx);
-		ndp->ni_flag = NAMEI_COMPOUNDRMDIR | nofollow_any | resolve_beneath;
+		ndp->ni_flag = NAMEI_COMPOUNDRMDIR | namei_flags;
 continue_lookup:
 		restart_flag = 0;
 		vap = NULL;
@@ -10972,12 +11028,19 @@ unionread:
 
 		if (lookup_traverse_union(vp, &uvp, &context) == 0) {
 			if (vnode_ref(uvp) == 0) {
-				fp_set_data(fp, uvp);
-				fp->fp_glob->fg_offset = 0;
-				vnode_rele(vp);
-				vnode_put(vp);
-				vp = uvp;
-				goto unionread;
+				if ((error = VNOP_OPEN(uvp, fp->fp_glob->fg_flag, &context)) == 0) {
+					fp_set_data(fp, uvp);
+					/* Close the old vnode to maintain proper lifecycle */
+					VNOP_CLOSE(vp, fp->fp_glob->fg_flag, &context);
+					fp->fp_glob->fg_offset = 0;
+					vnode_rele(vp);
+					vnode_put(vp);
+					vp = uvp;
+					goto unionread;
+				} else {
+					vnode_rele(uvp);
+					vnode_put(uvp);
+				}
 			} else {
 				/* could not get a ref, can't replace in fd */
 				vnode_put(uvp);
@@ -11303,13 +11366,20 @@ unionread:
 			vnode_t uvp;
 			if (lookup_traverse_union(vp, &uvp, ctx) == 0) {
 				if (vnode_ref_ext(uvp, fp->fp_glob->fg_flag & O_EVTONLY, 0) == 0) {
-					fp_set_data(fp, uvp);
-					fp->fp_glob->fg_offset = 0; // reset index for new dir
-					count = savecount;
-					vnode_rele_internal(vp, fp->fp_glob->fg_flag & O_EVTONLY, 0, 0);
-					vnode_put(vp);
-					vp = uvp;
-					goto unionread;
+					if ((error = VNOP_OPEN(uvp, fp->fp_glob->fg_flag, ctx)) == 0) {
+						fp_set_data(fp, uvp);
+						/* Close the old vnode to maintain proper lifecycle */
+						VNOP_CLOSE(vp, fp->fp_glob->fg_flag, ctx);
+						fp->fp_glob->fg_offset = 0; // reset index for new dir
+						count = savecount;
+						vnode_rele_internal(vp, fp->fp_glob->fg_flag & O_EVTONLY, 0, 0);
+						vnode_put(vp);
+						vp = uvp;
+						goto unionread;
+					} else {
+						vnode_rele_internal(uvp, fp->fp_glob->fg_flag & O_EVTONLY, 0, 0);
+						vnode_put(uvp);
+					}
 				} else {
 					/* could not get a ref, can't replace in fd */
 					vnode_put(uvp);
@@ -12461,14 +12531,12 @@ SYSCTL_PROC(_vfs_nspace, OID_AUTO, complete,
 #define __no_dataless_unused    __unused
 #endif
 
-int
-vfs_context_dataless_materialization_is_prevented(
-	vfs_context_t const ctx __no_dataless_unused)
+static int
+vfs_context_dataless_materialization_is_prevented_internal(
+	vfs_context_t const ctx __no_dataless_unused, bool is_original_materialization __no_dataless_unused)
 {
 #if CONFIG_DATALESS_FILES
 	proc_t const p = vfs_context_proc(ctx);
-	thread_t const t = vfs_context_thread(ctx);
-	uthread_t const ut = t ? get_bsdthread_info(t) : NULL;
 
 	/*
 	 * Kernel context ==> return EDEADLK, as we would with any random
@@ -12489,26 +12557,34 @@ vfs_context_dataless_materialization_is_prevented(
 	}
 
 	/*
-	 * Per-thread decorations override any process-wide decorations.
-	 * (Foundation uses this, and this overrides even the dataless-
-	 * manipulation entitlement so as to make API contracts consistent.)
+	 * If the process's iopolicy specifies that dataless files
+	 * can be materialized, then we let it go ahead.
 	 */
-	if (ut != NULL) {
-		if (ut->uu_flag & UT_NSPACE_NODATALESSFAULTS) {
-			return EDEADLK;
+	if (is_original_materialization) {
+		return (p->p_vfs_iopolicy & P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES_ORIG) ? 0 : EDEADLK;
+	} else {
+		thread_t const t = vfs_context_thread(ctx);
+		uthread_t const ut = t ? get_bsdthread_info(t) : NULL;
+
+		/*
+		 * Per-thread decorations override any process-wide decorations.
+		 * (Foundation uses this, and this overrides even the dataless-
+		 * manipulation entitlement so as to make API contracts consistent.)
+		 */
+		if (ut != NULL) {
+			if (ut->uu_flag & UT_NSPACE_NODATALESSFAULTS) {
+				return EDEADLK;
+			}
+			if (ut->uu_flag & UT_NSPACE_FORCEDATALESSFAULTS) {
+				return 0;
+			}
 		}
-		if (ut->uu_flag & UT_NSPACE_FORCEDATALESSFAULTS) {
+
+		if (p->p_vfs_iopolicy & P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES) {
 			return 0;
 		}
 	}
 
-	/*
-	 * If the process's iopolicy specifies that dataless files
-	 * can be materialized, then we let it go ahead.
-	 */
-	if (p->p_vfs_iopolicy & P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES) {
-		return 0;
-	}
 #endif /* CONFIG_DATALESS_FILES */
 
 	/*
@@ -12516,6 +12592,20 @@ vfs_context_dataless_materialization_is_prevented(
 	 * return to the caller that deadlock was detected.
 	 */
 	return EDEADLK;
+}
+
+int
+vfs_context_dataless_materialization_is_prevented(
+	vfs_context_t const ctx __no_dataless_unused)
+{
+	return vfs_context_dataless_materialization_is_prevented_internal(ctx, false);
+}
+
+int
+vfs_context_orig_dataless_materialization_is_prevented(
+	vfs_context_t const ctx __no_dataless_unused)
+{
+	return vfs_context_dataless_materialization_is_prevented_internal(ctx, true);
 }
 
 void

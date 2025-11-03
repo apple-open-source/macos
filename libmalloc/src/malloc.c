@@ -69,6 +69,9 @@ malloc_zone_t *initial_xzone_zone;
 static malloc_zone_t *default_purgeable_zone;
 static bool has_injected_zone0;
 static bool malloc_xzone_enabled = MALLOC_XZONE_ENABLED_DEFAULT;
+#if CONFIG_XZONE_MALLOC && CONFIG_NANOZONE
+static bool malloc_nano_on_xzone = false;
+#endif // CONFIG_XZONE_MALLOC && CONFIG_NANOZONE
 
 typedef enum {
 	MALLOC_XZONE_OVERRIDE_DEFAULT,
@@ -88,6 +91,11 @@ bool malloc_sanitizer_enabled = false;
 
 bool malloc_interposition_compat = false;
 
+#if CONFIG_MTE
+bool malloc_has_sec_transition = false;
+uint32_t malloc_sec_transition_policy = 0;
+bool malloc_sec_transition_early_malloc_support = false;
+#endif
 
 #if CONFIG_MALLOC_PROCESS_IDENTITY
 malloc_process_identity_t malloc_process_identity = MALLOC_PROCESS_NONE;
@@ -189,6 +197,15 @@ malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
 static const char zero_on_free_enabled_boot_arg[] = "malloc_zero_on_free_enabled";
 
+#if CONFIG_XZONE_MALLOC
+static const char secure_allocator_boot_arg[] = "malloc_secure_allocator";
+
+static
+bool xzm_create_mzones = true;
+
+static
+bool purgeable_zone_use_xzm = true;
+#endif // CONFIG_XZONE_MALLOC
 
 #if CONFIG_MEDIUM_ALLOCATOR
 static const char medium_enabled_boot_arg[] = "malloc_medium_zone";
@@ -354,6 +371,20 @@ __malloc_init_from_bootargs(const char *bootargs)
 		}
 	}
 
+#if CONFIG_XZONE_MALLOC
+	flag = malloc_common_value_for_key_copy(bootargs,
+			secure_allocator_boot_arg, value_buf, sizeof(value_buf));
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && (value == 0 || value == 1)) {
+			malloc_xzone_enabled = (bool)value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+					"malloc_secure_allocator must be 0 or 1 - ignored.\n");
+		}
+	}
+#endif // CONFIG_XZONE_MALLOC
 
 #if CONFIG_MEDIUM_ALLOCATOR
 #if TARGET_OS_OSX
@@ -1292,6 +1323,10 @@ malloc_gdb_po_unsafe(void)
 /*********	Creation and destruction	************/
 
 static void set_flags_from_environment(void);
+#if CONFIG_MTE
+static bool _malloc_check_has_sec_transition(const char *apple[]);
+static uint32_t _malloc_get_sec_transition_policy(const char *apple[]);
+#endif
 
 MALLOC_NOEXPORT void
 malloc_zone_register_while_locked(malloc_zone_t *zone, bool make_default)
@@ -1310,12 +1345,28 @@ malloc_zone_register_while_locked(malloc_zone_t *zone, bool make_default)
 
 	if (malloc_num_zones == malloc_num_zones_allocated) {
 		size_t malloc_zones_size = malloc_num_zones * sizeof(malloc_zone_t *);
-		mach_vm_size_t alloc_size = round_page(malloc_zones_size + vm_page_size);
-		mach_vm_address_t vm_addr;
 
-		vm_addr = (mach_vm_address_t)mvm_allocate_plat(0, (size_t)alloc_size, 0,
-					VM_FLAGS_ANYWHERE, MALLOC_GUARDED_METADATA,
-					VM_MEMORY_MALLOC, NULL);
+		size_t new_malloc_num_zones_allocated = 0;
+		if (malloc_num_zones_allocated == 0) {
+			new_malloc_num_zones_allocated =
+					vm_page_size / sizeof(malloc_zone_t *);
+		} else if (malloc_num_zones_allocated < (1 << 17)) {
+			// Double up to 128K zones
+			new_malloc_num_zones_allocated = malloc_num_zones_allocated * 2;
+		} else {
+			// Increment in further batches of 128K zones
+			MALLOC_ASSERT(!os_add_overflow(malloc_num_zones_allocated, (1 << 17),
+					&new_malloc_num_zones_allocated));
+		}
+
+		mach_vm_size_t alloc_size = 0;
+		MALLOC_ASSERT(!os_mul_overflow(new_malloc_num_zones_allocated,
+				sizeof(malloc_zone_t *), &alloc_size));
+		alloc_size = round_page(alloc_size);
+
+		mach_vm_address_t vm_addr = (mach_vm_address_t)mvm_allocate_plat(
+				0, (size_t)alloc_size, 0, VM_FLAGS_ANYWHERE,
+				MALLOC_GUARDED_METADATA, VM_MEMORY_MALLOC, NULL);
 		if (vm_addr == 0) {
 			malloc_report(ASL_LEVEL_ERR, "malloc_zone_register allocation failed\n");
 			return;
@@ -1326,16 +1377,14 @@ malloc_zone_register_while_locked(malloc_zone_t *zone, bool make_default)
 		 * out of the previous array and into the new zones array */
 		if (malloc_zones) {
 			memcpy(new_zones, malloc_zones, malloc_zones_size);
-			vm_addr = (mach_vm_address_t)malloc_zones;
-			mach_vm_size_t dealloc_size = round_page(malloc_zones_size);
-			mach_vm_deallocate(mach_task_self(), vm_addr, dealloc_size);
 		}
 
 		/* Update the malloc_zones pointer, which we leak if it was previously
 		 * allocated, and the number of zones allocated */
 		protect_size = (size_t)alloc_size;
 		malloc_zones = new_zones;
-		malloc_num_zones_allocated = (int32_t)(alloc_size / sizeof(malloc_zone_t *));
+		MALLOC_ASSERT(!os_convert_overflow(new_malloc_num_zones_allocated,
+				&malloc_num_zones_allocated));
 	} else {
 		/* If we don't need to reallocate zones, we need to briefly change the
 		 * page protection the malloc zones to allow writes */
@@ -1447,6 +1496,19 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 
 	_malloc_detect_interposition();
 
+#if CONFIG_MTE
+	malloc_has_sec_transition = _malloc_check_has_sec_transition(apple);
+	// If the process has been spawned by setting has_sec_transition=1,
+	// enable the usage of xzone and the nano override by default.
+	// Note that we still allow overriding this behaviour through
+	// environment variables (whose values are loaded afterwards).
+	if (malloc_has_sec_transition) {
+		malloc_xzone_enabled = true;
+		malloc_xzone_nano_override = MALLOC_XZONE_OVERRIDE_ENABLED;
+		malloc_sec_transition_early_malloc_support = true;
+		malloc_sec_transition_policy = _malloc_get_sec_transition_policy(apple);
+	}
+#endif
 
 	set_flags_from_environment();
 	
@@ -1485,6 +1547,101 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 
 	bool nano_on_xzone = false;
 
+#if CONFIG_XZONE_MALLOC
+#if CONFIG_NANOZONE
+	bool nano_xzone_enabled = false;
+#if CONFIG_FEATUREFLAGS_SIMPLE
+	nano_xzone_enabled = os_feature_enabled_simple(libmalloc,
+			SecureAllocator_Nano, MALLOC_XZONE_NANO_ENABLED_DEFAULT);
+#elif MALLOC_TARGET_DK_OSX
+	nano_xzone_enabled = true;
+#endif // CONFIG_FEATUREFLAGS_SIMPLE
+
+#if CONFIG_MALLOC_PROCESS_IDENTITY
+	if (malloc_process_is_security_critical(malloc_process_identity)) {
+		// This is load-bearing for MTLCompilerService
+		nano_xzone_enabled = true;
+	}
+#endif // CONFIG_MALLOC_PROCESS_IDENTITY
+
+	switch (malloc_xzone_nano_override) {
+	case MALLOC_XZONE_OVERRIDE_DISABLED:
+		nano_xzone_enabled = false;
+		break;
+	case MALLOC_XZONE_OVERRIDE_ENABLED:
+		nano_xzone_enabled = true;
+		break;
+	default:
+		break;
+	}
+
+	// If we're forcing nano-on-xzone via the environment, take that even if
+	// we'd otherwise take the nano config of xzone
+	if (malloc_nano_on_xzone_override == MALLOC_XZONE_OVERRIDE_ENABLED) {
+		nano_xzone_enabled = false;
+	}
+
+	if (malloc_xzone_enabled && _malloc_engaged_nano == NANO_V2 &&
+			!nano_xzone_enabled) {
+#if TARGET_OS_SIMULATOR
+		// Note: simulator processes get nano by default because
+		// NANOV2_DEFAULT_MODE is conditioned on MALLOC_TARGET_IOS, which
+		// excludes the simulator.  So, simulator processes will not get xzone
+		// malloc until we either adjust this policy or enable it by default
+		// under nano.
+		malloc_xzone_enabled = false;
+#else // TARGET_OS_SIMULATOR
+#if CONFIG_FEATUREFLAGS_SIMPLE
+		nano_on_xzone = os_feature_enabled_simple(libmalloc,
+				SecureAllocator_NanoOnXzone, false);
+#endif // CONFIG_FEATUREFLAGS_SIMPLE
+
+		switch (malloc_nano_on_xzone_override) {
+		case MALLOC_XZONE_OVERRIDE_DISABLED:
+			nano_on_xzone = false;
+			break;
+		case MALLOC_XZONE_OVERRIDE_ENABLED:
+			nano_on_xzone = true;
+			break;
+		default:
+			break;
+		}
+
+		if (malloc_nano_on_xzone != nano_on_xzone) {
+			malloc_nano_on_xzone = nano_on_xzone;
+		}
+
+		if (!nano_on_xzone) {
+			malloc_xzone_enabled = false;
+		}
+#endif // TARGET_OS_SIMULATOR
+	}
+#endif // CONFIG_NANOZONE
+
+	if (malloc_xzone_enabled) {
+		mvm_guarded_range_init();
+
+		if (malloc_report_config && malloc_internal_security_policy) {
+			malloc_report(ASL_LEVEL_INFO,
+					"Guarded Range Config (base/size/carveout):"
+					" 0x%lx / 0x%lx / 0x%lx\n",
+					(unsigned long)malloc_guarded_range_config.base_address,
+					(unsigned long)malloc_guarded_range_config.size,
+					(unsigned long)malloc_guarded_range_config.carveout_address);
+		}
+
+		initial_xzone_zone = xzm_main_malloc_zone_create(malloc_debug_flags,
+				envp, apple, bootargs);
+
+		// Note: although it would be ideal if we could give this zone a unique
+		// name that draws attention to the fact that it will not behave like a
+		// nano or scalable zone, a lot of code looks specifically for
+		// "DefaultMallocZone" when looking for/at the default zone, so that's
+		// the name we'll need to continue to take.
+		malloc_set_zone_name(initial_xzone_zone, DEFAULT_MALLOC_ZONE_STRING);
+		malloc_zone_register_while_locked(initial_xzone_zone, /*make_default=*/true);
+	}
+#endif // CONFIG_XZONE_MALLOC
 
 	if (!initial_xzone_zone || nano_on_xzone) {
 		if (!initial_xzone_zone) {
@@ -2085,7 +2242,53 @@ set_flags_from_environment(void)
 		}
 	}
 
+#if CONFIG_XZONE_MALLOC
+	flag = getenv("MallocSecureAllocatorCreateMzones");
+	if (flag && malloc_internal_security_policy) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && (value == 0 || value == 1)) {
+			xzm_create_mzones = value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+					"MallocSecureAllocatorCreateMzones must be 0 or 1.\n");
+		}
+	}
+	flag = getenv("MallocSecureAllocatorPurgeableZone");
+	if (flag && malloc_internal_security_policy) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && (value == 0 || value == 1)) {
+			purgeable_zone_use_xzm = value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+					"MallocSecureAllocatorPurgeableZone must be 0 or 1.\n");
+		}
+	}
+#endif // CONFIG_XZONE_MALLOC
 
+#if CONFIG_MTE
+	flag = getenv("MallocEarlyMallocSecTransitionSupport");
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && (value == 0 || value == 1)) {
+			malloc_sec_transition_early_malloc_support = value;
+		} else {
+			malloc_report(ASL_LEVEL_ERR,
+					"MallocEarlyMallocSecTransitionSupport must be 0 or 1.\n");
+		}
+	}
+#endif // CONFIG_MTE
+		
+	flag = getenv("MallocEnableMSLAtLimitWarning");
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && value == 1) {
+			malloc_memorystatus_mask_resource_exception_handling |= MALLOC_MEMORYSTATUS_MASK_RESOURCE_EXCEPTION_HANDLING;
+		}
+	}
 
 	if (getenv("MallocHelp")) {
 		malloc_report(ASL_LEVEL_INFO,
@@ -2113,6 +2316,37 @@ set_flags_from_environment(void)
 	}
 }
 
+#if CONFIG_MTE
+static bool
+_malloc_check_has_sec_transition(const char *apple[])
+{
+	const char *flag = _simple_getenv(apple, "has_sec_transition");
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && (value == 0 || value == 1)) {
+			return (bool)value;
+		}
+	}
+	return false;
+}
+
+static uint32_t
+_malloc_get_sec_transition_policy(const char *apple[])
+{
+	const char *flag = _simple_getenv(apple, "sec_transition_policy");
+	uint32_t policy = 0;
+	if (flag) {
+		char *endp;
+		unsigned long value = strtoul(flag, &endp, 0);
+		if (!*endp && endp != flag) {
+			policy = (uint32_t)value;
+		}
+	}
+	return policy;
+}
+
+#endif // CONFIG_MTE
 
 malloc_zone_t *
 malloc_create_zone(vm_size_t start_size, unsigned flags)
@@ -2124,6 +2358,12 @@ malloc_create_zone(vm_size_t start_size, unsigned flags)
 		return NULL;
 	}
 
+#if CONFIG_XZONE_MALLOC
+	if (initial_xzone_zone && xzm_create_mzones) {
+		zone = xzm_malloc_zone_create(flags | malloc_debug_flags,
+				(xzm_main_malloc_zone_t)initial_xzone_zone);
+	}
+#endif // CONFIG_XZONE_MALLOC
 
 	if (!zone) {
 		zone = create_scalable_zone(start_size, flags | malloc_debug_flags);
@@ -2784,6 +3024,11 @@ malloc_set_zone_name(malloc_zone_t *z, const char *name)
 {
 	// TODO: save and restore permissions generally
 	bool mprotect_zone = true;
+#if CONFIG_XZONE_MALLOC
+	if (_xzm_malloc_zone_is_xzm(z)) {
+		mprotect_zone = false;
+	}
+#endif // CONFIG_XZONE_MALLOC
 	if (mprotect_zone) {
 		mprotect(z, sizeof(malloc_zone_t), PROT_READ | PROT_WRITE);
 	}
@@ -2854,6 +3099,20 @@ find_zone_and_free(void *ptr, bool known_non_default)
 		if ((malloc_debug_flags & (MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR))) {
 			flags = MALLOC_REPORT_CRASH | MALLOC_REPORT_NOLOG;
 		}
+#if CONFIG_MTE
+		// When tagging is enabled, this will validate the MTE tag of the
+		// pointer and raise a fatal exception if it doesn't match the tag
+		// stored in memory.
+		//
+		// We need to do this here to cover the following deviations along the
+		// free() path:
+		// - when we are called directly by _free(), in the cases where we can't
+		//   invoke zone->try_free_default()
+		// - in xzone, in the outlined path after the pointer lookup has failed,
+		//   if we're in a try context
+		// - in xzone, from the slow path for try_free_default(), if the zone
+		//   lookup fails when trying to determine the size of the allocation
+#endif
 		malloc_report_pointer_was_not_allocated(flags, ptr);
 	} else if (zone->version >= 6 && zone->free_definite_size) {
 		malloc_zone_free_definite_size(zone, ptr, size);
@@ -2953,6 +3212,15 @@ _realloc(void *in_ptr, size_t new_size)
 	} else {
 		zone = _find_registered_zone(in_ptr, NULL, false);
 		if (!zone) {
+#if CONFIG_MTE
+			// This will validate the MTE tag of the pointer: this is required
+			// to make sure we raise a fatal exception when trying to reallocate
+			// a pointer with an invalid tag.
+			// Note that this is the only place where we handle this in the
+			// realloc path: for malloc_type_realloc, this means that we only
+			// validate the MTE tag when the zone lookup fails in the fast path,
+			// or in the slow path only if the symbol has not been interposed.
+#endif
 			int flags = MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG;
 			const int abort_flags =
 					(MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR);
@@ -3171,8 +3439,7 @@ _malloc_zone_malloc_with_options_outlined(malloc_zone_t *zone, size_t align,
 		// descriptor work here.  That's okay, as it's uncommon and SPI, so its
 		// callers should be built with TMO.
 		const malloc_zone_malloc_options_t known_options =
-				MALLOC_ZONE_MALLOC_OPTION_CLEAR
-				;
+				MALLOC_ZONE_MALLOC_OPTION_CLEAR | MALLOC_NP_OPTION_CANONICAL_TAG;
 		if (options & ~known_options) {
 			malloc_zone_error(MALLOC_ABORT_ON_ERROR, true,
 					"malloc_zone_malloc_with_options: unsupported options 0x%llx\n",
@@ -3180,6 +3447,20 @@ _malloc_zone_malloc_with_options_outlined(malloc_zone_t *zone, size_t align,
 			__builtin_trap();
 		}
 
+#if CONFIG_MTE
+		// rdar://140822174
+		// When dyld interposition or a wrapper zone that does not support
+		// forwarding malloc options is enabled, we need to set a flag in the
+		// TSD to preserve the semantics of canonical tagging.
+		malloc_thread_options_t opts;
+		if ((options & MALLOC_ZONE_MALLOC_OPTION_CANONICAL_TAG) &&
+				malloc_has_sec_transition) {
+			opts = malloc_get_thread_options();
+			malloc_thread_options_t newopts = opts;
+			newopts.ReservedFlag = true;
+			_malloc_set_thread_options(newopts);
+		}
+#endif // CONFIG_MTE
 
 		if (align > MALLOC_ZONE_MALLOC_DEFAULT_ALIGN) {
 			ptr = malloc_zone_memalign(zone, align, size);
@@ -3192,6 +3473,13 @@ _malloc_zone_malloc_with_options_outlined(malloc_zone_t *zone, size_t align,
 			ptr = malloc_zone_malloc(zone, size);
 		}
 
+#if CONFIG_MTE
+		// Restore the saved TSD flags
+		if ((options & MALLOC_ZONE_MALLOC_OPTION_CANONICAL_TAG) &&
+				malloc_has_sec_transition) {
+			_malloc_set_thread_options(opts);
+		}
+#endif // CONFIG_MTE
 	} else {
 		MALLOC_TRACE(TRACE_malloc_options | DBG_FUNC_START, (uintptr_t)zone,
 				align, size, 0);
@@ -3227,8 +3515,9 @@ void *
 malloc_zone_malloc_with_options(malloc_zone_t *zone, size_t align,
 		size_t size, malloc_zone_malloc_options_t options)
 {
-	if (os_unlikely((align != 0) && (!powerof2(align) ||
-			((size & (align-1)) != 0)))) { // equivalent to (size % align != 0)
+	if (align != MALLOC_ZONE_MALLOC_DEFAULT_ALIGN &&
+			(os_unlikely((align != 0) && (!powerof2(align) ||
+			((size & (align-1)) != 0))))) { // equivalent to (size % align != 0)
 		return NULL;
 	}
 
@@ -3262,6 +3551,17 @@ malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 static void
 _malloc_create_purgeable_zone(void * __unused ctx)
 {
+#if CONFIG_XZONE_MALLOC
+	if (initial_xzone_zone && purgeable_zone_use_xzm) {
+		unsigned flags = malloc_debug_flags | MALLOC_PURGEABLE;
+		default_purgeable_zone = xzm_malloc_zone_create(flags,
+				(xzm_main_malloc_zone_t)initial_xzone_zone);
+		malloc_zone_register(default_purgeable_zone);
+		malloc_set_zone_name(default_purgeable_zone,
+				DEFAULT_PUREGEABLE_ZONE_STRING);
+		return;
+	}
+#endif // CONFIG_XZONE_MALLOC
 
 	//
 	// PR_7288598: Must pass a *scalable* zone (szone) as the helper for create_purgeable_zone().
@@ -4044,6 +4344,11 @@ static void
 register_msl_dylib(void *dylib)
 {
 #if TARGET_OS_DRIVERKIT
+	// rdar://153673319
+	if (!msl.copy_msl_lite_hooks) {
+		return;
+	}
+
 	set_msl_lite_hooks(msl.copy_msl_lite_hooks);
 #else
 	if (!dylib) {

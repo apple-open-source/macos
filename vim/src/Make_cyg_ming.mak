@@ -25,7 +25,7 @@
 #     http://www.matcode.com/mpress.htm
 #
 # Maintained by Ron Aaron <ronaharon@yahoo.com> et al.
-# Updated 2014 Oct 13.
+# Last Update: 2025 May 14.
 
 #>>>>> choose options:
 # FEATURES=[TINY | NORMAL | HUGE]
@@ -58,6 +58,7 @@ GUI=yes
 
 # Set to no if you do not want to use DirectWrite (DirectX).
 # MinGW-w64 is needed, and ARCH should be set to i686 or x86-64.
+# Note: Does not work with AARCH64
 DIRECTX=yes
 
 # Disable Color emoji support
@@ -66,6 +67,7 @@ DIRECTX=yes
 
 # Set to one of i386, i486, i586, i686 as the minimum target processor.
 # For amd64/x64 architecture set ARCH=x86-64 .
+# For AARCH64, set to native
 # If not set, it will be automatically detected. (Normally i686 or x86-64.)
 #ARCH=i686
 # Set to yes to cross-compile from unix; no=native Windows (and Cygwin).
@@ -221,9 +223,14 @@ MKDIR = mkdir
 DIRSLASH = \\
  endif
 endif
+
+# for AARCH64, set to clang
+# CC := clang
 # set $CC to "gcc" unless it matches "clang"
 ifeq ($(findstring clang,$(CC)),)
 CC := $(CROSS_COMPILE)gcc
+else ifeq ($(findstring clang,$(CXX)),)
+CXX := clang++
 endif
 # set $CXX to "g++" unless it matches "clang"
 ifeq ($(findstring clang,$(CXX)),)
@@ -238,8 +245,15 @@ WINDRES := llvm-windres
 endif
 
 # Get the default ARCH.
+# clang on AARCH64 does not like the native arch64-w64-windows-gnu
+# so set to native instead
 ifndef ARCH
-ARCH := $(shell $(CC) -dumpmachine | sed -e 's/-.*//' -e 's/_/-/' -e 's/^mingw32$$/i686/')
+ARCH := $(shell $(CC) -dumpmachine)
+ ifeq ($(ARCH), aarch64-w64-windows-gnu)
+ARCH := native
+ else
+ARCH := $(shell $(CC) -dumpmachine | sed -e "s/-.*//" -e "s/_/-/" -e "s/^mingw32$$/i686/")
+ endif
 endif
 
 
@@ -651,9 +665,7 @@ endif
 
 ifeq ($(CHANNEL),yes)
 DEFINES += -DFEAT_JOB_CHANNEL -DFEAT_IPV6
- ifeq ($(shell expr "$$(($(WINVER)))" \>= "$$((0x600))"),1)
 DEFINES += -DHAVE_INET_NTOP
- endif
 endif
 
 ifeq ($(TERMINAL),yes)
@@ -717,6 +729,9 @@ XPM = xpm/x86
   endif
   ifeq ($(ARCH),x86-64)
 XPM = xpm/x64
+  endif
+  ifeq ($(ARCH),native)
+XPM = no
   endif
  endif
  ifdef XPM
@@ -806,6 +821,7 @@ OBJ = \
 	$(OUTDIR)/findfile.o \
 	$(OUTDIR)/float.o \
 	$(OUTDIR)/fold.o \
+	$(OUTDIR)/fuzzy.o \
 	$(OUTDIR)/getchar.o \
 	$(OUTDIR)/gc.o \
 	$(OUTDIR)/gui_xim.o \
@@ -817,6 +833,7 @@ OBJ = \
 	$(OUTDIR)/indent.o \
 	$(OUTDIR)/insexpand.o \
 	$(OUTDIR)/json.o \
+	$(OUTDIR)/linematch.o \
 	$(OUTDIR)/list.o \
 	$(OUTDIR)/locale.o \
 	$(OUTDIR)/logfile.o \
@@ -857,6 +874,7 @@ OBJ = \
 	$(OUTDIR)/spellsuggest.o \
 	$(OUTDIR)/strings.o \
 	$(OUTDIR)/syntax.o \
+	$(OUTDIR)/tabpanel.o \
 	$(OUTDIR)/tag.o \
 	$(OUTDIR)/term.o \
 	$(OUTDIR)/testing.o \
@@ -864,6 +882,7 @@ OBJ = \
 	$(OUTDIR)/textobject.o \
 	$(OUTDIR)/textprop.o \
 	$(OUTDIR)/time.o \
+	$(OUTDIR)/tuple.o \
 	$(OUTDIR)/typval.o \
 	$(OUTDIR)/ui.o \
 	$(OUTDIR)/undo.o \
@@ -875,6 +894,7 @@ OBJ = \
 	$(OUTDIR)/vim9compile.o \
 	$(OUTDIR)/vim9execute.o \
 	$(OUTDIR)/vim9expr.o \
+	$(OUTDIR)/vim9generics.o \
 	$(OUTDIR)/vim9instr.o \
 	$(OUTDIR)/vim9script.o \
 	$(OUTDIR)/vim9type.o \
@@ -1166,7 +1186,7 @@ tee/tee.exe: tee/tee.c
 	$(MAKE) -C tee -f Make_ming.mak CC='$(CC)'
 
 GvimExt/gvimext.dll: GvimExt/gvimext.cpp GvimExt/gvimext.rc GvimExt/gvimext.h
-	$(MAKE) -C GvimExt -f Make_ming.mak CROSS=$(CROSS) CROSS_COMPILE=$(CROSS_COMPILE) CXX='$(CXX)' STATIC_STDCPLUS=$(STATIC_STDCPLUS)
+	$(MAKE) -C GvimExt -f Make_ming.mak CROSS=$(CROSS) CROSS_COMPILE=$(CROSS_COMPILE) CXX=$(CXX) STATIC_STDCPLUS=$(STATIC_STDCPLUS)
 
 tags: notags
 	$(CTAGS) $(TAGS_FILES)
@@ -1195,14 +1215,14 @@ endif
 	$(MAKE) -C xxd -f Make_ming.mak clean
 	$(MAKE) -C tee -f Make_ming.mak clean
 
-# Run vim script to generate the Ex command lookup table.
+# Run Vim script to generate the Ex command lookup table.
 # This only needs to be run when a command name has been added or changed.
 # If this fails because you don't have Vim yet, first build and install Vim
 # without changes.
 cmdidxs: ex_cmds.h
 	vim --clean -N -X --not-a-term -u create_cmdidxs.vim -c quit
 
-# Run vim script to generate the normal/visual mode command lookup table.
+# Run Vim script to generate the normal/visual mode command lookup table.
 # This only needs to be run when a new normal/visual mode command has been
 # added.  If this fails because you don't have Vim yet:
 #   - change nv_cmds[] in nv_cmds.h to add the new normal/visual mode command.
@@ -1289,6 +1309,8 @@ $(OUTDIR)/vim9compile.o: vim9compile.c $(INCL) vim9.h
 $(OUTDIR)/vim9execute.o: vim9execute.c $(INCL) vim9.h
 
 $(OUTDIR)/vim9expr.o: vim9expr.c $(INCL) vim9.h
+
+$(OUTDIR)/vim9generics.o: vim9generics.c $(INCL) vim9.h
 
 $(OUTDIR)/vim9instr.o: vim9instr.c $(INCL) vim9.h
 

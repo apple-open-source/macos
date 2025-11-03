@@ -24,6 +24,7 @@
 
 #import <XCTest/XCTest.h>
 #include <utilities/SecCFWrappers.h>
+#include <Security/SecItemPriv.h>
 
 unsigned char _test_sign_no_email_p12[2735];
 
@@ -188,6 +189,12 @@ static CFIndex CertificatesFoundForEmail(CFStringRef emailAddress) {
     CFReleaseNull(pkey);
     CFReleaseNull(cert);
 }
+
+#if TARGET_OS_OSX
+- (void)testCanUseSystemDataProtectionKeychain {
+    XCTAssert(SecItemCanUseSystemDataProtectionKeychain());
+}
+#endif
 
 //-MARK: helper functions
 

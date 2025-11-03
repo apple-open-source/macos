@@ -53,6 +53,7 @@ MockHidConnection::MockHidConnection(IOHIDDeviceRef device, const MockWebAuthent
     : HidConnection(device)
     , m_configuration(configuration)
 {
+    initializeExpectedCommands();
 }
 
 void MockHidConnection::initialize()
@@ -138,6 +139,9 @@ void MockHidConnection::parseRequest()
         m_subStage = Mock::HidSubStage::Msg;
 
     if (m_stage == Mock::HidStage::Request && m_subStage == Mock::HidSubStage::Msg) {
+        if (m_configuration.hid && m_configuration.hid->validateExpectedCommands)
+            validateExpectedCommand(m_requestMessage->getMessagePayload());
+
         // Make sure we issue different msg cmd for CTAP and U2F.
         if (m_configuration.hid->canDowngrade && !m_configuration.hid->isU2f)
             m_configuration.hid->isU2f = m_requestMessage->cmd() == FidoHidDeviceCommand::kMsg;
@@ -306,6 +310,53 @@ void MockHidConnection::continueFeedReports()
             return;
         weakThis->feedReports();
     });
+}
+
+void MockHidConnection::initializeExpectedCommands()
+{
+    if (!m_configuration.hid || !m_configuration.hid->validateExpectedCommands)
+        return;
+
+    m_expectedCommands.clear();
+    m_currentExpectedCommandIndex = 0;
+
+    for (const auto& expectedCommandBase64 : m_configuration.hid->expectedCommandsBase64) {
+        auto decodedMessage = base64Decode(expectedCommandBase64);
+        if (decodedMessage)
+            m_expectedCommands.append(WTFMove(*decodedMessage));
+        else
+            RELEASE_LOG_ERROR(WebAuthn, "MockHidConnection: Failed to decode expected command: %s", expectedCommandBase64.utf8().data());
+    }
+
+    RELEASE_LOG(WebAuthn, "MockHidConnection: Initialized %zu expected commands for validation", m_expectedCommands.size());
+}
+
+void MockHidConnection::validateExpectedCommand(const Vector<uint8_t>& actualCommand)
+{
+    if (m_currentExpectedCommandIndex >= m_expectedCommands.size()) {
+        RELEASE_LOG_ERROR(WebAuthn, "MockHidConnection: VALIDATION FAILED - Received unexpected command beyond expected count. Expected %zu commands, but received command %zu. Content: %s", m_expectedCommands.size(), m_currentExpectedCommandIndex + 1, base64EncodeToString(actualCommand).utf8().data());
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("MockHidConnection: Unexpected command.");
+    }
+
+    const auto& expectedCommand = m_expectedCommands[m_currentExpectedCommandIndex];
+    if (actualCommand != expectedCommand) {
+        RELEASE_LOG_ERROR(WebAuthn, "MockHidConnection: VALIDATION FAILED - Command mismatch at index %zu. Expected %s Actual %s", m_currentExpectedCommandIndex, base64EncodeToString(expectedCommand).utf8().data(), base64EncodeToString(actualCommand).utf8().data());
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("MockHidConnection: Command did not match expected value.");
+    }
+
+    m_currentExpectedCommandIndex++;
+}
+
+void MockHidConnection::validateExpectedCommandsCompleted()
+{
+    if (!m_configuration.hid || !m_configuration.hid->validateExpectedCommands)
+        return;
+    if (m_currentExpectedCommandIndex >= m_expectedCommands.size())
+        return;
+
+    for (size_t i = m_currentExpectedCommandIndex; i < m_expectedCommands.size(); ++i)
+        RELEASE_LOG_ERROR(WebAuthn, "MockHidConnection: Missing expected command %zu: %s", i, base64EncodeToString(m_expectedCommands[i]).utf8().data());
+    RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("MockHidConnection: validateAllExpectedCommandsConsumed called - %zu of %zu commands consumed", m_currentExpectedCommandIndex, m_expectedCommands.size());
 }
 
 } // namespace WebKit

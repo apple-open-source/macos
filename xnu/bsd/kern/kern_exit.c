@@ -180,7 +180,7 @@ __private_extern__ void munge_user32_rusage(struct rusage *a_rusage_p, struct us
 static void populate_corpse_crashinfo(proc_t p, task_t corpse_task,
     struct rusage_superset *rup, mach_exception_data_type_t code,
     mach_exception_data_type_t subcode, uint64_t *udata_buffer,
-    int num_udata, os_reason_t reason, exception_type_t etype);
+    int num_udata, os_reason_t reason, exception_type_t etype, mach_exception_data_type_t saved_code);
 static void proc_update_corpse_exception_codes(proc_t p, mach_exception_data_type_t *code, mach_exception_data_type_t *subcode);
 extern int proc_pidpathinfo_internal(proc_t p, uint64_t arg, char *buffer, uint32_t buffersize, int32_t *retval);
 extern void proc_piduniqidentifierinfo(proc_t p, struct proc_uniqidentifierinfo *p_uniqidinfo);
@@ -425,7 +425,7 @@ gather_populate_corpse_crashinfo(proc_t p, task_t corpse_task,
 	gather_rusage_info(p, &rup.ri, RUSAGE_INFO_CURRENT);
 	rup.ri.ri_phys_footprint = 0;
 	populate_corpse_crashinfo(p, corpse_task, &rup, code, subcode,
-	    udata_buffer, num_udata, reason, etype);
+	    udata_buffer, num_udata, reason, etype, code);
 }
 
 static void
@@ -476,7 +476,8 @@ proc_encode_exit_exception_code(proc_t p)
 static void
 populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *rup,
     mach_exception_data_type_t code, mach_exception_data_type_t subcode,
-    uint64_t *udata_buffer, int num_udata, os_reason_t reason, exception_type_t etype)
+    uint64_t *udata_buffer, int num_udata, os_reason_t reason, exception_type_t etype,
+    __unused mach_exception_data_type_t saved_code)
 {
 	mach_vm_address_t uaddr = 0;
 	mach_exception_data_type_t exc_codes[EXCEPTION_CODE_MAX];
@@ -864,6 +865,34 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 		reason = p->p_exit_reason;
 	}
 
+#if HAS_MTE
+	/* For MTE-related failures, we add the tag data for the whole faulting address's page */
+	uint32_t guard_type = EXC_GUARD_DECODE_GUARD_TYPE(saved_code);
+	uint32_t guard_flavor = EXC_GUARD_DECODE_GUARD_FLAVOR(saved_code);
+
+	/*
+	 * Extract tag data information for any possible synchronous or asynchronous MTE
+	 * failure (both in hard and soft mode).
+	 */
+	if ((reason != OS_REASON_NULL && reason->osr_namespace == OS_REASON_MTE_FAIL) ||
+	    (etype == EXC_GUARD && guard_type == GUARD_TYPE_VIRT_MEMORY && vm_guard_is_mte_fault(guard_flavor))) {
+		vm_map_t task_map = get_task_map(corpse_task);
+		if (task_map != kernel_map) {
+			/* subcode is the faulting address, see propagation from  handle_user_abort */
+			vm_address_t page_addr = vm_map_trunc_page_mask(subcode, PAGE_MASK);
+			vm_address_t canonicalized_page_addr = vm_memtag_canonicalize(task_map, page_addr);
+			struct crashinfo_mb tag_info = {
+				.start_address = canonicalized_page_addr,
+				.data = {0},
+			};
+			kern_return_t res = vm_map_page_tags_get(task_map, canonicalized_page_addr, tag_info.data, (sizeof(tag_info.data)));
+			if (KERN_SUCCESS == res &&
+			    KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_MB, sizeof(struct crashinfo_mb), &uaddr)) {
+				kcdata_memcpy(crash_info_ptr, uaddr, &tag_info, sizeof(tag_info));
+			}
+		}
+	}
+#endif /* HAS_MTE */
 
 	if (reason != OS_REASON_NULL) {
 		if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, EXIT_REASON_SNAPSHOT, sizeof(struct exit_reason_snapshot), &uaddr)) {
@@ -1898,7 +1927,7 @@ proc_handle_critical_exit(proc_t p, int rv)
 void
 proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 {
-	mach_exception_data_type_t code = 0, subcode = 0;
+	mach_exception_data_type_t code = 0, subcode = 0, saved_code = 0;
 	exception_type_t etype;
 
 	struct uthread *ut;
@@ -1947,15 +1976,19 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
 		 * Crash Reporter looks for the signal value, original exception
 		 * type, and low 20 bits of the original code in code[0]
 		 * (8, 4, and 20 bits respectively). code[1] is unmodified.
+		 * We still pass down to populate_corpse_crashinfo() the original
+		 * code, to parse flavor/type in case of a EXC_GUARD.
 		 */
 		code = ((WTERMSIG(rv) & 0xff) << 24) |
 		    ((ut->uu_exception & 0x0f) << 20) |
 		    ((int)ut->uu_code & 0xfffff);
+
+		saved_code = ut->uu_code;
 		subcode = ut->uu_subcode;
 		etype = ut->uu_exception;
 
 		/* Defualt to EXC_CRASH if the exception is not an EXC_RESOURCE or EXC_GUARD */
-		if (etype != EXC_RESOURCE || etype != EXC_GUARD) {
+		if (etype != EXC_RESOURCE && etype != EXC_GUARD) {
 			etype = EXC_CRASH;
 		}
 
@@ -2107,7 +2140,7 @@ skipcheck:
 		/* Update the code, subcode based on exit reason */
 		proc_update_corpse_exception_codes(p, &code, &subcode);
 		populate_corpse_crashinfo(p, task, rup,
-		    code, subcode, buffer, num_knotes, NULL, etype);
+		    code, subcode, buffer, num_knotes, NULL, etype, saved_code);
 		kfree_data(buffer, buf_size);
 	}
 	/*

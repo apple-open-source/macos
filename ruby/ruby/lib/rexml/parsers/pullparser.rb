@@ -47,6 +47,18 @@ module REXML
         @listeners << listener
       end
 
+      def entity_expansion_count
+        @parser.entity_expansion_count
+      end
+
+      def entity_expansion_limit=( limit )
+        @parser.entity_expansion_limit = limit
+      end
+
+      def entity_expansion_text_limit=( limit )
+        @parser.entity_expansion_text_limit = limit
+      end
+
       def each
         while has_next?
           yield self.pull
@@ -80,6 +92,10 @@ module REXML
 
       def unshift token
         @my_stack.unshift token
+      end
+
+      def reset
+        @parser.reset
       end
     end
 

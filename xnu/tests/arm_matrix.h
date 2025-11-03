@@ -53,6 +53,9 @@ struct arm_matrix_operations {
 	kern_return_t (*thread_set_state)(thread_act_t, const void *);
 };
 
+/** Operates on all SME context data.  Legacy SIMD instructions between start() and stop() will trap. */
 extern const struct arm_matrix_operations sme_operations;
+/** Operates only on SME context data controlled by `SVCR.ZA`.  No effect on legacy SIMD instructions. */
+extern const struct arm_matrix_operations sme_za_operations;
 
 #endif /* __ARM_MATRIX_H */

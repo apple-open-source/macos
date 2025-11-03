@@ -44,7 +44,7 @@ struct flow_entry *fe_alloc(boolean_t);
 static void fe_free(struct flow_entry *);
 static int fe_id_cmp(const struct flow_entry *, const struct flow_entry *);
 static void fe_stats_init(struct flow_entry *);
-static void fe_stats_update(struct flow_entry *);
+void fe_stats_update(struct flow_entry *);
 
 RB_GENERATE_PREV(flow_entry_id_tree, flow_entry, fe_id_link, fe_id_cmp);
 
@@ -1026,7 +1026,7 @@ fe_stats_init(struct flow_entry *fe)
 	fe_stats_update(fe);
 }
 
-static void
+void
 fe_stats_update(struct flow_entry *fe)
 {
 	struct sk_stats_flow *sf = &fe->fe_stats->fs_stats;

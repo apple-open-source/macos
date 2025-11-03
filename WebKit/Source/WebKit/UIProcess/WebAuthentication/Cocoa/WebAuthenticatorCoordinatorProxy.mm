@@ -538,6 +538,13 @@ inline static Vector<AuthenticatorTransport> toTransports(NSArray<ASAuthorizatio
     return transports;
 }
 
+static inline AuthenticatorAttachment fromASAuthorizationPublicKeyCredentialAttachment(ASAuthorizationPublicKeyCredentialAttachment attachment)
+{
+    if (attachment == ASAuthorizationPublicKeyCredentialAttachmentPlatform)
+        return AuthenticatorAttachment::Platform;
+    return AuthenticatorAttachment::CrossPlatform;
+}
+
 #endif // HAVE(WEB_AUTHN_AS_MODERN)
 
 void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestData &&requestData, RequestCompletionHandler &&handler)
@@ -607,6 +614,8 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
                 response.transports = { AuthenticatorTransport::Internal, AuthenticatorTransport::Hybrid };
                 response.clientDataJSON = toArrayBuffer(credential.get().rawClientDataJSON);
 
+                attachment = fromASAuthorizationPublicKeyCredentialAttachment(credential.get().attachment);
+
                 bool hasExtensionOutput = false;
                 AuthenticationExtensionsClientOutputs extensionOutputs;
                 if (credential.get().largeBlob) {
@@ -639,6 +648,8 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
                 response.signature = toArrayBuffer(credential.get().signature);
                 response.userHandle = toArrayBufferNilIfEmpty(credential.get().userID);
                 response.clientDataJSON = toArrayBuffer(credential.get().rawClientDataJSON);
+
+                attachment = fromASAuthorizationPublicKeyCredentialAttachment(credential.get().attachment);
 
                 bool hasExtensionOutput = false;
                 AuthenticationExtensionsClientOutputs extensionOutputs;
@@ -673,6 +684,7 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
                 else
                     response.transports = { };
                 response.clientDataJSON = toArrayBuffer(credential.get().rawClientDataJSON);
+                attachment = AuthenticatorAttachment::CrossPlatform;
             } else if ([auth.get().credential isKindOfClass:getASAuthorizationSecurityKeyPublicKeyCredentialAssertionClass()]) {
                 auto credential = retainPtr((ASAuthorizationSecurityKeyPublicKeyCredentialAssertion *)auth.get().credential);
                 response.rawId = toArrayBuffer(credential.get().credentialID);
@@ -680,6 +692,7 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
                 response.signature = toArrayBuffer(credential.get().signature);
                 response.userHandle = toArrayBufferNilIfEmpty(credential.get().userID);
                 response.clientDataJSON = toArrayBuffer(credential.get().rawClientDataJSON);
+                attachment = AuthenticatorAttachment::CrossPlatform;
                 if ([credential respondsToSelector:@selector(appID)]) {
                     AuthenticationExtensionsClientOutputs extensionOutputs;
                     extensionOutputs.appid = credential.get().appID;

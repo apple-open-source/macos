@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2024-10-02</string>
+		<string>2025-09-11</string>
 		<key>OpenSourceLicense</key>
 		<string>Uganda</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,9 +12,11 @@
 		<key>OpenSourceProject</key>
 		<string>vim</string>
 		<key>OpenSourceURL</key>
-		<string>https://github.com/vim/vim/archive/v9.1.0754.tar.gz</string>
+		<string>https://github.com/vim/vim/archive/v9.1.1752.tar.gz</string>
+		<key>OpenSourceSHA512</key>
+		<string>0420cea908246ffa4faac5ef790101f8afbc7bf192be3a4ad267ea6e66f2cc1d9ebc9574ae2e477580aace07b8aa6f705656f0da20e669f4d416a2393d7acb17</string>
 		<key>OpenSourceVersion</key>
-		<string>9.1.0754</string>
+		<string>9.1.1752</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
 		<key>OpenSourceModifications</key>
@@ -25,6 +27,9 @@
 			<string>patch 8.1.0704: building with Ruby 2.6 gives compiler warnings</string>
 			<string>54351200 - locale test fixes</string>
 			<string>54054432 - revert 617e8df8a7509121f9b0a563b95e4f81287ff720</string>
+			<string>Disable GPL xdiff (54852566)</string>
+			<string>tutor.vim: consider C.UTF-8 to be a request for .en (158278812)</string>
+			<string>if_cscope.c: allocate enough space to hold the cscape command string (101099585)</string>
 			<string>ex_docmd.c: fix 'su' to be 'suspend' for conformance purposes (150852662)</string>
 			<string>os_unix.c: properly avoid suspending if we're not under shell job control (150852662)</string>
 			<string>ex_docmd.c, ex_getln.c, getchar.c, globals.h, os_unix.c, structs.h, ui.c: implement VSUSP to suspend (150852662)</string>

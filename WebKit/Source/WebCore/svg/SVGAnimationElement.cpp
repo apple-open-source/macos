@@ -77,6 +77,11 @@ static Vector<float> parseKeyTimes(StringView value, bool verifyOrder)
         result.append(time);
     }
 
+    if (verifyOrder && !result.isEmpty() && !result.last()) {
+        ASSERT(!std::accumulate(result.begin(), result.end(), 0));
+        return { };
+    }
+
     return result;
 }
 

@@ -13,7 +13,7 @@
 #include <darwintest.h>
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
-		T_META_TAG_VM_PREFERRED);
+		T_META_TAG_VM_PREFERRED, T_META_TAG_NO_ALLOCATOR_OVERRIDE);
 
 // Use extra weird page size (not even a power of 2) to expose implicit
 // assumptions and help prevent issues caused by different page sizes on macOS

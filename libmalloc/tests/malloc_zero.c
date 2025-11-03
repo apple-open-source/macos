@@ -4,12 +4,12 @@
 
 #include "../src/platform.h"
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_ALL_ALLOCATORS);
 
 #if !MALLOC_TARGET_EXCLAVES
 // Exclaves don't support disabling zero on free
 T_DECL(malloc_checkfix_zero_on_free, "Test malloc_zero_on_free_disable() SPI",
-		T_META_ENVVAR("MallocZeroOnFree=1"), T_META_TAG_VM_NOT_PREFERRED)
+		T_META_ENVVAR("MallocZeroOnFree=1"), T_META_TAG_VM_PREFERRED)
 {
 	// Drive some activity up front
 	void *p1 = malloc(16);
@@ -121,7 +121,7 @@ check_zeroing_mode(void)
 T_DECL(malloc_zero_on_alloc, "Exercise zero-on-alloc mode",
 		T_META_ENVVAR("MallocZeroOnAlloc=1"),
 		T_META_ENVVAR("MallocNanoZone=1"),
-		T_META_TAG_VM_NOT_PREFERRED)
+		T_META_TAG_VM_PREFERRED)
 {
 	check_zeroing_mode();
 }
@@ -129,7 +129,7 @@ T_DECL(malloc_zero_on_alloc, "Exercise zero-on-alloc mode",
 T_DECL(malloc_zero_on_free, "Exercise zero-on-free mode",
 		T_META_ENVVAR("MallocZeroOnFree=1"),
 		T_META_ENVVAR("MallocNanoZone=1"),
-		T_META_TAG_VM_NOT_PREFERRED)
+		T_META_TAG_VM_PREFERRED)
 {
 	check_zeroing_mode();
 }

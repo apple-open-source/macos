@@ -44,7 +44,7 @@ struct cache_item {
 };
 
 /*
- * Container structs to simpify size and offset calculations and guarantee
+ * Container structs to simplify size and offset calculations and guarantee
  * proper alignment of struct passwd, group, gid_list and group_list.
  */
 struct cache_item_pw {
@@ -71,7 +71,8 @@ struct cache_item_gidlist {
 
 struct cache_item *sudo_make_gritem(gid_t gid, const char *group);
 struct cache_item *sudo_make_grlist_item(const struct passwd *pw, char * const *groups);
-struct cache_item *sudo_make_gidlist_item(const struct passwd *pw, char * const *gids, unsigned int type);
+struct cache_item *sudo_make_gidlist_item(const struct passwd *pw, int ngids, GETGROUPS_T *gids, char * const *gidstrs, unsigned int type);
 struct cache_item *sudo_make_pwitem(uid_t uid, const char *user);
+bool sudo_valid_shell(const char *shell);
 
 #endif /* SUDOERS_PWUTIL_H */

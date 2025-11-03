@@ -22,6 +22,12 @@ import kmemory
 # from osfmk/ipc/ipc_entry.h
 IE_BITS_ROLL_MASK = 0x03000000
 
+# from osfmk/mach/mach_types.h
+TASK_FLAVOR_CONTROL = 0
+TASK_FLAVOR_READ = 1
+TASK_FLAVOR_INSPECT = 2
+TASK_FLAVOR_NAME = 3
+
 
 def IsKObjectType(ty):
     return ty >= GetEnumValue("ipc_object_type_t", "__IKOT_FIRST")
@@ -1580,14 +1586,14 @@ def IterateAllPorts(tasklist, func, ctx, include_psets, follow_busyports, should
             func(t, space, ctx, taskports_idx, 0, t.itk_debug_control, 17)
         if unsigned(t.itk_task_access) > 0:
             func(t, space, ctx, taskports_idx, 0, t.itk_task_access, 17)
-        if unsigned(t.itk_task_ports[1]) > 0:  ## task read port
-            func(t, space, ctx, taskports_idx, 0, t.itk_task_ports[1], 17)
-        if unsigned(t.itk_task_ports[2]) > 0:  ## task inspect port
-            func(t, space, ctx, taskports_idx, 0, t.itk_task_ports[2], 17)
+        if unsigned(t.itk_task_ports[TASK_FLAVOR_READ]) > 0:  ## task read port
+            func(t, space, ctx, taskports_idx, 0, t.itk_task_ports[TASK_FLAVOR_READ], 17)
+        if unsigned(t.itk_task_ports[TASK_FLAVOR_INSPECT]) > 0:  ## task inspect port
+            func(t, space, ctx, taskports_idx, 0, t.itk_task_ports[TASK_FLAVOR_INSPECT], 17)
 
         ## Task name port (not a send right, just a naked ref); TASK_FLAVOR_NAME = 3
-        if unsigned(t.itk_task_ports[3]) > 0:
-            func(t, space, ctx, taskports_idx, 0, t.itk_task_ports[3], 0)
+        if unsigned(t.itk_task_ports[TASK_FLAVOR_NAME]) > 0:
+            func(t, space, ctx, taskports_idx, 0, t.itk_task_ports[TASK_FLAVOR_NAME], 0)
 
         ## task resume port is a receive right to resume the task
         if unsigned(t.itk_resume) > 0:
@@ -1928,7 +1934,7 @@ def FindKobjectPort(cmd_args=None, cmd_options={}, O=None):
     with O.table(PrintPortSummary.header):
         for port in kmemory.Zone("ipc ports").iter_allocated(port_ty):
             otype = port.xGetIntegerByPath(".ip_object.io_type")
-            if not itk_task_ports(otype):
+            if not IsKObjectType(otype):
                 continue
 
             ip_kobject = kmem.make_address(port.xGetScalarByName("ip_kobject"))

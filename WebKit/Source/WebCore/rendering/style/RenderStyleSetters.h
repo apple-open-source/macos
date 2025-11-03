@@ -410,7 +410,7 @@ inline void RenderStyle::setInsideDisabledSubmitButton(bool value) { SET(m_rareI
 inline void RenderStyle::NonInheritedFlags::setHasPseudoStyles(PseudoIdSet pseudoIdSet)
 {
     ASSERT(pseudoIdSet);
-    ASSERT((pseudoIdSet.data() & static_cast<unsigned>(PseudoId::PublicPseudoIdMask)) == pseudoIdSet.data());
+    ASSERT((pseudoIdSet.data() & PublicPseudoIdMask) == pseudoIdSet.data());
     pseudoBits |= pseudoIdSet.data() >> 1; // Shift down as we do not store a bit for PseudoId::None.
 }
 
@@ -667,7 +667,7 @@ inline void RenderStyle::setBlendMode(BlendMode mode)
     SET(m_rareInheritedData, isInSubtreeWithBlendMode, mode != BlendMode::Normal);
 }
 
-inline void RenderStyle::setIsForceHidden() { SET(m_rareInheritedData, isForceHidden, true); }
+inline void RenderStyle::setIsForceHidden(bool hide) { SET(m_rareInheritedData, isForceHidden, hide); }
 inline void RenderStyle::setIsolation(Isolation isolation) { SET_NESTED(m_nonInheritedData, rareData, isolation, static_cast<unsigned>(isolation)); }
 
 inline void RenderStyle::setAutoRevealsWhenFound() { SET(m_rareInheritedData, autoRevealsWhenFound, true); }

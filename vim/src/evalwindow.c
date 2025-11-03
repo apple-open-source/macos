@@ -106,8 +106,8 @@ win_id2wp_tp(int id, tabpage_T **tpp)
 	}
 #ifdef FEAT_PROP_POPUP
     // popup windows are in separate lists
-     FOR_ALL_TABPAGES(tp)
-	 FOR_ALL_POPUPWINS_IN_TAB(tp, wp)
+    FOR_ALL_TABPAGES(tp)
+	FOR_ALL_POPUPWINS_IN_TAB(tp, wp)
 	     if (wp->w_id == id)
 	     {
 		 if (tpp != NULL)
@@ -426,6 +426,7 @@ get_win_info(win_T *wp, short tpnr, short winnr)
     dict_add_number(dict, "wincol", wp->w_wincol + 1);
     dict_add_number(dict, "textoff", win_col_off(wp));
     dict_add_number(dict, "bufnr", wp->w_buffer->b_fnum);
+    dict_add_number(dict, "leftcol", wp->w_leftcol);
 
 #ifdef FEAT_TERMINAL
     dict_add_number(dict, "terminal", bt_terminal(wp->w_buffer));
@@ -562,9 +563,10 @@ f_getwininfo(typval_T *argvars, typval_T *rettv)
 	{
 	    tabnr++;
 	    FOR_ALL_POPUPWINS_IN_TAB(tp, wp)
-	    if (wp == wparg)
-		break;
+		if (wp == wparg)
+		    goto found;
 	}
+found:
 	d = get_win_info(wparg, tp == NULL ? 0 : tabnr, 0);
 	if (d != NULL)
 	    list_append_dict(rettv->vval.v_list, d);

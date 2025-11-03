@@ -27,6 +27,8 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#include <WebCore/MediaPlaybackTarget.h>
+#include <wtf/ProcessID.h>
 #include <wtf/WeakHashSet.h>
 
 namespace WebCore {
@@ -91,9 +93,8 @@ public:
     void startMonitoringWirelessRoutes();
     void stopMonitoringWirelessRoutes();
 
-    enum class ShouldOverride : bool { No, Yes };
-    void providePresentingApplicationPID(int pid) { providePresentingApplicationPID(pid, ShouldOverride::No); }
-    virtual void providePresentingApplicationPID(int, ShouldOverride) = 0;
+    virtual std::optional<ProcessID> presentedApplicationPID() const;
+    virtual void providePresentingApplicationPID(ProcessID);
 
     void setIsExternalOutputDeviceAvailable(bool);
 

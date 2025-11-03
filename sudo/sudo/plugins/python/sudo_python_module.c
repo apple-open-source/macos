@@ -42,6 +42,9 @@ static PyObject *python_sudo_conversation(PyObject *py_self, PyObject *py_args, 
 static PyObject *python_sudo_options_as_dict(PyObject *py_self, PyObject *py_args);
 static PyObject *python_sudo_options_from_dict(PyObject *py_self, PyObject *py_args);
 
+// Called on module teardown.
+static void sudo_module_free(void *self);
+
 static PyMethodDef sudo_methods[] = {
     {"debug",  (PyCFunction)python_sudo_debug, METH_VARARGS, "Debug messages which can be saved to file in sudo.conf."},
     {"log_info",  (PyCFunction)python_sudo_log_info, METH_VARARGS | METH_KEYWORDS, "Display informational messages."},
@@ -62,7 +65,7 @@ static struct PyModuleDef sudo_module = {
     NULL, /* slots */
     NULL, /* traverse */
     NULL, /* clear */
-    NULL  /* free */
+    sudo_module_free
 };
 
 CPYCHECKER_NEGATIVE_RESULT_SETS_EXCEPTION
@@ -351,7 +354,7 @@ python_sudo_conversation(PyObject *Py_UNUSED(self), PyObject *py_args, PyObject 
         goto cleanup;
     }
 
-    replies = calloc(num_msgs, sizeof(struct sudo_conv_reply));
+    replies = calloc((size_t)num_msgs, sizeof(struct sudo_conv_reply));
     if (replies == NULL)
         goto cleanup;
     py_result = PyTuple_New(num_msgs);
@@ -479,28 +482,26 @@ sudo_module_register_enum(PyObject *py_module, const char *enum_name, PyObject *
         return;
 
     PyObject *py_enum_class = NULL;
-    {
-        PyObject *py_enum_module = PyImport_ImportModule("enum");
-        if (py_enum_module == NULL) {
-            Py_CLEAR(py_constants_dict);
-            debug_return;
-        }
-
-        py_enum_class = PyObject_CallMethod(py_enum_module,
-                                            "IntEnum", "sO", enum_name,
-                                            py_constants_dict);
-
-        Py_CLEAR(py_constants_dict);
-        Py_CLEAR(py_enum_module);
+    PyObject *py_enum_module = PyImport_ImportModule("enum");
+    if (py_enum_module == NULL) {
+	Py_CLEAR(py_constants_dict);
+	debug_return;
     }
+
+    py_enum_class = PyObject_CallMethod(py_enum_module,
+					"IntEnum", "sO", enum_name,
+					py_constants_dict);
+
+    Py_CLEAR(py_constants_dict);
+    Py_CLEAR(py_enum_module);
 
     if (py_enum_class == NULL) {
         debug_return;
     }
 
+    // PyModule_AddObject steals the reference to py_enum_class on success
     if (PyModule_AddObject(py_module, enum_name, py_enum_class) < 0) {
         Py_CLEAR(py_enum_class);
-        debug_return;
     }
 
     debug_return;
@@ -597,16 +598,34 @@ sudo_module_init(void)
     if (sudo_module_register_baseplugin(py_module) != SUDO_RC_OK)
         goto cleanup;
 
-    if (sudo_module_register_loghandler(py_module) != SUDO_RC_OK)
-        goto cleanup;
-
 cleanup:
     if (PyErr_Occurred()) {
         Py_CLEAR(py_module);
         Py_CLEAR(sudo_exc_SudoException);
         Py_CLEAR(sudo_exc_PluginError);
+        Py_CLEAR(sudo_exc_PluginReject);
         Py_CLEAR(sudo_exc_ConversationInterrupted);
     }
 
     debug_return_ptr(py_module);
+}
+
+static void
+sudo_module_free(void *self)
+{
+    debug_decl(sudo_module_free, PYTHON_DEBUG_C_CALLS);
+
+    // Free exceptions
+    Py_CLEAR(sudo_exc_SudoException);
+    Py_CLEAR(sudo_exc_PluginError);
+    Py_CLEAR(sudo_exc_PluginReject);
+    Py_CLEAR(sudo_exc_ConversationInterrupted);
+
+    // Free base plugin
+    Py_CLEAR(sudo_type_Plugin);
+
+    // Free conversation message type
+    Py_CLEAR(sudo_type_ConvMessage);
+
+    debug_return;
 }

@@ -33,6 +33,9 @@
 namespace WebCore {
 class FloatQuad;
 enum class BoxSide : uint8_t;
+
+template<typename> class RectEdges;
+using FloatBoxExtent = RectEdges<float>;
 }
 
 @interface UIScrollView (WebKitInternal)
@@ -45,9 +48,6 @@ enum class BoxSide : uint8_t;
 @property (readonly, nonatomic) CGFloat _wk_contentHeightIncludingInsets;
 @property (readonly, nonatomic) BOOL _wk_isScrollAnimating;
 @property (readonly, nonatomic) BOOL _wk_isZoomAnimating;
-#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-@property (readonly, nonatomic) BOOL _wk_usesHardTopScrollEdgeEffect;
-#endif
 - (void)_wk_setContentOffsetAndShowScrollIndicators:(CGPoint)offset animated:(BOOL)animated;
 - (void)_wk_setTransfersHorizontalScrollingToParent:(BOOL)value;
 - (void)_wk_setTransfersVerticalScrollingToParent:(BOOL)value;
@@ -88,6 +88,7 @@ RetainPtr<UIAlertController> createUIAlertController(NSString *title, NSString *
 UIScrollView *scrollViewForTouches(NSSet<UITouch *> *);
 UIRectEdge uiRectEdgeForSide(WebCore::BoxSide);
 UIEdgeInsets maxEdgeInsets(const UIEdgeInsets&, const UIEdgeInsets&);
+WebCore::FloatBoxExtent floatBoxExtent(const UIEdgeInsets&);
 
 static constexpr auto allUIRectEdges = std::array {
     UIRectEdgeTop,

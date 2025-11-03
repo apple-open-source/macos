@@ -94,6 +94,8 @@
 
 "com.apple.SoftwareUpdate.modify-settings" = "Unlock";
 
+"com.apple.SoftwareUpdate.modify-splat-settings" = "Modify Settings";
+
 "com.apple.uninstalld.uninstall" = "Delete";
 
 "system.privilege.taskport" = "Take Control";

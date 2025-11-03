@@ -448,7 +448,7 @@ const ContentSecurityPolicyDirective* ContentSecurityPolicyDirectiveList::violat
 
 const ContentSecurityPolicyDirective* ContentSecurityPolicyDirectiveList::violatedDirectiveForStyle(const URL& url, bool didReceiveRedirectResponse, const String& nonce) const
 {
-    auto* operativeDirective = this->operativeDirective(m_styleSrc.get(), ContentSecurityPolicyDirectiveNames::styleSrcElem);
+    auto* operativeDirective = this->operativeDirectiveStyle(m_styleSrcElem.get(), ContentSecurityPolicyDirectiveNames::styleSrcElem);
     if (checkNonce(operativeDirective, nonce)
         || checkSource(operativeDirective, url, didReceiveRedirectResponse))
         return nullptr;

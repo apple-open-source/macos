@@ -41,6 +41,7 @@
 #import "RemoteLayerTreeDrawingAreaProxyIOS.h"
 #import "SmartMagnificationController.h"
 #import "UIKitSPI.h"
+#import "UIKitUtilities.h"
 #import "VisibleContentRectUpdateInfo.h"
 #import "WKBrowsingContextGroupPrivate.h"
 #import "WKInspectorHighlightView.h"
@@ -217,7 +218,7 @@ typedef NS_ENUM(NSInteger, _WKPrintRenderingCallbackType) {
 #if USE(EXTENSIONKIT)
     RetainPtr<UIView> _visibilityPropagationViewForWebProcess;
     RetainPtr<UIView> _visibilityPropagationViewForGPUProcess;
-    RetainPtr<NSHashTable<WKVisibilityPropagationView *>> _visibilityPropagationViews;
+    RetainPtr<NSMutableSet<WKVisibilityPropagationView *>> _visibilityPropagationViews;
 #else
 #if HAVE(NON_HOSTING_VISIBILITY_PROPAGATION_VIEW)
     RetainPtr<_UINonHostingVisibilityPropagationView> _visibilityPropagationViewForWebProcess;
@@ -657,11 +658,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_textInteractionWrapper deactivateSelection];
 }
 
-static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
-{
-    return { WebCore::narrowPrecisionToFloatFromCGFloat(insets.top), WebCore::narrowPrecisionToFloatFromCGFloat(insets.right), WebCore::narrowPrecisionToFloatFromCGFloat(insets.bottom), WebCore::narrowPrecisionToFloatFromCGFloat(insets.left) };
-}
-
 - (CGRect)_computeUnobscuredContentRectRespectingInputViewBounds:(CGRect)unobscuredContentRect inputViewBounds:(CGRect)inputViewBounds
 {
     // The input view bounds are in window coordinates, but the unobscured rect is in content coordinates. Account for this by converting input view bounds to content coordinates.
@@ -703,12 +699,12 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
     WebKit::VisibleContentRectUpdateInfo visibleContentRectUpdateInfo(
         visibleContentRect,
         unobscuredContentRect,
-        floatBoxExtent(contentInsets),
+        WebKit::floatBoxExtent(contentInsets),
         unobscuredRectInScrollViewCoordinates,
         unobscuredContentRectRespectingInputViewBounds,
         fixedPositionRectForLayout,
-        floatBoxExtent(obscuredInsets),
-        floatBoxExtent(unobscuredSafeAreaInsets),
+        WebKit::floatBoxExtent(obscuredInsets),
+        WebKit::floatBoxExtent(unobscuredSafeAreaInsets),
         zoomScale,
         viewStability,
         !!_sizeChangedSinceLastVisibleContentRectUpdate,
@@ -970,7 +966,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 - (WKVisibilityPropagationView *)_createVisibilityPropagationView
 {
     if (!_visibilityPropagationViews)
-        _visibilityPropagationViews = [NSHashTable weakObjectsHashTable];
+        _visibilityPropagationViews = adoptNS([[NSMutableSet alloc] init]);
 
     RetainPtr visibilityPropagationView = adoptNS([[WKVisibilityPropagationView alloc] init]);
     [_visibilityPropagationViews addObject:visibilityPropagationView.get()];
@@ -984,6 +980,12 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 #endif
 
     return visibilityPropagationView.autorelease();
+}
+
+- (void)_removeVisibilityPropagationView:(UIView *)view
+{
+    if (RetainPtr visibilityPropagationView = dynamic_objc_cast<WKVisibilityPropagationView>(view))
+        [_visibilityPropagationViews removeObject:visibilityPropagationView.get()];
 }
 #endif // USE(EXTENSIONKIT)
 #endif // HAVE(VISIBILITY_PROPAGATION_VIEW)

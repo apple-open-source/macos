@@ -1847,7 +1847,10 @@ errOut:
 
     // A policy with CTRequired set
     SecPolicyRef policy = SecPolicyCreateBasicX509();
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCTRequired, kCFBooleanTrue);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckCTRequired, kCFBooleanTrue);
+#pragma clang diagnostic pop
 
     require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
@@ -1993,7 +1996,10 @@ errOut:
 - (SecPolicyRef)nonTlsCTRequiredPolicy
 {
     SecPolicyRef policy = SecPolicyCreateBasicX509();
-    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckNonTlsCTRequired, kCFBooleanTrue);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckNonTlsCTRequired, kCFBooleanTrue);
+#pragma clang diagnostic pop
     return policy;
 }
 

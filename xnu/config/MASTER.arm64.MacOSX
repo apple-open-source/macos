@@ -14,7 +14,9 @@
 #  Standard Apple OS Configurations:
 #  -------- ----- -- ---------------
 #
-#if MASTER_CONFIG_ENABLE_SPTM
+#if MASTER_CONFIG_ENABLE_EXCLAVES
+#  ARM_EXTRAS_BASE = [ config_sptm config_sptm_iommu config_exclaves ]
+#elif MASTER_CONFIG_ENABLE_SPTM
 #  ARM_EXTRAS_BASE = [ config_sptm config_sptm_iommu ]
 #else
 #  ARM_EXTRAS_BASE = [ config_pmap_ppl ]

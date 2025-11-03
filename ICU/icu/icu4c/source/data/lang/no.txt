@@ -429,6 +429,7 @@ no{
         nds_NL{"nedersaksisk"}
         ne{"nepali"}
         new{"newari"}
+        nez{"nez perce"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niueansk"}

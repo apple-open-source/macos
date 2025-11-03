@@ -14,27 +14,85 @@ require_relative "parsers/streamparser"
 require_relative "parsers/treeparser"
 
 module REXML
-  # Represents a full XML document, including PIs, a doctype, etc.  A
-  # Document has a single child that can be accessed by root().
-  # Note that if you want to have an XML declaration written for a document
-  # you create, you must add one; REXML documents do not write a default
-  # declaration for you.  See |DECLARATION| and |write|.
+  # Represents an XML document.
+  #
+  # A document may have:
+  #
+  # - A single child that may be accessed via method #root.
+  # - An XML declaration.
+  # - A document type.
+  # - Processing instructions.
+  #
+  # == In a Hurry?
+  #
+  # If you're somewhat familiar with XML
+  # and have a particular task in mind,
+  # you may want to see the
+  # {tasks pages}[../doc/rexml/tasks/tocs/master_toc_rdoc.html],
+  # and in particular, the
+  # {tasks page for documents}[../doc/rexml/tasks/tocs/document_toc_rdoc.html].
+  #
   class Document < Element
-    # A convenient default XML declaration.  If you want an XML declaration,
-    # the easiest way to add one is mydoc << Document::DECLARATION
-    # +DEPRECATED+
-    # Use: mydoc << XMLDecl.default
+    # A convenient default XML declaration. Use:
+    #
+    #   mydoc << XMLDecl.default
+    #
     DECLARATION = XMLDecl.default
 
-    # Constructor
-    # @param source if supplied, must be a Document, String, or IO.
-    # Documents have their context and Element attributes cloned.
-    # Strings are expected to be valid XML documents.  IOs are expected
-    # to be sources of valid XML documents.
-    # @param context if supplied, contains the context of the document;
-    # this should be a Hash.
+    # :call-seq:
+    #   new(string = nil, context = {}) -> new_document
+    #   new(io_stream = nil, context = {}) -> new_document
+    #   new(document = nil, context = {}) -> new_document
+    #
+    # Returns a new \REXML::Document object.
+    #
+    # When no arguments are given,
+    # returns an empty document:
+    #
+    #   d = REXML::Document.new
+    #   d.to_s # => ""
+    #
+    # When argument +string+ is given, it must be a string
+    # containing a valid XML document:
+    #
+    #   xml_string = '<root><foo>Foo</foo><bar>Bar</bar></root>'
+    #   d = REXML::Document.new(xml_string)
+    #   d.to_s # => "<root><foo>Foo</foo><bar>Bar</bar></root>"
+    #
+    # When argument +io_stream+ is given, it must be an \IO object
+    # that is opened for reading, and when read must return a valid XML document:
+    #
+    #   File.write('t.xml', xml_string)
+    #   d = File.open('t.xml', 'r') do |io|
+    #     REXML::Document.new(io)
+    #   end
+    #   d.to_s # => "<root><foo>Foo</foo><bar>Bar</bar></root>"
+    #
+    # When argument +document+ is given, it must be an existing
+    # document object, whose context and attributes (but not children)
+    # are cloned into the new document:
+    #
+    #   d = REXML::Document.new(xml_string)
+    #   d.children    # => [<root> ... </>]
+    #   d.context = {raw: :all, compress_whitespace: :all}
+    #   d.add_attributes({'bar' => 0, 'baz' => 1})
+    #   d1 = REXML::Document.new(d)
+    #   d1.children   # => []
+    #   d1.context    # => {:raw=>:all, :compress_whitespace=>:all}
+    #   d1.attributes # => {"bar"=>bar='0', "baz"=>baz='1'}
+    #
+    # When argument +context+ is given, it must be a hash
+    # containing context entries for the document;
+    # see {Element Context}[../doc/rexml/context_rdoc.html]:
+    #
+    #   context = {raw: :all, compress_whitespace: :all}
+    #   d = REXML::Document.new(xml_string, context)
+    #   d.context # => {:raw=>:all, :compress_whitespace=>:all}
+    #
     def initialize( source = nil, context = {} )
       @entity_expansion_count = 0
+      @entity_expansion_limit = Security.entity_expansion_limit
+      @entity_expansion_text_limit = Security.entity_expansion_text_limit
       super()
       @context = context
       return if source.nil?
@@ -46,26 +104,71 @@ module REXML
       end
     end
 
+    # :call-seq:
+    #   node_type -> :document
+    #
+    # Returns the symbol +:document+.
+    #
     def node_type
       :document
     end
 
-    # Should be obvious
+    # :call-seq:
+    #   clone -> new_document
+    #
+    # Returns the new document resulting from executing
+    # <tt>Document.new(self)</tt>.  See Document.new.
+    #
     def clone
       Document.new self
     end
 
-    # According to the XML spec, a root node has no expanded name
+    # :call-seq:
+    #   expanded_name -> empty_string
+    #
+    # Returns an empty string.
+    #
     def expanded_name
       ''
       #d = doc_type
       #d ? d.name : "UNDEFINED"
     end
-
     alias :name :expanded_name
 
-    # We override this, because XMLDecls and DocTypes must go at the start
-    # of the document
+    # :call-seq:
+    #   add(xml_decl) -> self
+    #   add(doc_type) -> self
+    #   add(object) -> self
+    #
+    # Adds an object to the document; returns +self+.
+    #
+    # When argument +xml_decl+ is given,
+    # it must be an REXML::XMLDecl object,
+    # which becomes the XML declaration for the document,
+    # replacing the previous XML declaration if any:
+    #
+    #   d = REXML::Document.new
+    #   d.xml_decl.to_s # => ""
+    #   d.add(REXML::XMLDecl.new('2.0'))
+    #   d.xml_decl.to_s # => "<?xml version='2.0'?>"
+    #
+    # When argument +doc_type+ is given,
+    # it must be an REXML::DocType object,
+    # which becomes the document type for the document,
+    # replacing the previous document type, if any:
+    #
+    #   d = REXML::Document.new
+    #   d.doctype.to_s # => ""
+    #   d.add(REXML::DocType.new('foo'))
+    #   d.doctype.to_s # => "<!DOCTYPE foo>"
+    #
+    # When argument +object+ (not an REXML::XMLDecl or REXML::DocType object)
+    # is given it is added as the last child:
+    #
+    #   d = REXML::Document.new
+    #   d.add(REXML::Element.new('foo'))
+    #   d.to_s # => "<foo/>"
+    #
     def add( child )
       if child.kind_of? XMLDecl
         if @children[0].kind_of? XMLDecl
@@ -99,56 +202,115 @@ module REXML
     end
     alias :<< :add
 
+    # :call-seq:
+    #   add_element(name_or_element = nil, attributes = nil) -> new_element
+    #
+    # Adds an element to the document by calling REXML::Element.add_element:
+    #
+    #   REXML::Element.add_element(name_or_element, attributes)
     def add_element(arg=nil, arg2=nil)
       rv = super
       raise "attempted adding second root element to document" if @elements.size > 1
       rv
     end
 
-    # @return the root Element of the document, or nil if this document
-    # has no children.
+    # :call-seq:
+    #   root -> root_element or nil
+    #
+    # Returns the root element of the document, if it exists, otherwise +nil+:
+    #
+    #   d = REXML::Document.new('<root></root>')
+    #   d.root # => <root/>
+    #   d = REXML::Document.new('')
+    #   d.root # => nil
+    #
     def root
       elements[1]
       #self
       #@children.find { |item| item.kind_of? Element }
     end
 
-    # @return the DocType child of the document, if one exists,
-    # and nil otherwise.
+    # :call-seq:
+    #   doctype -> doc_type or nil
+    #
+    # Returns the DocType object for the document, if it exists, otherwise +nil+:
+    #
+    #   d = REXML::Document.new('<!DOCTYPE document SYSTEM "subjects.dtd">')
+    #   d.doctype.class # => REXML::DocType
+    #   d = REXML::Document.new('')
+    #   d.doctype.class # => nil
+    #
     def doctype
       @children.find { |item| item.kind_of? DocType }
     end
 
-    # @return the XMLDecl of this document; if no XMLDecl has been
-    # set, the default declaration is returned.
+    # :call-seq:
+    #   xml_decl -> xml_decl
+    #
+    # Returns the XMLDecl object for the document, if it exists,
+    # otherwise the default XMLDecl object:
+    #
+    #   d = REXML::Document.new('<?xml version="1.0" encoding="UTF-8"?>')
+    #   d.xml_decl.class # => REXML::XMLDecl
+    #   d.xml_decl.to_s  # => "<?xml version='1.0' encoding='UTF-8'?>"
+    #   d = REXML::Document.new('')
+    #   d.xml_decl.class # => REXML::XMLDecl
+    #   d.xml_decl.to_s  # => ""
+    #
     def xml_decl
       rv = @children[0]
       return rv if rv.kind_of? XMLDecl
       @children.unshift(XMLDecl.default)[0]
     end
 
-    # @return the XMLDecl version of this document as a String.
-    # If no XMLDecl has been set, returns the default version.
+    # :call-seq:
+    #   version -> version_string
+    #
+    # Returns the XMLDecl version of this document as a string,
+    # if it has been set, otherwise the default version:
+    #
+    #   d = REXML::Document.new('<?xml version="2.0" encoding="UTF-8"?>')
+    #   d.version # => "2.0"
+    #   d = REXML::Document.new('')
+    #   d.version # => "1.0"
+    #
     def version
       xml_decl().version
     end
 
-    # @return the XMLDecl encoding of this document as an
-    # Encoding object.
-    # If no XMLDecl has been set, returns the default encoding.
+    # :call-seq:
+    #   encoding -> encoding_string
+    #
+    # Returns the XMLDecl encoding of the document,
+    # if it has been set, otherwise the default encoding:
+    #
+    #   d = REXML::Document.new('<?xml version="1.0" encoding="UTF-16"?>')
+    #   d.encoding # => "UTF-16"
+    #   d = REXML::Document.new('')
+    #   d.encoding # => "UTF-8"
+    #
     def encoding
       xml_decl().encoding
     end
 
-    # @return the XMLDecl standalone value of this document as a String.
-    # If no XMLDecl has been set, returns the default setting.
+    # :call-seq:
+    #   stand_alone?
+    #
+    # Returns the XMLDecl standalone value of the document as a string,
+    # if it has been set, otherwise the default standalone value:
+    #
+    #   d = REXML::Document.new('<?xml standalone="yes"?>')
+    #   d.stand_alone? # => "yes"
+    #   d = REXML::Document.new('')
+    #   d.stand_alone? # => nil
+    #
     def stand_alone?
       xml_decl().stand_alone?
     end
 
     # :call-seq:
-    #    doc.write(output=$stdout, indent=-1, transtive=false, ie_hack=false, encoding=nil)
-    #    doc.write(options={:output => $stdout, :indent => -1, :transtive => false, :ie_hack => false, :encoding => nil})
+    #    doc.write(output=$stdout, indent=-1, transitive=false, ie_hack=false, encoding=nil)
+    #    doc.write(options={:output => $stdout, :indent => -1, :transitive => false, :ie_hack => false, :encoding => nil})
     #
     # Write the XML tree out, optionally with indent.  This writes out the
     # entire XML document, including XML declarations, doctype declarations,
@@ -253,7 +415,7 @@ module REXML
     #
     # Deprecated. Use REXML::Security.entity_expansion_limit= instead.
     def Document::entity_expansion_limit
-      return Security.entity_expansion_limit
+      Security.entity_expansion_limit
     end
 
     # Set the entity expansion limit. By default the limit is set to 10240.
@@ -267,14 +429,16 @@ module REXML
     #
     # Deprecated. Use REXML::Security.entity_expansion_text_limit instead.
     def Document::entity_expansion_text_limit
-      return Security.entity_expansion_text_limit
+      Security.entity_expansion_text_limit
     end
 
     attr_reader :entity_expansion_count
+    attr_writer :entity_expansion_limit
+    attr_accessor :entity_expansion_text_limit
 
     def record_entity_expansion
       @entity_expansion_count += 1
-      if @entity_expansion_count > Security.entity_expansion_limit
+      if @entity_expansion_count > @entity_expansion_limit
         raise "number of entity expansions exceeded, processing aborted."
       end
     end
@@ -284,6 +448,20 @@ module REXML
     end
 
     private
+
+    attr_accessor :namespaces_cache
+
+    # New document level cache is created and available in this block.
+    # This API is thread unsafe. Users can't change this document in this block.
+    def enable_cache
+      @namespaces_cache = {}
+      begin
+        yield
+      ensure
+        @namespaces_cache = nil
+      end
+    end
+
     def build( source )
       Parsers::TreeParser.new( source, self ).parse
     end

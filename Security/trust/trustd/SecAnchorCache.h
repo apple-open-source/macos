@@ -53,6 +53,9 @@ extern CFStringRef kSecAnchorTypeUnspecified;
 extern CFStringRef kSecAnchorTypeSystem;
 extern CFStringRef kSecAnchorTypePlatform;
 extern CFStringRef kSecAnchorTypeCustom;
+extern CFStringRef kSecAnchorTypeSystemTEST;
+extern CFStringRef kSecAnchorTypePlatformTEST;
+extern CFStringRef kSecAnchorTypeCustomTEST;
 
 #if __OBJC__
 
@@ -75,6 +78,8 @@ CFArrayRef SecAnchorCacheCopyAnchors(CFStringRef policyId);
 
 CF_RETURNS_RETAINED
 _Nullable CFArrayRef SecAnchorPolicyPermittedAnchorRecords(CFArrayRef cfAnchorRecords, CFStringRef policyId);
+
+bool SecAnchorCacheIsAppleAnchor(SecCertificateRef certificate);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

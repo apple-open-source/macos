@@ -336,7 +336,6 @@ VariablePermissionEntry gVariablePermissions[] = {
 	{"darkboot", .p.Bits.UserWrite = 1},
 	{"nonce-seeds", .p.Bits.KernelOnly = 1},
 #endif /* !defined(__x86_64__) */
-	{"darwin-init-system", .p.Bits.RestoreModifyOnly = 1},
 	// Variables used for testing permissions
 	{"testSysReadHidden", .p.Bits.SystemReadHidden = 1,
 	 .p.Bits.TestingOnly = 1},
@@ -381,6 +380,8 @@ VariableEntitlementEntry gVariableEntitlements[] = {
 	{OP_MOD_RD, &gAppleNVRAMGuid, "fmm-mobileme-token-FMM-BridgeHasAccount", "com.apple.private.security.nvram.fmm"},
 	{OP_MOD_RD, &gAppleSystemVariableGuid, "fmm-computer-name", "com.apple.private.security.nvram.fmm"},
 	{OP_MOD_RD, &gAppleNVRAMGuid, "fmm-computer-name", "com.apple.private.security.nvram.fmm"},
+	{OP_MOD, &gAppleSystemVariableGuid, "rdma-enable", "com.apple.private.iokit.rdma"},
+	{OP_MOD, &gAppleNVRAMGuid, "rdma-enable", "com.apple.private.iokit.rdma"},
 	// Variables used for testing entitlement
 	{OP_MOD_RST, &gAppleNVRAMGuid, "testEntModRst", "com.apple.private.iokit.testEntModRst"},
 	{OP_MOD_RST, &gAppleSystemVariableGuid, "testEntModRstSys", "com.apple.private.iokit.testEntModRst"},
@@ -836,6 +837,26 @@ dumpData(const char *name, OSSharedPtr<OSData> propData)
 	IOLog("\n");
 }
 
+
+typedef struct {
+	const char            *name;
+	OSSharedPtr<OSObject> value;
+} ephDMAllowListEntry;
+
+// common region variables to preserve on ephemeral boot
+static
+ephDMAllowListEntry ephDMEntries[] = {
+	// Mobile Obliteration clears the following variables after it runs
+	{ .name = "oblit-begins" },
+	{ .name = "orig-oblit" },
+	{ .name = "oblit-failure" },
+	{ .name = "oblit-inprogress" },
+	{ .name = "obliteration" },
+	// darwin-init is used for configuring internal builds
+	{ .name = "darwin-init" },
+	{ .name = "darwin-init-system" }
+};
+
 // ************************** IODTNVRAMPlatformNotifier ****************************
 // private IOService based class for passing notifications to IODTNVRAM
 
@@ -1269,6 +1290,7 @@ public:
 	virtual uint32_t getCommonUsed(void) const = 0;
 	virtual bool     getSystemPartitionActive(void) const = 0;
 	virtual IOReturn getVarDict(OSSharedPtr<OSDictionary> &varDictCopy) = 0;
+	IOReturn handleEphDM(void);
 };
 
 IODTNVRAMFormatHandler::~IODTNVRAMFormatHandler()
@@ -1316,6 +1338,67 @@ IODTNVRAMFormatHandler::getNVRAMProperties()
 
 exit:
 	return ok;
+}
+
+IOReturn
+IODTNVRAMFormatHandler::handleEphDM(void)
+{
+	OSSharedPtr<IORegistryEntry> entry;
+	OSData*                      data;
+	OSSharedPtr<OSObject>        prop;
+	uint32_t                     ephDM = 0;
+	IOReturn                     ret = kIOReturnSuccess;
+	OSSharedPtr<const OSSymbol>  canonicalKey;
+	uint32_t                     skip = 0;
+	OSSharedPtr<OSDictionary>    varDict;
+
+	// For ephemeral data mode, NVRAM needs to be cleared on every boot
+	// For system region supported targets, iBoot clears the system region
+	// For other targets, iBoot clears all the persistent variables
+	// So xnu only needs to clear the common region
+	entry = IORegistryEntry::fromPath("/product", gIODTPlane);
+	if (entry) {
+		prop = entry->copyProperty("ephemeral-data-mode");
+		if (prop) {
+			data = OSDynamicCast(OSData, prop.get());
+			if (data) {
+				ephDM = *((uint32_t *)data->getBytesNoCopy());
+			}
+		}
+	}
+
+	require_action(ephDM != 0, exit, DEBUG_ALWAYS("ephemeral-data-mode not supported\n"));
+	require_action(getSystemPartitionActive(), exit, DEBUG_ALWAYS("No system region, no need to clear\n"));
+
+	if (PE_parse_boot_argn("epdm-skip-nvram", &skip, sizeof(skip))) {
+		require_action(!(gInternalBuild && (skip == 1)), exit, DEBUG_ALWAYS("Internal build + epdm-skip-nvram set to true, skip nvram clearing\n"));
+	}
+
+	// Get the current variable dictionary
+	ret = getVarDict(varDict);
+	require_noerr_action(ret, exit, DEBUG_ERROR("Failed to get variable dictionary for EphDM handling\n"));
+
+	// Go through the allowlist and stash the values
+	for (uint32_t entry = 0; entry < ARRAY_SIZE(ephDMEntries); entry++) {
+		canonicalKey = keyWithGuidAndCString(gAppleNVRAMGuid, ephDMEntries[entry].name);
+		ephDMEntries[entry].value.reset(OSDynamicCast(OSData, varDict->getObject(canonicalKey.get())), OSRetain);
+	}
+
+	DEBUG_ALWAYS("Obliterating common region\n");
+	ret = flush(gAppleNVRAMGuid, kIONVRAMOperationObliterate);
+	require_noerr_action(ret, exit, DEBUG_ERROR("Flushing common region failed, ret=%#08x\n", ret));
+
+	// Now write the allowlist variables back
+	for (uint32_t entry = 0; entry < ARRAY_SIZE(ephDMEntries); entry++) {
+		if (ephDMEntries[entry].value.get() == nullptr) {
+			continue;
+		}
+		ret = setVariable(gAppleNVRAMGuid, ephDMEntries[entry].name, ephDMEntries[entry].value.get());
+		require_noerr_action(ret, exit, DEBUG_ERROR("Setting allowlist variable %s failed, ret=%#08x\n", ephDMEntries[entry].name, ret));
+	}
+
+exit:
+	return ret;
 }
 
 #include "IONVRAMCHRPHandler.cpp"

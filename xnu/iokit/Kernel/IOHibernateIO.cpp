@@ -169,6 +169,7 @@
 #include <vm/vm_protos.h>
 #include <vm/vm_kern_xnu.h>
 #include <vm/vm_iokit.h>
+#include <kern/debug.h>
 #include "IOKitKernelInternal.h"
 #include <pexpert/device_tree.h>
 
@@ -290,6 +291,31 @@ HibernationCopyHandoffRegionFromPageArray(uint32_t page_array[], uint32_t page_c
 
 	uint8_t *copyDest = (uint8_t *)vars->handoffBuffer->getBytesNoCopy();
 
+#if HAS_MTE
+	/*
+	 * On hibernation exit, the hibtext had copied the handoff region
+	 * into a set of "borrowed" free physical pages, by simply picking
+	 * physical pages that were not covered by the hibernation image
+	 * (meaning that xnu does not care about their contents).
+	 *
+	 * MTE however keeps some nominally "free" pages in so called
+	 * "freepage queues". Just like regular free pages, their content
+	 * does not matter and they are not hibernated, but they are kept
+	 * for easier MTE page hand-out, and as such have MAIR=0x4 set.
+	 * I.e., they are effetively MTE-tagged.
+	 *
+	 * If the hibtext, who has no idea what MAIR a "free" page has,
+	 * happens to pick such a page, then the code below will
+	 * effectively try to access an MTE tagged page using an untagged
+	 * physical aperture pointer, ordiginarily resulting in a tag
+	 * check exception.
+	 *
+	 * At this still early point in hibernation, this is easily
+	 * circumenvented by temporarily turning off MTE tag checking
+	 * altogether.
+	 */
+	vm_memtag_disable_checking();
+#endif /* HAS_MTE */
 
 	for (unsigned i = 0; i < page_count; i++) {
 		/*
@@ -299,6 +325,9 @@ HibernationCopyHandoffRegionFromPageArray(uint32_t page_array[], uint32_t page_c
 		memcpy(&copyDest[i * PAGE_SIZE], (void *)phystokv(ptoa_64(page_array[i])), PAGE_SIZE);
 	}
 
+#if HAS_MTE
+	vm_memtag_enable_checking();
+#endif /* HAS_MTE */
 }
 #endif /* CONFIG_SPTM */
 
@@ -326,7 +355,11 @@ IOMemoryDescriptorWriteFromPhysical(IOMemoryDescriptor * md,
 			dstLen = remaining;
 		}
 
+#if HAS_MTE
+		bcopy_phys_with_options(srcAddr, dstAddr64, dstLen, cppvDisableTagCheck);
+#else /* HAS_MTE */
 		bcopy_phys(srcAddr, dstAddr64, dstLen);
+#endif /* HAS_MTE */
 		srcAddr   += dstLen;
 		offset    += dstLen;
 		remaining -= dstLen;
@@ -361,7 +394,11 @@ IOMemoryDescriptorReadToPhysical(IOMemoryDescriptor * md,
 			dstLen = remaining;
 		}
 
+#if HAS_MTE
+		bcopy_phys_with_options(srcAddr64, dstAddr, dstLen, cppvDisableTagCheck);
+#else /* HAS_MTE */
 		bcopy_phys(srcAddr64, dstAddr, dstLen);
+#endif /* HAS_MTE */
 		dstAddr    += dstLen;
 		offset     += dstLen;
 		remaining  -= dstLen;
@@ -1906,6 +1943,10 @@ hibernate_write_image(void)
 				break;
 			}
 		}
+
+#if HAS_UPSI_FAILURE_INJECTION
+		check_for_failure_injection(XNU_STAGE_HIBERNATE_ENTRY);
+#endif /* HAS_UPSI_FAILURE_INJECTION */
 
 		if (!vars->hwEncrypt && (kIOHibernateModeEncrypt & gIOHibernateMode)) {
 			vars->fileVars->encryptStart = (vars->fileVars->position & ~(AES_BLOCK_SIZE - 1));

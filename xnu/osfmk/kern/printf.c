@@ -184,6 +184,10 @@
 #include <ptrauth.h>
 #endif /* HAS_APPLE_PAC */
 
+#if CONFIG_SPTM
+#include <sptm/sptm_xnu.h>
+#endif /* CONFIG_SPTM */
+
 #define isdigit(d) ((d) >= '0' && (d) <= '9')
 #define Ctod(c) ((c) - '0')
 
@@ -914,6 +918,10 @@ vprintf(const char *fmt, va_list ap)
 	return vprintf_internal(fmt, ap, __builtin_return_address(0));
 }
 
+#if !CONFIG_SPTM
+#define sptm_serial_putc(c)
+#endif
+
 void
 consdebug_putc(char c)
 {
@@ -921,8 +929,12 @@ consdebug_putc(char c)
 
 	debug_putc(c);
 
+	/* Ignore `disable_serial_output` for early panic serial output from `sptm_serial_putc()`. */
 	if (!console_is_serial() && !disable_serial_output && (PE_kputc != NULL)) {
 		PE_kputc(c);
+	} else if (!console_is_serial() && (PE_kputc == NULL)) {
+		/* Use SPTM's serial interface for early serial output. */
+		sptm_serial_putc(c);
 	}
 }
 
@@ -933,8 +945,12 @@ consdebug_putc_unbuffered(char c)
 
 	debug_putc(c);
 
+	/* Ignore `disable_serial_output` for early panic serial output from `sptm_serial_putc()`. */
 	if (!console_is_serial() && !disable_serial_output && (PE_kputc != NULL)) {
 		PE_kputc(c);
+	} else if (!console_is_serial() && (PE_kputc == NULL)) {
+		/* Use SPTM's serial interface for early serial output. */
+		sptm_serial_putc(c);
 	}
 }
 

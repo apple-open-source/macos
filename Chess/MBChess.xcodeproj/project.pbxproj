@@ -208,7 +208,6 @@
 		950BD1240A1E582B00395116 /* MBCFloatingBoardWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B5015D049D3080006276A0 /* MBCFloatingBoardWindow.h */; };
 		950BD1250A1E582B00395116 /* MBCMoveGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 950B5942049D8C73000001C9 /* MBCMoveGenerator.h */; };
 		950BD1260A1E582B00395116 /* MBCAbout.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C4075B04B2B8500015A26B /* MBCAbout.h */; };
-		950BD1270A1E582B00395116 /* MBCLanguageModel.h in Headers */ = {isa = PBXBuildFile; fileRef = 95D2026204C2247A00590F98 /* MBCLanguageModel.h */; };
 		950BD1280A1E582B00395116 /* MBCBoardViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */; };
 		950BD12C0A1E582B00395116 /* bug.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1C02F917A901D8996C /* bug.opn */; };
 		950BD12D0A1E582B00395116 /* losers.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1D02F917A901D8996C /* losers.opn */; };
@@ -240,7 +239,6 @@
 		950BD15E0A1E582B00395116 /* MBCFloatingBoardWindow.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B5015E049D3080006276A0 /* MBCFloatingBoardWindow.mm */; };
 		950BD15F0A1E582B00395116 /* MBCMoveGenerator.mm in Sources */ = {isa = PBXBuildFile; fileRef = 950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */; };
 		950BD1600A1E582B00395116 /* MBCAbout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C4075C04B2B8500015A26B /* MBCAbout.mm */; };
-		950BD1610A1E582B00395116 /* MBCLanguageModel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95D2026304C2247B00590F98 /* MBCLanguageModel.mm */; };
 		950BD1620A1E582B00395116 /* MBCBoardViewAccessibility.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */; };
 		950BD1640A1E582B00395116 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		950BD1650A1E582B00395116 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5228DC5030ADA9401D8E860 /* OpenGL.framework */; };
@@ -308,7 +306,6 @@
 		95844CA90A670C280068CA82 /* MBCFloatingBoardWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B5015D049D3080006276A0 /* MBCFloatingBoardWindow.h */; };
 		95844CAA0A670C280068CA82 /* MBCMoveGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 950B5942049D8C73000001C9 /* MBCMoveGenerator.h */; };
 		95844CAB0A670C280068CA82 /* MBCAbout.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C4075B04B2B8500015A26B /* MBCAbout.h */; };
-		95844CAC0A670C280068CA82 /* MBCLanguageModel.h in Headers */ = {isa = PBXBuildFile; fileRef = 95D2026204C2247A00590F98 /* MBCLanguageModel.h */; };
 		95844CAD0A670C280068CA82 /* MBCBoardViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */; };
 		95844CB10A670C280068CA82 /* bug.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1C02F917A901D8996C /* bug.opn */; };
 		95844CB20A670C280068CA82 /* losers.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1D02F917A901D8996C /* losers.opn */; };
@@ -340,7 +337,6 @@
 		95844CE40A670C280068CA82 /* MBCFloatingBoardWindow.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B5015E049D3080006276A0 /* MBCFloatingBoardWindow.mm */; };
 		95844CE50A670C280068CA82 /* MBCMoveGenerator.mm in Sources */ = {isa = PBXBuildFile; fileRef = 950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */; };
 		95844CE60A670C280068CA82 /* MBCAbout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C4075C04B2B8500015A26B /* MBCAbout.mm */; };
-		95844CE70A670C280068CA82 /* MBCLanguageModel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95D2026304C2247B00590F98 /* MBCLanguageModel.mm */; };
 		95844CE80A670C280068CA82 /* MBCBoardViewAccessibility.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */; };
 		95844CEA0A670C280068CA82 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		95844CEB0A670C280068CA82 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5228DC5030ADA9401D8E860 /* OpenGL.framework */; };
@@ -603,8 +599,6 @@
 		95C4075B04B2B8500015A26B /* MBCAbout.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCAbout.h; path = Sources/MBCAbout.h; sourceTree = "<group>"; };
 		95C4075C04B2B8500015A26B /* MBCAbout.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCAbout.mm; path = Sources/MBCAbout.mm; sourceTree = "<group>"; };
 		95C85026048F342500A9DF4F /* Styles */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = Styles; sourceTree = "<group>"; };
-		95D2026204C2247A00590F98 /* MBCLanguageModel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCLanguageModel.h; path = Sources/MBCLanguageModel.h; sourceTree = "<group>"; };
-		95D2026304C2247B00590F98 /* MBCLanguageModel.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCLanguageModel.mm; path = Sources/MBCLanguageModel.mm; sourceTree = "<group>"; };
 		95D4D51A1327E29E0063FA06 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Spoken.strings; sourceTree = "<group>"; };
 		95D6CE63045BBDBE0045D5FC /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		95DEC3D81488581300E1305A /* Chess.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Chess.entitlements; sourceTree = "<group>"; };
@@ -1040,8 +1034,6 @@
 				90F8C34B2AE9DF96002B604E /* MBCBoardEnums.h */,
 				950B5942049D8C73000001C9 /* MBCMoveGenerator.h */,
 				950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */,
-				95D2026204C2247A00590F98 /* MBCLanguageModel.h */,
-				95D2026304C2247B00590F98 /* MBCLanguageModel.mm */,
 			);
 			name = Model;
 			sourceTree = "<group>";
@@ -1189,7 +1181,6 @@
 				900541B62AFABC5800BD48B4 /* MBCMetalMaterials.h in Headers */,
 				950BD1260A1E582B00395116 /* MBCAbout.h in Headers */,
 				905AE4BF2AE842A6008C0719 /* MBCBoardCommon.h in Headers */,
-				950BD1270A1E582B00395116 /* MBCLanguageModel.h in Headers */,
 				950BD1280A1E582B00395116 /* MBCBoardViewAccessibility.h in Headers */,
 				95C31C58125E2E020085159C /* MBCMoveTableView.h in Headers */,
 				95C31D69125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */,
@@ -1274,7 +1265,6 @@
 				95844CAA0A670C280068CA82 /* MBCMoveGenerator.h in Headers */,
 				905AE4C12AE842F7008C0719 /* MBCBoardCommon.h in Headers */,
 				95844CAB0A670C280068CA82 /* MBCAbout.h in Headers */,
-				95844CAC0A670C280068CA82 /* MBCLanguageModel.h in Headers */,
 				95844CAD0A670C280068CA82 /* MBCBoardViewAccessibility.h in Headers */,
 				95C31C5A125E2E020085159C /* MBCMoveTableView.h in Headers */,
 				95C31D6B125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */,
@@ -1643,7 +1633,6 @@
 				905659232AE888BE004611D7 /* MBCMetalRenderer.mm in Sources */,
 				A59F261C26FE44C600F7A5E8 /* MBCSharePlayMessages.swift in Sources */,
 				90F8C3582AEAE114002B604E /* MBCMathUtilities.m in Sources */,
-				950BD1610A1E582B00395116 /* MBCLanguageModel.mm in Sources */,
 				906A226A2B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm in Sources */,
 				90F8C33D2AE9DB8E002B604E /* MBCMeshLoader.mm in Sources */,
 				950BD1620A1E582B00395116 /* MBCBoardViewAccessibility.mm in Sources */,
@@ -1708,7 +1697,6 @@
 				90F8C3622AEB1C10002B604E /* MBCShaders.metal in Sources */,
 				95844CE50A670C280068CA82 /* MBCMoveGenerator.mm in Sources */,
 				95844CE60A670C280068CA82 /* MBCAbout.mm in Sources */,
-				95844CE70A670C280068CA82 /* MBCLanguageModel.mm in Sources */,
 				95844CE80A670C280068CA82 /* MBCBoardViewAccessibility.mm in Sources */,
 				95C31C5B125E2E020085159C /* MBCMoveTableView.mm in Sources */,
 				95C31D6C125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */,

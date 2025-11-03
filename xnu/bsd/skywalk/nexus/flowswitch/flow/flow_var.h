@@ -1018,6 +1018,7 @@ extern struct flow_entry_dead *flow_entry_dead_alloc(zalloc_flags_t);
 extern void flow_entry_dead_free(struct flow_entry_dead *);
 
 extern void flow_entry_stats_get(struct flow_entry *, struct sk_stats_flow *);
+extern void fe_stats_update(struct flow_entry *);
 
 extern int flow_pkt_classify(struct __kern_packet *pkt, struct ifnet *ifp,
     sa_family_t af, bool input);

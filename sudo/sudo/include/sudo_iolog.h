@@ -28,6 +28,9 @@
 /* Default maximum session ID */
 #define SESSID_MAX	2176782336U
 
+/* Default value for "iolog_file" */
+#define IOLOG_FILE	"%{seq}"
+
 /*
  * I/O log event types as stored as the first field in the timing file.
  * Changing existing values will result in incompatible I/O log files.
@@ -91,7 +94,7 @@ struct iolog_file {
 
 struct iolog_path_escape {
     const char *name;
-    size_t (*copy_fn)(char *, size_t, void *);
+    size_t (*copy_fn)(char * restrict, size_t, void * restrict );
 };
 
 /* host_port.c */
@@ -119,7 +122,7 @@ bool iolog_mkpath(char *path);
 bool iolog_nextid(const char *iolog_dir, char sessid[7]);
 bool iolog_open(struct iolog_file *iol, int dfd, int iofd, const char *mode);
 bool iolog_write_info_file(int dfd, struct eventlog *evlog);
-char *iolog_gets(struct iolog_file *iol, char *buf, size_t nbytes, const char **errsttr);
+char *iolog_gets(struct iolog_file *iol, char *buf, int bufsize, const char **errsttr);
 const char *iolog_fd_to_name(int iofd);
 int iolog_openat(int fdf, const char *path, int flags);
 off_t iolog_seek(struct iolog_file *iol, off_t offset, int whence);
@@ -150,6 +153,6 @@ void *iolog_pwfilt_alloc(void);
 bool iolog_pwfilt_add(void *handle, const char *pattern);
 void iolog_pwfilt_free(void *handle);
 bool iolog_pwfilt_remove(void *handle, const char *pattern);
-bool iolog_pwfilt_run(void *handle, int event, const char *buf, unsigned int len, char **newbuf);
+bool iolog_pwfilt_run(void *handle, int event, const char *buf, size_t len, char **newbuf);
 
 #endif /* SUDO_IOLOG_H */

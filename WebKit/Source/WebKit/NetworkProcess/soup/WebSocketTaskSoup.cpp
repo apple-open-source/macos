@@ -59,6 +59,11 @@ static inline bool isConnectionError(GError* error, SoupMessage* message)
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebSocketTask);
 
+Ref<WebSocketTask> WebSocketTask::create(NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, SoupSession* session, SoupMessage* msg, const String& protocol)
+{
+    return adoptRef(*new WebSocketTask(channel, request, session, msg, protocol));
+}
+
 WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, SoupSession* session, SoupMessage* msg, const String& protocol)
     : m_channel(channel)
     , m_request(request)
@@ -131,7 +136,7 @@ WebSocketTask::~WebSocketTask()
     cancel();
 }
 
-Ref<NetworkSocketChannel> WebSocketTask::protectedChannel() const
+RefPtr<NetworkSocketChannel> WebSocketTask::protectedChannel() const
 {
     return m_channel.get();
 }
@@ -172,10 +177,10 @@ void WebSocketTask::didConnect(GRefPtr<SoupWebsocketConnection>&& connection)
     g_signal_connect_swapped(m_connection.get(), "error", reinterpret_cast<GCallback>(didReceiveErrorCallback), this);
     g_signal_connect_swapped(m_connection.get(), "closed", reinterpret_cast<GCallback>(didCloseCallback), this);
 
-    Ref channel = m_channel.get();
-    channel->didConnect(String::fromLatin1(soup_websocket_connection_get_protocol(m_connection.get())), acceptedExtensions());
-
-    channel->didReceiveHandshakeResponse(m_handshakeMessage.get());
+    if (RefPtr channel = m_channel.get()) {
+        channel->didConnect(String::fromLatin1(soup_websocket_connection_get_protocol(m_connection.get())), acceptedExtensions());
+        channel->didReceiveHandshakeResponse(m_handshakeMessage.get());
+    }
     g_signal_handlers_disconnect_by_data(m_handshakeMessage.get(), this);
     m_handshakeMessage = nullptr;
 }
@@ -209,7 +214,10 @@ void WebSocketTask::didFail(String&& errorMessage)
     if (m_receivedDidFail)
         return;
 
-    Ref channel = m_channel.get();
+    RefPtr channel = m_channel.get();
+    if (!channel)
+        return;
+
     m_receivedDidFail = true;
     if (m_handshakeMessage) {
         channel->didReceiveHandshakeResponse(m_handshakeMessage.get());

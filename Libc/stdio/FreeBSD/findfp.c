@@ -271,11 +271,30 @@ f_prealloc(void)
  *
  * The name `_cleanup' is, alas, fairly well known outside stdio.
  */
+#ifdef __APPLE__
+static int
+tryflush(FILE *fp)
+{
+	int ret;
+
+	if (__isthreaded)
+		if (ftrylockfile(fp) < 0)
+			return (-1);
+	ret = __sflush(fp);
+	if (__isthreaded)
+		funlockfile(fp);
+	return (ret);
+}
+#endif /* __APPLE__ */
 void
 _cleanup(void)
 {
+#ifdef __APPLE__
+	(void)_fwalk(tryflush);
+#else
 	/* (void) _fwalk(fclose); */
 	(void) _fwalk(__sflush);		/* `cheating' */
+#endif /* __APPLE__ */
 }
 
 /*

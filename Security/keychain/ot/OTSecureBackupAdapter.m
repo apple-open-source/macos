@@ -32,4 +32,10 @@
     return [SecureBackup moveToFederationAllowed:federation altDSID:altDSID error:error];
 }
 
+- (bool)enableWithSecureBackup:(id)sb error:(NSError**)error
+{
+    SecureBackup* securebackup = (SecureBackup*)sb;
+    return [securebackup enableWithError:error];
+}
+
 @end

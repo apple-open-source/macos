@@ -1920,32 +1920,64 @@ void ReplaceSelectionCommand::updateDirectionForStartOfInsertedContentIfNeeded(c
     if (editAction != EditAction::Paste && editAction != EditAction::InsertFromDrop)
         return;
 
-    VisiblePosition visibleStartOfInsertedContent { m_startOfInsertedContent };
-    auto firstParagraphRange = makeSimpleRange({ visibleStartOfInsertedContent, endOfParagraph(visibleStartOfInsertedContent) });
-    if (!firstParagraphRange)
-        return;
+    auto startOfInsertedContent = positionAtStartOfInsertedContent();
+    auto endOfInsertedContent = positionAtEndOfInsertedContent();
 
-    auto newDirection = [&] -> std::optional<TextDirection> {
-        if (RefPtr node = insertedNodes.firstNodeInserted(); node && node->usesEffectiveTextDirection())
-            return node->effectiveTextDirection();
+    VisibleSelection originalEndingSelection = endingSelection();
+    bool restoreOriginalEndingSelection = false;
+    bool isFirstParagraph = true;
+    VisiblePosition visibleStartOfParagraph = startOfParagraph(startOfInsertedContent);
+    VisiblePosition visibleEndOfParagraph = endOfParagraph(visibleStartOfParagraph);
+    do {
+        auto paragraphRange = makeSimpleRange({ visibleStartOfParagraph, visibleEndOfParagraph });
+        if (!paragraphRange)
+            break;
 
-        return baseTextDirection(plainText(*firstParagraphRange));
-    }();
+        auto paragraphStart = visibleStartOfParagraph.deepEquivalent();
+        auto paragraphEnd = visibleEndOfParagraph.deepEquivalent();
 
-    if (!newDirection)
-        return;
+        RefPtr startContainer = paragraphStart.containerNode();
+        RefPtr blockContainer = enclosingBlock(startContainer.get());
+        if (!blockContainer)
+            break;
 
-    RefPtr blockContainer = enclosingBlock(m_startOfInsertedContent.protectedContainerNode());
-    if (!blockContainer)
-        return;
+        auto newDirection = [&] -> std::optional<TextDirection> {
+            if (blockContainer->usesEffectiveTextDirection())
+                return blockContainer->effectiveTextDirection();
 
-    if (CheckedPtr renderer = blockContainer->renderer(); !renderer || renderer->writingMode().bidiDirection() == newDirection)
-        return;
+            if (RefPtr firstNode = insertedNodes.firstNodeInserted()) {
+                // This is a workaround to ensure that a single pasted RTL paragraph that doesn't have an explicit direction attribute
+                // but begins with LTR text is still pasted as RTL text. In the future, we should remove this logic and instead use platform
+                // heuristics to determine the writing direction of text — e.g., using `CFAttributedStringGetStatisticalWritingDirections`
+                // on Cocoa platforms.
+                if (isFirstParagraph && firstNode->isComposedTreeDescendantOf(*blockContainer) && firstNode->usesEffectiveTextDirection())
+                    return firstNode->effectiveTextDirection();
+            }
 
-    auto directionValueID = toCSSValueID(*newDirection);
-    Ref style = EditingStyle::create(CSSPropertyDirection, directionValueID);
-    applyStyle(style.ptr(), m_startOfInsertedContent, m_startOfInsertedContent, EditAction::SetBlockWritingDirection, ApplyStylePropertyLevel::ForceBlock);
-    setNodeAttribute(*blockContainer, dirAttr, nameLiteral(directionValueID));
+            return baseTextDirection(plainText(*paragraphRange));
+        }();
+
+        if (!newDirection)
+            break;
+
+        if (CheckedPtr renderer = blockContainer->renderer(); renderer && renderer->writingMode().bidiDirection() != newDirection) {
+            auto directionValueID = toCSSValueID(*newDirection);
+            Ref style = EditingStyle::create(CSSPropertyDirection, directionValueID);
+            applyStyle(style.ptr(), paragraphEnd, paragraphEnd, EditAction::SetBlockWritingDirection, ApplyStylePropertyLevel::ForceBlock);
+            setNodeAttribute(*blockContainer, dirAttr, nameLiteral(directionValueID));
+            restoreOriginalEndingSelection = true;
+        }
+
+        visibleStartOfParagraph = startOfNextParagraph(visibleEndOfParagraph);
+        if (visibleStartOfParagraph == visibleEndOfParagraph)
+            break;
+
+        visibleEndOfParagraph = endOfParagraph(visibleStartOfParagraph);
+        isFirstParagraph = false;
+    } while (visibleStartOfParagraph.isNotNull() && visibleStartOfParagraph < endOfInsertedContent);
+
+    if (restoreOriginalEndingSelection)
+        setEndingSelection(originalEndingSelection);
 }
 
 } // namespace WebCore

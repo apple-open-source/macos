@@ -93,6 +93,8 @@ struct proc_ro {
 		struct task_filter_ro_data task_filters;
 #endif
 		uint32_t t_flags_ro;                               /* RO-protected task flags (see osfmk/kern/task.h) */
+
+		/* This is not inherited on fork/exec, must be re-evaluated */
 		task_control_port_options_t task_control_port_options;
 	});
 };

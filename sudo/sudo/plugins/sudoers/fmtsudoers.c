@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2004-2005, 2007-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2004-2005, 2007-2024 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,8 +29,8 @@
 #include <pwd.h>
 #include <time.h>
 
-#include "sudoers.h"
-#include "sudo_lbuf.h"
+#include <sudoers.h>
+#include <sudo_lbuf.h>
 #include <gram.h>
 
 /*
@@ -40,19 +40,21 @@
  */
 static bool
 sudoers_format_member_int(struct sudo_lbuf *lbuf,
-    struct sudoers_parse_tree *parse_tree, char *name, int type, bool negated,
-    const char *separator, int alias_type)
+    const struct sudoers_parse_tree *parse_tree, const char *name, int type,
+    bool negated, const char *separator, short alias_type)
 {
+    const struct sudoers_context *ctx = parse_tree->ctx;
     struct alias *a;
-    struct member *m;
-    struct sudo_command *c;
-    struct command_digest *digest;
+    const struct member *m;
+    const struct sudo_command *c;
+    const struct command_digest *digest;
     debug_decl(sudoers_format_member_int, SUDOERS_DEBUG_UTIL);
 
     switch (type) {
 	case MYSELF:
 	    sudo_lbuf_append(lbuf, "%s%s", negated ? "!" : "",
-		list_pw ? list_pw->pw_name : (user_name ? user_name : ""));
+		ctx->runas.list_pw ? ctx->runas.list_pw->pw_name :
+		(ctx->user.name ? ctx->user.name : ""));
 	    break;
 	case ALL:
 	    if (name == NULL) {
@@ -104,8 +106,9 @@ sudoers_format_member_int(struct sudo_lbuf *lbuf,
 		    TAILQ_FOREACH(m, &a->members, entries) {
 			if (m != TAILQ_FIRST(&a->members))
 			    sudo_lbuf_append(lbuf, "%s", separator);
-			sudoers_format_member_int(lbuf, parse_tree, m->name,
-			    m->type, negated ? !m->negated : m->negated,
+			sudoers_format_member_int(lbuf, parse_tree,
+			    m->name, m->type,
+			    negated ? !m->negated : m->negated,
 			    separator, alias_type);
 		    }
 		    alias_put(a);
@@ -136,8 +139,8 @@ sudoers_format_member_int(struct sudo_lbuf *lbuf,
 
 bool
 sudoers_format_member(struct sudo_lbuf *lbuf,
-    struct sudoers_parse_tree *parse_tree, struct member *m,
-    const char *separator, int alias_type)
+    const struct sudoers_parse_tree *parse_tree, const struct member *m,
+    const char *separator, short alias_type)
 {
     return sudoers_format_member_int(lbuf, parse_tree, m->name, m->type,
 	m->negated, separator, alias_type);
@@ -185,10 +188,11 @@ sudoers_defaults_to_tags(const char *var, const char *val, int op,
  * Convert a defaults list to command tags.
  */
 bool
-sudoers_defaults_list_to_tags(struct defaults_list *defs, struct cmndtag *tags)
+sudoers_defaults_list_to_tags(const struct defaults_list *defs,
+    struct cmndtag *tags)
 {
+    const struct defaults *d;
     bool ret = true;
-    struct defaults *d;
     debug_decl(sudoers_defaults_list_to_tags, SUDOERS_DEBUG_UTIL);
 
     TAGS_INIT(tags);
@@ -222,36 +226,30 @@ sudoers_defaults_list_to_tags(struct defaults_list *defs, struct cmndtag *tags)
  */
 bool
 sudoers_format_cmndspec(struct sudo_lbuf *lbuf,
-    struct sudoers_parse_tree *parse_tree, struct cmndspec *cs,
-    struct cmndspec *prev_cs, struct cmndtag tags, bool expand_aliases)
+    const struct sudoers_parse_tree *parse_tree, const struct cmndspec *cs,
+    const struct cmndspec *prev_cs, struct cmndtag tags, bool expand_aliases)
 {
     debug_decl(sudoers_format_cmndspec, SUDOERS_DEBUG_UTIL);
 
     /* Merge privilege-level tags with cmndspec tags. */
     TAGS_MERGE(tags, cs->tags);
 
-#ifdef HAVE_PRIV_SET
     if (cs->privs != NULL && FIELD_CHANGED(prev_cs, cs, privs))
 	sudo_lbuf_append(lbuf, "PRIVS=\"%s\" ", cs->privs);
     if (cs->limitprivs != NULL && FIELD_CHANGED(prev_cs, cs, limitprivs))
 	sudo_lbuf_append(lbuf, "LIMITPRIVS=\"%s\" ", cs->limitprivs);
-#endif /* HAVE_PRIV_SET */
-#ifdef HAVE_SELINUX
     if (cs->role != NULL && FIELD_CHANGED(prev_cs, cs, role))
 	sudo_lbuf_append(lbuf, "ROLE=%s ", cs->role);
     if (cs->type != NULL && FIELD_CHANGED(prev_cs, cs, type))
 	sudo_lbuf_append(lbuf, "TYPE=%s ", cs->type);
-#endif /* HAVE_SELINUX */
-#ifdef HAVE_APPARMOR
     if (cs->apparmor_profile != NULL && FIELD_CHANGED(prev_cs, cs, apparmor_profile))
 	sudo_lbuf_append(lbuf, "APPARMOR_PROFILE=%s ", cs->apparmor_profile);
-#endif /* HAVE_APPARMOR */
     if (cs->runchroot != NULL && FIELD_CHANGED(prev_cs, cs, runchroot))
 	sudo_lbuf_append(lbuf, "CHROOT=%s ", cs->runchroot);
     if (cs->runcwd != NULL && FIELD_CHANGED(prev_cs, cs, runcwd))
 	sudo_lbuf_append(lbuf, "CWD=%s ", cs->runcwd);
     if (cs->timeout > 0 && FIELD_CHANGED(prev_cs, cs, timeout)) {
-	char numbuf[(((sizeof(int) * 8) + 2) / 3) + 2];
+	char numbuf[STRLEN_MAX_SIGNED(int) + 1];
 	(void)snprintf(numbuf, sizeof(numbuf), "%d", cs->timeout);
 	sudo_lbuf_append(lbuf, "TIMEOUT=%s ", numbuf);
     }
@@ -259,7 +257,7 @@ sudoers_format_cmndspec(struct sudo_lbuf *lbuf,
 	char buf[sizeof("CCYYMMDDHHMMSSZ")] = "";
 	struct tm gmt;
 	if (gmtime_r(&cs->notbefore, &gmt) != NULL) {
-	    int len = strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", &gmt);
+	    size_t len = strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", &gmt);
 	    if (len != 0 && buf[sizeof(buf) - 1] == '\0')
 		sudo_lbuf_append(lbuf, "NOTBEFORE=%s ", buf);
 	}
@@ -268,7 +266,7 @@ sudoers_format_cmndspec(struct sudo_lbuf *lbuf,
 	char buf[sizeof("CCYYMMDDHHMMSSZ")] = "";
 	struct tm gmt;
 	if (gmtime_r(&cs->notafter, &gmt) != NULL) {
-	    int len = strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", &gmt);
+	    size_t len = strftime(buf, sizeof(buf), "%Y%m%d%H%M%SZ", &gmt);
 	    if (len != 0 && buf[sizeof(buf) - 1] == '\0')
 		sudo_lbuf_append(lbuf, "NOTAFTER=%s ", buf);
 	}
@@ -298,7 +296,7 @@ sudoers_format_cmndspec(struct sudo_lbuf *lbuf,
  * Format and append a defaults entry to the specified lbuf.
  */
 bool
-sudoers_format_default(struct sudo_lbuf *lbuf, struct defaults *d)
+sudoers_format_default(struct sudo_lbuf *lbuf, const struct defaults *d)
 {
     debug_decl(sudoers_format_default, SUDOERS_DEBUG_UTIL);
 

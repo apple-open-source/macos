@@ -1,11 +1,11 @@
 " These commands create the option window.
 "
 " Maintainer:	The Vim Project <https://github.com/vim/vim>
-" Last Change:	2024 Jul 12
+" Last Change:	2025 Sep 02
 " Former Maintainer:	Bram Moolenaar <Bram@vim.org>
 
 " If there already is an option window, jump to that one.
-let buf = bufnr('option-window')
+let buf = bufexists('option-window') ? bufnr('option-window') : -1
 if buf >= 0
   let winids = win_findbuf(buf)
   if len(winids) > 0
@@ -283,6 +283,8 @@ call <SID>AddOption("ignorecase", gettext("ignore case when using a search patte
 call <SID>BinOptionG("ic", &ic)
 call <SID>AddOption("smartcase", gettext("override 'ignorecase' when pattern has upper case characters"))
 call <SID>BinOptionG("scs", &scs)
+call <SID>AddOption("maxsearchcount", gettext("maximum number for the search count feature"))
+call <SID>OptionG("msc", &msc)
 call <SID>AddOption("casemap", gettext("what method to use for changing case of letters"))
 call <SID>OptionG("cmp", &cmp)
 call <SID>AddOption("maxmempattern", gettext("maximum amount of memory in Kbyte used for pattern matching"))
@@ -371,7 +373,7 @@ call <SID>AddOption("sidescrolloff", gettext("minimal number of columns to keep 
 call append("$", " \tset siso=" . &siso)
 call <SID>AddOption("display", gettext("include \"lastline\" to show the last line even if it doesn't fit\ninclude \"uhex\" to show unprintable characters as a hex number"))
 call <SID>OptionG("dy", &dy)
-call <SID>AddOption("fillchars", gettext("characters to use for the status line, folds and filler lines"))
+call <SID>AddOption("fillchars", gettext("characters to use for the status line, folds, diffs, buffer text, filler lines and truncation in the completion menu"))
 call <SID>OptionG("fcs", &fcs)
 call <SID>AddOption("cmdheight", gettext("number of lines used for the command-line"))
 call append("$", " \tset ch=" . &ch)
@@ -404,6 +406,13 @@ if has("linebreak")
   call <SID>AddOption("numberwidth", gettext("number of columns to use for the line number"))
   call append("$", "\t" .. s:local_to_window)
   call <SID>OptionL("nuw")
+endif
+if has("quickfix")
+  call <SID>AddOption("chistory", gettext("maximum number of quickfix lists that can be stored in history"))
+  call <SID>OptionL("chi")
+  call <SID>AddOption("lhistory", gettext("maximum number of location lists that can be stored in history"))
+  call append("$", "\t" .. s:local_to_window)
+  call <SID>OptionL("lhi")
 endif
 if has("conceal")
   call <SID>AddOption("conceallevel", gettext("controls whether concealable text is hidden"))
@@ -623,7 +632,8 @@ if has("win32")
   call <SID>AddOption("restorescreen", gettext("restore the screen contents when exiting Vim"))
   call <SID>BinOptionG("rs", &rs)
 endif
-
+call <SID>AddOption("osctimeoutlen", gettext("timeout used for terminal OSC responses"))
+call <SID>OptionG("ost", &ost)
 
 call <SID>Header(gettext("using the mouse"))
 call <SID>AddOption("mouse", gettext("list of flags for using the mouse"))
@@ -677,6 +687,8 @@ if has("gui")
     endif
     call <SID>AddOption("guiheadroom", gettext("room (in pixels) left above/below the window"))
     call append("$", " \tset ghr=" . &ghr)
+  endif
+  if has("gui_gtk") || has("gui_win32")
     call <SID>AddOption("guiligatures", gettext("list of ASCII characters that can be combined into complex shapes"))
     call <SID>OptionG("gli", &gli)
   endif
@@ -749,6 +761,8 @@ call <SID>AddOption("terse", gettext("add 's' flag in 'shortmess' (don't show se
 call <SID>BinOptionG("terse", &terse)
 call <SID>AddOption("shortmess", gettext("list of flags to make messages shorter"))
 call <SID>OptionG("shm", &shm)
+call <SID>AddOption("messagesopt", gettext("options for outputting messages"))
+call <SID>OptionG("mopt", &mopt)
 call <SID>AddOption("showcmd", gettext("show (partial) command keys in location given by 'showcmdloc'"))
 let &sc = s:old_sc
 call <SID>BinOptionG("sc", &sc)
@@ -797,6 +811,20 @@ call <SID>OptionG("slm", &slm)
 if has("clipboard")
   call <SID>AddOption("clipboard", gettext("\"unnamed\" to use the * register like unnamed register\n\"autoselect\" to always put selected text on the clipboard"))
   call <SID>OptionG("cb", &cb)
+  call <SID>AddOption("clipmethod", gettext("Ordered list of possible methods for accessing the clipboard"))
+  call <SID>OptionG("cpm", &cpm)
+endif
+if has("wayland_clipboard")
+  call <SID>AddOption("wltimeoutlen", gettext("Timeout to use when polling for data to read or write in wayland"))
+  call <SID>OptionG("wtm", &wtm)
+endif
+if has('wayland')
+  call <SID>AddOption("wlseat", gettext("Wayland seat to use"))
+  call <SID>OptionG("wse", &wse)
+endif
+if has("wayland_clipboard")
+  call <SID>AddOption("wlsteal", gettext("Enable wayland focus stealing functionality in order to access the clipboard"))
+  call <SID>BinOptionG("wst", &wst)
 endif
 call <SID>AddOption("keymodel", gettext("\"startsel\" and/or \"stopsel\"; what special keys can do"))
 call <SID>OptionG("km", &km)
@@ -847,10 +875,20 @@ if has("insert_expand")
   call <SID>AddOption("complete", gettext("specifies how Insert mode completion works for CTRL-N and CTRL-P"))
   call append("$", "\t" .. s:local_to_buffer)
   call <SID>OptionL("cpt")
+  call <SID>AddOption("autocomplete", gettext("automatic completion in insert mode"))
+  call <SID>BinOptionG("ac", &ac)
+  call <SID>AddOption("autocompletetimeout", gettext("initial decay timeout for 'autocomplete' algorithm"))
+  call append("$", " \tset act=" . &act)
+  call <SID>AddOption("completetimeout", gettext("initial decay timeout for CTRL-N and CTRL-P completion"))
+  call append("$", " \tset cto=" . &cto)
+  call <SID>AddOption("autocompletedelay", gettext("delay in msec before menu appears after typing"))
+  call append("$", " \tset acl=" . &acl)
   call <SID>AddOption("completeopt", gettext("whether to use a popup menu for Insert mode completion"))
   call <SID>OptionL("cot")
   call <SID>AddOption("completeitemalign", gettext("popup menu item align order"))
   call <SID>OptionG("cia", &cia)
+  call <SID>AddOption("completefuzzycollect", gettext("use fuzzy collection for specific completion modes"))
+  call <SID>OptionL("cfc")
   if exists("+completepopup")
     call <SID>AddOption("completepopup", gettext("options for the Insert mode completion info popup"))
     call <SID>OptionG("cpp", &cpp)
@@ -859,6 +897,8 @@ if has("insert_expand")
   call <SID>OptionG("ph", &ph)
   call <SID>AddOption("pumwidth", gettext("minimum width of the popup menu"))
   call <SID>OptionG("pw", &pw)
+  call <SID>AddOption("pummaxwidth", gettext("maximum width of the popup menu"))
+  call <SID>OptionG("pmw", &pmw)
   call <SID>AddOption("completefunc", gettext("user defined function for Insert mode completion"))
   call append("$", "\t" .. s:local_to_buffer)
   call <SID>OptionL("cfu")
@@ -1025,6 +1065,9 @@ if has("diff")
   call <SID>OptionG("dip", &dip)
   call <SID>AddOption("diffexpr", gettext("expression used to obtain a diff file"))
   call <SID>OptionG("dex", &dex)
+  call <SID>AddOption("diffanchors", gettext("list of addresses for anchoring a diff"))
+  call append("$", "\t" .. s:global_or_local)
+  call <SID>OptionG("dia", &dia)
   call <SID>AddOption("patchexpr", gettext("expression used to patch a file"))
   call <SID>OptionG("pex", &pex)
 endif
@@ -1241,6 +1284,8 @@ call <SID>AddOption("isfname", gettext("specifies the characters in a file name"
 call <SID>OptionG("isf", &isf)
 call <SID>AddOption("isident", gettext("specifies the characters in an identifier"))
 call <SID>OptionG("isi", &isi)
+call <SID>AddOption("isexpand", gettext("defines trigger strings for complete_match()"))
+call append("$", "\t" .. s:local_to_buffer)
 call <SID>AddOption("iskeyword", gettext("specifies the characters in a keyword"))
 call append("$", "\t" .. s:local_to_buffer)
 call <SID>OptionL("isk")
@@ -1341,6 +1386,8 @@ call <SID>AddOption("virtualedit", gettext("when to use virtual editing: \"block
 call <SID>OptionG("ve", &ve)
 call <SID>AddOption("eventignore", gettext("list of autocommand events which are to be ignored"))
 call <SID>OptionG("ei", &ei)
+call <SID>AddOption("eventignorewin", gettext("list of autocommand events which are to be ignored in a window"))
+call <SID>OptionG("eiw", &eiw)
 call <SID>AddOption("loadplugins", gettext("load plugin scripts when starting up"))
 call <SID>BinOptionG("lpl", &lpl)
 call <SID>AddOption("exrc", gettext("enable reading .vimrc/.exrc/.gvimrc in the current directory"))
@@ -1436,6 +1483,14 @@ if exists("&mzschemedll")
   call <SID>OptionG("mzschemedll", &mzschemedll)
   call <SID>AddOption("mzschemegcdll", gettext("name of the MzScheme GC dynamic library"))
   call <SID>OptionG("mzschemegcdll", &mzschemegcdll)
+endif
+if has("tabpanel")
+  call <SID>AddOption("showtabpanel", gettext("0, 1 or 2; when to use the tabpanel"))
+  call <SID>OptionG("showtabpanel", &showtabpanel)
+  call <SID>AddOption("tabpanel", gettext("custom tab pages in tabpanel"))
+  call <SID>OptionG("tabpanel", &tabpanel)
+  call <SID>AddOption("tabpanelopt", gettext("options for using tabpanel"))
+  call <SID>OptionG("tabpanelopt", &tabpanelopt)
 endif
 
 set cpo&vim

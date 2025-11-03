@@ -2220,6 +2220,36 @@ flow_divert_try_next_group(struct flow_divert_pcb *fd_cb)
 	return error;
 }
 
+static inline bool
+flow_divert_address_needs_mapping(struct socket *so, struct sockaddr *addr)
+{
+	return so != NULL && SOCK_CHECK_DOM(so, PF_INET6) && addr != NULL && addr->sa_family == AF_INET && addr->sa_len >= sizeof(struct sockaddr_in);
+}
+
+static struct sockaddr *
+flow_divert_map_v4_to_v6(struct flow_divert_pcb *fd_cb, struct sockaddr *addr_v4, struct sockaddr_in6 *addr_v4inv6)
+{
+	FDLOG0(LOG_NOTICE, fd_cb, "Mapping v4 remote endpoint to a v6 endpoint");
+	union {
+		struct in_addr_4in6 addr46;
+		struct in6_addr addr6;
+	} mapped_addr = {
+		.addr6 = IN6ADDR_V4MAPPED_INIT,
+	};
+	struct sockaddr_in *sin = satosin(addr_v4);
+
+	memset(addr_v4inv6, 0, sizeof(*addr_v4inv6));
+
+	mapped_addr.addr46.ia46_addr4 = sin->sin_addr;
+
+	addr_v4inv6->sin6_family = AF_INET6;
+	addr_v4inv6->sin6_len = sizeof(*addr_v4inv6);
+	addr_v4inv6->sin6_addr = mapped_addr.addr6;
+	addr_v4inv6->sin6_port = sin->sin_port;
+
+	return (struct sockaddr *)addr_v4inv6;
+}
+
 static int
 flow_divert_disable(struct flow_divert_pcb *fd_cb)
 {
@@ -2230,6 +2260,7 @@ flow_divert_disable(struct flow_divert_pcb *fd_cb)
 	struct sockaddr *remote_endpoint = fd_cb->original_remote_endpoint;
 	bool do_connect = !(fd_cb->flags & FLOW_DIVERT_IMPLICIT_CONNECT);
 	struct inpcb *inp = NULL;
+	struct sockaddr_in6 sin6 = {};
 
 	so = fd_cb->so;
 	if (so == NULL) {
@@ -2268,6 +2299,10 @@ flow_divert_disable(struct flow_divert_pcb *fd_cb)
 
 	/* Reset the socket state to avoid confusing NECP */
 	so->so_state &= ~(SS_ISCONNECTING | SS_ISCONNECTED);
+
+	if (flow_divert_address_needs_mapping(so, remote_endpoint)) {
+		remote_endpoint = flow_divert_map_v4_to_v6(fd_cb, remote_endpoint, &sin6);
+	}
 
 	last_proc = proc_find(so->last_pid);
 
@@ -2364,6 +2399,8 @@ flow_divert_disable(struct flow_divert_pcb *fd_cb)
 				to_endpoint = flow_divert_get_buffered_target_address(addr);
 				if (to_endpoint == NULL) {
 					FDLOG0(LOG_NOTICE, fd_cb, "Failed to get the remote address from the buffer");
+				} else if (flow_divert_address_needs_mapping(so, to_endpoint)) {
+					to_endpoint = flow_divert_map_v4_to_v6(fd_cb, to_endpoint, &sin6);
 				}
 			}
 
@@ -2766,16 +2803,67 @@ flow_divert_create_control_mbuf(struct flow_divert_pcb *fd_cb)
 	bool need_recvdstaddr = false;
 	/* Socket flow tracking needs to see the local address */
 	need_recvdstaddr = SOFLOW_ENABLED(inp->inp_socket);
-	if ((inp->inp_vflag & INP_IPV4) &&
-	    fd_cb->local_endpoint.sa.sa_family == AF_INET &&
-	    ((inp->inp_flags & INP_RECVDSTADDR) || need_recvdstaddr)) {
-		return sbcreatecontrol((caddr_t)&(fd_cb->local_endpoint.sin.sin_addr), sizeof(struct in_addr), IP_RECVDSTADDR, IPPROTO_IP);
+	if ((inp->inp_vflag & INP_IPV4) && fd_cb->local_endpoint.sa.sa_family == AF_INET) {
+		mbuf_ref_t control = NULL;
+		struct mbuf **control_handle = &control;
+		if ((inp->inp_flags & INP_RECVDSTADDR) || need_recvdstaddr) {
+			control_handle = sbcreatecontrol_mbuf((caddr_t)&(fd_cb->local_endpoint.sin.sin_addr), sizeof(struct in_addr), IP_RECVDSTADDR, IPPROTO_IP, control_handle);
+			if (*control_handle == NULL) {
+				FDLOG0(LOG_ERR, fd_cb, "failed to create a IP_RECVDSTADDR control mbuf");
+				return NULL;
+			}
+		}
+		if (inp->inp_flags & INP_RECVIF) {
+			ifnet_ref_t ifp = inp->inp_last_outifp;
+			uint8_t sdlbuf[SOCK_MAXADDRLEN + 1] = {};
+			struct sockaddr_dl *sdl2 = SDL(sdlbuf);
+
+			/*
+			 * Make sure to accomodate the largest possible
+			 * size of SA(if_lladdr)->sa_len.
+			 */
+			static_assert(sizeof(sdlbuf) == (SOCK_MAXADDRLEN + 1));
+
+			/* Initialize to a "dummy" address */
+			sdl2->sdl_len = offsetof(struct sockaddr_dl, sdl_data[0]);
+			sdl2->sdl_family = AF_LINK;
+			sdl2->sdl_index = 0;
+			sdl2->sdl_nlen = sdl2->sdl_alen = sdl2->sdl_slen = 0;
+
+			ifnet_head_lock_shared();
+			if (ifp != NULL && ifp->if_index && IF_INDEX_IN_RANGE(ifp->if_index)) {
+				struct ifaddr *__single ifa = ifnet_addrs[ifp->if_index - 1];
+				if (ifa != NULL && ifa->ifa_addr != NULL) {
+					struct sockaddr_dl *sdp = NULL;
+					IFA_LOCK_SPIN(ifa);
+					sdp = SDL(ifa->ifa_addr);
+					if (sdp->sdl_family == AF_LINK) {
+						/* the above static_assert() ensures sdl_len fits in sdlbuf */
+						SOCKADDR_COPY(sdp, sdl2, sdp->sdl_len);
+					}
+					IFA_UNLOCK(ifa);
+				}
+			}
+			ifnet_head_done();
+
+			control_handle = sbcreatecontrol_mbuf((caddr_t)SA_BYTES(sdl2), sdl2->sdl_len, IP_RECVIF, IPPROTO_IP, control_handle);
+			if (*control_handle == NULL) {
+				FDLOG0(LOG_ERR, fd_cb, "failed to create a IP_RECVIF control mbuf");
+				return NULL;
+			}
+		}
+		return control;
 	} else if ((inp->inp_vflag & INP_IPV6) &&
 	    fd_cb->local_endpoint.sa.sa_family == AF_INET6 &&
 	    ((inp->inp_flags & IN6P_PKTINFO) || need_recvdstaddr)) {
 		struct in6_pktinfo pi6;
 		memset(&pi6, 0, sizeof(pi6));
 		pi6.ipi6_addr = fd_cb->local_endpoint.sin6.sin6_addr;
+		if (inp->in6p_last_outifp != NULL) {
+			pi6.ipi6_ifindex = inp->in6p_last_outifp->if_index;
+		} else if (inp->inp_last_outifp != NULL) {
+			pi6.ipi6_ifindex = inp->inp_last_outifp->if_index;
+		}
 
 		return sbcreatecontrol((caddr_t)&pi6, sizeof(pi6), IPV6_PKTINFO, IPPROTO_IPV6);
 	}

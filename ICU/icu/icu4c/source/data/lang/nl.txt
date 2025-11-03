@@ -431,6 +431,7 @@ nl{
         nds_NL{"Nederduits"}
         ne{"Nepalees"}
         new{"Newari"}
+        nez{"Nez Percé"}
         ng{"Ndonga"}
         nia{"Nias"}
         niu{"Niueaans"}

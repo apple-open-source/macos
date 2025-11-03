@@ -221,7 +221,7 @@ wo{
         }
         GYD{
             "GYD",
-            "Guyanaese Dollar",
+            "Guyanese Dollar",
         }
         HKD{
             "HK$",
@@ -805,7 +805,7 @@ wo{
             other{"Guatemalan quetzals"}
         }
         GYD{
-            other{"Guyanaese dollars"}
+            other{"Guyanese dollars"}
         }
         HKD{
             other{"Hong Kong dollars"}

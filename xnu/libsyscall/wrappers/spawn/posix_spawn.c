@@ -27,6 +27,7 @@
 
 #define CONFIG_MEMORYSTATUS 1 // <rdar://problem/13604997>
 #include <sys/types.h> /* for user_size_t */
+#include <sys/resource.h>
 #include <spawn.h>
 #include <spawn_private.h>
 #include <sys/spawn_internal.h>
@@ -919,7 +920,7 @@ posix_spawnattr_setdataless_iopolicy_np(posix_spawnattr_t * __restrict attr,
 
 	psattr = *(_posix_spawnattr_t *)attr;
 	psattr->psa_options |= PSA_OPTION_DATALESS_IOPOLICY;
-	psattr->psa_dataless_iopolicy = policy;
+	psattr->psa_dataless_iopolicy = (policy | IOPOL_MATERIALIZE_DATALESS_FILES_ORIG);
 
 	return 0;
 }

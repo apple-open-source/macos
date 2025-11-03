@@ -385,6 +385,9 @@ _global_eventq(event64_t event)
 	 * this doesn't use os_hash_kernel_pointer() because
 	 * some clients use "numbers" here.
 	 */
+#if HAS_MTE
+	event = vm_memtag_canonicalize_kernel((vm_offset_t)event);
+#endif
 	return &global_waitqs[os_hash_uint64(event) & (g_num_waitqs - 1)];
 }
 

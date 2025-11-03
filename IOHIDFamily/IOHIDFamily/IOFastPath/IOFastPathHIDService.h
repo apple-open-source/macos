@@ -248,6 +248,48 @@ private:
     UInt64 generation; ///< counter used to generate sample IDs
 };
 
+#if APPLE_FEATURE_P192
+
+/// IOFastPath service which generates button samples.
+///
+class IOFastPathHIDButtonService : public IOFastPathHIDService
+{
+    OSDeclareDefaultStructors(IOFastPathHIDButtonService);
+    using super = IOFastPathHIDService;
+
+public:
+
+    /// Start the service. See IOKit/IOService.h for more info.
+    virtual bool start(IOService * provider) override;
+
+protected:
+
+    virtual bool isProducer() const override { return true; }
+
+    /// Create the service's fast path descriptor.
+    ///
+    virtual OSPtr<IOFastPathDescriptor> createDescriptor() override;
+
+    /// Handle a HID event dispatched by the event service. If the event is a button event, enqueue
+    /// a sample with the event data.
+    ///
+    virtual void handleEvent(IOHIDEventService * sender, void * context, IOHIDEvent * event, IOOptionBits options) override;
+
+private:
+
+    struct __attribute__((packed)) QueueEntry {
+        UInt64 timestamp;
+        UInt64 number;
+        UInt64 state;
+        double pressure;
+    };
+
+    void parseSampleFromHIDEvent(IOHIDEvent * event, QueueEntry * sample);
+    void handleButtonEvent(IOHIDEvent * event);
+};
+
+#endif
+
 
 /// IOFastPath service which controls HID device LEDs.
 ///

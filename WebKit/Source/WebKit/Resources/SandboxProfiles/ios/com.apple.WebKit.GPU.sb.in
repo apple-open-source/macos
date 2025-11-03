@@ -574,6 +574,7 @@
         "hw.product" ;; <rdar://problem/81334849>
         "kern.bootargs"
         "kern.hv_vmm_present"
+        "kern.maxfilesperproc"
 #if ASAN_ENABLED
         "kern.osrelease"
 #endif

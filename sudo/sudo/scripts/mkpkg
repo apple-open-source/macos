@@ -17,7 +17,8 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 # Build a binary package using polypkg
-# Usage: mkpkg [--build-only] [--debug] [--flavor flavor] [--platform platform] [--osversion ver]
+# Usage: mkpkg [--arch arch] [--build-only] [--configure-only] [--debug]
+#              [--flavor flavor] [--osversion ver] [--platform platform]
 #
 
 # Make sure IFS is set to space, tab, newline in that order.
@@ -28,13 +29,26 @@ nl='
 IFS=" 	$nl"
 
 # Parse arguments
-usage="usage: mkpkg [--build-only] [--debug] [--flavor flavor] [--platform platform] [--osversion ver]"
+usage="usage: mkpkg [--arch arch] [--build-only] [--configure-only] [--debug] [--flavor flavor] [--osversion ver] [--platform platform]"
 debug=0
 flavor=vanilla
 crossbuild=false
 build_packages=true;
+build_sudo=true;
 while test $# -gt 0; do
     case "$1" in
+	--arch=?*)
+	    arch=`echo "$1" | sed -n 's/^--arch=\(.*\)/\1/p'`
+	    ;;
+	--arch)
+	    arch=`echo "$1" | sed -n 's/^--arch=\(.*\)/\1/p'`
+	    if [ $# -lt 2 ]; then
+		echo "$usage" 1>&2
+		exit 1
+	    fi
+	    arch="$2"
+	    shift
+	    ;;
 	--debug)
 	    set -x
 	    debug=1
@@ -84,6 +98,9 @@ while test $# -gt 0; do
 	--build-only)
 	    build_packages=false
 	    ;;
+	--configure-only)
+	    build_sudo=false
+	    ;;
 	*)
 	    # Pass unknown options to configure
 	    configure_opts="${configure_opts}${configure_opts+$tab}$1"
@@ -99,7 +116,7 @@ configure="${scriptdir}/../configure"
 osrelease=`echo "$osversion" | sed -e 's/^[^0-9]*//' -e 's/-.*$//'`
 : ${MAKE=make}
 
-if [ $build_packages = true -a $osversion = unknown ]; then
+if [ $build_packages = true -a "$osversion" = "unknown" ]; then
     echo "unable to determine platform" 1>&2
     exit 1
 fi
@@ -203,6 +220,10 @@ case "$osversion" in
 		;;
 	esac
 
+	if [ -n "$arch" ]; then
+	    # Override the default rpm arch for, e.g. x86_64_v2
+	    PPVARS="${PPVARS}${PPVARS+$space}pp_rpm_arch_override=$arch"
+	fi
 	if [ X"$with_selinux" = X"true" ]; then
 	    configure_opts="${configure_opts}${configure_opts+$tab}--with-selinux"
 	fi
@@ -277,6 +298,12 @@ case "$osversion" in
 	make_opts="${make_opts}${make_opts+ }"'docdir=$(datarootdir)/doc/packages/$(PACKAGE_TARNAME)'
 	;;
     deb*|ubu*)
+	if [ "$crossbuild" = "true" ]; then
+	    osname="unknown"
+	else
+	    osname="`uname`"
+	fi
+
 	# Sudo-specific executables moved to /usr/libexec/sudo starting in
 	# Debian: Debian 12 (Bookworm)
 	# Ubuntu: Ubuntu 22.04 (Jammy Jellyfish)
@@ -289,55 +316,64 @@ case "$osversion" in
 	osmajor=`sed -n -e 's/^VERSION_ID=\"\([0-9]*\).*$/\1/p' /etc/os-release`
 	case "$osversion" in
 	    deb*)
-		if [ -z $osmajor ] || [ $osmajor -ge 10 ]; then
-		    with_apparmor=true
-		fi
 		if [ -z $osmajor ] || [ $osmajor -ge 12 ]; then
 		    libexec=libexec
 		fi
+		case "$osname" in
+		Linux|unknown)
+		    if [ -z $osmajor ] || [ $osmajor -ge 10 ]; then
+			with_apparmor=true
+		    fi
+		    ;;
+		esac
 		;;
 	    ubu*)
-		if [ -z $osmajor ] || [ $osmajor -ge 14 ]; then
-		    with_apparmor=true
-		fi
 		if [ -z $osmajor ] || [ $osmajor -ge 22 ]; then
 		    libexec=libexec
 		fi
+		if [ -z $osmajor ] || [ $osmajor -ge 14 ]; then
+		    with_apparmor=true
+		fi
+		configure_opts="--enable-admin-flag${tab}--without-lecture${configure_opts+$tab}${configure_opts}"
 		;;
 	esac
 
+	case "$osname" in
+	GNU)
+	    # GNU hurd doesn't have PAM, AppArmor or have Python packages
+	    ;;
+	*)
+	    # Python plugins
+	    with_python=true
+	    # PAM
+	    configure_opts="--with-pam${configure_opts+$tab}${configure_opts}"
+	    # Linux audit
+	    configure_opts="--with-linux-audit${configure_opts+$tab}${configure_opts}"
+	    # AppArmor
+	    if [ X"$with_apparmor" = X"true" ]; then
+		configure_opts="--with-apparmor${configure_opts+$tab}${configure_opts}"
+	    fi
+	    ;;
+	esac
 	# Encrypted remote I/O log support.
 	with_openssl=true
-	# Python plugins
-	with_python=true
 	# Man pages should be compressed in .deb files
 	export MANCOMPRESS='gzip -9'
 	export MANCOMPRESSEXT='.gz'
-	# If Ubuntu, add --enable-admin-flag
-	case "$osversion" in
-	    ubu*)
-		configure_opts="${configure_opts}${configure_opts+$tab}--enable-admin-flag${tab}--without-lecture"
-		;;
-	esac
 	# Newer Debian uses arch-specific lib dirs
 	MULTIARCH=`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null`
 	# Note, must indent with tabs, not spaces due to IFS trickery
 	if [ "$flavor" = "ldap" ]; then
-	    configure_opts="${configure_opts}${configure_opts+$tab}--with-ldap
-		--with-ldap-conf-file=/etc/sudo-ldap.conf"
+	    configure_opts="--with-ldap${tab}--with-ldap-conf-file=/etc/sudo-ldap.conf${configure_opts+$tab}${configure_opts}"
 	else
-	    configure_opts="${configure_opts}${configure_opts+$tab}--with-sssd"
+	    configure_opts="--with-sssd${configure_opts+$tab}${configure_opts}"
 	    if [ -n "$MULTIARCH" ]; then
 		# SSSD backend needs to know where to find the sssd lib
-		configure_opts="${configure_opts}${configure_opts+$tab}--with-sssd-lib=/usr/lib/$MULTIARCH"
+		configure_opts="--with-sssd-lib=/usr/lib/$MULTIARCH${configure_opts+$tab}${configure_opts}"
 	    fi
-	fi
-	if [ X"$with_apparmor" = X"true" ]; then
-		configure_opts="${configure_opts}${configure_opts+$tab}--with-apparmor"
 	fi
 	configure_opts="--prefix=/usr
 		--with-all-insults
-		--with-pam
 		--enable-zlib=system
 		--with-fqdn
 		--with-logging=syslog
@@ -351,20 +387,23 @@ case "$osversion" in
 		--with-sendmail=/usr/sbin/sendmail
 		--mandir=/usr/share/man
 		--libexecdir=/usr/$libexec
-		--with-linux-audit
 		$configure_opts"
-	# Use correct libaudit dependency
-	for f in /lib/${MULTIARCH}${MULTIARCH:+/}libaudit.so.[0-9]* /lib/libaudit.so.[0-9]*; do
-	    if [ -f "$f" ]; then
-		linux_audit=`dpkg-query -S "$f" 2>/dev/null | sed -n 's/:.*//p'`
-		test -n "$linux_audit" && break
+	# Use correct libaudit dependency for Linux audit
+	case "$configure_opts" in
+	*--with-linux-audit*)
+	    for f in /usr/lib/${MULTIARCH}${MULTIARCH:+/}libaudit.so.[0-9]* /usr/lib/libaudit.so.[0-9]* /lib/${MULTIARCH}${MULTIARCH:+/}libaudit.so.[0-9]* /lib/libaudit.so.[0-9]*; do
+		if [ -f "$f" ]; then
+		    linux_audit=`dpkg-query -S "$f" 2>/dev/null | sed -n 's/:.*//p'`
+		    test -n "$linux_audit" && break
+		fi
+	    done
+	    if [ -z "$linux_audit" ]; then
+		echo "unable to determine package for libaudit" 1>&2
+		exit 1
 	    fi
-	done
-	if [ -z "$linux_audit" ]; then
-	    echo "unable to determine package for libaudit" 1>&2
-	    exit 1
-	fi
-	PPVARS="${PPVARS}${PPVARS+$space}linux_audit=$linux_audit"
+	    PPVARS="${PPVARS}${PPVARS+$space}linux_audit=$linux_audit"
+	    ;;
+	esac
 	# Use correct libssl dependency
 	libssl_dep=`dpkg-query -S /usr/lib/${MULTIARCH}${MULTIARCH:+/}libssl.so.[1-9]* /lib/${MULTIARCH}${MULTIARCH:+/}libssl.so.[1-9]* 2>/dev/null | sort -rn | awk -F: '{ print $1; exit }'`
 	if [ -z "$libssl_dep" ]; then
@@ -484,8 +523,15 @@ case "$osversion" in
 
 		if [ $osrelease -ge 11 ]; then
 		    # Build 64-bit binaries on Solaris 11 and above.
-		    CFLAGS="${CFLAGS:--O2 -g} -m64"; export CFLAGS
-		    LDFLAGS="-m64${LDFLAGS:+ }${LDFLAGS}"; export LDFLAGS
+		    case "${CC}${CFLAGS}" in
+		      *-m32*|*-m64*)
+			# User specified memory model flags
+			;;
+		      *) 
+			CFLAGS="${CFLAGS:--O2 -g} -m64"; export CFLAGS
+			LDFLAGS="-m64${LDFLAGS:+ }${LDFLAGS}"; export LDFLAGS
+			;;
+		    esac
 		    # Solaris audit is not supported by Illumos
 		    if [ X"`uname -o 2>/dev/null`" = X"illumos" ]; then
 			configure_opts="${configure_opts}${configure_opts+$tab}--with-bsm-audit"
@@ -541,9 +587,12 @@ case "$osversion" in
 	;;
 esac
 
-# Don't enable OpenSSL if user disabled it.
+# Don't enable OpenSSL or python if disabled by the user.
 case "$configure_opts" in
     *--disable-openssl*) with_openssl=false;;
+esac
+case "$configure_opts" in
+    *--disable-python*) with_python=false;;
 esac
 if [ X"$with_openssl" = X"true" ]; then
     configure_opts="${configure_opts}${configure_opts+$tab}--enable-openssl"
@@ -564,9 +613,11 @@ if [ -r Makefile ]; then
     ${MAKE} $make_opts distclean
 fi
 ${configure} "$@" || exit $?
-${MAKE} $make_opts || exit $?
-if [ $build_packages = true ]; then
-    ${MAKE} $make_opts PPFLAGS="$PPFLAGS" PPVARS="$PPVARS" package
+if [ $build_sudo = true ]; then
+    ${MAKE} $make_opts || exit $?
+    if [ $build_packages = true ]; then
+	${MAKE} $make_opts PPFLAGS="$PPFLAGS" PPVARS="$PPVARS" package
+    fi
 fi
 exitval=$?
 test $debug -eq 0 && rm -rf destdir

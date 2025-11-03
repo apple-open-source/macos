@@ -72,6 +72,7 @@ typedef enum {
     MGScreenClassPad2          = 4,
     MGScreenClassPad3          = 6,
     MGScreenClassPad4          = 7,
+    MGScreenClassPad11         = 28,
 } MGScreenClass;
 
 #endif

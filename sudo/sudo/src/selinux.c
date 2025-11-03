@@ -54,8 +54,8 @@
 # include <libaudit.h>
 #endif
 
-#include "sudo.h"
-#include "sudo_exec.h"
+#include <sudo.h>
+#include <sudo_exec.h>
 
 static struct selinux_state {
     char * old_context;
@@ -273,7 +273,7 @@ selinux_relabel_tty(const char *ttyn, int ptyfd)
 	(void)fcntl(se_state.ttyfd, F_SETFL,
 	    fcntl(se_state.ttyfd, F_GETFL, 0) & ~O_NONBLOCK);
 	for (fd = STDIN_FILENO; fd <= STDERR_FILENO; fd++) {
-	    if (isatty(fd) && dup2(se_state.ttyfd, fd) == -1) {
+	    if (sudo_isatty(fd, &sb) && dup2(se_state.ttyfd, fd) == -1) {
 		sudo_warn("dup2");
 		goto bad;
 	    }
@@ -440,7 +440,7 @@ selinux_setexeccon(void)
 
 void
 selinux_execve(int fd, const char *path, char *const argv[], char *envp[],
-    const char *rundir, int flags)
+    const char *rundir, unsigned int flags)
 {
     char **nargv;
     const char *sesh;

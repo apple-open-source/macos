@@ -157,6 +157,7 @@ __attribute__((visibility("hidden")))
 @interface OTAccountMetadataClassC : PBCodable <NSCopying>
 {
     int64_t _epoch;
+    int64_t _escrowRepairAttemptVersion;
     uint64_t _lastEscrowRepairAttempted;
     uint64_t _lastEscrowRepairTriggered;
     uint64_t _lastHealthCheckup;
@@ -179,6 +180,7 @@ __attribute__((visibility("hidden")))
     BOOL _warnedTooManyPeers;
     struct {
         uint epoch:1;
+        uint escrowRepairAttemptVersion:1;
         uint lastEscrowRepairAttempted:1;
         uint lastEscrowRepairTriggered:1;
         uint lastHealthCheckup:1;
@@ -286,6 +288,10 @@ __attribute__((visibility("hidden")))
 @property (nonatomic, readonly) BOOL hasMachineID;
 /** Machine id */
 @property (nonatomic, retain) NSString *machineID;
+
+@property (nonatomic) BOOL hasEscrowRepairAttemptVersion;
+/** Escrow repair "version" for the most recent repair attempt. */
+@property (nonatomic) int64_t escrowRepairAttemptVersion;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

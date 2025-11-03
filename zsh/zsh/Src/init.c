@@ -52,7 +52,7 @@
 
 #endif
 
-#endif /* __APPLE__
+#endif /* __APPLE__ */
 
 /**/
 int noexitct = 0;
@@ -264,6 +264,31 @@ loop(int toplevel, int justonce)
 
 static int restricted;
 
+#ifdef __APPLE__
+/*
+ * Primarily intended to set PRIVILEGED in some more scenarios that zsh would
+ * not be able to detect naturally -- if we're flagged as running from an
+ * installer, we'll escalate PRIVILEGED to avoid executing user-controlled
+ * files.
+ */
+static void
+apple_parseargs_env(void)
+{
+    char *restricted_env = getenv("APPLE_PKGKIT_ESCALATING_ROOT");
+    uint32_t flags = 0;
+
+    if (unset(PRIVILEGED) && restricted_env)
+        opts[PRIVILEGED] = 1;
+
+    if (!csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags))) {
+        if (flags & CS_INSTALLER) {
+            opts[PRIVILEGED] = 1;
+            opts[PARANOID] = 1;
+	}
+    }
+}
+#endif /* __APPLE__ */
+
 /**/
 static void
 parseargs(char *zsh_name, char **argv, char **runscript, char **cmdptr,
@@ -326,6 +351,10 @@ parseargs(char *zsh_name, char **argv, char **runscript, char **cmdptr,
     free(paramlist);
     argzero = ztrdup(argzero);
     posixzero = ztrdup(posixzero);
+
+#ifdef __APPLE__
+    apple_parseargs_env();
+#endif
 }
 
 /* Insert into list in order of pointer value */
@@ -1316,14 +1345,17 @@ run_init_scripts(void)
 {
     noerrexit = NOERREXIT_EXIT | NOERREXIT_RETURN | NOERREXIT_SIGNAL;
 
+#ifdef __APPLE__
+    if (unset(PARANOID)) {
+#endif
     if (EMULATION(EMULATE_KSH|EMULATE_SH)) {
-	if (islogin) {
 #if defined(__APPLE__) && TARGET_OS_OSX
+	if (islogin)
 	    source(check_managed_config(MANAGED_EMULATE_PROFILE, "/etc/profile"));
 #else
+	if (islogin)
 	    source("/etc/profile");
 #endif // __APPLE__ && TARGET_OS_OSX
-	}
 
 	if (unset(PRIVILEGED)) {
 	    if (islogin)
@@ -1349,34 +1381,12 @@ run_init_scripts(void)
 	    source("/etc/suid_profile");
 #endif // __APPLE__ && TARGET_OS_OSX
     } else {
-	int restrict_source = 0;
-#ifdef __APPLE__
-	char *restricted_env = getenv("APPLE_PKGKIT_ESCALATING_ROOT");
-	if (restricted_env) {
-	    restrict_source = 1;
-	}
-
-	uint32_t flags = 0;
-	if (!csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags))) {
-		if (flags & CS_INSTALLER) {
-			restrict_source = 1;
-			fprintf(xtrerr ? xtrerr : stderr,
-					"Refusing to load unsafe zshenv.\n");
-		}
-	} else {
-		fprintf(xtrerr ? xtrerr : stderr,
-				"Failed to fetch code signing information when loading "
-				"zshenv.\n");
-	}
-#endif /* __APPLE__ */
 #ifdef GLOBAL_ZSHENV
-	if (!restrict_source) {
 #if defined(__APPLE__) && TARGET_OS_OSX
-	    source(check_managed_config(MANAGED_GLOBAL_ZSHENV, GLOBAL_ZSHENV));
+	source(check_managed_config(MANAGED_GLOBAL_ZSHENV, GLOBAL_ZSHENV));
 #else
-	    source(GLOBAL_ZSHENV);
+	source(GLOBAL_ZSHENV);
 #endif // __APPLE__ && TARGET_OS_OSX
-	}
 #endif /* GLOBAL_ZSHENV */
 
 	if (isset(RCS) && unset(PRIVILEGED))
@@ -1392,50 +1402,51 @@ run_init_scripts(void)
 		}
 	    }
 
-		if (!restrict_source) {
-			sourcehome(".zshenv");
-		}
+	    sourcehome(".zshenv");
 	}
 	if (islogin) {
 #ifdef GLOBAL_ZPROFILE
-	    if (isset(RCS) && isset(GLOBALRCS)) {
 #if defined(__APPLE__) && TARGET_OS_OSX
-		source(check_managed_config(MANAGED_GLOBAL_ZPROFILE, GLOBAL_ZPROFILE));
+	    if (isset(RCS) && isset(GLOBALRCS))
+		    source(check_managed_config(MANAGED_GLOBAL_ZPROFILE, GLOBAL_ZPROFILE));
 #else
-		source(GLOBAL_ZPROFILE);
+	    if (isset(RCS) && isset(GLOBALRCS))
+		    source(GLOBAL_ZPROFILE);
 #endif // __APPLE__ && TARGET_OS_OSX
-	    }
 #endif
 	    if (isset(RCS) && unset(PRIVILEGED))
 		sourcehome(".zprofile");
 	}
 	if (interact) {
 #ifdef GLOBAL_ZSHRC
-	    if (isset(RCS) && isset(GLOBALRCS)) {
 #if defined(__APPLE__) && TARGET_OS_OSX
+	    if (isset(RCS) && isset(GLOBALRCS))
 		source(check_managed_config(MANAGED_GLOBAL_ZSHRC, GLOBAL_ZSHRC));
 #else
+	    if (isset(RCS) && isset(GLOBALRCS))
 		source(GLOBAL_ZSHRC);
 #endif //__APPLE__ && TARGET_OS_OSX
-	    }
 #endif
 	    if (isset(RCS) && unset(PRIVILEGED))
 		sourcehome(".zshrc");
 	}
 	if (islogin) {
 #ifdef GLOBAL_ZLOGIN
-	    if (isset(RCS) && isset(GLOBALRCS)) {
 #if defined(__APPLE__) && TARGET_OS_OSX
+	    if (isset(RCS) && isset(GLOBALRCS))
 		source(check_managed_config(MANAGED_GLOBAL_ZLOGIN, GLOBAL_ZLOGIN));
 #else
+	    if (isset(RCS) && isset(GLOBALRCS))
 		source(GLOBAL_ZLOGIN);
 #endif // __APPLE__ && TARGET_OS_OSX
-	    }
 #endif
 	    if (isset(RCS) && unset(PRIVILEGED))
 		sourcehome(".zlogin");
 	}
     }
+#ifdef __APPLE__
+    } /* unset(PARANOID) */
+#endif
     noerrexit = 0;
     nohistsave = 0;
 }
@@ -1787,12 +1798,13 @@ zsh_main(int argc, char **argv)
     setlocale(LC_ALL, "");
 #endif
 
+#ifdef __APPLE__
     if (argc < 1) {
 	argzero = "zsh";
 	zerr("too few arguments", NULL, 0);
 	exit(1);
     }
-
+#endif
     init_jobs(argv, environ);
 
     /*

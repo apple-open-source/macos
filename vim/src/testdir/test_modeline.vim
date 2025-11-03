@@ -1,7 +1,5 @@
 " Tests for parsing the modeline.
 
-source check.vim
-
 func Test_modeline_invalid()
   " This was reading allocated memory in the past.
   call writefile(['vi:0', 'nothing'], 'Xmodeline', 'D')
@@ -208,6 +206,7 @@ func Test_modeline_fails_always()
   call s:modeline_fails('equalprg', 'equalprg=Something()', 'E520:')
   call s:modeline_fails('errorfile', 'errorfile=Something()', 'E520:')
   call s:modeline_fails('exrc', 'exrc=Something()', 'E520:')
+  call s:modeline_fails('findfunc', 'findfunc=Something', 'E520:')
   call s:modeline_fails('formatprg', 'formatprg=Something()', 'E520:')
   call s:modeline_fails('fsync', 'fsync=Something()', 'E520:')
   call s:modeline_fails('grepprg', 'grepprg=Something()', 'E520:')

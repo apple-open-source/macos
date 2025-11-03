@@ -73,11 +73,14 @@ extern int debug_task;
 /* zone for debug_state area */
 ZONE_DEFINE_TYPE(ads_zone, "arm debug state", arm_debug_state_t, ZC_NONE);
 ZONE_DEFINE_TYPE(user_ss_zone, "user save state", arm_context_t, ZC_NONE);
+#if HAVE_MACHINE_THREAD_MATRIX_STATE
+static SECURITY_READ_ONLY_LATE(zone_t) matrix_ss_zone;
+#endif
+
 
 #if HAS_ARM_FEAT_SME
 static SECURITY_READ_ONLY_LATE(uint16_t) sme_svl_b;
-/* zone for arm_sme_saved_state_t allocations */
-static SECURITY_READ_ONLY_LATE(zone_t) sme_ss_zone;
+SECURITY_READ_ONLY_LATE(arm_state_hdr_t) sme_state_hdr;
 #endif
 
 void
@@ -169,29 +172,39 @@ machine_restore_sme_context(thread_t new, const arm_sme_saved_state_t *new_sme_s
 		} else if (cpu_state->za_is_enabled) {
 			asm volatile ("smstop za");
 		}
-
-		arm_sme_trap_at_el0(false);
 	}
 }
 
 static void
-machine_disable_sme_context(const struct arm_matrix_cpu_state *cpu_state)
+machine_clear_sme_context(const struct arm_matrix_cpu_state *cpu_state)
 {
 	if (cpu_state->za_is_enabled) {
 		asm volatile ("smstop za");
 	}
-
-	arm_sme_trap_at_el0(true);
 }
 #endif /* HAS_ARM_FEAT_SME */
 
 
 #if HAVE_MACHINE_THREAD_MATRIX_STATE
 static void
+machine_trap_el0_matrix_instructions(bool enable_el0_trap,
+    const struct arm_matrix_cpu_state *cpu_state)
+{
+#pragma unused(cpu_state)
+
+#if HAS_ARM_FEAT_SME
+	if (arm_sme_version()) {
+		arm_sme_trap_at_el0(enable_el0_trap);
+	}
+#endif
+}
+
+static void
 machine_switch_matrix_context(thread_t old, thread_t new)
 {
 	struct arm_matrix_cpu_state cpu_state;
 	arm_get_matrix_cpu_state(&cpu_state);
+	bool enable_el0_trap = true;
 
 
 #if HAS_ARM_FEAT_SME
@@ -206,7 +219,7 @@ machine_switch_matrix_context(thread_t old, thread_t new)
 
 #if HAS_ARM_FEAT_SME
 	if (cpu_state.have_sme && !new_sme_ss) {
-		machine_disable_sme_context(&cpu_state);
+		machine_clear_sme_context(&cpu_state);
 	}
 #endif /* HAS_ARM_FEAT_SME */
 
@@ -214,9 +227,14 @@ machine_switch_matrix_context(thread_t old, thread_t new)
 #if HAS_ARM_FEAT_SME
 	if (cpu_state.have_sme) {
 		machine_restore_sme_context(new, new_sme_ss, &cpu_state);
+		if (new_sme_ss) {
+			enable_el0_trap = false;
+		}
 	}
 #endif /* HAS_ARM_FEAT_SME */
 
+
+	machine_trap_el0_matrix_instructions(enable_el0_trap, &cpu_state);
 
 }
 
@@ -272,7 +290,11 @@ machine_switch_pmap_and_extended_context(thread_t old, thread_t new)
 	new_pmap = new->map->pmap;
 	bool pmap_changed = old->map->pmap != new_pmap;
 	bool sec_override_changed =
+#if HAS_MTE
+	    ml_thread_get_sec_override(old) != ml_thread_get_sec_override(new);
+#else
 	    false;
+#endif
 
 	if (pmap_changed || sec_override_changed) {
 		pmap_switch(new_pmap, new);
@@ -352,7 +374,11 @@ machine_thread_on_core(thread_t thread)
 boolean_t
 machine_thread_on_core_allow_invalid(thread_t thread)
 {
+#if HAS_MTE
+	#define _copyin_fn      _copyin_atomic64_allow_invalid_kernel_tag
+#else
 	#define _copyin_fn      _copyin_atomic64
+#endif
 
 	extern int _copyin_fn(const char *src, uint64_t *dst);
 	uint64_t addr;
@@ -555,9 +581,12 @@ machine_thread_destroy(thread_t thread)
 		thread->machine.uNeon = NULL;
 		thread->machine.contextData = NULL;
 
-#if HAS_ARM_FEAT_SME
-		machine_thread_sme_state_free(thread);
-#endif
+#if HAVE_MACHINE_THREAD_MATRIX_STATE
+		if (thread->machine.umatrix_hdr) {
+			zfree(matrix_ss_zone, thread->machine.umatrix_hdr);
+			thread->machine.umatrix_hdr = NULL;
+		}
+#endif /* HAVE_MACHINE_THREAD_MATRIX_STATE */
 
 		zfree(user_ss_zone, thread_user_ss);
 	}
@@ -578,7 +607,7 @@ machine_thread_destroy(thread_t thread)
 static arm_sme_saved_state_t *
 zalloc_sme_saved_state(void)
 {
-	arm_sme_saved_state_t *sme_ss = zalloc_flags(sme_ss_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	arm_sme_saved_state_t *sme_ss = zalloc_flags(matrix_ss_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	sme_ss->hdr.flavor = ARM_SME_SAVED_STATE;
 	sme_ss->hdr.count = arm_sme_saved_state_count(sme_svl_b);
 	sme_ss->svl_b = sme_svl_b;
@@ -606,17 +635,6 @@ machine_thread_sme_state_alloc(thread_t thread)
 	enable_preemption();
 
 	return KERN_SUCCESS;
-}
-
-void
-machine_thread_sme_state_free(thread_t thread)
-{
-	arm_sme_saved_state_t *sme_ss = machine_thread_get_sme_state(thread);
-
-	if (sme_ss) {
-		thread->machine.usme = NULL;
-		zfree(sme_ss_zone, sme_ss);
-	}
 }
 
 static void
@@ -651,6 +669,15 @@ machine_thread_matrix_state_dup(thread_t target)
 	thread_t thread = current_thread();
 
 #if HAS_ARM_FEAT_SME
+	/*
+	 * TPIDR2_EL0 is accessible even when there's no active matrix state.
+	 * xnu normally only spills it during context-switch events, so
+	 * current_thread()->machine.tpidr2_el0 may not hold the current value.
+	 */
+	if (arm_sme_version()) {
+		target->machine.tpidr2_el0 = __builtin_arm_rsr64("TPIDR2_EL0");
+	}
+
 	const arm_sme_saved_state_t *sme_ss = machine_thread_get_sme_state(thread);
 	if (sme_ss) {
 		machine_thread_sme_state_dup(sme_ss, target);
@@ -668,13 +695,24 @@ machine_thread_matrix_state_dup(thread_t target)
 void
 machine_thread_init(void)
 {
+#if HAVE_MACHINE_THREAD_MATRIX_STATE
+	vm_size_t matrix_ss_size = 0;
+	zone_create_flags_t matrix_ss_flags = ZC_NONE;
+
+
 #if HAS_ARM_FEAT_SME
 	if (arm_sme_version()) {
 		sme_svl_b = arm_sme_svl_b();
-		vm_size_t size = arm_sme_saved_state_count(sme_svl_b) * sizeof(unsigned int);
-		sme_ss_zone = zone_create_ext("SME saved state", size, ZC_NONE, ZONE_ID_ANY, NULL);
+		sme_state_hdr.flavor = ARM_SME_SAVED_STATE;
+		sme_state_hdr.count = arm_sme_saved_state_count(sme_svl_b);
+		matrix_ss_size = MAX(matrix_ss_size, sme_state_hdr.count * sizeof(unsigned int));
 	}
-#endif
+#endif /* HAS_ARM_FEAT_SME */
+
+	if (matrix_ss_size) {
+		matrix_ss_zone = zone_create_ext("matrix saved state", matrix_ss_size, matrix_ss_flags, ZONE_ID_ANY, NULL);
+	}
+#endif /* HAVE_MACHINE_THREAD_MATRIX_STATE */
 }
 
 /*

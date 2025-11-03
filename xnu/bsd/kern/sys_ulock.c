@@ -435,6 +435,14 @@ uaddr_findobj(user_addr_t uaddr, uint64_t *objectp, uint64_t *offsetp)
 	vm_page_info_basic_data_t info;
 	mach_msg_type_number_t count = VM_PAGE_INFO_BASIC_COUNT;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/*
+	 * uaddr_findobj() is the common entrypoint for sys_ulock*
+	 * syscalls. We allow tagged addresses through and strip
+	 * away metadata bits here.
+	 */
+	uaddr = vm_map_strip_addr(current_map(), uaddr);
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	ret = vm_map_page_info(current_map(), uaddr, VM_PAGE_INFO_BASIC, (vm_page_info_t)&info, &count);
 	if (ret != KERN_SUCCESS) {

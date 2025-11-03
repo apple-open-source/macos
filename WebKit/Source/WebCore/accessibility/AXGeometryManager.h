@@ -51,7 +51,8 @@ public:
     void willUpdateObjectRegions();
     void scheduleObjectRegionsUpdate(bool /* scheduleImmediately */);
 
-    void cacheRect(std::optional<AXID>, IntRect&&);
+    // Returns true if the given rect was cached.
+    bool cacheRectIfNeeded(AXID, IntRect&&);
     // std::nullopt if there is no cached rect for the given ID (i.e. because it hasn't been cached yet via paint or otherwise, or cannot be painted / cached at all).
     std::optional<IntRect> cachedRectForID(AXID);
 

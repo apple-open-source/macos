@@ -401,6 +401,7 @@ ko{
         nds_NL{"저지 색슨어"}
         ne{"네팔어"}
         new{"네와르어"}
+        nez{"네즈퍼스어"}
         ng{"느동가어"}
         nia{"니아스어"}
         niu{"니웨언어"}
@@ -822,7 +823,7 @@ ko{
     }
     Types{
         calendar{
-            bangla{"뱅골력"}
+            bangla{"벵골력"}
             buddhist{"불교력"}
             chinese{"음력"}
             coptic{"콥트력"}

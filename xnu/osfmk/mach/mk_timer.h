@@ -64,8 +64,9 @@ extern void             mk_timer_port_label_dealloc(
 #endif /* MACH_KERNEL_PRIVATE */
 
 /* mk_timer_flags */
-#define MK_TIMER_NORMAL         (0)
-#define MK_TIMER_CRITICAL       (1)
+#define MK_TIMER_NORMAL         (0x0)
+#define MK_TIMER_CRITICAL       (0x1)
+#define MK_TIMER_CONTINUOUS     (0x2)
 
 extern kern_return_t    mk_timer_arm_leeway(
 	mach_port_name_t        name,

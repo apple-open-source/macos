@@ -891,8 +891,8 @@ public:
     BreakIterator* getCapitalizationBrkIter(void) const;
     // rdar://145772893
     bool isHinduCalendar();
-    // rdar://145772893
-    bool useNumericDaysInFormat();
+    
+    void setIndianDateOverride();
 #endif  // APPLE_ICU_CHANGES
 
 #endif  /* U_HIDE_INTERNAL_API */

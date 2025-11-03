@@ -123,6 +123,7 @@ bool defaultMediaSourceEnabled();
 
 #if ENABLE(MEDIA_SOURCE)
 bool defaultManagedMediaSourceEnabled();
+bool defaultMediaSourcePrefersDecompressionSession();
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 bool defaultManagedMediaSourceNeedsAirPlay();
 #endif

@@ -663,6 +663,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")

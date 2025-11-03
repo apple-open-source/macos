@@ -108,6 +108,7 @@ static void TestIndianAMPM(void); // rdar://142529306, rdar://142529982, rdar://
 static void TestTaiwanDayPeriods(void); // rdar://142599503
 static void TestMonthAndDayNames(void); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
 static void TestFinnishSunday(void); // rdar://152838495
+static void TestVikramDayNames(void); // rdar://159235412
 #endif  // APPLE_ICU_CHANGES
 
 void addDateForTest(TestNode** root);
@@ -189,6 +190,7 @@ void addDateForTest(TestNode** root)
 #endif
     TESTCASE(TestMonthAndDayNames); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
     TESTCASE(TestFinnishSunday); // rdar://152838495
+    TESTCASE(TestVikramDayNames); // rdar://159235412
 #endif  // APPLE_ICU_CHANGES
 }
 /* Testing the DateFormat API */
@@ -3021,6 +3023,15 @@ static const TimeUnitWithNumStyleItem tuNumStyleItems[] = {
     { "en_US", UNUM_DECIMAL_COMPACT_SHORT, UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0 seconds" },
     { "en_US", UNUM_DECIMAL_COMPACT_LONG,  UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0 seconds" },
     { "en_US", UNUM_CURRENCY_STANDARD/*16*/,UATIMEUNITSTYLE_FULL,     UATIMEUNITFIELD_SECOND,      0.0, u"¤0.00 seconds" }, // before ICU68* was u"$0.00 seconds"
+    
+    // tests for rdar://158603779 ([Home]: US: LuckB23B30: Lack of space between digit and word)
+    { "it",    UNUM_DECIMAL,               UATIMEUNITSTYLE_NARROW,    UATIMEUNITFIELD_MINUTE,      1.0, u"1 min" },
+    { "it",    UNUM_DECIMAL,               UATIMEUNITSTYLE_NARROW,    UATIMEUNITFIELD_HOUR,        1.0, u"1 h" },
+    { "it",    UNUM_DECIMAL,               UATIMEUNITSTYLE_NARROW,    UATIMEUNITFIELD_DAY,         1.0, u"1 g" },
+    { "it",    UNUM_DECIMAL,               UATIMEUNITSTYLE_NARROW,    UATIMEUNITFIELD_WEEK,        1.0, u"1 sett." },
+    { "it",    UNUM_DECIMAL,               UATIMEUNITSTYLE_NARROW,    UATIMEUNITFIELD_MONTH,       1.0, u"1 mese" },
+    { "it",    UNUM_DECIMAL,               UATIMEUNITSTYLE_NARROW,    UATIMEUNITFIELD_YEAR,        1.0, u"1 anno" },
+
     { NULL, 0, 0, 0, 0.0, NULL }
 };
 // * Using a currency numeric style for time formatting is bogus, and open-source ICU makes no attempt to test or support a particular behavior for this.
@@ -4801,7 +4812,7 @@ static void TestRgSubtag(void) { // rdar://106566783
         u"fr_FR@rg=USzzzz",  u"3/16/43 11:56 PM",
         u"fr_CA@rg=USzzzz",  u"3/16/43 11:56 p.m.",
 
-        u"ar_SA",            u"٩ ربيع١، ١٣٦٢ هـ، ١١:٥٦\u00a0م",
+        u"ar_SA",            u"٩ ربيع الأول، ١٣٦٢ هـ، ١١:٥٦ م", // rdar://155040056
         u"ar_US",            u"3/16/43\u060c 11:56\u00a0\u0645", // rdar://116185298
         u"ar_SA@rg=USzzzz",  u"3/16/43\u060c 11:56\u00a0\u0645", // rdar://116185298
         
@@ -5187,6 +5198,68 @@ static void TestFinnishSunday(void) {
         udatpg_close(dtpg);
     }
 }
+
+// rdar://159235412
+static void TestVikramDayNames(void) {
+    struct TestCase {
+        const char* locale;
+        const UChar* skeleton;
+        const UChar* expectedResult;
+    } testCases[] = {
+        { "en_US@calendar=vikram", u"MMMd", u"Ćaitra Ś. 2" },
+        { "en_US@calendar=vikram", u"d",    u"17" },
+        { "hi_IN@calendar=vikram", u"MMMd", u"चैत्र शु॰ द्वितीया" },
+        { "hi_IN@calendar=vikram", u"d",    u"17" },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        const char* testLocale = testCases[i].locale;
+        const UChar* testSkeleton = testCases[i].skeleton;
+        const UChar* expectedResult = testCases[i].expectedResult;
+        
+        UDateTimePatternGenerator* dtpg = udatpg_open(testLocale, &err);
+        UChar pattern[256];
+        int32_t patternLen = udatpg_getBestPattern(dtpg, testSkeleton, -1, pattern, 256, &err);
+        
+        if (!assertSuccess("Failed to create test pattern", &err)) {
+            // dump out early-- there's no point
+            return;
+        }
+        
+        const UDate testDate = 1712750400000; // WED 2024 Apr 10 12:00:00 UTC
+        
+        UChar result[256];
+        UDateFormat* df1 = udat_open(UDAT_FULL, UDAT_FULL, testLocale, NULL, 0, NULL, 0, &err);
+        udat_applyPattern(df1, false, pattern, patternLen);
+        int32_t len = udat_format(df1, testDate, result, 256, NULL, &err);
+        
+        if (assertSuccess("Failed to create formatter with UDAT_FULL", &err)) {
+            assertUEquals("Wrong result with UDAT_FULL", expectedResult, result);
+        }
+        
+        UDateFormat* df2 = udat_open(UDAT_NONE, UDAT_NONE, testLocale, NULL, 0, NULL, 0, &err);
+        udat_applyPattern(df2, false, pattern, patternLen);
+        len = udat_format(df2, testDate, result, 256, NULL, &err);
+        
+        if (assertSuccess("Failed to create formatter with UDAT_NONE", &err)) {
+            assertUEquals("Wrong result with UDAT_NONE", expectedResult, result);
+        }
+        
+        UDateFormat* df3 = udat_open(UDAT_PATTERN, UDAT_PATTERN, testLocale, NULL, 0, pattern, -1, &err);
+        len = udat_format(df3, testDate, result, 256, NULL, &err);
+        
+        if (assertSuccess("Failed to create formatter with UDAT_PATTERN", &err)) {
+            assertUEquals("Wrong result with UDAT_PATTERN", expectedResult, result);
+        }
+        
+        udat_close(df1);
+        udat_close(df2);
+        udat_close(df3);
+        udatpg_close(dtpg);
+    }
+}
+
 
 
 #endif  // APPLE_ICU_CHANGES

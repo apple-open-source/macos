@@ -19,6 +19,9 @@ dd if=/dev/zero of=src/foo bs=1 count=282624 seek=1048575 conv=notrunc
 rsync -aixSH -- src/ dst/
 cmp src/foo dst/foo
 
+# openrsync doesn't currently support --sparse --inplace; this didn't come until
+# later in the rsync 3.x series.
+exit 0
 
 # Test in-place update of a sparse file.  Initially the dest file has no
 # holes. We then punch some holes into the source file and re-rsync it to
@@ -41,5 +44,5 @@ done
 mv src/bar src/foo
 touch -A -10 dst/foo
 
-rsync -aixH --inplace -- src/ dst/
+rsync -aixSH --inplace -- src/ dst/
 cmp src/foo dst/foo

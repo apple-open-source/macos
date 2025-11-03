@@ -433,7 +433,7 @@ class OSMetaClassMeta : public OSMetaClass
 {
 public:
 	OSMetaClassMeta();
-	OSObject * alloc() const;
+	OSObject * alloc() const override;
 };
 OSMetaClassMeta::OSMetaClassMeta()
 	: OSMetaClass("OSMetaClass", NULL, sizeof(OSMetaClass))

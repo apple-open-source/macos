@@ -74,6 +74,8 @@ extern "C" {
 #define AUTH_XPC_REPLY_METHOD_CREATE "_agent_reply_create"
 #define AUTH_XPC_REPLY_METHOD_DEACTIVATE "_agent_reply_deactivate"
 #define AUTH_XPC_PLUGIN_NAME "_agent_plugin"
+#define AUTH_XPC_PLUGIN_PATH "_plugin_path"
+#define AUTH_XPC_PLUGIN_SAFE_PATH "_plugin_safe_path"
 #define AUTH_XPC_MECHANISM_NAME "_agent_mechanism"
 #define AUTH_XPC_HINTS_NAME "_agent_hints"
 #define AUTH_XPC_CONTEXT_NAME "_agent_context"
@@ -111,6 +113,7 @@ enum {
     AUTHORIZATION_COPY_PRELOGIN_PREFS,
     AUTHORIZATION_COPY_RIGHT_PROPERTIES,
     AUTHORIZATION_PRELOGIN_SC_OVERRIDE,
+    AUTHORIZATION_STAGE_PLUGIN,
 };
     
 #if defined(__cplusplus)

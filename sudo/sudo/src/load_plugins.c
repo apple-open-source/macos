@@ -29,10 +29,10 @@
 #include <string.h>
 #include <errno.h>
 
-#include "sudo.h"
-#include "sudo_plugin.h"
-#include "sudo_plugin_int.h"
-#include "sudo_dso.h"
+#include <sudo.h>
+#include <sudo_plugin.h>
+#include <sudo_plugin_int.h>
+#include <sudo_dso.h>
 
 #ifdef ENABLE_SUDO_PLUGIN_API
 static bool
@@ -40,7 +40,7 @@ sudo_qualify_plugin(struct plugin_info *info, char *fullpath, size_t pathsize)
 {
     const char *plugin_dir = sudo_conf_plugin_dir_path();
     int len;
-    debug_decl(sudo_stat_plugin, SUDO_DEBUG_PLUGIN);
+    debug_decl(sudo_qualify_plugin, SUDO_DEBUG_PLUGIN);
 
     if (info->path[0] == '/') {
 	if (strlcpy(fullpath, info->path, pathsize) >= pathsize) {

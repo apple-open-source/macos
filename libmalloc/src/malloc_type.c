@@ -706,8 +706,9 @@ malloc_type_zone_malloc_with_options(malloc_zone_t *zone, size_t align,
 		size_t size, malloc_type_id_t type_id,
 		malloc_zone_malloc_options_t options)
 {
-	if (os_unlikely((align != 0) && (!powerof2(align) ||
-			((size & (align - 1)) != 0)))) { // equivalent to (size % align != 0)
+	if (align != MALLOC_ZONE_MALLOC_DEFAULT_ALIGN &&
+			(os_unlikely((align != 0) && (!powerof2(align) ||
+			((size & (align - 1)) != 0))))) { // equivalent to (size % align != 0)
 		return NULL;
 	}
 

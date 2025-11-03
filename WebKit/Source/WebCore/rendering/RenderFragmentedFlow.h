@@ -133,8 +133,8 @@ public:
     virtual bool isPageLogicalHeightKnown() const { return true; }
     bool pageLogicalSizeChanged() const { return m_pageLogicalSizeChanged; }
 
-    void collectLayerFragments(LayerFragments&, const LayoutRect& layerBoundingBox, const LayoutRect& dirtyRect);
-    LayoutRect fragmentsBoundingBox(const LayoutRect& layerBoundingBox);
+    void collectLayerFragments(LayerFragments&, const LayoutRect& layerBoundingBox, const LayoutRect& dirtyRect) const;
+    LayoutRect fragmentsBoundingBox(const LayoutRect& layerBoundingBox) const;
 
     LayoutUnit offsetFromLogicalTopOfFirstFragment(const RenderBlock*) const;
     void clearRenderBoxFragmentInfoAndCustomStyle(const RenderBox&, const RenderFragmentContainer*, const RenderFragmentContainer*, const RenderFragmentContainer*, const RenderFragmentContainer*);

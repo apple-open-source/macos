@@ -437,6 +437,11 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         experimentalSettingsView.addSeparator();
 
+        let searchGroup = experimentalSettingsView.addGroup(WI.UIString("Search:"));
+        searchGroup.addSetting(WI.settings.experimentalUseStrictCheckForGlobMatching, WI.UIString("Use strict word boundary checks for glob pattern matching"));
+
+        experimentalSettingsView.addSeparator();
+
         let diagnosticsGroup = experimentalSettingsView.addGroup(WI.UIString("Diagnostics:", "Diagnostics: @ Experimental Settings", "Category label for experimental settings related to Web Inspector diagnostics."));
         diagnosticsGroup.addSetting(WI.settings.experimentalAllowInspectingInspector, WI.UIString("Allow Inspecting Web Inspector", "Allow Inspecting Web Inspector @ Experimental Settings", "Label for setting that allows the user to inspect the Web Inspector user interface."));
         experimentalSettingsView.addSeparator();

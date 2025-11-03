@@ -20,7 +20,7 @@ typedef unsigned long seed_type_t;
 // These tests are based on perf_contended_malloc_free, but intended as
 // functional stress tests rather than performance tests.
 
-T_GLOBAL_META(T_META_TAG_XZONE);
+T_GLOBAL_META(T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_NOT_PREFERRED);
 
 // move the darwintest assertion code out of the straight line execution path
 // since it is has non-trivial overhead and codegen impact even if the assertion

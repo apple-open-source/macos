@@ -434,6 +434,7 @@ cs{
         nds_NL{"dolnosaština"}
         ne{"nepálština"}
         new{"névárština"}
+        nez{"nez perce"}
         ng{"ndondština"}
         nia{"nias"}
         niu{"niueština"}

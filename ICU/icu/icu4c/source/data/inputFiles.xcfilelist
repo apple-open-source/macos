@@ -287,6 +287,7 @@ $(SRCROOT)/data/curr/cic.txt
 $(SRCROOT)/data/curr/ckb.txt
 $(SRCROOT)/data/curr/co.txt
 $(SRCROOT)/data/curr/cs.txt
+$(SRCROOT)/data/curr/cst.txt
 $(SRCROOT)/data/curr/csw.txt
 $(SRCROOT)/data/curr/cv.txt
 $(SRCROOT)/data/curr/cy.txt
@@ -553,6 +554,7 @@ $(SRCROOT)/data/curr/gv.txt
 $(SRCROOT)/data/curr/ha_GH.txt
 $(SRCROOT)/data/curr/ha.txt
 $(SRCROOT)/data/curr/haw.txt
+$(SRCROOT)/data/curr/hch.txt
 $(SRCROOT)/data/curr/he_IL.txt
 $(SRCROOT)/data/curr/he.txt
 $(SRCROOT)/data/curr/hi_Latn.txt
@@ -561,6 +563,7 @@ $(SRCROOT)/data/curr/hmn.txt
 $(SRCROOT)/data/curr/hr_BA.txt
 $(SRCROOT)/data/curr/hr.txt
 $(SRCROOT)/data/curr/hsb.txt
+$(SRCROOT)/data/curr/ht.txt
 $(SRCROOT)/data/curr/hu.txt
 $(SRCROOT)/data/curr/hy.txt
 $(SRCROOT)/data/curr/ia.txt
@@ -574,6 +577,7 @@ $(SRCROOT)/data/curr/in.txt
 $(SRCROOT)/data/curr/inh.txt
 $(SRCROOT)/data/curr/io.txt
 $(SRCROOT)/data/curr/is.txt
+$(SRCROOT)/data/curr/isc.txt
 $(SRCROOT)/data/curr/it.txt
 $(SRCROOT)/data/curr/iu.txt
 $(SRCROOT)/data/curr/iw_IL.txt
@@ -679,6 +683,7 @@ $(SRCROOT)/data/curr/nb.txt
 $(SRCROOT)/data/curr/nd.txt
 $(SRCROOT)/data/curr/nds.txt
 $(SRCROOT)/data/curr/ne.txt
+$(SRCROOT)/data/curr/nez.txt
 $(SRCROOT)/data/curr/nl_AW.txt
 $(SRCROOT)/data/curr/nl_BQ.txt
 $(SRCROOT)/data/curr/nl_CW.txt
@@ -786,6 +791,7 @@ $(SRCROOT)/data/curr/shi_MA.txt
 $(SRCROOT)/data/curr/shi_Tfng_MA.txt
 $(SRCROOT)/data/curr/shi_Tfng.txt
 $(SRCROOT)/data/curr/shi.txt
+$(SRCROOT)/data/curr/shp.txt
 $(SRCROOT)/data/curr/si.txt
 $(SRCROOT)/data/curr/sjd.txt
 $(SRCROOT)/data/curr/sje.txt
@@ -1010,6 +1016,7 @@ $(SRCROOT)/data/lang/ckb.txt
 $(SRCROOT)/data/lang/co.txt
 $(SRCROOT)/data/lang/cs.txt
 $(SRCROOT)/data/lang/csw.txt
+$(SRCROOT)/data/lang/cst.txt
 $(SRCROOT)/data/lang/cv.txt
 $(SRCROOT)/data/lang/cy.txt
 $(SRCROOT)/data/lang/da.txt
@@ -1230,6 +1237,7 @@ $(SRCROOT)/data/lang/guz.txt
 $(SRCROOT)/data/lang/gv.txt
 $(SRCROOT)/data/lang/ha.txt
 $(SRCROOT)/data/lang/haw.txt
+$(SRCROOT)/data/lang/hch.txt
 $(SRCROOT)/data/lang/he_IL.txt
 $(SRCROOT)/data/lang/he.txt
 $(SRCROOT)/data/lang/hi_Latn.txt
@@ -1237,6 +1245,7 @@ $(SRCROOT)/data/lang/hi.txt
 $(SRCROOT)/data/lang/hmn.txt
 $(SRCROOT)/data/lang/hr.txt
 $(SRCROOT)/data/lang/hsb.txt
+$(SRCROOT)/data/lang/ht.txt
 $(SRCROOT)/data/lang/hu.txt
 $(SRCROOT)/data/lang/hy.txt
 $(SRCROOT)/data/lang/ia.txt
@@ -1250,6 +1259,7 @@ $(SRCROOT)/data/lang/in.txt
 $(SRCROOT)/data/lang/inh.txt
 $(SRCROOT)/data/lang/io.txt
 $(SRCROOT)/data/lang/is.txt
+$(SRCROOT)/data/lang/isc.txt
 $(SRCROOT)/data/lang/it.txt
 $(SRCROOT)/data/lang/iu.txt
 $(SRCROOT)/data/lang/iw_IL.txt
@@ -1348,6 +1358,7 @@ $(SRCROOT)/data/lang/nb.txt
 $(SRCROOT)/data/lang/nd.txt
 $(SRCROOT)/data/lang/nds.txt
 $(SRCROOT)/data/lang/ne.txt
+$(SRCROOT)/data/lang/nez.txt
 $(SRCROOT)/data/lang/nl.txt
 $(SRCROOT)/data/lang/nmg.txt
 $(SRCROOT)/data/lang/nn_NO.txt
@@ -1442,6 +1453,7 @@ $(SRCROOT)/data/lang/shi_MA.txt
 $(SRCROOT)/data/lang/shi_Tfng_MA.txt
 $(SRCROOT)/data/lang/shi_Tfng.txt
 $(SRCROOT)/data/lang/shi.txt
+$(SRCROOT)/data/lang/shp.txt
 $(SRCROOT)/data/lang/si.txt
 $(SRCROOT)/data/lang/sjd.txt
 $(SRCROOT)/data/lang/sje.txt
@@ -1702,6 +1714,7 @@ $(SRCROOT)/data/locales/co_FR.txt
 $(SRCROOT)/data/locales/co.txt
 $(SRCROOT)/data/locales/cs_CZ.txt
 $(SRCROOT)/data/locales/cs.txt
+$(SRCROOT)/data/locales/cst.txt
 $(SRCROOT)/data/locales/csw_CA.txt
 $(SRCROOT)/data/locales/csw.txt
 $(SRCROOT)/data/locales/cv_RU.txt
@@ -2064,6 +2077,7 @@ $(SRCROOT)/data/locales/ha_NG.txt
 $(SRCROOT)/data/locales/ha.txt
 $(SRCROOT)/data/locales/haw_US.txt
 $(SRCROOT)/data/locales/haw.txt
+$(SRCROOT)/data/locales/hch.txt
 $(SRCROOT)/data/locales/he_IL.txt
 $(SRCROOT)/data/locales/he.txt
 $(SRCROOT)/data/locales/hi_IN.txt
@@ -2077,6 +2091,7 @@ $(SRCROOT)/data/locales/hr_HR.txt
 $(SRCROOT)/data/locales/hr.txt
 $(SRCROOT)/data/locales/hsb_DE.txt
 $(SRCROOT)/data/locales/hsb.txt
+$(SRCROOT)/data/locales/ht.txt
 $(SRCROOT)/data/locales/hu_HU.txt
 $(SRCROOT)/data/locales/hu.txt
 $(SRCROOT)/data/locales/hy_AM.txt
@@ -2098,6 +2113,7 @@ $(SRCROOT)/data/locales/io_001.txt
 $(SRCROOT)/data/locales/io.txt
 $(SRCROOT)/data/locales/is_IS.txt
 $(SRCROOT)/data/locales/is.txt
+$(SRCROOT)/data/locales/isc.txt
 $(SRCROOT)/data/locales/it_CH.txt
 $(SRCROOT)/data/locales/it_IT.txt
 $(SRCROOT)/data/locales/it_SM.txt
@@ -2299,6 +2315,7 @@ $(SRCROOT)/data/locales/nds.txt
 $(SRCROOT)/data/locales/ne_IN.txt
 $(SRCROOT)/data/locales/ne_NP.txt
 $(SRCROOT)/data/locales/ne.txt
+$(SRCROOT)/data/locales/nez.txt
 $(SRCROOT)/data/locales/nl_AW.txt
 $(SRCROOT)/data/locales/nl_BE.txt
 $(SRCROOT)/data/locales/nl_BQ.txt
@@ -2459,6 +2476,7 @@ $(SRCROOT)/data/locales/shi_MA.txt
 $(SRCROOT)/data/locales/shi_Tfng_MA.txt
 $(SRCROOT)/data/locales/shi_Tfng.txt
 $(SRCROOT)/data/locales/shi.txt
+$(SRCROOT)/data/locales/shp.txt
 $(SRCROOT)/data/locales/si_LK.txt
 $(SRCROOT)/data/locales/si.txt
 $(SRCROOT)/data/locales/sjd.txt
@@ -3062,6 +3080,7 @@ $(SRCROOT)/data/region/cic.txt
 $(SRCROOT)/data/region/ckb.txt
 $(SRCROOT)/data/region/co.txt
 $(SRCROOT)/data/region/cs.txt
+$(SRCROOT)/data/region/cst.txt
 $(SRCROOT)/data/region/csw.txt
 $(SRCROOT)/data/region/cv.txt
 $(SRCROOT)/data/region/cy.txt
@@ -3282,6 +3301,7 @@ $(SRCROOT)/data/region/guz.txt
 $(SRCROOT)/data/region/gv.txt
 $(SRCROOT)/data/region/ha.txt
 $(SRCROOT)/data/region/haw.txt
+$(SRCROOT)/data/region/hch.txt
 $(SRCROOT)/data/region/he_IL.txt
 $(SRCROOT)/data/region/he.txt
 $(SRCROOT)/data/region/hi_Latn.txt
@@ -3289,6 +3309,7 @@ $(SRCROOT)/data/region/hi.txt
 $(SRCROOT)/data/region/hmn.txt
 $(SRCROOT)/data/region/hr.txt
 $(SRCROOT)/data/region/hsb.txt
+$(SRCROOT)/data/region/ht.txt
 $(SRCROOT)/data/region/hu.txt
 $(SRCROOT)/data/region/hy.txt
 $(SRCROOT)/data/region/ia.txt
@@ -3302,6 +3323,7 @@ $(SRCROOT)/data/region/in.txt
 $(SRCROOT)/data/region/inh.txt
 $(SRCROOT)/data/region/io.txt
 $(SRCROOT)/data/region/is.txt
+$(SRCROOT)/data/region/isc.txt
 $(SRCROOT)/data/region/it.txt
 $(SRCROOT)/data/region/iu.txt
 $(SRCROOT)/data/region/iw_IL.txt
@@ -3401,6 +3423,7 @@ $(SRCROOT)/data/region/nb.txt
 $(SRCROOT)/data/region/nd.txt
 $(SRCROOT)/data/region/nds.txt
 $(SRCROOT)/data/region/ne.txt
+$(SRCROOT)/data/region/nez.txt
 $(SRCROOT)/data/region/nl.txt
 $(SRCROOT)/data/region/nmg.txt
 $(SRCROOT)/data/region/nn_NO.txt
@@ -3497,6 +3520,7 @@ $(SRCROOT)/data/region/shi_MA.txt
 $(SRCROOT)/data/region/shi_Tfng_MA.txt
 $(SRCROOT)/data/region/shi_Tfng.txt
 $(SRCROOT)/data/region/shi.txt
+$(SRCROOT)/data/region/shp.txt
 $(SRCROOT)/data/region/si.txt
 $(SRCROOT)/data/region/sjd.txt
 $(SRCROOT)/data/region/sje.txt
@@ -4098,6 +4122,7 @@ $(SRCROOT)/data/unit/cic.txt
 $(SRCROOT)/data/unit/ckb.txt
 $(SRCROOT)/data/unit/co.txt
 $(SRCROOT)/data/unit/cs.txt
+$(SRCROOT)/data/unit/cst.txt
 $(SRCROOT)/data/unit/csw.txt
 $(SRCROOT)/data/unit/cv.txt
 $(SRCROOT)/data/unit/cy.txt
@@ -4316,6 +4341,7 @@ $(SRCROOT)/data/unit/guz.txt
 $(SRCROOT)/data/unit/gv.txt
 $(SRCROOT)/data/unit/ha.txt
 $(SRCROOT)/data/unit/haw.txt
+$(SRCROOT)/data/unit/hch.txt
 $(SRCROOT)/data/unit/he_IL.txt
 $(SRCROOT)/data/unit/he.txt
 $(SRCROOT)/data/unit/hi_Latn.txt
@@ -4323,6 +4349,7 @@ $(SRCROOT)/data/unit/hi.txt
 $(SRCROOT)/data/unit/hmn.txt
 $(SRCROOT)/data/unit/hr.txt
 $(SRCROOT)/data/unit/hsb.txt
+$(SRCROOT)/data/unit/ht.txt
 $(SRCROOT)/data/unit/hu.txt
 $(SRCROOT)/data/unit/hy.txt
 $(SRCROOT)/data/unit/ia.txt
@@ -4336,6 +4363,7 @@ $(SRCROOT)/data/unit/in.txt
 $(SRCROOT)/data/unit/inh.txt
 $(SRCROOT)/data/unit/io.txt
 $(SRCROOT)/data/unit/is.txt
+$(SRCROOT)/data/unit/isc.txt
 $(SRCROOT)/data/unit/it.txt
 $(SRCROOT)/data/unit/iu.txt
 $(SRCROOT)/data/unit/iw_IL.txt
@@ -4434,6 +4462,7 @@ $(SRCROOT)/data/unit/nb.txt
 $(SRCROOT)/data/unit/nd.txt
 $(SRCROOT)/data/unit/nds.txt
 $(SRCROOT)/data/unit/ne.txt
+$(SRCROOT)/data/unit/nez.txt
 $(SRCROOT)/data/unit/nl.txt
 $(SRCROOT)/data/unit/nmg.txt
 $(SRCROOT)/data/unit/nn_NO.txt
@@ -4527,6 +4556,7 @@ $(SRCROOT)/data/unit/shi_MA.txt
 $(SRCROOT)/data/unit/shi_Tfng_MA.txt
 $(SRCROOT)/data/unit/shi_Tfng.txt
 $(SRCROOT)/data/unit/shi.txt
+$(SRCROOT)/data/unit/shp.txt
 $(SRCROOT)/data/unit/si.txt
 $(SRCROOT)/data/unit/sjd.txt
 $(SRCROOT)/data/unit/sje.txt
@@ -4745,6 +4775,7 @@ $(SRCROOT)/data/zone/cic.txt
 $(SRCROOT)/data/zone/ckb.txt
 $(SRCROOT)/data/zone/co.txt
 $(SRCROOT)/data/zone/cs.txt
+$(SRCROOT)/data/zone/cst.txt
 $(SRCROOT)/data/zone/csw.txt
 $(SRCROOT)/data/zone/cv.txt
 $(SRCROOT)/data/zone/cy.txt
@@ -4971,6 +5002,7 @@ $(SRCROOT)/data/zone/guz.txt
 $(SRCROOT)/data/zone/gv.txt
 $(SRCROOT)/data/zone/ha.txt
 $(SRCROOT)/data/zone/haw.txt
+$(SRCROOT)/data/zone/hch.txt
 $(SRCROOT)/data/zone/he_IL.txt
 $(SRCROOT)/data/zone/he.txt
 $(SRCROOT)/data/zone/hi_Latn.txt
@@ -4978,6 +5010,7 @@ $(SRCROOT)/data/zone/hi.txt
 $(SRCROOT)/data/zone/hmn.txt
 $(SRCROOT)/data/zone/hr.txt
 $(SRCROOT)/data/zone/hsb.txt
+$(SRCROOT)/data/zone/ht.txt
 $(SRCROOT)/data/zone/hu.txt
 $(SRCROOT)/data/zone/hy.txt
 $(SRCROOT)/data/zone/ia.txt
@@ -4991,6 +5024,7 @@ $(SRCROOT)/data/zone/in.txt
 $(SRCROOT)/data/zone/inh.txt
 $(SRCROOT)/data/zone/io.txt
 $(SRCROOT)/data/zone/is.txt
+$(SRCROOT)/data/zone/isc.txt
 $(SRCROOT)/data/zone/it.txt
 $(SRCROOT)/data/zone/iu.txt
 $(SRCROOT)/data/zone/iw_IL.txt
@@ -5092,6 +5126,7 @@ $(SRCROOT)/data/zone/nd.txt
 $(SRCROOT)/data/zone/nds.txt
 $(SRCROOT)/data/zone/ne_IN.txt
 $(SRCROOT)/data/zone/ne.txt
+$(SRCROOT)/data/zone/nez.txt
 $(SRCROOT)/data/zone/nl_SR.txt
 $(SRCROOT)/data/zone/nl.txt
 $(SRCROOT)/data/zone/nmg.txt
@@ -5188,6 +5223,7 @@ $(SRCROOT)/data/zone/shi_MA.txt
 $(SRCROOT)/data/zone/shi_Tfng_MA.txt
 $(SRCROOT)/data/zone/shi_Tfng.txt
 $(SRCROOT)/data/zone/shi.txt
+$(SRCROOT)/data/zone/shp.txt
 $(SRCROOT)/data/zone/si.txt
 $(SRCROOT)/data/zone/sjd.txt
 $(SRCROOT)/data/zone/sje.txt

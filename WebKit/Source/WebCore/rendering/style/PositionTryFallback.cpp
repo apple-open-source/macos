@@ -33,25 +33,69 @@ namespace WebCore {
 namespace Style {
 
 PositionTryFallback::~PositionTryFallback() = default;
-bool PositionTryFallback::operator==(const PositionTryFallback&) const = default;
-
-TextStream& operator<<(TextStream& ts, const PositionTryFallback& positionTryFallback)
+bool operator==(const PositionTryFallback& lhs, const PositionTryFallback& rhs)
 {
-    auto separator = ""_s;
-    for (auto& tactic : positionTryFallback.tactics) {
-        ts << std::exchange(separator, " "_s);
-        switch (tactic) {
-        case PositionTryFallback::Tactic::FlipBlock:
-            ts << "flip-block"_s;
-            break;
-        case PositionTryFallback::Tactic::FlipInline:
-            ts << "flip-inline"_s;
-            break;
-        case PositionTryFallback::Tactic::FlipStart:
-            ts << "flip-start"_s;
-            break;
-        }
+    if (lhs.positionAreaProperties && rhs.positionAreaProperties) {
+        if (lhs.positionAreaProperties == rhs.positionAreaProperties)
+            return true;
+
+        auto lhsPositionArea = lhs.positionAreaProperties->getPropertyCSSValue(CSSPropertyPositionArea);
+        ASSERT(lhsPositionArea);
+
+        auto rhsPositionArea = rhs.positionAreaProperties->getPropertyCSSValue(CSSPropertyPositionArea);
+        ASSERT(rhsPositionArea);
+
+        return *lhsPositionArea == *rhsPositionArea;
     }
+
+    if (!lhs.positionAreaProperties && !rhs.positionAreaProperties)
+        return lhs.positionTryRuleName == rhs.positionTryRuleName && lhs.tactics == rhs.tactics;
+
+    // If we got here, lhs and rhs don't have the same type (e.g comparing position-area with rule + tactics)
+    return false;
+}
+
+TextStream& operator<<(TextStream& ts, const PositionTryFallback::Tactic& tactic)
+{
+    switch (tactic) {
+    case PositionTryFallback::Tactic::FlipBlock:
+        ts << "flip-block"_s;
+        break;
+    case PositionTryFallback::Tactic::FlipInline:
+        ts << "flip-inline"_s;
+        break;
+    case PositionTryFallback::Tactic::FlipStart:
+        ts << "flip-start"_s;
+        break;
+    }
+
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, const PositionTryFallback& fallback)
+{
+    ts << "(";
+
+    if (!fallback.positionAreaProperties) {
+        ts << "type: RuleAndTactic ";
+
+        if (fallback.positionTryRuleName)
+            ts << "ruleName: " << *fallback.positionTryRuleName << " ";
+
+        ts << "tactics: [";
+        auto separator = ""_s;
+        for (const auto& tactic : fallback.tactics)
+            ts << std::exchange(separator, ", "_s) << tactic;
+        ts << "]";
+    } else {
+        auto positionAreaString = fallback.positionAreaProperties->getPropertyValue(CSSPropertyPositionArea);
+        ASSERT(!positionAreaString.isEmpty());
+
+        ts << "type: PositionArea ";
+        ts << "positionArea: " << positionAreaString;
+    }
+
+    ts << ")";
     return ts;
 }
 

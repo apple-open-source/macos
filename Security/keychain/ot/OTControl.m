@@ -716,6 +716,7 @@
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
 danglingPeerCleanup:(BOOL)danglingPeerCleanup
+  caesarPeerCleanup:(BOOL)caesarPeerCleanup
          updateIdMS:(BOOL)updateIdMS
               reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply
 {
@@ -725,6 +726,7 @@ danglingPeerCleanup:(BOOL)danglingPeerCleanup
        skipRateLimitingCheck:skipRateLimitingCheck
             repair:repair
        danglingPeerCleanup:danglingPeerCleanup
+       caesarPeerCleanup:caesarPeerCleanup
         updateIdMS:updateIdMS
              reply:reply];
 }

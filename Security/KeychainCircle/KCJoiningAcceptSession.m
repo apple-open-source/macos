@@ -721,7 +721,14 @@ typedef enum {
         BOOL shouldEncrypt = pairingMessage.hasVersion && pairingMessage.version >= kPiggyV3;
 
         if (shouldEncrypt == NO) {
-            AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+            __block BOOL hasViableRecords = YES;
+            [self.otControl fetchEscrowRecords:self.controlArguments
+                                        source:OTEscrowRecordFetchSourceCuttlefish
+                                         reply:^(NSArray<NSData *>* records, NSError* fetchError) {
+                hasViableRecords = [records count] > 0;
+            }];
+
+            AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:@{kSecurityRTCFieldTotalViableEscrowRecords : @(hasViableRecords)}
                                                                                                         altDSID:self.altDSID
                                                                                                          flowID:self.flowID
                                                                                                 deviceSessionID:self.deviceSessionID

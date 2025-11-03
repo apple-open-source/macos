@@ -234,8 +234,8 @@ void SOAuthorizationSession::continueStartAfterDecidePolicy(const SOAuthorizatio
     }
 
     auto initiatorOrigin = emptyString();
-    if (m_navigationAction->sourceFrame())
-        initiatorOrigin = m_navigationAction->sourceFrame()->securityOrigin().securityOrigin()->toString();
+    if (RefPtr sourceOrigin = m_navigationAction->sourceFrame() ? m_navigationAction->sourceFrame()->securityOrigin().securityOrigin().ptr() : nullptr; sourceOrigin && !sourceOrigin->isOpaque())
+        initiatorOrigin = sourceOrigin->toString();
     if (m_action == InitiatingAction::SubFrame && m_page->mainFrame())
         initiatorOrigin = WebCore::SecurityOrigin::create(m_page->mainFrame()->url())->toString();
     RetainPtr<NSDictionary> authorizationOptions = @{
@@ -344,6 +344,14 @@ void SOAuthorizationSession::complete(NSHTTPURLResponse *httpResponse, NSData *d
     if (!page) {
         AUTHORIZATIONSESSION_RELEASE_LOG("complete:  Returning early because m_page is null.");
         return;
+    }
+
+    // https://bugs.webkit.org/show_bug.cgi?id=299083
+    if (!cookies.isEmpty()) {
+        size_t totalHeaderSize = 0;
+        for (const auto& cookie : cookies)
+            totalHeaderSize += cookie.name.length() + cookie.value.length() + 1;
+        AUTHORIZATIONSESSION_RELEASE_LOG("complete: Setting %zu cookies with total header size ~%zu bytes in data store %p", cookies.size(), totalHeaderSize, page->protectedWebsiteDataStore().ptr());
     }
 
     page->protectedWebsiteDataStore()->protectedCookieStore()->setCookies(WTFMove(cookies), [weakThis = ThreadSafeWeakPtr { *this }, response = WTFMove(response), data = adoptNS([[NSData alloc] initWithData:data])] () mutable {

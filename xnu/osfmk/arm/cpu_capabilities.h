@@ -96,6 +96,7 @@
 #define kHasFP_SyncExceptions   0x0400000000000000
 #define kHasFeatSME             0x0800000000000000
 #define kHasFeatSME2            0x1000000000000000
+#define kHasFeatSME2p1          0x2000000000000000
 
 /* Individual features coalesced to save bits */
 #define kHasFeatSHA256          kHasARMv8Crypto

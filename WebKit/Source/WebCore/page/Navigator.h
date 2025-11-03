@@ -35,6 +35,7 @@ class DOMMimeTypeArray;
 class DOMPluginArray;
 class Page;
 class ShareDataReader;
+class NavigatorUAData;
 
 class Navigator final
     : public NavigatorBase
@@ -60,6 +61,7 @@ public:
     bool onLine() const final;
     bool canShare(Document&, const ShareData&);
     void share(Document&, const ShareData&, Ref<DeferredPromise>&&);
+    NavigatorUAData& userAgentData() const;
     
 #if ENABLE(NAVIGATOR_STANDALONE)
     bool standalone() const;
@@ -92,6 +94,7 @@ private:
     mutable RefPtr<DOMMimeTypeArray> m_mimeTypes;
     mutable String m_userAgent;
     mutable String m_platform;
+    mutable RefPtr<NavigatorUAData> m_navigatorUAData;
     RefPtr<GPU> m_gpuForWebGPU;
 };
 }

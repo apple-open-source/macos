@@ -275,6 +275,9 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
         ContentRuleListResults::Result result;
         for (const auto& action : actionsFromContentRuleList.actions) {
             WTF::visit(WTF::makeVisitor([&](const BlockLoadAction&) {
+                if (results.summary.redirected)
+                    return;
+
                 results.summary.blockedLoad = true;
                 result.blockedLoad = true;
             }, [&](const BlockCookiesAction&) {
@@ -305,10 +308,11 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
                 }
             }, [&] (const RedirectAction& redirectAction) {
                 if (initiatingDocumentLoader.allowsActiveContentRuleListActionsForURL(contentRuleListIdentifier, url)) {
-                    if (!results.summary.blockedLoad)
-                        results.summary.redirectedPriorToBlock = true;
+                    if (results.summary.blockedLoad)
+                        return;
 
                     result.redirected = true;
+                    results.summary.redirected = true;
                     results.summary.redirectActions.append({ redirectAction, m_contentExtensions.get(contentRuleListIdentifier)->extensionBaseURL() });
                 }
             }), action.data());
@@ -423,7 +427,22 @@ const String& ContentExtensionsBackend::displayNoneCSSRule()
     return rule;
 }
 
-void applyResultsToRequest(ContentRuleListResults&& results, Page* page, ResourceRequest& request)
+void applyResultsToRequestIfCrossOriginRedirect(ContentRuleListResults&& results, Page* page, ResourceRequest& request)
+{
+    if (!results.summary.redirected)
+        return;
+
+    URL url = request.url();
+    for (auto& pair : results.summary.redirectActions)
+        pair.first.modifyURL(url, pair.second);
+
+    if (RegistrableDomain { request.url() } == RegistrableDomain { url })
+        return;
+
+    applyResultsToRequest(WTFMove(results), page, request, url);
+}
+
+void applyResultsToRequest(ContentRuleListResults&& results, Page* page, ResourceRequest& request, const URL& redirectURL)
 {
     if (results.summary.blockedCookies)
         request.setAllowCookies(false);
@@ -439,8 +458,11 @@ void applyResultsToRequest(ContentRuleListResults&& results, Page* page, Resourc
     for (auto& action : results.summary.modifyHeadersActions)
         action.applyToRequest(request, headerNameToFirstOperationApplied);
 
-    for (auto& pair : results.summary.redirectActions)
-        pair.first.applyToRequest(request, pair.second);
+    if (redirectURL.isEmpty()) {
+        for (auto& pair : results.summary.redirectActions)
+            pair.first.applyToRequest(request, pair.second);
+    } else
+        request.setURL(URL { redirectURL });
 
     if (page && results.shouldNotifyApplication()) {
         results.results.removeAllMatching([](const auto& pair) {

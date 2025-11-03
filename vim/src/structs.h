@@ -20,6 +20,13 @@ typedef int		colnr_T;
 typedef unsigned short	short_u;
 #endif
 
+// structure to store a string (including it's length)
+typedef struct
+{
+    char_u  *string;		// the string
+    size_t  length;		// length of the string (excluding the NUL)
+} string_T;
+
 /*
  * Position in file or buffer.
  */
@@ -55,6 +62,20 @@ typedef struct growarray
 } garray_T;
 
 #define GA_EMPTY    {0, 0, 0, 0, NULL}
+
+// On rare systems "char" is unsigned, sometimes we really want a signed 8-bit
+// value.
+typedef signed char	int8_T;
+typedef double		float_T;
+
+typedef struct typval_S		typval_T;
+typedef struct listvar_S	list_T;
+typedef struct dictvar_S	dict_T;
+typedef struct partial_S	partial_T;
+typedef struct blobvar_S	blob_T;
+typedef struct tuplevar_S	tuple_T;
+typedef struct generictype_S	generic_T;
+typedef struct gfargs_tab_S	gfargs_tab_T;
 
 typedef struct window_S		win_T;
 typedef struct wininfo_S	wininfo_T;
@@ -192,6 +213,8 @@ typedef struct
     int		wo_diff;
 # define w_p_diff w_onebuf_opt.wo_diff	// 'diff'
 #endif
+    char_u	*wo_eiw;
+# define w_p_eiw w_onebuf_opt.wo_eiw	// 'eventignorewin'
 #ifdef FEAT_FOLDING
     long	wo_fdc;
 # define w_p_fdc w_onebuf_opt.wo_fdc	// 'foldcolumn'
@@ -255,6 +278,8 @@ typedef struct
 #if defined(FEAT_QUICKFIX)
     int		wo_pvw;
 # define w_p_pvw w_onebuf_opt.wo_pvw	// 'previewwindow'
+    long        wo_lhi;
+# define w_p_lhi w_onebuf_opt.wo_lhi    // 'lhistory'
 #endif
 #ifdef FEAT_RIGHTLEFT
     int		wo_rl;
@@ -389,6 +414,8 @@ typedef struct
 typedef struct {
     char_u	*ul_line;	// text of the line
     long	ul_len;		// length of the line including NUL, plus text
+				// properties
+    colnr_T	ul_textlen;	// length of the line excluding NUL and any text
 				// properties
 } undoline_T;
 
@@ -564,6 +591,7 @@ typedef struct buffheader buffheader_T;
 struct buffblock
 {
     buffblock_T	*b_next;	// pointer to next buffblock
+    size_t	b_strlen;	// length of b_str, excluding the NUL
     char_u	b_str[1];	// contents (actually longer)
 };
 
@@ -576,6 +604,7 @@ struct buffheader
     buffblock_T	*bh_curr;	// buffblock for appending
     int		bh_index;	// index for reading
     int		bh_space;	// space in bh_curr for appending
+    int		bh_create_newblock;	// create a new block?
 };
 
 typedef struct
@@ -628,6 +657,8 @@ typedef struct expand
     char_u	*xp_line;		// text being completed
 #define EXPAND_BUF_LEN 256
     char_u	xp_buf[EXPAND_BUF_LEN];	// buffer for returned match
+    int		xp_search_dir;		// Direction of search
+    pos_T	xp_pre_incsearch_pos;	// Cursor position before incsearch
 } expand_T;
 
 /*
@@ -1076,6 +1107,7 @@ struct vim_exception
     struct msglist	*messages;	// message(s) causing error exception
     char_u		*throw_name;	// name of the throw point
     linenr_T		throw_lnum;	// line number of the throw point
+    list_T		*stacktrace;	// stacktrace
     except_T		*caught;	// next exception on the caught stack
 };
 
@@ -1283,6 +1315,7 @@ typedef struct hist_entry
     int		hisnum;		// identifying number
     int		viminfo;	// when TRUE hisstr comes from viminfo
     char_u	*hisstr;	// actual entry, separator char after the NUL
+    size_t	hisstrlen;	// length of hisstr (excluding the NUL)
     time_t	time_set;	// when it was typed, zero if unknown
 } histentry_T;
 
@@ -1435,18 +1468,6 @@ typedef long_u hash_T;		// Type for hi_hash
 # endif
 #endif
 
-// On rare systems "char" is unsigned, sometimes we really want a signed 8-bit
-// value.
-typedef signed char int8_T;
-
-typedef double	float_T;
-
-typedef struct typval_S typval_T;
-typedef struct listvar_S list_T;
-typedef struct dictvar_S dict_T;
-typedef struct partial_S partial_T;
-typedef struct blobvar_S blob_T;
-
 // Struct that holds both a normal function name and a partial_T, as used for a
 // callback argument.
 // When used temporarily "cb_name" is not allocated.  The refcounts to either
@@ -1497,7 +1518,8 @@ typedef enum
     VAR_INSTR,		// "v_instr" is used
     VAR_CLASS,		// "v_class" is used (also used for interface)
     VAR_OBJECT,		// "v_object" is used
-    VAR_TYPEALIAS	// "v_typealias" is used
+    VAR_TYPEALIAS,	// "v_typealias" is used
+    VAR_TUPLE		// "v_tuple" is used
 } vartype_T;
 
 // A type specification.
@@ -1523,6 +1545,10 @@ typedef struct {
 #define TTFLAG_STATIC	    0x10    // one of the static types, e.g. t_any
 #define TTFLAG_CONST	    0x20    // cannot be changed
 #define TTFLAG_SUPER	    0x40    // object from "super".
+#define TTFLAG_GENERIC	    0x80    // generic type
+
+#define IS_GENERIC_TYPE(type)	\
+    ((type->tt_flags & TTFLAG_GENERIC) == TTFLAG_GENERIC)
 
 typedef enum {
     VIM_ACCESS_PRIVATE,	// read/write only inside the class
@@ -1554,6 +1580,7 @@ typedef struct {
     type_T	*ocm_type;
     int		ocm_flags;
     char_u	*ocm_init;	// allocated
+    sctx_T	ocm_init_sctx;	// script context of the initializer expression
 } ocmember_T;
 
 // used for the lookup table of a class member index and object method index
@@ -1664,6 +1691,7 @@ struct typval_S
 	class_T		*v_class;	// class value (can be NULL)
 	object_T	*v_object;	// object value (can be NULL)
 	typealias_T	*v_typealias;	// user-defined type name
+	tuple_T		*v_tuple;	// tuple
     }		vval;
 };
 
@@ -1803,6 +1831,40 @@ struct blobvar_S
     char	bv_lock;	// zero, VAR_LOCKED, VAR_FIXED
 };
 
+/*
+ * Structure to hold info about a tuple.
+ */
+struct tuplevar_S
+{
+    garray_T	tv_items;	// tuple items
+    type_T	*tv_type;	// current type, allocated by alloc_type()
+    tuple_T	*tv_copytuple;	// copied tuple used by deepcopy()
+    tuple_T	*tv_used_next;	// next tuple in used tuples list
+    tuple_T	*tv_used_prev;	// previous tuple in used tuples list
+    int		tv_refcount;	// reference count
+    int		tv_copyID;	// ID used by deepcopy()
+    char	tv_lock;	// zero, VAR_LOCKED, VAR_FIXED
+};
+
+/*
+ * Structure to hold a generic type information
+ */
+struct generictype_S
+{
+    type_T	*gt_type;	// generic or concrete type
+    char_u	*gt_name;	// type name
+};
+
+/*
+ * Generic function args table
+ */
+struct gfargs_tab_S
+{
+    garray_T	gfat_args;
+    garray_T	gfat_param_types;
+    garray_T	gfat_arg_types;
+};
+
 typedef int (*cfunc_T)(int argcount, typval_T *argvars, typval_T *rettv, void *state);
 typedef void (*cfunc_free_T)(void *state);
 
@@ -1831,6 +1893,8 @@ typedef struct
     blob_T	*fi_blob;	// blob being used
     char_u	*fi_string;	// copy of string being used
     int		fi_byte_idx;	// byte index in fi_string
+    tuple_T	*fi_tuple;	// tuple being used
+    int		fi_tuple_idx;	// tuple index in fi_tuple
     int		fi_cs_flags;	// cs_flags or'ed together
 } forinfo_T;
 
@@ -1887,6 +1951,13 @@ struct ufunc_S
     void	*uf_cb_state;   // state of uf_cb
 # endif
 
+    // for generic functions
+    int		uf_generic_argcount;// type argument count
+    generic_T	*uf_generic_args;   // generic types
+    type_T	*uf_generic_param_types; // list of allocated generic types
+    garray_T	uf_generic_arg_types; // list of allocated type arguments
+    hashtab_T	uf_generic_functab; // generic function table
+
     garray_T	uf_lines;	// function lines
 
     int		uf_debug_tick;	// when last checked for a breakpoint in this
@@ -1922,6 +1993,7 @@ struct ufunc_S
 
     char_u	*uf_name_exp;	// if "uf_name[]" starts with SNR the name with
 				// "<SNR>" as a string, otherwise NULL
+    size_t	uf_namelen;	// length of uf_name (excluding the NUL)
     char_u	uf_name[4];	// name of function (actual size equals name);
 				// can start with <SNR>123_ (<SNR> is K_SPECIAL
 				// KS_EXTRA KE_SNR)
@@ -1938,7 +2010,7 @@ struct ufunc_S
 #define FC_DEAD	    0x80	// function kept only for reference to dfunc
 #define FC_EXPORT   0x100	// "export def Func()"
 #define FC_NOARGS   0x200	// no a: variables in lambda
-#define FC_VIM9	    0x400	// defined in vim9 script file
+#define FC_VIM9	    0x400	// defined in Vim9 script file
 #define FC_CFUNC    0x800	// defined as Lua C func
 #define FC_COPY	    0x1000	// copy of another function by
 				// copy_lambda_to_global_func()
@@ -1947,6 +2019,7 @@ struct ufunc_S
 #define FC_OBJECT   0x4000	// object method
 #define FC_NEW	    0x8000	// constructor
 #define FC_ABSTRACT 0x10000	// abstract method
+#define FC_GENERIC  0x20000	// generic function
 
 // Is "ufunc" an object method?
 #define IS_OBJECT_METHOD(ufunc) ((ufunc->uf_flags & FC_OBJECT) == FC_OBJECT)
@@ -1954,6 +2027,7 @@ struct ufunc_S
 #define IS_CONSTRUCTOR_METHOD(ufunc) ((ufunc->uf_flags & FC_NEW) == FC_NEW)
 // Is "ufunc" an abstract class method?
 #define IS_ABSTRACT_METHOD(ufunc) ((ufunc->uf_flags & FC_ABSTRACT) == FC_ABSTRACT)
+#define IS_GENERIC_FUNC(ufunc) (((ufunc)->uf_flags & FC_GENERIC) == FC_GENERIC)
 
 #define MAX_FUNC_ARGS	20	// maximum number of function arguments
 #define VAR_SHORT_LEN	20	// short variable name length
@@ -2283,6 +2357,7 @@ typedef struct {
     type_T	*fe_check_type;	// type from funcref or NULL
     int		fe_found_var;	// if the function is not found then give an
 				// error that a variable is not callable.
+    cctx_T	*fe_cctx;	// when compiling a :def function
 } funcexe_T;
 
 /*
@@ -2808,6 +2883,15 @@ typedef struct list_stack_S
 } list_stack_T;
 
 /*
+ * structure used for explicit stack while garbage collecting tuples
+ */
+typedef struct tuple_stack_S
+{
+    tuple_T			*tuple;
+    struct tuple_stack_S	*prev;
+} tuple_stack_T;
+
+/*
  * Structure used for iterating over dictionary items.
  * Initialize with dict_iterate_start().
  */
@@ -3028,7 +3112,7 @@ struct file_buffer
     int		b_locked;	// Buffer is being closed or referenced, don't
 				// let autocommands wipe it out.
     int		b_locked_split;	// Buffer is being closed, don't allow opening
-				// a new window with it.
+				// it in more windows.
 
     /*
      * b_ffname has the full path of the file (NULL for no name).
@@ -3235,6 +3319,8 @@ struct file_buffer
     char_u	*b_p_csl;	// 'completeslash'
 #endif
 #ifdef FEAT_COMPL_FUNC
+    callback_T	*b_p_cpt_cb;	// F{func} in 'complete' callback
+    int		b_p_cpt_count;	// Count of values in 'complete'
     char_u	*b_p_cfu;	// 'completefunc'
     callback_T	b_cfu_cb;	// 'completefunc' callback
     char_u	*b_p_ofu;	// 'omnifunc'
@@ -3243,6 +3329,8 @@ struct file_buffer
 #ifdef FEAT_EVAL
     char_u	*b_p_tfu;	// 'tagfunc' option value
     callback_T	b_tfu_cb;	// 'tagfunc' callback
+    char_u	*b_p_ffu;	// 'findfunc' option value
+    callback_T	b_ffu_cb;	// 'findfunc' callback
 #endif
     int		b_p_eof;	// 'endoffile'
     int		b_p_eol;	// 'endofline'
@@ -3256,6 +3344,7 @@ struct file_buffer
     char_u	*b_p_fo;	// 'formatoptions'
     char_u	*b_p_flp;	// 'formatlistpat'
     int		b_p_inf;	// 'infercase'
+    char_u	*b_p_ise;	// 'isexpand' local value
     char_u	*b_p_isk;	// 'iskeyword'
 #ifdef FEAT_FIND_ID
     char_u	*b_p_def;	// 'define' local value
@@ -3324,6 +3413,7 @@ struct file_buffer
      * local values for options which are normally global
      */
 #ifdef FEAT_QUICKFIX
+    char_u	*b_p_gefm;	// 'grepformat' local value
     char_u	*b_p_gp;	// 'grepprg' local value
     char_u	*b_p_mp;	// 'makeprg' local value
     char_u	*b_p_efm;	// 'errorformat' local value
@@ -3335,6 +3425,9 @@ struct file_buffer
     char_u	*b_p_tc;	// 'tagcase' local value
     unsigned	b_tc_flags;     // flags for 'tagcase'
     char_u	*b_p_dict;	// 'dictionary' local value
+#ifdef FEAT_DIFF
+    char_u	*b_p_dia;	// 'diffanchors' local value
+#endif
     char_u	*b_p_tsr;	// 'thesaurus' local value
 #ifdef FEAT_COMPL_FUNC
     char_u	*b_p_tsrfu;	// 'thesaurusfunc' local value
@@ -3516,7 +3609,7 @@ struct file_buffer
 }; // file_buffer
 
 
-#ifdef FEAT_DIFF
+#if defined(FEAT_DIFF) || defined(PROTO)
 /*
  * Stuff for diff mode.
  */
@@ -3527,14 +3620,19 @@ struct file_buffer
  * and how many lines it occupies in that buffer.  When the lines are missing
  * in the buffer the df_count[] is zero.  This is all counted in
  * buffer lines.
- * There is always at least one unchanged line in between the diffs.
- * Otherwise it would have been included in the diff above or below it.
+ * Usually there is always at least one unchanged line in between the diffs as
+ * otherwise it would have been included in the diff above or below it.  When
+ * linematch or diff anchors are used, this is no longer guaranteed, and we may
+ * have adjacent diff blocks.  In all cases they will not overlap, although it
+ * is possible to have multiple 0-count diff blocks at the same line.
  * df_lnum[] + df_count[] is the lnum below the change.  When in one buffer
  * lines have been inserted, in the other buffer df_lnum[] is the line below
  * the insertion and df_count[] is zero.  When appending lines at the end of
  * the buffer, df_lnum[] is one beyond the end!
  * This is using a linked list, because the number of differences is expected
  * to be reasonable small.  The list is sorted on lnum.
+ * Each diffblock also contains a cached list of inline diff of changes within
+ * the block, used for highlighting.
  */
 typedef struct diffblock_S diff_T;
 struct diffblock_S
@@ -3542,7 +3640,43 @@ struct diffblock_S
     diff_T	*df_next;
     linenr_T	df_lnum[DB_COUNT];	// line number in buffer
     linenr_T	df_count[DB_COUNT];	// nr of inserted/changed lines
+    int is_linematched;  // has the linematch algorithm ran on this diff hunk to divide it into
+			  // smaller diff hunks?
+
+    int		has_changes;		// has cached list of inline changes
+    garray_T	df_changes;		// list of inline changes (diffline_change_T)
 };
+
+/*
+ * Each entry stores a single inline change within a diff block. Line numbers
+ * are recorded as relative offsets, and columns are byte offsets, not
+ * character counts.
+ * Ranges are [start,end), with the end being exclusive.
+ */
+typedef struct diffline_change_S diffline_change_T;
+struct diffline_change_S
+{
+    colnr_T	dc_start[DB_COUNT];	// byte offset of start of range in the line
+    colnr_T	dc_end[DB_COUNT];	// 1 past byte offset of end of range in line
+    int		dc_start_lnum_off[DB_COUNT];	// starting line offset
+    int		dc_end_lnum_off[DB_COUNT];	// end line offset
+};
+
+/*
+ * Describes a single line's list of inline changes. Use diff_change_parse() to
+ * parse this.
+ */
+typedef struct diffline_S diffline_T;
+struct diffline_S
+{
+    diffline_change_T *changes;
+    int num_changes;
+    int bufidx;
+    int lineoff;
+};
+#else  // FEAT_DIFF
+typedef void diffline_T;
+typedef void diffline_change_T;
 #endif
 
 #define SNAP_HELP_IDX	0
@@ -3570,6 +3704,7 @@ struct tabpage_S
     long	    tp_old_Rows;    // Rows when Tab page was left
     long	    tp_old_Columns; // Columns when Tab page was left, -1 when
 				    // calling shell_new_columns() postponed
+    int		    tp_old_coloff;  // Column offset when Tab page was left
     long	    tp_ch_used;	    // value of 'cmdheight' when frame size
 				    // was set
 #ifdef FEAT_GUI
@@ -3768,6 +3903,11 @@ typedef struct
     int	diff;
     int	eob;
     int	lastline;
+#if defined(FEAT_TABPANEL)
+    int	tpl_vert;
+#endif
+    int trunc;
+    int truncrl;
 } fill_chars_T;
 
 /*
@@ -4471,14 +4611,13 @@ typedef struct
  */
 typedef struct
 {
-    char_u	*pum_text;	  // main menu text
-    char_u	*pum_kind;	  // extra kind text (may be truncated)
-    char_u	*pum_extra;	  // extra menu text (may be truncated)
-    char_u	*pum_info;	  // extra info
-    int		pum_score;	  // fuzzy match score
-    int		pum_idx;	  // index of item before sorting by score
-    int		pum_user_hlattr;  // highlight attribute to combine with
-    int		pum_user_kind_hlattr; // highlight attribute for kind
+    char_u	*pum_text;		// main menu text
+    char_u	*pum_kind;		// extra kind text (may be truncated)
+    char_u	*pum_extra;		// extra menu text (may be truncated)
+    char_u	*pum_info;		// extra info
+    int		pum_cpt_source_idx;	// index of completion source in 'cpt'
+    int		pum_user_abbr_hlattr;	// highlight attribute for abbr
+    int		pum_user_kind_hlattr;	// highlight attribute for kind
 } pumitem_T;
 
 /*
@@ -4494,9 +4633,9 @@ typedef struct
 } tagname_T;
 
 typedef struct {
-  UINT32_T total[2];
-  UINT32_T state[8];
-  char_u   buffer[64];
+    UINT32_T total[2];
+    UINT32_T state[8];
+    char_u   buffer[64];
 } context_sha256_T;
 
 /*
@@ -4675,12 +4814,14 @@ typedef struct lval_S
     char_u	*ll_newkey;	// New key for Dict in alloc. mem or NULL.
     type_T	*ll_valtype;	// type expected for the value or NULL
     blob_T	*ll_blob;	// The Blob or NULL
+    tuple_T	*ll_tuple;	// tuple or NULL
     ufunc_T	*ll_ufunc;	// The function or NULL
     object_T	*ll_object;	// The object or NULL, class is not NULL
     class_T	*ll_class;	// The class or NULL, object may be NULL
     int		ll_oi;		// The object/class member index
     int		ll_is_root;	// TRUE if ll_tv is the lval_root, like a
 				// plain object/class. ll_tv is variable.
+    garray_T	ll_type_list;   // list of pointers to allocated types
 } lval_T;
 
 /**
@@ -4740,7 +4881,7 @@ typedef enum {
 #define DELETION_REGISTER	36
 #ifdef FEAT_CLIPBOARD
 # define STAR_REGISTER		37
-#  ifdef FEAT_X11
+#  if defined(FEAT_X11) || defined(FEAT_WAYLAND)
 #   define PLUS_REGISTER	38
 #  else
 #   define PLUS_REGISTER	STAR_REGISTER	    // there is only one
@@ -4783,7 +4924,7 @@ struct block_def
 // Each yank register has an array of pointers to lines.
 typedef struct
 {
-    char_u	**y_array;	// pointer to array of line pointers
+    string_T	*y_array;	// pointer to array of string_T structs
     linenr_T	y_size;		// number of lines in y_array
     char_u	y_type;		// MLINE, MCHAR or MBLOCK
     char_u  y_op_change;
@@ -5080,14 +5221,40 @@ typedef struct {
 // Return the length of a string literal
 #define STRLEN_LITERAL(s) (sizeof(s) - 1)
 
-// Store a key/value pair
+// Store a key/value (string) pair
 typedef struct
 {
     int	    key;        // the key
-    char    *value;     // the value string
-    size_t  length;     // length of the value string
+    string_T value;	// the value
 } keyvalue_T;
 
 #define KEYVALUE_ENTRY(k, v) \
-    {(k), (v), STRLEN_LITERAL(v)}
+    {(k), {((char_u *)v), STRLEN_LITERAL(v)}}
 
+#if defined(UNIX) || defined(MSWIN) || defined(VMS)
+// Defined as signed, to return -1 on error
+struct cellsize {
+    int cs_xpixel;
+    int cs_ypixel;
+};
+#endif
+
+#ifdef FEAT_WAYLAND
+
+// Wayland selections
+typedef enum {
+    WAYLAND_SELECTION_NONE	    = 0x0,
+    WAYLAND_SELECTION_REGULAR	    = 0x1,
+    WAYLAND_SELECTION_PRIMARY	    = 0x2,
+} wayland_selection_T;
+
+// Callback when another client wants us to send data to them
+typedef void (*wayland_cb_send_data_func_T)(
+	const char *mime_type,
+	int fd,
+	wayland_selection_T type);
+
+// Callback when the selection is lost (data source object overwritten)
+typedef void (*wayland_cb_selection_cancelled_func_T)(wayland_selection_T type);
+
+#endif // FEAT_WAYLAND

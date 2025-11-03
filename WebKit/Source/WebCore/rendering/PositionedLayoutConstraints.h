@@ -46,6 +46,7 @@ public:
     LayoutUnit containingSize() const { return m_containingRange.size(); }
     LayoutUnit containingInlineSize() const { return m_containingInlineSize; }
     LayoutRange containingRange() const { return m_containingRange; }
+    LayoutRange originalContainingRange() const { return m_originalContainingRange; }
     LayoutRange extractRange(LayoutRect);
 
     BoxAxis physicalAxis() const { return m_physicalAxis; }
@@ -80,6 +81,7 @@ public:
     LayoutUnit insetAfterValue() const { return Style::evaluateMinimum(m_insetAfter, containingSize()); }
 
     LayoutUnit insetModifiedContainingSize() const { return m_insetModifiedContainingRange.size(); }
+    LayoutRange insetModifiedContainingRange() const { return m_insetModifiedContainingRange; }
     LayoutUnit availableContentSpace() const { return insetModifiedContainingSize() - marginBeforeValue() - bordersPlusPadding() - marginAfterValue(); } // This may be negative.
 
     void resolvePosition(RenderBox::LogicalExtentComputedValues&) const;
@@ -92,6 +94,7 @@ private:
     bool containingCoordsAreFlipped() const;
 
     void captureInsets();
+    void captureScrollableArea();
     void captureGridArea();
     void captureAnchorGeometry();
     LayoutRange adjustForPositionArea(const LayoutRange rangeToAdjust, const LayoutRange anchorArea, const BoxAxis containerAxis);

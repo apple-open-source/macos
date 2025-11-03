@@ -46,6 +46,7 @@ __enum_decl(failure_injection_stage_t, uint64_t, {
 	XNU_STAGE_SCHEDULER_START       = 0x33,
 	XNU_STAGE_BSD_INIT_START        = 0x34,
 	XNU_STAGE_BSD_INIT_END          = 0x35,
+	XNU_STAGE_HIBERNATE_ENTRY       = 0x37,
 });
 
 /* Enumeration of the injectable failure actions
@@ -66,5 +67,11 @@ __enum_decl(failure_injection_action_t, uint64_t, {
 extern uint64_t xnu_upsi_injection_stage;
 extern uint64_t xnu_upsi_injection_action;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void check_for_failure_injection(failure_injection_stage_t req);
+#ifdef __cplusplus
+}
+#endif
 #endif // HAS_UPSI_FAILURE_INJECTION

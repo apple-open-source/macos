@@ -102,9 +102,9 @@
 #include <ctype.h>
 #include <string.h>
 
-#include "sudo_compat.h"
-#include "compat/charclass.h"
-#include "compat/fnmatch.h"
+#include <sudo_compat.h>
+#include <compat/charclass.h>
+#include <compat/fnmatch.h>
 
 #define	RANGE_MATCH	1
 #define	RANGE_NOMATCH	0
@@ -227,7 +227,7 @@ leadingclosebrace:
 
                 /* NOT a properly balanced [expr] pattern, EOS terminated 
                  * or ranges containing a slash in FNM_PATHNAME mode pattern
-                 * fall out to to the rewind and test '[' literal code path
+                 * fall out to the rewind and test '[' literal code path
                  */
                 if (!**pattern || (slash && (**pattern == '/')))
                     break;

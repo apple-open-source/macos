@@ -218,7 +218,7 @@ void srp_log_ref_final(void *x, unsigned ref_count, const char *object_type, con
 #undef OBJECT_TYPE
 #undef NW_OBJECT_TYPE
 #define RELEASE_BASE(x, object_type, check, final, file, line) srp_##object_type##_release(x)
-#define RETAIN_BASE(x, object_type, check, final, file, line)  srp_##object_type##_retain(x)
+#define RETAIN_BASE(x, object_type, final, file, line)  srp_##object_type##_retain(x)
 #else
 #define RELEASE_BASE(x, object_type, check, final, file, line) do {               \
         if ((x) != NULL && check(x, #object_type, file, line, true)) {            \

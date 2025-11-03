@@ -306,6 +306,20 @@
     return _machineID != nil;
 }
 @synthesize machineID = _machineID;
+@synthesize escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
+- (void)setEscrowRepairAttemptVersion:(int64_t)v
+{
+    _has.escrowRepairAttemptVersion = (uint)YES;
+    _escrowRepairAttemptVersion = v;
+}
+- (void)setHasEscrowRepairAttemptVersion:(BOOL)f
+{
+    _has.escrowRepairAttemptVersion = (uint)f;
+}
+- (BOOL)hasEscrowRepairAttemptVersion
+{
+    return _has.escrowRepairAttemptVersion != 0;
+}
 
 - (NSString *)description
 {
@@ -398,6 +412,10 @@
     if (self->_machineID)
     {
         [dict setObject:self->_machineID forKey:@"machineID"];
+    }
+    if (self->_has.escrowRepairAttemptVersion)
+    {
+        [dict setObject:[NSNumber numberWithLongLong:self->_escrowRepairAttemptVersion] forKey:@"escrowRepairAttemptVersion"];
     }
     return dict;
 }
@@ -545,6 +563,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 NSString *new_machineID = PBReaderReadString(reader);
                 self->_machineID = new_machineID;
+            }
+            break;
+            case 27 /* escrowRepairAttemptVersion */:
+            {
+                self->_has.escrowRepairAttemptVersion = (uint)YES;
+                self->_escrowRepairAttemptVersion = PBReaderReadInt64(reader);
             }
             break;
             default:
@@ -709,6 +733,13 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteStringField(writer, self->_machineID, 26);
         }
     }
+    /* escrowRepairAttemptVersion */
+    {
+        if (self->_has.escrowRepairAttemptVersion)
+        {
+            PBDataWriterWriteInt64Field(writer, self->_escrowRepairAttemptVersion, 27);
+        }
+    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -814,6 +845,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         other.machineID = _machineID;
     }
+    if (self->_has.escrowRepairAttemptVersion)
+    {
+        other->_escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
+        other->_has.escrowRepairAttemptVersion = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -892,6 +928,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_has.lastEscrowRepairAttempted = YES;
     }
     copy->_machineID = [_machineID copyWithZone:zone];
+    if (self->_has.escrowRepairAttemptVersion)
+    {
+        copy->_escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
+        copy->_has.escrowRepairAttemptVersion = YES;
+    }
     return copy;
 }
 
@@ -941,6 +982,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((self->_has.lastEscrowRepairAttempted && other->_has.lastEscrowRepairAttempted && self->_lastEscrowRepairAttempted == other->_lastEscrowRepairAttempted) || (!self->_has.lastEscrowRepairAttempted && !other->_has.lastEscrowRepairAttempted))
     &&
     ((!self->_machineID && !other->_machineID) || [self->_machineID isEqual:other->_machineID])
+    &&
+    ((self->_has.escrowRepairAttemptVersion && other->_has.escrowRepairAttemptVersion && self->_escrowRepairAttemptVersion == other->_escrowRepairAttemptVersion) || (!self->_has.escrowRepairAttemptVersion && !other->_has.escrowRepairAttemptVersion))
     ;
 }
 
@@ -989,6 +1032,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     (self->_has.lastEscrowRepairAttempted ? PBHashInt((NSUInteger)self->_lastEscrowRepairAttempted) : 0)
     ^
     [self->_machineID hash]
+    ^
+    (self->_has.escrowRepairAttemptVersion ? PBHashInt((NSUInteger)self->_escrowRepairAttemptVersion) : 0)
     ;
 }
 
@@ -1089,6 +1134,11 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     if (other->_machineID)
     {
         [self setMachineID:other->_machineID];
+    }
+    if (other->_has.escrowRepairAttemptVersion)
+    {
+        self->_escrowRepairAttemptVersion = other->_escrowRepairAttemptVersion;
+        self->_has.escrowRepairAttemptVersion = YES;
     }
 }
 

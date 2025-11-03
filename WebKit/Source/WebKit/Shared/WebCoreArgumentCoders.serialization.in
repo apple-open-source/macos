@@ -6055,7 +6055,7 @@ header: <WebCore/RTCDataChannelHandler.h>
     bool madeHTTPS;
     bool blockedCookies;
     bool hasNotifications;
-    bool redirectedPriorToBlock;
+    bool redirected;
     [NotSerialized] Vector<WebCore::ContentExtensions::ModifyHeadersAction> modifyHeadersActions;
     [NotSerialized] Vector<std::pair<WebCore::ContentExtensions::RedirectAction, URL>> redirectActions;
 };
@@ -6512,6 +6512,8 @@ header: <WebCore/ISOVTTCue.h>
 
 [Nested] struct WebCore::MockWebAuthenticationConfiguration::HidConfiguration {
     Vector<String> payloadBase64;
+    Vector<String> expectedCommandsBase64;
+    bool validateExpectedCommands;
     WebCore::MockWebAuthenticationConfiguration::HidStage stage;
     WebCore::MockWebAuthenticationConfiguration::HidSubStage subStage;
     WebCore::MockWebAuthenticationConfiguration::HidError error;

@@ -85,6 +85,9 @@ bool SecSystemConstrainedAnchorSourceContainsAnchorByKey(SecCertificateRef certi
 CFArrayRef SecSystemConstrainedAnchorSourceCopyUsageConstraints(SecCertificateSourceRef source, SecCertificateRef certificate);
 extern const SecCertificateSourceRef kSecSystemConstrainedAnchorSource;
 
+/* SecAppleAnchorSource */
+extern const SecCertificateSourceRef kSecAppleAnchorSource;
+
 /* SecSystemAnchorSource */
 CFArrayRef SecSystemAnchorSourceCopyCertificates(void);
 extern const SecCertificateSourceRef kSecSystemAnchorSource;

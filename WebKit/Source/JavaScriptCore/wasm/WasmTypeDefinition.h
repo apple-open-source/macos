@@ -967,6 +967,8 @@ public:
 
     static const TypeDefinition& get(TypeIndex);
     static TypeIndex get(const TypeDefinition&);
+    // Unlike with `get`, the index passed to `getRef` may be a type or invalid, in which case a nullptr is returned.
+    static RefPtr<const TypeDefinition> getRef(TypeIndex);
 
     inline static const FunctionSignature& getFunctionSignature(TypeIndex);
     inline static std::optional<const FunctionSignature*> tryGetFunctionSignature(TypeIndex);

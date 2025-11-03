@@ -99,6 +99,13 @@ extern void bonobo_dock_item_set_behavior(BonoboDockItem *dock_item, BonoboDockI
 # include <X11/Sunkeysym.h>
 #endif
 
+#ifdef FEAT_SOCKETSERVER
+# include <glib-unix.h>
+
+// Used to track the source for the listening socket
+static uint socket_server_source_id = 0;
+#endif
+
 /*
  * Easy-to-use macro for multihead support.
  */
@@ -160,7 +167,7 @@ static const GtkTargetEntry dnd_targets[] =
  * "Monospace" is a standard font alias that should be present
  * on all proper Pango/fontconfig installations.
  */
-# define DEFAULT_FONT	"Monospace 10"
+# define DEFAULT_FONT	"Monospace 12"
 
 #if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
 # define USE_GNOME_SESSION
@@ -1095,7 +1102,7 @@ focus_out_event(GtkWidget *widget UNUSED,
  * plus the NUL terminator.  Returns the length in bytes.
  *
  * event->string is evil; see here why:
- * http://developer.gnome.org/doc/API/2.0/gdk/gdk-Event-Structures.html#GdkEventKey
+ * https://www.manpagez.com/html/gdk2/gdk2-2.24.24/gdk2-Event-Structures.php#GdkEventKey
  */
     static int
 keyval_to_string(unsigned int keyval, char_u *string)
@@ -1730,15 +1737,6 @@ gui_mch_init_check(void)
 	res_registered = TRUE;
 	gui_gtk_register_resource();
     }
-#endif
-
-#if GTK_CHECK_VERSION(3,10,0)
-    // Vim currently assumes that Gtk means X11, so it cannot use native Gtk
-    // support for other backends such as Wayland.
-    //
-    // Use an environment variable to enable unfinished Wayland support.
-    if (getenv("GVIM_ENABLE_WAYLAND") == NULL)
-	gdk_set_allowed_backends ("x11");
 #endif
 
 #ifdef FEAT_GUI_GNOME
@@ -2697,6 +2695,53 @@ global_event_filter(GdkXEvent *xev,
 }
 #endif // !USE_GNOME_SESSION
 
+#if defined(FEAT_SOCKETSERVER) || defined(PROTO)
+
+/*
+ * Callback for new events from the socket server listening socket
+ */
+    static int
+socket_server_poll_in(int fd UNUSED, GIOCondition cond, void *user_data UNUSED)
+{
+    if (cond & G_IO_IN)
+	socket_server_accept_client();
+    else if (cond & (G_IO_ERR | G_IO_HUP))
+    {
+	socket_server_uninit();
+	return FALSE;
+    }
+
+    return TRUE;
+}
+
+/*
+ * Initialize socket server for use in the GUI (does not actually initialize the
+ * socket server, only attaches a source).
+ */
+    void
+gui_gtk_init_socket_server(void)
+{
+    if (socket_server_source_id > 0)
+	return;
+    // Register source for file descriptor to global default context
+    socket_server_source_id = g_unix_fd_add(socket_server_get_fd(),
+	    G_IO_IN | G_IO_ERR | G_IO_HUP, socket_server_poll_in, NULL);
+}
+
+/*
+ * Remove the source for the socket server listening socket.
+ */
+    void
+gui_gtk_uninit_socket_server(void)
+{
+    if (socket_server_source_id > 0)
+    {
+	g_source_remove(socket_server_source_id);
+	socket_server_source_id = 0;
+    }
+}
+
+#endif
 
 /*
  * Setup the window icon & xcmdsrv comm after the main window has been realized.
@@ -2704,8 +2749,8 @@ global_event_filter(GdkXEvent *xev,
     static void
 mainwin_realize(GtkWidget *widget UNUSED, gpointer data UNUSED)
 {
-#include "../runtime/vim32x32.xpm"
 #include "../runtime/vim16x16.xpm"
+#include "../runtime/vim32x32.xpm"
 #include "../runtime/vim48x48.xpm"
 
     GdkWindow * const mainwin_win = gtk_widget_get_window(gui.mainwin);
@@ -2722,20 +2767,32 @@ mainwin_realize(GtkWidget *widget UNUSED, gpointer data UNUSED)
 
     if (vim_strchr(p_go, GO_ICON) != NULL)
     {
-	/*
-	 * Add an icon to the main window. For fun and convenience of the user.
-	 */
-	GList *icons = NULL;
+	GtkIconTheme *icon_theme;
 
-	icons = g_list_prepend(icons, gdk_pixbuf_new_from_xpm_data((const char **)vim16x16));
-	icons = g_list_prepend(icons, gdk_pixbuf_new_from_xpm_data((const char **)vim32x32));
-	icons = g_list_prepend(icons, gdk_pixbuf_new_from_xpm_data((const char **)vim48x48));
+	icon_theme = gtk_icon_theme_get_default();
 
-	gtk_window_set_icon_list(GTK_WINDOW(gui.mainwin), icons);
+	if (icon_theme && gtk_icon_theme_has_icon(icon_theme, "gvim"))
+	{
+	    gtk_window_set_icon_name(GTK_WINDOW(gui.mainwin), "gvim");
+	}
+	else
+	{
+	    /*
+	     * Add an icon to the main window. For fun and convenience of the user.
+	     */
+	    GList *icons = NULL;
 
-	// TODO: is this type cast OK?
-	g_list_foreach(icons, (GFunc)(void *)&g_object_unref, NULL);
-	g_list_free(icons);
+	    icons = g_list_prepend(icons, gdk_pixbuf_new_from_xpm_data((const char **)vim16x16));
+	    icons = g_list_prepend(icons, gdk_pixbuf_new_from_xpm_data((const char **)vim32x32));
+	    icons = g_list_prepend(icons, gdk_pixbuf_new_from_xpm_data((const char **)vim48x48));
+
+	    gtk_window_set_icon_list(GTK_WINDOW(gui.mainwin), icons);
+
+	    // TODO: is this type cast OK?
+	    g_list_foreach(icons, (GFunc)(void *)&g_object_unref, NULL);
+	    g_list_free(icons);
+	}
+	g_object_unref(icon_theme);
     }
 
 #if !defined(USE_GNOME_SESSION)
@@ -2751,7 +2808,7 @@ mainwin_realize(GtkWidget *widget UNUSED, gpointer data UNUSED)
 	setup_save_yourself();
 
 #ifdef FEAT_CLIENTSERVER
-    if (gui_mch_get_display())
+    if (clientserver_method == CLIENTSERVER_METHOD_X11 && gui_mch_get_display())
     {
 	if (serverName == NULL && serverDelayedStartName != NULL)
 	{
@@ -2781,57 +2838,19 @@ mainwin_realize(GtkWidget *widget UNUSED, gpointer data UNUSED)
     static GdkCursor *
 create_blank_pointer(void)
 {
-    GdkWindow	*root_window = NULL;
-#if GTK_CHECK_VERSION(3,0,0)
-    GdkPixbuf   *blank_mask;
-#else
-    GdkPixmap	*blank_mask;
-#endif
     GdkCursor	*cursor;
+
 #if GTK_CHECK_VERSION(3,0,0)
-    GdkRGBA	color = { 0.0, 0.0, 0.0, 0.0 };
+    GdkDisplay  *disp = gtk_widget_get_display(gui.mainwin);
+    cursor = gdk_cursor_new_from_name(disp, "none");
 #else
-    GdkColor	color = { 0, 0, 0, 0 };
-    char	blank_data[] = { 0x0 };
-#endif
-
-#if GTK_CHECK_VERSION(3,12,0)
-    {
-	GdkWindow * const win = gtk_widget_get_window(gui.mainwin);
-	GdkScreen * const scrn = gdk_window_get_screen(win);
-	root_window = gdk_screen_get_root_window(scrn);
-    }
-#else
-    root_window = gtk_widget_get_root_window(gui.mainwin);
-#endif
-
     // Create a pseudo blank pointer, which is in fact one pixel by one pixel
     // in size.
-#if GTK_CHECK_VERSION(3,0,0)
-    {
-	cairo_surface_t *surf;
-	cairo_t		*cr;
-
-	surf = cairo_image_surface_create(CAIRO_FORMAT_A1, 1, 1);
-	cr = cairo_create(surf);
-
-	cairo_set_source_rgba(cr,
-			     color.red,
-			     color.green,
-			     color.blue,
-			     color.alpha);
-	cairo_rectangle(cr, 0, 0, 1, 1);
-	cairo_fill(cr);
-	cairo_destroy(cr);
-
-	blank_mask = gdk_pixbuf_get_from_surface(surf, 0, 0, 1, 1);
-	cairo_surface_destroy(surf);
-
-	cursor = gdk_cursor_new_from_pixbuf(gdk_window_get_display(root_window),
-					    blank_mask, 0, 0);
-	g_object_unref(blank_mask);
-    }
-#else
+    GdkWindow	*root_window = NULL;
+    GdkColor	color = { 0, 0, 0, 0 };
+    GdkPixmap	*blank_mask;
+    char	blank_data[] = { 0x0 };
+    root_window = gtk_widget_get_root_window(gui.mainwin);
     blank_mask = gdk_bitmap_create_from_data(root_window, blank_data, 1, 1);
     cursor = gdk_cursor_new_from_pixmap(blank_mask, blank_mask,
 					&color, &color, 0, 0);
@@ -4583,6 +4602,7 @@ gui_mch_open(void)
 
     pixel_width = (guint)(gui_get_base_width() + Columns * gui.char_width);
     pixel_height = (guint)(gui_get_base_height() + Rows * gui.char_height);
+
     // For GTK2 changing the size of the form widget doesn't cause window
     // resizing.
     if (gtk_socket_id == 0)
@@ -5453,7 +5473,10 @@ gui_mch_free_font(GuiFont font)
  * monospace fonts as it's unlikely other fonts would be useful.
  */
     void
-gui_mch_expand_font(optexpand_T *args, void *param, int (*add_match)(char_u *val))
+gui_mch_expand_font(
+    optexpand_T	*args,
+    void	*param,
+    int		(*add_match)(char_u *val))
 {
     PangoFontFamily	**font_families = NULL;
     int			n_families = 0;
@@ -6621,7 +6644,9 @@ gui_mch_draw_part_cursor(int w, int h, guicolor_T color)
     void
 gui_mch_update(void)
 {
-    while (g_main_context_pending(NULL) && !vim_is_input_buf_full())
+    int cnt = 0;	// prevent endless loop
+    while (g_main_context_pending(NULL) && !vim_is_input_buf_full()
+								&& ++cnt < 100)
 	g_main_context_iteration(NULL, TRUE);
 }
 
@@ -7254,6 +7279,28 @@ gui_mch_mousehide(int hide)
 
 #if defined(FEAT_MOUSESHAPE) || defined(PROTO)
 
+# if GTK_CHECK_VERSION(3,0,0)
+static const char * mshape_css_names[] =
+{
+    "default",                  // arrow aka GDK_LEFT_PTR
+    "blank",                    // blank aka GDK_CURSOR_IS_PIXMAP
+    "text",                     // beam aka GDK_XTERM
+    "ns-resize",                // updown aka GDK_SB_V_DOUBLE_ARROW
+    "nwse-resize",              // udsizing aka GDK_SIZING
+    "ew-resize",                // leftright aka GDK_SB_H_DOUBLE_ARROW
+    "ew-resize",                // lrsizing aka GDK_SIZING
+    "progress",                 // busy aka GDK_WATCH
+    "not-allowed",              // no aka GDK_X_CURSOR
+    "crosshair",                // crosshair aka GDK_CROSSHAIR
+    "pointer",                  // hand1 aka GDK_HAND1
+    "pointer",                  // hand2 aka GDK_HAND2
+    "default",                  // pencil aka GDK_PENCIL (no css analogue)
+    "help",                     // question aka GDK_QUESTION_ARROW
+    "default",                  // right-arrow aka GDK_RIGHT_PTR (no css analogue)
+    "default",                  // up-arrow aka GDK_CENTER_PTR (no css analogue)
+    "default"                   // GDK_LEFT_PTR (no css analogue)
+};
+# else
 // Table for shape IDs.  Keep in sync with the mshape_names[] table in
 // misc2.c!
 static const int mshape_ids[] =
@@ -7276,12 +7323,17 @@ static const int mshape_ids[] =
     GDK_CENTER_PTR,		// up-arrow
     GDK_LEFT_PTR		// last one
 };
+# endif // GTK_CHECK_VERSION(3,0,0)
 
     void
 mch_set_mouse_shape(int shape)
 {
-    int		   id;
     GdkCursor	   *c;
+    int		   id;                    // Only id or css_name is used.
+# if GTK_CHECK_VERSION(3,0,0)
+    const char     *css_name = "default";
+    GdkDisplay     *disp;
+# endif
 
     if (gtk_widget_get_window(gui.drawarea) == NULL)
 	return;
@@ -7299,12 +7351,22 @@ mch_set_mouse_shape(int shape)
 	    else
 		id &= ~1;	// they are always even (why?)
 	}
+# if GTK_CHECK_VERSION(3,0,0)
+	else if (shape < (int)ARRAY_LENGTH(mshape_css_names))
+	    css_name = mshape_css_names[shape];
+# else
 	else if (shape < (int)ARRAY_LENGTH(mshape_ids))
 	    id = mshape_ids[shape];
+# endif
 	else
 	    return;
+# if GTK_CHECK_VERSION(3,0,0)
+	disp = gtk_widget_get_display(gui.drawarea);
+	c = gdk_cursor_new_from_name(disp, css_name);
+# else
 	c = gdk_cursor_new_for_display(
 		gtk_widget_get_display(gui.drawarea), (GdkCursorType)id);
+# endif
 	gdk_window_set_cursor(gtk_widget_get_window(gui.drawarea), c);
 # if GTK_CHECK_VERSION(3,0,0)
 	g_object_unref(G_OBJECT(c));

@@ -5,14 +5,14 @@
 from sudo clients.
 This makes it possible to have all sudo I/O logs on a central server."
 	vendor="Todd C. Miller"
-	copyright="(c) 2019-2021 Todd C. Miller"
+	copyright="Copyright 2019-2025 Todd C. Miller"
 
 %if [aix]
 	# Convert to 4 part version for AIX, including patch level
 	pp_aix_version=`echo $version|sed -e 's/^\([0-9]*\.[0-9]*\.[0-9]*\)p\([0-9]*\)$/\1.\2/' -e 's/^\([0-9]*\.[0-9]*\.[0-9]*\)[^0-9\.].*$/\1/' -e 's/^\([0-9]*\.[0-9]*\.[0-9]*\)$/\1.0/'`
 
-	# Don't allow sudo to prompt for a password
-	pp_aix_sudo="sudo -n"
+	# Don't use sudo to list the package.
+	pp_aix_sudo=
 %endif
 
 %if [sd]
@@ -128,15 +128,20 @@ This makes it possible to have all sudo I/O logs on a central server."
 %endif
 
 %if [rpm]
+	# Used to set rpm_arch to x86_64_v2 on Alma Linux
+	if test -n "$pp_rpm_arch_override"; then
+		pp_rpm_arch="$pp_rpm_arch_override"
+	fi
+
 	# Add distro info to release
-	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*\([0-9]\{1,2\}\).*/\1/'`
+	osrelease=`echo "$pp_rpm_distro" | sed -e 's/^[^0-9]*\([0-9]\{1,3\}\).*/\1/'`
 	case "$pp_rpm_distro" in
 	centos*|rhel*|f[0-9]*)
 		# CentOS Stream has a single-digit version
 		if test $osrelease -lt 10; then
 		    osrelease="${osrelease}0"
 		fi
-		pp_rpm_release="$pp_rpm_release.el${osrelease%%[0-9]}"
+		pp_rpm_release="$pp_rpm_release.el${osrelease%[0-9]}"
 		;;
 	sles*)
 		pp_rpm_release="$pp_rpm_release.sles$osrelease"
@@ -167,10 +172,16 @@ This makes it possible to have all sudo I/O logs on a central server."
 	    extradirs="$extradirs `dirname $docdir` `dirname $rundir`"
 	    test "`dirname $exampledir`" != "$docdir" && extradirs="$extradirs `dirname $exampledir`"
 	    for dir in $sbindir $extradirs; do
+		# Only package directories that match the prefix,
+		# otherwise we could package directories like /var.
+		case "$dir" in
+		${prefix}*)
 		    while test "$dir" != "/"; do
 			    parentdirs="${parentdirs}${parentdirs+ }$dir/"
 			    dir=`dirname $dir`
 		    done
+		    ;;
+		esac
 	    done
 	    parentdirs=`echo $parentdirs | tr " " "\n" | sort -u`
 	fi
@@ -261,7 +272,7 @@ This makes it possible to have all sudo I/O logs on a central server."
 	    pp_systemd_service_exec_args="-n"
 	    pp_systemd_service_man="man:sudo_logsrvd(8) man:sudo_logsrvd.conf(5)"
 	    pp_systemd_service_documentation="https://www.sudo.ws/man.html"
-	    pp_systemd_service_after="syslog.target network.target auditd.service"
+	    pp_systemd_service_after="network.target auditd.service"
 	    pp_systemd_service_killmode="process"
 	    pp_systemd_service_type="exec"
 	    pp_systemd_system_target="multi-user.target"

@@ -56,9 +56,9 @@
 {
     secnotice("octagon", "Triggering escrow update");
 
-    NSDictionary* metrics = nil;
-    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
-
+    NSDictionary* metrics = @{
+        kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW),
+    };
     AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                 altDSID:self.deps.activeAccount.altDSID
                                                                                                  flowID:self.deps.flowID

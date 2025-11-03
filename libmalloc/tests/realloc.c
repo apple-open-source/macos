@@ -4,8 +4,8 @@
 
 #include <malloc/malloc.h>
 
-T_DECL(realloc_failure, "realloc failure", T_META_TAG_XZONE,
-		T_META_TAG("no_debug"), T_META_TAG_VM_NOT_PREFERRED)
+T_DECL(realloc_failure, "realloc failure", T_META_TAG_ALL_ALLOCATORS,
+		T_META_TAG("no_debug"), T_META_TAG_VM_PREFERRED)
 {
 	void *a = malloc(16);
 	T_ASSERT_NOTNULL(a, "malloc(16)");
@@ -21,8 +21,8 @@ T_DECL(realloc_failure, "realloc failure", T_META_TAG_XZONE,
 	free(a);
 }
 
-T_DECL(reallocf_failure, "reallocf failure", T_META_TAG_XZONE,
-		T_META_TAG("no_debug"), T_META_TAG_VM_NOT_PREFERRED)
+T_DECL(reallocf_failure, "reallocf failure", T_META_TAG_ALL_ALLOCATORS,
+		T_META_TAG("no_debug"), T_META_TAG_VM_PREFERRED)
 {
 	// rdar://134443969: Avoid the tiny zone because it may madvise
 	void *a = malloc(65536);

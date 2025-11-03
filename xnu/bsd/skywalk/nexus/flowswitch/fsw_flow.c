@@ -553,6 +553,7 @@ fsw_flow_config(struct nx_flowswitch *fsw, struct nx_flow_req *req)
 	}
 done:
 	if (fe != NULL) {
+		fe_stats_update(fe);
 		flow_entry_release(&fe);
 	}
 	FSW_RUNLOCK(fsw);

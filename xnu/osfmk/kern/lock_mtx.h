@@ -127,16 +127,31 @@ extern void             lck_mtx_assert(
 	lck_mtx_t               *lck,
 	unsigned                int    type);
 
+#if !LCK_MTX_USE_ARCH
+extern void             lck_mtx_assert_owned_spin(
+	lck_mtx_t               *lck);
+#endif /* !LCK_MTX_USE_ARCH */
+
 #if MACH_ASSERT
-#define LCK_MTX_ASSERT(lck, type)  MACH_ASSERT_DO(lck_mtx_assert(lck, type))
+#define LCK_MTX_ASSERT(lck, type)       MACH_ASSERT_DO(lck_mtx_assert(lck, type))
+#if !LCK_MTX_USE_ARCH
+#define LCK_MTX_ASSERT_OWNED_SPIN(lck)  MACH_ASSERT_DO(lck_mtx_assert_owned_spin(lck))
+#endif /* !LCK_MTX_USE_ARCH */
 #else /* !MACH_ASSERT */
 #define LCK_MTX_ASSERT(lck, type)
+#if !LCK_MTX_USE_ARCH
+#define LCK_MTX_ASSERT_OWNED_SPIN(lck)
+#endif /* !LCK_MTX_USE_ARCH */
 #endif /* !MACH_ASSERT */
 
 #if DEBUG
-#define LCK_MTX_ASSERT_DEBUG(lck, type) lck_mtx_assert((lck),(type))
+#define LCK_MTX_ASSERT_DEBUG(lck, type)      lck_mtx_assert((lck),(type))
+#define LCK_MTX_ASSERT_OWNED_SPIN_DEBUG(lck) lck_mtx_assert_owned_spin(lck)
 #else /* DEBUG */
 #define LCK_MTX_ASSERT_DEBUG(lck, type)
+#if !LCK_MTX_USE_ARCH
+#define LCK_MTX_ASSERT_OWNED_SPIN_DEBUG(lck)
+#endif /* !LCK_MTX_USE_ARCH */
 #endif /* DEBUG */
 
 #if KERNEL_PRIVATE

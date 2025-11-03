@@ -313,6 +313,11 @@ struct wrapper_zone_layout_s {
 // Its goal, as the naming indicates, is to provide a clear indication in the
 // call stack that libmalloc is intentionally crashing because the client
 // provided a pointer that was deemed invalid.
+#if CONFIG_MTE
+// When MTE is enabled, this function also validates the logical tag of the
+// pointer, causing the process to crash with a fatal exception (which cannot be
+// caught by the process) if it is invalid.
+#endif
 MALLOC_NOEXPORT MALLOC_NOINLINE
 void
 ___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED(

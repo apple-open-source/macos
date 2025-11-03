@@ -66,6 +66,9 @@
 
 #include <tests/xnupost.h> /* for testing-related functions and macros */
 
+#if HAS_MTE
+#include <arm_acle.h>
+#endif /* HAS_MTE */
 
 extern ledger_template_t        task_ledger_template;
 
@@ -1353,12 +1356,76 @@ vm_test_physical_size_overflow(void)
 #define PTR_TAG_SHIFT 56
 #define PTR_BITS_MASK (((1ULL << PTR_TAG_SHIFT) - 1) | (0xfULL << PTR_UPPER_SHIFT))
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+static inline vm_map_t
+create_map(mach_vm_address_t map_start, mach_vm_address_t map_end);
+
+static inline void
+cleanup_map(vm_map_t *map);
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 __attribute__((noinline))
 static void
 vm_test_address_canonicalization(void)
 {
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	kern_return_t kr;
+	mach_vm_address_t kernel_addr, user_addr;
+	mach_vm_address_t canonicalized_addr;
+	mach_vm_address_t intended_result;
+	vm_address_t const tag = 0x5;
+	T_SETUPBEGIN;
+	T_LOG("%s: Allocating an address in the kernel map", __func__);
+	kr = mach_vm_allocate(kernel_map, &kernel_addr, PAGE_SIZE, VM_FLAGS_ANYWHERE);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "mach_vm_allocate in kernel map");
+	T_LOG("%s: Allocated kernel addr: 0x%llx", __func__, kernel_addr);
+	mach_vm_address_t const tagged_kernel_addr = (kernel_addr & PTR_BITS_MASK) |
+	    (tag << PTR_TAG_SHIFT);
+	T_LOG("%s: Tagged kernel address: 0x%llx", __func__, tagged_kernel_addr);
+
+	/* Create userland VM map and vm allocate an address from there */
+	vm_map_t user_map = create_map(MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS);
+	T_ASSERT_NOTNULL(user_map, "VM map creation");
+	kr = mach_vm_allocate(user_map, &user_addr, PAGE_SIZE, VM_FLAGS_ANYWHERE);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "mach_vm_allocate in user map");
+	T_LOG("%s: Allocated user address: 0x%llx", __func__, user_addr);
+	mach_vm_address_t const tagged_user_addr = (user_addr & PTR_BITS_MASK) |
+	    (tag << PTR_TAG_SHIFT);
+	T_LOG("%s: Tagged user address: 0x%llx", __func__, tagged_user_addr);
+	T_SETUPEND;
+
+	T_BEGIN("VM address canonicalization test");
+	/* canonicalize kernel address with kernel map */
+	intended_result = kernel_addr;
+	canonicalized_addr = (mach_vm_address_t)vm_memtag_canonicalize(kernel_map, tagged_kernel_addr);
+	T_EXPECT_EQ_ULLONG(canonicalized_addr, intended_result,
+	    "kernel address with kernel map: canonicalized kernel addr: 0x%llx, intended addr: 0x%llx",
+	    canonicalized_addr, intended_result);
+
+	/* canonicalize kernel address with user map */
+	intended_result = (kernel_addr & PTR_BITS_MASK) | ((mach_vm_address_t)0x0 << PTR_TAG_SHIFT);
+	canonicalized_addr = (mach_vm_address_t)vm_memtag_canonicalize(user_map, tagged_kernel_addr);
+	T_EXPECT_EQ_ULLONG(canonicalized_addr, intended_result,
+	    "kernel address with user map: canonicalized kernel addr: 0x%llx, intended addr: 0x%llx",
+	    canonicalized_addr, intended_result);
+
+	/* canonicalize user address with kernel map */
+	intended_result = (user_addr & PTR_BITS_MASK) | ((mach_vm_address_t)0xf << PTR_TAG_SHIFT);
+	canonicalized_addr = (mach_vm_address_t)vm_memtag_canonicalize(kernel_map, tagged_user_addr);
+	T_EXPECT_EQ_ULLONG(canonicalized_addr, intended_result,
+	    "user address with kernel map: canonicalized user addr: 0x%llx, intended addr: 0x%llx",
+	    canonicalized_addr, intended_result);
+
+	/* canonicalize user address with user map */
+	intended_result = user_addr;
+	canonicalized_addr = (mach_vm_address_t)vm_memtag_canonicalize(user_map, tagged_user_addr);
+	T_EXPECT_EQ_ULLONG(canonicalized_addr, intended_result,
+	    "user address with user map: canonicalized user addr: 0x%llx, intended addr: 0x%llx",
+	    canonicalized_addr, intended_result);
+	cleanup_map(&user_map);
+#else /* !HAS_MTE && !HAS_MTE_EMULATION_SHIMS */
 	T_SKIP("System not designed to support this test, skipping...");
+#endif /* !HAS_MTE && !HAS_MTE_EMULATION_SHIMS */
 }
 
 
@@ -1795,12 +1862,78 @@ vm_map_null_tests(__unused int64_t in, int64_t *out)
 }
 SYSCTL_TEST_REGISTER(vm_map_null, vm_map_null_tests);
 
+#if HAS_MTE
+static unsigned int const MTE_GRANULE_SIZE = 16;
+
+static inline unsigned int
+extract_mte_tag(void *ptr)
+{
+	/* TODO: Eventually refactor this symbol entirely */
+	return vm_memtag_extract_tag((vm_offset_t)ptr);
+}
+#endif /* HAS_MTE */
 
 static int
 vm_map_copyio_test(__unused int64_t in, int64_t *out)
 {
+#if HAS_MTE
+	T_SETUPBEGIN;
+	uint64_t const test_buf_size = (32 * 1024) + 1; /* 32K + 1 */
+
+	/* Allocate a tagged kernel buffer to copy from */
+	vm_offset_t kern_addr;
+	kern_return_t kr = kmem_alloc(
+		kernel_map,
+		&kern_addr,
+		test_buf_size,
+		KMA_ZERO | KMA_TAG | KMA_KOBJECT, VM_KERN_MEMORY_DIAG);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "kmem_alloc(KMA_TAG) - allocate an MTE enabled page");
+	char *tagged_ptr = (char *)kern_addr;
+	T_ASSERT_NOTNULL(tagged_ptr, "kmem_alloc(KMA_TAG) ptr not null");
+	unsigned int tag = extract_mte_tag(tagged_ptr);
+	T_LOG("Allocated ptr: %p, tag assigned: %zx", tagged_ptr, tag);
+
+	/* Put some data in the kernel buffer */
+	for (size_t i = 0; i < test_buf_size; ++i) {
+		tagged_ptr[i] = (char)i;
+	}
+	T_SETUPEND;
+
+	T_BEGIN("vm_map_copy test");
+	/* Do a vm_map_copyin from a kernel buffer */
+	vm_map_address_ut tagged_ptr_u;
+	vm_map_size_ut len_u;
+	vm_map_copy_t copy;
+	VM_SANITIZE_UT_SET(tagged_ptr_u, (vm_map_address_t)tagged_ptr);
+	VM_SANITIZE_UT_SET(len_u, msg_ool_size_small);
+	kr = vm_map_copyin(kernel_map, tagged_ptr_u, len_u, false, &copy);
+	T_EXPECT_EQ_INT(kr, KERN_SUCCESS, "vm_map_copyin on 32K");
+
+	/* Do a vm_map_copyout into this process's address space */
+	vm_map_address_t dst_addr;
+	kr = vm_map_copyout(kernel_map, &dst_addr, copy);
+	T_EXPECT_EQ_INT(kr, KERN_SUCCESS, "vm_map_copyout");
+
+	/* Make sure we read back the same data */
+	char *dst_ptr = (char *)dst_addr;
+	T_LOG("dst_ptr: %p", dst_ptr);
+	int ret = memcmp(tagged_ptr, dst_ptr, msg_ool_size_small);
+	T_EXPECT_EQ_INT(0, ret, "memcmp");
+
+	/* Do a vm_map_copyin that's > msg_ool_size_small, should fail */
+	vm_map_size_ut len_large_u;
+	VM_SANITIZE_UT_SET(len_large_u, test_buf_size);
+	kr = vm_map_copyin(kernel_map, tagged_ptr_u, len_large_u, false, &copy);
+	T_EXPECT_EQ_INT(kr, KERN_NOT_SUPPORTED, "vm_map_copyin on 32K+1");
+
+	/* Clean up */
+	kmem_free(kernel_map, kern_addr, test_buf_size, KMF_TAG);
+	T_END;
+	*out = 1;
+#else /* !HAS_MTE */
 	/* Test is not supported */
 	*out = ENOTSUP;
+#endif /* HAS_MTE */
 	return 0;
 }
 SYSCTL_TEST_REGISTER(vm_map_copyio, vm_map_copyio_test);
@@ -1808,8 +1941,97 @@ SYSCTL_TEST_REGISTER(vm_map_copyio, vm_map_copyio_test);
 static int
 vm_page_relocate_test(__unused int64_t in, int64_t *out)
 {
+#if HAS_MTE
+	vm_map_t map = current_map();
+
+	/* `in` will contain the address of the memory we have written to */
+	vm_map_entry_t entry = NULL;
+	vm_map_offset_t tagged_addr = (vm_map_offset_t)in;
+	vm_map_offset_t canonical_addr = vm_memtag_canonicalize(map, tagged_addr);
+
+	vm_page_t m = VM_PAGE_NULL;
+	vm_object_t object = VM_OBJECT_NULL;
+	ppnum_t old_phys_page = 0;
+	kern_return_t kr;
+	while (true) {
+		if (!pmap_find_phys(map->pmap, canonical_addr)) {
+			/*
+			 * There's no physical page associated with the memory;
+			 * we need to fault it in
+			 */
+			/* Fault in the page with the data we care about */
+			kr = vm_fault(
+				map,
+				tagged_addr,
+				VM_PROT_WRITE,
+				FALSE, /* change_wiring */
+				VM_KERN_MEMORY_NONE,
+				THREAD_INTERRUPTIBLE, /* interruptible */
+				NULL, /* caller pmap */
+				0);
+			T_EXPECT_EQ_INT(kr, 0, "vm_fault");
+		}
+
+		/* Look up page */
+		vm_map_lock(map);
+		bool result = vm_map_lookup_entry(map, canonical_addr, &entry);
+		T_ASSERT_EQ_INT(result, true, "vm_map_lookup_entry");
+		object = VME_OBJECT(entry);
+		T_ASSERT_NOTNULL(object, "vm object should not be null");
+		vm_object_lock(object);
+		/* There shouldn't be a shadow chain for MTE objects */
+		T_ASSERT_EQ_INT(object->shadowed, FALSE, "vm object should not have a shadow");
+		m = vm_page_lookup(
+			object,
+			(VME_OFFSET(entry) + (canonical_addr - entry->vme_start)));
+		old_phys_page = VM_PAGE_GET_PHYS_PAGE(m);
+		T_QUIET; T_ASSERT_NE_UINT(old_phys_page, 0, "physical page should not be 0");
+		T_LOG("old physical page: 0x%x, vm_page_t: 0x%llx", old_phys_page, m);
+		if (m != VM_PAGE_NULL) {
+			break;
+		}
+		vm_object_unlock(object);
+		vm_map_unlock(map);
+	}
+	vm_object_lock_assert_held(object);
+	int compressed_pages = 0;
+	vm_page_lock_queues();
+	kr = vm_page_relocate(m, &compressed_pages, VM_RELOCATE_REASON_CONTIGUOUS, NULL);
+	vm_page_unlock_queues();
+	T_EXPECT_EQ_INT(kr, 0, "vm_page_relocate");
+	vm_page_t new_m = vm_page_lookup(
+		object,
+		(VME_OFFSET(entry) + (canonical_addr - entry->vme_start)));
+	T_EXPECT_NOTNULL(new_m, "new VM page is not null");
+	ppnum_t new_phys_page = VM_PAGE_GET_PHYS_PAGE(new_m);
+	T_LOG("ppnum of relocated page: %u", new_phys_page);
+	T_EXPECT_NE_UINT(old_phys_page, new_phys_page,
+	    "old and new physical pages should be different");
+	vm_object_unlock(object);
+	vm_map_unlock(map);
+
+	/* There shouldn't be a PTE associated with addr at the moment */
+	ppnum_t phys_page = pmap_find_phys(map->pmap, canonical_addr);
+	T_EXPECT_EQ_UINT(phys_page, 0, "pmap_find_phys should return 0");
+
+	/* Kernel touches the page, faulting in new page if not already resident */
+	char c = 'b';
+	int result = copyout((void *)&c, (user_addr_t)tagged_addr, sizeof(c));
+	T_EXPECT_EQ_INT(result, 0, "copyout %c to 0x%llx", c, tagged_addr);
+	c = 'c';
+	result = copyout((void *)&c, (user_addr_t)(canonical_addr + MTE_GRANULE_SIZE), sizeof(c));
+	T_EXPECT_EQ_INT(result, 0, "copyout %c to 0x%llx", c, (canonical_addr + MTE_GRANULE_SIZE));
+
+	/* There should be a physical page now */
+	phys_page = pmap_find_phys(map->pmap, canonical_addr);
+	T_EXPECT_NE_UINT(phys_page, 0,
+	    "there's a PTE for 0x%llx after writing to it, phys_page: 0x%x",
+	    canonical_addr, phys_page);
+	*out = 1;
+#else /* !HAS_MTE */
 	/* Test is not supported */
 	*out = ENOTSUP;
+#endif /* HAS_MTE */
 	return 0;
 }
 SYSCTL_TEST_REGISTER(vm_page_relocate, vm_page_relocate_test);
@@ -2137,9 +2359,103 @@ SYSCTL_TEST_REGISTER(vm_memory_entry_parent_submap, vm_memory_entry_parent_subma
 static int
 vm_cpu_map_pageout_test(int64_t in, int64_t *out)
 {
+#if HAS_MTE
+	/*
+	 * Since we now allow untagged kernel mappings of tagged user data, we want
+	 * to be sure that the underlying physical page is always handled correctly.
+	 *
+	 * The following sequence may be of particular concern:
+	 * 1. We create & populate an MTE userspace mapping
+	 * 2. We create an untagged kernel mapping of the user tagged memory
+	 * 3. The page is paged out
+	 * 4. We fault in the kernel mapping (without first faulting on the user mapping)
+	 *
+	 * We want to be certain that in this case, we set the correct (MTE-enabled)
+	 * cache attributes on the underlying physical page when we fault on our
+	 * (non-MTE-enabled) kernel mapping.
+	 */
+
+	/* Get the tagged userspace mapping from the userspace side of the test */
+	struct {
+		mach_vm_size_t size;
+		char *ptr;
+		char value;
+	} args;
+	kern_return_t kr = copyin(in, &args, sizeof(args));
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "copyin arguments from userspace");
+
+	/*
+	 * Create an untagged kernel mapping of the user tagged memory.
+	 */
+	memory_object_size_ut size = vm_sanitize_wrap_size(args.size);
+	memory_object_offset_t offset = (memory_object_offset_t)vm_memtag_canonicalize_user((vm_map_address_t)args.ptr);
+	/*
+	 * This path is specifically intended for IOMD::map(), so we pretend to be
+	 * an IOKit caller to get the correct security policies.
+	 */
+	vm_named_entry_kernel_flags_t vmne_kflags = { .vmnekf_is_iokit = true };
+	ipc_port_t memory_entry;
+	kr = mach_make_memory_entry_internal(current_map(), &size, offset,
+	    MAP_MEM_VM_SHARE | VM_PROT_DEFAULT, vmne_kflags, &memory_entry,
+	    /* parent = */ MACH_PORT_NULL);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "make memory entry from tagged user memory");
+
+	mach_vm_offset_t kernel_address = 0;
+	kr = mach_vm_map_kernel(kernel_map, (mach_vm_offset_ut*)&kernel_address,
+	    args.size, /* mask = */ 0,
+	    /* IOMD mappings of user memory are bucketed into KMEM_RANGE_ID_DATA */
+	    VM_MAP_KERNEL_FLAGS_ANYWHERE(.vmkf_range_id = KMEM_RANGE_ID_DATA, .vmf_mte = true), memory_entry,
+	    /* offset = */ 0, /* copy = */ false, VM_PROT_DEFAULT, VM_PROT_DEFAULT,
+	    VM_INHERIT_DEFAULT);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "remap userspace memory into kernel");
+
+	/* Validate that the mapping is correct and untagged: */
+	assert(extract_mte_tag((void*)kernel_address) == 0xF);
+	assert(extract_mte_tag(args.ptr) != 0xF);
+	char *kernel_ptr = (char*)kernel_address;
+	assert(kernel_ptr[0] == args.value);
+	kernel_ptr[0]++;
+
+	/* Force pageout */
+	kr = vm_map_behavior_set(kernel_map, kernel_address,
+	    kernel_address + args.size, VM_BEHAVIOR_PAGEOUT);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "force pageout of tagged mapping");
+
+	/*
+	 * Page in kernel mapping and validate cache attributes. Wire the memory
+	 * first to ensure the mapping doesn't go away while we're doing checks on
+	 * it.
+	 */
+	kr = vm_map_wire_kernel(kernel_map, kernel_address, kernel_address + args.size,
+	    VM_PROT_READ | VM_PROT_WRITE, VM_KERN_MEMORY_DIAG, false);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "wire user-tagged memory");
+	kernel_ptr[0]++;
+	ppnum_t pn = vm_map_get_phys_page(kernel_map, kernel_address);
+	assert(pn);
+	T_ASSERT(pmap_is_tagged_page(pn), "page has MTE cache attribute");
+	T_ASSERT(!pmap_is_tagged_mapping(vm_map_pmap(kernel_map), kernel_address), "kernel mapping is untagged");
+
+	/* Now, fault in the user mapping... */
+	kr = vm_fault(current_map(), offset, VM_PROT_READ | VM_PROT_WRITE,
+	    /* change_wiring */ FALSE, VM_KERN_MEMORY_NONE, THREAD_ABORTSAFE,
+	    /* caller_pmap */ NULL, /* caller_pmap_addr */ 0);
+
+	/* ... and make sure everything still looks good */
+	T_ASSERT(pmap_is_tagged_page(pn), "page retains MTE cache attribute");
+	T_ASSERT(!pmap_is_tagged_mapping(vm_map_pmap(kernel_map), kernel_address), "kernel mapping remains untagged");
+	T_ASSERT(pmap_is_tagged_mapping(vm_map_pmap(current_map()), offset), "user mapping is tagged");
+
+	/* Cleanup */
+	kr = vm_map_unwire(kernel_map, kernel_address, kernel_address + args.size, false);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "unwire user-tagged memory");
+	kr = mach_vm_deallocate(kernel_map, kernel_address, args.size);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "remove kernel mapping");
+	*out = 1;
+#else /* HAS_MTE */
 	/* Test is not supported */
 	(void)in;
 	*out = ENOTSUP;
+#endif /* HAS_MTE */
 	return 0;
 }
 SYSCTL_TEST_REGISTER(vm_cpu_map_pageout, vm_cpu_map_pageout_test);
@@ -2237,6 +2553,9 @@ vm_map_4k_16k_test(int64_t in, int64_t *out)
 
 		/* do the overwrite */
 		kr = vm_map_copy_overwrite(map_16k, address_16k, copy, alloc_size,
+#if HAS_MTE
+		    false,
+#endif
 		    true);
 		assert3u(kr, ==, KERN_SUCCESS); /* copy_overwrite into 16k map succeds */
 	} else {
@@ -2458,6 +2777,423 @@ vm_map_wire_copy_delay_memory_test(__unused int64_t in, int64_t *out)
 }
 SYSCTL_TEST_REGISTER(vm_map_wire_copy_delay_memory, vm_map_wire_copy_delay_memory_test);
 
+#if HAS_MTE
+
+static void
+create_two_mte_maps(vm_map_t* out_mte_map1, vm_map_t* out_mte_map2)
+{
+	*out_mte_map1 = create_map(MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS);
+	vm_map_set_sec_enabled(*out_mte_map1);
+	*out_mte_map2 = create_map(MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS);
+	vm_map_set_sec_enabled(*out_mte_map2);
+
+	/* And the second map receives a new ID */
+	if ((*out_mte_map1)->serial_id == (*out_mte_map2)->serial_id) {
+		panic("Expected each map to receive a new ID");
+	}
+}
+
+static void
+create_mte_and_non_mte_map(vm_map_t* out_mte_map, vm_map_t* out_non_mte_map)
+{
+	*out_mte_map = create_map(MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS);
+	vm_map_set_sec_enabled(*out_mte_map);
+	*out_non_mte_map = create_map(MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS);
+
+	/* And the second map receives a new ID */
+	if ((*out_mte_map)->serial_id == (*out_non_mte_map)->serial_id) {
+		panic("Expected each map to receive a new ID");
+	}
+}
+
+static vm_object_t
+create_mte_vm_object(vm_object_size_t size, vm_map_serial_t provenance)
+{
+	vm_object_t mte_object = vm_object_allocate(size, provenance);
+	assert(mte_object != VM_OBJECT_NULL);
+	mte_object->wimg_bits = VM_WIMG_MTE;
+	/* Specify the expected copy strategy for MTE objects */
+	mte_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
+	return mte_object;
+}
+
+static vm_object_t
+vm_object_for_address(vm_map_t map, vm_map_offset_t address)
+{
+	vm_map_entry_t map_entry;
+	bool result = vm_map_lookup_entry(map, address, &map_entry);
+	vm_object_t object = VME_OBJECT(map_entry);
+	assert(result && object);
+	return object;
+}
+
+static vm_map_offset_t
+map_object_and_expect_mte(vm_map_t map, vm_object_t obj)
+{
+	vm_map_offset_t mapped_address;
+	kern_return_t kr = vm_map_enter(map, &mapped_address, obj->vo_size, 0,
+	    /* We want the object to be mapped as MTE-enabled */
+	    VM_MAP_KERNEL_FLAGS_ANYWHERE(.vmf_mte = true),
+	    obj, 0, false,
+	    VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
+	assert(kr == KERN_SUCCESS);
+
+	/* And the entry is MTE-enabled as expected */
+	assert(vm_object_is_mte_mappable(vm_object_for_address(map, mapped_address)));
+
+	return mapped_address;
+}
+
+static vm_object_t
+expect_object_at_address_to_be_mapped_with_mte_state(
+	vm_map_t map,
+	vm_map_offset_t address,
+	bool expect_mapping_to_be_mte_enabled
+	)
+{
+	vm_object_t alias_object = vm_object_for_address(map, address);
+	ppnum_t pn = vm_map_get_phys_page(map, address);
+	T_ASSERT(pn != 0, "Expected a non-zero page number");
+	/* The page itself should be tagged */
+	assert(vm_object_is_mte_mappable(alias_object));
+	T_ASSERT(pmap_is_tagged_page(pn), "Expected backing page to be tagged");
+
+	if (expect_mapping_to_be_mte_enabled) {
+		/* And our specific mapping should be tagged */
+		T_ASSERT(pmap_is_tagged_mapping(vm_map_pmap(map), address), "Expected alias mapping to be tagged");
+	} else {
+		/* But our mapping should not be tagged */
+		T_ASSERT(!pmap_is_tagged_mapping(vm_map_pmap(map), address), "Expected alias mapping to be untagged");
+	}
+
+	return alias_object;
+}
+
+static vm_object_t
+expect_object_at_address_to_be_mte_mapped(
+	vm_map_t map,
+	vm_map_offset_t address)
+{
+	return expect_object_at_address_to_be_mapped_with_mte_state(
+		map,
+		address,
+		true);
+}
+
+static void
+share_object_and_expect_mapped_with_mte_state(
+	vm_map_t src_map,
+	vm_map_t dst_map,
+	vm_map_offset_t src_address,
+	vm_object_t obj,
+	vm_map_offset_t* out_dst_address,
+	vm_object_t* out_dst_object,
+	bool expect_mapping_to_be_mte_enabled)
+{
+	assert(out_dst_address && out_dst_object);
+
+	/* Share the object into the target map */
+	vm_map_offset_t alias_mapped_address = 0;
+	vm_prot_t cur_prot = VM_PROT_DEFAULT;
+	vm_prot_t max_prot = VM_PROT_DEFAULT;
+	kern_return_t kr = vm_map_remap(
+		dst_map,
+		vm_sanitize_wrap_addr_ref(&alias_mapped_address),
+		obj->vo_size,
+		0,
+		/* The object may be MTE enabled */
+		VM_MAP_KERNEL_FLAGS_ANYWHERE(.vmf_mte = true),
+		src_map,
+		src_address,
+		false,
+		vm_sanitize_wrap_prot_ref(&cur_prot),
+		vm_sanitize_wrap_prot_ref(&max_prot),
+		VM_INHERIT_DEFAULT
+		);
+	assert(kr == KERN_SUCCESS);
+
+	/* Fault in the object so we can inspect the pmap state */
+	kr = vm_fault(
+		dst_map,
+		alias_mapped_address,
+		VM_PROT_READ,
+		false,
+		VM_KERN_MEMORY_NONE,
+		THREAD_UNINT,
+		NULL, 0);
+	assert(kr == KERN_SUCCESS);
+
+	vm_object_t alias_object = expect_object_at_address_to_be_mapped_with_mte_state(
+		dst_map,
+		alias_mapped_address,
+		expect_mapping_to_be_mte_enabled);
+
+	*out_dst_address = alias_mapped_address;
+	*out_dst_object = alias_object;
+}
+
+static void
+share_object_and_expect_non_mte(
+	vm_map_t src_map,
+	vm_map_t dst_map,
+	vm_map_offset_t src_address,
+	vm_object_t obj,
+	vm_map_offset_t* out_dst_address,
+	vm_object_t* out_dst_object
+	)
+{
+	share_object_and_expect_mapped_with_mte_state(
+		src_map,
+		dst_map,
+		src_address,
+		obj,
+		out_dst_address,
+		out_dst_object,
+		false);
+}
+
+static void
+share_object_and_expect_mte(
+	vm_map_t src_map,
+	vm_map_t dst_map,
+	vm_map_offset_t src_address,
+	vm_object_t obj,
+	vm_map_offset_t* out_dst_address,
+	vm_object_t* out_dst_object
+	)
+{
+	share_object_and_expect_mapped_with_mte_state(
+		src_map,
+		dst_map,
+		src_address,
+		obj,
+		out_dst_address,
+		out_dst_object,
+		true);
+}
+
+static int
+vm_map_id_fork_test(__unused int64_t in, int64_t *out)
+{
+	/* Given a map */
+	vm_map_t parent_map = create_map(MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS);
+
+	/* When we fork it into a new map */
+	ledger_t map_ledger = parent_map->pmap->ledger;
+	vm_map_t child_map = vm_map_fork(map_ledger, parent_map, 0);
+
+	/* Then the forked map shares the same ID as its parent map */
+	if (parent_map->serial_id != child_map->serial_id) {
+		panic("Expected a forked map to share its parent's ID");
+	}
+
+	/* Cleanup */
+	cleanup_map(&child_map);
+	cleanup_map(&parent_map);
+
+	*out = 1;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_map_id_fork, vm_map_id_fork_test);
+
+static int
+vm_map_alias_mte_mapping_in_other_non_mte_map_test(__unused int64_t in, int64_t *out)
+{
+	/* Given an MTE map and a non-MTE map */
+	vm_map_t mte_map, non_mte_map;
+	create_mte_and_non_mte_map(&mte_map, &non_mte_map);
+
+	/* And an MTE-enabled object in the MTE map */
+	vm_object_t mte_object = create_mte_vm_object(PAGE_SIZE, mte_map->serial_id);
+	vm_map_offset_t mte_map_mapped_address = map_object_and_expect_mte(mte_map, mte_object);
+
+	/* When the mapping is entered into a non-MTE map */
+	/* Then the object has been entered as non-MTE in the non-MTE map */
+	vm_map_offset_t alias_address;
+	vm_object_t alias_object;
+	share_object_and_expect_non_mte(mte_map, non_mte_map, mte_map_mapped_address, mte_object, &alias_address, &alias_object);
+
+	/* And when we remap again back into the original map */
+	/* Then the object has been entered as MTE, because it went back to its original map */
+	vm_map_offset_t remapped_address;
+	vm_object_t remapped_object;
+	share_object_and_expect_mte(non_mte_map, mte_map, alias_address, alias_object, &remapped_address, &remapped_object);
+
+	/* Cleanup */
+	cleanup_map(&non_mte_map);
+	cleanup_map(&mte_map);
+
+	*out = 1;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_map_alias_mte_mapping_in_other_non_mte_map, vm_map_alias_mte_mapping_in_other_non_mte_map_test);
+
+static int
+vm_map_alias_mte_mapping_in_other_mte_map_test(__unused int64_t in, int64_t *out)
+{
+	/* Given two MTE maps */
+	vm_map_t mte_map1, mte_map2;
+	create_two_mte_maps(&mte_map1, &mte_map2);
+
+	/* And an MTE-enabled object in the first map */
+	vm_object_t mte_object = create_mte_vm_object(PAGE_SIZE, mte_map1->serial_id);
+	vm_map_offset_t mte_map1_mapped_address = map_object_and_expect_mte(mte_map1, mte_object);
+
+	/* When the mapping is entered into the second MTE map */
+	/* Then the object has been entered as non-MTE (because the MTE state of the destination map doesn't matter) */
+	vm_map_offset_t alias_address;
+	vm_object_t alias_object;
+	share_object_and_expect_non_mte(
+		mte_map1,
+		mte_map2,
+		mte_map1_mapped_address,
+		mte_object,
+		&alias_address,
+		&alias_object);
+
+	/* And when we remap again back into the original map */
+	/* Then the object has been entered as MTE, because it went back to its original map */
+	vm_map_offset_t remapped_address;
+	vm_object_t remapped_object;
+	share_object_and_expect_mte(
+		mte_map2,
+		mte_map1,
+		alias_address,
+		alias_object,
+		&remapped_address,
+		&remapped_object);
+
+	/* Cleanup */
+	cleanup_map(&mte_map2);
+	cleanup_map(&mte_map1);
+
+	*out = 1;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_map_alias_mte_mapping_in_other_mte_map, vm_map_alias_mte_mapping_in_other_mte_map_test);
+
+static int
+vm_map_alias_mte_mapping_in_fork_map_test(__unused int64_t in, int64_t *out)
+{
+	/* Given an MTE parent map */
+	vm_map_t parent_map = create_map(MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS);
+	vm_map_set_sec_enabled(parent_map);
+
+	/* And an MTE mapping that was created prior to forking */
+	vm_object_t mte_object_from_before_fork = create_mte_vm_object(PAGE_SIZE, parent_map->serial_id);
+	vm_map_offset_t mapped_address_of_mte_object_from_before_fork = map_object_and_expect_mte(parent_map, mte_object_from_before_fork);
+
+	/* And a forked child map */
+	vm_map_t child_map = vm_map_fork(parent_map->pmap->ledger, parent_map, 0);
+
+	/*
+	 * Then the MTE object that was present in the child is also MTE in the parent
+	 * (which is expected via our forking strategy).
+	 * (We also need to fault in the mapping in the child first.)
+	 */
+	kern_return_t kr = vm_fault(
+		child_map,
+		mapped_address_of_mte_object_from_before_fork,
+		VM_PROT_READ,
+		false,
+		VM_KERN_MEMORY_NONE,
+		THREAD_UNINT,
+		NULL, 0);
+	assert(kr == KERN_SUCCESS);
+
+	expect_object_at_address_to_be_mte_mapped(
+		child_map,
+		mapped_address_of_mte_object_from_before_fork
+		);
+
+	/* And when we enter a new MTE object into the parent after the fork() */
+	vm_object_t mte_object_after_fork = create_mte_vm_object(PAGE_SIZE, parent_map->serial_id);
+	vm_map_offset_t mapped_address_of_mte_object_after_fork = map_object_and_expect_mte(parent_map, mte_object_after_fork);
+
+	/* And we share this object into the child */
+	/* Then the child's alias to this object is MTE enabled (because fork maps share the same serial as their parent) */
+	vm_map_offset_t aliased_address;
+	vm_object_t aliased_object;
+	share_object_and_expect_mte(
+		parent_map,
+		child_map,
+		mapped_address_of_mte_object_after_fork,
+		mte_object_after_fork,
+		&aliased_address,
+		&aliased_object);
+
+	/* And when we remap again back into the original parent map */
+	/* Then the object has been entered as MTE, because it went back to its original map */
+	vm_map_offset_t remapped_address;
+	vm_object_t remapped_object;
+	share_object_and_expect_mte(
+		parent_map,
+		child_map,
+		mapped_address_of_mte_object_after_fork,
+		mte_object_after_fork,
+		&remapped_address,
+		&remapped_object);
+
+	/* Cleanup */
+	cleanup_map(&child_map);
+	cleanup_map(&parent_map);
+
+	*out = 1;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_map_alias_mte_mapping_in_fork_map, vm_map_alias_mte_mapping_in_fork_map_test);
+
+static int
+vm_object_transpose_provenance_test(__unused int64_t in, int64_t *out)
+{
+	/* Given two MTE maps */
+	vm_map_t mte_map1, mte_map2;
+	create_two_mte_maps(&mte_map1, &mte_map2);
+
+	/* And an object from each map */
+	vm_object_t obj1 = create_mte_vm_object(PAGE_SIZE, mte_map1->serial_id);
+	vm_object_t obj2 = create_mte_vm_object(PAGE_SIZE, mte_map2->serial_id);
+
+	/* When we transpose the objects */
+	vm_map_serial_t original_obj1_prov = obj1->vmo_provenance;
+	vm_map_serial_t original_obj2_prov = obj2->vmo_provenance;
+
+	vm_object_lock(obj1);
+	vm_object_activity_begin(obj1);
+	obj1->blocked_access = TRUE;
+	vm_object_unlock(obj1);
+	vm_object_lock(obj2);
+	vm_object_activity_begin(obj2);
+	obj2->blocked_access = TRUE;
+	vm_object_unlock(obj2);
+
+	vm_object_transpose(obj2, obj1, PAGE_SIZE);
+
+	vm_object_lock(obj1);
+	vm_object_activity_end(obj1);
+	obj1->blocked_access = FALSE;
+	vm_object_unlock(obj1);
+	vm_object_lock(obj2);
+	vm_object_activity_end(obj2);
+	obj2->blocked_access = FALSE;
+	vm_object_unlock(obj2);
+
+	/* Then the IDs have been transposed */
+	assert(obj1->vmo_provenance == original_obj2_prov);
+	assert(obj2->vmo_provenance == original_obj1_prov);
+
+	/* Cleanup */
+	cleanup_map(&mte_map2);
+	cleanup_map(&mte_map1);
+
+	*out = 1;
+	return 0;
+}
+
+SYSCTL_TEST_REGISTER(vm_object_transpose_provenance, vm_object_transpose_provenance_test);
+
+
+#endif /* HAS_MTE */
 
 /*
  * Compare the contents of an original userspace buffer with that kernel mapping of a UPL created
@@ -2813,7 +3549,7 @@ vm_upl_object_test(int64_t in, int64_t *out __unused)
 		uint32_t size; /* Size of userspace buffer (in bytes) */
 		bool upl_rw;
 		bool should_fail; /* Is UPL creation expected to fail due to permissions checking? */
-		bool exec_fault;
+		uint8_t fault_prot;
 	} args;
 	int error = copyin((user_addr_t)in, &args, sizeof(args));
 	if ((error != 0) || (args.size == 0)) {
@@ -2857,7 +3593,7 @@ vm_upl_object_test(int64_t in, int64_t *out __unused)
 	    upl_flags,
 	    VM_KERN_MEMORY_DIAG);
 
-	if (args.exec_fault) {
+	if (args.fault_prot != VM_PROT_NONE) {
 		/*
 		 * The page may have already been retyped to its "final" executable type by a prior fault,
 		 * so simulate a page recycle operation in order to ensure that our simulated exec fault below
@@ -2872,8 +3608,9 @@ vm_upl_object_test(int64_t in, int64_t *out __unused)
 		pmap_lock_phys_page(pn);
 		pmap_recycle_page(pn);
 		pmap_unlock_phys_page(pn);
-		assertf(pmap_will_retype(current_map()->pmap, (vm_map_address_t)args.ptr, VM_PAGE_GET_PHYS_PAGE(m), VM_PROT_EXECUTE | VM_PROT_READ, 0, PMAP_MAPPING_TYPE_INFER),
-		    "pmap will not retype for vm_page_t %p", m);
+		assertf(pmap_will_retype(current_map()->pmap, (vm_map_address_t)args.ptr, VM_PAGE_GET_PHYS_PAGE(m), args.fault_prot,
+		    (entry->vme_xnu_user_debug ? PMAP_OPTIONS_XNU_USER_DEBUG : 0), PMAP_MAPPING_TYPE_INFER),
+		    "pmap will not retype for vm_page_t %p, prot 0x%x", m, (unsigned int)args.fault_prot);
 		vm_object_unlock(object);
 	}
 
@@ -2891,23 +3628,24 @@ vm_upl_object_test(int64_t in, int64_t *out __unused)
 		goto upl_object_test_done;
 	}
 
-	if (args.exec_fault) {
+	if (args.fault_prot != VM_PROT_NONE) {
 		kr = vm_fault(current_map(),
 		    (vm_map_address_t)args.ptr,
-		    VM_PROT_EXECUTE | VM_PROT_READ,
+		    args.fault_prot,
 		    FALSE,
 		    VM_KERN_MEMORY_NONE,
 		    THREAD_UNINT,
 		    NULL,
 		    0);
-		/* Exec page retype attempt with in-flight IOPL should be forbidden. */
+		/* Page retype attempt with in-flight IOPL should be forbidden. */
 		if (kr != KERN_PROTECTION_FAILURE) {
 			printf("%s: vm_fault(%p) did not fail as expected\n", __func__, (void*)args.ptr);
 			error = ((kr == KERN_SUCCESS) ? EIO : kr);
 			goto upl_object_test_done;
 		}
-		assertf(pmap_will_retype(current_map()->pmap, (vm_map_address_t)args.ptr, VM_PAGE_GET_PHYS_PAGE(m), VM_PROT_EXECUTE | VM_PROT_READ, 0, PMAP_MAPPING_TYPE_INFER),
-		    "pmap will not retype for vm_page_t %p", m);
+		assertf(pmap_will_retype(current_map()->pmap, (vm_map_address_t)args.ptr, VM_PAGE_GET_PHYS_PAGE(m), args.fault_prot,
+		    (entry->vme_xnu_user_debug ? PMAP_OPTIONS_XNU_USER_DEBUG : 0), PMAP_MAPPING_TYPE_INFER),
+		    "pmap will not retype for vm_page_t %p, prot 0x%x", m, (unsigned int)args.fault_prot);
 	}
 
 upl_object_test_done:
@@ -2917,7 +3655,7 @@ upl_object_test_done:
 		upl_deallocate(upl);
 	}
 
-	if ((error == 0) && args.exec_fault) {
+	if ((error == 0) && (args.fault_prot != VM_PROT_NONE)) {
 		/*
 		 * Exec page retype attempt without in-flight IOPL should ultimately succeed, but should
 		 * block if the page is being cleaned.  Simulate that scenario with a thread call to "finish"
@@ -2933,7 +3671,7 @@ upl_object_test_done:
 		thread_call_enter_delayed(page_clean_timer_call, deadline);
 		kr = vm_fault(current_map(),
 		    (vm_map_address_t)args.ptr,
-		    VM_PROT_EXECUTE | VM_PROT_READ,
+		    args.fault_prot,
 		    FALSE,
 		    VM_KERN_MEMORY_NONE,
 		    THREAD_UNINT,

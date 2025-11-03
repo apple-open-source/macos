@@ -1,0 +1,63 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Arbitrarily choosing 4k files to try and create a wide enough window, since we
+# can't exactly tell when rsync has started or where it's at.  We need enough
+# that we'll still be within the transfer window of the protocol after one
+# second, but not too many that this takes an absurdly long time to complete
+# with all of the redos that we'll have to process.
+#
+# If you run this manually with openrsync, you want to see that there's
+# interlaced errors along the lines of "no map file" and "block at ... outside of
+# local file sized ..." -> ideally at least one of each to be sure that we would
+# have failed.
+filecnt=$((4 * 1024))
+
+# Test a scenario where we end up with a file being truncated specifically
+# between the uploader examining it and the downloader mapping it.
+
+rm -rf dir1 dir2 dir3
+mkdir dir1
+
+# Generate an intermediate version of dir1/ and sync it to dir3.  We'll then
+# extend all of dir1 with a few more copies of the reference file, then do a
+# --no-W transfer so that the receiver is referencing the local copy and have an
+# async subshell come through and truncate the entire destination.
+seq 1024 > ref
+cat ref ref ref ref > dir1/ref
+for i in $(seq "$filecnt"); do
+	cp dir1/ref dir1/"$i"
+done
+rsync -a -- dir1/ dir3
+
+# Now we build the final form.
+for i in $(seq "$filecnt"); do
+	cat dir1/ref dir1/ref dir1/ref dir1/ref >> dir1/"$i"
+done
+
+# This isn't a perfect science, but it will typically hit one of a few different
+# failure modes.  If we completely truncate the file, then the downloader may
+# not map it and we had already told the sender that we have some blocks
+# locally -- we can stil recover that.  If we leave some contents in it, then
+# the downloader will map it and may hit an assertion when the sender tries to
+# reference any block other than the first in the file, which we can also
+# recover.
+#
+# We do the checker pattern to try and hit both scenarios in one go.  We don't
+# compare the trees at the end because we might have truncated a file that was
+# finished transferring.  We're just happy if the transfer finishes with
+# success.
+(
+	sleep 1
+	for i in $(seq "$filecnt"); do
+		if [ $((i % 2)) -eq 0 ]; then
+			:> dir3/"$i"
+		else
+			echo 'A' > dir3/"$i"
+		fi
+	done
+) &
+
+rsync -av --no-W -- dir1/ dir3

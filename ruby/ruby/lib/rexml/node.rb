@@ -26,7 +26,7 @@ module REXML
     #   REXML::Formatters package for changing the output style.
     def to_s indent=nil
       unless indent.nil?
-        Kernel.warn( "#{self.class.name}.to_s(indent) parameter is deprecated", uplevel: 1)
+        Kernel.warn( "#{self.class.name}#to_s(indent) parameter is deprecated", uplevel: 1)
         f = REXML::Formatters::Pretty.new( indent )
         f.write( self, rv = "" )
       else
@@ -52,10 +52,14 @@ module REXML
 
     # Visit all subnodes of +self+ recursively
     def each_recursive(&block) # :yields: node
-      self.elements.each {|node|
-        block.call(node)
-        node.each_recursive(&block)
-      }
+      stack = []
+      each { |child| stack.unshift child if child.node_type == :element }
+      until stack.empty?
+        child = stack.pop
+        yield child
+        n = stack.size
+        child.each { |grandchild| stack.insert n, grandchild if grandchild.node_type == :element }
+      end
     end
 
     # Find (and return) first subnode (recursively) for which the block
@@ -64,7 +68,7 @@ module REXML
       each_recursive {|node|
         return node if block.call(node)
       }
-      return nil
+      nil
     end
 
     # Returns the position that +self+ holds in its parent's array, indexed

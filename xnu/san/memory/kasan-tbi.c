@@ -478,3 +478,11 @@ vm_memtag_enable_checking()
 	/* Nothing to do with KASAN-TBI */
 }
 
+#if HAS_MTE && KASAN
+/* We can't use SYSCTL_TEST_REGISTER here as we're targeting KASAN rather than DEVELOPMENT,
+ * but semantically that's more appropriate.
+ */
+extern int is_mte_enabled;
+SYSCTL_INT(_kern, OID_AUTO, is_mte_enabled,
+    CTLFLAG_RD | CTLFLAG_LOCKED, &is_mte_enabled, 0, "Return whether MTE is enabled");
+#endif /* HAS_MTE && KASAN */

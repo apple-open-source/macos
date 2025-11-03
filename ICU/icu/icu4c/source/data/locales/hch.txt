@@ -1,0 +1,11 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+hch{
+    AuxExemplarCharacters{"[ɂ ʔ]"}
+    ExemplarCharacters{
+        "[p t {ts} k {kw} m n r w h ˀ x y a á {aa} e é {ee} i í {ii} ɨ {ɨ́} {ɨɨ} u ú "
+        "{uu}]"
+    }
+    ExemplarCharactersIndex{"[P T K M N R W H ˀ X Y A E I Ɨ U]"}
+}

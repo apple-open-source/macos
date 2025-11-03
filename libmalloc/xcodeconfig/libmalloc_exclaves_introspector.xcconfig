@@ -16,7 +16,7 @@ SYSTEM_HEADER_SEARCH_PATHS = $(inherited) $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) L4_CONFIG_PLAT_EXCLAVE_GENERIC MALLOC_TARGET_EXCLAVES_INTROSPECTOR=1
 
 
-EXCLUDED_SOURCE_FILE_NAMES = src/xzone/xzone_introspect_stub.c
-EXCLUDED_SOURCE_FILE_NAMES[arch=x86_64] = src/xzone/xzone_introspect.c
+EXCLUDED_SOURCE_FILE_NAMES = src/xzone_malloc/xzone_introspect_stub.c
+EXCLUDED_SOURCE_FILE_NAMES[arch=x86_64] = src/xzone_malloc/xzone_introspect.c
 
 OTHER_LDFLAGS = $(inherited) -lCrashReporterClient

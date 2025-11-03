@@ -274,11 +274,22 @@ mk_timer_arm_trap_internal(mach_port_name_t name, uint64_t expire_time, uint64_t
 		if (!timer->is_dead) {
 			timer->is_armed = true;
 
-			if (expire_time > mach_absolute_time()) {
+			uint64_t now;
+			if (mk_timer_flags & MK_TIMER_CONTINUOUS) {
+				now = mach_continuous_time();
+			} else {
+				now = mach_absolute_time();
+			}
+
+			if (expire_time > now) {
 				uint32_t tcflags = THREAD_CALL_DELAY_USER_NORMAL;
 
 				if (mk_timer_flags & MK_TIMER_CRITICAL) {
 					tcflags = THREAD_CALL_DELAY_USER_CRITICAL;
+				}
+
+				if (mk_timer_flags & MK_TIMER_CONTINUOUS) {
+					tcflags |= THREAD_CALL_CONTINUOUS;
 				}
 
 				if (mk_leeway != 0) {

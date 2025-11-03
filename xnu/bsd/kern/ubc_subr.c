@@ -1964,7 +1964,27 @@ ubc_map(vnode_t vp, int flags)
 	int need_ref = 0;
 	int need_wakeup = 0;
 
-	if (UBCINFOEXISTS(vp)) {
+	/*
+	 * This call is non-blocking and does not ever fail but it can
+	 * only be made when there is other explicit synchronization
+	 * with reclaiming of the vnode which, in this path, is provided
+	 * by the "mapping in progress" counter.
+	 */
+	error = vnode_getalways_from_pager(vp);
+	if (error != 0) {
+		/* This can't happen */
+		panic("vnode_getalways returned %d for vp %p", error, vp);
+	}
+
+	if (UBCINFOEXISTS(vp) == 0) {
+		/*
+		 * The vnode might have started being reclaimed (forced unmount?) while
+		 * this call was in progress.
+		 * The caller is not expecting an error but is expected to figure out that
+		 * the "pager" it used for this vnode is now gone.
+		 */
+		error = 0;
+	} else {
 		vnode_lock(vp);
 		uip = vp->v_ubcinfo;
 
@@ -2051,6 +2071,8 @@ ubc_map(vnode_t vp, int flags)
 			}
 		}
 	}
+	vnode_put_from_pager(vp);
+
 	return error;
 }
 
@@ -2209,12 +2231,29 @@ ubc_unmap(struct vnode *vp)
 	struct ubc_info *uip;
 	int     need_rele = 0;
 	int     need_wakeup = 0;
+	int     error = 0;
 
-	if (vnode_getwithref(vp)) {
-		return;
+	/*
+	 * This call is non-blocking and does not ever fail but it can
+	 * only be made when there is other explicit synchronization
+	 * with reclaiming of the vnode which, in this path, is provided
+	 * by the "mapping in progress" counter.
+	 */
+	error = vnode_getalways_from_pager(vp);
+	if (error != 0) {
+		/* This can't happen */
+		panic("vnode_getalways returned %d for vp %p", error, vp);
 	}
 
-	if (UBCINFOEXISTS(vp)) {
+	if (UBCINFOEXISTS(vp) == 0) {
+		/*
+		 * The vnode might have started being reclaimed (forced unmount?) while
+		 * this call was in progress.
+		 * The caller is not expecting an error but is expected to figure out that
+		 * the "pager" it used for this vnode is now gone and take appropriate
+		 * action.
+		 */
+	} else {
 		bool want_fsevent = false;
 
 		vnode_lock(vp);
@@ -2291,7 +2330,7 @@ ubc_unmap(struct vnode *vp)
 	/*
 	 * the drop of the vnode ref will cleanup
 	 */
-	vnode_put(vp);
+	vnode_put_from_pager(vp);
 }
 
 

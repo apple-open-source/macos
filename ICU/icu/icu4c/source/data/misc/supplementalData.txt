@@ -1989,6 +1989,18 @@ supplementalData:table(nofallback){
         }
         IN{
             "gregorian",
+            "vikram",
+            "islamic",
+            "islamic-civil",
+            "islamic-tbla",
+            "bangla",
+            "gujarati",
+            "kannada",
+            "malayalam",
+            "marathi",
+            "odia",
+            "tamil",
+            "telugu",
             "indian",
         }
         IQ{
@@ -2076,6 +2088,10 @@ supplementalData:table(nofallback){
             "islamic",
             "islamic-civil",
             "islamic-tbla",
+        }
+        NP{
+            "gregorian",
+            "vikram",
         }
         OM{
             "gregorian",
@@ -2165,6 +2181,10 @@ supplementalData:table(nofallback){
             "gregorian",
             "islamic-civil",
             "islamic-tbla",
+        }
+        VN{
+            "gregorian",
+            "vietnamese",
         }
         XK{
             "gregorian",

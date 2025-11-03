@@ -1236,6 +1236,9 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmLoopOSREnterBBQJIT, void, (Probe:
     const StackMap& stackMap = entryData.values();
     auto writeValueToRep = [&](uint64_t encodedValue, const OSREntryValue& value) {
         B3::Type type = value.type();
+        // Void signifies an unused exception slot in `try` (since we can't have an exception at that time)
+        if (type.kind() == B3::TypeKind::Void)
+            return;
         if (value.isGPR()) {
             ASSERT(!type.isFloat() && !type.isVector());
             context.gpr(value.gpr()) = encodedValue;
@@ -1713,11 +1716,6 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmRethrow, void*, (JSWebAssemblyIns
     JSGlobalObject* globalObject = instance->globalObject();
 
     JSValue thrownValue = JSValue::decode(encodedThrownValue);
-    if (auto* exception = jsDynamicCast<JSWebAssemblyException*>(thrownValue)) {
-        if (&exception->tag() == &Wasm::Tag::jsExceptionTag())
-            thrownValue = JSValue::decode(exception->payload().at(0));
-    }
-
     throwException(globalObject, throwScope, thrownValue);
 
     genericUnwind(vm, callFrame);

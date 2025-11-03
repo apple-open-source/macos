@@ -28,6 +28,7 @@
 #include "keychain_utilities.h"
 #include "readline_cssm.h"
 #include "security_tool.h"
+#include "access_utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1335,8 +1336,8 @@ cleanup:
 }
 
 // Declare here to use later.
-int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStringRef password, CFStringRef partitionlist);
-int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFMutableDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password);
+int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStringRef password, CFStringRef partitionlist, Boolean allowAccessAll);
+int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFMutableDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password, Boolean allowAccessAll);
 
 int keychain_set_internet_password_partition_list(int argc, char * const *argv) {
     /*
@@ -1422,7 +1423,7 @@ int keychain_set_internet_password_partition_list(int argc, char * const *argv) 
     argc -= optind;
     argv += optind;
 
-    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password);
+    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password, FALSE);
 
 cleanup:
     safe_CFRelease(&password);
@@ -1451,9 +1452,10 @@ keychain_set_generic_password_partition_list(int argc, char * const *argv) {
 
     CFStringRef partitionidsinput = NULL;
     CFStringRef password = NULL;
+    Boolean accessAllowAll = FALSE;
 
     int ch, result = 0;
-    while ((ch = getopt(argc, argv, ":a:c:C:D:G:j:l:s:S:k:")) != -1)
+    while ((ch = getopt(argc, argv, ":a:c:C:D:G:j:l:s:S:k:A")) != -1)
     {
         switch  (ch)
         {
@@ -1489,6 +1491,9 @@ keychain_set_generic_password_partition_list(int argc, char * const *argv) {
                 CFReleaseNull(password);
                 password = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
                 break;
+            case 'A':
+                accessAllowAll = TRUE;
+                break;
             case '?':
             case ':':
                 // They supplied the -k but with no data
@@ -1507,7 +1512,7 @@ keychain_set_generic_password_partition_list(int argc, char * const *argv) {
     argc -= optind;
     argv += optind;
 
-    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password);
+    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password, accessAllowAll);
 
 cleanup:
     safe_CFRelease(&password);
@@ -1623,7 +1628,7 @@ keychain_set_key_partition_list(int argc, char * const *argv) {
     argc -= optind;
     argv += optind;
 
-    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password);
+    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password, FALSE);
 
 cleanup:
     CFReleaseNull(partitionidsinput);
@@ -1633,7 +1638,7 @@ cleanup:
 }
 
 
-int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFMutableDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password) {
+int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFMutableDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password, Boolean allowAccessAll) {
     int result = 0;
     const char *keychainName = NULL;
     SecKeychainRef kc = NULL;
@@ -1670,7 +1675,7 @@ int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFM
     }
 
     if(!password) {
-        char* cpassword = prompt_password(keychainName);
+        char* cpassword = prompt_password(keychainName, TRUE);
         if (!cpassword) {
             result = -1;
             goto cleanup;
@@ -1680,7 +1685,7 @@ int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFM
         free(cpassword);
     }
 
-    result = keychain_set_partition_list(kc, query, password, partitionidsinput);
+    result = keychain_set_partition_list(kc, query, password, partitionidsinput, allowAccessAll);
 
 cleanup:
     CFReleaseNull(localPassword);
@@ -1688,7 +1693,7 @@ cleanup:
 }
 
 
-int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStringRef password, CFStringRef partitionlist) {
+int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStringRef password, CFStringRef partitionlist, Boolean allowAccessAll) {
     int result = 0;
 
     char *passwordBuf = NULL;
@@ -1788,6 +1793,22 @@ int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStri
                         safe_CFRelease(&dict);
                         safe_CFRelease(&partitionIDs);
                     }
+                }
+            }
+
+            if (allowAccessAll) {
+                SecAccessRef allTheAccess = NULL;
+                status = create_access("my ACL'd item", TRUE, NULL, &allTheAccess);
+                if (status) {
+                    sec_perror("create_access", status);
+                    result = 1;
+                    goto cleanup;
+                }
+                status = merge_access(access, allTheAccess);
+                if (status) {
+                    sec_perror("merge_access", status);
+                    result = 1;
+                    goto cleanup;
                 }
             }
 

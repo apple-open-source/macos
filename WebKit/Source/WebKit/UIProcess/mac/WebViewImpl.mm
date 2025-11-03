@@ -2936,7 +2936,7 @@ void WebViewImpl::didBecomeEditable()
 void WebViewImpl::updateFontManagerIfNeeded()
 {
     BOOL fontPanelIsVisible = NSFontPanel.sharedFontPanelExists && NSFontPanel.sharedFontPanel.visible;
-    if (!fontPanelIsVisible && !m_page->editorState().isContentRichlyEditable)
+    if (!fontPanelIsVisible && !(m_page->isEditable() && m_page->editorState().isContentRichlyEditable))
         return;
 
     m_page->requestFontAttributesAtSelectionStart([] (auto& attributes) {
@@ -7036,6 +7036,15 @@ void WebViewImpl::fulfillDeferredImageAnalysisOverlayViewHierarchyTask()
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 
+void WebViewImpl::setCanInstallScrollPocket()
+{
+    if (m_canInstallScrollPocket)
+        return;
+
+    m_canInstallScrollPocket = true;
+    updateScrollPocket();
+}
+
 void WebViewImpl::updatePrefersSolidColorHardPocket()
 {
     static bool canSetPrefersSolidColorHardPocket = [NSScrollPocket instancesRespondToSelector:@selector(setPrefersSolidColorHardPocket:)];
@@ -7065,10 +7074,14 @@ void WebViewImpl::updateScrollPocket()
     if (m_windowIsEnteringOrExitingFullScreen)
         return;
 
+    Ref page = m_page.get();
+    if (!m_canInstallScrollPocket)
+        return;
+
     RetainPtr view = m_view.get();
     CGFloat topContentInset = obscuredContentInsets().top();
-    CGFloat additionalHeight = m_page->overflowHeightForTopScrollEdgeEffect();
-    bool needsTopView = m_page->preferences().contentInsetBackgroundFillEnabled()
+    CGFloat additionalHeight = page->overflowHeightForTopScrollEdgeEffect();
+    bool needsTopView = page->preferences().contentInsetBackgroundFillEnabled()
         && view
         && !view->_reasonsToHideTopScrollPocket
         && (topContentInset > 0 || additionalHeight > 0);

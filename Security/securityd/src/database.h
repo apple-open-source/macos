@@ -151,7 +151,12 @@ public:
 	virtual void authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentials *cred);
 
     // returns true if these credentials contain a valid password or master key for this database
-    virtual bool checkCredentials(const AccessCredentials *cred);
+    typedef enum {
+        checkCredentials_neither,
+        checkCredentials_password,
+        checkCredentials_masterkey
+    } checkCredentials_kind;
+    virtual checkCredentials_kind checkCredentials(const AccessCredentials *cred);
 	virtual SecurityServerAcl &acl();
 
 	virtual bool isLocked();

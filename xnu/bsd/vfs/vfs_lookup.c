@@ -206,12 +206,12 @@ namei(struct nameidata *ndp)
 	int volfs_restarts = 0;
 #endif
 	size_t bytes_copied = 0;
-	size_t resolve_prefix_len = 0;
+	size_t resolve_prefix_len;
 	vnode_t rootdir_with_usecount = NULLVP;
 	vnode_t startdir_with_usecount = NULLVP;
 	vnode_t usedvp_dp = NULLVP;
 	int32_t old_count = 0;
-	uint32_t resolve_flags = 0;
+	uint32_t resolve_flags;
 	int resolve_error = 0;
 	bool dp_has_iocount = false;
 	bool clear_usedvp = false;
@@ -258,6 +258,12 @@ namei(struct nameidata *ndp)
 	}
 
 vnode_recycled:
+	/*
+	 * Init the resolve states to 0 to ensure that the resolve prefix path got
+	 * stripped in case we are retrying lookup due to vnode got recycled.
+	 */
+	resolve_flags = 0;
+	resolve_prefix_len = 0;
 
 	/*
 	 * Get a buffer for the name to be translated, and copy the
@@ -1425,12 +1431,9 @@ dirloop:
 				vnode_put(dp);
 				dp = ndp->ni_rootdir;
 				/*
-				 * There's a ref on the process's root directory
-				 * but we can't use vnode_getwithref here as
-				 * there is nothing preventing that ref being
-				 * released by another thread.
+				 * namei takes a ref on ndp->ni_rootdir
 				 */
-				if (vnode_get(dp)) {
+				if (vnode_getwithref(dp)) {
 					dp = NULLVP;
 					error = ENOENT;
 					goto bad;
@@ -1463,6 +1466,11 @@ dirloop:
 			}
 			if (dp->v_mount == NULL) {      /* forced umount */
 				error = EBADF;
+				goto bad;
+			}
+			if ((ndp->ni_flag & NAMEI_RESOLVE_BENEATH) && (cnp->cn_flags & ISDOTDOT) && (dp->v_mount->mnt_vnodecovered == ndp->ni_usedvp)) {
+				/* Ensure ".." doesn't escape after mount point traversal */
+				error = ENOTCAPABLE;
 				goto bad;
 			}
 			tdp = dp;
@@ -1809,6 +1817,13 @@ restart:
 			break;
 		}
 
+		if ((ndp->ni_flag & NAMEI_RESOLVE_BENEATH) && (cnp->cn_flags & ISDOTDOT) && (dp == ndp->ni_usedvp)) {
+			/* Ensure ".." doesn't escape after mount point traversal */
+			mount_dropcrossref(mp, dp, 0);
+			error = ENOTCAPABLE;
+			goto out;
+		}
+
 		if (ISSET(mp->mnt_lflag, MNT_LFORCE)) {
 			mount_dropcrossref(mp, dp, 0);
 			break;  // don't traverse into a forced unmount
@@ -1816,16 +1831,19 @@ restart:
 
 		if ((ndp->ni_flag & NAMEI_LOCAL) && !(mp->mnt_flag & MNT_LOCAL)) {
 			/* Prevent a path lookup from ever crossing into a network filesystem */
+			mount_dropcrossref(mp, dp, 0);
 			error = ENOTCAPABLE;
 			goto out;
 		}
 		if ((ndp->ni_flag & NAMEI_NODEVFS) && (strcmp(mp->mnt_vfsstat.f_fstypename, "devfs") == 0)) {
 			/* Prevent a path lookup into `devfs` filesystem */
+			mount_dropcrossref(mp, dp, 0);
 			error = ENOTCAPABLE;
 			goto out;
 		}
 		if ((ndp->ni_flag & NAMEI_IMMOVABLE) && (mp->mnt_flag & MNT_REMOVABLE) && !(mp->mnt_kern_flag & MNTK_VIRTUALDEV)) {
 			/* Prevent a path lookup into a removable filesystem */
+			mount_dropcrossref(mp, dp, 0);
 			error = ENOTCAPABLE;
 			goto out;
 		}

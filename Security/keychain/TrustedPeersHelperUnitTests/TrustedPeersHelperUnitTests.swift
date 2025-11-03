@@ -3053,6 +3053,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let (response, healthError) = c.requestHealthCheckSync(requiresEscrowCheck: true,
                                                                repair: false,
                                                                danglingPeerCleanup: false,
+                                                               caesarPeerCleanup: false,
                                                                updateIdMS: false,
                                                                test: self)
         XCTAssertFalse(response!.postRepairCFU, "expected postRepairCFU")

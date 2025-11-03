@@ -861,15 +861,15 @@ std::optional<LayoutUnit> GridTrackSizingAlgorithm::gridAreaBreadthForGridItem(c
     // height, which may depend on the row track's size. It's possible that the row tracks sizing
     // logic has not been performed yet, so we will need to do an estimation.
     if (direction == GridTrackSizingDirection::ForRows && (m_sizingState == SizingState::ColumnSizingFirstIteration || m_sizingState == SizingState::ColumnSizingSecondIteration) && !m_renderGrid->areMasonryColumns()) {
-        ASSERT(GridLayoutFunctions::isOrthogonalGridItem(*m_renderGrid, gridItem));
         if (m_sizingState == SizingState::ColumnSizingFirstIteration) {
             auto spannedRowsSize = estimatedGridAreaBreadthForGridItem(gridItem, GridTrackSizingDirection::ForRows);
-
-            if (auto availableLogicalHeight = m_renderGrid->availableLogicalHeightForContentBox(); availableLogicalHeight && hasAllLengthRowSizes())  {
-                auto contentDistributionForRows = m_renderGrid->computeContentPositionAndDistributionOffset(GridTrackSizingDirection::ForRows,
-                    *availableLogicalHeight - *spannedRowsSize, m_renderGrid->numTracks(GridTrackSizingDirection::ForRows));
-                auto rowSpanForGridItem = m_renderGrid->gridSpanForGridItem(gridItem, GridTrackSizingDirection::ForRows);
-                return *spannedRowsSize + contentDistributionForRows.distributionOffset * (rowSpanForGridItem.integerSpan() - 1);
+            if (spannedRowsSize) {
+                if (auto availableLogicalHeight = m_renderGrid->availableLogicalHeightForContentBox(); availableLogicalHeight && hasAllLengthRowSizes())  {
+                    auto contentDistributionForRows = m_renderGrid->computeContentPositionAndDistributionOffset(GridTrackSizingDirection::ForRows,
+                        *availableLogicalHeight - *spannedRowsSize, m_renderGrid->numTracks(GridTrackSizingDirection::ForRows));
+                    auto rowSpanForGridItem = m_renderGrid->gridSpanForGridItem(gridItem, GridTrackSizingDirection::ForRows);
+                    return *spannedRowsSize + contentDistributionForRows.distributionOffset * (rowSpanForGridItem.integerSpan() - 1);
+                }
             }
             return spannedRowsSize;
         }

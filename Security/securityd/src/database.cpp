@@ -185,7 +185,7 @@ void Database::authenticate(CSSM_DB_ACCESS_TYPE, const AccessCredentials *)
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
-bool Database::checkCredentials(const AccessCredentials *)
+Database::checkCredentials_kind Database::checkCredentials(const AccessCredentials *)
 {
     secinfo("database", "%p calling unimplemented checkCredentials", this);
     CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);

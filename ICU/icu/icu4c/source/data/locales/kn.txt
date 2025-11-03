@@ -255,6 +255,14 @@ kn{
     }
     calendar{
         bangla{
+            eras{
+                abbreviated{
+                    "ಬಂಗಾ.",
+                }
+                wide{
+                    "ಬಂಗಾಬ್ದ",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -770,12 +778,20 @@ kn{
                     "MMM, d",
                     "d=tithikna",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "ವಿ. ಸಂ.",
+                }
+                wide{
+                    "ವಿಕ್ರಮ ಸಂವತ್",
+                }
             }
             monthNames{
                 format{
@@ -973,23 +989,31 @@ kn{
                 "h:mm:ss a",
                 "h:mm a",
                 {
-                    "EEEE, MMMM d, y",
+                    "G y MMMM d, EEEE",
                     "d=tithikna",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithikna",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithikna",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "ಶಾಲಿ. ಶ.",
+                }
+                wide{
+                    "ಶಾಲಿವಾಹನ ಶಕೆ",
+                }
             }
             monthNames{
                 format{
@@ -1084,7 +1108,7 @@ kn{
             monthPatterns{
                 format{
                     wide{
-                        leap{"ಅಧಿಕ್ {0}"}
+                        leap{"ಅಧಿಕ {0}"}
                     }
                 }
                 numeric{
@@ -1096,6 +1120,16 @@ kn{
                     narrow{
                         leap{"ಅ.{0}"}
                     }
+                }
+            }
+        }
+        malayalam{
+            eras{
+                abbreviated{
+                    "ಕೊ. ವ.",
+                }
+                wide{
+                    "ಕೊಲ್ಲವರ್ಷಂ",
                 }
             }
         }
@@ -1117,12 +1151,20 @@ kn{
                     "MMM, d",
                     "d=tithikna",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "ಶಕ ಸಂ.",
+                }
+                wide{
+                    "ಶಕ ಸಂವತ್",
+                }
             }
             monthPatterns{
                 format{
@@ -1263,6 +1305,14 @@ kn{
             }
         }
         tamil{
+            eras{
+                abbreviated{
+                    "ಶಕ ವ.",
+                }
+                wide{
+                    "ಶಕ ವರುಡಂ",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -1372,12 +1422,20 @@ kn{
                     "MMM, d",
                     "d=tithikna",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "ಶಾಲಿ. ಶ.",
+                }
+                wide{
+                    "ಶಾಲಿವಾಹನ ಶಕಂ",
+                }
             }
             monthNames{
                 format{
@@ -1505,7 +1563,7 @@ kn{
                     "MMM, d",
                     "d=tithiknp",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -1520,6 +1578,14 @@ kn{
                 MMMMEEEEd{"EEEE, MMMM d"}
                 Md{"M/d"}
                 yMEd{"E, M/d"}
+            }
+            eras{
+                abbreviated{
+                    "ವಿ. ಸಂ.",
+                }
+                wide{
+                    "ವಿಕ್ರಮ ಸಂವತ್",
+                }
             }
             monthNames{
                 format{

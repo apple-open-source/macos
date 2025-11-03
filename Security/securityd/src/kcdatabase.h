@@ -216,7 +216,7 @@ public:
 	DbBlob *blob();
 	
     void authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentials *cred);
-    bool checkCredentials(const AccessCredentials* creds);
+    checkCredentials_kind checkCredentials(const AccessCredentials* creds);
     void changePassphrase(const AccessCredentials *cred);
     void changePassphraseTo(const CssmData &passphrase); // for re-encrypting with indirect passphrase
     void changeKeybagPassphrase(const CssmData &oldPassphrase, const CssmData &newPassphrase); // for indirect passphrase case
@@ -239,6 +239,10 @@ public:
 	bool decode(const CssmData &passphrase);				// set master key from PP, try unlock
 
 	bool validatePassphrase(const CssmData &passphrase) const; // nonthrowing validation
+
+    // returns true if the passphrase was derived
+    bool derivePassphraseIfNecessary(const CssmData &passphraseIn, CssmDataContainer& passphraseOut) const;
+
 	bool isLocked()			{ return common().isLocked(); }	// lock status
     void notify(NotificationEvent event) { return common().notify(event); }
     void activity() const	{ common().activity(); }		// reset timeout clock

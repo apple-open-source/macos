@@ -248,10 +248,12 @@
 			<integer>300</integer>
 		</dict>
 #endif
-#ifdef NOTYET
+#if !RSYNC_RECEIVER_SAMBA
 		<!--
-		   Sparse files don't work in either implementation yet on
-		   macOS -- to be investigated.
+		   Sparse files work in openrsync on macOS, but not in smb
+		   rsync.  We haven't spent any time analyzing the latter, we'll
+		   just don't include tests where smb rsync needs to identify
+		   holes.
 		 -->
 		<dict>
 			<key>TestName</key>
@@ -307,7 +309,34 @@
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
-#endif
+		<dict>
+			<key>TestName</key>
+			<string>rsync.tests_kyua.sh.test13c_sparse</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/rsync/openrsync/tests_kyua.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/rsync/openrsync</string>
+				<string>-r</string>
+				<string>tests_kyua.sh.test13c_sparse.results.txt</string>
+				<string>test13c_sparse</string>
+			</array>
+			<key>Description</key>
+			<string>test13c_sparse</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+#endif /* !RSYNC_RECEIVER_SAMBA */
 		<dict>
 			<key>TestName</key>
 			<string>rsync.tests_kyua.sh.test14_hardlinks</string>
@@ -1059,6 +1088,33 @@
 			</array>
 			<key>Description</key>
 			<string>test21_delopts</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.tests_kyua.sh.test21b_delopts</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/rsync/openrsync/tests_kyua.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/rsync/openrsync</string>
+				<string>-r</string>
+				<string>tests_kyua.sh.test21b_delopts.results.txt</string>
+				<string>test21b_delopts</string>
+			</array>
+			<key>Description</key>
+			<string>test21b_delopts</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>
@@ -3435,6 +3491,33 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>rsync.tests_kyua.sh.test79_itemize_redo</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/rsync/openrsync/tests_kyua.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/rsync/openrsync</string>
+				<string>-r</string>
+				<string>tests_kyua.sh.test79_itemize_redo.results.txt</string>
+				<string>test79_itemize_redo</string>
+			</array>
+			<key>Description</key>
+			<string>test79_itemize_redo</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>rsync.tests_kyua.sh.test7_symlinks</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -3671,6 +3754,33 @@
 			</array>
 			<key>Description</key>
 			<string>test84_archive</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.tests_kyua.sh.test85_receiver_race</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/rsync/openrsync/tests_kyua.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/rsync/openrsync</string>
+				<string>-r</string>
+				<string>tests_kyua.sh.test85_receiver_race.results.txt</string>
+				<string>test85_receiver_race</string>
+			</array>
+			<key>Description</key>
+			<string>test85_receiver_race</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>

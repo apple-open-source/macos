@@ -30,6 +30,7 @@
 
 #import "APIFindClient.h"
 #import "APIUIClient.h"
+#import "UIKitUtilities.h"
 #import "WKWebViewIOS.h"
 #import "WebPageProxy.h"
 #import <MobileCoreServices/MobileCoreServices.h>
@@ -41,6 +42,7 @@
 #import <pal/spi/ios/SystemPreviewSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Vector.h>
+#import <wtf/WeakObjCPtr.h>
 
 #import <pal/ios/QuickLookSoftLink.h>
 
@@ -87,33 +89,53 @@ static RetainPtr<NSString> getUTIForUSDMIMEType(const String& mimeType)
     return self;
 }
 
-- (void)web_setContentProviderData:(NSData *)data suggestedFilename:(NSString *)filename
+- (void)web_setContentProviderData:(NSData *)data suggestedFilename:(NSString *)filename completionHandler:(void (^)(void))completionHandler
 {
     _suggestedFilename = adoptNS([filename copy]);
     _data = adoptNS([data copy]);
 
-    RetainPtr contentType = getUTIForUSDMIMEType(_mimeType.get());
+    RetainPtr alert = WebKit::createUIAlertController(WEB_UI_NSSTRING(@"View 3D Object?", "View 3D Object?"), WEB_UI_NSSTRING(@"You can see a preview of this object before viewing in 3D.", "You can see a preview of this object before viewing in 3D."));
 
-    _item = adoptNS([PAL::allocQLItemInstance() initWithDataProvider:self contentType:contentType.get() previewTitle:_suggestedFilename.get()]);
-    [_item setUseLoadingTimeout:NO];
+    UIAlertAction* allowAction = [UIAlertAction actionWithTitle:WEB_UI_NSSTRING_KEY(@"View 3D Object", @"View 3D Object (QuickLook Preview)", "Allow displaying QuickLook Preview of 3D object") style:UIAlertActionStyleDefault handler:[weakSelf = WeakObjCPtr<WKUSDPreviewView>(self), completionHandler = makeBlockPtr(completionHandler)](UIAlertAction *) mutable {
+        RetainPtr strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completionHandler();
+            return;
+        }
 
-    _thumbnailView = adoptNS([allocASVThumbnailViewInstance() init]);
-    [_thumbnailView setDelegate:self];
-    [self setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
+        RetainPtr contentType = getUTIForUSDMIMEType(strongSelf->_mimeType.get());
 
-    [self setAutoresizesSubviews:YES];
-    [self setClipsToBounds:YES];
-    [self addSubview:_thumbnailView.get()];
-    [self _layoutThumbnailView];
+        strongSelf->_item = adoptNS([PAL::allocQLItemInstance() initWithDataProvider:strongSelf.get() contentType:contentType.get() previewTitle:strongSelf->_suggestedFilename.get()]);
+        [strongSelf->_item setUseLoadingTimeout:NO];
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    // FIXME: <rdar://155548417> ([ Build-Failure ] [ iOS26+ ] error: 'mainScreen' is deprecated: first deprecated in iOS 26.0)
-    auto screenBounds = UIScreen.mainScreen.bounds;
-ALLOW_DEPRECATED_DECLARATIONS_END
-    CGFloat maxDimension = CGFloatMin(screenBounds.size.width, screenBounds.size.height);
-    [_thumbnailView setMaxThumbnailSize:CGSizeMake(maxDimension, maxDimension)];
+        strongSelf->_thumbnailView = adoptNS([allocASVThumbnailViewInstance() init]);
+        [strongSelf->_thumbnailView setDelegate:strongSelf.get()];
+        [strongSelf setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
 
-    [_thumbnailView setThumbnailItem:_item.get()];
+        [strongSelf setAutoresizesSubviews:YES];
+        [strongSelf setClipsToBounds:YES];
+        [strongSelf addSubview:strongSelf->_thumbnailView.get()];
+        [strongSelf _layoutThumbnailView];
+
+        auto screenBounds = strongSelf.get().window.windowScene.screen.bounds;
+        CGFloat maxDimension = CGFloatMin(screenBounds.size.width, screenBounds.size.height);
+        [strongSelf->_thumbnailView setMaxThumbnailSize:CGSizeMake(maxDimension, maxDimension)];
+
+        [strongSelf->_thumbnailView setThumbnailItem:strongSelf->_item.get()];
+
+        completionHandler();
+    }];
+
+    UIAlertAction* doNotAllowAction = [UIAlertAction actionWithTitle:WEB_UI_NSSTRING_KEY(@"Cancel", @"Cancel (QuickLook Preview)", "Cancel displaying QuickLook Preview of 3D object") style:UIAlertActionStyleCancel handler:[completionHandler = makeBlockPtr(completionHandler)](UIAlertAction *) {
+        completionHandler();
+    }];
+
+    [alert addAction:doNotAllowAction];
+    [alert addAction:allowAction];
+
+    RefPtr page = _webView->_page;
+    UIViewController *presentingViewController = page->uiClient().presentingViewController();
+    [presentingViewController presentViewController:alert.get() animated:YES completion:nil];
 }
 
 - (void)_layoutThumbnailView

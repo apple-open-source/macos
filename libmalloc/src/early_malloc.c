@@ -159,6 +159,9 @@ static_assert(sizeof(struct mfm_arena) == MFM_ARENA_SIZE, "I can do math");
 #define mfmh_freelist       mfm_header.mfm_freelist
 
 static struct mfm_arena    *mfm_arena;
+#if CONFIG_MTE
+static bool mfm_memtag_enabled = false;
+#endif // CONFIG_MTE
 
 #pragma mark validation and helper functions
 
@@ -532,6 +535,23 @@ __mfm_block_set_next(struct mfm_block *blk, uint64_t next)
 #endif
 }
 
+#if CONFIG_MTE
+/*!
+ * @function __mfm_block_fixup_ptr()
+ *
+ * @brief
+ * Loads the tag for a given block pointer, and returns the
+ * tagged pointer.
+ *
+ * @discussion
+ * This must be called with mfm_memtag_enabled set to true.
+ */
+static struct mfm_block *
+__mfm_block_fixup_ptr(struct mfm_block *blk)
+{
+	return (struct mfm_block *)memtag_fixup_ptr((uint8_t *)blk);
+}
+#endif // CONFIG_MTE
 
 /*!
  * @function __mfm_block_insert_head()
@@ -553,6 +573,12 @@ __mfm_block_insert_head(
 	offs = __mfm_block_offset(arena, blk);
 	next_blk = &arena->mfm_base[next];
 
+#if CONFIG_MTE
+	if (mfm_memtag_enabled) {
+		blk = __mfm_block_fixup_ptr(blk);
+		next_blk = __mfm_block_fixup_ptr(next_blk);
+	}
+#endif // CONFIG_MTE
 
 	blk->mfmb_prev = head;
 	__mfm_block_set_next(blk, next);
@@ -572,11 +598,22 @@ __mfm_block_remove(struct mfm_arena *arena, struct mfm_block *blk)
 	uint64_t next, prev;
 	struct mfm_block *next_blk, *prev_blk;
 
+#if CONFIG_MTE
+	if (mfm_memtag_enabled) {
+		blk = __mfm_block_fixup_ptr(blk);
+	}
+#endif // CONFIG_MTE
 
 	next = __mfm_block_next(blk);
 	prev = blk->mfmb_prev;
 	next_blk = &arena->mfm_base[next];
 	prev_blk = &arena->mfm_base[prev];
+#if CONFIG_MTE
+	if (mfm_memtag_enabled) {
+		next_blk = __mfm_block_fixup_ptr(next_blk);
+		prev_blk = __mfm_block_fixup_ptr(prev_blk);
+	}
+#endif // CONFIG_MTE
 	next_blk->mfmb_prev = prev;
 	__mfm_block_set_next(prev_blk, next);
 	__builtin_bzero(blk, sizeof(struct mfm_block));
@@ -653,6 +690,24 @@ mfm_initialize(void)
 	debug_flags = DISABLE_ASLR | MALLOC_ADD_GUARD_PAGE_FLAGS;
 #endif // MALLOC_TARGET_EXCLAVES
 
+#if CONFIG_MTE
+	// Tie the enablement of memory tagging support in MFM to
+	// malloc_has_sec_transition: we rely on mfm_initialize
+	// being called *after* this has been setup by malloc proper.
+	mfm_memtag_enabled = malloc_has_sec_transition;
+#if MALLOC_TARGET_EXCLAVES
+	if (mfm_memtag_enabled) {
+		debug_flags |= MALLOC_MTE_TAGGABLE;
+	}
+#else
+	mfm_memtag_enabled =
+			mfm_memtag_enabled && malloc_sec_transition_early_malloc_support;
+
+	if (mfm_memtag_enabled) {
+		alloc_flags |= VM_FLAGS_MTE;
+	}
+#endif // !MALLOC_TARGET_EXCLAVES
+#endif // CONFIG_MTE
 
 	/* this is called early, which means the address space _does_ have 4M */
 	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0, debug_flags,
@@ -715,6 +770,9 @@ mfm_alloc_size(const void *ptr)
 	struct mfm_arena *arena = os_atomic_load(&mfm_arena, dependency);
 	size_t index;
 
+#if CONFIG_MTE
+	ptr = memtag_strip_address((void *)ptr);
+#endif // CONFIG_MTE
 
 	if (!__mfm_address_owned(arena, ptr)) {
 		return 0ul;
@@ -813,6 +871,14 @@ out:
 #endif
 	__mfm_unlock(arena);
 
+#if CONFIG_MTE
+	// Set the tag for the block we are returning to the caller.
+	if (mfm_memtag_enabled) {
+		ptr = memtag_assign_tag(ptr, size * MFM_QUANTUM);
+		// Blocks from the early arena may have arbitrary 16B-alignment
+		memtag_set_tag_unaligned(ptr, size * MFM_QUANTUM);
+	}
+#endif // CONFIG_MTE
 
 	return ptr;
 }
@@ -828,6 +894,9 @@ mfm_free(void *ptr)
 	dprintf(STDERR_FILENO, "{ -1, %p },\n", ptr);
 #endif
 
+#if CONFIG_MTE
+	addr = memtag_strip_address((void *)ptr);
+#endif // CONFIG_MTE
 
 	if (!__mfm_address_owned(arena, addr)) {
 		MFM_INTERNAL_CRASH(ptr, "not MFM owned");
@@ -839,6 +908,14 @@ mfm_free(void *ptr)
 	}
 	size = __mfm_block_size(arena, index);
 
+#if CONFIG_MTE
+	// Retag the block we are freeing.
+	if (mfm_memtag_enabled) {
+		ptr = memtag_assign_tag(ptr, MFM_QUANTUM * size);
+		// Blocks from the early arena may have arbitrary 16B-alignment
+		memtag_set_tag_unaligned(ptr, MFM_QUANTUM * size);
+	}
+#endif // CONFIG_MTE
 
 	bzero(ptr, MFM_QUANTUM * size);
 
@@ -890,7 +967,31 @@ mfm_claimed_address(void *ptr)
 {
 	struct mfm_arena *arena = os_atomic_load(&mfm_arena, dependency);
 
+#if CONFIG_MTE
+	// After checking that this pointer belongs to us, verify that the logical
+	// tag of the pointer matches the physical tag stored in memory. If that is
+	// not the case, report this pointer as not claimed.
+	//
+	// The layers above us (xzone and malloc proper) rely on this behaviour.
+	// This is required to properly handle (i.e. fail) the lookup of a pointer
+	// with a mismatching tag: in the free() and realloc() paths, the dispatch
+	// layer (malloc proper) will try to validate the tag of the pointer, and
+	// raise a fatal exception if it doesn't match the tag stored in memory.
+	//
+	// Note: we need to validate the tag after ensuring that we own the
+	// pointer, otherwise we might incur in passing complete garbage to ldg,
+	// which would lead to a crash even in paths that need to possibly operate
+	// on completely invalid pointers (e.g. malloc_size()).
+	bool claimed = __mfm_address_owned(arena, memtag_strip_address(ptr));
+	if (claimed && mfm_memtag_enabled) {
+		if (!memtag_tags_match(ptr, memtag_fixup_ptr(ptr))) {
+			return false;
+		}
+	}
+	return claimed;
+#else
 	return __mfm_address_owned(arena, ptr);
+#endif
 }
 
 void *

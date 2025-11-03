@@ -200,4 +200,6 @@ T_DECL(linkat_flags,
 	}
 
 	/* See resolve_beneath.c for the AT_RESOLVE_BENEATH flag tests */
+
+	/* See open_unique.c for the AT_UNIQUE flag tests */
 }

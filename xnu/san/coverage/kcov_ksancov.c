@@ -56,6 +56,7 @@
 #include <sys/conf.h> /* must come after sys/stat.h */
 #include <sys/sysctl.h>
 
+#include <console/serial_protos.h>
 #include <pexpert/pexpert.h> /* PE_parse_boot_argn */
 
 #include <libkern/libkern.h>
@@ -669,6 +670,9 @@ free_dev(ksancov_dev_t d)
 	if ((d->cmps_mode == KS_CMPS_MODE_TRACE || d->cmps_mode == KS_CMPS_MODE_TRACE_FUNC) && d->cmps_trace) {
 		kmem_free(kernel_map, (uintptr_t)d->cmps_trace, d->cmps_sz);
 	}
+	if (d->testcases) {
+		kmem_free(kernel_map, (uintptr_t)d->testcases, sizeof(ksancov_serialized_testcases_t) + sizeof(ksancov_serialized_testcase_t) * d->testcases_count);
+	}
 	lck_mtx_destroy(&d->lock, &ksancov_lck_grp);
 	kfree_type(struct ksancov_dev, d);
 }
@@ -1052,6 +1056,199 @@ ksancov_cmps_map(ksancov_dev_t d, uintptr_t *bufp, size_t *sizep)
 }
 
 static int
+ksancov_testcases_alloc(ksancov_dev_t d, size_t testcases_count)
+{
+	if (d->testcases != NULL) {
+		return EBUSY; /* testcases buffer already created */
+	}
+
+	if (testcases_count > KSANCOV_SERIALIZED_TESTCASES_MAX_COUNT) {
+		return EINVAL;
+	}
+
+	uintptr_t buf;
+
+	/* allocate the shared memory buffer */
+	kern_return_t kr = kmem_alloc(kernel_map, &buf, sizeof(ksancov_serialized_testcases_t) + sizeof(ksancov_serialized_testcase_t) * testcases_count, KMA_DATA_SHARED | KMA_ZERO, VM_KERN_MEMORY_DIAG);
+	if (kr != KERN_SUCCESS) {
+		return ENOMEM;
+	}
+
+	d->testcases = (ksancov_serialized_testcases_t *)buf;
+	d->testcases->head = 0;
+	d->testcases->inner_index = 0;
+	d->testcases_count = (uint32_t)testcases_count;
+
+	return 0;
+}
+
+static int
+ksancov_testcases_map(ksancov_dev_t d, uintptr_t *bufp, size_t *sizep)
+{
+	uintptr_t addr = (uintptr_t)d->testcases;
+	if (addr == 0) {
+		return EINVAL;
+	}
+
+	size_t nbytes = sizeof(ksancov_serialized_testcases_t) + sizeof(ksancov_serialized_testcase_t) * d->testcases_count;
+
+	void *buf = ksancov_do_map(addr, nbytes, VM_PROT_READ | VM_PROT_WRITE);
+	if (buf == 0) {
+		return ENOMEM;
+	}
+
+	*bufp = (uintptr_t)buf;
+	*sizep = nbytes;
+
+	return 0;
+}
+
+extern void console_write_unbuffered(char);
+extern void (*PE_kputc)(char c);
+void
+_doprnt(
+	const char     *fmt,
+	va_list        *argp,
+	void          (*putc)(char),
+	int             radix) __printflike(1, 0);
+
+/*
+ * Print directly to the serial if enabled. If not, do nothing.
+ * ksancov_on_panic_log must print only on serial upon panic to avoid overflowing the debug buffer.
+ */
+static int
+ksancov_can_print_serial(void)
+{
+	/*
+	 * PE_kputc is the serial by default, if the serial is enabled, and fallback to console_write_unbuffered otherwise (video console).
+	 * We do not care about the serial settings for the panic log testcases, always send to serial if DB_PRT is in the debug boot arg (debug=0x2)
+	 */
+	return PE_kputc != NULL && PE_kputc != console_write_unbuffered && disable_serial_output == false;
+}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+static int
+ksancov_serial_print(const char *fmt, ...)
+{
+	va_list listp;
+	va_start(listp, fmt);
+	_doprnt(fmt, &listp, PE_kputc, 16);
+	va_end(listp);
+
+	return 0;
+}
+#pragma clang diagnostic pop
+
+static void
+ksancov_base64_serial_print(const uint8_t *buffer, size_t len)
+{
+	#define BASE64_TMP_BUFFER_LEN 1024
+	char tmp_buffer[BASE64_TMP_BUFFER_LEN + 1];
+	size_t tmp_buffer_index = 0;
+	size_t i = 0;
+
+	static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	while (i < len) {
+		uint8_t block[3];
+		size_t block_len = 0;
+
+		size_t j;
+		for (j = 0; j < 3 && i < len; ++j) {
+			block[j] = buffer[i++];
+			block_len++;
+		}
+
+		char encoded_block[4];
+		encoded_block[0] = base64_chars[block[0] >> 2];
+		encoded_block[1] = base64_chars[((block[0] & 0x03) << 4) | (block_len > 1 ? (block[1] >> 4) : 0)];
+		encoded_block[2] = (block_len > 1) ? base64_chars[((block[1] & 0x0F) << 2) | (block_len > 2 ? (block[2] >> 6) : 0)] : '=';
+		encoded_block[3] = (block_len > 2) ? base64_chars[block[2] & 0x3F] : '=';
+
+		if (tmp_buffer_index + 4 > BASE64_TMP_BUFFER_LEN) {
+			tmp_buffer[tmp_buffer_index] = '\0';
+			ksancov_serial_print("%s", tmp_buffer);
+			tmp_buffer_index = 0;
+		}
+
+		for (j = 0; j < 4; ++j) {
+			tmp_buffer[tmp_buffer_index++] = encoded_block[j];
+		}
+	}
+
+	if (tmp_buffer_index > 0) {
+		tmp_buffer[tmp_buffer_index] = '\0';
+		ksancov_serial_print("%s", tmp_buffer);
+	}
+}
+
+/* Print every testcase in every ksancov device to serial */
+static int
+ksancov_testcases_serial_log(bool take_locks)
+{
+	if (!ksancov_can_print_serial()) {
+		return EBUSY;
+	}
+
+	bool print_banner = false;
+	for (int dev_idx = 0; dev_idx < KSANCOV_MAX_DEV; dev_idx++) {
+		ksancov_dev_t dev = ksancov_devs[dev_idx];
+		if (dev == NULL) {
+			continue;
+		}
+		if (take_locks) {
+			lck_mtx_lock(&dev->lock);
+		}
+
+		if (dev->testcases == NULL) {
+			if (take_locks) {
+				lck_mtx_unlock(&dev->lock);
+			}
+			continue;
+		}
+
+		if (!print_banner) {
+			/* print the marker when there is at least one ksancov dev with testcases */
+			print_banner = true;
+			ksancov_serial_print("Begin ksancov testcases dump\n");
+		}
+
+		ksancov_serial_print("Device %d head %d inner_index %lu attached %d\n", dev_idx, dev->testcases->head, dev->testcases->inner_index, dev->thread ? 1 : 0);
+		for (int idx = 0; idx < dev->testcases_count; idx++) {
+			size_t testcase_idx =  (dev->testcases->head - 1 - idx + dev->testcases_count) % dev->testcases_count;
+			ksancov_serialized_testcase_t *testcase = &dev->testcases->list[testcase_idx];
+			size_t size = testcase->size % KSANCOV_SERIALIZED_TESTCASE_BYTES;
+
+			ksancov_serial_print("Testcase %d size %llu\n", testcase_idx, size);
+			ksancov_base64_serial_print(testcase->buffer, size);
+			ksancov_serial_print("\n");
+		}
+
+		if (take_locks) {
+			lck_mtx_unlock(&dev->lock);
+		}
+	}
+	if (print_banner) {
+		ksancov_serial_print("End ksancov testcases dump\n");
+	}
+
+	return 0;
+}
+
+/*
+ * Print to serial the content of all testcas buffers on panic if there is at least one thread under trace.
+ * This code is serialized as it is called from print_all_panic_info().
+ */
+void
+ksancov_on_panic_log(void)
+{
+	if (__probable(os_atomic_load(&ksancov_enabled, relaxed) == 0)) {
+		return;
+	}
+	ksancov_testcases_serial_log(false);
+}
+
+static int
 ksancov_close(dev_t dev, int flags, int devtype, proc_t p)
 {
 #pragma unused(flags,devtype,p)
@@ -1288,6 +1485,21 @@ ksancov_ioctl(dev_t dev, unsigned long cmd, caddr_t _data, int fflag, proc_t p)
 		ret = ksancov_cmps_map(d, &mcmd->ptr, &mcmd->sz);
 		lck_mtx_unlock(&d->lock);
 		break;
+	case KSANCOV_IOC_TESTCASES:
+		lck_mtx_lock(&d->lock);
+		ret = ksancov_testcases_alloc(d, *(size_t *)data);
+		lck_mtx_unlock(&d->lock);
+		break;
+	case KSANCOV_IOC_TESTCASES_MAP:
+		mcmd = (struct ksancov_buf_desc *)data;
+		lck_mtx_lock(&d->lock);
+		ret = ksancov_testcases_map(d, &mcmd->ptr, &mcmd->sz);
+		lck_mtx_unlock(&d->lock);
+		break;
+	case KSANCOV_IOC_TESTCASES_LOG:
+		ret = ksancov_testcases_serial_log(true);
+		break;
+
 	default:
 		ret = EINVAL;
 		break;

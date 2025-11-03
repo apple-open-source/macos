@@ -157,6 +157,7 @@ main(int     argc,
 #if HAS_ARM_FEAT_SME
 	DECLARE("ACT_UMATRIX_HDR", offsetof(struct thread, machine.umatrix_hdr));
 	DECLARE("ACT_UMATRIX_HDR_DIVERSIFIER", ptrauth_string_discriminator("machine_thread.umatrix_hdr"));
+
 #endif /* HAS_ARM_FEAT_SME */
 	DECLARE("TH_CTH_SELF", offsetof(struct thread, machine.cthread_self));
 	DECLARE("ACT_PREEMPT_CNT", offsetof(struct thread, machine.preemption_count));
@@ -266,6 +267,9 @@ main(int     argc,
 	DECLARE("SS64_KERNEL_SSBS", offsetof(arm_kernel_context_t, ss.ssbs));
 	DECLARE("SS64_KERNEL_DIT", offsetof(arm_kernel_context_t, ss.dit));
 	DECLARE("SS64_KERNEL_UAO", offsetof(arm_kernel_context_t, ss.uao));
+#if HAS_MTE
+	DECLARE("SS64_KERNEL_TCO", offsetof(arm_kernel_context_t, ss.tco));
+#endif
 
 	DECLARE("NS64_KERNEL_D8", offsetof(arm_kernel_context_t, ns.d[0]));
 	DECLARE("NS64_KERNEL_D9", offsetof(arm_kernel_context_t, ns.d[1]));
@@ -311,6 +315,9 @@ main(int     argc,
 #if __ARM_KERNEL_PROTECT__
 	DECLARE("CPU_EXC_VECTORS", offsetof(cpu_data_t, cpu_exc_vectors));
 #endif /* __ARM_KERNEL_PROTECT__ */
+#if NEEDS_MTE_IRG_RESEED
+	DECLARE("CPU_IRG_RESEED_COUNTER", offsetof(cpu_data_t, cpu_irg_reseed_counter));
+#endif
 	DECLARE("CPU_NUMBER_GS", offsetof(cpu_data_t, cpu_number));
 	DECLARE("CPU_PENDING_AST", offsetof(cpu_data_t, cpu_pending_ast));
 	DECLARE("CPU_INT_STATE", offsetof(cpu_data_t, cpu_int_state));
@@ -380,6 +387,9 @@ main(int     argc,
 
 
 	DECLARE("CPU_SYNC_ON_CSWITCH", offsetof(cpu_data_t, sync_on_cswitch));
+#if HAS_MTE
+	DECLARE("IN_UNPRIVILEGED_ACCESS", offsetof(struct thread, machine.in_unprivileged_access));
+#endif /* HAS_MTE */
 
 #if HIBERNATION
 	DECLARE("HIBHDR_STACKOFFSET", offsetof(IOHibernateImageHeader, restore1StackOffset));

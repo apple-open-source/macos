@@ -40,10 +40,13 @@
 #include <OpenDirectory/OpenDirectory.h>
 #include <NetFS/URLMount.h>
 
+#include "SharedMem.h"
 #include "Common.h"
 #include "Logging.h"
 
 #define PM_DISPLAY_NAME "mount"
+#define PM_AUTHENTICATOR_ENV "mount_authenticator"
+#define PM_AUTHENTICATOR_SHM_ENV "mount_authenticator_shm"
 
 #ifdef PAM_USE_OS_LOG
 PAM_DEFINE_LOG(Mount)
@@ -57,24 +60,30 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char *authenticator = NULL;
 
 	if (PAM_SUCCESS != pam_get_authtok(pamh, PAM_AUTHTOK, (void *)&authenticator, password_prompt)) {
-        _LOG_DEBUG("Unable to obtain the authtok.");
+        _LOG_ERROR("Unable to obtain the authtok.");
 		return PAM_IGNORE;
 	}
-	if (PAM_SUCCESS != pam_setenv(pamh, "mount_authenticator", authenticator, 1)) {
-        _LOG_DEBUG("Unable to set the authtok in the environment.");
+    
+    const char *shared_mem_id = pam_shm_write(authenticator, strlen(authenticator));
+    if (shared_mem_id == NULL) {
+        _LOG_ERROR("Unable to store to shm.");
+        return PAM_IGNORE;
+    }
+    
+	if (PAM_SUCCESS != pam_setenv(pamh, PM_AUTHENTICATOR_SHM_ENV, shared_mem_id, 1)) {
+		_LOG_ERROR("Unable to set the authtok in the environment.");
 		return PAM_IGNORE;
 	}
-
+    _LOG_DEBUG("Stored shm with id %s", shared_mem_id);
+    
 	return PAM_SUCCESS;
 }
-
 
 PAM_EXTERN int
 pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	return PAM_SUCCESS;
 }
-
 
 PAM_EXTERN int
 pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
@@ -86,7 +95,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	int mountdirlen = PATH_MAX;
 	char *mountdir = NULL;
 	const char *username = NULL;
-	const char *authenticator = NULL;
+    char *authenticator = NULL;
 	struct passwd *pwd = NULL;
 	struct passwd pwdbuf;
 	char pwbuffer[2 * PATH_MAX];
@@ -111,12 +120,13 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* get the authenticator */
-	if (NULL == (authenticator = pam_getenv(pamh, "mount_authenticator"))) {
-		_LOG_DEBUG("Unable to retrieve the authenticator.");
+	authenticator = pam_copy_secret_with_fallback(pamh, PM_AUTHENTICATOR_ENV, PM_AUTHENTICATOR_SHM_ENV);
+	if (NULL == authenticator) {
+		_LOG_ERROR("Unable to retrieve the authenticator.");
 		retval = PAM_IGNORE;
 		goto fin;
 	}
-
+    
 	/* get the server_URL, path and homedir from OD */
 	if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {
 		_LOG_ERROR("Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
@@ -182,11 +192,11 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 
 fin:
-	pam_unsetenv(pamh, "mount_authenticator");
 	free(homedir);
 	free(mountdir);
 	free(server_URL);
 	free(path);
+    pam_safe_string_release(authenticator);
 
 	return retval;
 }

@@ -143,6 +143,11 @@ If
 .Fa name1
 does not reside in the hierarchy beneath the starting directory,
 an error is returned.
+.It Dv AT_UNIQUE
+If
+.Fa name1
+resolves to a vnode with multiple hard links,
+an error is returned.
 .El
 .Pp
 If
@@ -168,10 +173,11 @@ Unless
 .Fa flag
 contains the
 .Dv AT_SYMLINK_FOLLOW,
-.Dv AT_SYMLINK_NOFOLLOW_ANY
-or the
+.Dv AT_SYMLINK_NOFOLLOW_ANY,
 .Dv AT_RESOLVE_BENEATH
-flags. On OS X, not assigning AT_SYMLINK_FOLLOW, AT_SYMLINK_NOFOLLOW_ANY or AT_RESOLVE_BENEATH to
+or the
+.Dv AT_UNIQUE
+flags. On OS X, not assigning AT_SYMLINK_FOLLOW, AT_SYMLINK_NOFOLLOW_ANY, AT_RESOLVE_BENEATH or AT_UNIQUE to
 .Fa flag
 may result in some file systems returning an error.
 .Sh RETURN VALUES
@@ -327,6 +333,12 @@ translating either the
 or
 .Fa name2
 arguments.
+.It Bq Er ENOTCAPABLE
+The flag parameter has the
+.Dv  AT_UNIQUE
+bit set and
+.Fa name1
+resolves to a vnode with multiple links.
 .El
 .Sh SEE ALSO
 .Xr symlink 2 ,

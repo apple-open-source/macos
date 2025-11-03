@@ -1495,6 +1495,10 @@ set(WebCore_NON_SVG_IDL_FILES
     page/NavigatorServiceWorker.idl
     page/NavigatorShare.idl
     page/NavigatorStorage.idl
+    page/NavigatorUA.idl
+    page/NavigatorUABrandVersion.idl
+    page/NavigatorUAData.idl
+    page/Performance+EventCounts.idl
     page/Performance+NavigationTiming.idl
     page/Performance+PerformanceTimeline.idl
     page/Performance+ResourceTiming.idl
@@ -1530,6 +1534,8 @@ set(WebCore_NON_SVG_IDL_FILES
     page/ShadowRealmGlobalScope.idl
     page/ShareData.idl
     page/StructuredSerializeOptions.idl
+    page/UADataValues.idl
+    page/UALowEntropyJSON.idl
     page/UndoItem.idl
     page/UndoManager.idl
     page/VisualViewport.idl

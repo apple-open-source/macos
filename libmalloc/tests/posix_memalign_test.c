@@ -21,7 +21,26 @@
 #include <malloc_private.h>
 
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+union memtag_ptr {
+	uint64_t value;
+
+	struct {
+		uint64_t ptr_bits : 56;
+		uint64_t ptr_tag : 4;
+		uint64_t ptr_upper : 4;
+	};
+};
+
+static uint8_t *
+memtag_strip_address(uint8_t *tagged_addr)
+{
+	union memtag_ptr p = {
+			.value = (uint64_t)tagged_addr,
+	};
+	return (uint8_t *)p.ptr_bits;
+}
+
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 #if !MALLOC_TARGET_EXCLAVES
 struct t_recorder_ctx {
@@ -59,6 +78,8 @@ pointer_recorder(task_t task, void *context, unsigned type, vm_range_t *ranges,
 static void
 check_pointer_is_enumerated(void *ptr, size_t size)
 {
+	// Under MTE, `ptr` is tagged, but the enumerator reports canonical addresses.
+	ptr = memtag_strip_address(ptr);
 
 	vm_address_t *zones;
 	unsigned zone_count;
@@ -117,7 +138,7 @@ t_posix_memalign(size_t alignment, size_t size, bool scribble, bool enumerate)
 }
 
 T_DECL(posix_memalign_free, "posix_memalign all power of two alignments <= 4096",
-	   T_META_TAG_VM_NOT_PREFERRED)
+	   T_META_TAG_VM_PREFERRED, T_META_TAG_ALL_ALLOCATORS)
 {
 	for (size_t alignment = sizeof(void*); alignment < 4096; alignment *= 2) {
 		bool enumerate = true;
@@ -132,7 +153,7 @@ T_DECL(posix_memalign_free, "posix_memalign all power of two alignments <= 4096"
 
 T_DECL(posix_memalign_alignment_not_a_power_of_2,
 	   "posix_memalign should return EINVAL if alignment is not a power of 2",
-	   T_META_TAG_VM_PREFERRED)
+	   T_META_TAG_VM_PREFERRED, T_META_TAG_ALL_ALLOCATORS)
 {
 	{
 		void *ptr = NULL;
@@ -151,7 +172,7 @@ T_DECL(posix_memalign_alignment_not_a_power_of_2,
 
 T_DECL(posix_memalign_alignment_not_a_multiple_of_voidstar,
 	   "posix_memalign should return EINVAL if alignment is not a multiple of sizeof(void*)",
-	   T_META_TAG_VM_PREFERRED)
+	   T_META_TAG_VM_PREFERRED, T_META_TAG_ALL_ALLOCATORS)
 {
 	void *ptr = NULL;
 	const size_t alignment = sizeof(void*)+1;
@@ -162,7 +183,7 @@ T_DECL(posix_memalign_alignment_not_a_multiple_of_voidstar,
 
 T_DECL(posix_memalign_allocate_size_0,
        "posix_memalign should return something that can be passed to free() when size is 0",
-	   T_META_TAG_VM_PREFERRED)
+	   T_META_TAG_VM_PREFERRED, T_META_TAG_ALL_ALLOCATORS)
 {
 	void *ptr = NULL;
 	int result = posix_memalign(&ptr, 8, 0);
@@ -171,7 +192,8 @@ T_DECL(posix_memalign_allocate_size_0,
 }
 
 #if defined(__LP64__)
-T_DECL(posix_memalign_large, "posix_memalign large power of two alignments", T_META_TAG_VM_NOT_PREFERRED)
+T_DECL(posix_memalign_large, "posix_memalign large power of two alignments",
+		T_META_TAG_VM_NOT_PREFERRED, T_META_TAG_ALL_ALLOCATORS)
 {
 	// 64GB on macOS, 64MB on embedded
 	uint64_t max_alignment = TARGET_OS_OSX ? UINT64_C(68719476736) : UINT64_C(67108864);
@@ -187,7 +209,7 @@ T_DECL(posix_memalign_large, "posix_memalign large power of two alignments", T_M
 
 T_DECL(posix_memalign_single_page_large,
 		"Allocate tiny blocks with large alignment",
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_VM_PREFERRED, T_META_TAG_XZONE_ONLY)
 {
 	void *ptr1 = t_posix_memalign(32768, 1, false, true);
 	T_ASSERT_NOTNULL(ptr1, "Allocated aligned ptr %p", ptr1);

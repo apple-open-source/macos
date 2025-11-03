@@ -95,6 +95,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 
 #include <assert.h>
 
@@ -227,62 +228,13 @@ multipr(int family, char *buf, char *lim)
 	}
 }
 
-/*
- * Print a description of the network interfaces.
- */
-void
-intpr(void (*pfunc)(char *))
+static void
+print_intpr_header(bool first)
 {
-	u_int64_t opackets = 0;
-	u_int64_t ipackets = 0;
-	u_int64_t obytes = 0;
-	u_int64_t ibytes = 0;
-	u_int64_t oerrors = 0;
-	u_int64_t ierrors = 0;
-	u_int64_t collisions = 0;
-	u_int64_t fpackets = 0;
-	u_int64_t fbytes = 0;
-	uint32_t mtu = 0;
-	int timer = 0;
-	int drops = 0;
-	struct sockaddr *sa = NULL;
-	char name[32];
-	short network_layer;
-	short link_layer;
-	int mib[6];
-	char *buf = NULL, *lim, *next;
-	size_t len;
-	struct if_msghdr *ifm;
-	struct sockaddr *rti_info[RTAX_MAX];
-	unsigned int ifindex = 0;
+		if (first == false ) {
+			putchar('\n');
+		}
 
-	if (interval) {
-		sidewaysintpr();
-		return;
-	}
-
-	if (interface != 0)
-		ifindex = if_nametoindex(interface);
-
-	mib[0]	= CTL_NET;			// networking subsystem
-	mib[1]	= PF_ROUTE;			// type of information
-	mib[2]	= 0;				// protocol (IPPROTO_xxx)
-	mib[3]	= 0;				// address family
-	mib[4]	= NET_RT_IFLIST2;	// operation
-	mib[5]	= 0;
-	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
-		return;
-	if ((buf = malloc(len)) == NULL) {
-		printf("malloc failed\n");
-		exit(1);
-	}
-	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
-		if (buf)
-			free(buf);
-		return;
-	}
-
-	if (!pfunc) {
 		if (lflag) {
 			printf("%-14.14s %-5.5s %-39.39s %-39.39s %8.8s %5.5s",
 				   "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
@@ -316,7 +268,66 @@ intpr(void (*pfunc)(char *))
 				printf(" %10.10s", "Fbytes");
 		}
 		putchar('\n');
+}
+
+/*
+ * Print a description of the network interfaces.
+ */
+void
+intpr(void (*pfunc)(char *))
+{
+	u_int64_t opackets = 0;
+	u_int64_t ipackets = 0;
+	u_int64_t obytes = 0;
+	u_int64_t ibytes = 0;
+	u_int64_t oerrors = 0;
+	u_int64_t ierrors = 0;
+	u_int64_t collisions = 0;
+	u_int64_t fpackets = 0;
+	u_int64_t fbytes = 0;
+	uint32_t mtu = 0;
+	int timer = 0;
+	int drops = 0;
+	struct sockaddr *sa = NULL;
+	char name[32];
+	short network_layer;
+	short link_layer;
+	int mib[6];
+	char *buf = NULL, *lim, *next;
+	size_t len;
+	struct if_msghdr *ifm;
+	struct sockaddr *rti_info[RTAX_MAX];
+	unsigned int ifindex = 0;
+	char last_ifname[32] = { 0 };
+
+	if (interval) {
+		sidewaysintpr();
+		return;
 	}
+
+	if (interface != 0)
+		ifindex = if_nametoindex(interface);
+
+	mib[0]	= CTL_NET;			// networking subsystem
+	mib[1]	= PF_ROUTE;			// type of information
+	mib[2]	= 0;				// protocol (IPPROTO_xxx)
+	mib[3]	= 0;				// address family
+	mib[4]	= NET_RT_IFLIST2;	// operation
+	mib[5]	= 0;
+	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
+		return;
+	if ((buf = malloc(len)) == NULL) {
+		printf("malloc failed\n");
+		exit(1);
+	}
+	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
+		if (buf)
+			free(buf);
+		return;
+	}
+
+	print_intpr_header(true);
+
 	lim = buf + len;
 	for (next = buf; next < lim; ) {
 		char *cp;
@@ -345,17 +356,12 @@ intpr(void (*pfunc)(char *))
 			int mibname[6];
 			size_t miblen = sizeof(struct ifmibdata_supplemental);
 
-			if (interface != 0 && if2m->ifm_index != ifindex)
+			if (interface != NULL && if2m->ifm_index != ifindex)
 				continue;
 
 			/* The interface name is not a zero-ended string */
 			memcpy(name, sdl->sdl_data, MIN(sizeof(name) - 1, sdl->sdl_nlen));
 			name[MIN(sizeof(name) - 1, sdl->sdl_nlen)] = 0;
-
-			if (pfunc) {
-				(*pfunc)(name);
-				continue;
-			}
 
 			cp = index(name, '\0');
 			if ((if2m->ifm_flags & IFF_UP) == 0)
@@ -436,10 +442,12 @@ intpr(void (*pfunc)(char *))
 			get_rti_info(if2m->ifm_addrs,
 			    (struct sockaddr*)(if2m + 1), rti_info);
 			sa = rti_info[RTAX_IFP];
+
+
 		} else if (ifm->ifm_type == RTM_NEWADDR) {
 			struct ifa_msghdr *ifam = (struct ifa_msghdr *)ifm;
 
-			if (interface != 0 && ifam->ifam_index != ifindex)
+			if (interface != NULL && ifam->ifam_index != ifindex)
 				continue;
 			get_rti_info(ifam->ifam_addrs,
 			    (struct sockaddr*)(ifam + 1), rti_info);
@@ -447,9 +455,21 @@ intpr(void (*pfunc)(char *))
 		} else {
 			continue;
 		}
-		if (pfunc != NULL) {
-			continue;
+
+		/*
+		 * When printing all the interfaces:
+		 * - print the per inteface protocol stats of the previous interface
+		 * - print the header again for the current interface
+		 */
+		if (strcmp(last_ifname, name) != 0) {
+			if (sflag && last_ifname[0] != 0) {
+				printprotoifstats(last_ifname);
+
+				print_intpr_header(false);
+			}
+			strncpy(last_ifname, name, sizeof(last_ifname));
 		}
+
 		if (lflag) {
 			printf("%-14.14s %-5u ", name, mtu);
 		} else {
@@ -596,6 +616,13 @@ intpr(void (*pfunc)(char *))
 
 		if (aflag)
 			multipr(sa->sa_family, next, lim);
+	}
+
+	/*
+	 * Finally print the statistics of the last interface
+	 */
+	if (sflag && last_ifname[0] != 0) {
+		printprotoifstats(last_ifname);
 	}
 	free(buf);
 }
@@ -1334,41 +1361,35 @@ out_free:
 void
 aqstatpr(void)
 {
-	unsigned int ifindex;
 	struct itimerval timer_interval;
 	struct if_qstatsreq ifqr;
 	struct if_ifclassq_stats *ifcqs;
 	sigset_t sigset, oldsigset;
 	u_int32_t scheduler;
-	int s, n;
+	int s = -1, n;
+	struct ifaddrs *ifap = NULL, *ifa;
+	const char *last_ifname = NULL;
 
 	if (cq < -1 || cq >= IFCQ_SC_MAX) {
 		fprintf(stderr, "Invalid classq index (range is 0-%d)\n",
 		     IFCQ_SC_MAX-1);
 		return;
 	}
-	ifindex = if_nametoindex(interface);
-	if (ifindex == 0) {
-		fprintf(stderr, "Invalid interface name\n");
-		return;
-	}
 
 	ifcqs = malloc(sizeof (*ifcqs));
 	if (ifcqs == NULL) {
 		fprintf(stderr, "Unable to allocate memory\n");
-		return;
+		goto done;
 	}
 
 	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		perror("Warning: socket(AF_INET)");
-		free(ifcqs);
-		return;
+		goto done;
 	}
-
-	bzero(&ifqr, sizeof (ifqr));
-	strlcpy(ifqr.ifqr_name, interface, sizeof (ifqr.ifqr_name));
-	ifqr.ifqr_buf = ifcqs;
-	ifqr.ifqr_len = sizeof (*ifcqs);
+	if (getifaddrs(&ifap) != 0) {
+		perror("getifaddrs");
+		goto done;
+    }
 
 loop:
 	if (interval > 0) {
@@ -1382,68 +1403,105 @@ loop:
 		(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
 	}
 
-	ifqr.ifqr_slot = 0;
-	if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
-		if (errno == ENXIO) {
-			printf("Queue statistics are not available on %s\n",
-			    interface);
-		} else {
-			perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		struct ifreq ifr;
+
+		if (interface != NULL &&
+			strcmp(ifa->ifa_name, interface) != 0) {
+			continue;
 		}
-		goto done;
-	}
-	scheduler = ifcqs->ifqs_scheduler;
-    if (scheduler == PKTSCHEDT_NONE) {
-        fprintf(stderr, "Invalid scheduler type\n");
-        goto done;
-    }
 
-	printf("%s:\n"
-	    "     [ sched: %18s  qlength:  %3d/%3d ]\n",
-	    interface, sched2str(ifcqs->ifqs_scheduler),
-	    ifcqs->ifqs_len, ifcqs->ifqs_maxlen);
-	printf("     [ dequeued pkts: %10llu  bytes: %10llu "
-	    " dropped pkts: %6llu bytes: %6llu ]\n",
-	    ifcqs->ifqs_xmitcnt.packets, ifcqs->ifqs_xmitcnt.bytes,
-	    ifcqs->ifqs_dropcnt.packets, ifcqs->ifqs_dropcnt.bytes);
+		if (last_ifname != NULL && strcmp(ifa->ifa_name, last_ifname) == 0) {
+			continue;
+		}
+		last_ifname = ifa->ifa_name;
 
-    for (uint8_t grp = 0; grp < FQ_IF_STATS_MAX_GROUPS; grp++) {
-        ifqr.ifqr_grp_idx = grp;
-        for (n = 0; n < IFCQ_SC_MAX; n++) {
-            if (cq >= 0 && cq != n){
-                continue;
-            }
+		bzero(&ifr, sizeof (struct ifreq));
+		strlcpy(ifr.ifr_name, ifa->ifa_name, sizeof (ifr.ifr_name));
 
-            ifqr.ifqr_slot = n;
-            errno = 0;
-            if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
-                if (errno == ENXIO && grp > 0 && grp < FQ_IF_STATS_MAX_GROUPS) {
-                    // try the next AQM group (qset) if the current is not configured
-                    // grp 0 should always exist as the default one
-                    break;
-                }
-                perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
-                goto done;
-            }
+		if (ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != 0) {
+			perror("ioctl(SIOCGIFEFLAGS");
+			continue;
+		}
 
-            switch (scheduler) {
-                case PKTSCHEDT_FQ_CODEL:
+		if ((ifr.ifr_eflags & IFEF_TXSTART) == 0) {
+			continue;
+		}
+
+		bzero(&ifqr, sizeof (ifqr));
+		strlcpy(ifqr.ifqr_name, ifa->ifa_name, sizeof (ifqr.ifqr_name));
+		ifqr.ifqr_buf = ifcqs;
+		ifqr.ifqr_len = sizeof (*ifcqs);
+
+		ifqr.ifqr_slot = 0;
+		if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
+			if (errno == ENXIO) {
+				if (interface == NULL) {
+					continue;
+				}
+				printf("Queue statistics are not available on %s\n",
+					   ifa->ifa_name);
+			} else {
+				perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+			}
+			goto done;
+		}
+		scheduler = ifcqs->ifqs_scheduler;
+		if (scheduler == PKTSCHEDT_NONE) {
+			fprintf(stderr, "Invalid scheduler type\n");
+			goto done;
+		}
+
+		if (interface == NULL) {
+			printf("\n");
+		}
+
+		printf("%s:\n"
+			   "     [ sched: %18s  qlength:  %3d/%3d ]\n",
+			   ifa->ifa_name, sched2str(ifcqs->ifqs_scheduler),
+			   ifcqs->ifqs_len, ifcqs->ifqs_maxlen);
+		printf("     [ dequeued pkts: %10llu  bytes: %10llu "
+			   " dropped pkts: %6llu bytes: %6llu ]\n",
+			   ifcqs->ifqs_xmitcnt.packets, ifcqs->ifqs_xmitcnt.bytes,
+			   ifcqs->ifqs_dropcnt.packets, ifcqs->ifqs_dropcnt.bytes);
+
+		for (uint8_t grp = 0; grp < FQ_IF_STATS_MAX_GROUPS; grp++) {
+			ifqr.ifqr_grp_idx = grp;
+			for (n = 0; n < IFCQ_SC_MAX; n++) {
+				if (cq >= 0 && cq != n){
+					continue;
+				}
+
+				ifqr.ifqr_slot = n;
+				errno = 0;
+				if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
+					if (errno == ENXIO && grp > 0 && grp < FQ_IF_STATS_MAX_GROUPS) {
+						// try the next AQM group (qset) if the current is not configured
+						// grp 0 should always exist as the default one
+						break;
+					}
+					perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+					goto done;
+				}
+
+				switch (scheduler) {
+					case PKTSCHEDT_FQ_CODEL:
 #ifdef PKTSCHEDT_FQ_CODEL_NEW
-                case PKTSCHEDT_FQ_CODEL_NEW:
+					case PKTSCHEDT_FQ_CODEL_NEW:
 #endif /* PKTSCHEDT_FQ_CODEL_NEW */
-                    print_fq_codel_stats(n,
-                                         &ifcqs->ifqs_fq_codel_stats,
-                                         grp);
-                    break;
-                case PKTSCHEDT_NONE:
-                default:
-                    break;
-            }
-        }
-    }
+						print_fq_codel_stats(n,
+											 &ifcqs->ifqs_fq_codel_stats,
+											 grp);
+						break;
+					case PKTSCHEDT_NONE:
+					default:
+						break;
+				}
+			}
+		}
 
-	fflush(stdout);
-
+		fflush(stdout);
+	}
 	if (interval > 0) {
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGALRM);
@@ -1459,6 +1517,7 @@ loop:
 	}
 
 done:
+	freeifaddrs(ifap);
 	free(ifcqs);
 	close(s);
 }
@@ -1644,14 +1703,18 @@ rxpollstatpr(void)
 	sigset_t sigset, oldsigset;
 	unsigned int ifindex;
 	int name[6];
+	struct ifaddrs *ifap = NULL, *ifa;
+	const char *last_ifname = NULL;
+	int s = -1;
 
-	ifindex = if_nametoindex(interface);
-	if (ifindex == 0) {
-		fprintf(stderr, "Invalid interface name\n");
-		return;
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		perror("Warning: socket(AF_INET)");
+		goto done;
 	}
-
-	bzero(&ifmsupp, sizeof (struct ifmibdata_supplemental));
+	if (getifaddrs(&ifap) != 0) {
+		perror("getifaddrs");
+		goto done;
+    }
 
 loop:
 	if (interval > 0) {
@@ -1665,62 +1728,100 @@ loop:
 		(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
 	}
 
-	/* Common OID prefix */
-	name[0] = CTL_NET;
-	name[1] = PF_LINK;
-	name[2] = NETLINK_GENERIC;
-	name[3] = IFMIB_IFDATA;
-	name[4] = ifindex;
-	name[5] = IFDATA_SUPPLEMENTAL;
-	if (sysctl(name, 6, &ifmsupp, &miblen, NULL, 0) == -1)
-		err(1, "sysctl IFDATA_SUPPLEMENTAL");
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		struct ifreq ifr;
 
-	sp = &ifmsupp.ifmd_rxpoll_stats;
+		if (interface != NULL &&
+			strcmp(ifa->ifa_name, interface) != 0) {
+			continue;
+		}
 
-	printf("%-4s [ poll on requests:  %15u  errors: %27u ]\n",
-	    interface, sp->ifi_poll_on_req, sp->ifi_poll_on_err);
-	printf("     [ poll off requests: %15u  errors: %27u ]\n",
-	    sp->ifi_poll_off_req, sp->ifi_poll_off_err);
-	printf("     [ polled packets: %18llu  per poll limit: %19u ]\n",
-	    sp->ifi_poll_packets, sp->ifi_poll_packets_limit);
-	printf("     [ polled bytes: %20llu ]\n", sp->ifi_poll_bytes);
-	printf("     [ poll interval: %14llu nsec ]\n",
-	    sp->ifi_poll_interval_time);
-	printf("     [ sampled packets avg/min/max: %12u / %12u / %12u ]\n",
-	    sp->ifi_poll_packets_avg, sp->ifi_poll_packets_min,
-	    sp->ifi_poll_packets_max);
-	printf("     [ sampled bytes avg/min/max:   %12u / %12u / %12u ]\n",
-	    sp->ifi_poll_bytes_avg, sp->ifi_poll_bytes_min,
-	    sp->ifi_poll_bytes_max);
-	printf("     [ sampled wakeups avg:         %12u ]\n",
-	    sp->ifi_poll_wakeups_avg);
-	printf("     [ packets lowat/hiwat threshold: %10u / %10u ]\n",
-	    sp->ifi_poll_packets_lowat, sp->ifi_poll_packets_hiwat);
-	printf("     [ bytes lowat/hiwat threshold:   %10u / %10u ]\n",
-	    sp->ifi_poll_bytes_lowat, sp->ifi_poll_bytes_hiwat);
-	printf("     [ wakeups lowat/hiwat threshold: %10u / %10u ]\n",
-	    sp->ifi_poll_wakeups_lowat, sp->ifi_poll_wakeups_hiwat);
+		if (last_ifname != NULL && strcmp(ifa->ifa_name, last_ifname) == 0) {
+			continue;
+		}
+		last_ifname = ifa->ifa_name;
 
-	np = &ifmsupp.ifmd_netif_stats;
-	printf("     [ mit mode: %24U  cfg idx: %26u ]\n",
-	    np->ifn_rx_mit_mode, np->ifn_rx_mit_cfg_idx);
-	printf("     [ cfg packets lo/hi threshold: %12u / %12u ]\n",
-	    np->ifn_rx_mit_cfg_packets_lowat, np->ifn_rx_mit_cfg_packets_hiwat);
-	printf("     [ cfg bytes lo/hi threshold:   %12u / %12u ]\n",
-	    np->ifn_rx_mit_cfg_bytes_lowat, np->ifn_rx_mit_cfg_bytes_hiwat);
-	printf("     [ cfg interval: %15u nsec ]\n",
-	    np->ifn_rx_mit_cfg_interval);
-	printf("     [ mit interval: %15llu nsec ]\n",
-	    np->ifn_rx_mit_interval);
-	printf("     [ mit packets avg/min/max:    %12u / %12u / %12u ]\n",
-	    np->ifn_rx_mit_packets_avg, np->ifn_rx_mit_packets_min,
-	    np->ifn_rx_mit_packets_max);
-	printf("     [ mit bytes avg/min/max:      %12u / %12u / %12u ]\n",
-	    np->ifn_rx_mit_bytes_avg, np->ifn_rx_mit_bytes_min,
-	    np->ifn_rx_mit_bytes_max);
+		bzero(&ifr, sizeof (struct ifreq));
+		strlcpy(ifr.ifr_name, ifa->ifa_name, sizeof (ifr.ifr_name));
 
-	fflush(stdout);
+		if (ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != 0) {
+			perror("ioctl(SIOCGIFEFLAGS");
+			goto done;
+		}
 
+		if ((ifr.ifr_eflags & IFEF_RXPOLL) == 0) {
+			continue;
+		}
+
+		ifindex = if_nametoindex(ifa->ifa_name);
+		if (ifindex == 0) {
+			fprintf(stderr, "Invalid interface name\n");
+			goto done;
+		}
+
+		bzero(&ifmsupp, sizeof (struct ifmibdata_supplemental));
+
+		/* Common OID prefix */
+		name[0] = CTL_NET;
+		name[1] = PF_LINK;
+		name[2] = NETLINK_GENERIC;
+		name[3] = IFMIB_IFDATA;
+		name[4] = ifindex;
+		name[5] = IFDATA_SUPPLEMENTAL;
+		if (sysctl(name, 6, &ifmsupp, &miblen, NULL, 0) == -1) {
+			perror("sysctl IFDATA_SUPPLEMENTAL");
+			goto done;
+		}
+		sp = &ifmsupp.ifmd_rxpoll_stats;
+
+		if (interface == NULL) {
+			printf("\n");
+		}
+
+		printf("%-4s [ poll on requests:  %15u  errors: %27u ]\n",
+			   ifa->ifa_name, sp->ifi_poll_on_req, sp->ifi_poll_on_err);
+		printf("     [ poll off requests: %15u  errors: %27u ]\n",
+			   sp->ifi_poll_off_req, sp->ifi_poll_off_err);
+		printf("     [ polled packets: %18llu  per poll limit: %19u ]\n",
+			   sp->ifi_poll_packets, sp->ifi_poll_packets_limit);
+		printf("     [ polled bytes: %20llu ]\n", sp->ifi_poll_bytes);
+		printf("     [ poll interval: %14llu nsec ]\n",
+			   sp->ifi_poll_interval_time);
+		printf("     [ sampled packets avg/min/max: %12u / %12u / %12u ]\n",
+			   sp->ifi_poll_packets_avg, sp->ifi_poll_packets_min,
+			   sp->ifi_poll_packets_max);
+		printf("     [ sampled bytes avg/min/max:   %12u / %12u / %12u ]\n",
+			   sp->ifi_poll_bytes_avg, sp->ifi_poll_bytes_min,
+			   sp->ifi_poll_bytes_max);
+		printf("     [ sampled wakeups avg:         %12u ]\n",
+			   sp->ifi_poll_wakeups_avg);
+		printf("     [ packets lowat/hiwat threshold: %10u / %10u ]\n",
+			   sp->ifi_poll_packets_lowat, sp->ifi_poll_packets_hiwat);
+		printf("     [ bytes lowat/hiwat threshold:   %10u / %10u ]\n",
+			   sp->ifi_poll_bytes_lowat, sp->ifi_poll_bytes_hiwat);
+		printf("     [ wakeups lowat/hiwat threshold: %10u / %10u ]\n",
+			   sp->ifi_poll_wakeups_lowat, sp->ifi_poll_wakeups_hiwat);
+
+		np = &ifmsupp.ifmd_netif_stats;
+		printf("     [ mit mode: %24U  cfg idx: %26u ]\n",
+			   np->ifn_rx_mit_mode, np->ifn_rx_mit_cfg_idx);
+		printf("     [ cfg packets lo/hi threshold: %12u / %12u ]\n",
+			   np->ifn_rx_mit_cfg_packets_lowat, np->ifn_rx_mit_cfg_packets_hiwat);
+		printf("     [ cfg bytes lo/hi threshold:   %12u / %12u ]\n",
+			   np->ifn_rx_mit_cfg_bytes_lowat, np->ifn_rx_mit_cfg_bytes_hiwat);
+		printf("     [ cfg interval: %15u nsec ]\n",
+			   np->ifn_rx_mit_cfg_interval);
+		printf("     [ mit interval: %15llu nsec ]\n",
+			   np->ifn_rx_mit_interval);
+		printf("     [ mit packets avg/min/max:    %12u / %12u / %12u ]\n",
+			   np->ifn_rx_mit_packets_avg, np->ifn_rx_mit_packets_min,
+			   np->ifn_rx_mit_packets_max);
+		printf("     [ mit bytes avg/min/max:      %12u / %12u / %12u ]\n",
+			   np->ifn_rx_mit_bytes_avg, np->ifn_rx_mit_bytes_min,
+			   np->ifn_rx_mit_bytes_max);
+
+		fflush(stdout);
+	}
 	if (interval > 0) {
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGALRM);
@@ -1734,6 +1835,9 @@ loop:
 		signalled = NO;
 		goto loop;
 	}
+done:
+	freeifaddrs(ifap);
+	close(s);
 }
 
 static int
@@ -2162,22 +2266,19 @@ print_link_status(const char *ifname)
 	struct nstat_ifnet_descriptor ifdesc;
 	nstat_ifnet_add_param ifparam;
 	nstat_src_ref_t	sref = 0;
-	struct ifreq ifr;
-	int ctl_fd;
+	int ctl_fd = -1;
+	struct ifaddrs *ifap = NULL, *ifa;
+	const char *last_ifname = NULL;
+	int s = -1;
 
-	ifindex = if_nametoindex(ifname);
-	if (ifindex == 0) {
-		fprintf(stderr, "Invalid interface name\n");
-		return;
-	}
-
-	if ((ctl_fd = create_control_socket(NET_STAT_CONTROL_NAME)) < 0)
-		return;
-
-	ifparam.ifindex = ifindex;
-	ifparam.threshold = UINT64_MAX;
-	if (add_nstat_src(ctl_fd, &ifparam, &sref))
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		perror("Warning: socket(AF_INET)");
 		goto done;
+	}
+	if (getifaddrs(&ifap) != 0) {
+		perror("getifaddrs");
+		goto done;
+    }
 loop:
 	if (interval > 0) {
 		/* create a timer that fires repeatedly every interval
@@ -2190,32 +2291,67 @@ loop:
 		signalled = NO;
 		(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
 	}
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		struct ifreq ifr;
 
-	/* get interface state */
-	if (get_interface_state(ctl_fd, ifname, &ifr))
-		goto done;
+		if (ifname != NULL &&
+			strcmp(ifa->ifa_name, ifname) != 0) {
+			continue;
+		}
 
-	/* get ntstat interface description */
-	if (get_src_decsription(ctl_fd, sref, &ifdesc))
-		goto done;
+		if (last_ifname != NULL && strcmp(ifa->ifa_name, last_ifname) == 0) {
+			continue;
+		}
+		last_ifname = ifa->ifa_name;
 
-	/* print time */
-	printf("\n%s: ", ifname);
-	print_time();
+		ifindex = if_nametoindex(last_ifname);
+		if (ifindex == 0) {
+			fprintf(stderr, "Invalid interface name\n");
+			return;
+		}
 
-	/* print interface state */
-	print_interface_state(&ifr);
+		if ((ctl_fd = create_control_socket(NET_STAT_CONTROL_NAME)) < 0) {
+			perror("create_control_socket");
+			goto done;
+		}
 
-	/* print ntsat interface link status */
-	if (ifdesc.link_status.link_status_type ==
-	    NSTAT_IFNET_DESC_LINK_STATUS_TYPE_CELLULAR)
-		print_cellular_status(&ifdesc.link_status.u.cellular);
-	else if (ifdesc.link_status.link_status_type ==
-		 NSTAT_IFNET_DESC_LINK_STATUS_TYPE_WIFI)
-		print_wifi_status(&ifdesc.link_status.u.wifi);
+		bzero(&ifparam, sizeof(nstat_ifnet_add_param));
+		ifparam.ifindex = ifindex;
+		ifparam.threshold = UINT64_MAX;
+		if (add_nstat_src(ctl_fd, &ifparam, &sref))
+			goto done;
 
-	fflush(stdout);
+		/* get interface state */
+		if (get_interface_state(ctl_fd, last_ifname, &ifr))
+			goto done;
 
+		/* get ntstat interface description */
+		if (get_src_decsription(ctl_fd, sref, &ifdesc))
+			goto done;
+
+		/* print time */
+		printf("\n%s: ", last_ifname);
+		print_time();
+
+		/* print interface state */
+		print_interface_state(&ifr);
+
+		/* print ntsat interface link status */
+		if (ifdesc.link_status.link_status_type ==
+			NSTAT_IFNET_DESC_LINK_STATUS_TYPE_CELLULAR)
+			print_cellular_status(&ifdesc.link_status.u.cellular);
+		else if (ifdesc.link_status.link_status_type ==
+				 NSTAT_IFNET_DESC_LINK_STATUS_TYPE_WIFI)
+			print_wifi_status(&ifdesc.link_status.u.wifi);
+
+		fflush(stdout);
+		if (sref) {
+			rem_nstat_src(ctl_fd, sref);
+			sref = 0;
+		}
+		close(ctl_fd);
+		ctl_fd = -1;
+	}
 	if (interval > 0) {
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGALRM);
@@ -2233,4 +2369,6 @@ done:
 	if (sref)
 		rem_nstat_src(ctl_fd, sref);
 	close(ctl_fd);
+	freeifaddrs(ifap);
+	close(s);
 }

@@ -398,6 +398,7 @@ es{
         nds_NL{"bajo sajón"}
         ne{"nepalí"}
         new{"nevarí"}
+        nez{"nez percé"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niueano"}

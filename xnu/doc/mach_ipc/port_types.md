@@ -51,6 +51,18 @@ documentation for more details about how to opt into this restriction - The
 kernel will enforce that platform restrictions binaries receive this version of the service
 port following completion of rdar://133304899.
 
+### IOT_BOOTSTRAP_PORT
+#### Creation
+- pass `MPO_SERVICE_PORT` to `mach_port_construct` with `mspi_domain_type`
+equals `XPC_DOMAIN_PORT`
+#### Behavior/Usage
+- Should be created by `launchd` only and should be the system-wide bootstrap
+port for the `bootstrap_lookup` service.
+#### Security Restrictions
+- The receive right of this port should be immovable and should always belong to
+`launchd`. Port destroy notification is not allowed, and reply port semantics are
+enforced for this port.
+
 ### IOT_WEAK_SERVICE_PORT
 #### Creation
 - pass `MPO_WEAK_SERVICE_PORT` to `mach_port_construct`

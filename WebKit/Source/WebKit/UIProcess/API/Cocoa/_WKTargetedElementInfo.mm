@@ -167,8 +167,10 @@
 - (NSSet<NSURL *> *)mediaAndLinkURLs
 {
     RetainPtr result = adoptNS([NSMutableSet<NSURL *> new]);
-    for (auto& url : _info->mediaAndLinkURLs())
-        [result addObject:url.createNSURL().get()];
+    for (auto& url : _info->mediaAndLinkURLs()) {
+        if (RetainPtr nsURL = url.createNSURL())
+            [result addObject:nsURL.get()];
+    }
     return result.autorelease();
 }
 

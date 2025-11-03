@@ -89,6 +89,10 @@
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
 #import <AppleAccount/ACAccount+AppleAccount.h>
 
+#if !TARGET_OS_SIMULATOR
+#import <AppleKeyStore/AppleKeyStore.h>
+#endif
+
 #import <CoreCDP/CDPFollowUpController.h>
 
 #import <SoftLinking/SoftLinking.h>
@@ -145,6 +149,11 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
 @property id<NSXPCProxyCreating> cuttlefishXPCConnection;
 
+#if !TARGET_OS_SIMULATOR
+// AKS event registration opaque handle
+@property (assign) AKSEvent* aksEvent;
+#endif // !TARGET_OS_SIMULATOR
+
 // Dependencies for injection
 @property (readonly) id<OTSOSAdapter> sosAdapter;
 @property (readonly) id<OTAccountsAdapter> accountsAdapter;
@@ -153,6 +162,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 @property (readonly) id<OTTapToRadarAdapter> tapToRadarAdapter;
 @property (readonly) id<OTDeviceInformationAdapter> deviceInformationAdapter;
 @property (readonly) id<OTSecureBackupAdapter> secureBackupAdapter;
+@property (readonly) id<OTLAContextAdapter> laContextAdapter;
 @property (readonly) id<OTPersonaAdapter> personaAdapter;
 @property (readonly) Class<OctagonAPSConnection> apsConnectionClass;
 @property (readonly) Class<SecEscrowRequestable> escrowRequestClass;
@@ -186,6 +196,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                   tapToRadarAdapter:[[OTTapToRadarActualAdapter alloc] init]
            deviceInformationAdapter:[[OTDeviceInformationActualAdapter alloc] init]
                 secureBackupAdapter:[[OTSecureBackupActualAdapter alloc] init]
+                   laContextAdapter:[[OTLAContextActualAdapter alloc] init]
                      personaAdapter:[[OTPersonaActualAdapter alloc] init]
                  apsConnectionClass:[APSConnection class]
                  escrowRequestClass:[EscrowRequestServer class] // Use the server class here to skip the XPC layer
@@ -205,6 +216,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                  tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
+                  laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                 escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
@@ -224,6 +236,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         _tapToRadarAdapter = tapToRadarAdapter;
         _deviceInformationAdapter = deviceInformationAdapter;
         _secureBackupAdapter = secureBackupAdapter;
+        _laContextAdapter = laContextAdapter;
         _personaAdapter = personaAdapter;
         _loggerClass = loggerClass;
         _lockStateTracker = lockStateTracker;
@@ -318,6 +331,16 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
     return self;
 }
+
+#if !TARGET_OS_SIMULATOR
+- (void)dealloc
+{
+    if (self.aksEvent) {
+        AKSEventsUnregister(self.aksEvent);
+        self.aksEvent = NULL;
+    }
+}
+#endif // !TARGET_OS_SIMULATOR
 
 - (void)initializeOctagon
 {
@@ -422,16 +445,21 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     // If we're not in the tests, go ahead and register for a notification
     if(!SecCKKSTestsEnabled()) {
-        int token = NOTIFY_TOKEN_INVALID;
-        // kAppleKeyStoreCacheFlowEnabledNotificationID
-        notify_register_dispatch("com.apple.keystore.cache.enabled", &token, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(int t) {
-            secnotice("octagon-escrow-repair", "passcode stash available via cache flow");
-            [weakSelf setPasscodeStashAvailableForArguments:[[OTControlArguments alloc] init]];
+#if !TARGET_OS_SIMULATOR
+        self.aksEvent = AKSEventsRegister(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(AKSEventType event, CFDictionaryRef dict) {
+            if (event == kAKSCacheFlowEnabled) {
+                secnotice("octagon-escrow-repair", "passcode stash available via cache flow");
+                NSDictionary* nsDict = (__bridge NSDictionary*)dict;
+                NSNumber* value = nsDict[(__bridge NSString*)kAKSInfoCacheFlowContext];
+
+                [weakSelf setPasscodeStashAvailableForArguments:[[OTControlArguments alloc] init] aksEventContext:value];
+            }
         });
+#endif /* !TARGET_OS_SIMULATOR */
     }
 }
 
-- (void)setPasscodeStashAvailableForArguments:(OTControlArguments*)arguments
+- (void)setPasscodeStashAvailableForArguments:(OTControlArguments*)arguments aksEventContext:(NSNumber*)aksEventContext
 {
     NSError* error = nil;
     OTCuttlefishContext* context = [self contextForClientRPC:arguments
@@ -442,7 +470,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         secnotice("octagon", "Cannot set passcode stash available flag: %@", error);
     }
 
-    [context passcodeStashAvailable];
+    [context passcodeStashAvailable:aksEventContext];
 }
 
 + (instancetype _Nullable)manager {
@@ -818,6 +846,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                                      accountStateTracker:accountStateTracker
                                                 deviceInformationAdapter:deviceInformationAdapter
                                                      secureBackupAdapter:self.secureBackupAdapter
+                                                        laContextAdapter:self.laContextAdapter
                                                       apsConnectionClass:self.apsConnectionClass
                                                       escrowRequestClass:self.escrowRequestClass
                                                            notifierClass:self.notifierClass
@@ -2522,6 +2551,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 skipRateLimitingCheck:NO
                repair:NO
           danglingPeerCleanup:NO
+    caesarPeerCleanup:NO
            updateIdMS:NO
                 reply:^(TrustedPeersHelperHealthCheckResult *_Nullable, NSError * _Nullable error) {
         if(error) {
@@ -2536,6 +2566,7 @@ skipRateLimitingCheck:NO
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                repair:(BOOL)repair
   danglingPeerCleanup:(BOOL)danglingPeerCleanup
+    caesarPeerCleanup:(BOOL)caesarPeerCleanup
            updateIdMS:(BOOL)updateIdMS
                 reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply
 {
@@ -2568,6 +2599,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [cfshContext checkOctagonHealth:skipRateLimitingCheck
                              repair:repair
                 danglingPeerCleanup:danglingPeerCleanup
+                  caesarPeerCleanup:caesarPeerCleanup
                          updateIdMS:updateIdMS
                               reply:reply];
 }

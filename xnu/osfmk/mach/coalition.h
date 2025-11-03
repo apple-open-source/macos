@@ -168,6 +168,7 @@ struct coalition_resource_usage {
 #define COALITION_INFO_SET_NAME 2
 #define COALITION_INFO_SET_EFFICIENCY 3
 #define COALITION_INFO_GET_DEBUG_INFO 4
+#define COALITION_INFO_PID_LIST 5
 
 struct coalinfo_debuginfo {
 	uint64_t thread_group_id;

@@ -137,13 +137,13 @@ void NetworkLoad::reprioritizeRequest(ResourceLoadPriority priority)
 
 bool NetworkLoad::shouldCaptureExtraNetworkLoadMetrics() const
 {
-    CheckedPtr client = m_client;
+    CheckedPtr client = m_client.get();
     return client && client->shouldCaptureExtraNetworkLoadMetrics();
 }
 
 bool NetworkLoad::isAllowedToAskUserForCredentials() const
 {
-    CheckedPtr client = m_client;
+    CheckedPtr client = m_client.get();
     return client && client->isAllowedToAskUserForCredentials();
 }
 
@@ -196,7 +196,7 @@ void NetworkLoad::willPerformHTTPRedirection(ResourceResponse&& redirectResponse
         return;
     }
 
-    CheckedPtr client = m_client;
+    RefPtr client = m_client.get();
 
     if (!client)
         return completionHandler({ });
@@ -224,7 +224,7 @@ void NetworkLoad::willPerformHTTPRedirection(ResourceResponse&& redirectResponse
 
 void NetworkLoad::didReceiveChallenge(AuthenticationChallenge&& challenge, NegotiatedLegacyTLS negotiatedLegacyTLS, ChallengeCompletionHandler&& completionHandler)
 {
-    CheckedPtr client = m_client;
+    RefPtr client = m_client.get();
 
     if (!client) {
         completionHandler(AuthenticationChallengeDisposition::Cancel, { });
@@ -250,7 +250,7 @@ void NetworkLoad::didReceiveChallenge(AuthenticationChallenge&& challenge, Negot
 
 void NetworkLoad::didReceiveInformationalResponse(ResourceResponse&& response)
 {
-    if (CheckedPtr client = m_client)
+    if (RefPtr client = m_client.get())
         client->didReceiveInformationalResponse(WTFMove(response));
 }
 
@@ -273,7 +273,7 @@ void NetworkLoad::notifyDidReceiveResponse(ResourceResponse&& response, Negotiat
 {
     ASSERT(RunLoop::isMain());
 
-    CheckedPtr client = m_client;
+    RefPtr client = m_client.get();
 
     if (!client)
         return completionHandler(WebCore::PolicyAction::Ignore);
@@ -295,7 +295,7 @@ void NetworkLoad::notifyDidReceiveResponse(ResourceResponse&& response, Negotiat
 
 void NetworkLoad::didReceiveData(const WebCore::SharedBuffer& buffer)
 {
-    if (CheckedPtr client = m_client)
+    if (RefPtr client = m_client.get())
         client->didReceiveBuffer(buffer);
 }
 
@@ -304,7 +304,7 @@ void NetworkLoad::didCompleteWithError(const ResourceError& error, const WebCore
     if (RefPtr scheduler = std::exchange(m_scheduler, nullptr).get())
         scheduler->unschedule(*this, &networkLoadMetrics);
 
-    CheckedPtr client = m_client;
+    RefPtr client = m_client.get();
     if (!client)
         return;
 
@@ -316,31 +316,31 @@ void NetworkLoad::didCompleteWithError(const ResourceError& error, const WebCore
 
 void NetworkLoad::didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend)
 {
-    if (CheckedPtr client = m_client)
+    if (RefPtr client = m_client.get())
         client->didSendData(totalBytesSent, totalBytesExpectedToSend);
 }
 
 void NetworkLoad::wasBlocked()
 {
-    if (CheckedPtr client = m_client)
+    if (RefPtr client = m_client.get())
         client->didFailLoading(blockedError(m_currentRequest));
 }
 
 void NetworkLoad::cannotShowURL()
 {
-    if (CheckedPtr client = m_client)
+    if (RefPtr client = m_client.get())
         client->didFailLoading(cannotShowURLError(m_currentRequest));
 }
 
 void NetworkLoad::wasBlockedByRestrictions()
 {
-    if (CheckedPtr client = m_client)
+    if (RefPtr client = m_client.get())
         client->didFailLoading(wasBlockedByRestrictionsError(m_currentRequest));
 }
 
 void NetworkLoad::wasBlockedByDisabledFTP()
 {
-    if (CheckedPtr client = m_client)
+    if (RefPtr client = m_client.get())
         client->didFailLoading(ftpDisabledError(m_currentRequest));
 }
 

@@ -639,12 +639,15 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
         if (status == errSecSuccess) {
             return status;
         }
-        // try the modern system keychain if not found in data protection keychain
-        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
-        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
-        status = SecItemCopyMatching(query, (CFTypeRef *)persistentItemRef);
-        if (status == errSecSuccess) {
-            return status;
+
+        if (SecItemCanUseSystemDataProtectionKeychain()) {
+            // try the modern system keychain if not found in data protection keychain
+            CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+            CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+            status = SecItemCopyMatching(query, (CFTypeRef *)persistentItemRef);
+            if (status == errSecSuccess) {
+                return status;
+            }
         }
     }
     // otherwise, handle certificate
@@ -693,12 +696,14 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
         if (status == errSecSuccess) {
             return status;
         }
-        // try the modern system keychain if not found in data protection keychain
-        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
-        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
-        status = SecItemCopyMatching(query, (CFTypeRef *)itemRef);
-        if (status == errSecSuccess) {
-            return status;
+        if (SecItemCanUseSystemDataProtectionKeychain()) {
+            // try the modern system keychain if not found in data protection keychain
+            CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+            CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+            status = SecItemCopyMatching(query, (CFTypeRef *)itemRef);
+            if (status == errSecSuccess) {
+                return status;
+            }
         }
     }
     // otherwise, proceed as usual for keychain item

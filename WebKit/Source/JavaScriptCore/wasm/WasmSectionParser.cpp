@@ -411,9 +411,10 @@ auto SectionParser::parseGlobal() -> PartialResult
         Type typeForInitOpcode;
         bool isExtendedConstantExpression;
         WASM_FAIL_IF_HELPER_FAILS(parseInitExpr(initOpcode, isExtendedConstantExpression, initialBitsOrImportNumber, initVector, global.type, typeForInitOpcode));
-        if (typeForInitOpcode.isV128())
+        if (initOpcode == ExtSIMD && !isExtendedConstantExpression) {
+            RELEASE_ASSERT(typeForInitOpcode.isV128());
             global.initialBits.initialVector = initVector;
-        else
+        } else
             global.initialBits.initialBitsOrImportNumber = initialBitsOrImportNumber;
 
         if (isExtendedConstantExpression)
@@ -720,8 +721,9 @@ auto SectionParser::parseInitExpr(uint8_t& opcode, bool& isExtendedConstantExpre
 #if ENABLE(B3_JIT)
     case ExtSIMD: {
         WASM_PARSER_FAIL_IF(!Options::useWasmSIMD(), "SIMD must be enabled"_s);
-        WASM_PARSER_FAIL_IF(!parseUInt8(opcode), "can't get init_expr's simd opcode"_s);
-        WASM_PARSER_FAIL_IF(static_cast<ExtSIMDOpType>(opcode) != ExtSIMDOpType::V128Const, "unknown init_expr simd opcode "_s, opcode);
+        uint8_t simdOpcode;
+        WASM_PARSER_FAIL_IF(!parseUInt8(simdOpcode), "can't get init_expr's simd opcode"_s);
+        WASM_PARSER_FAIL_IF(static_cast<ExtSIMDOpType>(simdOpcode) != ExtSIMDOpType::V128Const, "unknown init_expr simd opcode "_s, opcode);
         v128_t constant;
         WASM_PARSER_FAIL_IF(!parseImmByteArray16(constant), "get constant value for init_expr's v128.const"_s);
 

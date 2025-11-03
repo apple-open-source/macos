@@ -94,6 +94,10 @@ struct	download {
 	size_t		    obufmax; /* max size we'll wbuffer */
 	size_t		    needredo; /* needs redo phase */
 	size_t		    curtok; /* current token */
+	off_t		    fdpos; /* current pre-buffer position in file */
+	off_t		    holestart; /* start of contiguous holes */
+	size_t		    holesz; /* hole size (--sparse) */
+	bool		    holechk; /* check current block for hole */
 };
 
 
@@ -126,6 +130,10 @@ download_reinit(struct sess *sess, struct download *p, size_t idx)
 	/* Don't touch p->obufmax. */
 	/* Don't touch p->needredo. */
 	p->curtok = 0;
+	p->fdpos = 0;
+	p->holestart = -1;
+	p->holesz = 0;
+	p->holechk = true;
 	MD4_Update(&p->ctx, &seed, sizeof(int32_t));
 	decompress_reinit();
 }
@@ -491,6 +499,115 @@ download_interrupted(struct sess *sess, struct download *p)
 	download_cleanup_partial(sess, p);
 }
 
+static bool
+downloader_write(struct sess *sess, struct download *p,
+    const char *buf, size_t sz)
+{
+	ssize_t ssz;
+
+retry:
+	ssz = write(p->fd, buf, sz);
+	if (ssz == -1) {
+		if (errno == EINTR)
+			goto retry;
+
+		ERR("%s: write", p->fname);
+		return false;
+	} else if ((size_t)ssz != sz) {
+		ERRX("%s: short write", p->fname);
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+buf_flush_holes(struct sess *sess, struct download *p)
+{
+	if (p->holestart == -1)
+		return true;
+
+	if (lseek(p->fd, p->fdpos, SEEK_SET) == -1) {
+		ERR("%s: lseek", p->fname);
+		return false;
+	}
+
+	p->holestart = -1;
+	return true;
+}
+
+static bool
+buf_copy_chunk(struct sess *sess, struct download *p,
+    const char **pwritebuf, size_t *pwritesz)
+{
+	size_t clipsz = (size_t)-1;
+	bool is_hole = false;
+	const char *writebuf = *pwritebuf;
+	size_t writesz = *pwritesz;
+
+	/*
+	 * If we're checking for holes (--sparse), then we may clip the buffer
+	 * at a hole block boundary.  This may result in us returning and then
+	 * re-entering to possibly handle a hole segment.
+	 *
+	 * p->holechk is designed to deal with the scenario where our hole
+	 * size ends up being greater than our buffer size; we use it to track
+	 * whether we've seen data in this block as an optimization.
+	 */
+	if (p->holesz > 0) {
+		if (!p->holechk) {
+			/*
+			 * Once we've clipped the write down to just the
+			 * portion that we need to finish the block, we
+			 * can restart hole-checking if we will actually cross
+			 * the block boundary in this buffer.
+			 */
+			clipsz = p->holesz - (p->fdpos % p->holesz);
+			if (clipsz == 0 || clipsz == p->holesz)
+				clipsz = (size_t)-1;
+			if (clipsz <= writesz || clipsz == (size_t)-1)
+				p->holechk = true;
+		}
+
+		/*
+		 * We'll arrive here both if the holechk has been going
+		 * well, and also if it didn't go well but we ended on a
+		 * block boundary and hit the above branch.
+		 */
+		if (clipsz == (size_t)-1 && p->holechk) {
+			clipsz = MINIMUM(p->holesz, writesz);
+			is_hole = iszerobuf(writebuf, clipsz);
+			if (!is_hole)
+				p->holechk = false;
+		}
+	}
+
+	clipsz = MINIMUM(clipsz, writesz);
+	assert(clipsz != 0);
+	if (is_hole) {
+		if (p->holestart == -1)
+			p->holestart = p->fdpos;
+	} else {
+		if (p->holestart != -1)
+			buf_flush_holes(sess, p);
+		if (!downloader_write(sess, p, writebuf, clipsz))
+			return false;
+	}
+
+	/*
+	 * If we clipped it, then we should adjust our writesz/writebuf
+	 * and restart at the beginning of this state with re-evaluating
+	 * the new block.
+	 */
+	p->fdpos += clipsz;
+
+	*pwritebuf += clipsz;
+	*pwritesz -= clipsz;
+
+	return true;
+}
+
+
 /*
  * Optimisation: instead of dumping directly into the output file, keep
  * a buffer and write as much as we can into the buffer.
@@ -503,7 +620,7 @@ static int
 buf_copy(const char *buf, size_t sz, struct download *p, struct sess *sess)
 {
 	size_t	 rem, tocopy;
-	ssize_t	 ssz;
+	enum { COPY_FLUSH, COPY_WRITEBUF, COPY_DONE } curst = COPY_FLUSH;
 
 	assert(p->obufsz <= p->obufmax);
 
@@ -529,44 +646,69 @@ buf_copy(const char *buf, size_t sz, struct download *p, struct sess *sess)
 	}
 
 	/* Drain the main buffer. */
-
-	if (p->obufsz) {
+	if (p->obufsz != 0) {
 		assert(p->obufmax);
 		assert(p->obufsz <= p->obufmax);
 		assert(p->obuf != NULL);
-		if (p->fd >= 0) {
-			if (sess->opts->sparse && iszerobuf(p->obuf, p->obufsz)) {
-				if (lseek(p->fd, p->obufsz, SEEK_CUR) == -1) {
-					ERR("%s: lseek", p->fname);
-					return 0;
-				}
-			} else {
-				if ((ssz = write(p->fd, p->obuf, p->obufsz)) < 0) {
-					ERR("%s: write", p->fname);
-					return 0;
-				} else if ((size_t)ssz != p->obufsz) {
-					ERRX("%s: short write", p->fname);
-					return 0;
-				}
-			}
-		}
-		p->obufsz = 0;
 	}
 
 	/*
-	 * Now drain anything left.
-	 * If we have no pre-write buffer, this is it.
+	 * If the file is gone, we're just here to zap the obuf.
 	 */
-
-	if (sz > 0 && p->fd >= 0) {
-		if ((ssz = write(p->fd, buf, sz)) < 0) {
-			ERR("%s: write", p->fname);
-			return 0;
-		} else if ((size_t)ssz != sz) {
-			ERRX("%s: short write", p->fname);
-			return 0;
-		}
+	if (p->fd < 0) {
+		p->obufsz = 0;
+		return 1;
 	}
+
+	while (curst != COPY_DONE) {
+		const char *writebuf;
+		size_t *pwritesz;
+		size_t origsz;
+
+		/*
+		 * There's an obvious progression here: we want to drain
+		 * anything left in the output buffer, then we can write out
+		 * anything that's left in the buf passed in.  In order to get
+		 * sparsity right, we need identical treatment for both buffers
+		 * or we'll end up missing opportunities to create holes.
+		 */
+		switch (curst) {
+		case COPY_FLUSH:
+			/*
+			 * Don't actually lose our p->obuf position, just adjust
+			 * the stack pointer to it.
+			 */
+			writebuf = p->obuf;
+			pwritesz = &p->obufsz;
+			break;
+		case COPY_WRITEBUF:
+			writebuf = buf;
+			pwritesz = &sz;
+			break;
+		default:
+			assert(0 && "Unreachable");
+			break;
+		}
+
+		origsz = *pwritesz;
+		while (*pwritesz != 0) {
+			if (!buf_copy_chunk(sess, p, &writebuf, pwritesz))
+				return 0;
+
+			/* Confirm that our math isn't off somewhere. */
+			assert(*pwritesz <= origsz);
+		}
+
+		curst++;
+	}
+
+	/*
+	 * If the caller is explicitly trying to flush the buffer, then we want
+	 * to go ahead and advance past any remaining holes in the file.
+	 */
+	if (buf == NULL && p->holestart != -1)
+		buf_flush_holes(sess, p);
+
 	return 1;
 }
 
@@ -847,15 +989,29 @@ protocol_token_ff_compress(struct sess *sess, struct download *p, size_t tok)
 	sz = (tok == p->blk.blksz - 1 && p->blk.rem) ? p->blk.rem : p->blk.len;
 	assert(sz);
 	if (p->map == NULL) {
-		ERRX("no map file");
-		return TOKEN_ERROR;
-	}
-	off = tok * p->blk.len;
-
-	if (!fmap_trap(p->map)) {
+		WARNX1("no map file (removed or truncated)");
 		p->state = DOWNLOAD_FLUSH_REMOTE;
 		return TOKEN_NEXT;
 	}
+
+	off = tok * p->blk.len;
+	if (!fmap_access_valid(p->map, off, sz)) {
+		/*
+		 * We can easily have a mismatch here: the uploader sends our
+		 * initial file information, and the downloader independently
+		 * opens the file and maps it  Nothing stops the file from
+		 * changing in between the two, so we have to cope with
+		 * possibilities like this and trigger redo.
+		 */
+		WARNX1("%s: block at %lld outside of local file sized %zu",
+		    p->fname, off, fmap_size(p->map));
+		p->state = DOWNLOAD_FLUSH_REMOTE;
+		return TOKEN_NEXT;
+	} else if (!fmap_trap(p->map)) {
+		p->state = DOWNLOAD_FLUSH_REMOTE;
+		return TOKEN_NEXT;
+	}
+
 	buf = fmap_data(p->map, off, sz);
 
 	if (!decompress_reinit()) {
@@ -946,15 +1102,29 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 	sz = (tok == p->blk.blksz - 1 && p->blk.rem) ? p->blk.rem : p->blk.len;
 	assert(sz);
 	if (p->map == NULL) {
-		ERRX("no map file");
-		return TOKEN_ERROR;
-	}
-	off = tok * p->blk.len;
-
-	if (!fmap_trap(p->map)) {
+		WARNX1("no map file (removed or truncated)");
 		p->state = DOWNLOAD_FLUSH_REMOTE;
 		return TOKEN_NEXT;
 	}
+
+	off = tok * p->blk.len;
+	if (!fmap_access_valid(p->map, off, sz)) {
+		/*
+		 * We can easily have a mismatch here: the uploader sends our
+		 * initial file information, and the downloader independently
+		 * opens the file and maps it  Nothing stops the file from
+		 * changing in between the two, so we have to cope with
+		 * possibilities like this and trigger redo.
+		 */
+		WARNX1("%s: block at %lld outside of local file sized %zu",
+		    p->fname, off, fmap_size(p->map));
+		p->state = DOWNLOAD_FLUSH_REMOTE;
+		return TOKEN_NEXT;
+	} else if (!fmap_trap(p->map)) {
+		p->state = DOWNLOAD_FLUSH_REMOTE;
+		return TOKEN_NEXT;
+	}
+
 	buf = fmap_data(p->map, off, sz);
 
 	/*
@@ -977,6 +1147,8 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 			ERRX1("lseek");
 			return TOKEN_ERROR;
 		}
+
+		p->fdpos += sz;
 	} else {
 		if (!buf_copy(buf, sz, p, sess)) {
 			fmap_untrap(p->map);
@@ -1601,6 +1773,8 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 						ERRX1("lseek");
 						goto out;
 					}
+
+					p->fdpos = st.st_size;
 				}
 			}
 		} else {
@@ -1631,6 +1805,31 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 			LOG3("%s: temporary: %s", f->path, p->fname);
 		}
 
+		if (sess->opts->sparse) {
+			struct stat pst;
+
+			assert(p->fd >= 0);
+			if (fstat(p->fd, &pst) == -1) {
+				p->holesz = 0;
+				WARNX("%s: fstat failed, --sparse may not work",
+				    f->path);
+				goto cacheopt;
+			}
+
+#ifdef _PC_MIN_HOLE_SIZE
+			p->holesz = fpathconf(p->fd, _PC_MIN_HOLE_SIZE);
+			if (p->holesz == (size_t)-1 || p->holesz == 0) {
+				p->holesz = 0;
+				WARN("%s: fpathconf, --sparse may not work",
+				    f->path);
+				goto cacheopt;
+			}
+#endif
+			if ((size_t)pst.st_blksize > p->holesz)
+				p->holesz = pst.st_blksize;
+		}
+
+cacheopt:
 		if (sess->opts->no_cache) {
 #if defined(F_NOCACHE)
 			if (p->ofd >= 0)
@@ -1740,26 +1939,29 @@ again:
 	assert(tokres == TOKEN_EOF);
 
 	/*
-	 * Make sure our resulting MD4 hashes match.
-	 * FIXME: if the MD4 hashes don't match, then our file has
-	 * changed out from under us.
-	 * This should require us to re-run the sequence in another
-	 * phase.
+	 * Make sure our resulting MD4 hashes match.  If they do not, then our
+	 * file has changed out from under us or we hit a non-fatal error and
+	 * just let the sender continue doing its thing to avoid causing
+	 * problems.  We'll flag the file for redo and try it again.
+	 *
+	 * We avoid the hash comparison for DOWNLOAD_FLUSH_REMOTE just to avoid
+	 * the remote chance we found a collision in our truncated contents.
 	 */
-
 	MD4_Final(ourmd, &p->ctx);
-
 	if (!io_read_buf(sess, p->fdin, md, MD4_DIGEST_LENGTH)) {
 		ERRX1("io_read_buf");
 		goto out;
-	} else if (memcmp(md, ourmd, MD4_DIGEST_LENGTH)) {
+	} else if (p->state == DOWNLOAD_FLUSH_REMOTE ||
+	    memcmp(md, ourmd, MD4_DIGEST_LENGTH)) {
 		/*
 		 * If this is our second shot at a file and it still doesn't
 		 * match, we'll just give up.
 		 */
-		WARNX("%s: hash does not match, %s redo", p->fname,
+		WARNX1("%s: hash does not match, %s redo", p->fname,
 		    (f->flstate & FLIST_REDO) != 0 ? "will not" : "will");
+
 		if ((f->flstate & FLIST_REDO) != 0) {
+			sess->total_errors++;
 			f->flstate |= FLIST_FAILED;
 			goto out;
 		}
@@ -1911,6 +2113,15 @@ again:
 	} else {
 		usethis = f->path;
 	}
+
+	/*
+	 * For --inplace, we should adjust it down to the correct
+	 * size.  For fresh files, we may have had a hole at the end of the
+	 * file that we wouldn't have written after; thus, the size ends up
+	 * being incorrect.
+	 */
+	if (ftruncate(p->fd, p->fdpos) == -1)
+		ERR("%s: ftruncate", f->path);
 	if (!download_is_inplace(sess, p, false)) {
 		int fromfd;
 
@@ -1920,13 +2131,6 @@ again:
 		if (!platform_move_file(sess, f, fromfd, p->fname,
 		    p->rootfd, usethis, usethis == f->path, 1))
 			goto out;
-	} else {
-		/*
-		 * For --inplace, we should adjust it down to the correct
-		 * size.
-		 */
-		if (ftruncate(p->fd, f->st.size) == -1)
-			ERR("%s: ftruncate", f->path);
 	}
 
 	/*

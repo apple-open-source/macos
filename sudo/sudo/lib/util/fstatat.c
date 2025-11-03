@@ -28,11 +28,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "sudo_compat.h"
+#include <sudo_compat.h>
 
 #ifndef HAVE_FSTATAT
 int
-sudo_fstatat(int dfd, const char *path, struct stat *sb, int flag)
+sudo_fstatat(int dfd, const char * restrict path, struct stat * restrict sb, int flag)
 {
     int odfd, ret = -1;
 

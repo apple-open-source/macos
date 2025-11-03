@@ -39,7 +39,7 @@
 
 #if DARWINTEST
 #include <darwintest.h>
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_NOT_PREFERRED);
 #endif
 
 static time_t time_seconds(void) {
@@ -707,7 +707,7 @@ T_DECL(malloc_stress, "Stress the heck out of malloc()")
 }
 
 T_DECL(malloc_stress_nano, "Stress the heck out of malloc() with nano",
-		T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_NANO_ON_XZONE)
+		T_META_ENVVAR("MallocNanoZone=1"))
 {
 	setup_and_test();
 }

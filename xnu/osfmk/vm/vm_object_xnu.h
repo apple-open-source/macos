@@ -411,6 +411,7 @@ struct vm_object {
 	 * hasn't been faulted into the backing pmap yet.
 	 */
 	vm_map_serial_t vmo_provenance;
+	uint32_t vmo_pl_req_in_progress; /* page list request in progress */
 };
 
 #define VM_OBJECT_PURGEABLE_FAULT_ERROR(object)                         \
@@ -425,11 +426,32 @@ extern const vm_object_t compressor_object;      /* the single compressor object
 
 extern const vm_object_t retired_pages_object;   /* pages retired due to ECC, should never be used */
 
+#if HAS_MTE
+extern const vm_object_t mte_tags_object;        /* pages that are wired, holding MTE tags */
+extern const vm_object_t kernel_object_tagged;   /* kernel object for MTE tagged pages */
+
+#define is_kernel_object(object) ((object) == kernel_object_default || (object) == kernel_object_tagged)
+#define vm_object_is_mte_mappable(object) (((object)->wimg_bits & VM_WIMG_MASK) == VM_WIMG_MTE)
+#define vm_object_is_mte_mappable_with_page(object, page) ( \
+	vm_object_is_mte_mappable(object) && !vm_page_is_fictitious(page) \
+)
+#define vm_object_mte_set(object) ((object)->wimg_bits = VM_WIMG_MTE)
+#define assert_mte_vmo_matches_vmp(vmo, vmp)  ({ \
+	__assert_only vm_page_t __vmp = (vmp); \
+	assert3u(vm_object_is_mte_mappable_with_page(vmo, __vmp), ==, \
+	    (__vmp)->vmp_using_mte); \
+})
+
+#else /* !HAS_MTE */
 
 #define is_kernel_object(object) ((object) == kernel_object_default)
 
+#endif /* HAS_MTE */
 
 extern const vm_object_t exclaves_object;        /* holds VM pages owned by exclaves */
+#if HAS_MTE
+extern const vm_object_t exclaves_object_tagged;        /* holds MTE tagged VM pages owned by exclaves */
+#endif /* HAS_MTE */
 
 # define        VM_MSYNC_INITIALIZED                    0
 # define        VM_MSYNC_SYNCHRONIZING                  1

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -452,7 +452,7 @@ S_get_interfaces()
 {
     interface_list_t *	new_list;
     
-    new_list = ifl_init();
+    new_list = ifl_create(S_interfaces);
     if (new_list == NULL) {
 	my_log(LOG_INFO, "interface list initialization failed");
 	exit(1);

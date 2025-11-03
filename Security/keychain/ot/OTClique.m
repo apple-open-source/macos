@@ -88,6 +88,7 @@ SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCErrorDomain, NSString*);
 SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCFieldAccountIsW, NSString*);
 SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventNameResetSOS, NSString*);
 SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCFieldAccountIsG, NSString*);
+SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCFieldAccountIsDBR, NSString*);
 WEAK_IMPORT_OBJC_CLASS(SecureBackup);
 WEAK_LINK_FORCE_IMPORT(kSecureBackupErrorDomain);
 WEAK_LINK_FORCE_IMPORT(kSecureBackupAuthenticationAppleID);
@@ -2484,7 +2485,8 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #if OCTAGON
 
     NSNumber* accountIsG = @(NO);
-    AAFAnalyticsEventSecurity *resetProtectedDataEvent = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics: @{getkSecurityRTCFieldAccountIsG() : accountIsG}
+    NSNumber* accountIsD = @(NO);
+    AAFAnalyticsEventSecurity *resetProtectedDataEvent = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics: @{getkSecurityRTCFieldAccountIsG() : accountIsG, getkSecurityRTCFieldAccountIsDBR() : accountIsD}
                                                                                                                             altDSID:data.altDSID
                                                                                                                              flowID:data.flowID
                                                                                                                     deviceSessionID:data.deviceSessionID
@@ -2555,7 +2557,8 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
     
     AAFAnalyticsEventSecurity* deleteAllRecordsEvent = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:@{getkSecurityRTCFieldAccountIsG() : accountIsG,
-                                                                                                                                    getkSecurityRTCFieldAccountIsW() : accountIsW}
+                                        getkSecurityRTCFieldAccountIsDBR(): accountIsD,
+                                        getkSecurityRTCFieldAccountIsW() : accountIsW}
                                                                                                                           altDSID:data.altDSID
                                                                                                                            flowID:data.flowID
                                                                                                                   deviceSessionID:data.deviceSessionID
@@ -2587,6 +2590,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     if (SOSCCIsSOSTrustAndSyncingEnabledCachedValue()) {
         //reset SOS
         AAFAnalyticsEventSecurity* resetSOSEvent = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:@{getkSecurityRTCFieldAccountIsG() : accountIsG,
+                                                                                                                                getkSecurityRTCFieldAccountIsDBR(): accountIsD,
                                                                                                                                 getkSecurityRTCFieldAccountIsW() : accountIsW}
                                                                                                                       altDSID:data.altDSID
                                                                                                                        flowID:data.flowID
@@ -2644,6 +2648,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     [resetProtectedDataEvent sendMetricWithResult:YES error:nil];
 
     AAFAnalyticsEventSecurity* trustLossEvent = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:@{getkSecurityRTCFieldAccountIsG() : accountIsG,
+                                                                                                                             getkSecurityRTCFieldAccountIsDBR(): accountIsD,
                                                                                                                              getkSecurityRTCFieldAccountIsW() : accountIsW}
                                                                                                                    altDSID:data.altDSID
                                                                                                                     flowID:data.flowID
@@ -2671,7 +2676,8 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #if OCTAGON
 
     NSNumber* accountIsG = @(NO);
-    AAFAnalyticsEventSecurity *event = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:@{getkSecurityRTCFieldAccountIsG() : accountIsG}
+    NSNumber* accountIsD = @(NO);
+    AAFAnalyticsEventSecurity *event = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:@{getkSecurityRTCFieldAccountIsG() : accountIsG, getkSecurityRTCFieldAccountIsDBR() : accountIsD}
                                                                                                           altDSID:data.altDSID
                                                                                                            flowID:data.flowID
                                                                                                   deviceSessionID:data.deviceSessionID
@@ -2769,8 +2775,9 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #if OCTAGON
 
     NSNumber* accountIsG = @(NO);
+    NSNumber* accountIsD = @(NO);
 
-    AAFAnalyticsEventSecurity* event = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:@{getkSecurityRTCFieldAccountIsG() : accountIsG}
+    AAFAnalyticsEventSecurity* event = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:@{getkSecurityRTCFieldAccountIsG() : accountIsG, getkSecurityRTCFieldAccountIsDBR() : accountIsD}
                                                                                                           altDSID:data.altDSID
                                                                                                            flowID:data.flowID
                                                                                                   deviceSessionID:data.deviceSessionID

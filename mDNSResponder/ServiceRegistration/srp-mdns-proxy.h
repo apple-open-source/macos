@@ -118,6 +118,7 @@ struct srp_server {
 
 
     bool srp_replication_enabled;
+    bool disconnect_scheduled;
 
 };
 
@@ -300,7 +301,10 @@ struct wanted_service {
 
 // Exported functions.
 bool srp_mdns_shared_registration_txn_setup(srp_server_t *NONNULL server_state);
-void srp_mdns_shared_record_remove(srp_server_t *NONNULL server_state, adv_record_t *NONNULL record, bool previous_rref);
+#define srp_mdns_shared_record_remove(server_state, record, previous_rref) \
+    srp_mdns_shared_record_remove_(server_state, record, previous_rref, __FILE__, __LINE__)
+void srp_mdns_shared_record_remove_(srp_server_t *NONNULL server_state, adv_record_t *NONNULL record, bool previous_rref,
+                                    const char *NONNULL file, int line);
 void srp_mdns_update_finished(adv_update_t *NONNULL update);
 #define adv_instance_retain(instance) adv_instance_retain_(instance, __FILE__, __LINE__)
 void adv_instance_retain_(adv_instance_t *NONNULL instance, const char *NONNULL file, int line);

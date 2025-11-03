@@ -760,6 +760,8 @@ bool RenderBlock::canPerformSimplifiedLayout() const
         return false;
     if (layoutContext().isSkippedContentRootForLayout(*this) && (outOfFlowChildNeedsLayout() || canContainFixedPositionObjects()))
         return false;
+    if (isSkippedContentRoot(*this) && firstChild() && firstChild()->wasSkippedDuringLastLayoutDueToContentVisibility())
+        return false;
     return outOfFlowChildNeedsLayout() || needsSimplifiedNormalFlowLayout();
 }
 
@@ -887,8 +889,11 @@ void RenderBlock::layoutOutOfFlowBox(RenderBox& outOfFlowBox, RelayoutChildren r
     
     // We don't have to do a full layout.  We just have to update our position. Try that first. If we have shrink-to-fit width
     // and we hit the available width constraint, the layoutIfNeeded() will catch it and do a full layout.
-    if (outOfFlowBox.needsOutOfFlowMovementLayoutOnly() && outOfFlowBox.tryLayoutDoingOutOfFlowMovementOnly())
+    if (outOfFlowBox.needsOutOfFlowMovementLayoutOnly() && outOfFlowBox.tryLayoutDoingOutOfFlowMovementOnly()) {
+        if (Style::AnchorPositionEvaluator::isAnchorPositioned(outOfFlowBox.style()))
+            Style::AnchorPositionEvaluator::captureScrollSnapshots(outOfFlowBox);
         outOfFlowBox.clearNeedsLayout();
+    }
 
     // If we are paginated or in a line grid, compute a vertical position for our object now.
     // If it's wrong we'll lay out again.

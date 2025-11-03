@@ -731,8 +731,9 @@ std::optional<SpeculatedType> speculationFromJSType(JSType type)
     case DataViewType:
         return SpecDataViewObject;
     case JSMapIteratorType:
+        return SpecMapIteratorObject;
     case JSSetIteratorType:
-        return SpecObjectOther;
+        return SpecSetIteratorObject;
     default:
         return std::nullopt;
     }

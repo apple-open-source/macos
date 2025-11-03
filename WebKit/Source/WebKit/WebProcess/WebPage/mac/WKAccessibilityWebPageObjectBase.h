@@ -82,4 +82,5 @@ class AXIsolatedTree;
 - (WebCore::LocalFrame *)focusedLocalFrame;
 - (NSUInteger)remoteTokenHash;
 
+- (BOOL)shouldFallbackToWebContentAXObjectForMainFramePlugin;
 @end

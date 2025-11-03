@@ -895,6 +895,7 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
             repair:(BOOL)repair
 danglingPeerCleanup:(BOOL)danglingPeerCleanup
+ caesarPeerCleanup:(BOOL)caesarPeerCleanup
         updateIdMS:(BOOL)updateIdMS
               json:(BOOL)json
 {
@@ -905,6 +906,7 @@ danglingPeerCleanup:(BOOL)danglingPeerCleanup
         skipRateLimitingCheck:skipRateLimitingCheck
                        repair:repair
           danglingPeerCleanup:danglingPeerCleanup
+            caesarPeerCleanup:caesarPeerCleanup
                    updateIdMS:updateIdMS
                         reply:^(TrustedPeersHelperHealthCheckResult* _Nullable results, NSError* _Nullable error) {
         if(error) {

@@ -28,28 +28,28 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
 #include <time.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_iolog.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_iolog.h>
 
 /*
- * Like gets() but for struct iolog_file.
+ * Like fgets() but for struct iolog_file.
  */
 char *
-iolog_gets(struct iolog_file *iol, char *buf, size_t nbytes,
+iolog_gets(struct iolog_file *iol, char *buf, int bufsize,
     const char **errstr)
 {
     char *str;
     debug_decl(iolog_gets, SUDO_DEBUG_UTIL);
 
-    if (nbytes > UINT_MAX) {
+    if (bufsize < 0) {
 	errno = EINVAL;
 	if (errstr != NULL)
 	    *errstr = strerror(errno);
@@ -58,7 +58,7 @@ iolog_gets(struct iolog_file *iol, char *buf, size_t nbytes,
 
 #ifdef HAVE_ZLIB_H
     if (iol->compressed) {
-	if ((str = gzgets(iol->fd.g, buf, nbytes)) == NULL) {
+	if ((str = gzgets(iol->fd.g, buf, bufsize)) == NULL) {
 	    if (errstr != NULL) {
 		int errnum;
 		*errstr = gzerror(iol->fd.g, &errnum);
@@ -69,7 +69,7 @@ iolog_gets(struct iolog_file *iol, char *buf, size_t nbytes,
     } else
 #endif
     {
-	if ((str = fgets(buf, nbytes, iol->fd.f)) == NULL) {
+	if ((str = fgets(buf, bufsize, iol->fd.f)) == NULL) {
 	    if (errstr != NULL)
 		*errstr = strerror(errno);
 	}

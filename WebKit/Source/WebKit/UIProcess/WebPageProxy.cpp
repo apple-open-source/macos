@@ -286,6 +286,7 @@
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/URL.h>
+#include <wtf/URLHash.h>
 #include <wtf/URLParser.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/MakeString.h>
@@ -1333,8 +1334,8 @@ void WebPageProxy::handleSynchronousMessage(IPC::Connection& connection, const S
 
 bool WebPageProxy::hasSameGPUAndNetworkProcessPreferencesAs(const API::PageConfiguration& configuration) const
 {
-    auto sharedPreferences = WebKit::sharedPreferencesForWebProcess(preferences().store());
-    return !updateSharedPreferencesForWebProcess(sharedPreferences, configuration.preferences().store());
+    auto sharedPreferences = WebKit::sharedPreferencesForWebProcess(preferences().store(), shouldEnableLockdownMode());
+    return !updateSharedPreferencesForWebProcess(sharedPreferences, configuration.preferences().store(), shouldEnableLockdownMode());
 }
 
 bool WebPageProxy::hasSameGPUAndNetworkProcessPreferencesAs(const WebPageProxy& page) const
@@ -1924,11 +1925,22 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     if (!url.protocolIsFile())
         return completionHandler(std::nullopt);
 
+#if !RELEASE_LOG_DISABLED
+    auto urlHash = url.isValid() ? WTF::URLHash::hash(url) : 0;
+    auto resourceDirectoryURLHash = resourceDirectoryURL.isValid() ? WTF::URLHash::hash(resourceDirectoryURL) : 0;
+#endif
+    WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: url(%u) = %{private}s, resourceDirectoryURL(%u) = %{private}s, checkAssumedReadAccessToResourceURL = %d", urlHash, url.string().utf8().data(), resourceDirectoryURLHash, resourceDirectoryURL.string().utf8().data(), checkAssumedReadAccessToResourceURL);
+
 #if HAVE(AUDIT_TOKEN)
     // If the process is still launching then it does not have a PID yet. We will take care of creating the sandbox extension
     // once the process has finished launching.
-    if (process.isLaunching() || process.wasTerminated())
+    if (process.isLaunching() || process.wasTerminated()) {
+        if (process.isLaunching())
+            WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: process is launching");
+        else
+            WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: process is terminated");
         return completionHandler(std::nullopt);
+    }
 #endif
 
     auto createSandboxExtension = [protectedProcess = Ref { process }] (const String& path) {
@@ -1942,15 +1954,24 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     };
 
     if (!resourceDirectoryURL.isEmpty()) {
+        if (!url.string().startsWith(resourceDirectoryURL.string()))
+            WEBPAGEPROXY_RELEASE_LOG_ERROR(Sandbox, "maybeInitializeSandboxExtensionHandle: url is not inside resource directory url");
+
         if (checkAssumedReadAccessToResourceURL && process.hasAssumedReadAccessToURL(resourceDirectoryURL)) {
 #if PLATFORM(COCOA)
             // Check the actual access to this directory in the WebContent process, since a sandbox extension created earlier could have been revoked in the WebContent process by now.
-            if (!sandbox_check(process.processID(), "file-read-data", static_cast<enum sandbox_filter_type>(SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), FileSystem::fileSystemRepresentation(resourceDirectoryURL.fileSystemPath()).data()))
-#endif
+            if (!sandbox_check(process.processID(), "file-read-data", static_cast<enum sandbox_filter_type>(SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), FileSystem::fileSystemRepresentation(resourceDirectoryURL.fileSystemPath()).data())) {
+                WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: has sandbox access to resource directory");
+                return completionHandler(std::nullopt);
+            }
+
+#else
             return completionHandler(std::nullopt);
+#endif
         }
 
         if (auto sandboxExtensionHandle = createSandboxExtension(resourceDirectoryURL.fileSystemPath())) {
+            WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: created sandbox extension to resource directory");
             process.assumeReadAccessToBaseURL(*this, resourceDirectoryURL.string(), [sandboxExtensionHandle = WTFMove(*sandboxExtensionHandle), completionHandler = WTFMove(completionHandler)] () mutable {
                 completionHandler(WTFMove(sandboxExtensionHandle));
             });
@@ -1965,6 +1986,7 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!WebKit::isInspectorPage(*this));
 
     if (auto sandboxExtensionHandle = createSandboxExtension("/"_s)) {
+        WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: created sandbox extension to root of filesystem");
         willAcquireUniversalFileReadSandboxExtension(process);
         auto baseURL = url.truncatedForUseAsBase();
         auto basePath = baseURL.fileSystemPath();
@@ -1982,10 +2004,13 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     // We failed to issue an universal file read access sandbox, fall back to issuing one for the base URL instead.
     auto baseURL = url.truncatedForUseAsBase();
     auto basePath = baseURL.fileSystemPath();
-    if (basePath.isNull())
+    if (basePath.isNull()) {
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(Sandbox, "maybeInitializeSandboxExtensionHandle: base path is null");
         return completionHandler(std::nullopt);
+    }
 
     if (auto sandboxExtensionHandle = createSandboxExtension(basePath)) {
+        WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: created sandbox extension to base path");
         process.assumeReadAccessToBaseURL(*this, baseURL.string(), [sandboxExtensionHandle = WTFMove(*sandboxExtensionHandle), completionHandler = WTFMove(completionHandler)] mutable {
             completionHandler(WTFMove(sandboxExtensionHandle));
         });
@@ -1994,14 +2019,18 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
 
     // We failed to issue read access to the base path, fall back to issuing one for the full URL instead.
     auto fullPath = url.fileSystemPath();
-    if (fullPath.isNull())
+    if (fullPath.isNull()) {
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(Sandbox, "maybeInitializeSandboxExtensionHandle: full path is null");
         return completionHandler(std::nullopt);
+    }
 
     if (auto sandboxExtensionHandle = createSandboxExtension(fullPath)) {
+        WEBPAGEPROXY_RELEASE_LOG(Sandbox, "maybeInitializeSandboxExtensionHandle: created sandbox extension to full path");
         completionHandler(WTFMove(*sandboxExtensionHandle));
         return;
     }
 
+    WEBPAGEPROXY_RELEASE_LOG_ERROR(Sandbox, "maybeInitializeSandboxExtensionHandle: unable to create sandbox extension");
     completionHandler(std::nullopt);
 }
 
@@ -2101,7 +2130,9 @@ void WebPageProxy::loadRequestWithNavigationShared(Ref<WebProcessProxy>&& proces
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis)
                 return;
-            protectedThis->m_navigationClient->didFailProvisionalNavigationWithError(*protectedThis, legacyEmptyFrameInfo(WTFMove(request)), navigation.ptr(), request.url(), cannotShowURLError(request), nullptr);
+            auto requestURL = request.url();
+            auto error = cannotShowURLError(request);
+            protectedThis->m_navigationClient->didFailProvisionalNavigationWithError(*protectedThis, legacyEmptyFrameInfo(WTFMove(request)), navigation.ptr(), requestURL, error, nullptr);
         });
         return;
     }
@@ -3227,11 +3258,8 @@ void WebPageProxy::dispatchActivityStateChange()
     }
 #endif
 
-#if PLATFORM(MAC)
-    // FIXME: This could be cross-platform, but macOS-only for now to limit risk.
     if (isNowInWindow)
-        protectedDrawingArea()->hideContentUntilAnyUpdate();
-#endif
+        protectedDrawingArea()->hideContentUntilDidUpdateActivityState(activityStateChangeID);
 
     updateBackingStoreDiscardableState();
 
@@ -3455,13 +3483,12 @@ void WebPageProxy::updateFontAttributesAfterEditorStateChange()
 {
     internals().cachedFontAttributesAtSelectionStart.reset();
 
-    if (!internals().editorState.hasPostLayoutData())
+    if (!m_uiClient->needsFontAttributes())
         return;
 
-    if (auto fontAttributes = internals().editorState.postLayoutData->fontAttributes) {
-        m_uiClient->didChangeFontAttributes(*fontAttributes);
-        internals().cachedFontAttributesAtSelectionStart = WTFMove(fontAttributes);
-    }
+    requestFontAttributesAtSelectionStart([this, protectedThis = Ref { *this }](auto& attributes) {
+        m_uiClient->didChangeFontAttributes(attributes);
+    });
 }
 
 void WebPageProxy::setNeedsFontAttributes(bool needsFontAttributes)
@@ -7017,7 +7044,7 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
 
     RefPtr protectedPageClient { pageClient() };
 
-    if (m_controlledByAutomation) {
+    if (m_controlledByAutomation && willInternallyHandleFailure == WillInternallyHandleFailure::No) {
         if (RefPtr automationSession = process->processPool().automationSession())
             automationSession->navigationOccurredForFrame(frame);
     }
@@ -7854,7 +7881,7 @@ void WebPageProxy::mainFramePluginHandlesPageScaleGestureDidChange(bool mainFram
 }
 
 #if !PLATFORM(COCOA)
-void WebPageProxy::beginSafeBrowsingCheck(const URL&, RefPtr<API::Navigation>, WebFrameProxy&)
+void WebPageProxy::beginSafeBrowsingCheck(const URL&, API::Navigation&, bool forMainFrameNavigation)
 {
 }
 #endif
@@ -8150,7 +8177,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
 
     }, ShouldExpectSafeBrowsingResult::No, shouldExpectAppBoundDomainResult, shouldWaitForInitialLinkDecorationFilteringData);
     if (shouldExpectSafeBrowsingResult == ShouldExpectSafeBrowsingResult::Yes)
-        beginSafeBrowsingCheck(request.url(), navigation, frame);
+        beginSafeBrowsingCheck(request.url(), *navigation, frame.isMainFrame());
     if (shouldWaitForInitialLinkDecorationFilteringData == ShouldWaitForInitialLinkDecorationFilteringData::Yes)
         waitForInitialLinkDecorationFilteringData(listener);
 #if ENABLE(APP_BOUND_DOMAINS)

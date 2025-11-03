@@ -24,6 +24,8 @@
 #include "config.h"
 #include "SVGLengthContext.h"
 
+#include "ContainerNodeInlines.h"
+#include "CSSToLengthConversionData.h"
 #include "CSSUnits.h"
 #include "FontCascade.h"
 #include "FontMetrics.h"
@@ -33,6 +35,7 @@
 #include "RenderView.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGSVGElement.h"
+#include "StyleLengthResolution.h"
 #include "StylePreferredSize.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include <numbers>
@@ -216,6 +219,74 @@ ExceptionOr<float> SVGLengthContext::convertValueFromUserUnits(float value, SVGL
     return 0;
 }
 
+float SVGLengthContext::computeNonCalcLength(float inputValue, CSS::LengthUnit unit) const
+{
+    if (conversionToCanonicalUnitRequiresConversionData(unit)) {
+        auto conversionData = cssConversionData();
+        if (!conversionData)
+            return 0.0f;
+        return clampTo<float>(Style::computeNonCalcLengthDouble(inputValue, unit, *conversionData));
+    }
+
+    return clampTo<float>(Style::computeNonCalcLengthDouble(inputValue, unit, { }));
+}
+
+ExceptionOr<float> SVGLengthContext::resolveValueToUserUnits(float value, const CSS::LengthPercentageUnit& targetUnit, SVGLengthMode lengthMode) const
+{
+    switch (targetUnit) {
+    case CSS::LengthPercentageUnit::Percentage:
+        return convertValueFromPercentageToUserUnits(value / 100.0, lengthMode);
+
+    case CSS::LengthPercentageUnit::Ex:
+        // FIXME: Legacy quirk. Using the computeNonCalcLengthDouble conversion here causes test failures
+        // (e.g. coords-units-03-b.svg drifting from 150 > ~139). Needs deeper investigation before unifying.
+        return convertValueFromEXSToUserUnits(value);
+
+    default: {
+        auto cssUnit = toCSSUnitType(targetUnit);
+        auto lengthUnit = CSS::toLengthUnit(cssUnit);
+
+        if (!lengthUnit)
+            return Exception { ExceptionCode::NotSupportedError };
+
+        return computeNonCalcLength(value, *lengthUnit);
+    }
+    }
+}
+
+ExceptionOr<CSS::LengthPercentage<>> SVGLengthContext::resolveValueFromUserUnits(float value, const CSS::LengthPercentageUnit& targetUnit, SVGLengthMode lengthMode) const
+{
+    switch (targetUnit) {
+    case CSS::LengthPercentageUnit::Percentage: {
+        auto percent = convertValueFromUserUnitsToPercentage(value, lengthMode);
+        if (percent.hasException())
+            return percent.releaseException();
+        return CSS::LengthPercentage<>(targetUnit, percent.releaseReturnValue());
+    }
+
+    case CSS::LengthPercentageUnit::Ex: {
+        auto exVal = convertValueFromUserUnitsToEXS(value);
+        if (exVal.hasException())
+            return exVal.releaseException();
+        return CSS::LengthPercentage<>(targetUnit, exVal.releaseReturnValue());
+    }
+
+    default: {
+        auto cssUnit = toCSSUnitType(targetUnit);
+        auto lengthUnit = CSS::toLengthUnit(cssUnit);
+
+        if (!lengthUnit)
+            return Exception { ExceptionCode::NotSupportedError };
+
+        auto pxPerUnit = computeNonCalcLength(1.0, *lengthUnit);
+        if (!pxPerUnit)
+            return Exception { ExceptionCode::NotSupportedError };
+
+        return CSS::LengthPercentage<>(targetUnit, value / pxPerUnit);
+    }
+    }
+}
+
 ExceptionOr<float> SVGLengthContext::convertValueFromUserUnitsToPercentage(float value, SVGLengthMode lengthMode) const
 {
     auto viewportSize = this->viewportSize();
@@ -255,6 +326,43 @@ static inline const RenderStyle* renderStyleForLengthResolving(const SVGElement*
     } while (currentContext);
 
     return nullptr;
+}
+
+static inline const RenderStyle* rootRenderStyleForLengthResolving(const SVGElement* svgElement)
+{
+    if (!svgElement)
+        return nullptr;
+
+    RefPtr rootElement = svgElement->document().documentElement();
+    if (!rootElement || !rootElement->renderer())
+        return nullptr;
+
+    return &rootElement->renderer()->style();
+}
+
+std::optional<CSSToLengthConversionData> SVGLengthContext::cssConversionData() const
+{
+    auto element = m_context;
+    if (!element)
+        return std::nullopt;
+
+    auto* currentStyle = renderStyleForLengthResolving(element.get());
+    if (!currentStyle)
+        return std::nullopt;
+
+    auto* rootStyle = rootRenderStyleForLengthResolving(element.get());
+
+    const RenderStyle* parentStyle = nullptr;
+    if (auto* renderer = element->renderer())
+        parentStyle = renderer->parentStyle();
+
+    return CSSToLengthConversionData {
+        *currentStyle,
+        rootStyle,
+        parentStyle,
+        element->document().renderView(),
+        element.get(),
+    };
 }
 
 RefPtr<const SVGElement> SVGLengthContext::protectedContext() const

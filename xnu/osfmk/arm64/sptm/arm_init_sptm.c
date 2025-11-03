@@ -63,6 +63,9 @@
 #include <pexpert/arm64/apt_msg.h>
 #endif
 
+#if HAS_MTE
+#include <arm64/mte_xnu.h>
+#endif /* HAS_MTE */
 
 /**
  * Functions defined elsewhere that are required by this source file.
@@ -193,7 +196,23 @@ extern boolean_t force_immediate_debug_halt;
 SECURITY_READ_ONLY_LATE(boolean_t) diversify_user_jop = TRUE;
 #endif
 
+#if HAS_MTE
+#if DEVELOPMENT || DEBUG
+STATIC_IF_KEY_DEFINE_TRUE(mte_config_kern_enabled);
+STATIC_IF_KEY_DEFINE_FALSE(mte_config_kern_data_enabled);
+STATIC_IF_KEY_DEFINE_TRUE(mte_config_user_enabled);
+STATIC_IF_KEY_DEFINE_FALSE(mte_config_user_data_enabled);
+STATIC_IF_KEY_DEFINE_FALSE(mte_config_force_all_enabled);
+STATIC_IF_KEY_DEFINE_FALSE(mte_debug_tco_state);
+STATIC_IF_KEY_DEFINE_FALSE(mte_panic_on_non_canonical);
+STATIC_IF_KEY_DEFINE_FALSE(mte_panic_on_async_fault);
+#endif /* DEVELOPMENT || DEBUG */
+#endif /* HAS_MTE */
 
+#if HAS_MTE
+SECURITY_READ_ONLY_LATE(bool) is_mte_enabled = true;
+SECURITY_READ_ONLY_LATE(bool) panic_on_user_induced_iomd_kernel_faults = false;
+#endif /* HAS_MTE */
 
 SECURITY_READ_ONLY_LATE(uint64_t) gDramBase;
 SECURITY_READ_ONLY_LATE(uint64_t) gDramSize;
@@ -250,6 +269,48 @@ extern vm_offset_t segLOWESTKC, segHIGHESTKC, segLOWESTROKC, segHIGHESTROKC;
 extern vm_offset_t segLOWESTAuxKC, segHIGHESTAuxKC, segLOWESTROAuxKC, segHIGHESTROAuxKC;
 extern vm_offset_t segLOWESTRXAuxKC, segHIGHESTRXAuxKC, segHIGHESTNLEAuxKC;
 
+#if HAS_MTE
+#if DEVELOPMENT || DEBUG
+__static_if_init_func
+static void
+mte_config_setup(const char *args)
+{
+	mte_config_t config = (mte_config_t)static_if_boot_arg_uint64(args, "mte", MTE_CONFIG_DEFAULT);
+
+	if (config & MTE_KERNEL_ENABLE) {
+		static_if_key_enable(mte_config_kern_enabled);
+	}
+
+	if (config & MTE_KERNEL_ENABLE_PURE_DATA) {
+		static_if_key_enable(mte_config_kern_data_enabled);
+	}
+
+	if (config & MTE_USER_ENABLE) {
+		static_if_key_enable(mte_config_user_enabled);
+	}
+
+	if (config & MTE_USER_FORCE_ENABLE_ALL) {
+		static_if_key_enable(mte_config_force_all_enabled);
+	}
+
+	if (config & MTE_DEBUG_TCO_STATE) {
+		static_if_key_enable(mte_debug_tco_state);
+	}
+
+	if (config & MTE_PANIC_ON_NON_CANONICAL_PARAM) {
+		static_if_key_enable(mte_panic_on_non_canonical);
+	}
+
+	if (config & MTE_PANIC_ON_ASYNC_FAULT) {
+		static_if_key_enable(mte_panic_on_async_fault);
+	}
+
+
+}
+
+STATIC_IF_INIT(mte_config_setup);
+#endif /* DEVELOPMENT || DEBUG */
+#endif /* HAS_MTE */
 
 void arm_slide_rebase_and_sign_image(void);
 MARK_AS_FIXUP_TEXT void
@@ -896,6 +957,9 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 	__builtin_arm_wsr("pan", 1);
 #endif  /* __ARM_PAN_AVAILABLE__ */
 
+#if HAS_MTE
+	arm_mte_tag_generator_init(true);
+#endif
 
 	/**
 	 * Check SPTM feature flag for ARM_LARGE_MEMORY irrespective of XNU
@@ -964,6 +1028,14 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 	const unsigned int serial_exists = serial_init();
 	kernel_startup_initialize_upto(STARTUP_SUB_KPRINTF);
 	kprintf("kprintf initialized\n");
+
+	/**
+	 * Disable SPTM serial output just after XNU serial initialization
+	 * since serial_init() can itself panic in various cases. Most commonly
+	 * seen hard to debug issue being user error with bad setting of serial
+	 * boot-args such as serial-device/serial-device-name.
+	 */
+	sptm_serial_disable();
 
 	serialmode = 0;
 	if (PE_parse_boot_argn("serial", &serialmode, sizeof(serialmode))) {
@@ -1103,15 +1175,48 @@ arm_init_cpu(
 
 	machine_set_current_thread(cpu_data_ptr->cpu_active_thread);
 
+#if HAS_MTE
+	arm_mte_tag_generator_init(false);
+#endif
 
 #if HIBERNATION
 	if (hibargs != 0 && hibargs->hib_header_phys != 0) {
 		gIOHibernateState = kIOHibernateStateWakingFromHibernate;
 		uart_hibernation = true;
 
+#if HAS_MTE
+		/*
+		 * On hibernation exit, the hibtext had copied the hibernation
+		 * header into a "borrowed" free physical page, by simply
+		 * picking a physical page that was not covered by the
+		 * hibernation image (meaning that xnu does not care about its
+		 * content). This was done to make sure the hibernation header
+		 * itself would not be overwritten by hibernation restore.
+		 *
+		 * MTE however keeps some nominally "free" pages in so called
+		 * "freepage queues". Just like regular free pages, their content
+		 * does not matter and they are not hibernated, but they are kept
+		 * for easier MTE page hand-out, and as such have MAIR=0x4 set.
+		 * I.e., they are effetively MTE-tagged.
+		 *
+		 * If the hibtext, who has no idea what MAIR a "free" page
+		 * has, happens to pick such a page, then the code below will
+		 * effectively try to access an MTE tagged page using an
+		 * untagged physical aperture pointer, originally resulting in
+		 * a tag check exception.
+		 *
+		 * At this still early point in hibernation, this is easily
+		 * circumenvented by temporarily turning off MTE tag checking
+		 * altogether.
+		 */
+		vm_memtag_disable_checking();
+#endif /* HAS_MTE */
 
 		__nosan_memcpy(gIOHibernateCurrentHeader, (void*)phystokv(hibargs->hib_header_phys), sizeof(IOHibernateImageHeader));
 
+#if HAS_MTE
+		vm_memtag_enable_checking();
+#endif /* HAS_MTE */
 	}
 	if ((cpu_data_ptr == &BootCpuData) && (gIOHibernateState == kIOHibernateStateWakingFromHibernate) && ml_is_quiescing()) {
 		// the "normal" S2R code captures wake_abstime too early, so on a hibernation resume we fix it up here
@@ -1681,11 +1786,39 @@ arm_vm_init(uint64_t memory_size_override, boot_args * args)
 	 */
 	gPhysSize = mem_size = ((gPhysBase + memSize) & ~PAGE_MASK) - gPhysBase;
 
+#if HAS_MTE
+	boolean_t disable_mte = FALSE;
+	PE_parse_boot_argn("-disable_mte", &disable_mte, sizeof(disable_mte));
+	is_mte_enabled = !disable_mte;
 
+	/*
+	 * As described above, TCFs taken while the kernel was accessing IOMD memory are attributed to the userspace task
+	 * that provided the memory that the IOMD was materialized from. This results in the user task being killed.
+	 * To aid debugging, enabling this boot arg will cause the kernel to instead immediately panic when it encounters
+	 * a TCF under these circumstances.
+	 */
+	PE_parse_boot_argn("panic_on_iomd_tagged_access", &panic_on_user_induced_iomd_kernel_faults, sizeof(panic_on_user_induced_iomd_kernel_faults));
+#endif /* HAS_MTE */
+
+#if HAS_MTE && KASAN
+	/* Our current KASAN implementations don't work with MTE.
+	 *  Therefore, when running under KASAN, disable MTE outright. */
+	is_mte_enabled = FALSE;
+#endif /* HAS_MTE && KASAN */
 
 	/* Obtain total memory size, including non-managed memory */
 	mem_actual = args->memSizeActual ? args->memSizeActual : mem_size;
 	if ((memory_size_override != 0) && (mem_size > memory_size_override)) {
+#if HAS_MTE
+		/*
+		 * When MTE is enabled, we cannot just override the size of the memory
+		 * because the tag storage region is usually at the end of memory
+		 * and tag storage pages need to be in the VM array.
+		 * Instead, initialize_ram_ranges will adjust the number of available
+		 * memory and tag storage pages to the VM
+		 */
+		if (!is_mte_enabled)
+#endif /* HAS_MTE */
 		{
 			mem_size = memory_size_override;
 		}

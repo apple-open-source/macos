@@ -589,7 +589,6 @@ struct necp_flow_defunct {
 	uuid_t flow_id;
 	uuid_t nexus_agent;
 	void *agent_handle;
-	void *socket_handle;
 	int proc_pid;
 	u_int32_t flags;
 	struct necp_client_agent_parameters close_parameters;
@@ -1534,8 +1533,7 @@ necp_collect_stats_client_callout(__unused thread_call_param_t dummy,
 static void
 necp_defunct_flow_registration(struct necp_client *client,
     struct necp_client_flow_registration *flow_registration,
-    struct _necp_flow_defunct_list *defunct_list,
-    bool defunct_socket_flows)
+    struct _necp_flow_defunct_list *defunct_list)
 {
 	NECP_CLIENT_ASSERT_LOCKED(client);
 
@@ -1543,27 +1541,14 @@ necp_defunct_flow_registration(struct necp_client *client,
 		bool needs_defunct = false;
 		struct necp_client_flow *search_flow = NULL;
 		LIST_FOREACH(search_flow, &flow_registration->flow_list, flow_chain) {
-			bool should_defunct_flow = false;
 			if (search_flow->nexus &&
 			    !uuid_is_null(search_flow->u.nexus_agent)) {
-				should_defunct_flow = true;
-			} else if (defunct_socket_flows &&
-			    search_flow->socket &&
-			    search_flow->u.socket_handle != NULL) {
-				should_defunct_flow = true;
-			}
-
-			if (should_defunct_flow) {
-				// Save defunct values for the nexus/socket
+				// Save defunct values for the nexus
 				if (defunct_list != NULL) {
 					// Sleeping alloc won't fail; copy only what's necessary
 					struct necp_flow_defunct *flow_defunct = kalloc_type(struct necp_flow_defunct,
 					    Z_WAITOK | Z_ZERO);
-					if (search_flow->nexus) {
-						uuid_copy(flow_defunct->nexus_agent, search_flow->u.nexus_agent);
-					} else if (search_flow->socket) {
-						flow_defunct->socket_handle = search_flow->u.socket_handle;
-					}
+					uuid_copy(flow_defunct->nexus_agent, search_flow->u.nexus_agent);
 					uuid_copy(flow_defunct->flow_id, ((flow_registration->flags & NECP_CLIENT_FLOW_FLAGS_USE_CLIENT_ID) ?
 					    client->client_id :
 					    flow_registration->registration_id));
@@ -1605,13 +1590,13 @@ necp_defunct_flow_registration(struct necp_client *client,
 
 static void
 necp_defunct_client_for_policy(struct necp_client *client,
-    struct _necp_flow_defunct_list *defunct_list, bool defunct_socket_flows)
+    struct _necp_flow_defunct_list *defunct_list)
 {
 	NECP_CLIENT_ASSERT_LOCKED(client);
 
 	struct necp_client_flow_registration *flow_registration = NULL;
 	RB_FOREACH(flow_registration, _necp_client_flow_tree, &client->flow_registrations) {
-		necp_defunct_flow_registration(client, flow_registration, defunct_list, defunct_socket_flows);
+		necp_defunct_flow_registration(client, flow_registration, defunct_list);
 	}
 }
 
@@ -2014,18 +1999,6 @@ necp_process_defunct_list(struct _necp_flow_defunct_list *defunct_list)
 					(void) strlcpy(namebuf, "unknown", sizeof(namebuf));
 					proc_name(flow_defunct->proc_pid, namebuf, sizeof(namebuf));
 					NECPLOG((netagent_error == ENOENT ? LOG_DEBUG : LOG_ERR), "necp_update_client abort nexus error (%d) for pid %d %s", netagent_error, flow_defunct->proc_pid, namebuf);
-				}
-			} else if (flow_defunct->socket_handle != NULL) {
-				struct inpcb *inp = (struct inpcb *)flow_defunct->socket_handle;
-				struct socket *so = inp->inp_socket;
-				if (so != NULL) {
-					proc_t proc = proc_find(flow_defunct->proc_pid);
-					if (proc != PROC_NULL) {
-						proc_fdlock(proc);
-						(void)socket_defunct(proc, so, SHUTDOWN_SOCKET_LEVEL_DISCONNECT_ALL);
-						proc_fdunlock(proc);
-						proc_rele(proc);
-					}
 				}
 			}
 			LIST_REMOVE(flow_defunct, chain);
@@ -2500,7 +2473,7 @@ necp_client_update_flows(proc_t proc,
 					u_int32_t flags = netagent_get_flags(flow->u.nexus_agent);
 					if (!(flags & NETAGENT_FLAG_REGISTERED)) {
 						// The agent is no longer registered! Mark defunct.
-						necp_defunct_flow_registration(client, flow_registration, defunct_list, false);
+						necp_defunct_flow_registration(client, flow_registration, defunct_list);
 						client_updated = TRUE;
 					}
 				}
@@ -4834,11 +4807,7 @@ necp_update_client_result(proc_t proc,
 	if (defunct_list != NULL &&
 	    result.routing_result == NECP_KERNEL_POLICY_RESULT_DROP) {
 		// If we are forced to drop the client, defunct it if it has flows
-		bool defunct_socket_flows = false;
-		if (result.routing_result_parameter.drop_flags & NECP_KERNEL_POLICY_DROP_FLAG_DEFUNCT_ALL_FLOWS) {
-			defunct_socket_flows = true;
-		}
-		necp_defunct_client_for_policy(client, defunct_list, defunct_socket_flows);
+		necp_defunct_client_for_policy(client, defunct_list);
 	}
 
 	// Recalculate flags

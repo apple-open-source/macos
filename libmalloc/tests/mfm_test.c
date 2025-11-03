@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <darwintest.h>
 
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE);
+
 #if defined(__LP64__)
 
 #include "../src/internal.h" // MALLOC_TARGET_EXCLAVES
@@ -11,8 +14,6 @@
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
 #endif // !MALLOC_TARGET_EXCLAVES
-
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED);
 
 static void *
 test_mvm_allocate_pages(size_t size, int vm_page_label, plat_map_t *map_out)

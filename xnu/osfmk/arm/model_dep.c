@@ -89,6 +89,7 @@
 #include <vm/vm_kern.h>
 #include <kern/kern_cdata.h>
 #include <kern/ledger.h>
+#include <san/kcov_ksancov.h>
 
 
 #if DEVELOPMENT || DEBUG
@@ -827,6 +828,8 @@ do_print_all_panic_info(const char *message, uint64_t panic_options, const char 
 		}
 	}
 
+	ksancov_on_panic_log();
+
 #if CONFIG_EXT_PANICLOG
 	// Write ext paniclog at the end of the paniclog region.
 	ext_paniclog_bytes = ext_paniclog_write_panicdata();
@@ -1383,6 +1386,9 @@ DebuggerXCall(
 		state->ssbs = 0;
 		state->uao = 0;
 		state->dit = 0;
+#if HAS_MTE
+		state->tco = 0;
+#endif
 	}
 #endif
 

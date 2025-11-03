@@ -115,6 +115,19 @@ out:
     return result;
 }
 
+static bool is_system_root(SecCertificateRef root, SecPVCRef pvc, CFStringRef preference) {
+    if (SecCertificateSourceContains(kSecSystemConstrainedAnchorSource, root, pvc)) {
+        return true;
+    }
+    if (!_SecTrustRemoveOldSystemAnchorSource() && SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc)) {
+        return true;
+    }
+    if (is_configured_test_system_root(root, preference)) {
+        return true;
+    }
+    return false;
+}
+
 
 /********************************************************
  ****************** SecPolicy object ********************
@@ -463,8 +476,7 @@ static void SecPolicyCheckEmail(SecPVCRef pvc, CFStringRef key) {
     // Issued on or after effective date and system-trusted, email names must be in SAN
     bool sanOnly = false;
     if (notBefore >= apr2022 &&
-        (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
-         is_configured_test_system_root(root, CFSTR("TestSystemRoot")))) {
+        (is_system_root(root, pvc, CFSTR("TestSystemRoot")))) {
         sanOnly = true;
     }
 	if (!SecPolicyCheckCertEmailSAN(leaf, email, sanOnly)) {
@@ -504,7 +516,7 @@ const uint8_t _parakeet_anchor[] = {
     0xfb, 0x84, 0xab, 0xe1, 0xfe, 0x34, 0xeb, 0x46, 0x7e, 0x15, 0xac, 0x02, 0x28, 0xe4
 };
 
-static bool _ShouldSkipExpirationCheck(SecCertificateRef certificate) {
+static bool _ShouldSkipExpirationCheck(SecCertificateRef certificate, SecPVCRef pvc) {
     static CFArrayRef externalAppleAnchors = NULL;
     static SecCertificateRef parakeetAnchor = NULL;
     static dispatch_once_t onceToken;
@@ -513,8 +525,15 @@ static bool _ShouldSkipExpirationCheck(SecCertificateRef certificate) {
         parakeetAnchor = SecCertificateCreateWithBytes(NULL, _parakeet_anchor, sizeof(_parakeet_anchor));
     });
 
-    if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+    /* Do not check expiration on Apple anchors */
+    if (SecCertificateSourceContains(kSecAppleAnchorSource, certificate, pvc)) {
         return true;
+    }
+    if (!_SecTrustRemoveOldAppleAnchorSource()) {
+        // Fallback to old Apple Anchor source
+        if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+            return true;
+        }
     }
     if (CFArrayContainsValue(externalAppleAnchors, CFRangeMake(0, CFArrayGetCount(externalAppleAnchors)), certificate)) {
         return true;
@@ -559,7 +578,7 @@ static bool SecCertificateIsValidWithAdjustments(SecPVCRef pvc,
                                                  SecCertificateRef certificate,
                                                  CFAbsoluteTime verifyTime,
                                                  bool earlyAnchorExpiration) {
-    if (_ShouldSkipExpirationCheck(certificate)) {
+    if (_ShouldSkipExpirationCheck(certificate, pvc)) {
         return true;
     }
 
@@ -905,10 +924,13 @@ static void SecPolicyCheckAnchorApple(SecPVCRef pvc,
                                       CFStringRef key) {
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    SecAppleTrustAnchorFlags flags = 0;
+    bool foundMatch = SecCertificateSourceContains(kSecAppleAnchorSource, cert, pvc);
 
-
-    bool foundMatch = SecIsAppleTrustAnchor(cert, flags);
+    if (!_SecTrustRemoveOldAppleAnchorSource()) {
+        // Fallback to old source
+        SecAppleTrustAnchorFlags flags = 0;
+       foundMatch = foundMatch || SecIsAppleTrustAnchor(cert, flags);
+    }
 
     if (!foundMatch)
         if (!SecPVCSetResult(pvc, kSecPolicyCheckAnchorApple, 0, kCFBooleanFalse))
@@ -2094,11 +2116,16 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
      *     with certain excepted CAs and configurable included CAs. */
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(false));
     require_quiet(SecPathBuilderIsAnchored(pvc->builder), out);
-    require_quiet((SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) &&
-                   appleAnchorSource && !SecCertificateSourceContains(appleAnchorSource, root, pvc)) ||
-                  is_configured_test_system_root(root, CFSTR("TestCTRequiredSystemRoot")), out);
+    bool isAppleAnchor = SecCertificateSourceContains(kSecAppleAnchorSource, root, pvc);
+    if (!_SecTrustRemoveOldAppleAnchorSource()) {
+        appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(false));
+        isAppleAnchor = isAppleAnchor || (appleAnchorSource && SecCertificateSourceContains(appleAnchorSource, root, pvc));
+        if (appleAnchorSource) {
+            SecMemoryCertificateSourceDestroy(appleAnchorSource);
+        }
+    }
+    require_quiet(is_system_root(root, pvc, CFSTR("TestCTRequiredSystemRoot")) && !isAppleAnchor, out);
 
     if (!SecCertificatePathVCIsCT(path) && !is_ct_excepted(pvc)) {
         /* Set failure. By not using the Forced variant, we implicitly check that this
@@ -2108,9 +2135,6 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
 
 out:
     CFReleaseNull(trustedLogs);
-    if (appleAnchorSource) {
-        SecMemoryCertificateSourceDestroy(appleAnchorSource);
-    }
 }
 
 static bool check_validity_period_maximums(CFArrayRef maximums, CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
@@ -2146,8 +2170,7 @@ static void SecPolicyCheckSystemTrustValidityPeriod(SecPVCRef pvc, CFStringRef k
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
 
     /* check for system trust */
-    if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
-        is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+    if (is_system_root(root, pvc, CFSTR("TestSystemRoot"))) {
         SecPolicyRef policy = SecPVCGetPolicy(pvc);
         CFTypeRef maximums = CFDictionaryGetValue(policy->_options, key);
         if (!check_validity_period_maximums(maximums,
@@ -2228,8 +2251,7 @@ static void SecPolicyCheckValidityPeriodMaximums(SecPVCRef pvc, CFStringRef key)
 
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
-        is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+    if (is_system_root(root, pvc, CFSTR("TestSystemRoot"))) {
         if (!check_system_trust_ssl_validity_maximums(notBefore, notAfter)) {
             SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
         }
@@ -2259,8 +2281,7 @@ static void SecPolicyCheckServerAuthEKU(SecPVCRef pvc, CFStringRef key) {
     SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
-        is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+    if (is_system_root(root, pvc, CFSTR("TestSystemRoot"))) {
         /* all system-anchored chains must be compliant */
         if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.1"))) { // server auth EKU
             SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
@@ -2316,8 +2337,7 @@ static void SecPolicyCheckEmailProtectionEKU(SecPVCRef pvc, CFStringRef key) {
     // Issued on or after effective date
     if (notBefore >= apr2022) {
         // System-trusted
-        if (SecCertificateSourceContains(kSecSystemAnchorSource, root, pvc) ||
-            is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+        if (is_system_root(root, pvc, CFSTR("TestSystemRoot"))) {
             if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.4"))) { // email protection EKU
                 SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
             }

@@ -890,6 +890,7 @@ public:
     {
         m_min = jumpTable.m_min;
         m_defaultOffset = jumpTable.m_defaultOffset;
+        m_isList = jumpTable.m_isList;
         m_branchOffsets.encode(encoder, jumpTable.m_branchOffsets);
     }
 
@@ -897,12 +898,14 @@ public:
     {
         jumpTable.m_min = m_min;
         jumpTable.m_defaultOffset = m_defaultOffset;
+        jumpTable.m_isList = m_isList;
         m_branchOffsets.decode(decoder, jumpTable.m_branchOffsets);
     }
 
 private:
     int32_t m_min;
     int32_t m_defaultOffset;
+    int32_t m_isList;
     CachedVector<int32_t> m_branchOffsets;
 };
 

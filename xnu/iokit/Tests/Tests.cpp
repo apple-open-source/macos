@@ -2050,6 +2050,43 @@ sysctl_iokittest(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused
 #endif /* TEST_ZLIB */
 
 
+#if HAS_MTE
+	if (changed && (333 == newValue)) {
+		error = IOMemoryDescriptorCpuMapMTETest(newValue);
+		assert(KERN_SUCCESS == error);
+		return error;
+	}
+	if (changed && (334 == newValue)) {
+		error = IOMemoryDescriptorReadWriteBytesMTETest();
+		assert(KERN_SUCCESS == error);
+		return error;
+	}
+	if (changed && (335 == newValue)) {
+		error = IOMemoryDescriptorReadWriteBytesWithoutMTETest();
+		assert(KERN_SUCCESS == error);
+		return error;
+	}
+	if (changed && (336 == newValue)) {
+		error = IOMemoryDescriptorReadBytesMTEWithTCFTest();
+		assert(KERN_SUCCESS == error);
+		return error;
+	}
+	if (changed && (337 == newValue)) {
+		error = IOMemoryDescriptorWriteBytesMTEWithTCFTest();
+		assert(KERN_SUCCESS == error);
+		return error;
+	}
+	if (changed && (338 == newValue)) {
+		error = IOMemoryDescriptorCreateMTEMappingInThisMapTest();
+		assert(KERN_SUCCESS == error);
+		return error;
+	}
+	if (changed && (340 == newValue)) {
+		error = IOMemoryDescriptorCreateMTEMappingInKernelMapTest();
+		assert(KERN_SUCCESS == error);
+		return error;
+	}
+#endif /* HAS_MTE */
 
 	if (changed && newValue) {
 		error = TestLockForArbitration(newValue);

@@ -491,6 +491,10 @@
 	/* Miscellaneous statistics */  \
 	X(TCP_STATS_TW_PCBCOUNT,		"TWPcbCount",	"\t%llu pcbs in time-wait state\n")     \
         \
+	/* RST compression statistics */  \
+	X(TCP_STATS_RST_DUP_SUPPRESSED,		"RSTDupSup",	"\t%llu RST duplicate suppressed\n")     \
+	X(TCP_STATS_RST_NOT_SUPPRESSED,		"RSTNotSup",	"\t%llu RST not suppressed\n")     \
+        \
 	X(__TCP_STATS_MAX,			"",		"end of tcp stats")
 
 #define UDP_STATS_TABLE(X)                                              \

@@ -1936,14 +1936,18 @@ HandleUserInputEventResult EventHandler::handleMousePressEvent(const PlatformMou
         return true;
     }
 
+    RefPtr page = frame->page();
+    if (!page)
+        return false;
+
 #if ENABLE(POINTER_LOCK)
-    if (frame->page()->pointerLockController().isLocked()) {
-        frame->protectedPage()->pointerLockController().dispatchLockedMouseEvent(platformMouseEvent, eventNames().mousedownEvent);
+    if (auto& pointerLockController = page->pointerLockController(); pointerLockController.isLocked()) {
+        pointerLockController.dispatchLockedMouseEvent(platformMouseEvent, eventNames().mousedownEvent);
         return true;
     }
 #endif
 
-    if (frame->protectedPage()->pageOverlayController().handleMouseEvent(platformMouseEvent))
+    if (page->pageOverlayController().handleMouseEvent(platformMouseEvent))
         return true;
 
 #if ENABLE(TOUCH_EVENTS)

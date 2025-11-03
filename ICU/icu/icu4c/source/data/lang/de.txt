@@ -433,6 +433,7 @@ de{
         nds_NL{"Niedersächsisch"}
         ne{"Nepalesisch"}
         new{"Newari"}
+        nez{"Nez Percé"}
         ng{"Ndonga"}
         nia{"Nias"}
         niu{"Niue"}

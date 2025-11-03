@@ -9,7 +9,8 @@
  * FIPS-180-2 compliant SHA-256 implementation
  * GPL by Christophe Devine, applies to older version.
  * Modified for md5deep, in public domain.
- * Modified For Vim, Mohsin Ahmed, http://www.cs.albany.edu/~mosh
+ * Modified For Vim, Mohsin Ahmed,
+ * (original link www.cs.albany.edu/~mosh no longer available)
  * Mohsin Ahmed states this work is distributed under the VIM License or GPL,
  * at your choice.
  *
@@ -40,7 +41,7 @@
     (b)[(i) + 3] = (char_u)((n)      );   \
 }
 
-     void
+    void
 sha256_start(context_sha256_T *ctx)
 {
     ctx->total[0] = 0;

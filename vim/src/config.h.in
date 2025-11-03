@@ -9,6 +9,9 @@
 /* Define unless no X support found */
 #undef HAVE_X11
 
+/* Define unless no Wayland support found */
+#undef HAVE_WAYLAND
+
 /* Define when terminfo support found */
 #undef TERMINFO
 
@@ -209,6 +212,7 @@
 #undef HAVE_CANBERRA
 #undef HAVE_SODIUM
 #undef HAVE_ST_BLKSIZE
+#undef HAVE_SYNC
 #undef HAVE_SYSCONF
 #undef HAVE_SYSCTL
 #undef HAVE_SYSINFO
@@ -391,7 +395,7 @@
 #undef HAVE_SYSMOUSE
 
 /* Define if you want to include the Cscope interface. */
-#undef FEAT_CSCOPE
+#undef ENABLE_CSCOPE
 
 /* Define if you don't want to include right-left support. */
 #undef DISABLE_RIGHTLEFT
@@ -401,6 +405,12 @@
 
 /* Define if you want to always define a server name at vim startup. */
 #undef FEAT_AUTOSERVERNAME
+
+/* Define if you want to use sockets for clientserver communication. */
+#undef WANT_SOCKETSERVER
+
+/* Define if you want to use sockets for clientserver communication if it makes sense. */
+#undef MAYBE_SOCKETSERVER
 
 /* Define if you want to include fontset support. */
 #undef FEAT_XFONTSET
@@ -428,6 +438,9 @@
 
 /* Define if there is a working dgettext(). */
 #undef HAVE_DGETTEXT
+
+/* Define if there is a working dngettext(). */
+#undef HAVE_DNGETTEXT
 
 /* Define if _nl_msg_cat_cntr is present. */
 #undef HAVE_NL_MSG_CAT_CNTR
@@ -500,6 +513,9 @@
 
 /* Define if we have flock() */
 #undef HAVE_FLOCK
+
+/* Define if we have shm_open() */
+#undef HAVE_SHM_OPEN
 
 /* Define to inline symbol or empty */
 #undef inline

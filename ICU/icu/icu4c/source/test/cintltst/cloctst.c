@@ -90,6 +90,7 @@ static void TestNorwegianDisplayNames(void);
 static void TestSpecificDisplayNames(void);
 static void TestChinaNamesNotResolving(void);
 static void TestMvskokeAndLushootseedDisplayNames(void); // rdar://123393073
+static void TestOpenDirectWith_no_NO(void); // rdar://157165058
 #endif  // APPLE_ICU_CHANGES
 
 void PrintDataTable(void);
@@ -380,6 +381,7 @@ void addLocaleTest(TestNode** root)
     TESTCASE(TestSpecificDisplayNames);
     TESTCASE(TestChinaNamesNotResolving);
     TESTCASE(TestMvskokeAndLushootseedDisplayNames); // rdar://123393073
+    TESTCASE(TestOpenDirectWith_no_NO); // rdar://157165058
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -9264,6 +9266,11 @@ static void TestRootUndEmpty() {
 #if !U_PLATFORM_HAS_WIN32_API
 /* Apple-specific, test for Apple-specific function ualoc_getAppleParent */
 static const char* localesAndAppleParent[] = {
+    // Please keep the "no-NO" entry *before* the "no" entry,
+    // because the bug in rdar://157165058 doesn't occur if we
+    // call ualoc_getAppleParent() with "no" first.
+    "no-NO",            "no",   // rdar://157165058
+    "no",               "root", // rdar://157165058
     "en",               "root",
     "en-US",            "en",
     "en-CA",            "en",
@@ -9373,6 +9380,21 @@ static void TestGetAppleParent() {
             log_err("FAIL: ualoc_getAppleParent input \"%s\", expected parent \"%s\", got parent \"%s\"\n", locale, expectParent, getParent);
         }
     }
+}
+
+// rdar://157165058
+void TestOpenDirectWith_no_NO(void ) {
+    // This is a another test for rdar://157165058
+    // (see also TestGetAppleParent above),
+    // in which calling ures_openDirect() with a locale
+    // of "no_NO" results in a hang.
+    UErrorCode status = U_ZERO_ERROR;
+    UResourceBundle* res = ures_openDirect(NULL, "no_NO", &status);
+    if (U_FAILURE(status)) {
+        log_err("ures_openDirect failed with error: %s\n", u_errorName(status));
+        return;
+    }
+    ures_close(res);
 }
 
 /* Apple-specific, test for Apple-specific function ualoc_getLanguagesForRegion */

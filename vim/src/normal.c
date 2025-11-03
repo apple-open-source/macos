@@ -418,6 +418,9 @@ normal_cmd_get_more_chars(
 #ifdef CURSOR_SHAPE
 	    ui_cursor_shape();	// show different cursor shape
 #endif
+#ifdef FEAT_MOUSESHAPE
+	    update_mouseshape(-1);
+#endif
 	}
 	if (lang && curbuf->b_p_iminsert == B_IMODE_LMAP)
 	{
@@ -1127,6 +1130,7 @@ call_yank_do_autocmd(int regname)
     void
 end_visual_mode(void)
 {
+    VIsual_select_exclu_adj = FALSE;
     end_visual_mode_keep_button();
     reset_held_button();
 }
@@ -2782,7 +2786,7 @@ nv_zet(cmdarg_T *cap)
 		}
 		break;
 
-		// "zp", "zP" in block mode put without addind trailing spaces
+		// "zp", "zP" in block mode put without adding trailing spaces
     case 'P':
     case 'p':  nv_put(cap);
 	       break;
@@ -3070,10 +3074,10 @@ handle_tabmenu(void)
     {
 	case TABLINE_MENU_CLOSE:
 	    if (current_tab == 0)
-		do_cmdline_cmd((char_u *)"tabclose");
+		do_cmdline_cmd((char_u *)"confirm tabclose");
 	    else
 	    {
-		vim_snprintf((char *)IObuff, IOSIZE, "tabclose %d",
+		vim_snprintf((char *)IObuff, IOSIZE, "confirm tabclose %d",
 								 current_tab);
 		do_cmdline_cmd(IObuff);
 	    }
@@ -3575,7 +3579,7 @@ nv_ident(cmdarg_T *cap)
 	    aux_ptr = (char_u *)(magic_isset() ? "/?.*~[^$\\" : "/?^$\\");
 	else if (tag_cmd)
 	{
-	    if (curbuf->b_help)
+	    if (STRCMP(curbuf->b_p_ft, "help") == 0)
 		// ":help" handles unescaped argument
 		aux_ptr = (char_u *)"";
 	    else
@@ -4055,7 +4059,7 @@ nv_gotofile(cmdarg_T *cap)
 #endif
 
     if (!check_can_set_curbuf_disabled())
-      return;
+	return;
 
     ptr = grab_file_name(cap->count1, &lnum);
 
@@ -4245,6 +4249,15 @@ normal_search(
 nv_csearch(cmdarg_T *cap)
 {
     int		t_cmd;
+    int		cursor_dec = FALSE;
+
+    // If adjusted cursor position previously, unadjust it.
+    if (*p_sel == 'e' && VIsual_active && VIsual_mode == 'v'
+		&& VIsual_select_exclu_adj)
+    {
+	unadjust_for_sel();
+	cursor_dec = TRUE;
+    }
 
     if (cap->cmdchar == 't' || cap->cmdchar == 'T')
 	t_cmd = TRUE;
@@ -4255,6 +4268,9 @@ nv_csearch(cmdarg_T *cap)
     if (IS_SPECIAL(cap->nchar) || searchc(cap, t_cmd) == FAIL)
     {
 	clearopbeep(cap->oap);
+	// Revert unadjust when failed.
+	if (cursor_dec)
+	    adjust_for_sel(cap);
 	return;
     }
 
@@ -4462,7 +4478,7 @@ nv_brackets(cmdarg_T *cap)
 			    SAFE_islower(cap->nchar) ? ACTION_SHOW : ACTION_GOTO,
 		cap->cmdchar == ']' ? curwin->w_cursor.lnum + 1 : (linenr_T)1,
 		(linenr_T)MAXLNUM,
-		FALSE);
+		FALSE, FALSE);
 	    vim_free(ptr);
 	    curwin->w_set_curswant = TRUE;
 	}
@@ -5529,6 +5545,8 @@ nv_visual(cmdarg_T *cap)
 		update_curswant_force();
 		curwin->w_curswant += resel_VIsual_vcol * cap->count0 - 1;
 		curwin->w_cursor.lnum = lnum;
+		if (*p_sel == 'e')
+		    ++curwin->w_curswant;
 		coladvance(curwin->w_curswant);
 	    }
 	    else
@@ -5543,6 +5561,8 @@ nv_visual(cmdarg_T *cap)
 	    n_start_visual_mode(cap->cmdchar);
 	    if (VIsual_mode != 'V' && *p_sel == 'e')
 		++cap->count1;  // include one more char
+	    else
+		VIsual_select_exclu_adj = FALSE;
 	    if (cap->count0 > 0 && --cap->count1 > 0)
 	    {
 		// With a count select that many characters or lines.
@@ -5670,9 +5690,6 @@ nv_gv_cmd(cmdarg_T *cap)
     pos_T	tpos;
     int		i;
 
-    if (checkclearop(cap->oap))
-	return;
-
     if (curbuf->b_visual.vi_start.lnum == 0
 	    || curbuf->b_visual.vi_start.lnum > curbuf->b_ml.ml_line_count
 	    || curbuf->b_visual.vi_end.lnum == 0)
@@ -5773,7 +5790,7 @@ nv_g_home_m_cmd(cmdarg_T *cap)
 	// that skipcol is not adjusted later.
 	if (curwin->w_skipcol > 0 && curwin->w_cursor.lnum == curwin->w_topline)
 	{
-	    int overlap = sms_marker_overlap(curwin, -1);
+	    int overlap = sms_marker_overlap(curwin, curwin->w_width - width2);
 	    if (overlap > 0 && i == curwin->w_skipcol)
 		i += overlap;
 	}
@@ -5796,6 +5813,14 @@ nv_g_home_m_cmd(cmdarg_T *cap)
 	curwin->w_valid &= ~VALID_WCOL;
     }
     curwin->w_set_curswant = TRUE;
+#ifdef FEAT_FOLDING
+    if (hasAnyFolding(curwin))
+    {
+	validate_cheight();
+	if (curwin->w_cline_folded)
+	    update_curswant_force();
+    }
+#endif
     adjust_skipcol();
 }
 
@@ -6718,6 +6743,7 @@ adjust_for_sel(cmdarg_T *cap)
 	else
 	    ++curwin->w_cursor.col;
 	cap->oap->inclusive = FALSE;
+	VIsual_select_exclu_adj = TRUE;
     }
 }
 
@@ -6743,6 +6769,7 @@ unadjust_for_sel(void)
 unadjust_for_sel_inner(pos_T *pp)
 {
     colnr_T	cs, ce;
+    VIsual_select_exclu_adj = FALSE;
 
     if (pp->coladd > 0)
 	--pp->coladd;

@@ -897,6 +897,8 @@ DOMAudioSessionType Page::audioSessionType() const
 
 void Page::setUserDidInteractWithPage(bool didInteract)
 {
+    m_userHasInteractedSinceLastPageLoad = didInteract;
+
     if (m_topDocumentSyncData->userDidInteractWithPage == didInteract)
         return;
 
@@ -1726,7 +1728,7 @@ void Page::setDeviceScaleFactor(float scaleFactor)
     pageOverlayController().didChangeDeviceScaleFactor();
 }
 
-void Page::screenPropertiesDidChange()
+void Page::screenPropertiesDidChange(bool affectsStyle)
 {
 #if ENABLE(VIDEO)
     auto mode = preferredDynamicRangeMode(protectedMainFrame()->protectedVirtualView().get());
@@ -1740,7 +1742,8 @@ void Page::screenPropertiesDidChange()
 
     updateScreenSupportedContentsFormats();
 
-    setNeedsRecalcStyleInAllFrames();
+    if (affectsStyle)
+        setNeedsRecalcStyleInAllFrames();
 
     forEachRenderableDocument([this] (Document& document) {
         document.screenPropertiesDidChange(m_displayID);
@@ -1842,6 +1845,7 @@ void Page::didCommitLoad()
 #endif
 
     m_hasEverSetVisibilityAdjustment = false;
+    m_userHasInteractedSinceLastPageLoad = false;
 
     m_mainFrameURLFragment = { };
 
@@ -2282,7 +2286,8 @@ void Page::updateRendering()
     });
 
     runProcessingStep(RenderingUpdateStep::SnapshottedScrollOffsets, [&] (Document& document) {
-        Style::AnchorPositionEvaluator::updateSnapshottedScrollOffsets(document);
+        if (CheckedPtr renderView = document.renderView())
+            Style::AnchorPositionEvaluator::updateScrollAdjustments(*renderView);
     });
 
     for (auto& document : initialDocuments) {
@@ -5342,7 +5347,7 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
         auto maximumOffset = frameView->maximumScrollOffset();
 
         bool canSampleTopEdge = settings().topContentInsetBackgroundCanChangeAfterScrolling()
-            || !frameView->wasEverScrolledExplicitlyByUser()
+            || (!frameView->wasEverScrolledExplicitlyByUser() && !m_userHasInteractedSinceLastPageLoad)
             || document->parsing();
 
         if (scrollOffset.y() < minimumOffset.y() || !canSampleTopEdge)
@@ -5835,14 +5840,6 @@ const std::optional<audit_token_t>& Page::presentingApplicationAuditToken() cons
 void Page::setPresentingApplicationAuditToken(std::optional<audit_token_t> presentingApplicationAuditToken)
 {
     m_presentingApplicationAuditToken = WTFMove(presentingApplicationAuditToken);
-
-#if ENABLE(EXTENSION_CAPABILITIES)
-    if (settings().mediaCapabilityGrantsEnabled())
-        return;
-#endif
-
-    if (RefPtr mediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        mediaSessionManager->updatePresentingApplicationPIDIfNecessary(presentingApplicationPID());
 }
 #endif
 

@@ -46,6 +46,8 @@
 #include <net/if_dl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/content_protection.h>
 
 #include <dlfcn.h>
 #include <mach-o/dyld_priv.h>
@@ -1647,4 +1649,57 @@ _SC_copyInterfaceUUID(CFStringRef bsdName)
 	CFRelease(uuid);
 
 	return uuid_str;
+}
+
+/*
+ * SC_create_file_safely
+ *   Create a file `thePath` with the specified `mode`
+ *   and `protectionClass`. If `protectionClass` is `0` or
+ *   `PROTECTION_CLASS_DEFAULT`, uses regular `open`, otherwise
+ *   uses `open_dprotected_np`.
+ *
+ *   Remove the target first, then create it (`O_CREAT`),
+ *   and also specify `O_NOFOLLOW` to ensure that if it is a
+ *   symlink, create will fail with `ELOOP`.
+ *
+ *   `ELOOP` in this case implies that a malicious process
+ *   is winning the race between the `unlink()` and `open()`,
+ *   and installing a symlink; for that reason, we try the
+ *   `unlink()` + `open()` multiple times
+ */
+int
+SC_create_file_safely(const char * thePath, int protectionClass, mode_t mode)
+{
+	int		fd = -1;
+
+#define __OPEN_FLAGS	(O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW)
+#define ELOOP_TRY_COUNT		5
+	if (protectionClass == 0) {
+		protectionClass = PROTECTION_CLASS_DEFAULT;
+	}
+	for (int i = 0; i < ELOOP_TRY_COUNT; i++) {
+		/* remove the file */
+		if (unlink(thePath) != 0) {
+			SC_log(LOG_DEBUG, "unlink(%s) failed: %s", thePath,
+			       strerror(errno));
+		}
+		/* create the file */
+		if (protectionClass != PROTECTION_CLASS_DEFAULT) {
+			fd = open_dprotected_np(thePath, __OPEN_FLAGS,
+						protectionClass, 0, mode);
+		} else {
+			fd = open(thePath, __OPEN_FLAGS, mode);
+		}
+		if (fd >= 0 || errno != ELOOP) {
+			break;
+		}
+		/* ELOOP implies the target file is a symlink, retry */
+		SC_log(LOG_DEBUG, "open(%s) failed with ELOOP", thePath);
+	}
+	if (fd == -1) {
+		_SCErrorSet(errno);
+		SC_log(LOG_NOTICE, "open(%s) failed: %s", thePath,
+		       strerror(errno));
+	}
+	return fd;
 }

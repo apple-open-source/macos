@@ -39,8 +39,7 @@ static bool memchk(void *ptr, uint8_t contents, size_t size)
 }
 
 T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
-		T_META_TAG_XZONE_ONLY,
-		T_META_TAG_VM_NOT_ELIGIBLE)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	// Large allocation shrink in place
 	size_t size1 = LARGE_BLOCK_SIZE_MAX;
@@ -162,10 +161,37 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	free(ptr2);
 }
 
+#if CONFIG_MTE
+// TODO: support for tagging large allocations
+#if 0
+T_DECL(realloc_grow_in_place_with_mte,
+		"Ensure tags are extended when growing in-place",
+		T_META_TAG_XZONE_ONLY,
+		T_META_ENVVAR("MallocTagAllInternal=1"))
+{
+	// Large allocation grow in place
+	size_t size1 = LARGE_BLOCK_SIZE_MAX / 4;
+	size_t size2 = LARGE_BLOCK_SIZE_MAX / 2;
+	void *ptr1 = malloc(size1);
+	memset(ptr1, 'B', size1);
+	void *ptr2 = realloc(ptr1, size2);
+
+	// realloc() should be in-place, but we can't guarantee it, so we cannot do
+	// `T_ASSERT_EQ(ptr1, ptr2)` here
+	T_ASSERT_TRUE(memchk(ptr2, 'B', size1),
+			"contents unchanged after realloc, before: %p, after: %p", ptr1, ptr2);
+	T_ASSERT_LE(size2, malloc_size(ptr2), "realloc LARGE larger");
+	// MTE tags for extended space have been updated
+	memset(ptr2, 'C', size2);
+	T_ASSERT_TRUE(memchk(ptr2, 'C', size2), "extra space is properly tagged");
+	free(ptr2);
+}
+#endif
+#endif
 
 T_DECL(realloc_overlap_mmap,
 		"Make sure that realloc in place doesn't overwrite existing mmap",
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 	// Allocate a huge buffer
 	void *ptr = malloc(LARGE_BLOCK_SIZE_MAX * 2);

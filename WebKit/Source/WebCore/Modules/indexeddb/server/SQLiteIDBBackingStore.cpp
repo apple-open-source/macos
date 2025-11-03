@@ -2633,6 +2633,12 @@ IDBError SQLiteIDBBackingStore::addIndex(const IDBResourceIdentifier& transactio
         return IDBError { ExceptionCode::UnknownError, "Database info is invalid."_s };
     }
 
+    auto* objectStore = m_databaseInfo->infoForExistingObjectStore(indexInfo.objectStoreIdentifier());
+    if (!objectStore) {
+        RELEASE_LOG_ERROR(IndexedDB, "%p - SQLiteIDBBackingStore::addIndex: object store cannot be found in database", this);
+        return IDBError { ExceptionCode::UnknownError, "Object store cannot be found in the database."_s };
+    }
+
     auto keyPathBlob = serializeIDBKeyPath(indexInfo.keyPath());
     if (!keyPathBlob)
         return IDBError { ExceptionCode::UnknownError, "Failed to serialize IDBKeyPath to create index in database."_s };
@@ -2650,8 +2656,6 @@ IDBError SQLiteIDBBackingStore::addIndex(const IDBResourceIdentifier& transactio
             return IDBError { ExceptionCode::UnknownError, "Failed to create index in database."_s };
     }
 
-    auto* objectStore = m_databaseInfo->infoForExistingObjectStore(indexInfo.objectStoreIdentifier());
-    ASSERT(objectStore);
     objectStore->addExistingIndex(indexInfo);
     m_databaseInfo->setMaxIndexID(indexInfo.identifier().toRawValue());
 

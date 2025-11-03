@@ -511,7 +511,7 @@ class KernelTarget(object):
         else:
             papt_table = self.globals.libsptm_papt_ranges
             page_size = self.globals.page_size
-            for i in range(0, self.globals.libsptm_n_papt_ranges):
+            for i in range(0, unsigned(dereference(self.globals.libsptm_n_papt_ranges))):
                 if (addr >= int(unsigned(papt_table[i].paddr_start))) and (addr < (int(unsigned(papt_table[i].paddr_start)) + int(unsigned(papt_table[i].num_mappings) * page_size))):
                     return (addr - int(unsigned(papt_table[i].paddr_start)) + int(unsigned(papt_table[i].papt_start)))
             raise ValueError("PA {:#x} not found in physical region lookup table".format(addr))

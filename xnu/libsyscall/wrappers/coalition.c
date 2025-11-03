@@ -76,6 +76,12 @@ coalition_info_set_efficiency(uint64_t cid, uint64_t flags)
 }
 
 int
+coalition_info_pid_list(uint64_t cid, pid_t *pid_list, size_t *size_inout)
+{
+	return __coalition_info(COALITION_INFO_PID_LIST, &cid, pid_list, size_inout);
+}
+
+int
 coalition_ledger_set_logical_writes_limit(uint64_t cid, int64_t limit)
 {
 	size_t size = sizeof(limit);

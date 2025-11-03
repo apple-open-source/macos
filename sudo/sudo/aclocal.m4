@@ -1,6 +1,6 @@
-# generated automatically by aclocal 1.16.5 -*- Autoconf -*-
+# generated automatically by aclocal 1.17 -*- Autoconf -*-
 
-# Copyright (C) 1996-2021 Free Software Foundation, Inc.
+# Copyright (C) 1996-2024 Free Software Foundation, Inc.
 
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -17,6 +17,7 @@ m4_include([m4/ax_check_compile_flag.m4])
 m4_include([m4/ax_check_link_flag.m4])
 m4_include([m4/ax_func_getaddrinfo.m4])
 m4_include([m4/ax_func_snprintf.m4])
+m4_include([m4/ax_gcc_builtin.m4])
 m4_include([m4/ax_prog_cc_for_build.m4])
 m4_include([m4/gettext.m4])
 m4_include([m4/hardening.m4])

@@ -69,6 +69,11 @@
 	strb	w$1, [$0, SS64_KERNEL_SSBS]
 1:
 #endif // HAS_ARM_FEAT_SSBS2
+#if HAS_MTE
+	mrs		x$1, TCO
+	lsr     x$1, x$1, #0 + PSR64_TCO_SHIFT
+	strb	w$1, [$0, SS64_KERNEL_TCO]
+#endif //HAS_MTE
 #if __ARM_ARCH_8_4__
 	mrs		x$1, DIT
 	lsr     x$1, x$1, #0 + PSR64_DIT_SHIFT
@@ -131,6 +136,11 @@
 	msr		SSBS, x$1
 1:
 #endif // HAS_ARM_FEAT_SSBS2
+#if HAS_MTE
+	ldrb	w$1, [$0, SS64_KERNEL_TCO]
+	lsl     x$1, x$1, #0 + PSR64_TCO_SHIFT
+	msr		TCO, x$1
+#endif //HAS_MTE
 #if __ARM_ARCH_8_2__
 	ldrb	w$1, [$0, SS64_KERNEL_UAO]
 	lsl     x$1, x$1, #0 + PSR64_UAO_SHIFT
@@ -241,7 +251,19 @@ Lskip_jop_keys_\@:
 #endif /* CSWITCH_JOP_KEYS */
 
 	cbnz	\wsync, Lsync_now_\@
+#if !HAS_MTE
 	b		1f
+#else
+	/*
+	 * The HAS_MTE case:
+	 * If the new thread is inside an unprivileged access region and there is
+	 * a sync pending, we can't wait until an eret so synchronize it now.
+	 */
+	ldrb	\wsync, [\thread, IN_UNPRIVILEGED_ACCESS]
+	cbz		\wsync, 1f
+	ldrb	\wsync, [\cpudatap, CPU_SYNC_ON_CSWITCH]
+	cbz		\wsync, 1f
+#endif /* !HAS_MTE */
 
 Lsync_now_\@:
 	isb		sy

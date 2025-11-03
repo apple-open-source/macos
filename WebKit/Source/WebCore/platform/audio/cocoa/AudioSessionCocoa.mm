@@ -32,8 +32,13 @@
 #import "NotImplemented.h"
 #import <AVFoundation/AVAudioSession.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/WorkQueue.h>
+
+#if PLATFORM(IOS_FAMILY)
+#import "MediaSessionHelperIOS.h"
+#endif
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
@@ -100,6 +105,10 @@ bool AudioSessionCocoa::tryToSetActiveInternal(bool active)
     // means that AVAudioSession may synchronously unduck previously ducked clients. Activation needs to complete before this method
     // returns, so do it synchronously on the same serial queue.
     if (active) {
+#if PLATFORM(IOS_FAMILY) && !ENABLE(EXTENSION_CAPABILITIES)
+        ASSERT(!isInAuxiliaryProcess() || MediaSessionHelper::sharedHelper().presentedApplicationPID());
+#endif
+
         bool success = false;
         setEligibleForSmartRouting(true);
         m_workQueue->dispatchSync([&success] {

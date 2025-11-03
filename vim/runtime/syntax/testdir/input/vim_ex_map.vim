@@ -1,9 +1,27 @@
 " Vim :map commands
+" VIM_TEST_SETUP hi link vimMapLhs Identifier
+" VIM_TEST_SETUP hi link vimMapRhs Todo
+" VIM_TEST_SETUP hi link vimMapRhsContinue Todo
+
 
 map!
 map! lhs rhs
 map 
 map lhs rhs
+
+map <buffer><expr><nowait><script><silent><special><unique> lhs rhs
+map <buffer> <expr> <nowait> <script> <silent> <special> <unique> lhs rhs
+
+" :map special arguments are case sensitive, <BUFFER> is the LHS
+map <BUFFER> rhs
+
+map <Leader>lhs      rhs
+map <LocalLeader>lhs rhs
+
+map lhs <Leader>rhs
+map lhs <LocalLeader>rhs
+
+map lhs <Plug>rhs
 
 mapclear  <buffer>
 mapclear! <buffer>
@@ -30,12 +48,12 @@ map _l :!ls | more^M:echo "rhs"<CR>
 map lhs :search('foo\\|bar')<CR>:echo "rhs"<CR>
 
 
-" multiline RHS
+" Multiline RHS
 
-map <leader>baz 
-  \ :echo (<bar>
+map <Leader>baz 
+  \ :echo (<Bar>
   \
-  \'bar')<cr>
+  \'bar')<CR>
   "\ comment
 
 map lhs 
@@ -89,17 +107,18 @@ enddef
 
 " Issue  #12672
 
-nnoremap <leader>foo :echo call(
+nnoremap <Leader>foo :echo call(
   "\ comment
   \ {x->x},
-  \ ['foo'])<cr>
+  \ ['foo'])<CR>
 
-nnoremap <leader>bar :echo (
+nnoremap <Leader>bar :echo (
   \
-  \ 'bar')<cr>
+  \ 'bar')<CR>
 
 
 " Example:
 "   /autoload/netrw.vim
 
 if !hasmapto('<Plug>NetrwOpenFile')          |nmap <buffer> <silent> <nowait> %	<Plug>NetrwOpenFile|endif
+

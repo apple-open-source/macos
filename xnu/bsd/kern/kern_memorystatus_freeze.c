@@ -108,11 +108,7 @@ unsigned int memorystatus_max_frozen_demotions_daily = 0;
 unsigned int memorystatus_thaw_count_demotion_threshold = 0;
 unsigned int memorystatus_min_thaw_refreeze_threshold;
 
-#if XNU_TARGET_OS_WATCH
 #define FREEZE_DYNAMIC_THREAD_DELAY_ENABLED_DEFAULT true
-#else
-#define FREEZE_DYNAMIC_THREAD_DELAY_ENABLED_DEFAULT false
-#endif
 boolean_t memorystatus_freeze_dynamic_thread_delay_enabled = FREEZE_DYNAMIC_THREAD_DELAY_ENABLED_DEFAULT;
 SYSCTL_UINT(_kern, OID_AUTO, memorystatus_freeze_dynamic_thread_delay_enabled, CTLFLAG_RW | CTLFLAG_LOCKED, &memorystatus_freeze_dynamic_thread_delay_enabled, 0, "");
 
@@ -120,6 +116,35 @@ SYSCTL_UINT(_kern, OID_AUTO, memorystatus_freeze_dynamic_thread_delay_enabled, C
 #define FREEZE_APPS_IDLE_DELAY_MULTIPLIER_SLOW 30
 #define FREEZE_APPS_IDLE_DELAY_MULTIPLIER_DEFAULT FREEZE_APPS_IDLE_DELAY_MULTIPLIER_FAST
 unsigned int memorystatus_freeze_apps_idle_delay_multiplier = FREEZE_APPS_IDLE_DELAY_MULTIPLIER_DEFAULT;
+
+#define MEMORYSTATUS_FREEZE_PREVENT_REFREEZE_OF_RECENTLY_THAWED_DEFAULT true
+
+#if XNU_TARGET_OS_WATCH
+#define MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_DEFAULT 1
+#define MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_PREVENT_REFREEZE_SECONDS_DEFAULT (60 * 15)
+#else
+#define MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_DEFAULT 5
+#define MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_PREVENT_REFREEZE_SECONDS_DEFAULT (60 * 25)
+#endif
+#define MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_MAX 10
+
+TUNABLE_WRITEABLE(boolean_t, memorystatus_freeze_prevent_refreeze_of_recently_thawed,
+    "memorystatus_freeze_prevent_refreeze_of_recently_thawed",
+    MEMORYSTATUS_FREEZE_PREVENT_REFREEZE_OF_RECENTLY_THAWED_DEFAULT);
+TUNABLE_WRITEABLE(uint32_t, memorystatus_freeze_last_processes_thawed_cache_size,
+    "memorystatus_freeze_last_processes_thawed_cache_size",
+    MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_DEFAULT);
+TUNABLE_WRITEABLE(uint32_t, memorystatus_freeze_last_processes_thawed_prevent_refreeze_seconds,
+    "memorystatus_freeze_last_processes_thawed_prevent_refreeze_seconds",
+    MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_PREVENT_REFREEZE_SECONDS_DEFAULT);
+EXPERIMENT_FACTOR_UINT(memorystatus_freeze_prevent_refreeze_of_recently_thawed,
+    &memorystatus_freeze_prevent_refreeze_of_recently_thawed, 0, 1, "");
+EXPERIMENT_FACTOR_UINT(memorystatus_freeze_last_processes_thawed_cache_size,
+    &memorystatus_freeze_last_processes_thawed_cache_size, 0, MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_MAX, "");
+EXPERIMENT_FACTOR_UINT(memorystatus_freeze_last_processes_thawed_prevent_refreeze_seconds,
+    &memorystatus_freeze_last_processes_thawed_prevent_refreeze_seconds, 0, UINT32_MAX, "");
+pid_t    memorystatus_freeze_last_processes_thawed_pid[MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_MAX];
+uint64_t memorystatus_freeze_last_processes_thawed_ts[MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_MAX];
 
 #if (XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR) || XNU_TARGET_OS_WATCH
 #define FREEZE_ENABLED_DEFAULT TRUE
@@ -437,12 +462,6 @@ sysctl_memorystatus_freeze_budget_multiplier SYSCTL_HANDLER_ARGS
 		if (!VM_CONFIG_FREEZER_SWAP_IS_ACTIVE) {
 			return ENOTSUP;
 		}
-#if !(DEVELOPMENT || DEBUG)
-		if (val > 100) {
-			/* Can not increase budget on release. */
-			return EINVAL;
-		}
-#endif
 		lck_mtx_lock(&freezer_mutex);
 
 		memorystatus_freeze_budget_multiplier = val;
@@ -3233,6 +3252,73 @@ memorystatus_freezer_mark_ui_transition(proc_t p)
 
 out:
 	proc_list_unlock();
+}
+
+/*
+ * Cache of pids of most-recently thawed processes.
+ * Used to reduce excessive rapid thaw/refreeze cycles.
+ *
+ * There is a very small chance of false-positive mis-identification
+ * of a process due to eventual pid reuse, but for that to happen,
+ * a pid would have to be reused within the timeout period (e.g. 15 minutes),
+ * and even then the only consequence might be that that one process is
+ * temporarily passed over for refreezing until the timeout expires.
+ *
+ * FIXME (rdar://161250797) switch from PIDs to unique process IDs
+ */
+
+void
+memorystatus_freeze_record_process_thawed(proc_t p)
+{
+	unsigned int slot = 0;
+	pid_t procpid = proc_getpid(p);
+
+	assert(memorystatus_freeze_last_processes_thawed_cache_size <= MEMORYSTATUS_FREEZE_LAST_PROCESSES_THAWED_CACHE_SIZE_MAX);
+
+	for (slot = 0; slot < memorystatus_freeze_last_processes_thawed_cache_size; slot++) {
+		if (memorystatus_freeze_last_processes_thawed_pid[slot] == procpid) {
+			// Found existing table entry for this pid
+			break;
+		}
+	}
+
+	if (slot == memorystatus_freeze_last_processes_thawed_cache_size) {
+		// Did not find an existing table entry for this pid; select the oldest to evict
+		int oldest_slot = 0;
+		uint64_t oldest_ts = memorystatus_freeze_last_processes_thawed_ts[oldest_slot];
+		for (slot = 1; slot < memorystatus_freeze_last_processes_thawed_cache_size; slot++) {
+			if (memorystatus_freeze_last_processes_thawed_ts[slot] < oldest_ts) {
+				oldest_ts = memorystatus_freeze_last_processes_thawed_ts[slot];
+				oldest_slot = slot;
+			}
+		}
+		slot = oldest_slot;
+	}
+
+	memorystatus_freeze_last_processes_thawed_pid[slot] = proc_getpid(p);
+	memorystatus_freeze_last_processes_thawed_ts[slot] = mach_absolute_time();
+}
+
+bool
+memorystatus_freeze_was_process_recently_thawed(proc_t p)
+{
+	unsigned int slot;
+	bool recent_thaw = false;
+	pid_t procpid = proc_getpid(p);
+
+	for (slot = 0; slot < memorystatus_freeze_last_processes_thawed_cache_size; slot++) {
+		if (memorystatus_freeze_last_processes_thawed_pid[slot] == procpid) {
+			// Found existing table entry for this pid
+			uint64_t timeout_delta_abs;
+			nanoseconds_to_absolutetime(memorystatus_freeze_last_processes_thawed_prevent_refreeze_seconds * NSEC_PER_SEC, &timeout_delta_abs);
+			if (mach_absolute_time() < (memorystatus_freeze_last_processes_thawed_ts[slot] + timeout_delta_abs)) {
+				recent_thaw = true;
+			}
+			break;
+		}
+	}
+
+	return recent_thaw;
 }
 
 #endif /* CONFIG_FREEZE */

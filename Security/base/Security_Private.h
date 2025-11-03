@@ -87,6 +87,7 @@
 #include <Security/SecItemBackup.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecItemFetchOutOfBandPriv.h>
+#include <Security/SecJWS.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecKeyProxy.h>
 #include <Security/SecKnownFilePaths.h>

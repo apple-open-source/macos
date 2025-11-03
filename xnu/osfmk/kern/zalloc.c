@@ -400,6 +400,9 @@ __startup_data static struct mach_vm_range  zone_map_range;
 __startup_data static vm_map_size_t         zone_meta_size;
 __startup_data static vm_map_size_t         zone_bits_size;
 __startup_data static vm_map_size_t         zone_xtra_size;
+#if HAS_MTE
+__startup_data struct mach_vm_range         zone_early_range;
+#endif
 #if MACH_ASSERT
 __startup_data static vm_map_size_t         vm_submap_restriction_size_debug;
 #endif /* MACH_ASSERT */
@@ -2845,7 +2848,11 @@ zalloc_random_uniform32(uint32_t bound_min, uint32_t bound_max)
 #if ZALLOC_ENABLE_LOGGING
 /*
  * Track all kalloc zones of specified size for zlog name
- * kalloc.type.<size> or kalloc.type.var.<size> or kalloc.<size>
+ * - kalloc.type.var.<size>
+ * - kalloc.data.<size>
+ * - kalloc.data_shared.<size>
+ * - kalloc.type.<size>
+ * - kalloc.<size>
  *
  * Additionally track all early kalloc zones with early.kalloc
  */
@@ -2868,6 +2875,24 @@ track_kalloc_zones(zone_t z, const char *logname)
 	prefix = "kalloc.type.";
 	len    = strlen(prefix);
 	if (zsflags.z_kalloc_type && zsflags.z_kheap_id != KHEAP_ID_KT_VAR &&
+	    strncmp(logname, prefix, len) == 0) {
+		vm_size_t sizeclass = strtoul(logname + len, NULL, 0);
+
+		return zone_elem_inner_size(z) == sizeclass;
+	}
+
+	prefix = "kalloc.data.";
+	len    = strlen(prefix);
+	if (zsflags.z_kheap_id == KHEAP_ID_DATA_BUFFERS &&
+	    strncmp(logname, prefix, len) == 0) {
+		vm_size_t sizeclass = strtoul(logname + len, NULL, 0);
+
+		return zone_elem_inner_size(z) == sizeclass;
+	}
+
+	prefix = "kalloc.data_shared.";
+	len    = strlen(prefix);
+	if (zsflags.z_kheap_id == KHEAP_ID_DATA_SHARED &&
 	    strncmp(logname, prefix, len) == 0) {
 		vm_size_t sizeclass = strtoul(logname + len, NULL, 0);
 
@@ -3185,6 +3210,20 @@ static TUNABLE(bool, corruption_debug_flag, "-zc", false);
  */
 #define MAX_ZONES_LOG_REQUESTS  10
 
+static bool
+zone_get_zlog_boot_arg(int i, char zlog_val[static MAX_ZONE_NAME])
+{
+	char zlog_name[MAX_ZONE_NAME]; /* Temp. buffer to create the strings zlog1, zlog2 etc... */
+
+	snprintf(zlog_name, MAX_ZONE_NAME, "zlog%d", i);
+
+	if (PE_parse_boot_argn(zlog_name, zlog_val, MAX_ZONE_NAME)) {
+		return true;
+	}
+
+	return false;
+}
+
 /**
  * @function zone_setup_logging
  *
@@ -3205,7 +3244,6 @@ static void
 zone_setup_logging(zone_t z)
 {
 	char zone_name[MAX_ZONE_NAME]; /* Temp. buffer for the zone name */
-	char zlog_name[MAX_ZONE_NAME]; /* Temp. buffer to create the strings zlog1, zlog2 etc... */
 	char zlog_val[MAX_ZONE_NAME];  /* the zone name we're logging, if any */
 	bool logging_on = false;
 
@@ -3216,9 +3254,7 @@ zone_setup_logging(zone_t z)
 
 	/* zlog0 isn't allowed. */
 	for (int i = 1; i <= MAX_ZONES_LOG_REQUESTS; i++) {
-		snprintf(zlog_name, MAX_ZONE_NAME, "zlog%d", i);
-
-		if (PE_parse_boot_argn(zlog_name, zlog_val, sizeof(zlog_val))) {
+		if (zone_get_zlog_boot_arg(i, zlog_val)) {
 			if (track_this_zone(zone_name, zlog_val) ||
 			    track_kalloc_zones(z, zlog_val)) {
 				logging_on = true;
@@ -3757,6 +3793,11 @@ zone_kma_flags(zone_t z, zone_security_flags_t zsflags, zalloc_flags_t flags)
 		kmaflags |= KMA_LAST_FREE;
 	}
 
+#if HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING)
+	if (zsflags.z_tag) {
+		kmaflags |= KMA_TAG;
+	}
+#endif /* HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING) */
 
 	return kmaflags;
 }
@@ -3806,6 +3847,24 @@ zone_tag_element(zone_t zone, caddr_t addr, vm_size_t elem_size)
 static inline caddr_t
 zone_tag_free_element(zone_t zone, caddr_t addr, vm_size_t elem_size)
 {
+#if HAS_MTE
+	/*
+	 * We got a tagged address here and we are about to re-tag it.
+	 * Verify that a weird tagged value didn't slip all the way down
+	 * here as that would almost certainly signal malicious action.
+	 */
+	vm_memtag_verify_tag((vm_map_address_t)addr);
+
+	/*
+	 * Tagging policy is to "tag-on-free" and 0xF is banned from
+	 * the kernel versioning space (as it equates the canonical
+	 * tag value). We can therefore assume that any address that is
+	 * lower than 0xFF00000000000000ULL is actually a tagged address.
+	 * We use that simple trick to avoid storing into the zone data
+	 * whether it has tagging enabled or not, as that could in some
+	 * stretched case become a target for an attacker.
+	 */
+#endif /* HAS_MTE */
 	if (__improbable((uintptr_t)addr > 0xFF00000000000000ULL)) {
 		return addr;
 	}
@@ -3828,11 +3887,23 @@ zcram_memtag_init(zone_t zone, vm_offset_t base, uint32_t start, uint32_t end)
 	vm_size_t elem_size = zone_elem_outer_size(zone);
 	vm_size_t oob_offs = zone_elem_outer_offs(zone);
 
+#if HAS_MTE
+	caddr_t prev_addr = (caddr_t)-1ULL;
+#endif /* HAS_MTE */
 
 	for (uint32_t i = start; i < end; i++) {
 		caddr_t elem_addr = (caddr_t)(base + oob_offs + i * elem_size);
 
+#if HAS_MTE
+		/* To initialize a fresh page, just randomize remembering the previous tag */
+		mte_exclude_mask_t mask = GCR_EL1_EXCLUDE_TAGS_KERNEL;
+		mask = mte_update_exclude_mask(prev_addr, mask);
+
+		elem_addr = mte_generate_and_store_tag(elem_addr, elem_size, mask);
+		prev_addr = elem_addr;
+#else /* HAS_MTE */
 		elem_addr = vm_memtag_generate_and_store_tag(elem_addr, elem_size);
+#endif /* HAS_MTE */
 		zone_tag_element(zone, elem_addr, elem_size);
 	}
 }
@@ -4036,6 +4107,13 @@ zone_cram_early(zone_t zone, vm_offset_t newmem, vm_size_t size)
 	 *
 	 * "Lock" them so that they never hit z_pageq_empty.
 	 */
+#if HAS_MTE
+	/*
+	 * This range of memory was obtained by pmap_steal. We are here from
+	 * bootstrap and we'll pre-tag the region next, so we just zero
+	 * the content not bothering about tag state.
+	 */
+#endif /* HAS_MTE */
 	vm_memtag_bzero_unchecked((void *)newmem, size);
 	zcram(zone, newmem, pages, ZM_ALLOC_SIZE_LOCK);
 }
@@ -4808,6 +4886,11 @@ zone_expand_locked(zone_t z, zalloc_flags_t flags)
 			vm_grab_options_t grab_options = VM_PAGE_GRAB_NOPAGEWAIT;
 			vm_page_t m;
 
+#if ZSECURITY_CONFIG(ZONE_TAGGING) && HAS_MTE
+			if (zsflags.z_tag) {
+				grab_options |= VM_PAGE_GRAB_MTE;
+			}
+#endif /* ZSECURITY_CONFIG(ZONE_TAGGING) && HAS_MTE */
 			m = vm_page_grab_options(grab_options);
 
 			if (m) {
@@ -4816,6 +4899,9 @@ zone_expand_locked(zone_t z, zalloc_flags_t flags)
 				page_list = m;
 				vm_page_zero_fill(
 					m
+#if HAS_MTE
+					, false /* zero_tags */
+#endif /* HAS_MTE */
 					);
 				continue;
 			}
@@ -4873,7 +4959,11 @@ zone_expand_locked(zone_t z, zalloc_flags_t flags)
 			goto page_shortage;
 		}
 		vm_object_t object;
+#if HAS_MTE
+		object = zsflags.z_tag ? kernel_object_tagged : kernel_object_default;
+#else /* HAS_MTE */
 		object = kernel_object_default;
+#endif /* HAS_MTE */
 		vm_object_lock(object);
 
 		kernel_memory_populate_object_and_unlock(object,
@@ -5829,6 +5919,12 @@ __zcache_mark_valid(zone_t zone, vm_offset_t addr, zalloc_flags_t flags)
 	vm_offset_t esize = zone_elem_inner_size(zone);
 #endif
 
+#if HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING)
+	/*
+	 * Retrieve the memory tag assigned on free and update the pointer
+	 * metadata.
+	 */
+#endif /* HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING) */
 	addr = vm_memtag_load_tag(addr);
 
 #if VM_TAG_SIZECLASSES
@@ -9001,6 +9097,17 @@ zone_create_ext(
 	}
 #endif /* KASAN_TBI */
 
+#if HAS_MTE
+	/*
+	 * Read-only allocator currently doesn't support MTE.
+	 * While writing the support would not be too complicated
+	 * (STGs must happen while the write window is open), we should
+	 * explore to retire the allocator to win back perf and complexity.
+	 */
+	if (is_mte_enabled && (flags & ZC_READONLY)) {
+		zsflags->z_tag = false;
+	}
+#endif /* HAS_MTE */
 
 #endif /* ZSECURITY_CONFIG(ZONE_TAGGING) */
 
@@ -9013,9 +9120,17 @@ zone_create_ext(
 	}
 	if (flags & ZC_DATA) {
 		zsflags->z_kheap_id = KHEAP_ID_DATA_BUFFERS;
+#if HAS_MTE
+		if (!mte_kern_data_enabled()) {
+			zsflags->z_tag = false;
+		}
+#endif /* HAS_MTE */
 	}
 	if (flags & ZC_SHARED_DATA) {
 		zsflags->z_kheap_id = KHEAP_ID_DATA_SHARED;
+#if HAS_MTE
+		zsflags->z_tag = false;
+#endif /* HAS_MTE */
 	}
 
 #if KASAN_CLASSIC
@@ -9400,6 +9515,18 @@ zone_bootstrap(void)
 	}
 #endif /* ZSECURITY_CONFIG(SAD_FENG_SHUI) */
 
+#if HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING)
+	/*
+	 * If MTE is disabled, we want all zones to have tagging disabled.
+	 * Loop here disabling tagging across the board, ahead of early boot
+	 * zone operations and, of course, lockdown.
+	 */
+	if (!is_mte_enabled) {
+		for (zone_id_t i = 1; i < MAX_ZONES; i++) {
+			zone_security_array[i].z_tag = false;
+		}
+	}
+#endif /* HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING) */
 
 	thread_call_setup_with_options(&zone_expand_callout,
 	    zone_expand_async, NULL, THREAD_CALL_PRIORITY_HIGH,
@@ -9547,10 +9674,21 @@ zone_submap_init(
 	}
 
 	addr = submap_start;
+#if ZSECURITY_CONFIG(ZONE_TAGGING) && HAS_MTE
+	boolean_t zone_alloc_mte_pages = is_mte_enabled;
+
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_FIXED_PERMANENT(
+		.vmkf_no_soft_limit = true,
+		.vm_tag = VM_KERN_MEMORY_ZONE,
+		.vmf_mte = zone_alloc_mte_pages ? true : false);
+	vm_object_t kobject = zone_alloc_mte_pages ? kernel_object_tagged : kernel_object_default;
+
+#else /* ZSECURITY_CONFIG(ZONE_TAGGING) && HAS_MTE */
 	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_FIXED_PERMANENT(
 		.vmkf_no_soft_limit = true,
 		.vm_tag = VM_KERN_MEMORY_ZONE);
 	vm_object_t kobject = kernel_object_default;
+#endif /* ZSECURITY_CONFIG(ZONE_TAGGING) && HAS_MTE  */
 
 	kr = vm_map_enter(submap, &addr, left_guard_size, 0,
 	    vmk_flags, kobject, addr, FALSE, prot, prot_max, VM_INHERIT_NONE);
@@ -9708,6 +9846,12 @@ zone_metadata_init(void)
 	flags |= KMA_TAG;
 #endif /* ZSECURITY_CONFIG_ZONE_TAGGING */
 
+#if HAS_MTE
+	/* This is temporary for testing/bringup: fully disable MTE */
+	if (!is_mte_enabled) {
+		flags &= ~KMA_TAG;
+	}
+#endif /* HAS_MTE */
 
 	kernel_memory_populate(reloc_base, early_sz, flags,
 	    VM_KERN_MEMORY_OSFMK);
@@ -9753,9 +9897,26 @@ zone_metadata_init(void)
 		}
 	}
 
+#if HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING)
+	if (is_mte_enabled) {
+		zone_early_range = early_r;
+	}
+#endif /* HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING) */
 	vmlp_api_end(ZONE_METADATA_INIT, 0);
 }
 
+#if HAS_MTE
+static void
+zone_early_alloc_cleanup(void)
+{
+	vm_size_t early_sz = mach_vm_range_size(&zone_early_range);
+
+	if (early_sz) {
+		ml_static_mfree(zone_early_range.min_address, early_sz);
+	}
+}
+STARTUP(ZALLOC, STARTUP_RANK_LAST, zone_early_alloc_cleanup);
+#endif /* HAS_MTE */
 
 __startup_data
 static uint16_t submap_ratios[Z_SUBMAP_IDX_COUNT] = {
@@ -10021,6 +10182,16 @@ zone_early_mem_init(vm_size_t size)
 	assert3u(size, <=, sizeof(zone_early_pages_to_cram));
 	mem = (vm_offset_t)zone_early_pages_to_cram;
 
+#if HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING)
+	/*
+	 * zone_early_pages_to_cram is in the DATA segment, so canonically
+	 * tagged. We need to have regularly taggable memory, so need to
+	 * specially allocate with the MTE MAIR set.
+	 */
+	if (is_mte_enabled) {
+		mem = (vm_offset_t)pmap_steal_zone_memory(size, PAGE_SIZE);
+	}
+#endif /* HAS_MTE && ZSECURITY_CONFIG(ZONE_TAGGING) */
 
 	zone_info.zi_meta_base = VM_FAR_ADD_PTR_UNBOUNDED(
 		(struct zone_page_metadata *)zone_early_meta_array_startup,

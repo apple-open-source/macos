@@ -1,0 +1,52 @@
+[
+    {
+        "anchor_type": "System",
+        "certificate_details": {
+            "common_name": "DigiCert TLS RSA4096 Root G5",
+            "not_after": "2046-01-14T23:59:59+00:00",
+            "not_before": "2021-01-15T00:00:00+00:00",
+            "pem": "-----BEGIN CERTIFICATE-----\nMIIFZjCCA06gAwIBAgIQCPm0eKj6ftpqMzeJ3nzPijANBgkqhkiG9w0BAQwFADBN\nMQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xJTAjBgNVBAMT\nHERpZ2lDZXJ0IFRMUyBSU0E0MDk2IFJvb3QgRzUwHhcNMjEwMTE1MDAwMDAwWhcN\nNDYwMTE0MjM1OTU5WjBNMQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQs\nIEluYy4xJTAjBgNVBAMTHERpZ2lDZXJ0IFRMUyBSU0E0MDk2IFJvb3QgRzUwggIi\nMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQCz0PTJeRGd/fxmgefM1eS87IE+\najWOLrfn3q/5B03PMJ3qCQuZvWxX2hhKuHisOjmopkisLnLlvevxGs3npAOpPxG0\n2C+JFvuUAT27L/gTBaF4HI4o4EXgg/RZG5Wzrn4DReW+wkL+7vI8toUTmDKdFqgp\nwgscONyfMXdcvyej/Cestyu9dJsXLfKB2l2w4SMXPohKEiPQ6s+d3gMXsUJKoBZM\npG2T6T867jp8nVid9E6P/DsjyG244gXazOvswzH016cpVIDPRFtMbzCe88zdH5RD\nnU1/cHAN1DrRN/BsnZvAFJNY781BOHW8EwOVfH/jXOnVDdXifBBiqmvwPXbzP6Po\nsMH976pXTayGpxi0KcEsDr9kvimM2AItzVwv8n/vFfQMFawKsPHTDU9qTXeXAaDx\nZre3zu/O7Oyldcqs4+Fj97ihBMi8ez9dLRYiVu1ISf6nL3kwJZu6ay0/nTvEF+cd\nLvvyz6b84xQslpghjLSR6Rlgg/IwKwZzUNWYOwbpx4oMYIwo+FKbbuH2TbsGJJvX\nKyY//SovcfXWJL5/MZ4PbeiPT02jP/816t9JXkGPhvnxd3lLG7SjXi/7RgLQZhNe\nXoVPzthwiHvOAbWWl9fNff2C+MIkwcoBOU+NosEUQB+cZtUMCUbW8tDRSHZWOkPL\ntgoRObqME2wGtZ7P6wIDAQABo0IwQDAdBgNVHQ4EFgQUUTMc7TZArxfTJc1paPKv\nTiM+s0EwDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcN\nAQEMBQADggIBAGCmr1tfV9qJ20tQqcQjNSH/0GEwhJG3PxDPJY7Jv0Y02cEhJhxw\nGXIeo8mH/qlDZJY6yFMECrZBu8RHANmfGBg7sg7zNOok992vIGCukihfNudd5N7H\nPNtQOa27PShNlnx2xlv0wdsUpasZYgcYQF+Xkdycx6u1UQ3maVNVzDl92sURVXLF\nO4uJ+DQtpBflF+aZfTCIITfNMBc9uPK8qHWgQ9w+iUuQrm0D4ByjoJYJu32jtyoQ\nREtGBzRj7TG5BO6jm5qu5jF49OokYTurWGT/u4cnYiWB39yhL/btp/96j1EuMPik\nAdKFOV8BmZZvWltwGUb+hmA+rYAQCd05JS9Yf7vSdPD3Rh9GOUrYU9DzLjtxpdRv\n/PNn5AeP3SYZ4Y1b+qOTEZvpyDrDVWiakuFSdjjo4bq9+0/V77PnSIMx8IIh47a+\np6tv75/fTM8BuGJqIz3nCU2AG3swpMPdB380vqQmsvZB6Akd4yCYqjdP//fx4ilw\nMUc/dNAUFvohigLVigmUdy7yWSiLfFCSCmZ4OIN1xLVaqBHG5cGdZlXPU8Sv13WF\nqUITVuwhd4GTWgzqltlJyqEI8pc7bZsEGCREjnwB8twl2F6GmrE52/WRMmrRpnCK\novfepEWFJqgejF0pW8hL2JpqA15w8oVPbEtoL8pU9ozaMv7Da4M/OMZ+\n-----END CERTIFICATE-----",
+            "sha256_fingerprint": "371A00DC0533B3721A7EEB40E8419E70799D2B0A0F2C1D80693165F7CEC4AD75",
+            "spki": "6A97B51C8219E93E5DEC64BAD5806CDEB0F8355BE47E757010B702456E01AAFD"
+        },
+        "change_reason": "Test addition with EV TLS OIDs",
+        "change_type": "Addition",
+        "ev_tls_oids": [
+            "2.23.140.1.1"
+        ]
+    },
+    {
+        "anchor_type": "Custom",
+        "certificate_details": {
+            "common_name": "Apple RCS Signing ECC Root CA - G1",
+            "not_after": "2035-06-09T00:00:00+00:00",
+            "not_before": "2025-06-10T19:53:38+00:00",
+            "pem": "-----BEGIN CERTIFICATE-----\nMIICKjCCAbCgAwIBAgIQPFHACVonCoU5jifRk5zLYTAKBggqhkjOPQQDAzBPMQsw\nCQYDVQQGEwJVUzETMBEGA1UECgwKQXBwbGUgSW5jLjErMCkGA1UEAwwiQXBwbGUg\nUkNTIFNpZ25pbmcgRUNDIFJvb3QgQ0EgLSBHMTAeFw0yNTA2MTAxOTUzMzhaFw0z\nNTA2MDkwMDAwMDBaME8xCzAJBgNVBAYTAlVTMRMwEQYDVQQKDApBcHBsZSBJbmMu\nMSswKQYDVQQDDCJBcHBsZSBSQ1MgU2lnbmluZyBFQ0MgUm9vdCBDQSAtIEcxMHYw\nEAYHKoZIzj0CAQYFK4EEACIDYgAEt2/eUTIiuBujKAX+2VN/UEDolBz/HeMcN1Zk\nUBAvVl4dZTWjpiD6h8EJXKGW1YA//YXlnBe3ys0WuG5bUZvnexEg8O5wbmYYsPta\n8jIcf6mUZY2I1srWpuZmLyfU3GnUo1EwTzAPBgNVHRMBAf8EBTADAQH/MB0GA1Ud\nDgQWBBR+SMfo/54yOas8VwZaE24MPXmySjAOBgNVHQ8BAf8EBAMCAQYwDQYGZ4ES\nAgEGBAMCAQEwCgYIKoZIzj0EAwMDaAAwZQIwMsvkLuPmEXRvfqpcS467LcAl3RRr\nQE3JfevBDjb8ijWAYxREDuOVTp5RooQQ2LN+AjEA0sTQwqKlcgV6z02F2Z7T2n6z\nPRFeT8dU3Z+aFGBX/tciCSilGx1dexp/+kGE5s+X\n-----END CERTIFICATE-----\n",
+            "sha256_fingerprint": "67c03cf2d31e2c073c30ea1b4e869bcaa5bc0eb329251a47c8520efffcd45df1",
+            "spki": "3076301006072a8648ce3d020106052b8104002203620004b76fde513222b81ba32805fed9537f5040e8941cff1de31c37566450102f565e1d6535a3a620fa87c1095ca196d5803ffd85e59c17b7cacd16b86e5b519be77b1120f0ee706e6618b0fb5af2321c7fa994658d88d6cad6a6e6662f27d4dc69d4"
+        },
+        "change_reason": "Test addition with policy constraints",
+        "change_type": "Addition",
+        "policy_constraints": [
+            "1.2.840.113635.100.1.121"
+        ]
+    },
+    {
+        "anchor_type": "Test-System",
+        "certificate_details": {
+            "common_name": "Test Apple Platform Bootstrap ECC Root CA - G1",
+            "not_after": "2054-12-09T00:00:00+00:00",
+            "not_before": "2025-02-06T09:31:17+00:00",
+            "pem": "-----BEGIN CERTIFICATE-----\nMIICfzCCAeGgAwIBAgIQC3TiVYdJfTay+DrWZJTbQTAKBggqhkjOPQQDBDBbMQsw\nCQYDVQQGEwJVUzETMBEGA1UECgwKQXBwbGUgSW5jLjE3MDUGA1UEAwwuVGVzdCBB\ncHBsZSBQbGF0Zm9ybSBCb290c3RyYXAgRUNDIFJvb3QgQ0EgLSBHMTAgFw0yNTAy\nMDYwOTMxMTdaGA8yMDU0MTIwOTAwMDAwMFowWzELMAkGA1UEBhMCVVMxEzARBgNV\nBAoMCkFwcGxlIEluYy4xNzA1BgNVBAMMLlRlc3QgQXBwbGUgUGxhdGZvcm0gQm9v\ndHN0cmFwIEVDQyBSb290IENBIC0gRzEwgZswEAYHKoZIzj0CAQYFK4EEACMDgYYA\nBAHmZOq0FhKwJIPNzMMdnuQkMOaNIwhqnL+63OQ5D05m1uYgD++2mdySSMg2AsD8\nyCNg8OxvOMK+6Uu6q7m9aTcqMgFkTJbVRYmdWnxJrP1JD4EhniJj6C6N+ZJazkNc\nDuxdkuOVRTjVx71ETgNxnpJslbUVSfRpv13x1S2nrSIOwCsX26NCMEAwDwYDVR0T\nAQH/BAUwAwEB/zAdBgNVHQ4EFgQU6bRRpYfEQdEejNXnvCRIT2EKYr8wDgYDVR0P\nAQH/BAQDAgEGMAoGCCqGSM49BAMEA4GLADCBhwJBTpdNExnGF9mJVG2Q9AhbcGAM\n2HhEW+kiFDiyq5asjj2f4117DveYaTXv2ynzMcOc3dpLgt+md2sg5oZLs6BnKMQC\nQgF/coRX9ogUUrDPxttQd1Opwre4Xn+Bl9v8l0QDbhe8IKyQsxmYPkyrmPTH0FgE\nWc3S5D2EQeTOEEkAPxITBKMQNw==\n-----END CERTIFICATE-----\n",
+            "sha256_fingerprint": "aeab9ab2d2bc325a5a68aeb0433f9518a8d1c8bcd0839c961c080aa01c1a5f8e",
+            "spki": "30819b301006072a8648ce3d020106052b81040023038186000401e664eab41612b02483cdccc31d9ee42430e68d23086a9cbfbadce4390f4e66d6e6200fefb699dc9248c83602c0fcc82360f0ec6f38c2bee94bbaabb9bd69372a3201644c96d545899d5a7c49acfd490f81219e2263e82e8df9925ace435c0eec5d92e3954538d5c7bd444e03719e926c95b51549f469bf5df1d52da7ad220ec02b17db"
+        },
+        "change_reason": "Test Apple anchor addition",
+        "change_type": "Addition",
+        "policy_constraints": [
+            "1.2.840.113635.100.1.2",
+            "1.2.840.113635.100.1.16",
+            "1.2.840.113635.100.1.66"
+        ]
+    }
+]

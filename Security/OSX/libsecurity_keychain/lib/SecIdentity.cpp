@@ -860,6 +860,15 @@ static OSStatus importPkcs12CertToLegacyKeychain(SecIdentityRef identity, SecKey
     return status;
 }
 
+static CF_RETURNS_RETAINED SecIdentityRef getKeychainBackedIdentity(SecCertificateRef cert) {
+    /* SecIdentityCreateWithCertificate queries the keychain search list, data protection keychain
+     * and system data protection keychains, so if it is able to create a SecIdentity then we know
+     * this is a keychain-backed Identity vs an in-memory identity. */
+    SecIdentityRef identity = NULL;
+    (void)SecIdentityCreateWithCertificate(NULL, cert, &identity);
+    return identity;
+}
+
 CF_RETURNS_RETAINED _Nullable
 SecIdentityRef SecIdentityImportToFileBackedKeychain(SecIdentityRef identity,  SecKeychainRef importKeychain, SecAccessRef importAccess) {
     OSStatus status = errSecInternal;
@@ -870,33 +879,15 @@ SecIdentityRef SecIdentityImportToFileBackedKeychain(SecIdentityRef identity,  S
         return NULL;
     }
 
-    /* Check whether the identity's key and certificate are already KeychainItem types before adding them*/
-    SecCertificateRef currentCert = NULL;
-    SecKeyRef currentKey = NULL;
-    SecIdentityCopyCertificate(identity, &currentCert);
-    SecIdentityCopyPrivateKey(identity, &currentKey);
-
-
-    if (!SecKeyIsLegacyInstance(currentKey)) {
-        status = importPkcs12KeyToLegacyKeychain(identity, importKeychain, importAccess, &privateKey);
-        if (status != errSecSuccess) { goto errOut; }
-    } else {
-        privateKey = CFRetainSafe(currentKey);
-    }
-
-    if (!SecCertificateIsItemImplInstance(currentCert)) {
-        status = importPkcs12CertToLegacyKeychain(identity, importKeychain, &certificate);
-        if (status != errSecSuccess) { goto errOut; }
-    } else {
-        certificate = CFRetainSafe(currentCert);
-    }
-
+    status = importPkcs12KeyToLegacyKeychain(identity, importKeychain, importAccess, &privateKey);
+    if (status != errSecSuccess) { goto errOut; }
+    status = importPkcs12CertToLegacyKeychain(identity, importKeychain, &certificate);
+    if (status != errSecSuccess) { goto errOut; }
     // Re-create identity with the file-backed keychain items
     localIdentity = SecIdentityCreate(NULL, certificate, privateKey);
 
+
 errOut:
-    CFReleaseNull(currentCert);
-    CFReleaseNull(currentKey);
     CFReleaseNull(privateKey);
     CFReleaseNull(certificate);
 
@@ -940,7 +931,16 @@ OSStatus SecIdentitySetPreference(
     catch(...) {
         keychain = globals().storageManager.defaultKeychainUI(item);
     }
-    SecIdentityRef localIdentity = SecIdentityImportToFileBackedKeychain(identity, keychain->handle(), NULL);
+
+    /* Check whether this identity is already in the keychain and recover the keychain version.
+     * If it's not in the keychain, import it. */
+    SecCertificateRef currentCert = NULL;
+    SecIdentityCopyCertificate(identity, &currentCert);
+    SecIdentityRef localIdentity = getKeychainBackedIdentity(currentCert);
+    if (!localIdentity) {
+        localIdentity = SecIdentityImportToFileBackedKeychain(identity, keychain->handle(), NULL);
+    }
+    CFReleaseNull(currentCert);
 
     CFRef<SecCertificateRef>  certRef;
     OSStatus status = SecIdentityCopyCertificate(localIdentity, certRef.take());

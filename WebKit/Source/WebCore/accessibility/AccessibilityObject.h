@@ -253,6 +253,7 @@ public:
     virtual bool computeIsIgnored() const { return true; }
     bool isIgnored() const final;
     void recomputeIsIgnored();
+    void recomputeIsIgnoredForDescendants(bool includeSelf = false);
     AccessibilityObjectInclusion defaultObjectInclusion() const;
     bool isIgnoredByDefault() const;
     bool includeIgnoredInCoreTree() const;

@@ -561,7 +561,7 @@ check_arg_idx(win_T *win)
 }
 
 /*
- * ":args", ":argslocal" and ":argsglobal".
+ * ":args", ":arglocal" and ":argglobal".
  */
     void
 ex_args(exarg_T *eap)
@@ -1257,6 +1257,10 @@ do_arg_all(
 #endif
 
     tabpage_T *new_lu_tp = curtab;
+
+    // Stop Visual mode, the cursor and "VIsual" may very well be invalid after
+    // switching to another buffer.
+    reset_VIsual_and_resel();
 
     // Try closing all windows that are not in the argument list.
     // Also close windows that are not full width;

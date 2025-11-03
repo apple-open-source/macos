@@ -220,6 +220,7 @@ NS_ASSUME_NONNULL_BEGIN
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                repair:(BOOL)repair
   danglingPeerCleanup:(BOOL)danglingPeerCleanup
+    caesarPeerCleanup:(BOOL)casearPeerCleanup
            updateIdMS:(BOOL)updateIdMS
                 reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
 

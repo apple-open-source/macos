@@ -14,10 +14,14 @@
 #include <stdlib.h>
 #include <System/sys/codesign.h>
 #include <darwintest.h>
+#include <sys/reboot.h>
 
 T_GLOBAL_META(T_META_NAMESPACE("xnu.note_exec"),
     T_META_RADAR_COMPONENT_NAME("xnu"),
     T_META_RADAR_COMPONENT_VERSION("spawn"));
+
+
+#define TIMEOUT  480
 
 static int kq;
 static int pid;
@@ -77,6 +81,15 @@ thread_wait_exec(void *arg __unused)
 }
 
 static void
+sigalrm_handler(int sig)
+{
+	(void)sig;
+	/* Raising additional diagnostic for rdar://146819222 (xnu.note_exec.test_note_exec failed: Test Failed...) */
+	reboot_np(RB_PANIC, "Generating coredump during a fault state");
+	return;
+}
+
+static void
 run_test(void)
 {
 	struct kevent64_s kev;
@@ -132,9 +145,14 @@ run_test(void)
 T_DECL(test_note_exec, "test NOTE_EXEC race with setting csops") {
 	T_QUIET; T_LOG("Testing race for NOTE_EXEC with csops");
 
+	/* setup SIGALRM handler to panic the kernel in case of a timeout */
+	sig_t sig = signal(SIGALRM, sigalrm_handler);
+
+	alarm(TIMEOUT);
 	for (int i = 0; i < 100; i++) {
 		T_QUIET; T_LOG("Running iteration %d", i);
 		run_test();
 	}
+	alarm(0);
 	T_END;
 }

@@ -3507,8 +3507,6 @@ sys_fcntl_nocancel(proc_t p, struct fcntl_nocancel_args *uap, int32_t *retval)
 		goto outdrop;
 	}
 	case F_SETSIZE: {
-		struct vnode_attr va;
-
 		if (fp->f_type != DTYPE_VNODE) {
 			error = EBADF;
 			goto out;
@@ -3532,17 +3530,8 @@ sys_fcntl_nocancel(proc_t p, struct fcntl_nocancel_args *uap, int32_t *retval)
 			goto outdrop;
 		}
 
-		VATTR_INIT(&va);
-		VATTR_WANTED(&va, va_flags);
-
-		error = vnode_getattr(vp, &va, vfs_context_current());
-		if (error) {
-			vnode_put(vp);
-			goto outdrop;
-		}
-
 		/* Don't allow F_SETSIZE if the file has append-only flag set. */
-		if (va.va_flags & APPEND) {
+		if (vnode_isappendonly(vp)) {
 			error = EPERM;
 			vnode_put(vp);
 			goto outdrop;

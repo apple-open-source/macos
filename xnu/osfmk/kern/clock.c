@@ -812,6 +812,8 @@ clock_set_calendar_microtime(
 
 	commpage_value = clock_boottime * USEC_PER_SEC + clock_boottime_usec;
 
+	commpage_update_boottime(commpage_value);
+
 	clock_unlock();
 	splx(s);
 
@@ -834,8 +836,6 @@ clock_set_calendar_microtime(
 
 	print_all_clock_variables_internal(__func__, &clock_calend_cp);
 	print_all_clock_variables_internal(__func__, &clock_calend_cp1);
-
-	commpage_update_boottime(commpage_value);
 
 	/*
 	 *	Send host notifications.

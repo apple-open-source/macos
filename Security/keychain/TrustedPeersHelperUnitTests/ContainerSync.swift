@@ -536,6 +536,7 @@ extension Container {
     func requestHealthCheckSync(requiresEscrowCheck: Bool,
                                 repair: Bool,
                                 danglingPeerCleanup: Bool,
+                                caesarPeerCleanup: Bool,
                                 updateIdMS: Bool,
                                 test: XCTestCase) -> (TrustedPeersHelperHealthCheckResult?, Error?) {
         let expectation = XCTestExpectation(description: "requestHealthCheck replied")
@@ -545,6 +546,7 @@ extension Container {
         self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck,
                                 repair: repair,
                                 danglingPeerCleanup: danglingPeerCleanup,
+                                caesarPeerCleanup: caesarPeerCleanup,
                                 updateIdMS: updateIdMS,
                                 knownFederations: [],
                                 flowID: nil,

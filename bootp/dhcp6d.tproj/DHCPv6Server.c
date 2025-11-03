@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -550,7 +550,7 @@ CreateServerDUID(void)
     interface_t *	if_p;
     interface_list_t *	interfaces;
 
-    interfaces = ifl_init();
+    interfaces = ifl_create(NULL);
     if (interfaces == NULL) {
 	my_log(LOG_NOTICE, "can't retrieve interface list");
 	goto done;

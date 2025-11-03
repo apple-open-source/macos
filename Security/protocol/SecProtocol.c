@@ -311,6 +311,7 @@ sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
         CHECK_BLOCK_QUEUE(key_update_block, key_update_queue);
         CHECK_BLOCK_QUEUE(psk_selection_block, psk_selection_queue);
         CHECK_BLOCK_QUEUE(external_psk_selection_block, external_psk_selection_queue);
+        CHECK_BLOCK_QUEUE(pake_challenge_block, pake_challenge_queue);
         CHECK_BLOCK_QUEUE(challenge_block, challenge_queue);
         CHECK_BLOCK_QUEUE(verify_block, verify_queue);
         CHECK_BLOCK_QUEUE(tls_secret_update_block, tls_secret_update_queue);
@@ -998,21 +999,34 @@ sec_protocol_options_set_pre_shared_key_selection_block(sec_protocol_options_t o
 }
 
 void
-sec_protocol_options_set_external_pre_shared_key_selection_queue_helper(sec_protocol_options_t options, dispatch_queue_t psk_selection_queue)
+sec_protocol_options_set_queue_helper(sec_protocol_options_t options, dispatch_queue_t queue, selection_queue_type_t type)
 {
     SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
-    SEC_PROTOCOL_OPTIONS_VALIDATE(psk_selection_queue,);
+    SEC_PROTOCOL_OPTIONS_VALIDATE(queue,);
 
     (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
-        if (content->external_psk_selection_queue != NULL) {
-            dispatch_release(content->external_psk_selection_queue);
+        dispatch_queue_t *content_queue = nil;
+
+        switch (type) {
+            case external_pre_shared_key_selection:
+                content_queue = &content->external_psk_selection_queue;
+                break;
+            case pake_challenge:
+                content_queue = &content->pake_challenge_queue;
+                break;
+            default:
+                break;
         }
 
-        content->external_psk_selection_queue = psk_selection_queue;
-        dispatch_retain(content->external_psk_selection_queue);
+        if (*content_queue != NULL) {
+            dispatch_release(*content_queue);
+        }
+
+        *content_queue = queue;
+        dispatch_retain(queue);
         return true;
     });
 }

@@ -180,8 +180,6 @@ public:
 
     virtual void isActiveNowPlayingSessionChanged() = 0;
 
-    virtual std::optional<ProcessID> mediaSessionPresentingApplicationPID() const = 0;
-
 #if !RELEASE_LOG_DISABLED
     virtual const Logger& logger() const = 0;
     Ref<const Logger> protectedLogger() const { return logger(); }
@@ -209,6 +207,13 @@ class PlatformMediaSessionInterface
 {
 public:
     virtual ~PlatformMediaSessionInterface() = default;
+
+    USING_CAN_MAKE_WEAKPTR(CanMakeWeakPtr<PlatformMediaSessionInterface>);
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    void ref() const final { RefCountedAndCanMakeWeakPtr::ref(); }
+    void deref() const final { RefCountedAndCanMakeWeakPtr::deref(); }
+#endif
 
     virtual void setActive(bool) = 0;
 
@@ -304,8 +309,6 @@ public:
 
     virtual bool isActiveNowPlayingSession() const = 0;
     virtual void setActiveNowPlayingSession(bool) = 0;
-
-    virtual std::optional<ProcessID> presentingApplicationPID() const { return client().mediaSessionPresentingApplicationPID(); }
 
     virtual void audioSessionCategoryChanged(AudioSessionCategory, AudioSessionMode, RouteSharingPolicy) { }
 

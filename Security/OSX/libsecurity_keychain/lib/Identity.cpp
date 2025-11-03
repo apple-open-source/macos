@@ -72,12 +72,15 @@ Identity::Identity(const StorageManager::KeychainList &keychains, const SecPoint
         if (status == errSecSuccess) {
             return;
         }
-        // try the modern system keychain if not found in data protection keychain
-        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
-        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
-        status = SecItemCopyMatching(query, (CFTypeRef *)&mPrivateKey);
-        if (status == errSecSuccess) {
-            return;
+
+        if (SecItemCanUseSystemDataProtectionKeychain()) {
+            // try the modern system keychain if not found in data protection keychain
+            CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+            CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+            status = SecItemCopyMatching(query, (CFTypeRef *)&mPrivateKey);
+            if (status == errSecSuccess) {
+                return;
+            }
         }
     }
     // Second, try the legacy OS X keychain(s).

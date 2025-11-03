@@ -310,6 +310,7 @@ API_DEPRECATED("Use -status:xpcFd:reply:", macos(13.0, 16.0), ios(16.0, 19.0), t
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
          danglingPeerCleanup:(BOOL)danglingPeerCleanup
+           caesarPeerCleanup:(BOOL)caesarPeerCleanup
                   updateIdMS:(BOOL)updateIdMS
 reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
 

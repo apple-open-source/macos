@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <malloc/malloc.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_ALL_ALLOCATORS);
 
 static inline void*
 t_calloc(size_t count, size_t s)
@@ -50,7 +50,7 @@ test_calloc_random(size_t count, size_t min, size_t max, size_t incr, size_t n)
 }
 
 T_DECL(calloc_overflow_nano, "calloc with overflow (nano)",
-	T_META_ENVVAR("MallocNanoZone=1"))
+	T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_VM_PREFERRED)
 {
 	void *ptr = calloc(LONG_MAX, 256);
 	T_ASSERT_EQ(ptr, NULL, "calloc overflow check #1");
@@ -62,7 +62,7 @@ T_DECL(calloc_overflow_nano, "calloc with overflow (nano)",
 }
 
 T_DECL(calloc_overflow, "calloc with overflow",
-	T_META_ENVVAR("MallocNanoZone=0"))
+	T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_PREFERRED)
 {
 	void *ptr = calloc(LONG_MAX, 1000);
 	T_ASSERT_EQ(ptr, NULL, "calloc overflow check #1");
@@ -74,7 +74,7 @@ T_DECL(calloc_overflow, "calloc with overflow",
 }
 
 T_DECL(calloc_nano, "nano calloc all sizes <= 256",
-	   T_META_ENVVAR("MallocNanoZone=1"))
+	   T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_VM_PREFERRED)
 {
 	test_calloc(1, 0, 256, 1);		// NANO_MAX_SIZE
 	test_calloc_random(1, 0, 256, 1, 100);
@@ -87,7 +87,7 @@ T_DECL(calloc_nano, "nano calloc all sizes <= 256",
 }
 
 T_DECL(calloc_tiny, "tiny calloc 16b increments <= 1008",
-	   T_META_ENVVAR("MallocNanoZone=0"))
+	   T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_PREFERRED)
 {
 	test_calloc(1, 0, 1008, 16); 		// SMALL_THRESHOLD
 	test_calloc_random(1, 0, 1008, 16, 100);
@@ -103,7 +103,7 @@ T_DECL(calloc_tiny, "tiny calloc 16b increments <= 1008",
 // run) and for some AppleTVs, so use a cut-down version.
 #if TARGET_OS_WATCH || TARGET_OS_TV
 T_DECL(calloc, "calloc all 2048b increments <= 130kb",
-	   T_META_ENVVAR("MallocNanoZone=0"))
+	   T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_calloc(1, 1024, 130 * 1024, 2048);		// > LARGE_THRESHOLD_LARGEMEM
 	test_calloc_random(1, 1024, 130 * 1024, 2048, 50);
@@ -116,7 +116,7 @@ T_DECL(calloc, "calloc all 2048b increments <= 130kb",
 }
 #else // !TARGET_OS_WATCH && !TARGET_OS_TV
 T_DECL(calloc, "calloc all 512b increments <= 256kb",
-	   T_META_ENVVAR("MallocNanoZone=0"))
+	   T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_calloc(1, 1024, 256 * 1024, 512);		// > LARGE_THRESHOLD_LARGEMEM
 	test_calloc_random(1, 1024, 256 * 1024, 512, 100);

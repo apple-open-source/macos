@@ -353,8 +353,22 @@ UBool ReorderingBuffer::resize(int32_t appendLength, UErrorCode &errorCode) {
     int32_t reorderStartIndex = static_cast<int32_t>(reorderStart - start);
     int32_t length = static_cast<int32_t>(limit - start);
     str.releaseBuffer(length);
+#if APPLE_ICU_CHANGES // rdar://160634825
+    int32_t newCapacity;
+    if (uprv_add32_overflow(length, appendLength, &newCapacity)) {
+        errorCode = U_BUFFER_OVERFLOW_ERROR;
+        return false;
+    }
+
+    int32_t doubleCapacity;
+    int32_t currentCapacity = str.getCapacity();
+    if (uprv_mul32_overflow(currentCapacity, 2, &doubleCapacity)) {
+        doubleCapacity = INT32_MAX;
+    }
+#else
     int32_t newCapacity=length+appendLength;
     int32_t doubleCapacity=2*str.getCapacity();
+#endif
     if(newCapacity<doubleCapacity) {
         newCapacity=doubleCapacity;
     }

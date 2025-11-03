@@ -192,9 +192,11 @@ private:
     
     FillRepeatXY m_repeat;
 
+    static constexpr unsigned FillBoxBitWidth = 3;
+
     unsigned m_attachment : 2; // FillAttachment
-    unsigned m_clip : 3; // FillBox
-    unsigned m_origin : 2; // FillBox
+    unsigned m_clip : FillBoxBitWidth; // FillBox
+    unsigned m_origin : FillBoxBitWidth; // FillBox
     unsigned m_composite : 4; // CompositeOperator
     unsigned m_sizeType : 2; // FillSizeType
     unsigned m_blendMode : 5; // BlendMode
@@ -213,7 +215,7 @@ private:
 
     unsigned m_type : 1; // FillLayerType
 
-    mutable unsigned m_clipMax : 2; // FillBox, maximum m_clip value from this to bottom layer
+    mutable unsigned m_clipMax : FillBoxBitWidth; // FillBox, maximum m_clip value from this to bottom layer
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, FillSize);

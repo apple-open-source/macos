@@ -492,6 +492,7 @@ exit:
 IOReturn
 IONVRAMCHRPHandler::unserializeVariables(void)
 {
+	IOReturn                    ret = kIOReturnSuccess;
 	uint32_t                    cnt, cntStart;
 	const uint8_t               *propName, *propData;
 	uint32_t                    propNameLength, propDataLength, regionIndex;
@@ -579,6 +580,13 @@ IONVRAMCHRPHandler::unserializeVariables(void)
 		}
 	}
 
+	DEBUG_ALWAYS("_commonSize %#x, _systemSize %#x\n", _commonPartitionSize, _systemPartitionSize);
+
+	ret = handleEphDM();
+	verify_noerr_action(ret, panic("handleEphDM failed with ret=%08x", ret));
+
+	DEBUG_INFO("_commonUsed %#x, _systemUsed %#x\n", _commonUsed, _systemUsed);
+
 	if (_provider->_diags) {
 		OSSharedPtr<OSNumber> val = OSNumber::withNumber(getSystemUsed(), 32);
 		_provider->_diags->setProperty(kNVRAMSystemUsedKey, val.get());
@@ -601,7 +609,7 @@ IONVRAMCHRPHandler::unserializeVariables(void)
 
 	DEBUG_INFO("%s _varDict=%p\n", __FUNCTION__, _varDict ? _varDict.get() : nullptr);
 
-	return kIOReturnSuccess;
+	return ret;
 }
 
 IOReturn

@@ -77,7 +77,7 @@ extern void safe_CFRelease(void CF_CONSUMED *cfTypeRefPtr);
 
 extern void check_obsolete_keychain(const char *kcName);
 
-extern char* prompt_password(const char* keychainName);
+extern char* prompt_password(const char* keychainName, Boolean deprecated);
 
 #ifdef __cplusplus
 }

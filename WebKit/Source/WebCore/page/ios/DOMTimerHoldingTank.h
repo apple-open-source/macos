@@ -27,6 +27,7 @@
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
 
+#include "DOMTimer.h"
 #include "Timer.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/Forward.h>

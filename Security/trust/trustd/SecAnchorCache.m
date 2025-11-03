@@ -32,6 +32,7 @@
 #include "trust/trustd/trustdFileLocations.h"
 #include "trust/trustd/trustdVariants.h"
 #include "trust/trustd/trustd_objc_helpers.h"
+#include "trust/trustd/personalization.h"
 #include "featureflags/featureflags.h"
 #include <utilities/debugging.h>
 #include <Security/SecCertificate.h>
@@ -53,11 +54,16 @@
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecAppleAnchorPriv.h>
+#include <utilities/SecInternalReleasePriv.h>
 
 CFStringRef kSecAnchorTypeUndefined = CFSTR("none");
 CFStringRef kSecAnchorTypeSystem = CFSTR("system");
 CFStringRef kSecAnchorTypePlatform = CFSTR("platform");
 CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
+
+CFStringRef kSecAnchorTypePlatformTEST = CFSTR("test-platform");
+CFStringRef kSecAnchorTypeSystemTEST = CFSTR("test-system");
+CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
 
 // MARK: -
 // MARK: SecAnchorCache
@@ -66,16 +72,25 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
    SecAnchorCache
  ========================================================================
 */
-#define kSecAnchorCacheSize 30
+#define kSecAnchorCacheSize 15
 
 @interface SecAnchorCache()
+// General Anchor Cache
 @property (strong) NSDictionary* anchor_table;
 @property (strong) NSMutableDictionary* cache;
 @property (strong) NSMutableArray* cache_list;
 @property (assign) os_unfair_lock cache_lock;
+
+// Apple Anchors
+@property (strong) NSMutableSet <NSString*>* apple_anchor_lookups;
+@property (strong) NSMutableDictionary <NSString*,NSArray*>* built_in_anchors;
 @end
 
 @implementation SecAnchorCache
+
++ (BOOL) allowTestAnchors {
+    return SecIsInternalRelease() || SecIsDeviceTestCertificateEntitled();
+}
 
 - (instancetype)init {
     self = [super init];
@@ -84,12 +99,74 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
         self.cache = [NSMutableDictionary dictionary];
         self.cache_list = [NSMutableArray array];
         self.cache_lock = OS_UNFAIR_LOCK_INIT;
+
+        self.apple_anchor_lookups = [NSMutableSet set];
+        self.built_in_anchors = [NSMutableDictionary dictionary];
+        [self loadAppleAnchors];
+        [self preheatCache];
     }
     return self;
 }
 
+- (void)loadAppleAnchors {
+    /* Add the hardcoded ones in case something's wrong with the anchor table */
+    NSArray *appleAnchors = (__bridge NSArray*)SecGetAppleTrustAnchors([self.class allowTestAnchors]);
+    for (id appleAnchor in appleAnchors) {
+        SecCertificateRef cert = (__bridge SecCertificateRef) appleAnchor;
+        NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(cert));
+        [self.apple_anchor_lookups addObject:anchorLookupKey];
+        if (self.built_in_anchors[anchorLookupKey]) {
+            /* Handle the two "Test Apple Root CA" certs*/
+            NSMutableArray *certs = [NSMutableArray arrayWithArray:self.built_in_anchors[anchorLookupKey]];
+            [certs addObject:(__bridge id)cert];
+            self.built_in_anchors[anchorLookupKey] = certs;
+        } else {
+            self.built_in_anchors[anchorLookupKey] = @[(__bridge id)cert];
+        }
+    }
+
+    for (NSString* anchorLookupKey in _anchor_table) {
+        NSArray *anchorRecords = _anchor_table[anchorLookupKey];
+        if (!isNSArray(anchorRecords)) {
+            secerror("Malformed anchor records for %{public}@, not an array", anchorLookupKey);
+            continue;
+        }
+
+        for (NSDictionary* anchorRecord in anchorRecords) {
+            if (!isNSDictionary(anchorRecord)) {
+                secerror("Malformed anchor record for %{public}@, not a dictionary: %{public}@", anchorLookupKey, anchorRecord);
+                continue;
+            }
+            NSString *type = anchorRecord[@"type"];
+            if (!isNSString(type)) {
+                secerror("Malformed anchor record for %{public}@, type not a string: %{public}@", anchorLookupKey, type);
+                continue;
+            }
+            if ([type isEqual:(__bridge NSString*)kSecAnchorTypePlatform] ||
+                ([self.class allowTestAnchors] && [type isEqual:(__bridge NSString*)kSecAnchorTypePlatformTEST])) {
+                [self.apple_anchor_lookups addObject:anchorLookupKey];
+            }
+        }
+    }
+}
+
 - (void)preheatCache {
     SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
+
+    // TODO: rdar://144133514 (provide new copy apple anchor function that takes policy)
+    // Don't "xpc" to trustd since that'll probably be recursive (maybe we should pre-heat with the anchor table ones too)
+    /* Pre-heat cache with built-in apple anchors (temporary until rdar://139730485) */
+    NSArray *appleAnchors = (__bridge NSArray*)SecGetAppleTrustAnchors([self.class allowTestAnchors]);
+    for (id appleAnchor in appleAnchors) {
+        SecCertificateRef cert = (__bridge SecCertificateRef) appleAnchor;
+        CFDataRef hash  = SecCertificateCopySHA256Digest(cert);
+        if (hash) {
+            NSString *hashStr = CFBridgingRelease(CFDataCopyHexString(hash));
+            [self.cache_list addObject:hashStr];
+            self.cache[hashStr] = appleAnchor;
+            CFReleaseNull(hash);
+        }
+    }
 
     //%%% read persistent MRU cache entries from disk here (rdar://139730485)
 
@@ -112,6 +189,14 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
 - (NSArray*)anchorsForKey:(NSString*)anchorLookupKey {
     NSMutableArray* result = [NSMutableArray array];
     NSArray *records = [_anchor_table objectForKey:anchorLookupKey];
+    if (!records) { // Not in anchor table
+        /* Fallback: check whether the anchor is in the built-in table
+         * Supports "legacy" test Apple anchors and BridgeOS */
+        if (self.built_in_anchors[anchorLookupKey]) {
+            return self.built_in_anchors[anchorLookupKey];
+        }
+        return result;
+    }
     if (!isArray((__bridge CFArrayRef)records)) {
         secerror("Malformed anchor records, not an array");
         return result;
@@ -173,11 +258,11 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
 
 - (NSArray*)anchorsForPolicyId:(NSString *)policyId
 {
-    NSMutableArray *anchors = [NSMutableArray array];
+    NSMutableSet *anchors = [NSMutableSet set];
     bool appleAnchors = SecPolicyUsesAppleAnchors((__bridge CFStringRef)policyId);
 
     if (appleAnchors) {
-        // Add the unconstrained Apple Anchors (since they aren't in the anchor table)
+        // Add the hardcoded (unconstrained) Apple Anchors (in case we don't have them in the anchor table)
         [anchors addObjectsFromArray:(__bridge NSArray*)SecGetAppleTrustAnchors(false)];
     }
 
@@ -210,13 +295,16 @@ CFStringRef kSecAnchorTypeCustom = CFSTR("custom");
     if (anchors.count == 0) {
         return NULL;
     }
-    return anchors;
+    return [anchors allObjects];
 }
 
 + (NSArray<NSDictionary*>*) anchorRecordsPermitttedForPolicy:(NSArray<NSDictionary*>*)anchorRecords
-policyId:(NSString*)policyId {
+                                                    policyId:(NSString*)policyId
+{
     bool systemAnchorsAllowed = !SecPolicyUsesConstrainedAnchors((__bridge CFStringRef)policyId);
     bool appleAnchors = SecPolicyUsesAppleAnchors((__bridge CFStringRef)policyId);
+    bool customAnchors = !systemAnchorsAllowed && !appleAnchors;
+    bool allowTestAnchors = [SecAnchorCache allowTestAnchors];
 
     if (!isNSArray(anchorRecords)) {
         secerror("Malformed anchor records, not an array");
@@ -240,24 +328,36 @@ policyId:(NSString*)policyId {
             continue;
         }
 
+        /* Skip over any unknown anchor types */
+        if (![type isEqual:(__bridge NSString*)kSecAnchorTypeSystem] &&
+            ![type isEqual:(__bridge NSString*)kSecAnchorTypeCustom] &&
+            ![type isEqual:(__bridge NSString*)kSecAnchorTypePlatform] &&
+            ![type isEqual:(__bridge NSString*)kSecAnchorTypeSystemTEST] &&
+            ![type isEqual:(__bridge NSString*)kSecAnchorTypeCustomTEST] &&
+            ![type isEqual:(__bridge NSString*)kSecAnchorTypePlatformTEST]) {
+            secinfo("anchorCache", "unknown anchor type: %{public}@", type);
+            continue;
+        }
+
         /* Match policy and policy anchor type to anchor record type */
-        if ([type isEqual:(__bridge NSString*)kSecAnchorTypeSystem] && systemAnchorsAllowed) {
+        if (systemAnchorsAllowed && ([type isEqual:(__bridge NSString*)kSecAnchorTypeSystem] ||
+                                     (allowTestAnchors && [type isEqual:(__bridge NSString*)kSecAnchorTypeSystemTEST]))) {
             if (policyOids.count < 1 || [policyOids containsObject:policyId]) {
                 // System anchor is unconstrained or constrained to this policyId
                 [matchingAnchorRecords addObject:anchorRecord];
             }
-        } else if ([type isEqual:(__bridge NSString*)kSecAnchorTypeCustom] && !systemAnchorsAllowed && !appleAnchors) {
+        } else if (customAnchors && ([type isEqual:(__bridge NSString*)kSecAnchorTypeCustom] ||
+                                     (allowTestAnchors && [type isEqual:(__bridge NSString*)kSecAnchorTypeCustomTEST]))) {
             if ([policyOids containsObject:policyId]) {
                 // custom anchor is constrained to this policyId
                 [matchingAnchorRecords addObject:anchorRecord];
             }
-        } else if ([type isEqual:(__bridge NSString*)kSecAnchorTypePlatform] && appleAnchors) {
+        } else if (appleAnchors && ([type isEqual:(__bridge NSString*)kSecAnchorTypePlatform] ||
+                                    (allowTestAnchors && [type isEqual:(__bridge NSString*)kSecAnchorTypePlatformTEST]))) {
             if (policyOids.count < 1 || [policyOids containsObject:policyId]) {
                 // apple anchor is unconstrained or constrained to this policyId
                 [matchingAnchorRecords addObject:anchorRecord];
             }
-        } else {
-            secinfo("anchorCache", "unknown anchor type: %{public}@", type);
         }
     }
 
@@ -276,12 +376,10 @@ void SecAnchorCacheInitialize(void) {
     /* Create the anchor cache object once per launch */
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        if (!TrustdVariantHasCertificatesBundle()) {
-            return;
-        }
         @autoreleasepool {
             sAnchorCache = [[SecAnchorCache alloc] init];
-            if ([sAnchorCache.anchor_table count] < 1) {
+            /* check that we loaded the anchor table for variants that use the certificates bundle */
+            if (TrustdVariantHasCertificatesBundle() && [sAnchorCache.anchor_table count] < 1) {
                 CFErrorRef error = NULL;
                 SecError(errSecInternal, &error, CFSTR("SecAnchorCache failed to copy anchor table"));
                 [[TrustAnalytics logger] logHardError:(__bridge NSError *)error
@@ -290,7 +388,6 @@ void SecAnchorCacheInitialize(void) {
                                                                TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
                 CFReleaseSafe(error);
             }
-            [sAnchorCache preheatCache];
         }
     });
 }
@@ -316,3 +413,19 @@ CFArrayRef SecAnchorPolicyPermittedAnchorRecords(CFArrayRef cfAnchorRecords, CFS
     }
 }
 
+bool SecAnchorCacheIsAppleAnchor(SecCertificateRef certificate) {
+    @autoreleasepool {
+        NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(certificate));
+        if ([sAnchorCache.apple_anchor_lookups containsObject:anchorLookupKey]) {
+            /* Since the anchor lookup isn't cryptographically secure,
+             * we need to also check that the cert matches the anchor for that lookup,
+             * Check the hardcoded anchors first and then the dynamic anchor cache. */
+            if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+                return true;
+            }
+            NSArray* anchors = [sAnchorCache anchorsForKey:anchorLookupKey];
+            return [anchors containsObject:(__bridge id)certificate];
+        }
+        return false;
+    }
+}

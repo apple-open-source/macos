@@ -441,6 +441,7 @@ pl{
         nds_NL{"dolnosaksoński"}
         ne{"nepalski"}
         new{"newarski"}
+        nez{"nez perce"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niue"}

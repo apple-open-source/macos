@@ -1,8 +1,39 @@
-dnl configure.ac: autoconf script for Vim
+dnl +----------------------------------------------------------------------+
+dnl   configure.ac: autoconf script for Vim
+dnl +----------------------------------------------------------------------+
+dnl
+dnl   This file is processed by autoconf to generate the 'configure' script.
+dnl
+dnl   ==> IMPORTANT NOTE FOR DEVELOPERS <==
+dnl
+dnl   Do NOT run 'autoconf' directly on this file.  You must use the provided
+dnl   make target, like this:
+dnl
+dnl     make autoconf
+dnl
+dnl   This is required because the Makefile handles placing the generated
+dnl   script into its final location: 'auto/configure'.
+dnl
+dnl +----------------------------------------------------------------------+
 
-dnl Process this file with autoconf 2.71 to produce "configure".
+dnl You should use Autoconf 2.72 but to simplify CI on Ubuntu 24.04 we only
+dnl use AC_PREREQ([2.71])
+AC_PREREQ([2.71])
 
+dnl Normally, AC_INIT([package],[version],[bug-report],[tarname],[url])
+dnl provides PACKAGE_* macros, used by Autoconf on UNIX to inject version
+dnl info into config.h, --version output, and "make dist".
+dnl
+dnl Vim does not rely on that: versioning is centralized in
+dnl version.h/version.c, dnl which ensures a single cross-platform source of
+dnl truth for both UNIX and non-UNIX platforms.
+dnl
+dnl Therefore we call AC_INIT without arguments.
 AC_INIT
+
+dnl Use vim.h as the source-tree anchor: AC_CONFIG_SRCDIR verifies that
+dnl configure is run in (or pointed to) the correct source directory.
+dnl vim.h is always present at the top level.
 AC_CONFIG_SRCDIR([vim.h])
 AC_CONFIG_HEADERS(auto/config.h:config.h.in)
 
@@ -25,8 +56,12 @@ AC_EXEEXT
 
 AC_HEADER_SYS_WAIT
 
+if test -z "$PKG_CONFIG"; then
+  AC_PATH_TOOL(PKG_CONFIG, pkg-config, no)
+fi
+
 dnl Check that the C99 features that Vim uses are supported:
-if test x"$ac_cv_prog_cc_c99" != xno; then
+if test x"$ac_cv_prog_cc_c99" = xno; then
   dnl If the compiler doesn't explicitly support C99, then check
   dnl for the specific features Vim uses
 
@@ -2164,10 +2199,10 @@ AC_SUBST(RUBY_LIBS)
 AC_MSG_CHECKING(--enable-cscope argument)
 AC_ARG_ENABLE(cscope,
 	[  --enable-cscope         Include cscope interface.], ,
-	[enable_cscope="no"])
+	[enable_cscope="yes"])
 AC_MSG_RESULT($enable_cscope)
 if test "$enable_cscope" = "yes"; then
-  AC_DEFINE(FEAT_CSCOPE)
+  AC_DEFINE(ENABLE_CSCOPE)
 fi
 
 AC_MSG_CHECKING(--disable-netbeans argument)
@@ -2336,6 +2371,24 @@ if test "$enable_autoservername" = "yes"; then
   AC_DEFINE(FEAT_AUTOSERVERNAME)
 fi
 
+AC_MSG_CHECKING(--enable-socketserver argument)
+AC_ARG_ENABLE(socketserver,
+	[  --enable-socketserver Use sockets for clientserver communication.],
+	[enable_socketserver=$enableval],
+	AS_IF([test "x$features" = xtiny],
+			[enable_socketserver=no_auto
+			 AC_MSG_RESULT([cannot use socketserver with tiny features])],
+			[enable_socketserver=auto]))
+if test "$enable_socketserver" = "yes"; then
+  AC_DEFINE(WANT_SOCKETSERVER)
+  AC_MSG_RESULT([yes])
+elif test "$enable_socketserver" = "auto"; then
+  AC_DEFINE(MAYBE_SOCKETSERVER)
+  AC_MSG_RESULT([auto])
+elif test "$enable_socketserver" = "no"; then
+  AC_MSG_RESULT([no])
+fi
+
 AC_MSG_CHECKING(--enable-multibyte argument)
 AC_ARG_ENABLE(multibyte,
 	[  --enable-multibyte      Include multibyte editing support.], ,
@@ -2388,6 +2441,64 @@ AC_ARG_ENABLE(fontset,
 	[enable_fontset="no"])
 AC_MSG_RESULT($enable_fontset)
 dnl defining FEAT_XFONTSET is delayed, so that it can be disabled for no GUI
+
+AC_MSG_CHECKING(if shm_open is available)
+cppflags_save=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS $X_CFLAGS"
+AC_LINK_IFELSE([AC_LANG_PROGRAM(
+		   [#include <sys/mman.h>
+		    #include <sys/stat.h>
+		    #include <fcntl.h>], [shm_open("/test", O_CREAT, 0600);])],
+		   AC_MSG_RESULT(yes); AC_DEFINE(HAVE_SHM_OPEN),
+		   AC_MSG_RESULT(no))
+CPPFLAGS=$cppflags_save
+
+AC_MSG_CHECKING(--with-wayland argument)
+AC_ARG_WITH(wayland,
+	[  --with-wayland	  Include support for the Wayland protocol.],
+	[with_wayland=$withval],
+	AS_IF([test "x$features" = xtiny],
+			[with_wayland=no
+			 AC_MSG_RESULT([cannot use wayland with tiny features])],
+			[with_wayland=yes
+			 AC_MSG_RESULT([yes])]))
+
+if test "$with_wayland" = yes; then
+cppflags_save=$CPPFLAGS
+cflags_save=$CFLAGS
+  AC_MSG_CHECKING(for wayland)
+  if "$PKG_CONFIG" --exists 'wayland-client'; then
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_WAYLAND)
+    WAYLAND_CPPFLAGS=`$PKG_CONFIG --cflags-only-I wayland-client`
+    WAYLAND_CFLAGS=`$PKG_CONFIG --cflags-only-other wayland-client`
+    CPPFLAGS="$CPPFLAGS $WAYLAND_CPPFLAGS"
+    CFLAGS="$CFLAGS $WAYLAND_CFLAGS"
+    WAYLAND_LIBS=`$PKG_CONFIG --libs wayland-client`
+    WAYLAND_SRC=" \
+      auto/wayland/wlr-data-control-unstable-v1.c \
+      auto/wayland/ext-data-control-v1.c \
+      auto/wayland/xdg-shell.c \
+      auto/wayland/primary-selection-unstable-v1.c \
+      wayland.c"
+    WAYLAND_OBJ=" \
+      objects/wlr-data-control-unstable-v1.o \
+      objects/ext-data-control-v1.o \
+      objects/xdg-shell.o \
+      objects/primary-selection-unstable-v1.o \
+      objects/wayland.o"
+    AC_SUBST(WAYLAND_CPPFLAGS)
+    AC_SUBST(WAYLAND_CFLAGS)
+    AC_SUBST(WAYLAND_LIBS)
+    AC_SUBST(WAYLAND_SRC)
+    AC_SUBST(WAYLAND_OBJ)
+  else
+    AC_MSG_RESULT(no)
+    with_wayland=no
+  fi
+CPPFLAGS=$cppflags_save
+CFLAGS=$cflags_save
+fi
 
 test -z "$with_x" && with_x=yes
 test "${enable_gui-yes}" != no -a "x$MACOS_X" != "xyes" -a "x$QNX" != "xyes" && with_x=yes
@@ -2638,62 +2749,70 @@ dnl Test for GTK, and define GTK_CFLAGS, GTK_LIBDIR and GTK_LIBS
 dnl
 AC_DEFUN(AM_PATH_GTK,
 [
-  if test "X$GTK_CONFIG" != "Xno" -o "X$PKG_CONFIG" != "Xno"; then
+  dnl Even if we don't end up using the pkg-config name, the min_gtk_version
+  dnl will be used when compiling the gtktest program below.
+  min_gtk_version="$1"
+
+  dnl Attempt to source flags from pkg-config if it is installed.
+  if test "$PKG_CONFIG" != "no"; then
+    AS_CASE([$min_gtk_version],
+	    [2.*], [gtk_pkg_name="gtk+-2.0"],
+	    [3.*], [gtk_pkg_name="gtk+-3.0"],
+		   [AC_MSG_FAILURE([The configure script does not know which pkg-config name to use for GTK $min_gtk_version"])])
+
+    AC_MSG_CHECKING([for pkg-config $gtk_pkg_name])
+    AS_IF(["$PKG_CONFIG" --exists "$gtk_pkg_name"],
+	  [
+	     AC_MSG_RESULT(found)
+	     AC_MSG_CHECKING([for GTK - version >= $min_gtk_version])
+	     dnl We should be using PKG_CHECK_MODULES() instead of this hack.
+	     dnl But I guess the dependency on pkgconfig.m4 is not wanted or
+	     dnl something like that.
+	     GTK_CPPFLAGS=`$PKG_CONFIG --cflags-only-I $gtk_pkg_name`
+	     GTK_CFLAGS=`$PKG_CONFIG --cflags-only-other $gtk_pkg_name`
+	     GTK_LIBDIR=`$PKG_CONFIG --libs-only-L $gtk_pkg_name`
+	     GTK_LIBS=`$PKG_CONFIG --libs $gtk_pkg_name`
+	     gtk_major_version=`$PKG_CONFIG --modversion $gtk_pkg_name | \
+	       sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\1/'`
+	     gtk_minor_version=`$PKG_CONFIG --modversion $gtk_pkg_name | \
+	       sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\2/'`
+	     gtk_micro_version=`$PKG_CONFIG --modversion $gtk_pkg_name | \
+	       sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\3/'`
+	     AC_MSG_RESULT([yes; found version $gtk_major_version.$gtk_minor_version.$gtk_micro_version])
+	   ],
+	   [
+	      GTK_CPPFLAGS=""
+	      GTK_CFLAGS=""
+	      GTK_LIBDIR=""
+	      GTK_LIBS=""
+	      AC_MSG_RESULT([no; consider installing your distro GTK -dev package])
+	      if test "$fail_if_missing" = "yes" -a "$gui_auto" != "yes"; then
+		AC_MSG_ERROR([pkg-config could not find $gtk_pkg_name])
+	      fi
+	    ])
+  fi
+
+  dnl Regardless of whether we sources the GTK compilation flags from
+  dnl pkg-config above versus the user specifying them in CFLAGS and LIBS, try
+  dnl to compile the test program.
+  dnl
+  dnl Default to outcome flag to "yes" because disabling the check should be
+  dnl considered the same as assuming it would succeed.
+  gtktest_success="yes"
+  if test "$enable_gtktest" = "yes"; then
   {
-    no_gtk=""
-    if (test "X$SKIP_GTK2" != "XYES" -a "X$PKG_CONFIG" != "Xno") \
-	  && $PKG_CONFIG --exists gtk+-2.0; then
-    {
-      min_gtk_version=ifelse([$1], ,2.2.0,$1)
-      AC_MSG_CHECKING(for GTK - version >= $min_gtk_version)
-      dnl We should be using PKG_CHECK_MODULES() instead of this hack.
-      dnl But I guess the dependency on pkgconfig.m4 is not wanted or
-      dnl something like that.
-      GTK_CFLAGS=`$PKG_CONFIG --cflags gtk+-2.0`
-      GTK_LIBDIR=`$PKG_CONFIG --libs-only-L gtk+-2.0`
-      GTK_LIBS=`$PKG_CONFIG --libs gtk+-2.0`
-      gtk_major_version=`$PKG_CONFIG --modversion gtk+-2.0 | \
-	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\1/'`
-      gtk_minor_version=`$PKG_CONFIG --modversion gtk+-2.0 | \
-	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\2/'`
-      gtk_micro_version=`$PKG_CONFIG --modversion gtk+-2.0 | \
-	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\3/'`
-    }
-    elif (test "X$SKIP_GTK3" != "XYES" -a "X$PKG_CONFIG" != "Xno") \
-	  && $PKG_CONFIG --exists gtk+-3.0; then
-    {
-      min_gtk_version=ifelse([$1], ,3.0.0,$1)
-      AC_MSG_CHECKING(for GTK - version >= $min_gtk_version)
+    ac_save_CPPFLAGS="$CPPFLAGS"
+    ac_save_CFLAGS="$CFLAGS"
+    ac_save_LIBS="$LIBS"
+    CPPFLAGS="$CPPFLAGS $GTK_CPPFLAGS"
+    CFLAGS="$CFLAGS $GTK_CFLAGS"
+    LIBS="$LIBS $GTK_LIBS"
 
-      GTK_CFLAGS=`$PKG_CONFIG --cflags gtk+-3.0`
-      GTK_LIBDIR=`$PKG_CONFIG --libs-only-L gtk+-3.0`
-      GTK_LIBS=`$PKG_CONFIG --libs gtk+-3.0`
-      gtk_major_version=`$PKG_CONFIG --modversion gtk+-3.0 | \
-	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\1/'`
-      gtk_minor_version=`$PKG_CONFIG --modversion gtk+-3.0 | \
-	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\2/'`
-      gtk_micro_version=`$PKG_CONFIG --modversion gtk+-3.0 | \
-	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\3/'`
-    }
-    else
-      dnl Put some text before the "no" to hint at installing the gtk-dev
-      dnl packages.
-      AC_MSG_CHECKING(for GTK -dev package)
-      no_gtk=yes
-    fi
-
-    if test "x$enable_gtktest" = "xyes" -a "x$no_gtk" = "x"; then
-    {
-      ac_save_CFLAGS="$CFLAGS"
-      ac_save_LIBS="$LIBS"
-      CFLAGS="$CFLAGS $GTK_CFLAGS"
-      LIBS="$LIBS $GTK_LIBS"
-
-      dnl
-      dnl Now check if the installed GTK is sufficiently new.
-      dnl
-      rm -f conf.gtktest
-      AC_RUN_IFELSE([AC_LANG_SOURCE([
+    dnl
+    dnl Now check if the installed GTK is sufficiently new.
+    dnl
+    AC_MSG_CHECKING([ability to compile GTK test program])
+    AC_RUN_IFELSE([AC_LANG_SOURCE([
 #include <gtk/gtk.h>
 #include <stdio.h>
 #if STDC_HEADERS
@@ -2704,62 +2823,56 @@ AC_DEFUN(AM_PATH_GTK,
 int
 main ()
 {
-int major, minor, micro;
-char *tmp_version;
+	int ex_major = $gtk_major_version;
+	int ex_minor = $gtk_minor_version;
+	int ex_micro = $gtk_micro_version;
 
-system ("touch conf.gtktest");
+	#if $gtk_major_version == 2
+	guint ob_major = gtk_major_version;
+	guint ob_minor = gtk_minor_version;
+	guint ob_micro = gtk_micro_version;
+	#else
+	guint ob_major = gtk_get_major_version();
+	guint ob_minor = gtk_get_minor_version();
+	guint ob_micro = gtk_get_micro_version();
+	#endif
 
-/* HP/UX 9 (%@#!) writes to sscanf strings */
-tmp_version = g_strdup("$min_gtk_version");
-if (sscanf(tmp_version, "%d.%d.%d", &major, &minor, &micro) != 3) {
-   printf("%s, bad version string\n", "$min_gtk_version");
-   g_free(tmp_version);
-   exit(1);
- }
-
-g_free(tmp_version);
-
-if ((gtk_major_version > major) ||
-    ((gtk_major_version == major) && (gtk_minor_version > minor)) ||
-    ((gtk_major_version == major) && (gtk_minor_version == minor) &&
-				     (gtk_micro_version >= micro)))
-{
-    return 0;
+	if ((ob_major > ex_major) ||
+		((ob_major == ex_major)
+			&& (ob_minor > ex_minor)) ||
+		((ob_major == ex_major)
+			&& (ob_minor == ex_minor)
+			&& (ob_micro >= ex_micro)))
+		return 0;
+	else
+		return 1;
 }
-return 1;
-}
-])],, no_gtk=yes,[echo $ac_n "cross compiling; assumed OK... $ac_c"])
-      CFLAGS="$ac_save_CFLAGS"
-      LIBS="$ac_save_LIBS"
-    }
-    fi
-    if test "x$no_gtk" = x ; then
-      if test "x$enable_gtktest" = "xyes"; then
-	AC_MSG_RESULT(yes; found version $gtk_major_version.$gtk_minor_version.$gtk_micro_version)
-      else
-	AC_MSG_RESULT(found version $gtk_major_version.$gtk_minor_version.$gtk_micro_version)
-      fi
-      ifelse([$2], , :, [$2])
-    else
-    {
-      AC_MSG_RESULT(no)
-      GTK_CFLAGS=""
-      GTK_LIBS=""
-      ifelse([$3], , :, [$3])
-      if test "$fail_if_missing" = "yes" -a "X$gui_auto" != "Xyes"; then
-	AC_MSG_ERROR([could not configure GTK])
-      fi
-    }
-    fi
+])],
+    [gtktest_success="yes"; AC_MSG_RESULT(yes)],
+    [gtktest_success="no"; AC_MSG_RESULT(no)],
+    [echo $ac_n "cross compiling; assumed OK... $ac_c"])
+    CPPFLAGS="$ac_save_CPPFLAGS"
+    CFLAGS="$ac_save_CFLAGS"
+    LIBS="$ac_save_LIBS"
   }
-  else
-    GTK_CFLAGS=""
-    GTK_LIBS=""
-    ifelse([$3], , :, [$3])
   fi
+
+  if test "$gtktest_success" = "yes"; then
+    ifelse([$2], , :, [$2])
+  else
+    dnl Reset flags sourced from pkg-config if the compilation test failed.
+    GTK_CPPFLAGS=""
+    GTK_CFLAGS=""
+    GTK_LIBDIR=""
+    GTK_LIBS=""
+    if test "$fail_if_missing" = "yes" -a "$gui_auto" != "yes"; then
+      AC_MSG_ERROR([Failed to compile GTK test program.])
+    fi
+  fi
+
+  AC_SUBST(GTK_CPPFLAGS)
   AC_SUBST(GTK_CFLAGS)
   AC_SUBST(GTK_LIBS)
-  rm -f conf.gtktest
 ])
 
 dnl ---------------------------------------------------------------------------
@@ -2805,7 +2918,7 @@ AC_DEFUN([GNOME_INIT_HOOK],
       AC_MSG_RESULT(yes)
       GNOME_LIBS=`$PKG_CONFIG --libs-only-l libgnomeui-2.0`
       GNOME_LIBDIR=`$PKG_CONFIG --libs-only-L libgnomeui-2.0`
-      GNOME_INCLUDEDIR=`$PKG_CONFIG --cflags libgnomeui-2.0`
+      GNOME_INCLUDEDIR=`$PKG_CONFIG --cflags-only-I libgnomeui-2.0`
 
       dnl On FreeBSD we need -pthread but pkg-config doesn't include it.
       dnl This might not be the right way but it works for me...
@@ -2832,16 +2945,39 @@ AC_DEFUN([GNOME_INIT],[
 	GNOME_INIT_HOOK([],fail)
 ])
 
-if test "X$PKG_CONFIG" = "X"; then
-  AC_PATH_TOOL(PKG_CONFIG, pkg-config, no)
-fi
+dnl ---------------------------------------------------------------------------
+dnl Check for GTK3. If it succeeds, skip the check for GTK2.
+dnl ---------------------------------------------------------------------------
+if test -z "$SKIP_GTK3"; then
+  AC_MSG_CHECKING(--disable-gtktest argument)
+  AC_ARG_ENABLE(gtktest, [  --disable-gtktest       Do not try to compile and run a test GTK program],
+	, enable_gtktest=yes)
+  if test "x$enable_gtktest" = "xyes" ; then
+    AC_MSG_RESULT(gtk test enabled)
+  else
+    AC_MSG_RESULT(gtk test disabled)
+  fi
 
+  if test "x$PKG_CONFIG" != "xno"; then
+    AM_PATH_GTK(3.0.0,
+		[GUI_LIB_LOC="$GTK_LIBDIR"
+		 GTK_LIBNAME="$GTK_LIBS"
+		 GUI_INC_LOC="$GTK_CPPFLAGS"])
+    if test -n "$GTK_CPPFLAGS"; then
+      SKIP_GTK2=YES
+      SKIP_GNOME=YES
+      SKIP_MOTIF=YES
+      GUITYPE=GTK
+      AC_SUBST(GTK_LIBNAME)
+      AC_DEFINE(USE_GTK3)
+    fi
+  fi
+fi
 
 dnl ---------------------------------------------------------------------------
 dnl Check for GTK2.  If it fails, then continue on for Motif as before...
 dnl ---------------------------------------------------------------------------
 if test -z "$SKIP_GTK2"; then
-
   AC_MSG_CHECKING(--disable-gtktest argument)
   AC_ARG_ENABLE(gtktest, [  --disable-gtktest       Do not try to compile and run a test GTK program],
 	, enable_gtktest=yes)
@@ -2854,21 +2990,14 @@ if test -z "$SKIP_GTK2"; then
   if test "x$PKG_CONFIG" != "xno"; then
     dnl First try finding version 2.2.0 or later.  The 2.0.x series has
     dnl problems (bold fonts, --remote doesn't work).
-    dnl Disable checking for GTK3 here, otherwise it's found when GTK2 is not
-    dnl found.
-    save_skip_gtk3=$SKIP_GTK3
-    SKIP_GTK3=YES
     AM_PATH_GTK(2.2.0,
 		[GUI_LIB_LOC="$GTK_LIBDIR"
 		 GTK_LIBNAME="$GTK_LIBS"
-		GUI_INC_LOC="$GTK_CFLAGS"], )
-    if test "x$GTK_CFLAGS" != "x"; then
-      SKIP_GTK3=YES
+		 GUI_INC_LOC="$GTK_CPPFLAGS"])
+    if test -n "$GTK_CPPFLAGS"; then
       SKIP_MOTIF=YES
       GUITYPE=GTK
       AC_SUBST(GTK_LIBNAME)
-    else
-      SKIP_GTK3=$save_skip_gtk3
     fi
   fi
   if test "x$GUITYPE" = "xGTK"; then
@@ -2884,41 +3013,6 @@ if test -z "$SKIP_GTK2"; then
 	GTK_LIBNAME="$GTK_LIBNAME $GNOME_LIBDIR $GNOME_LIBS"
       fi
     }
-    fi
-  fi
-fi
-
-
-dnl ---------------------------------------------------------------------------
-dnl Check for GTK3.
-dnl ---------------------------------------------------------------------------
-if test -z "$SKIP_GTK3"; then
-
-  AC_MSG_CHECKING(--disable-gtktest argument)
-  AC_ARG_ENABLE(gtktest, [  --disable-gtktest       Do not try to compile and run a test GTK program],
-	, enable_gtktest=yes)
-  if test "x$enable_gtktest" = "xyes" ; then
-    AC_MSG_RESULT(gtk test enabled)
-  else
-    AC_MSG_RESULT(gtk test disabled)
-  fi
-
-  if test "x$PKG_CONFIG" != "xno"; then
-    save_skip_gtk2=$SKIP_GTK2
-    SKIP_GTK2=YES
-    AM_PATH_GTK(3.0.0,
-		[GUI_LIB_LOC="$GTK_LIBDIR"
-		 GTK_LIBNAME="$GTK_LIBS"
-		GUI_INC_LOC="$GTK_CFLAGS"], )
-    if test "x$GTK_CFLAGS" != "x"; then
-      SKIP_GTK2=YES
-      SKIP_GNOME=YES
-      SKIP_MOTIF=YES
-      GUITYPE=GTK
-      AC_SUBST(GTK_LIBNAME)
-      AC_DEFINE(USE_GTK3)
-    else
-      SKIP_GTK2=$save_skip_gtk2
     fi
   fi
 fi
@@ -3297,7 +3391,8 @@ int main() { exit(toupper('A') == 'A' && tolower('z') == 'z'); }
   ],[
     vim_cv_toupper_broken=no
   ],[
-    AC_MSG_ERROR(cross-compiling: please set 'vim_cv_toupper_broken')
+    vim_cv_toupper_broken=no
+    AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_toupper_broken')
   ])])
 
 if test "x$vim_cv_toupper_broken" = "xyes" ; then
@@ -3394,7 +3489,6 @@ CPPFLAGS=$cppflags_save
 fi
 
 dnl Checks for typedefs, structures, and compiler characteristics.
-AC_PROG_GCC_TRADITIONAL
 AC_C_CONST
 AC_C_VOLATILE
 AC_TYPE_MODE_T
@@ -3510,7 +3604,7 @@ else
 # include <stddef.h>
 #endif
 int main() {char *s; s=(char *)tgoto("%p1%d", 0, 1); exit(0); }])],
-			  res="OK", res="FAIL", res="FAIL")
+			  res="OK", res="FAIL", res="OK")
       if test "$res" = "OK"; then
 	break
       fi
@@ -3549,13 +3643,14 @@ AC_CACHE_CHECK([whether we talk terminfo], [vim_cv_terminfo],
 # include <stddef.h>
 #endif
 int main()
-{char *s; s=(char *)tgoto("%p1%d", 0, 1); exit(!strcmp(s==0 ? "" : s, "1")); }
+{char *s; s=(char *)tgoto("%p1%d", 0, 1); exit(!!strcmp(s==0 ? "" : s, "1")); }
     ]])],[
+      vim_cv_terminfo=yes
+    ],[
       vim_cv_terminfo=no
     ],[
       vim_cv_terminfo=yes
-    ],[
-      AC_MSG_ERROR(cross-compiling: please set 'vim_cv_terminfo')
+      AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_terminfo')
     ])
   ])
 
@@ -3581,7 +3676,8 @@ int main()
     ],[
       vim_cv_tgetent=non-zero
     ],[
-      AC_MSG_ERROR(failed to compile test program.)
+      vim_cv_tgetent=zero
+      AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_tgetent')
     ])
   ])
 
@@ -3747,7 +3843,8 @@ int main()
     ],[
       vim_cv_getcwd_broken=yes
     ],[
-      AC_MSG_ERROR(cross-compiling: please set 'vim_cv_getcwd_broken')
+      vim_cv_getcwd_broken=no
+      AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_getcwd_broken')
     ])
   ])
 
@@ -3765,7 +3862,7 @@ AC_CHECK_FUNCS(fchdir fchown fchmod fsync getcwd getpseudotty \
 	sigprocmask sigvec strcasecmp strcoll strerror strftime stricmp strncasecmp \
 	strnicmp strpbrk strptime strtol tgetent towlower towupper iswupper \
 	tzset usleep utime utimes mblen ftruncate unsetenv posix_openpt \
-	clock_gettime)
+	clock_gettime sync)
 AC_FUNC_SELECT_ARGTYPES
 AC_FUNC_FSEEKO
 
@@ -3797,15 +3894,21 @@ fi
 if test "$enable_canberra" = "yes"; then
   if test "x$PKG_CONFIG" != "xno"; then
     canberra_lib=`$PKG_CONFIG --libs libcanberra 2>/dev/null`
-    canberra_cflags=`$PKG_CONFIG --cflags libcanberra 2>/dev/null`
+    canberra_cppflags=`$PKG_CONFIG --cflags-only-I libcanberra 2>/dev/null`
+    canberra_cflags=`$PKG_CONFIG --cflags-only-other libcanberra 2>/dev/null`
   fi
   if test "x$canberra_lib" = "x"; then
     canberra_lib=-lcanberra
+    canberra_cppflags=-D_REENTRANT
     canberra_cflags=-D_REENTRANT
   fi
   AC_MSG_CHECKING(for libcanberra)
+  ac_save_CPPFLAGS="$CPPFLAGS"
   ac_save_CFLAGS="$CFLAGS"
   ac_save_LIBS="$LIBS"
+  if `echo "$CPPFLAGS" | grep -v "$canberra_cppflags" 2>/dev/null`; then
+    CPPFLAGS="$CPPFLAGS $canberra_cflags"
+  fi
   if `echo "$CFLAGS" | grep -v "$canberra_cflags" 2>/dev/null`; then
     CFLAGS="$CFLAGS $canberra_cflags"
   fi
@@ -3816,7 +3919,7 @@ if test "$enable_canberra" = "yes"; then
      ca_context *hello;
      ca_context_create(&hello);])],
        AC_MSG_RESULT(yes); AC_DEFINE(HAVE_CANBERRA),
-       AC_MSG_RESULT(no; try installing libcanberra-dev); CFLAGS="$ac_save_CFLAGS"; LIBS="$ac_save_LIBS")
+       AC_MSG_RESULT(no; try installing libcanberra-dev); CFLAGS="$ac_save_CFLAGS"; LIBS="$ac_save_LIBS", CPPFLAGS="ac_save_CPPFLAGS")
 fi
 
 AC_MSG_CHECKING(--enable-libsodium argument)
@@ -3838,15 +3941,19 @@ fi
 if test "$enable_libsodium" = "yes"; then
   if test "x$PKG_CONFIG" != "xno"; then
     libsodium_lib=`$PKG_CONFIG --libs libsodium 2>/dev/null`
-    libsodium_cflags=`$PKG_CONFIG --cflags libsodium 2>/dev/null`
+    libsodium_cppflags=`$PKG_CONFIG --cflags-only-I libsodium 2>/dev/null`
+    libsodium_cflags=`$PKG_CONFIG --cflags-only-other libsodium 2>/dev/null`
   fi
   if test "x$libsodium_lib" = "x"; then
     libsodium_lib=-lsodium
+    libsodium_cppflags=
     libsodium_cflags=
   fi
   AC_MSG_CHECKING(for libsodium)
+  ac_save_CPPFLAGS="$CPPFLAGS"
   ac_save_CFLAGS="$CFLAGS"
   ac_save_LIBS="$LIBS"
+  CPPFLAGS="$CPPFLAGS $libsodium_cppflags"
   CFLAGS="$CFLAGS $libsodium_cflags"
   LIBS="$LIBS $libsodium_lib"
   AC_LINK_IFELSE([AC_LANG_PROGRAM([
@@ -3854,7 +3961,7 @@ if test "$enable_libsodium" = "yes"; then
       ], [
      printf("%d", sodium_init()); ])],
        AC_MSG_RESULT(yes); AC_DEFINE(HAVE_SODIUM),
-       AC_MSG_RESULT(no; try installing libsodium-dev); CFLAGS="$ac_save_CFLAGS"; LIBS="$ac_save_LIBS")
+       AC_MSG_RESULT(no; try installing libsodium-dev); CFLAGS="$ac_save_CFLAGS"; LIBS="$ac_save_LIBS"; CPPFLAGS="$ac_save_CPPFLAGS")
 fi
 
 dnl fstatfs() can take 2 to 4 arguments, try to use st_blksize if possible
@@ -3871,30 +3978,14 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 	AC_MSG_RESULT(no))
 
 dnl Check for timer_create. It probably requires the 'rt' library.
-dnl Run the program to find out if timer_create(CLOCK_MONOTONIC) actually
-dnl works, on Solaris timer_create() exists but fails at runtime.
 AC_CACHE_CHECK([for timer_create without -lrt], [vim_cv_timer_create], [
-AC_RUN_IFELSE([AC_LANG_PROGRAM([
-#if STDC_HEADERS
-# include <stdlib.h>
-# include <stddef.h>
-#endif
-#include <signal.h>
-#include <time.h>
-static void set_flag(union sigval sv) {}
-], [
-  struct timespec ts;
-  struct sigevent action = {0};
-  timer_t timer_id;
-
-  action.sigev_notify = SIGEV_THREAD;
-  action.sigev_notify_function = set_flag;
-  if (timer_create(CLOCK_MONOTONIC, &action, &timer_id) < 0)
-    exit(1);  // cannot create a monotonic timer
-  ])],
-  vim_cv_timer_create=yes,
-  vim_cv_timer_create=no,
-  AC_MSG_WARN([failed to build test program; if cross-compiling please set 'vim_cv_timer_create'])
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
+  #include <time.h>
+  ], [
+    timer_create(CLOCK_MONOTONIC, NULL, NULL);
+     ])],
+    vim_cv_timer_create=yes,
+    vim_cv_timer_create=no
   )])
 
 dnl If the previous failed, check for timer_create() and linking with -lrt.
@@ -3902,6 +3993,29 @@ if test "x$vim_cv_timer_create" = "xno" ; then
   save_LIBS="$LIBS"
   LIBS="$LIBS -lrt"
   AC_CACHE_CHECK([for timer_create with -lrt], [vim_cv_timer_create_with_lrt], [
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
+    #include <time.h>
+    ], [
+      timer_create(CLOCK_MONOTONIC, NULL, NULL);
+       ])],
+      vim_cv_timer_create_with_lrt=yes,
+      vim_cv_timer_create_with_lrt=no
+    )])
+  LIBS="$save_LIBS"
+else
+  vim_cv_timer_create_with_lrt=no
+fi
+
+dnl Run the program to find out if timer_create(CLOCK_MONOTONIC) actually
+dnl works, on Solaris timer_create() exists but fails at runtime.
+if test "x$vim_cv_timer_create" = "xyes" ||
+   test "x$vim_cv_timer_create_with_lrt" = "xyes"; then
+  save_LIBS="$LIBS"
+  if test "x$vim_cv_timer_create_with_lrt" = "xyes" ; then
+    LIBS="$LIBS -lrt"
+  fi
+
+  AC_CACHE_CHECK([if timer_create works], [vim_cv_timer_create_works], [
     AC_RUN_IFELSE([AC_LANG_PROGRAM([
     #if STDC_HEADERS
     # include <stdlib.h>
@@ -3918,23 +4032,19 @@ if test "x$vim_cv_timer_create" = "xno" ; then
       action.sigev_notify = SIGEV_THREAD;
       action.sigev_notify_function = set_flag;
       if (timer_create(CLOCK_MONOTONIC, &action, &timer_id) < 0)
-	exit(1);  // cannot create a monotonic timer
+        exit(1);  // cannot create a monotonic timer
       ])],
-      vim_cv_timer_create_with_lrt=yes,
-      vim_cv_timer_create_with_lrt=no,
-      AC_MSG_WARN([failed to build test program; if cross-compiling please set 'vim_cv_timer_create_with_lrt'])
+      vim_cv_timer_create_works=yes,
+      vim_cv_timer_create_works=no,
+      vim_cv_timer_create_works=yes
+      AC_MSG_WARN([cross-compiling: consider setting 'vim_cv_timer_create_works'])
     )])
-  LIBS="$save_LIBS"
-else
-  vim_cv_timer_create_with_lrt=no
-fi
 
-if test "x$vim_cv_timer_create" = "xyes" ; then
-  AC_DEFINE(HAVE_TIMER_CREATE)
-fi
-if test "x$vim_cv_timer_create_with_lrt" = "xyes" ; then
-  AC_DEFINE(HAVE_TIMER_CREATE)
-  LIBS="$LIBS -lrt"
+  if test "x$vim_cv_timer_create_works" = "xyes" ; then
+    AC_DEFINE(HAVE_TIMER_CREATE)
+  else
+    LIBS="$save_LIBS"
+  fi
 fi
 
 AC_CACHE_CHECK([whether stat() ignores a trailing slash], [vim_cv_stat_ignores_slash],
@@ -3953,7 +4063,8 @@ int main() {struct stat st;  exit(stat("configure/", &st) != 0); }
     ],[
       vim_cv_stat_ignores_slash=no
     ],[
-      AC_MSG_ERROR(cross-compiling: please set 'vim_cv_stat_ignores_slash')
+      vim_cv_stat_ignores_slash=yes
+      AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_stat_ignores_slash')
     ])
   ])
 
@@ -4110,11 +4221,13 @@ else
   AC_MSG_RESULT(yes)
 fi
 
-if test "x$GTK_CFLAGS" != "x"; then
+if test "x$GTK_CPPFLAGS" != "x"; then
   dnl pango_shape_full() is new, fall back to pango_shape().
   AC_MSG_CHECKING(for pango_shape_full)
+  ac_save_CPPFLAGS="$CPPFLAGS"
   ac_save_CFLAGS="$CFLAGS"
   ac_save_LIBS="$LIBS"
+  CPPFLAGS="$CPPFLAGS $GTK_CPPFLAGS"
   CFLAGS="$CFLAGS $GTK_CFLAGS"
   LIBS="$LIBS $GTK_LIBS"
   AC_LINK_IFELSE([AC_LANG_PROGRAM(
@@ -4122,6 +4235,7 @@ if test "x$GTK_CFLAGS" != "x"; then
   [ pango_shape_full(NULL, 0, NULL, 0, NULL, NULL); ])],
 	  AC_MSG_RESULT(yes); AC_DEFINE(HAVE_PANGO_SHAPE_FULL),
 	  AC_MSG_RESULT(no))
+  CPPFLAGS="$ac_save_CPPFLAGS"
   CFLAGS="$ac_save_CFLAGS"
   LIBS="$ac_save_LIBS"
 fi
@@ -4320,7 +4434,7 @@ int main() {
 }])],
 AC_MSG_RESULT(ok),
 AC_MSG_ERROR([WRONG!  uint32_t not defined correctly.]),
-AC_MSG_WARN([cannot check uint32_t when cross-compiling.]))
+AC_MSG_WARN([assuming uint32_t is correct when cross-compiling]))
 
 dnl Check for memmove() before bcopy(), makes memmove() be used when both are
 dnl present, fixes problem with incompatibility between Solaris 2.4 and 2.5.
@@ -4355,7 +4469,8 @@ AC_CACHE_CHECK([whether memmove handles overlaps],[vim_cv_memmove_handles_overla
       ],[
 	vim_cv_memmove_handles_overlap=no
       ],[
-	AC_MSG_ERROR(cross-compiling: please set 'vim_cv_memmove_handles_overlap')
+	vim_cv_memmove_handles_overlap=yes
+	AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_memmove_handles_overlap')
       ])
   ])
 
@@ -4370,7 +4485,8 @@ else
       ],[
 	vim_cv_bcopy_handles_overlap=no
       ],[
-	AC_MSG_ERROR(cross-compiling: please set 'vim_cv_bcopy_handles_overlap')
+	vim_cv_bcopy_handles_overlap=yes
+	AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_bcopy_handles_overlap')
       ])
     ])
 
@@ -4385,7 +4501,8 @@ else
 	  ],[
 	    vim_cv_memcpy_handles_overlap=no
 	  ],[
-	    AC_MSG_ERROR(cross-compiling: please set 'vim_cv_memcpy_handles_overlap')
+	    vim_cv_memcpy_handles_overlap=yes
+	    AC_MSG_WARN(cross-compiling: consider setting 'vim_cv_memcpy_handles_overlap')
 	  ])
       ])
 
@@ -4509,6 +4626,12 @@ if test "$enable_nls" = "yes"; then
 		[#include <libintl.h>],
 		[dgettext("Test", "Test");])],
 		AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_DGETTEXT),
+      AC_MSG_CHECKING([for dngettext])
+		AC_MSG_RESULT([no]))
+      AC_LINK_IFELSE([AC_LANG_PROGRAM(
+		[#include <libintl.h>],
+		[dngettext("DOMAIN", "Test single", "Test plural", 1);])],
+		AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_DNGETTEXT),
 		AC_MSG_RESULT([no]))
       dnl _nl_msg_cat_cntr is required for GNU gettext
       AC_MSG_CHECKING([for _nl_msg_cat_cntr])
@@ -4687,7 +4810,7 @@ dnl (e.g. ino_t and off_t), all of Vim's modules must be compiled with a
 dnl consistent value.  It's therefore safest to force the use of the define
 dnl if it's present in any of the *_CFLAGS variables.
 AC_MSG_CHECKING(whether we need to force -D_FILE_OFFSET_BITS=64)
-if echo "$CFLAGS $LUA_CFLAGS $MZSCHEME_CFLAGS $PERL_CFLAGS $PYTHON_CFLAGS $PYTHON3_CFLAGS $TCL_CFLAGS $RUBY_CFLAGS $GTK_CFLAGS" | grep -q D_FILE_OFFSET_BITS 2>/dev/null; then
+if echo "$CPPFLAGS $CFLAGS $LUA_CFLAGS $MZSCHEME_CFLAGS $PERL_CFLAGS $PYTHON_CFLAGS $PYTHON3_CFLAGS $TCL_CFLAGS $RUBY_CFLAGS $GTK_CPPFLAGS" | grep -q D_FILE_OFFSET_BITS 2>/dev/null; then
   AC_MSG_RESULT(yes)
   AC_DEFINE(_FILE_OFFSET_BITS, 64)
 else
@@ -4726,4 +4849,4 @@ dnl write output files
 AC_CONFIG_FILES(auto/config.mk:config.mk.in)
 AC_OUTPUT
 
-dnl vim: set sw=2 tw=78 fo+=l:
+dnl vim: set sw=2 sts=2 tw=78 fo+=l:

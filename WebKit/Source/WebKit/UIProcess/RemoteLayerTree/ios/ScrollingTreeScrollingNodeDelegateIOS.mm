@@ -340,10 +340,12 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateAfterChildren(const Scrol
             scrollView.delegate = m_scrollViewDelegate.get();
             scrollView.baseScrollViewDelegate = m_scrollViewDelegate.get();
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if ([scrollView respondsToSelector:@selector(_setAvoidsJumpOnInterruptedBounce:)]) {
                 scrollView.tracksImmediatelyWhileDecelerating = NO;
                 scrollView._avoidsJumpOnInterruptedBounce = YES;
             }
+ALLOW_DEPRECATED_DECLARATIONS_END
         }
 
         bool recomputeInsets = scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::TotalContentsSize);

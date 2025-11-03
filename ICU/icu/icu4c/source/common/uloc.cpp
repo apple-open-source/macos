@@ -132,7 +132,12 @@ constexpr const char* LANGUAGES[] = {
 #else
     "chr", "chy", "ckb", "co",  "cop", "cps", "cr",  "crh",
 #endif // APPLE_ICU_CHANGES		
-    "cs",  "csb", "csw", "cu",  "cv",  "cy",
+#if APPLE_ICU_CHANGES
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "cs", "csb", "cst", "csw", "cu", "cv", "cy",
+#else
+    "cs", "csb", "csw", "chu", "chv", "cym",
+#endif // APPLE_ICU_CHANGES
     "da",  "dak", "dar", "dav", "de",  "del", "den", "dgr",
     "din", "dje", "doi", "dsb", "dtp", "dua", "dum", "dv",
     "dyo", "dyu", "dz",  "dzg",
@@ -146,11 +151,21 @@ constexpr const char* LANGUAGES[] = {
     "gez", "gil", "gl",  "glk", "gmh", "gn",  "goh", "gom",
     "gon", "gor", "got", "grb", "grc", "gsw", "gu",  "guc",
     "gur", "guz", "gv",  "gwi",
-    "ha",  "hai", "hak", "haw", "he",  "hi",  "hif", "hil",
+#if APPLE_ICU_CHANGES
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "ha", "hai", "hak", "haw", "hch", "he", "hi", "hif", "hil",
+#else
+    "ha", "hai", "hak", "haw", "he",  "hi",  "hif", "hil",
+#endif // APPLE_ICU_CHANGES
     "hit", "hmn", "ho",  "hr",  "hsb", "hsn", "ht",  "hu",
     "hup", "hy",  "hz",
     "ia",  "iba", "ibb", "id",  "ie",  "ig",  "ii",  "ik",
+#if APPLE_ICU_CHANGES
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "ilo", "inh", "io",  "is",  "isc", "it",  "iu",  "izh",
+#else
     "ilo", "inh", "io",  "is",  "it",  "iu",  "izh",
+#endif // APPLE_ICU_CHANGES
     "ja",  "jam", "jbo", "jgo", "jmc", "jpr", "jrb", "jut",
     "jv",
     "ka",  "kaa", "kab", "kac", "kaj", "kam", "kaw", "kbd",
@@ -182,7 +197,12 @@ constexpr const char* LANGUAGES[] = {
     "ms",  "mt",  "mua", "mul", "mus", "mwl", "mwr", "mwv",
     "my",  "mye", "myv", "mzn",
     "na",  "nan", "nap", "naq", "nb",  "nd",  "nds", "ne",
+#if APPLE_ICU_CHANGES
+// rdar://160427611 add nez
+    "new", "nez", "ng",  "nia", "niu", "njo", "nl",  "nmg", "nn",
+#else
     "new", "ng",  "nia", "niu", "njo", "nl",  "nmg", "nn",
+#endif // APPLE_ICU_CHANGES
 #if APPLE_ICU_CHANGES
 // rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm
     "nnh", "nnp", "no",  "nog", "non", "nov", "nqo", "nr",  "nso",
@@ -219,7 +239,8 @@ constexpr const char* LANGUAGES[] = {
     "se",  "see", "seh", "sei", "sel", "ses", "sg",  "sga",
 #if APPLE_ICU_CHANGES
 // rdar://117588343 add locales sjd, sje, sju	
-    "sgs", "shi", "shn", "shu", "si",  "sid", "sjd", "sje", "sju", "sk",
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "sgs", "shi", "shn", "shp", "shu", "si",  "sid", "sjd", "sje", "sju", "sk",
 #else
     "sgs", "shi", "shn", "shu", "si",  "sid", "sk",
 #endif // APPLE_ICU_CHANGES
@@ -299,7 +320,12 @@ constexpr const char* LANGUAGES_3[] = {
 #else
     "chr", "chy", "ckb", "cos", "cop", "cps", "cre", "crh",
 #endif // APPLE_ICU_CHANGES			
+#if APPLE_ICU_CHANGES
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "ces", "csb", "cst", "csw", "chu", "chv", "cym",
+#else
     "ces", "csb", "csw", "chu", "chv", "cym",
+#endif // APPLE_ICU_CHANGES
     "dan", "dak", "dar", "dav", "deu", "del", "den", "dgr",
     "din", "dje", "doi", "dsb", "dtp", "dua", "dum", "div",
     "dyo", "dyu", "dzo", "dzg",
@@ -313,11 +339,21 @@ constexpr const char* LANGUAGES_3[] = {
     "gez", "gil", "glg", "glk", "gmh", "grn", "goh", "gom",
     "gon", "gor", "got", "grb", "grc", "gsw", "guj", "guc",
     "gur", "guz", "glv", "gwi",
+#if APPLE_ICU_CHANGES
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "hau", "hai", "hak", "haw", "hch", "heb", "hin", "hif", "hil",
+#else
     "hau", "hai", "hak", "haw", "heb", "hin", "hif", "hil",
+#endif // APPLE_ICU_CHANGES
     "hit", "hmn", "hmo", "hrv", "hsb", "hsn", "hat", "hun",
     "hup", "hye", "her",
     "ina", "iba", "ibb", "ind", "ile", "ibo", "iii", "ipk",
+#if APPLE_ICU_CHANGES
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "ilo", "inh", "ido", "isl", "isc", "ita", "iku", "izh",
+#else
     "ilo", "inh", "ido", "isl", "ita", "iku", "izh",
+#endif // APPLE_ICU_CHANGES
     "jpn", "jam", "jbo", "jgo", "jmc", "jpr", "jrb", "jut",
     "jav",
     "kat", "kaa", "kab", "kac", "kaj", "kam", "kaw", "kbd",
@@ -349,7 +385,12 @@ constexpr const char* LANGUAGES_3[] = {
     "msa", "mlt", "mua", "mul", "mus", "mwl", "mwr", "mwv",
     "mya", "mye", "myv", "mzn",
     "nau", "nan", "nap", "naq", "nob", "nde", "nds", "nep",
+#if APPLE_ICU_CHANGES
+// rdar://160427611 add nez
+    "new", "nez", "ndo", "nia", "niu", "njo", "nld", "nmg", "nno",
+#else
     "new", "ndo", "nia", "niu", "njo", "nld", "nmg", "nno",
+#endif // APPLE_ICU_CHANGES
 #if APPLE_ICU_CHANGES
 // rdar://104877633 #381 add locales mid, mic, ber_Tfng, ber_Latn, nqo, nnp,rej, hmn, pqm		
     "nnh", "nnp", "nor", "nog", "non", "nov", "nqo", "nbl", "nso",
@@ -386,7 +427,8 @@ constexpr const char* LANGUAGES_3[] = {
     "sme", "see", "seh", "sei", "sel", "ses", "sag", "sga",
 #if APPLE_ICU_CHANGES
 // rdar://117588343 add locales sjd, sje, sju	
-    "sgs", "shi", "shn", "shu", "sin", "sid", "sjd", "sje", "sju", "slk",
+// rdar://142815767 add cst, hch, ht, isc, shp
+    "sgs", "shi", "shn", "shp", "shu", "sin", "sid", "sjd", "sje", "sju", "slk",
 #else
     "sgs", "shi", "shn", "shu", "sin", "sid", "slk",
 #endif // APPLE_ICU_CHANGES 

@@ -58,33 +58,18 @@
 
 #pragma mark Tunables
 
-#if XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR
-/* Temporarily opt iOS into the legacy behavior as a stop-gap */
-#define CONFIG_WORKING_SET_ESTIMATION 0
-/*
- * Deferred reclaim may be enabled via EDT for select iOS devices, but
- * defaults to disabled
- */
-#define VM_RECLAIM_ENABLED_DEFAULT false
-#else
-#define CONFIG_WORKING_SET_ESTIMATION 1
-#define VM_RECLAIM_ENABLED_DEFAULT true
-#endif
-
 #if DEVELOPMENT || DEBUG
 TUNABLE(uint32_t, kReclaimChunkSize, "vm_reclaim_chunk_size", 16);
 #else /* RELEASE */
 const uint32_t kReclaimChunkSize = 16;
 #endif /* DEVELOPMENT || DEBUG */
 TUNABLE_DEV_WRITEABLE(uint64_t, vm_reclaim_sampling_period_ns, "vm_reclaim_sampling_period_ns",
-#if CONFIG_WORKING_SET_ESTIMATION
+#if XNU_TARGET_OS_OSX
     10ULL * NSEC_PER_SEC);
 #else
-    0ULL);
+    1ULL * NSEC_PER_SEC);
 #endif
-#if CONFIG_WORKING_SET_ESTIMATION
-TUNABLE_DT_DEV_WRITEABLE(bool, vm_reclaim_enabled, "/defaults",
-    "kern.vm_reclaim_enabled", "vm_reclaim_enabled", VM_RECLAIM_ENABLED_DEFAULT, TUNABLE_DT_NONE);
+TUNABLE_DEV_WRITEABLE(bool, vm_reclaim_enabled, "vm_reclaim_enabled", true);
 TUNABLE_DEV_WRITEABLE(uint32_t, vm_reclaim_autotrim_pct_normal, "vm_reclaim_autotrim_pct_normal", 10);
 TUNABLE_DEV_WRITEABLE(uint32_t, vm_reclaim_autotrim_pct_pressure, "vm_reclaim_autotrim_pct_pressure", 5);
 TUNABLE_DEV_WRITEABLE(uint32_t, vm_reclaim_autotrim_pct_critical, "vm_reclaim_autotrim_pct_critical", 1);
@@ -92,10 +77,7 @@ TUNABLE_DEV_WRITEABLE(uint64_t, vm_reclaim_wma_weight_base, "vm_reclaim_wma_weig
 TUNABLE_DEV_WRITEABLE(uint64_t, vm_reclaim_wma_weight_cur, "vm_reclaim_wma_weight_cur", 1);
 TUNABLE_DEV_WRITEABLE(uint64_t, vm_reclaim_wma_denom, "vm_reclaim_wma_denom", 4);
 TUNABLE_DEV_WRITEABLE(uint64_t, vm_reclaim_abandonment_threshold, "vm_reclaim_abandonment_threshold", 512);
-#else /* CONFIG_WORKING_SET_ESTIMATION */
-TUNABLE_DT_DEV_WRITEABLE(uint64_t, vm_reclaim_max_threshold, "/defaults",
-    "kern.vm_reclaim_max_threshold", "vm_reclaim_max_threshold", 0, TUNABLE_DT_NONE);
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
+
 TUNABLE(bool, panic_on_kill, "vm_reclaim_panic_on_kill", false);
 #if DEVELOPMENT || DEBUG
 TUNABLE_WRITEABLE(bool, vm_reclaim_debug, "vm_reclaim_debug", false);
@@ -131,12 +113,10 @@ static kern_return_t reclaim_copyin_head(vm_deferred_reclamation_metadata_t meta
 static kern_return_t reclaim_copyin_tail(vm_deferred_reclamation_metadata_t metadata, uint64_t *tail);
 static kern_return_t reclaim_copyin_busy(vm_deferred_reclamation_metadata_t metadata, uint64_t *busy);
 static kern_return_t reclaim_handle_copyio_error(vm_deferred_reclamation_metadata_t metadata, int result);
-#if CONFIG_WORKING_SET_ESTIMATION
 static mach_error_t vmdr_sample_working_set(
 	vm_deferred_reclamation_metadata_t metadata,
 	mach_vm_size_t *trim_threshold_out,
 	vm_deferred_reclamation_options_t options);
-#endif
 static void vmdr_metadata_release(vm_deferred_reclamation_metadata_t metadata);
 static void vmdr_list_append_locked(vm_deferred_reclamation_metadata_t metadata);
 static void vmdr_list_remove_locked(vm_deferred_reclamation_metadata_t metadata);
@@ -197,13 +177,11 @@ struct vm_deferred_reclamation_metadata_s {
 	 * The last amount of reclaimable bytes reported to the kernel.
 	 */
 	uint64_t vdrm_reclaimable_bytes_last;
-#if CONFIG_WORKING_SET_ESTIMATION
 	/*
 	 * Exponential moving average of the minimum reclaimable buffer size
 	 * (in VMDR_WMA_UNIT's). Protected by @c vdrm_gate.
 	 */
 	uint64_t vdrm_reclaimable_bytes_wma;
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
 	/*
 	 * Tracks whether or not this reclamation metadata has been added
 	 * to the global list yet. Normally, this happens when it is allocated,
@@ -320,11 +298,7 @@ vm_deferred_reclamation_buffer_allocate_internal(
 		return KERN_INVALID_ARGUMENT;
 	}
 	map = task->map;
-#if CONFIG_WORKING_SET_ESTIMATION
 	if (!vm_reclaim_enabled) {
-#else /* !CONFIG_WORKING_SET_ESTIMATION */
-	if (!vm_reclaim_max_threshold) {
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
 		if (!reclaim_disabled_logged) {
 			/* Avoid logging failure for every new process */
 			reclaim_disabled_logged = true;
@@ -832,7 +806,6 @@ reclaim_copyin_reclaimable_bytes(vm_deferred_reclamation_metadata_t metadata, si
 	return kr;
 }
 
-#if CONFIG_WORKING_SET_ESTIMATION
 static kern_return_t
 reclaim_copyin_min_reclaimable_bytes(vm_deferred_reclamation_metadata_t metadata, size_t *min_reclaimable_bytes_out)
 {
@@ -853,7 +826,6 @@ reclaim_copyin_min_reclaimable_bytes(vm_deferred_reclamation_metadata_t metadata
 	}
 	return kr;
 }
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
 
 static bool
 reclaim_copyout_busy(vm_deferred_reclamation_metadata_t metadata, uint64_t value)
@@ -891,7 +863,6 @@ reclaim_copyout_head(vm_deferred_reclamation_metadata_t metadata, uint64_t value
 	return kr;
 }
 
-#if CONFIG_WORKING_SET_ESTIMATION
 static kern_return_t
 reclaim_copyout_min_reclaimable_bytes(vm_deferred_reclamation_metadata_t metadata, size_t min_reclaimable_bytes)
 {
@@ -909,7 +880,6 @@ reclaim_copyout_min_reclaimable_bytes(vm_deferred_reclamation_metadata_t metadat
 	}
 	return kr;
 }
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
 
 #pragma mark Reclamation
 
@@ -1432,7 +1402,6 @@ fail:
 
 #pragma mark Accounting
 
-#if CONFIG_WORKING_SET_ESTIMATION
 extern vm_pressure_level_t memorystatus_vm_pressure_level;
 
 static kern_return_t
@@ -1486,7 +1455,6 @@ vmdr_calculate_autotrim_threshold(vm_deferred_reclamation_metadata_t metadata, s
 
 #define VMDR_WMA_UNIT (1 << 8)
 #define VMDR_WMA_MIX(base, e)  ((vm_reclaim_wma_weight_base * (base) + (e) * VMDR_WMA_UNIT * vm_reclaim_wma_weight_cur) / vm_reclaim_wma_denom)
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
 
 /*
  * @func vmdr_ws_sample
@@ -1522,7 +1490,7 @@ vmdr_sample_working_set(vm_deferred_reclamation_metadata_t metadata,
 	if (options & RECLAIM_NO_FAULT) {
 		vm_fault_disable();
 	}
-#if CONFIG_WORKING_SET_ESTIMATION
+
 	err = reclaim_copyin_min_reclaimable_bytes(metadata, &min_reclaimable_bytes);
 	if (err != ERR_SUCCESS) {
 		goto done;
@@ -1610,24 +1578,6 @@ vmdr_sample_working_set(vm_deferred_reclamation_metadata_t metadata,
 		*trim_threshold_out = vm_map_round_page(unneeded_bytes,
 		    vm_map_page_mask(metadata->vdrm_map));
 	}
-#else /* !CONFIG_WORKING_SET_ESTIMATION */
-	(void)min_reclaimable_bytes;
-	(void)wma;
-	err = reclaim_copyin_reclaimable_bytes(metadata, &cur_reclaimable_bytes);
-	if (err != ERR_SUCCESS) {
-		goto done;
-	}
-	if (cur_reclaimable_bytes >= metadata->vdrm_kernel_bytes_reclaimed) {
-		cur_reclaimable_bytes -= metadata->vdrm_kernel_bytes_reclaimed;
-	} else {
-		vmdr_log_error("[%d] more bytes have been reclaimed (%zu) than "
-		    "are supposedly in buffer (%zu)\n", metadata->vdrm_pid,
-		    metadata->vdrm_kernel_bytes_reclaimed, cur_reclaimable_bytes);
-	}
-	if (cur_reclaimable_bytes > vm_reclaim_max_threshold) {
-		*trim_threshold_out = vm_reclaim_max_threshold - cur_reclaimable_bytes;
-	}
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
 
 	metadata->vdrm_last_sample_abs = mach_absolute_time();
 	metadata->vdrm_reclaimable_bytes_last = cur_reclaimable_bytes;
@@ -1822,9 +1772,7 @@ vm_deferred_reclamation_task_fork(task_t task, vm_deferred_reclamation_metadata_
 
 	metadata->vdrm_last_sample_abs = parent->vdrm_last_sample_abs;
 	metadata->vdrm_kernel_bytes_reclaimed = parent->vdrm_kernel_bytes_reclaimed;
-#if CONFIG_WORKING_SET_ESTIMATION
 	metadata->vdrm_reclaimable_bytes_wma = parent->vdrm_reclaimable_bytes_wma;
-#endif /* CONFIG_WORKING_SET_ESTIMATION */
 
 	return metadata;
 }

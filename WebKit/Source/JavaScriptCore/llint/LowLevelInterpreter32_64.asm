@@ -2253,8 +2253,8 @@ llintOpWithJump(op_switch_imm, OpSwitchImm, macro (size, get, jump, dispatch)
 
     bineq t1, Int32Tag, .opSwitchImmNotInt
 
+    btinz UnlinkedSimpleJumpTable::m_isList[t2], .opSwitchImmSlow
     loadi UnlinkedSimpleJumpTable::m_min[t2], t3
-    bieq t3, (constexpr INT32_MAX), .opSwitchImmSlow
 
     subi t3, t0
     loadp UnlinkedSimpleJumpTable::m_branchOffsets + Int32FixedVector::m_storage[t2], t3

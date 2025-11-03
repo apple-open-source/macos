@@ -140,7 +140,7 @@ private:
         void didReceiveInvalidMessage(Connection&, MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) final;
     private:
         const CheckedRef<StreamClientConnection> m_owner;
-        const CheckedRef<Connection::Client> m_receiver;
+        WeakPtr<Connection::Client> m_receiver;
     };
     std::optional<DedicatedConnectionClient> m_dedicatedConnectionClient;
     uint64_t m_currentDestinationID { 0 };

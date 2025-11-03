@@ -231,6 +231,7 @@ __enum_decl(ipc_object_type_t, uint8_t, {
 	 * Service/Connection ports
 	 */
 	IOT_SERVICE_PORT,
+	IOT_BOOTSTRAP_PORT,
 	IOT_WEAK_SERVICE_PORT,
 	IOT_CONNECTION_PORT,
 	IOT_CONNECTION_PORT_WITH_PORT_ARRAY,

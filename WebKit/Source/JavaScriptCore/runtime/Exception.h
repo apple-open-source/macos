@@ -67,6 +67,7 @@ public:
     void setDidNotifyInspectorOfThrow() { m_didNotifyInspectorOfThrow = true; }
 
 #if ENABLE(WEBASSEMBLY)
+    void tryUnwrapValueForJSTag(VM&);
     void wrapValueForJSTag(JSGlobalObject*);
 #endif
 

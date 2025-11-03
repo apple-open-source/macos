@@ -665,6 +665,9 @@ static kern_return_t
 call_vm_map_copy_overwrite_interruptible(MAP_T dst_map, vm_map_copy_t copy, mach_vm_address_t dst_addr, mach_vm_size_t copy_size)
 {
 	kern_return_t kr = vm_map_copy_overwrite(dst_map, dst_addr, copy, copy_size,
+#if HAS_MTE
+	    FALSE,
+#endif
 	    TRUE);
 
 	return kr;

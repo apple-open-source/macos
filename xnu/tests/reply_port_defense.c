@@ -14,6 +14,7 @@
 #include <sys/code_signing.h>
 #include "cs_helpers.h"
 #include <TargetConditionals.h>
+#include "ipc/ipc_utils.h"
 
 #define MAX_ARGV 3
 
@@ -65,31 +66,6 @@ sip_disabled()
 	}
 	return sip_disabled;
 #else
-	return false;
-#endif
-}
-
-static bool
-ipc_hardening_disabled()
-{
-#if TARGET_OS_OSX || TARGET_OS_BRIDGE
-	/*
-	 * CS_CONFIG_GET_OUT_OF_MY_WAY (enabled via AMFI boot-args)
-	 * disables IPC security features. This boot-arg previously
-	 * caused a headache for developers on macos, who frequently use it for
-	 * testing purposes, because all of their 3rd party apps will
-	 * crash due to being treated as platform code. Unfortunately
-	 * BATS runs with this boot-arg enabled very frequently.
-	 */
-	bool enforcement_disabled = check_current_cs_flags(CS_CONFIG_GET_OUT_OF_MY_WAY);
-	if (enforcement_disabled) {
-		T_LOG("IPC HARDENING ENFORCEMENT IS DISABLED");
-	} else {
-		T_LOG("IPC HARDENING ENABLED");
-	}
-	return enforcement_disabled;
-#else /* TARGET_OS_OSX || TARGET_OS_BRIDGE */
-	/* mach hardening is only disabled by boot-args on macOS */
 	return false;
 #endif
 }

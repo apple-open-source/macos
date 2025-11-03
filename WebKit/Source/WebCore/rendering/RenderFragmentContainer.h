@@ -101,7 +101,7 @@ public:
     
     virtual void repaintFragmentedFlowContent(const LayoutRect& repaintRect) const;
 
-    virtual void collectLayerFragments(LayerFragments&, const LayoutRect&, const LayoutRect&) { }
+    virtual void collectLayerFragments(LayerFragments&, const LayoutRect&, const LayoutRect&) const { }
 
     void addLayoutOverflowForBox(const RenderBox&, const LayoutRect&);
     void addVisualOverflowForBox(const RenderBox&, const LayoutRect&);

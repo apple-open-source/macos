@@ -2986,11 +2986,11 @@ RefPtr<NetworkConnectionToWebProcess> NetworkProcess::protectedWebProcessConnect
     return webProcessConnection(identifier);
 }
 
-NetworkConnectionToWebProcess* NetworkProcess::webProcessConnection(const IPC::Connection& connection) const
+RefPtr<NetworkConnectionToWebProcess> NetworkProcess::protectedWebProcessConnection(const IPC::Connection& connection) const
 {
     for (Ref webProcessConnection : m_webProcessConnections.values()) {
         if (webProcessConnection->connection().uniqueID() == connection.uniqueID())
-            return webProcessConnection.ptr();
+            return webProcessConnection.get();
     }
     return nullptr;
 }

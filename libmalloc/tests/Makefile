@@ -5,27 +5,13 @@ DEVELOPER_DIR ?= $(shell xcode-select -p)
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
 
-TRACE_FILES := \
-	$(notdir $(wildcard $(SRCROOT)/../traces/*.mtrace))
-
-# add trace files without the traces/ prefix, fex:
-#   exclude_this_file.mtrace
-EXCLUDED_TRACE_FILES :=
-
 MALLOC_EXCLAVES := $(if $(findstring Exclave,$(PLATFORM)),YES,NO)
 MALLOC_EXCLAVECORE := $(if $(findstring ExclaveCore,$(PLATFORM)),YES,NO)
 MALLOC_EXCLAVEKIT := $(if $(findstring ExclaveKit,$(PLATFORM)),YES,NO)
 
-ifeq ($(MALLOC_EXCLAVES),NO)
-OTHER_TEST_TARGETS = \
-	$(addprefix nano-trace-replay_, $(basename $(filter-out $(EXCLUDED_TRACE_FILES), $(TRACE_FILES))))
-endif
-
 BATS_PLISTS_EXTRACT = \
 	$(patsubst %,$(SYMROOT)/%.plist,$(OTHER_TEST_TARGETS))
 
-EXCLUDED_SOURCES := \
-	nano_trace_replay.c
 CXX := $(shell $(XCRUN) -sdk "$(TARGETSDK)" -find clang++)
 
 WARNING_CFLAGS := -Wno-format-invalid-specifier -Wno-format-extra-args
@@ -34,9 +20,9 @@ OTHER_CFLAGS += \
 	-DOS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY=1 \
 	-DT_META_TAG_XZONE_AND_PGM=T_META_TAG\(\"xzone_and_pgm\"\) \
 	-DT_META_TAG_NO_ALLOCATOR_OVERRIDE=T_META_TAG\(\"no_allocator_override\"\) \
-	-DT_META_TAG_XZONE=T_META_TAG\(\"xzone\"\) \
+	-DT_META_TAG_ALL_ALLOCATORS=T_META_TAG\(\"all_allocators\"\) \
 	-DT_META_TAG_XZONE_ONLY=T_META_TAG\(\"xzone_only\"\) \
-	-DT_META_TAG_NANO_ON_XZONE=T_META_TAG\(\"nano_on_xzone\"\) \
+	-DT_META_TAG_MAGAZINE_ONLY=T_META_TAG\(\"magazine_only\"\) \
 	-DT_META_TAG_DISABLE_SANITIZERS_TRACES=T_META_TAG\(\"disable_sanitizers_traces\"\) \
 	-I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	-I$(SRCROOT)/../private \
@@ -162,6 +148,9 @@ EXCLUDED_SOURCES += basic_malloc_free_perf.c
 # Guarded range is not implemented for Exclaves
 EXCLUDED_SOURCES += guarded_range_tests.c
 
+# Backdeployment is not supported
+EXCLUDED_SOURCES += malloc_type_backdeploy.c
+
 # These tests both include C files to test submodules, which causes symbol
 # conflicts in the statically linked exclavecore tests
 ifeq ($(MALLOC_EXCLAVECORE),YES)
@@ -169,6 +158,8 @@ EXCLUDED_SOURCES += \
 	mfm_test.c \
 	xzone_segment_tests.c \
 	xzone_metapool_tests.c
+# This also includes the C file to implement the unit tests.
+EXCLUDED_SOURCES += mte_instrumentation_tests.c
 endif # MALLOC_EXCLAVECORE
 else
 OTHER_CFLAGS += \
@@ -178,15 +169,6 @@ endif # MALLOC_EXCLAVES
 
 PRIVATE_FRAMEWORKS = $(SDKROOT)/System/Library/PrivateFrameworks
 PERFDATA_FRAMEWORK = perfdata
-
-nano-trace-replay_%: $(SRCROOT)/nano_trace_replay.c
-	$(CC) \
-		$(CFLAGS) $(DT_CFLAGS) $(OTHER_CFLAGS) \
-		$(LDFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) \
-		-DTRACE_NAME="$(patsubst nano-trace-replay_%,%,$(notdir $@))" \
-		$(patsubst _Photos_puja,-DTEST_TIMEOUT=3000,$(findstring _Photos_puja,$(notdir $@))) \
-		-o $@ \
-		$(SRCROOT)/nano_trace_replay.c
 
 BATS_PLISTS = $(BATS_PLISTS_EXTRACT)
 BATS_PLISTS += $(PROJECT_DIR)/tests/xctests/BATS.plist
@@ -199,7 +181,7 @@ SANITIZER_DYLIB_PATH := /usr/appleinternal/lib/sanitizers/
 asan: OTHER_CFLAGS += -fsanitize=address
 asan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(SANITIZER_DYLIB_PATH)
 
-ifeq ($(Embedded),NO)
+ifeq ($(PLATFORM),MacOSX)
 tsan: CFLAGS := $(filter-out $(ARCH_FLAGS),$(CFLAGS)) -arch x86_64 -fsanitize=thread
 tsan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(SANITIZER_DYLIB_PATH)
 else
@@ -219,6 +201,23 @@ pgm_integration: OTHER_LDFLAGS += -F $(PRIVATE_FRAMEWORKS)
 pgm_integration: OTHER_LDFLAGS += -framework MallocStackLogging
 
 ifeq ($(MALLOC_EXCLAVES),NO)
+malloc_type_backdeploy: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-operations,$(OTHER_CFLAGS)) -ftyped-memory-operations
+ifeq ($(PLATFORM),MacOSX)
+malloc_type_backdeploy: DEPLOYMENT_TARGET_FLAGS := -target unknown-apple-macosx13.0
+else ifeq ($(PLATFORM),iPhoneOS)
+malloc_type_backdeploy: DEPLOYMENT_TARGET_FLAGS := -target unknown-apple-ios16.0
+else ifeq ($(PLATFORM),WatchOS)
+malloc_type_backdeploy: DEPLOYMENT_TARGET_FLAGS := -target unknown-apple-watchos9.0
+else ifeq ($(PLATFORM),AppleTVOS)
+malloc_type_backdeploy: DEPLOYMENT_TARGET_FLAGS := -target unknown-apple-tvos16.0
+else ifeq ($(PLATFORM),BridgeOS)
+malloc_type_backdeploy: DEPLOYMENT_TARGET_FLAGS := -target unknown-apple-bridgeos8.0
+else ifeq ($(PLATFORM),XROS)
+malloc_type_backdeploy: DEPLOYMENT_TARGET_FLAGS := -target unknown-apple-xros1.0
+else
+$(error Unknown platform $(PLATFORM)!)
+endif
+
 malloc_with_options_test: OTHER_LDFLAGS += -F $(PRIVATE_FRAMEWORKS)
 malloc_with_options_test: OTHER_LDFLAGS += -framework ktrace
 endif
@@ -303,18 +302,20 @@ malloc_type_callsite: $(SYMROOT)/malloc_type_callsite_cpp.o
 malloc_type_callsite: OTHER_CFLAGS += $(SYMROOT)/malloc_type_callsite_cpp.o
 malloc_type_callsite: OTHER_LDFLAGS += -lc++
 
+mte_tests: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-operations,$(OTHER_CFLAGS)) -Xclang -target-feature -Xclang +mte
+mte_tests: CODE_SIGN_ENTITLEMENTS = mte_tests.entitlements
+mte_instrumentation_tests: OTHER_CFLAGS := $(OTHER_CFLAGS) -I../src -Xclang -target-feature -Xclang +mte -DCONFIG_MTE=1
+mte_instrumentation_tests: CODE_SIGN_ENTITLEMENTS = mte_instrumentation_tests.entitlements
 
 guarded_range_tests: OTHER_LDFLAGS := -ldarwintest_utils
 
 ifeq ($(MALLOC_EXCLAVES),NO)
 # BATS test plist handling
-#  - Create separate plist to re-run test suite with PGM
 #  - Modify plist (add tests) to run general tests again with xzone malloc enabled
+#  - Create separate plist to re-run test suite with PGM
 project_test_configs: bats.plist
 	mkdir -p $(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/
-	xcrun -sdk $(SDKROOT) python3 ./create_pgm_plist.py $(SYMROOT)/bats.plist $(SYMROOT)/libmalloc_pgm.plist
-	cp $(SYMROOT)/libmalloc_pgm.plist $(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/
-	xcrun -sdk $(SDKROOT) python3 ./add_xzone_tests.py $(SYMROOT)/bats.plist --platform $(PLATFORM)
+	xcrun -sdk $(SDKROOT) python3 ./process_bats_plist.py $(SYMROOT)/bats.plist $(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/ --platform $(PLATFORM)
 
 .PHONY: project_test_configs
 

@@ -147,6 +147,8 @@ typedef struct jetsam_state_s {
 	bool                            errors_cleared; /* Have we tried clearing all errors this iteration? */
 	bool                            sort_flag; /* Sort the fg band (idle on macOS) before killing? */
 	bool                            corpse_list_purged; /* Has the corpse list been purged? */
+	bool                            bg_approached; /* Has the BG band been approached? */
+	bool                            fg_approached; /* Has the FG band been approached? */
 	bool                            post_snapshot; /* Do we need to post a jetsam snapshot after this session? */
 	uint64_t                        memory_reclaimed; /* Amount of memory that was just reclaimed */
 	uint32_t                        hwm_kills; /* hwm kill counter for this session */
@@ -625,6 +627,15 @@ void memorystatus_freeze_configure_for_swap(void);
  * Undo memorystatus_freeze_configure_for_swap
  */
 void memorystatus_freeze_disable_swap(void);
+
+/*
+ * Cache of pids of most-recently thawed processes.
+ * Used to reduce excessive rapid thaw/refreeze cycles.
+ */
+void memorystatus_freeze_record_process_thawed(proc_t p);
+bool memorystatus_freeze_was_process_recently_thawed(proc_t p);
+extern boolean_t     memorystatus_freeze_prevent_refreeze_of_recently_thawed;
+
 #endif /* CONFIG_FREEZE */
 
 #endif /* BSD_KERNEL_PRIVATE */

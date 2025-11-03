@@ -1,0 +1,6 @@
+This directory contains the source code for xzone malloc.
+
+Parts of xzone malloc are originally based on mimalloc by Daan Leijen and
+Microsoft Research, with subsequent development by Apple Inc.
+
+See doc/xzone_malloc.md for more information.

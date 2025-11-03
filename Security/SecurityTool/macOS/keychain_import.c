@@ -120,7 +120,7 @@ static int do_keychain_import(
                 __block CFStringRef localStr = NULL;
                 __block CFStringRef nameStr = (fileStr) ? fileStr : CFSTR("import file");
                 CFStringPerformWithCString(nameStr, ^(const char *utf8Str) {
-                    char* cpassword = prompt_password(utf8Str);
+                    char* cpassword = prompt_password(utf8Str, FALSE);
                     if (cpassword) { localStr = CFStringCreateWithCString(NULL, cpassword, kCFStringEncodingUTF8); }
                     free(cpassword);
                 });

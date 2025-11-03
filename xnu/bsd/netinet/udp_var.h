@@ -113,6 +113,9 @@ struct  udpstat {
 	u_int32_t udps_snd_swcsum_bytes;  /* udp swcksum (outbound), bytes */
 	u_int32_t udps_snd6_swcsum;       /* udp6 swcksum (outbound), packets */
 	u_int32_t udps_snd6_swcsum_bytes; /* udp6 swcksum (outbound), bytes */
+	/* Port unreachable duplicate suppression */
+	u_int64_t udps_port_unreach_dup_suppressed;
+	u_int64_t udps_port_unreach_not_suppressed;
 };
 
 /*

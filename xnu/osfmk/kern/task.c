@@ -745,16 +745,25 @@ task_is_ipc_active(task_t task)
 	return task->ipc_active;
 }
 
+bool
+task_is_immovable_no_assert(task_t task)
+{
+	task_control_port_options_t opt = task_get_control_port_options(task);
+	return !!(opt & TASK_CONTROL_PORT_IMMOVABLE_MASK);
+}
+
+bool
+task_is_immovable(task_t task)
+{
+	task_control_port_options_t opt = task_get_control_port_options(task);
+	assert(opt != TASK_CONTROL_PORT_OPTIONS_INVALID);
+	return !!(opt & TASK_CONTROL_PORT_IMMOVABLE_MASK);
+}
+
 void
 task_set_corpse(task_t task)
 {
 	return task_ro_flags_set(task, TFRO_CORPSE);
-}
-
-void
-task_copyout_control_port(task_t task)
-{
-	ipc_task_copyout_control_port(task);
 }
 
 /*
@@ -913,19 +922,25 @@ task_clear_return_wait(task_t task, uint32_t flags)
 }
 
 /*
- * Set default behavior for a task's control ports
+ *  Set default behavior for a task's control ports
+ *
+ *  Nothing locked. This is safe because it is called before
+ *  ipc_task_enable, so no one has access to the task yet.
  */
-static void
+void
 task_set_ctrl_port_default(
 	task_t         task,
 	thread_t       thread)
 {
 	ipc_space_policy_t pol = ipc_policy_for_task(task);
-	bool movable_allowed = mac_task_check_get_movable_control_port() == 0;
+	bool movable_allowed = mac_task_check_get_movable_control_port_during_spawn(task) == 0;
 	bool is_simulated = pol & IPC_SPACE_POLICY_SIMULATED;
 	bool is_translated = false;
-
 	task_control_port_options_t opts = TASK_CONTROL_PORT_OPTIONS_NONE;
+
+	/* verify it is call before ipc_task_enable */
+	assert(!task->ipc_active);
+
 	if (movable_allowed || is_simulated || is_translated) {
 		/* Disable control port hardening for entitled||simulated binaries */
 		opts = TASK_CONTROL_PORT_OPTIONS_NONE;
@@ -933,15 +948,11 @@ task_set_ctrl_port_default(
 		/* set control port options for 1p code, inherited from parent task by default */
 		if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_1P_HARD) {
 			opts |= TASK_CONTROL_PORT_IMMOVABLE_HARD;
-		} else if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_1P_SOFT) {
-			opts |= TASK_CONTROL_PORT_IMMOVABLE_SOFT;
 		}
 	} else {
 		/* set control port options for 3p code, inherited from parent task by default */
 		if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_3P_HARD) {
 			opts |= TASK_CONTROL_PORT_IMMOVABLE_HARD;
-		} else if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_3P_SOFT) {
-			opts |= TASK_CONTROL_PORT_IMMOVABLE_SOFT;
 		}
 	}
 
@@ -962,7 +973,6 @@ void __attribute__((noreturn))
 task_wait_to_return(void)
 {
 	task_t task = current_task();
-	thread_t thread = current_thread();
 	uint8_t returnwaitflags;
 
 	is_write_lock(task->itk_space);
@@ -1015,11 +1025,6 @@ task_wait_to_return(void)
 		mac_proc_notify_exec_complete(current_proc());
 	}
 #endif
-
-	/*
-	 * Set task/thread control port movability now that we can call AMFI
-	 */
-	task_set_ctrl_port_default(task, thread);
 
 	thread_bootstrap_return();
 }
@@ -1190,6 +1195,9 @@ task_init(void)
 		panic("task_init");
 	}
 
+#if HAS_MTE && CONFIG_KERNEL_TAGGING
+	task_set_sec(kernel_task);
+#endif /* HAS_MTE && CONFIG_KERNEL_TAGGING */
 
 
 	vm_map_setup(get_task_map(kernel_task), kernel_task);
@@ -1763,11 +1771,8 @@ task_create_internal(
 		task_ro_data.task_tokens.sec_token = KERNEL_SECURITY_TOKEN;
 		task_ro_data.task_tokens.audit_token = KERNEL_AUDIT_TOKEN;
 	}
-	/*
-	 * intentionally initialized to zero, it will be set before returning
-	 * to userspace in task_set_ctrl_port_default
-	 */
-	task_ro_data.task_control_port_options = TASK_CONTROL_PORT_OPTIONS_NONE;
+	/* set in task_set_ctrl_port_default */
+	task_ro_data.task_control_port_options = TASK_CONTROL_PORT_OPTIONS_INVALID;
 
 	/* must set before task_importance_init_from_parent: */
 	if (proc_ro != NULL) {
@@ -1840,6 +1845,40 @@ task_create_internal(
 		}
 #endif
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+		/*
+		 * On inherit_memory inherit sec-enabled and sec-inherit,
+		 * and enable it on the address space. The fork() case
+		 * is independent from the inheritance rules, as we must
+		 * support a parent duplicating the VA space and accessing
+		 * tagged memory in the child.
+		 */
+		if (inherit_memory) {
+			if (task_has_sec(parent_task)) {
+				task_set_sec(new_task);
+				vm_map_set_sec_enabled(get_task_map(new_task));
+			}
+			if (task_has_sec_user_data(parent_task)) {
+				task_set_sec_user_data(new_task);
+			}
+			if (task_has_sec_soft_mode(parent_task)) {
+				task_set_sec_soft_mode(new_task);
+			}
+#if DEVELOPMENT || DEBUG
+			/*
+			 * The following configuration options are only
+			 * available for debugging.
+			 */
+			if (task_has_sec_inherit(parent_task)) {
+				task_set_sec_inherit(new_task);
+			}
+			if (task_has_sec_never_check(parent_task)) {
+				task_set_sec_never_check(new_task);
+				vm_map_set_sec_disabled(get_task_map(new_task));
+			}
+#endif /* DEVELOPMENT || DEBUG */
+		}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 		new_task->priority = BASEPRI_DEFAULT;
 		new_task->max_priority = MAXPRI_USER;
@@ -6429,7 +6468,7 @@ task_info(
 		struct ipc_space *space = task->itk_space;
 		if (space) {
 			ipc_space_config->space_policy = (uint32_t)space->is_policy;
-			*task_info_count = TASK_SECURITY_CONFIG_INFO_COUNT;
+			*task_info_count = TASK_IPC_SPACE_POLICY_INFO_COUNT;
 		}
 		break;
 	}
@@ -7505,6 +7544,10 @@ task_footprint_exceeded(int warning, __unused const void *param0, __unused const
 		task_process_crossed_limit_no_diag(task, enforced_limit_mb, memlimit_is_fatal, memlimit_is_active, is_warning);
 	} else {
 		task_process_crossed_limit_diag(enforced_limit_mb);
+	}
+	if ((enforced_limit_mb & EXC_RESOURCE_HWM_LIMIT_MASK) != enforced_limit_mb) {
+		os_log_error(OS_LOG_DEFAULT, "EXC_RESOURCE limit %d above maximum-encodable limit %d; logs may be inaccurate\n",
+		    (int) enforced_limit_mb, (int) EXC_RESOURCE_HWM_LIMIT_MASK);
 	}
 #else /* DEBUG || DEVELOPMENT */
 	task_process_crossed_limit_no_diag(task, enforced_limit_mb, memlimit_is_fatal, memlimit_is_active, is_warning);
@@ -10028,6 +10071,70 @@ task_set_hardened_process_version(task_t task, uint64_t version)
 	task->security_config.hardened_process_version = (uint8_t)version;
 }
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+/*
+ * task_has_sec() (really: task_has_mte()) means:
+ *
+ * 1. task->map allows vm_allocate(VM_FLAGS_MTE); i.e., you can create *new*
+ *    tagged memory in that map.
+ * 2. When this task is running, MTE tag checking is enabled (SCTLR.ATA0=1).
+ * 3. task is subject to VM restriction policies.
+ */
+TASK_SECURITY_CONFIG_HELPER_DEFINE(sec, false)
+
+#define TASK_MTE_POLICY_HELPER_DEFINE(suffix, policy)   \
+    bool task_has_sec_##suffix(task_t task) \
+	{ \
+	        if (__improbable(!task)) { \
+	                panic("NULL task in %s", __func__); \
+	} \
+	if (__improbable(task == kernel_task)) { \
+	        return false; \
+	} \
+	if (__improbable(!task_has_sec(task))) { \
+	                return false; \
+	} \
+	        return ((os_atomic_load(&task->task_sec_policy, relaxed)) & policy) != 0; \
+	} \
+	void task_set_sec_##suffix(task_t task) \
+	{ \
+	        os_atomic_or(&task->task_sec_policy, policy, relaxed); \
+	}
+
+TASK_MTE_POLICY_HELPER_DEFINE(soft_mode, TASK_SEC_POLICY_SOFT_MODE);
+TASK_MTE_POLICY_HELPER_DEFINE(user_data, TASK_SEC_POLICY_USER_DATA);
+TASK_MTE_POLICY_HELPER_DEFINE(inherit, TASK_SEC_POLICY_INHERIT);
+TASK_MTE_POLICY_HELPER_DEFINE(never_check, TASK_SEC_POLICY_NEVER_CHECK);
+TASK_MTE_POLICY_HELPER_DEFINE(restrict_receiving_aliases_to_tagged_memory, TASK_SEC_POLICY_RESTRICT_RECEIVING_ALIASES_TO_TAGGED_MEMORY);
+
+uint32_t
+task_get_sec_policy(task_t task)
+{
+	assert(task);
+	return (uint32_t)(task->task_sec_policy);
+}
+
+void
+task_clear_sec_policy(task_t task)
+{
+	os_atomic_store(&task->task_sec_policy, TASK_SEC_POLICY_NONE, relaxed);
+}
+
+bool
+current_task_has_sec_enabled(void)
+{
+	task_t task = current_task_early();
+	if (!task) {
+		/* an early boot thread is always a kernel thread */
+#if CONFIG_KERNEL_TAGGING
+		return true;
+#else /* !CONFIG_KERNEL_TAGGING */
+		return false;
+#endif /* !CONFIG_KERNEL_TAGGING */
+	}
+	return task_has_sec(task);
+}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 
 #if __has_feature(ptrauth_calls)
@@ -10793,3 +10900,45 @@ task_best_name(task_t task)
 }
 
 
+#if HAS_MTE
+/*
+ * Set a AST_SYNTHESIZE_MACH exception on the task.
+ * This AST will consult the saved address in the vm_map and create a proper
+ * MTE mach exception out of thin air.
+ */
+void
+task_set_ast_mte_synthesize_mach_exception(task_t task)
+{
+	task_lock(task);
+
+	if (!task->active) {
+		task_unlock(task);
+		return;
+	}
+
+	spl_t s = splsched();
+	/* Set an AST on each of the task's threads, sending IPIs if needed */
+	thread_t thread;
+	queue_iterate(&task->threads, thread, thread_t, task_threads) {
+		if (thread == current_thread()) {
+			thread_ast_set(thread, AST_SYNTHESIZE_MACH);
+			ast_propagate(thread);
+		} else {
+			processor_t processor;
+
+			thread_lock(thread);
+			thread_ast_set(thread, AST_SYNTHESIZE_MACH);
+			processor = thread->last_processor;
+			if (processor != PROCESSOR_NULL &&
+			    processor->state == PROCESSOR_RUNNING &&
+			    processor->active_thread == thread) {
+				cause_ast_check(processor);
+			}
+			thread_unlock(thread);
+		}
+	};
+	splx(s);
+
+	task_unlock(task);
+}
+#endif /* HAS_MTE */

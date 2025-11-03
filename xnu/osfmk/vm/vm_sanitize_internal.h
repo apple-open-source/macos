@@ -201,6 +201,18 @@ __enum_closed_decl(vm_sanitize_caller_id_t, uint32_t, {
  * into bits above the supported VA bits for the system. These bits may be used
  * by the kernel or hardware to store additional values.
  */
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+/*
+ * @const VM_SANITIZE_FLAGS_STRIP_ADDR
+ * Strip a pointer of all metadata bits. Requires the target map.
+ * This will eventually supersede VM_SANITIZE_FLAGS_CANONICALIZE once we
+ * open up MTE code.
+ *
+ * @const VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR
+ * Counterpart to VM_SANITIZE_FLAGS_STRIP_ADDR, forces an early failure
+ * if a tagged address is passed up to the function.
+ */
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 __options_closed_decl(vm_sanitize_flags_t, uint32_t, {
 	VM_SANITIZE_FLAGS_NONE                     = 0x00000000,
@@ -214,6 +226,11 @@ __options_closed_decl(vm_sanitize_flags_t, uint32_t, {
 	VM_SANITIZE_FLAGS_CANONICALIZE             = 0x00000080,
 	VM_SANITIZE_FLAGS_CHECK_ALIGNED_SIZE       = 0x00000100,
 	VM_SANITIZE_FLAGS_CHECK_ADDR_RANGE         = 0x00000200,
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/* Avoid gaps in flags definition until release. */
+	VM_SANITIZE_FLAGS_STRIP_ADDR                 = 0x40000000,
+	VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR    = 0x80000000,
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 });
 
 #define __vm_sanitize_bits_one_of(flags) \

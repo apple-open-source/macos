@@ -136,6 +136,8 @@ extern NSString *const kSecurityRTCEventNameOTLocalCKKSResetOperation;
 extern NSString *const kSecurityRTCEventNameEscrowPasscodeEnableCacheFlow;
 extern NSString *const kSecurityRTCEventNameEscrowPasscodeCacheAvailable;
 extern NSString *const kSecurityRTCEventNameEscrowRepairOperation;
+extern NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeChanged;
+extern NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeUnlocked;
 
 // MARK: RPD
 extern NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemoval;
@@ -286,6 +288,10 @@ extern NSString *const kSecurityRTCFieldTotalNumberOfPreapprovals;
 /* Reset Protected Data Fields */
 extern NSString *const kSecurityRTCFieldAccountIsW;
 extern NSString *const kSecurityRTCFieldAccountIsG;
+extern NSString *const kSecurityRTCFieldAccountIsDBR;
+
+/* Piggybacking RTC Fields */
+extern NSString *const kSecurityRTCFieldTotalViableEscrowRecords;
 
 NS_ASSUME_NONNULL_END
 

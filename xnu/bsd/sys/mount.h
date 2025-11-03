@@ -1352,6 +1352,7 @@ void    vfs_setfstypename(mount_t mp, const char *name);
 uint64_t vfs_throttle_mask(mount_t mp);
 int vfs_isswapmount(mount_t mp);
 int     vfs_context_dataless_materialization_is_prevented(vfs_context_t);
+int     vfs_context_orig_dataless_materialization_is_prevented(vfs_context_t);
 boolean_t vfs_context_is_dataless_manipulator(vfs_context_t);
 boolean_t vfs_context_can_resolve_triggers(vfs_context_t);
 boolean_t vfs_context_can_break_leases(vfs_context_t);
@@ -1509,8 +1510,9 @@ OS_ENUM(graftdmg_type, uint32_t,
     GRAFTDMG_CRYPTEX_PDI_NONCE = 6,
     GRAFTDMG_CRYPTEX_EFFECTIVE_AP = 7,
     GRAFTDMG_CRYPTEX_MOBILE_ASSET = 8,
+    GRAFTDMG_CRYPTEX_MOBILE_ASSET_WITH_CODE = 9,
     // Update this when a new type is added
-    GRAFTDMG_CRYPTEX_MAX = 8);
+    GRAFTDMG_CRYPTEX_MAX = 9);
 
 OS_ENUM(cryptex_auth_type, uint32_t,
     // Reserved: GRAFTDMG_CRYPTEX_BOOT = 1,
@@ -1521,8 +1523,9 @@ OS_ENUM(cryptex_auth_type, uint32_t,
     CRYPTEX_AUTH_PDI_NONCE = 6,
     // Reserved: GRAFTDMG_CRYPTEX_EFFECTIVE_AP = 7,
     CRYPTEX_AUTH_MOBILE_ASSET = 8,
+    CRYPTEX_AUTH_MOBILE_ASSET_WITH_CODE = 9,
     // Update this when a new type is added
-    CRYPTEX_AUTH_MAX = 8);
+    CRYPTEX_AUTH_MAX = 9);
 
 #ifndef KERNEL
 

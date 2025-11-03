@@ -804,6 +804,15 @@ loadParentsExceptRoot(UResourceDataEntry *&t1,
             *status = parentStatus;
             return false;
         }
+#if APPLE_ICU_CHANGES
+        // rdar://157165058
+        // If ualoc_getAppleParent() is called with "no-NO" before it's called with "no"
+        // the aliasing can result in "no" having a parent pointer to itself. So...
+        if (t2 == t1) {
+            // ...don't create a self-referencing parent pointer.
+            return true;
+        }
+#endif
         UResourceDataEntry *u2 = nullptr;
         UErrorCode usrStatus = U_ZERO_ERROR;
         if (usingUSRData) {  // This code inserts user override data into the inheritance chain.
@@ -2947,7 +2956,7 @@ ures_openWithCountryFallback(const char*  packageName,
 
             // Get the default language for the specified country by fabricating a locale ID with
             // that country code and "und" for the language code and calling uloc_addLikelySubtags().
-            sprintf(countryLocale, "und_%s", country);
+            snprintf(countryLocale, ULOC_FULLNAME_CAPACITY, "und_%s", country);
             uloc_addLikelySubtags(countryLocale, countryLocale, ULOC_FULLNAME_CAPACITY, status);
             uloc_getLanguage(countryLocale, language, ULOC_LANG_CAPACITY, status);
             uloc_getScript(countryLocale, script, ULOC_SCRIPT_CAPACITY, status);
@@ -2955,10 +2964,18 @@ ures_openWithCountryFallback(const char*  packageName,
             if (U_SUCCESS(*status)) {
                 UResourceBundle* newResource = NULL;
 
+                // rdar://157797726: If the new locale ID would be longer than ULOC_FULLNAME_CAPACITY,
+                // throw away all the material after the country code (see the spot above where we do
+                // this for the incoming locale ID for more information on the thinking).
+                if ((uprv_strlen(language) + uprv_strlen(script) + uprv_strlen(countryAndParameters) + 3) > ULOC_FULLNAME_CAPACITY) // the `+ 3` is for two underscores and a null terminator
+                {
+                    countryAndParameters = country;
+                }
+
                 // Create a new locale ID using the language and script from uloc_addLikelySubtags() and the
                 // country and parameters from the original locale and try opening a resource for it.
                 *status = U_ZERO_ERROR;
-                sprintf(countryLocale, "%s_%s_%s", language, script, countryAndParameters);
+                snprintf(countryLocale, ULOC_FULLNAME_CAPACITY, "%s_%s_%s", language, script, countryAndParameters);
                 newResource = ures_open(packageName, countryLocale, status);
                 
                 // If we got back a fallback locale of the default locale, we have more work to do...
@@ -2989,7 +3006,7 @@ ures_openWithCountryFallback(const char*  packageName,
                                 break;
                             }
                         }
-                        sprintf(countryLocale, "%s_%s_%s", language, script, countryAndParameters);
+                        snprintf(countryLocale, ULOC_FULLNAME_CAPACITY, "%s_%s_%s", language, script, countryAndParameters);
                         ures_close(newResource);
                         newResource = ures_open(packageName, countryLocale, status);
                     }

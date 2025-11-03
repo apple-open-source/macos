@@ -65,6 +65,12 @@
 /* Establish a shared mapping of the comparisons buffer. */
 #define KSANCOV_IOC_CMPS_MAP         _IOWR('K', 90, struct ksancov_buf_desc)
 
+/* Testcases buffer */
+#define KSANCOV_IOC_TESTCASES       _IOW('K', 100, size_t) /* number of testcases */
+#define KSANCOV_IOC_TESTCASES_MAP   _IOWR('K', 101, struct ksancov_buf_desc)
+#define KSANCOV_IOC_TESTCASES_LOG   _IO('K', 102)
+
+
 /*
  * ioctl
  */
@@ -122,6 +128,7 @@ void kcov_ksancov_pcs_init(uintptr_t *, uintptr_t *);
 void kcov_ksancov_trace_cmp(kcov_thread_data_t *, uint32_t, uint64_t, uint64_t, void*);
 void kcov_ksancov_trace_cmp_func(kcov_thread_data_t *, uint32_t, const void*, size_t, const void*, size_t, void*, bool);
 bool kcov_ksancov_must_instrument(uintptr_t);
+void ksancov_on_panic_log(void);
 
 __END_DECLS
 
@@ -135,6 +142,8 @@ __END_DECLS
 #define kcov_ksancov_pcs_init(start, stop)
 #define kcov_ksancov_trace_cmp(data, type, arg1, arg2, caller)
 #define kcov_ksancov_trace_cmp_func(data, type, arg1, arg2, size, caller, always_log)
+#define kcov_ksancov_must_instrument(addr)
+#define ksancov_on_panic_log()
 
 #endif /* CONFIG_KSANCOV */
 

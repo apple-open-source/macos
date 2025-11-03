@@ -746,7 +746,11 @@ bool _SecTrustStoreContainsCertificate(SecTrustStoreRef ts, SecCertificateRef ce
     if (ts && ts->domain == kSecTrustStoreDomainSystem) {
         // For the system domain, use the system anchor source
         if (contains) {
-            *contains = SecCertificateSourceContains(kSecSystemAnchorSource, cert, NULL);
+            if (!_SecTrustRemoveOldSystemAnchorSource()) {
+                *contains = SecCertificateSourceContains(kSecSystemAnchorSource, cert, NULL);
+            } else {
+                *contains = SecCertificateSourceContains(kSecSystemConstrainedAnchorSource, cert, NULL);
+            }
         }
         return true;
     }
@@ -761,7 +765,11 @@ bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRef c
     if (ts && ts->domain == kSecTrustStoreDomainSystem) {
         // For the system domain, use the system anchor source
         if (usageConstraints) {
-            *usageConstraints = SecCertificateSourceCopyUsageConstraints(kSecSystemAnchorSource, cert);
+            if (!_SecTrustRemoveOldSystemAnchorSource()) {
+                *usageConstraints = SecCertificateSourceCopyUsageConstraints(kSecSystemAnchorSource, cert);
+            } else {
+                *usageConstraints = SecCertificateSourceCopyUsageConstraints(kSecSystemConstrainedAnchorSource, cert);
+            }
         }
         return true;
     }
@@ -771,7 +779,6 @@ bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRef c
     return true;
 #endif // !TARGET_OS_IPHONE
 }
-
 
 static bool _SecSystemTrustStoreCopyAll(CFStringRef policyId, CFArrayRef *trustStoreContents, CFErrorRef *error) {
     __block CFMutableArrayRef CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);

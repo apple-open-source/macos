@@ -86,6 +86,7 @@ void MemoryBackingStoreTransaction::removeNewIndex(MemoryIndex& index)
 
     ASSERT(isVersionChange());
 
+    m_originalIndexNames.remove(&index);
     m_versionChangeAddedIndexes.remove(&index);
     m_indexes.remove(&index);
 }
@@ -168,7 +169,7 @@ void MemoryBackingStoreTransaction::abort()
 
     // Restore renamed indexes.
     for (const auto& iterator : m_originalIndexNames) {
-        auto* index = iterator.key;
+        RefPtr index = iterator.key;
         auto originalName = iterator.value;
         auto identifier = index->info().identifier();
 

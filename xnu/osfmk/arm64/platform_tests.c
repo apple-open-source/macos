@@ -113,6 +113,11 @@ kern_return_t ctrr_test_cpu(void);
 #if BTI_ENFORCED
 kern_return_t arm64_bti_test(void);
 #endif /* BTI_ENFORCED */
+#if HAS_MTE
+#include <arm_acle.h>
+kern_return_t mte_test(void);
+kern_return_t mte_copyio_recovery_handler_test(void);
+#endif
 #if HAS_SPECRES
 extern kern_return_t specres_test(void);
 #endif
@@ -1718,6 +1723,10 @@ extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_ldr_auth_fail;
 extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_fpac;
 extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_copyio;
 extern uint8_t arm64_panic_lockdown_test_copyio_fault_pc;
+#if HAS_MTE
+extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_copyio_tag_check_fault_recoverable;
+extern uint8_t arm64_panic_lockdown_test_copyio_tag_check_fault_recoverable_fault_pc;
+#endif /* HAS_MTE */
 
 extern int gARM_FEAT_FPACCOMBINE;
 
@@ -1917,6 +1926,16 @@ panic_lockdown_pacda_get_invalid_ptr(void)
 	return (uint64_t)unsigned_ptr;
 }
 
+#if HAS_MTE
+static bool
+arm64_panic_lockdown_is_mte_enabled(void)
+{
+	if (!is_mte_enabled) {
+		T_LOG("MTE disabled");
+	}
+	return is_mte_enabled;
+}
+#endif /* HAS_MTE */
 
 kern_return_t
 arm64_panic_lockdown_test(void)
@@ -1925,6 +1944,15 @@ arm64_panic_lockdown_test(void)
 	uint64_t ia_invalid = panic_lockdown_pacia_get_invalid_ptr();
 #endif /* ptrauth_calls */
 
+#if HAS_MTE
+	/*
+	 * Generate a kernel pointer with an invalid/wrong tag by grabbing an
+	 * arbitrary pointer (in this case, a canonically tagged global) and
+	 * advancing the tag by one.
+	 */
+	uintptr_t kernel_ptr_invalid_tag = (uintptr_t)__arm_mte_increment_tag(
+		&xnu_post_panic_lockdown_did_fire, 1);
+#endif /* HAS_MTE */
 	arm64_panic_lockdown_test_case_s tests[] = {
 		{
 			.name = "arm64_panic_lockdown_test_load",
@@ -2049,6 +2077,56 @@ arm64_panic_lockdown_test(void)
 			.override_expected_fault_pc_valid = true,
 			.override_expected_fault_pc = (uint64_t)&arm64_panic_lockdown_test_copyio_fault_pc,
 		},
+#if HAS_MTE
+		{
+			/* Validate that non-copyio tag check fails trigger a lockdown */
+			.name = "arm64_panic_lockdown_test_load_mte_fail",
+			.func = &arm64_panic_lockdown_test_load,
+			.arg = kernel_ptr_invalid_tag,
+			.precondition = arm64_panic_lockdown_is_mte_enabled,
+			.expected_ec = ESR_EC_DABORT_EL1,
+			.check_fs = true,
+			.expected_fs = FSC_SYNC_TAG_CHECK_FAULT,
+			.expect_lockdown_exceptions_masked = true,
+			.expect_lockdown_exceptions_unmasked = true,
+		},
+		{
+			/*
+			 * Validate that non-tag check recoverable copyio tag check fails
+			 * trigger a lockdown
+			 */
+			.name = "arm64_panic_lockdown_test_copyio_mte_fail",
+			.func = &arm64_panic_lockdown_test_copyio,
+			.arg = kernel_ptr_invalid_tag,
+			.precondition = arm64_panic_lockdown_is_mte_enabled,
+			.expected_ec = ESR_EC_DABORT_EL1,
+			.check_fs = true,
+			.expected_fs = FSC_SYNC_TAG_CHECK_FAULT,
+			.expect_lockdown_exceptions_masked = true,
+			.expect_lockdown_exceptions_unmasked = true,
+			.override_expected_fault_pc_valid = true,
+			.override_expected_fault_pc = (uint64_t)&arm64_panic_lockdown_test_copyio_fault_pc,
+		},
+#if 0 /* rdar://153476527 */
+		{
+			/*
+			 * Validate that kernel tag check recoverable copyio functions do
+			 * not trigger a lockdown on tag check fail.
+			 */
+			.name = "arm64_panic_lockdown_test_copyio_tag_check_fault_recoverable",
+			.func = &arm64_panic_lockdown_test_copyio_tag_check_fault_recoverable,
+			.arg = kernel_ptr_invalid_tag,
+			.precondition = arm64_panic_lockdown_is_mte_enabled,
+			.expected_ec = ESR_EC_DABORT_EL1,
+			.check_fs = true,
+			.expected_fs = FSC_SYNC_TAG_CHECK_FAULT,
+			.expect_lockdown_exceptions_masked = false,
+			.expect_lockdown_exceptions_unmasked = false,
+			.override_expected_fault_pc_valid = true,
+			.override_expected_fault_pc = (uint64_t)&arm64_panic_lockdown_test_copyio_tag_check_fault_recoverable_fault_pc,
+		},
+#endif /* 0 */
+#endif /* HAS_MTE */
 	};
 
 	size_t test_count = sizeof(tests) / sizeof(*tests);
@@ -2085,6 +2163,208 @@ arm64_panic_lockdown_test(void)
 }
 #endif /* CONFIG_SPTM */
 
+#if HAS_MTE
+volatile uint64_t mte_test_esr;
+
+static bool
+mte_test_fault_handler(arm_saved_state_t *ss)
+{
+	uint64_t esr = get_saved_state_esr(ss);
+	esr_exception_class_t ec = ESR_EC(esr);
+	bool ret = false;
+
+	if (ec == ESR_EC_DABORT_EL1) {
+		fault_status_t fsc = ISS_IA_FSC(ESR_ISS(esr));
+		if (fsc == FSC_SYNC_TAG_CHECK_FAULT) {
+			mte_test_esr = esr;
+			add_saved_state_pc(ss, 4);
+			ret = true;
+		}
+	}
+
+	return ret;
+}
+
+static inline unsigned int
+extract_mte_tag(void *ptr)
+{
+	return (((uintptr_t)ptr) >> 56) & 0xF;
+}
+
+kern_return_t
+mte_test(void)
+{
+	if (!is_mte_enabled) {
+		T_SKIP("MTE disabled");
+		return KERN_SUCCESS;
+	}
+
+	/* This test needs to manipulate GCR_EL1 without getting preempted */
+	assert_uniprocessor();
+
+	vm_address_t address;
+	kern_return_t kr;
+	const size_t MTE_GRANULE_SIZE = 16;
+	const unsigned int NUM_MTE_TAGS = 16;
+
+	/* Allocate a MTE backed page */
+	kr = kmem_alloc(kernel_map, &address, PAGE_SIZE, KMA_ZERO | KMA_TAG | KMA_KOBJECT, VM_KERN_MEMORY_DIAG);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "kmem_alloc(KMA_TAG) - allocate an MTE enabled page");
+	char *untagged_ptr = (char *)vm_memtag_canonicalize_kernel(address);
+	ppnum_t pn = pmap_find_phys(kernel_pmap, address);
+	T_ASSERT(pmap_is_tagged_page(pn), "kmem_alloc(KMA_TAG) returned MTE-enabled translation");
+
+	/* Read the originally assigned tag to the page */
+	char *orig_tagged_ptr = __arm_mte_get_tag(untagged_ptr);
+	T_LOG("__arm_mte_get_tag(%p) == %p\n", untagged_ptr, orig_tagged_ptr);
+	unsigned int orig_tag = extract_mte_tag(orig_tagged_ptr);
+
+	/* Exclude the original tag from random tag generation */
+	uint64_t mask = __arm_mte_exclude_tag(orig_tagged_ptr, 0);
+	T_EXPECT_EQ_ULLONG(mask, 1 << orig_tag, "original tag is excluded");
+
+	char *random_tagged_ptr;
+	/*
+	 * Generate the random tag.  We've excluded the original tag, so it should never
+	 * reappear no matter how many times we regenerate a new tag.
+	 */
+	for (unsigned int i = 0; i < NUM_MTE_TAGS * 4; i++) {
+		random_tagged_ptr = __arm_mte_create_random_tag(untagged_ptr, mask);
+		T_QUIET; T_EXPECT_NE_PTR(orig_tagged_ptr, random_tagged_ptr,
+		    "random tag was not taken from excluded tag set");
+
+		ptrdiff_t diff = __arm_mte_ptrdiff(untagged_ptr, random_tagged_ptr);
+		T_QUIET; T_EXPECT_EQ_ULLONG(diff, 0, "untagged %p and tagged %p have identical address bits",
+		    untagged_ptr, random_tagged_ptr);
+	}
+	T_LOG("__arm_mte_create_random_tag(%p, %llx) == %p\n", untagged_ptr, mask, random_tagged_ptr);
+
+	/*
+	 * Globally exclude another tag.  Let's arbitrarily pick orig_tag - 1,
+	 * so that it takes effect the 15th time we increment orig_tagged_ptr.
+	 */
+	uint64_t excluded_tag = (orig_tag + (NUM_MTE_TAGS - 1)) % NUM_MTE_TAGS;
+	uint64_t old_gcr_el1 = __builtin_arm_rsr64("GCR_EL1");
+	uint64_t new_gcr_el1 = old_gcr_el1 & ~GCR_EL1_EXCLUDE_MASK;
+	new_gcr_el1 |= (1 << excluded_tag) << GCR_EL1_EXCLUDE_OFFSET;
+	__builtin_arm_wsr64("GCR_EL1", new_gcr_el1);
+
+	char *last_tagged_ptr = orig_tagged_ptr;
+	unsigned int last_tag = orig_tag;
+	/* Increment the tag until we're just about to reach the excluded one */
+	for (unsigned int i = 0; i < NUM_MTE_TAGS - 2; i++) {
+		char *next_tagged_ptr = __arm_mte_increment_tag(last_tagged_ptr, 1);
+		unsigned int next_tag = extract_mte_tag(next_tagged_ptr);
+		T_QUIET; T_EXPECT_EQ_UINT(next_tag, (last_tag + 1) % NUM_MTE_TAGS,
+		    "__arm_mte_increment_tag(%p, 1) = %p", last_tagged_ptr, next_tagged_ptr);
+
+		ptrdiff_t diff = __arm_mte_ptrdiff(last_tagged_ptr, next_tagged_ptr);
+		T_QUIET; T_EXPECT_EQ_ULLONG(diff, 0, "previous %p and incremented %p have identical address bits",
+		    last_tagged_ptr, next_tagged_ptr);
+
+		last_tagged_ptr = next_tagged_ptr;
+		last_tag = next_tag;
+	}
+	/* Increment again, and confirm that we've skipped over the excluded tag */
+	char *skip_tagged_ptr = __arm_mte_increment_tag(last_tagged_ptr, 1);
+	unsigned int skip_tag = extract_mte_tag(skip_tagged_ptr);
+	T_EXPECT_EQ_UINT(skip_tag, orig_tag, "__arm_mte_increment_tag() skipped over excluded tag");
+
+	/* Restore the original tag configuration */
+	__builtin_arm_wsr64("GCR_EL1", old_gcr_el1);
+
+	/* Time to make things real, commit the tag to memory */
+	__arm_mte_set_tag(random_tagged_ptr);
+
+	/* Ensure that we can read back the tag */
+	char *read_back = __arm_mte_get_tag(untagged_ptr);
+	T_EXPECT_EQ_PTR(read_back, random_tagged_ptr, "tag was committed to memory correctly");
+
+	/* Verify that accessing memory actually works */
+	random_tagged_ptr[0] = 't';
+	random_tagged_ptr[1] = 'e';
+	random_tagged_ptr[2] = 's';
+	random_tagged_ptr[3] = 't';
+	T_EXPECT_EQ_STR(random_tagged_ptr, "test", "read/write from tagged memory");
+
+	/*
+	 * Confirm that the next MTE granule still has the default tag, and then
+	 * simulate an out-of-bounds access into that granule.
+	 */
+	void *next_granule_ptr = orig_tagged_ptr + MTE_GRANULE_SIZE;
+	unsigned int next_granule_tag = extract_mte_tag(next_granule_ptr);
+	T_QUIET; T_ASSERT_EQ_UINT(next_granule_tag, orig_tag,
+	    "next MTE granule still has its originally assigned tag");
+
+	mte_test_esr = 0;
+	ml_expect_fault_begin(mte_test_fault_handler, (uintptr_t)&random_tagged_ptr[MTE_GRANULE_SIZE]);
+	random_tagged_ptr[MTE_GRANULE_SIZE] = '!';
+	ml_expect_fault_end();
+	T_EXPECT_EQ_UINT(ESR_EC(mte_test_esr), ESR_EC_DABORT_EL1,
+	    "out-of-bounds access to tagged memory raised a data abort");
+	T_EXPECT_EQ_UINT(ISS_IA_FSC(ESR_ISS(mte_test_esr)), FSC_SYNC_TAG_CHECK_FAULT,
+	    "out-of-bounds access to tagged memory raised a synchronous tag check fault");
+
+	/*
+	 * Simulate a use-after-free by accessing orig_tagged_ptr, which has an
+	 * out-of-date tag.
+	 */
+	mte_test_esr = 0;
+	ml_expect_fault_begin(mte_test_fault_handler, (uintptr_t)&orig_tagged_ptr[0]);
+	orig_tagged_ptr[0] = 'T';
+	ml_expect_fault_end();
+	T_EXPECT_EQ_UINT(ESR_EC(mte_test_esr), ESR_EC_DABORT_EL1,
+	    "use-after-free access to tagged memory raised a data abort");
+	T_EXPECT_EQ_UINT(ISS_IA_FSC(ESR_ISS(mte_test_esr)), FSC_SYNC_TAG_CHECK_FAULT,
+	    "use-after-free access to tagged memory raised a synchronous tag check fault");
+
+	kmem_free(kernel_map, (vm_address_t)__arm_mte_get_tag(untagged_ptr), PAGE_SIZE, KMF_TAG);
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+mte_copyio_recovery_handler_test(void)
+{
+	if (!is_mte_enabled) {
+		T_SKIP("MTE disabled");
+		return KERN_SUCCESS;
+	}
+
+	extern int _copyin_atomic64(const char *src, uint64_t *dst);
+	extern int _copyin_atomic64_allow_invalid_kernel_tag(const char *src, uint64_t *dst);
+
+	vm_address_t kern_addr;
+	kern_return_t kr = kmem_alloc(kernel_map, &kern_addr, PAGE_SIZE, KMA_ZERO | KMA_TAG | KMA_KOBJECT, VM_KERN_MEMORY_DIAG);
+	T_QUIET; T_ASSERT_EQ_INT(kr, 0, "allocated a tagged page");
+
+	uint64_t *tagged_addr = __arm_mte_create_random_tag((void *)kern_addr, 0);
+	__arm_mte_set_tag(tagged_addr);
+	*tagged_addr = 0xFEEDFACECAFEF00D;
+
+	uint64_t dst;
+	int err = _copyin_atomic64((char *)tagged_addr, &dst);
+	T_EXPECT_EQ_INT(err, 0, "_copyin_atomic64 from tagged kernel address succeeded");
+	T_EXPECT_EQ_ULLONG(*tagged_addr, dst, "_copyin_atomic64 from tagged kernel address copied data correctly");
+
+	uint64_t *incorrectly_tagged_addr = __arm_mte_increment_tag(tagged_addr, 1);
+	dst = 0;
+	err = _copyin_atomic64_allow_invalid_kernel_tag((char *)incorrectly_tagged_addr, &dst);
+	T_EXPECT_EQ_INT(err, EFAULT, "_copyin_atomic64_allow_invalid_kernel_tag with incorrectly tagged kernel address recovered with EFAULT");
+	T_EXPECT_NE_ULLONG(*tagged_addr, dst, "_copyin_atomic64_allow_invalid_kernel_tag from incorrectly tagged kernel address did not copy data");
+
+	mte_test_esr = 0;
+	ml_expect_fault_begin(mte_test_fault_handler, (uintptr_t)incorrectly_tagged_addr);
+	_copyin_atomic64((char *)incorrectly_tagged_addr, &dst);
+	ml_expect_fault_end();
+	T_EXPECT_EQ_UINT(ESR_EC(mte_test_esr), ESR_EC_DABORT_EL1,
+	    "_copyin_atomic64 with incorrectly tagged kernel address raised an unrecoverable data abort");
+	T_EXPECT_EQ_UINT(ISS_IA_FSC(ESR_ISS(mte_test_esr)), FSC_SYNC_TAG_CHECK_FAULT,
+	    "_copyin_atomic64 with incorrectly tagged kernel address raised an unrecoverable synchronous tag check fault");
+
+	kmem_free(kernel_map, (vm_address_t)__arm_mte_get_tag(tagged_addr), PAGE_SIZE, KMF_TAG);
+	return KERN_SUCCESS;
+}
+#endif /* HAS_MTE */
 
 
 
@@ -2413,6 +2693,25 @@ arm64_bti_test(void)
 }
 #endif /* BTI_ENFORCED */
 
+#if CONFIG_SPTM && HAS_MTE && (DEVELOPMENT || DEBUG)
+/**
+ * Tests MTE in guarded mode by calling into the SPTM with an
+ * XNU-provided pointer.
+ *
+ * Currently supported test cases:
+ * 0. Pass SPTM a pointer with a valid tag --> success
+ * 1. Pass SPTM an untagged pointer from the physical aperture --> panic
+ * 2. Pass SPTM a pointer with an invalid tag --> panic
+ */
+static int
+mte_test_gl2(__unused int64_t test_case, __unused int64_t *out)
+{
+
+	return 0;
+}
+
+SYSCTL_TEST_REGISTER(mte_gl2, mte_test_gl2);
+#endif /* CONFIG_SPTM && HAS_MTE && (DEVELOPMENT || DEBUG) */
 
 
 /**

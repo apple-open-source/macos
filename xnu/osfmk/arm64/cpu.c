@@ -831,6 +831,9 @@ cpu_data_init(cpu_data_t *cpu_data_ptr)
 	cpu_data_ptr->rop_key = 0;
 	cpu_data_ptr->jop_key = ml_default_jop_pid();
 #endif
+#if NEEDS_MTE_IRG_RESEED
+	cpu_data_ptr->cpu_irg_reseed_counter = 0;
+#endif
 }
 
 void

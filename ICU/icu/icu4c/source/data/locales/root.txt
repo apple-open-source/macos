@@ -1241,10 +1241,10 @@ root{
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE, d MMMM, y",
+                "EEEE, d MMMM, y G",
                 "d MMMM",
                 "d MMM",
-                "M/d/yy",
+                "d MMM",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -1256,17 +1256,76 @@ root{
                 "HHmmssz",
                 "HHmmss",
                 "HHmm",
-                "yMMMMEEEEd",
+                "GyMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems:alias{"/LOCALE/calendar/tamil/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/tamil/availableFormats"}
+            availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ed{"E, d"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"y G"}
+                GyMMM{"MMM, y G"}
+                GyMMMEd{"E, d MMM, y G"}
+                GyMMMd{"d MMM, y G"}
+                GyMd{"d MMM, y G"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
+                M{"LLL"}
+                MEd{"E, d MMM"}
+                MMM{"LLL"}
+                MMMEd{"E, d MMM "}
+                MMMMW{
+                    other{"'week' W 'of' MMMM"}
+                }
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"d MMM"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                ms{"mm:ss"}
+                y{"y GGGG"}
+                yM{"MMM, y"}
+                yMEd{"E, d MMM, y"}
+                yMM{"MMM, y"}
+                yMMM{"MMM, y"}
+                yMMMEd{"E, d MMM"}
+                yMMMM{"MMMM, y"}
+                yMMMd{"d MMM"}
+                yMd{"d MMM"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    other{"'week' w 'of' Y"}
+                }
+            }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Bongabdo",
+                }
+                narrow:alias{"/LOCALE/calendar/bangla/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/bangla/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/tamil/intervalFormats"}
             monthNames{
                 format{
@@ -1278,7 +1337,7 @@ root{
                         "Bhadro",
                         "Ashshin",
                         "Kartik",
-                        "Agrahayan",
+                        "Ogrohayon",
                         "Poush",
                         "Magh",
                         "Falgun",
@@ -1292,7 +1351,7 @@ root{
                         "B",
                         "A",
                         "K",
-                        "A",
+                        "O",
                         "P",
                         "M",
                         "F",
@@ -1302,11 +1361,11 @@ root{
                         "Boishakh",
                         "Joishtho",
                         "Asharh",
-                        "Srabon",
+                        "Shabon",
                         "Bhadro",
                         "Ashshin",
                         "Kartik",
-                        "Agrahayan",
+                        "Ogrohayon",
                         "Poush",
                         "Magh",
                         "Falgun",
@@ -1322,7 +1381,7 @@ root{
                         "Bhadro",
                         "Ashshin",
                         "Kartik",
-                        "Agrahayan",
+                        "Ogrohayon",
                         "Poush",
                         "Magh",
                         "Falgun",
@@ -1336,7 +1395,7 @@ root{
                         "B",
                         "A",
                         "K",
-                        "A",
+                        "O",
                         "P",
                         "M",
                         "F",
@@ -1350,7 +1409,7 @@ root{
                         "Bhadro",
                         "Ashshin",
                         "Kartik",
-                        "Agrahayan",
+                        "Ogrohayon",
                         "Poush",
                         "Magh",
                         "Falgun",
@@ -2556,18 +2615,18 @@ root{
                 "HH:mm:ss",
                 "HH:mm",
                 {
-                    "EEEE, MMMM d, y",
+                    "EEEE, G y, MMMM d",
                     "d=tithieng",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithieng",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithieng",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -2579,17 +2638,23 @@ root{
                 "HHmmssz",
                 "HHmmss",
                 "HHmm",
-                "yEEEEMMMMd",
+                "GyEEEEMMMMd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
             availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Vikram Samvat",
+                }
+                narrow:alias{"/LOCALE/calendar/gujarati/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/gujarati/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
             monthNames{
                 format{
@@ -2598,12 +2663,12 @@ root{
                         "Māgśar",
                         "Posh",
                         "Mahā",
-                        "Phāgan",
+                        "Phāgaṇ",
                         "Ćaitra",
                         "Vaiśākh",
                         "Jeth",
-                        "Āṣāḍh",
-                        "Śrāvan",
+                        "Aṣāḍh",
+                        "Śrāvaṇ",
                         "Bhādarvo",
                         "Āso",
                     }
@@ -2616,7 +2681,7 @@ root{
                         "Ć",
                         "V",
                         "J",
-                        "Ā",
+                        "A",
                         "Ś",
                         "B",
                         "Ā",
@@ -2626,12 +2691,12 @@ root{
                         "Māgśar",
                         "Posh",
                         "Mahā",
-                        "Phāgan",
+                        "Phāgaṇ",
                         "Ćaitra",
                         "Vaiśākh",
                         "Jeth",
-                        "Āṣāḍh",
-                        "Śrāvan",
+                        "Aṣāḍh",
+                        "Śrāvaṇ",
                         "Bhādarvo",
                         "Āso",
                     }
@@ -2642,12 +2707,12 @@ root{
                         "Māgśar",
                         "Posh",
                         "Mahā",
-                        "Phāgan",
+                        "Phāgaṇ",
                         "Ćaitra",
                         "Vaiśākh",
                         "Jeth",
-                        "Āṣāḍh",
-                        "Śrāvan",
+                        "Aṣāḍh",
+                        "Śrāvaṇ",
                         "Bhādarvo",
                         "Āso",
                     }
@@ -2660,7 +2725,7 @@ root{
                         "Ć",
                         "V",
                         "J",
-                        "Ā",
+                        "A",
                         "Ś",
                         "B",
                         "Ā",
@@ -2670,12 +2735,12 @@ root{
                         "Māgśar",
                         "Posh",
                         "Mahā",
-                        "Phāgan",
+                        "Phāgaṇ",
                         "Ćaitra",
                         "Vaiśākh",
                         "Jeth",
-                        "Āṣāḍh",
-                        "Śrāvan",
+                        "Aṣāḍh",
+                        "Śrāvaṇ",
                         "Bhādarvo",
                         "Āso",
                     }
@@ -3722,18 +3787,18 @@ root{
                 "HH:mm:ss",
                 "HH:mm",
                 {
-                    "EEEE, MMMM d, y",
+                    "G y MMMM d, EEEE",
                     "d=tithienk",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithienk",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithienk",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -3745,31 +3810,90 @@ root{
                 "HHmmssz",
                 "HHmmss",
                 "HHmm",
-                "yMMMMEEEEd",
+                "yGMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
+            availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ed{"d, E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"G y"}
+                GyMMM{"G y MMM"}
+                GyMMMEd{"G y MMM d, E"}
+                GyMMMd{"G y MMM d"}
+                GyMd{"G y MMM d"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
+                M{"LLL"}
+                MEd{"MMM d, E"}
+                MMM{"LLL"}
+                MMMEd{"MMM d, E"}
+                MMMMW{
+                    other{"'week' W 'of' MMMM"}
+                }
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"MMM d"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                ms{"mm:ss"}
+                y{"GGGG y"}
+                yM{"y MMM"}
+                yMEd{"y MMM d, E"}
+                yMM{"y MMM"}
+                yMMM{"y MMM"}
+                yMMMEd{"y MMM d, E"}
+                yMMMM{"y MMMM"}
+                yMMMd{"MMM d"}
+                yMd{"MMM d"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    other{"'week' w 'of' Y"}
+                }
+            }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Shalivahana shake",
+                }
+                narrow:alias{"/LOCALE/calendar/kannada/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/kannada/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
             monthNames{
                 format{
                     abbreviated{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
-                        "Āświna",
+                        "Āśvayuja",
                         "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
+                        "Mārgaśira",
+                        "Puṣya",
                         "Māgha",
                         "Phālguna",
                     }
@@ -3782,22 +3906,22 @@ root{
                         "B",
                         "Ā",
                         "K",
-                        "A",
+                        "M",
                         "P",
                         "M",
                         "P",
                     }
                     wide{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
-                        "Āświna",
+                        "Āśvayuja",
                         "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
+                        "Mārgaśira",
+                        "Puṣya",
                         "Māgha",
                         "Phālguna",
                     }
@@ -3805,15 +3929,15 @@ root{
                 stand-alone{
                     abbreviated{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
-                        "Āświna",
+                        "Āśvayuja",
                         "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
+                        "Mārgaśira",
+                        "Puṣya",
                         "Māgha",
                         "Phālguna",
                     }
@@ -3826,22 +3950,22 @@ root{
                         "B",
                         "Ā",
                         "K",
-                        "A",
+                        "M",
                         "P",
                         "M",
                         "P",
                     }
                     wide{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
-                        "Āświna",
+                        "Āśvayuja",
                         "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
+                        "Mārgaśira",
+                        "Puṣya",
                         "Māgha",
                         "Phālguna",
                     }
@@ -3878,10 +4002,10 @@ root{
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE, y MMMM d",
+                "G y MMMM d, EEEE",
                 "MMMM d",
                 "MMM d",
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -3893,10 +4017,10 @@ root{
                 "HHmmssz",
                 "HHmmss",
                 "HHmm",
-                "yMMMMEEEEd",
+                "GMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
@@ -3914,17 +4038,17 @@ root{
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"G y"}
-                GyMMM{"MMM G"}
-                GyMMMEd{"E, MMM d G"}
-                GyMMMd{"MMM d G"}
-                GyMd{"d/M GGGGG"}
+                GyMMM{"G y MMM"}
+                GyMMMEd{"G y MMM d, E"}
+                GyMMMd{"G y MMM d"}
+                GyMd{"G y MMM d"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 Hmsv{"HH:mm:ss v"}
                 Hmv{"HH:mm v"}
-                M{"L"}
-                MEd{"MM-dd, E"}
+                M{"LLL"}
+                MEd{"MMM d, E"}
                 MMM{"LLL"}
                 MMMEd{"MMM d, E"}
                 MMMMW{
@@ -3932,7 +4056,7 @@ root{
                 }
                 MMMMd{"MMMM d"}
                 MMMd{"MMM d"}
-                Md{"MM-dd"}
+                Md{"MMM d"}
                 d{"d"}
                 h{"h a"}
                 hm{"h:mm a"}
@@ -3940,15 +4064,15 @@ root{
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
                 ms{"mm:ss"}
-                y{"y"}
-                yM{"y-MM"}
-                yMEd{"E, d/M"}
-                yMM{"MM"}
-                yMMM{"MMM"}
-                yMMMEd{"E, MMM d"}
-                yMMMM{"MMMM"}
+                y{"GGGG y"}
+                yM{"y MMM"}
+                yMEd{"y MMM d, E"}
+                yMM{"y MMM"}
+                yMMM{"y MMM"}
+                yMMMEd{"y MMM d, E"}
+                yMMMM{"y MMMM"}
                 yMMMd{"MMM d"}
-                yMd{"d/M"}
+                yMd{"MMM d"}
                 yQQQ{"y QQQ"}
                 yQQQQ{"y QQQQ"}
                 yw{
@@ -3956,7 +4080,13 @@ root{
                 }
             }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Kollavarsham",
+                }
+                narrow:alias{"/LOCALE/calendar/malayalam/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/malayalam/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/tamil/intervalFormats"}
             monthNames{
                 format{
@@ -3964,15 +4094,15 @@ root{
                         "Chingam",
                         "Kanni",
                         "Thulam",
-                        "Vrushchikam",
+                        "Vrishchikam",
                         "Dhanu",
                         "Makaram",
                         "Kumbham",
                         "Meenam",
-                        "Metam",
-                        "Itavam",
+                        "Medam",
+                        "Idavam",
                         "Midhunam",
-                        "Karkkitakam",
+                        "Karkkidakam",
                     }
                     narrow{
                         "C",
@@ -3992,15 +4122,15 @@ root{
                         "Chingam",
                         "Kanni",
                         "Thulam",
-                        "Vrushchikam",
+                        "Vrishchikam",
                         "Dhanu",
                         "Makaram",
                         "Kumbham",
                         "Meenam",
-                        "Metam",
-                        "Itavam",
+                        "Medam",
+                        "Idavam",
                         "Midhunam",
-                        "Karkkitakam",
+                        "Karkkidakam",
                     }
                 }
                 stand-alone{
@@ -4008,15 +4138,15 @@ root{
                         "Chingam",
                         "Kanni",
                         "Thulam",
-                        "Vrushchikam",
+                        "Vrishchikam",
                         "Dhanu",
                         "Makaram",
                         "Kumbham",
                         "Meenam",
-                        "Metam",
-                        "Itavam",
+                        "Medam",
+                        "Idavam",
                         "Midhunam",
-                        "Karkkitakam",
+                        "Karkkidakam",
                     }
                     narrow{
                         "C",
@@ -4036,15 +4166,15 @@ root{
                         "Chingam",
                         "Kanni",
                         "Thulam",
-                        "Vrushchikam",
+                        "Vrishchikam",
                         "Dhanu",
                         "Makaram",
                         "Kumbham",
                         "Meenam",
-                        "Metam",
-                        "Itavam",
+                        "Medam",
+                        "Idavam",
                         "Midhunam",
-                        "Karkkitakam",
+                        "Karkkidakam",
                     }
                 }
             }
@@ -4059,18 +4189,18 @@ root{
                 "HH:mm:ss",
                 "HH:mm",
                 {
-                    "EEEE, MMMM d, y",
+                    "EEEE, G y, MMMM d",
                     "d=tithienm",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithienm",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithienm",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -4082,19 +4212,114 @@ root{
                 "HHmmssz",
                 "HHmmss",
                 "HHmm",
-                "yMMMMEEEEd",
+                "GyMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
             availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Shaka Samvat",
+                }
+                narrow:alias{"/LOCALE/calendar/marathi/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/marathi/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/vikram/monthNames"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvaṇa",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Mārgaśirṣa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "M",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvaṇa",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Mārgaśirṣa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvaṇa",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Mārgaśirṣa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "M",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvaṇa",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Mārgaśirṣa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+            }
             monthPatterns{
                 format{
                     abbreviated:alias{"/LOCALE/calendar/marathi/monthPatterns/format/narrow"}
@@ -4129,7 +4354,7 @@ root{
                 "EEEE, MMMM d, y",
                 "MMMM d",
                 "MMM d",
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -4144,7 +4369,7 @@ root{
                 "yMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
@@ -4158,29 +4383,29 @@ root{
                 EBhms{"E h:mm:ss B"}
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
-                Ed{"d, E"}
+                Ed{"E, d"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
-                Gy{"G y"}
-                GyMMM{"MMM G"}
-                GyMMMEd{"E, MMM d, G"}
-                GyMMMd{"MMM d, G"}
-                GyMd{"d/M GGGGG"}
+                Gy{"y"}
+                GyMMM{"MMM, y"}
+                GyMMMEd{"E, MMM d, y"}
+                GyMMMd{"MMM d, y"}
+                GyMd{"MMM d, y"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 Hmsv{"HH:mm:ss v"}
                 Hmv{"HH:mm v"}
-                M{"L"}
-                MEd{"MM-dd, E"}
+                M{"LLL"}
+                MEd{"E, MMM d"}
                 MMM{"LLL"}
-                MMMEd{"MMM d, E"}
+                MMMEd{"E, MMM d"}
                 MMMMW{
                     other{"'week' W 'of' MMMM"}
                 }
                 MMMMd{"MMMM d"}
                 MMMd{"MMM d"}
-                Md{"MM-dd"}
+                Md{"MMM d"}
                 d{"d"}
                 h{"h a"}
                 hm{"h:mm a"}
@@ -4189,14 +4414,14 @@ root{
                 hmv{"h:mm a v"}
                 ms{"mm:ss"}
                 y{"y"}
-                yM{"y-MM"}
-                yMEd{"E, d/M"}
-                yMM{"MM"}
-                yMMM{"MMM"}
+                yM{"MMM, y"}
+                yMEd{"E, MMM d, y"}
+                yMM{"MMM, y"}
+                yMMM{"MMM, y"}
                 yMMMEd{"E, MMM d"}
-                yMMMM{"MMMM"}
+                yMMMM{"MMMM, y"}
                 yMMMd{"MMM d"}
-                yMd{"d/M"}
+                yMd{"MMM d"}
                 yQQQ{"y QQQ"}
                 yQQQQ{"y QQQQ"}
                 yw{
@@ -4209,90 +4434,90 @@ root{
             monthNames{
                 format{
                     abbreviated{
-                        "Aswin",
-                        "Kartika",
-                        "Margashira",
-                        "Pausha",
-                        "Magha",
-                        "Phalguna",
-                        "Chyatra",
-                        "Byisakha",
-                        "Jyosta",
-                        "Asadha",
-                        "Srabana",
-                        "Bhadra",
+                        "Kanýā",
+                        "Tuḷā",
+                        "Bichā",
+                        "Dhanu",
+                        "Makara",
+                        "Kumbha",
+                        "Mīna",
+                        "Mesha",
+                        "Br̥sha",
+                        "Mithuna",
+                        "Karkaṭa",
+                        "Siṁha",
                     }
                     narrow{
-                        "A",
-                        "K",
-                        "M",
-                        "P",
-                        "M",
-                        "P",
-                        "C",
-                        "B",
-                        "J",
-                        "A",
-                        "S",
-                        "B",
+                        "Ka",
+                        "Tu",
+                        "Bi",
+                        "Dh",
+                        "Ma",
+                        "Ku",
+                        "Mī",
+                        "Me",
+                        "Br̥",
+                        "Mi",
+                        "Ka",
+                        "Si",
                     }
                     wide{
-                        "Aswin",
-                        "Kartika",
-                        "Margashira",
-                        "Pausha",
-                        "Magha",
-                        "Phalguna",
-                        "Chyatra",
-                        "Byisakha",
-                        "Jyosta",
-                        "Asadha",
-                        "Srabana",
-                        "Bhadra",
+                        "Kanýā",
+                        "Tuḷā",
+                        "Bichā",
+                        "Dhanu",
+                        "Makara",
+                        "Kumbha",
+                        "Mīna",
+                        "Mesha",
+                        "Br̥sha",
+                        "Mithuna",
+                        "Karkaṭa",
+                        "Siṁha",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "Aswin",
-                        "Kartika",
-                        "Margashira",
-                        "Pausha",
-                        "Magha",
-                        "Phalguna",
-                        "Chyatra",
-                        "Byisakha",
-                        "Jyosta",
-                        "Asadha",
-                        "Srabana",
-                        "Bhadra",
+                        "Kanýā",
+                        "Tuḷā",
+                        "Bichā",
+                        "Dhanu",
+                        "Makara",
+                        "Kumbha",
+                        "Mīna",
+                        "Mesha",
+                        "Br̥sha",
+                        "Mithuna",
+                        "Karkaṭa",
+                        "Siṁha",
                     }
                     narrow{
-                        "A",
-                        "K",
-                        "M",
-                        "P",
-                        "M",
-                        "P",
-                        "C",
-                        "B",
-                        "J",
-                        "A",
-                        "S",
-                        "B",
+                        "Ka",
+                        "Tu",
+                        "Bi",
+                        "Dh",
+                        "Ma",
+                        "Ku",
+                        "Mī",
+                        "Me",
+                        "Br̥",
+                        "Mi",
+                        "Ka",
+                        "Si",
                     }
                     wide{
-                        "Aswin",
-                        "Kartika",
-                        "Margashira",
-                        "Pausha",
-                        "Magha",
-                        "Phalguna",
-                        "Chyatra",
-                        "Byisakha",
-                        "Jyosta",
-                        "Asadha",
-                        "Srabana",
-                        "Bhadra",
+                        "Kanýā",
+                        "Tuḷā",
+                        "Bichā",
+                        "Dhanu",
+                        "Makara",
+                        "Kumbha",
+                        "Mīna",
+                        "Mesha",
+                        "Br̥sha",
+                        "Mithuna",
+                        "Karkaṭa",
+                        "Siṁha",
                     }
                 }
             }
@@ -4384,10 +4609,10 @@ root{
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE, d MMMM, y",
-                "d MMMM",
-                "d MMM",
-                "M/d/yy",
+                "G y MMMM d, EEEE",
+                "MMMM d",
+                "MMM d",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -4399,10 +4624,10 @@ root{
                 "HHmmssz",
                 "HHmmss",
                 "HHmm",
-                "yMMMMEEEEd",
+                "GyMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
@@ -4420,25 +4645,25 @@ root{
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"G y"}
-                GyMMM{"MMM G"}
-                GyMMMEd{"E, d MMM, G"}
-                GyMMMd{"d MMM, G"}
-                GyMd{"d/M GGGGG"}
+                GyMMM{"G y MMM"}
+                GyMMMEd{"G y MMM d, E"}
+                GyMMMd{"G y MMM d"}
+                GyMd{"G y MMM d"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 Hmsv{"HH:mm:ss v"}
                 Hmv{"HH:mm v"}
-                M{"L"}
-                MEd{"MM-dd, E"}
+                M{"LLL"}
+                MEd{"MMM d, E"}
                 MMM{"LLL"}
                 MMMEd{"MMM d, E"}
                 MMMMW{
                     other{"'week' W 'of' MMMM"}
                 }
                 MMMMd{"MMMM d"}
-                MMMd{"d MMM"}
-                Md{"MM-dd"}
+                MMMd{"MMM d"}
+                Md{"MMM d"}
                 d{"d"}
                 h{"h a"}
                 hm{"h:mm a"}
@@ -4446,15 +4671,15 @@ root{
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
                 ms{"mm:ss"}
-                y{"y"}
-                yM{"y-MM"}
-                yMEd{"E, d/M"}
-                yMM{"MM"}
-                yMMM{"MMM"}
-                yMMMEd{"E, d MMM"}
-                yMMMM{"MMMM"}
-                yMMMd{"d MMM"}
-                yMd{"d/M"}
+                y{"GGGG y"}
+                yM{"y MMM"}
+                yMEd{"y MMM d, E"}
+                yMM{"y MMM"}
+                yMMM{"y MMM"}
+                yMMMEd{"y MMM d, E"}
+                yMMMM{"y MMMM"}
+                yMMMd{"MMM d"}
+                yMd{"MMM d"}
                 yQQQ{"y QQQ"}
                 yQQQQ{"y QQQQ"}
                 yw{
@@ -4462,7 +4687,13 @@ root{
                 }
             }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Shaka varudam",
+                }
+                narrow:alias{"/LOCALE/calendar/tamil/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/tamil/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
             monthNames{
                 format{
@@ -4565,18 +4796,18 @@ root{
                 "HH:mm:ss",
                 "HH:mm",
                 {
-                    "EEEE, MMMM d, y",
+                    "G y MMMM d, EEEE",
                     "d=tithient",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithient",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithient",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -4591,28 +4822,87 @@ root{
                 "yMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
+            availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ed{"d, E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"G y"}
+                GyMMM{"G y MMM"}
+                GyMMMEd{"G y MMM d, E"}
+                GyMMMd{"G y MMM d"}
+                GyMd{"G y MMM d"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
+                M{"LLL"}
+                MEd{"MMM d, E"}
+                MMM{"LLL"}
+                MMMEd{"MMM d, E"}
+                MMMMW{
+                    other{"'week' W 'of' MMMM"}
+                }
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"MMM d"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                ms{"mm:ss"}
+                y{"GGGG y"}
+                yM{"y MMM"}
+                yMEd{"y MMM d, E"}
+                yMM{"y MMM"}
+                yMMM{"y MMM"}
+                yMMMEd{"y MMM d, E"}
+                yMMMM{"y MMMM"}
+                yMMMd{"MMM d"}
+                yMd{"MMM d"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    other{"'week' w 'of' Y"}
+                }
+            }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Shalivahana Shakam",
+                }
+                narrow:alias{"/LOCALE/calendar/telugu/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/telugu/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
             monthNames{
                 format{
                     abbreviated{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
-                        "Āświna",
+                        "Āśvayuja",
                         "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
+                        "Mārgaśira",
+                        "Puṣya",
                         "Māgha",
                         "Phālguna",
                     }
@@ -4625,40 +4915,40 @@ root{
                         "B",
                         "Ā",
                         "K",
-                        "A",
+                        "M",
                         "P",
                         "M",
                         "P",
                     }
                     wide{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
-                        "Āświna",
+                        "Āśvayuja",
                         "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
+                        "Mārgaśira",
+                        "Puṣya",
                         "Māgha",
                         "Phālguna",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "Ćaitra",
-                        "Vaiśākh",
-                        "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
-                        "Bhādrapada",
-                        "Āświna",
-                        "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
-                        "Māgha",
-                        "Phālguna",
+                        "Ćaitram",
+                        "Vaiśākham",
+                        "Jyeṣṭham",
+                        "Āṣāḍham",
+                        "Śrāvaṇam",
+                        "Bhādrapadam",
+                        "Āśvayujam",
+                        "Kārtikam",
+                        "Mārgaśiram",
+                        "Puṣyam",
+                        "Māgham",
+                        "Phālgunam",
                     }
                     narrow{
                         "Ć",
@@ -4669,24 +4959,24 @@ root{
                         "B",
                         "Ā",
                         "K",
-                        "A",
+                        "M",
                         "P",
                         "M",
                         "P",
                     }
                     wide{
-                        "Ćaitra",
-                        "Vaiśākh",
-                        "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
-                        "Bhādrapada",
-                        "Āświna",
-                        "Kārtika",
-                        "Agrahāyaṇa",
-                        "Pauṣa",
-                        "Māgha",
-                        "Phālguna",
+                        "Ćaitram",
+                        "Vaiśākham",
+                        "Jyeṣṭham",
+                        "Āṣāḍham",
+                        "Śrāvaṇam",
+                        "Bhādrapadam",
+                        "Āśvayujam",
+                        "Kārtikam",
+                        "Mārgaśiram",
+                        "Puṣyam",
+                        "Māgham",
+                        "Phālgunam",
                     }
                 }
             }
@@ -4737,18 +5027,18 @@ root{
                 "HH:mm:ss",
                 "HH:mm",
                 {
-                    "EEEE, MMMM d, y",
+                    "EEEE, G y, MMMM d",
                     "d=tithienp",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithienp",
                 }
                 {
-                    "d MMM",
+                    "MMM d",
                     "d=tithienp",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -4760,10 +5050,10 @@ root{
                 "HHmmssz",
                 "HHmmss",
                 "HHmm",
-                "yMMMMEEEEd",
+                "GyMMMMEEEEd",
                 "MMMMd",
                 "MMMd",
-                "yyMd",
+                "MMMd",
             }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
@@ -4777,29 +5067,29 @@ root{
                 EBhms{"E h:mm:ss B"}
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
-                Ed{"d, E"}
+                Ed{"E, d"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
                 Gy{"G y"}
-                GyMMM{"MMM G"}
-                GyMMMEd{"E, MMM d, G"}
-                GyMMMd{"MMM d, G"}
-                GyMd{"d/M GGGGG"}
+                GyMMM{"G y, MMM"}
+                GyMMMEd{"E, G y, MMM d"}
+                GyMMMd{"G y, MMM d"}
+                GyMd{"G y, MMM d"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 Hmsv{"HH:mm:ss v"}
                 Hmv{"HH:mm v"}
-                M{"L"}
-                MEd{"MM-dd, E"}
+                M{"LLL"}
+                MEd{"E, MMM d"}
                 MMM{"LLL"}
-                MMMEd{"MMM d, E"}
+                MMMEd{"E, MMM d"}
                 MMMMW{
                     other{"'week' W 'of' MMMM"}
                 }
                 MMMMd{"MMMM d"}
                 MMMd{"MMM d"}
-                Md{"MM-dd"}
+                Md{"MMM d"}
                 d{"d"}
                 h{"h a"}
                 hm{"h:mm a"}
@@ -4807,15 +5097,15 @@ root{
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
                 ms{"mm:ss"}
-                y{"y"}
-                yM{"y-MM"}
-                yMEd{"E, d/M"}
-                yMM{"MM"}
-                yMMM{"MMM"}
-                yMMMEd{"E, MMM d"}
-                yMMMM{"MMMM"}
+                y{"GGGG y"}
+                yM{"y, MMM"}
+                yMEd{"E, y, MMM d"}
+                yMM{"y, MMM"}
+                yMMM{"y, MMM"}
+                yMMMEd{"E, y, MMM d"}
+                yMMMM{"y, MMMM"}
                 yMMMd{"MMM d"}
-                yMd{"d/M"}
+                yMd{"MMM d"}
                 yQQQ{"y QQQ"}
                 yQQQQ{"y QQQQ"}
                 yw{
@@ -4823,20 +5113,26 @@ root{
                 }
             }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
-            eras:alias{"/LOCALE/calendar/gregorian/eras"}
+            eras{
+                abbreviated{
+                    "Vikram Samvat",
+                }
+                narrow:alias{"/LOCALE/calendar/vikram/eras/abbreviated"}
+                wide:alias{"/LOCALE/calendar/vikram/eras/abbreviated"}
+            }
             intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
             monthNames{
                 format{
                     abbreviated{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
                         "Āświna",
                         "Kārtika",
-                        "Agrahāyaṇa",
+                        "Mārgaśīrṣa",
                         "Pauṣa",
                         "Māgha",
                         "Phālguna",
@@ -4850,21 +5146,21 @@ root{
                         "B",
                         "Ā",
                         "K",
-                        "A",
+                        "M",
                         "P",
                         "M",
                         "P",
                     }
                     wide{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
                         "Āświna",
                         "Kārtika",
-                        "Agrahāyaṇa",
+                        "Mārgaśīrṣa",
                         "Pauṣa",
                         "Māgha",
                         "Phālguna",
@@ -4873,14 +5169,14 @@ root{
                 stand-alone{
                     abbreviated{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
                         "Āświna",
                         "Kārtika",
-                        "Agrahāyaṇa",
+                        "Mārgaśīrṣa",
                         "Pauṣa",
                         "Māgha",
                         "Phālguna",
@@ -4894,21 +5190,21 @@ root{
                         "B",
                         "Ā",
                         "K",
-                        "A",
+                        "M",
                         "P",
                         "M",
                         "P",
                     }
                     wide{
                         "Ćaitra",
-                        "Vaiśākh",
+                        "Vaiśākha",
                         "Jyeṣṭha",
-                        "Āṣāḍh",
-                        "Śrāvana",
+                        "Āṣāḍha",
+                        "Śrāvaṇa",
                         "Bhādrapada",
                         "Āświna",
                         "Kārtika",
-                        "Agrahāyaṇa",
+                        "Mārgaśīrṣa",
                         "Pauṣa",
                         "Māgha",
                         "Phālguna",

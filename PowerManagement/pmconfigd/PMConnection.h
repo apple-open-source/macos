@@ -62,7 +62,7 @@ typedef struct {
 __private_extern__ void PMConnection_prime(void);
 
 // PMAssertions.c calls into this when a PreventSystemSleep assertion is taken
-__private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits);
+__private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits, bool forceUpdate);
 __private_extern__ IOReturn _clamp_silent_running(void);
 __private_extern__ bool isInSilentRunningMode(void);
 

@@ -265,6 +265,8 @@ public:
 
     virtual bool mayNeedBleedAvoidance(const RenderStyle&) const { return true; }
 
+    virtual float adjustedMaximumLogicalWidthForControl(const RenderStyle&, const Element&, float maximumLogicalWidth) const { return maximumLogicalWidth; }
+
 protected:
     ControlStyle extractControlStyleForRenderer(const RenderObject&) const;
 

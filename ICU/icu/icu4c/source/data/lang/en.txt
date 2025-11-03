@@ -467,6 +467,7 @@ en{
         nds_NL{"Low Saxon"}
         ne{"Nepali"}
         new{"Newari"}
+        nez{"Nez Perce"}
         ng{"Ndonga"}
         nia{"Nias"}
         niu{"Niuean"}

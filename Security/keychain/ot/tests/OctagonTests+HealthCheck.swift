@@ -38,6 +38,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -69,6 +70,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.checkOctagonHealth(false,
                                                   repair: false,
                                                   danglingPeerCleanup: false,
+                                                  caesarPeerCleanup: false,
                                                   updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNil(error, "should be no error")
@@ -98,6 +100,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.checkOctagonHealth(false,
                                                   repair: false,
                                                   danglingPeerCleanup: false,
+                                                  caesarPeerCleanup: false,
                                                   updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNil(error, "should be no error")
@@ -149,6 +152,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.checkOctagonHealth(false,
                                                   repair: false,
                                                   danglingPeerCleanup: false,
+                                                  caesarPeerCleanup: false,
                                                   updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -211,6 +215,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.checkOctagonHealth(false,
                                                   repair: false,
                                                   danglingPeerCleanup: false,
+                                                  caesarPeerCleanup: false,
                                                   updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -230,6 +235,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.checkOctagonHealth(false,
                                                   repair: false,
                                                   danglingPeerCleanup: false,
+                                                  caesarPeerCleanup: false,
                                                   updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNil(error, "error should be nil")
@@ -285,6 +291,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             if expectedResponse {
                 XCTAssertNotNil(response, "response should be nil")
@@ -391,6 +398,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "Should be an error calling 'healthCheck'")
             XCTAssertEqual(error!._domain, CKKSResultErrorDomain, "Error domain should be CKKSResultErrorDomain")
@@ -457,6 +465,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -515,6 +524,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -578,6 +588,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual((error! as NSError).code, OctagonError.noAppleAccount.rawValue, "Error code should be NoAppleAccount")
@@ -605,6 +616,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -636,6 +648,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -690,6 +703,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -735,6 +749,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "error should be present")
             XCTAssertNil(response, "response should be nil")
@@ -781,6 +796,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             do {
@@ -815,6 +831,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -854,6 +871,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             do {
@@ -1000,6 +1018,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -1030,6 +1049,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNotNil(error, "should have an error when health-checking when Octagon thinks the account is SA")
@@ -1068,6 +1088,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { result, error in
             XCTAssertNil(result, "should have no result")
             XCTAssertNotNil(error, "should have an error when health-checking when Octagon thinks the account is SA")
@@ -1123,6 +1144,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -1265,6 +1287,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
@@ -1311,6 +1334,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                                  skipRateLimitingCheck: false,
                                  repair: false,
                                  danglingPeerCleanup: false,
+                                 caesarPeerCleanup: false,
                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "error should not be nil")
 

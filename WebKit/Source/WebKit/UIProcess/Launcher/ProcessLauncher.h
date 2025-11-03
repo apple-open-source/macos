@@ -125,6 +125,8 @@ public:
     public:
         virtual ~Client() { }
         
+        virtual void ref() const = 0;
+        virtual void deref() const = 0;
         virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier&&) = 0;
         virtual bool shouldConfigureJSCForTesting() const { return false; }
         virtual bool isJITEnabled() const { return true; }
@@ -173,8 +175,6 @@ private:
 
     void platformInvalidate();
     void platformDestroy();
-
-    CheckedPtr<Client> checkedClient() const;
 
 #if PLATFORM(COCOA)
     void terminateXPCConnection();

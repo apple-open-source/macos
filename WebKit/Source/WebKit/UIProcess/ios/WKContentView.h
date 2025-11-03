@@ -115,6 +115,7 @@ enum class ViewStabilityFlag : uint8_t;
 #endif // ENABLE(MODEL_PROCESS)
 #if USE(EXTENSIONKIT)
 - (UIView *)_createVisibilityPropagationView;
+- (void)_removeVisibilityPropagationView:(UIView *)view;
 #endif
 #endif // HAVE(VISIBILITY_PROPAGATION_VIEW)
 

@@ -12,6 +12,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <utilities/SecAppleAnchorPriv.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecInternalReleasePriv.h>
 
 #import "trust/trustd/SecAnchorCache.h"
 #import "trust/trustd/SecCertificateSource.h"
@@ -30,6 +31,11 @@
 + (void)setUp {
     [super setUp];
     SecAnchorCacheInitialize();
+}
+
++ (void)tearDown {
+    /* Reset the anchor lookup table */
+    SecOTAPKISetConstrainedAnchorLookupTable(NULL);
 }
 
 - (void)setUp {
@@ -136,68 +142,153 @@
             XCTAssertEqual(records.count, expectedRecordCount.unsignedIntegerValue);
 
             NSArray *expectedTypes = testCase[@"certTypes"];
+            /* In most cases the expected key oids match the cert oids but one case
+             * exercises different custom oids for different certs. */
+            NSArray *expectedOids = testCase[@"certOids"];
+            if (!expectedOids) {
+                expectedOids = testCase[@"oids"];
+            }
+            NSArray *expectedSystemOids = testCase[@"systemOids"];
+
             for (NSString *testPolicyId in testPolicyIds) {
                 bool systemPolicy = !SecPolicyUsesConstrainedAnchors((__bridge CFStringRef)testPolicyId);
                 bool applePolicy = SecPolicyUsesAppleAnchors((__bridge CFStringRef)testPolicyId);
                 bool customPolicy = !applePolicy && SecPolicyUsesConstrainedAnchors((__bridge CFStringRef)testPolicyId);
 
                 NSArray<NSDictionary*>*permittedRecords = [SecAnchorCache anchorRecordsPermitttedForPolicy:records policyId:testPolicyId];
-                /* expected types matches the type of the policy */
-                if ((customPolicy && [expectedTypes containsObject:@"custom"]) ||
-                    (systemPolicy && [expectedTypes containsObject:@"system"]) ||
-                    (applePolicy && [expectedTypes containsObject:@"platform"])) {
 
-                    /* In most cases the expected key oids match the cert oids but one case
-                     * exercises different custom oids for different certs. */
-                    NSArray *expectedOids = testCase[@"certOids"];
-                    if (!expectedOids) {
-                        expectedOids = testCase[@"oids"];
-                    }
-                    NSArray *expectedSystemOids = testCase[@"systemOids"];
-
-                    if (customPolicy && ![expectedOids containsObject:testPolicyId]) {
-                        /* Custom record types must not return if policy is not in expected OIDs */
-                        XCTAssertNil(permittedRecords);
-                    } else if (systemPolicy && expectedSystemOids.count > 0 &&
-                               ![expectedSystemOids containsObject:testPolicyId]) {
-                        /* Constrained system anchors must not return if policy is not in expected OIDs */
-                        XCTAssertNil(permittedRecords);
-                    } else if (applePolicy && expectedOids.count > 0 &&
-                               ![expectedOids containsObject:testPolicyId]) {
-                        /* Constrained platform anchors must not return if policy is not in expected OIDs */
-                        XCTAssertNil(permittedRecords);
-                    } else {
-                        XCTAssertNotNil(permittedRecords);
-                    }
-
-                    for (NSDictionary *record in permittedRecords) {
-                        // All permitted records must be expected types
-                        NSString *type = record[@"type"];
-                        if (systemPolicy) { XCTAssertEqualObjects(@"system", type); }
-                        if (customPolicy) { XCTAssertEqualObjects(@"custom", type); }
-                        if (applePolicy) { XCTAssertEqualObjects(@"platform", type); }
-
-                        NSArray *recordOids = record[@"oids"];
-                        if (recordOids.count < 1) {
-                            /* Records for custom policies must specify oids,
-                             * but platform or system records don't need constraints defined */
-                            XCTAssert(systemPolicy || applePolicy);
+                /* Determine whether we should have returned any permitted records based on the policy type
+                 * and the expected constraints on the anchor. */
+                if (customPolicy) {
+                    /* expected types matches the type of the policy */
+                    if ([expectedTypes containsObject:@"custom"] ||
+                        ([expectedTypes containsObject:@"test-custom"] && SecIsInternalRelease())) {
+                        /* Custom record types must not return if policy is not in expected OIDs, otherwise return */
+                        if (![expectedOids containsObject:testPolicyId]) {
+                            XCTAssertNil(permittedRecords);
                         } else {
-                            /* But if record specifies OID constraints this policy must be one
-                             * and this policy must have been listed as expected */
-                            XCTAssert([recordOids containsObject:testPolicyId]);
-                            XCTAssert([expectedOids containsObject:testPolicyId]);
+                            XCTAssertNotNil(permittedRecords);
                         }
+                    } else {
+                        // There shouldn't be any records matching the policy id
+                        XCTAssertNil(permittedRecords);
+                    }
+
+                } else if (systemPolicy) {
+                    /* expected types matches the type of the policy */
+                    if ([expectedTypes containsObject:@"system"] ||
+                        ([expectedTypes containsObject:@"test-system"] && SecIsInternalRelease())) {
+                        /* Constrained system anchors must not return if policy is not in expected OIDs */
+                        if (expectedSystemOids.count > 0 && ![expectedSystemOids containsObject:testPolicyId]) {
+                            XCTAssertNil(permittedRecords);
+                        } else {
+                            XCTAssertNotNil(permittedRecords);
+                        }
+                    } else {
+                        // There shouldn't be any records matching the policy id
+                        XCTAssertNil(permittedRecords);
+                    }
+
+                } else if (applePolicy) {
+                    /* expected types matches the type of the policy */
+                    if ([expectedTypes containsObject:@"platform"] ||
+                        ([expectedTypes containsObject:@"test-platform"] && SecIsInternalRelease())) {
+                        /* Constrained platform anchors must not return if policy is not in expected OIDs */
+                        if (expectedOids.count > 0 && ![expectedOids containsObject:testPolicyId]) {
+                            XCTAssertNil(permittedRecords);
+                        } else {
+                            XCTAssertNotNil(permittedRecords);
+                        }
+                    } else {
+                        // There shouldn't be any records matching the policy id
+                        XCTAssertNil(permittedRecords);
                     }
                 } else {
-                    // There shouldn't be any records matching the policy id
-                    XCTAssertNil(permittedRecords);
+                    XCTFail("unknown policy type");
+                }
+
+                /* Check the permitted records we got back */
+                for (NSDictionary *record in permittedRecords) {
+                    // All permitted records must be expected types
+                    NSString *type = record[@"type"];
+                    if (systemPolicy) {
+                        XCTAssert([type isEqual:@"system"] || (SecIsInternalRelease() && [type isEqual:@"test-system"]));
+                    }
+                    if (customPolicy) {
+                        XCTAssert([type isEqual:@"custom"] || (SecIsInternalRelease() && [type isEqual:@"test-custom"]));
+                    }
+                    if (applePolicy) {
+                        XCTAssert([type isEqual:@"platform"] || (SecIsInternalRelease() && [type isEqual:@"test-platform"]));
+                    }
+
+                    NSArray *recordOids = record[@"oids"];
+                    if (recordOids.count < 1) {
+                        /* Records for custom policies must specify oids,
+                         * but platform or system records don't need constraints defined */
+                        XCTAssert(systemPolicy || applePolicy);
+                    } else {
+                        /* But if record specifies OID constraints this policy must be one
+                         * and this policy must have been listed as expected */
+                        XCTAssert([recordOids containsObject:testPolicyId]);
+                        XCTAssert([expectedOids containsObject:testPolicyId]);
+                    }
                 }
             }
         } else {
             XCTAssertNil(records);
         }
     }
+}
+
+- (void)testIsAppleAnchor {
+    SecCertificateRef legacyAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"AppleRootG2"
+                                                                                           subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef legacyTestAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"TestAppleRootCA"
+                                                                                               subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef g1Anchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ApplePlatformTLSECCRoot-G1"
+                                                                                       subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef g1TestAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"TestApplePlatformECCRoot-G1"
+                                                                                           subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef g1Bootstrap = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ApplePlatformBootstrapECCRoot-G1"
+                                                                                          subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef fakeAppleAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"FakeAppleRootCA"
+                                                                                              subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef nonAppleAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"DigiCertGlobalRootG3"
+                                                                                            subdirectory:@"si-20-sectrust-policies-data"];
+
+    XCTAssert(SecAnchorCacheIsAppleAnchor(legacyAnchor));
+    XCTAssert(SecAnchorCacheIsAppleAnchor(g1Bootstrap));
+    XCTAssertFalse(SecAnchorCacheIsAppleAnchor(fakeAppleAnchor));
+    XCTAssertFalse(SecAnchorCacheIsAppleAnchor(nonAppleAnchor));
+
+    if (SecIsInternalRelease()) {
+        XCTAssert(SecAnchorCacheIsAppleAnchor(legacyTestAnchor));
+    } else {
+        XCTAssertFalse(SecAnchorCacheIsAppleAnchor(legacyTestAnchor));
+    }
+
+#if !TARGET_OS_BRIDGE
+    XCTAssert(SecAnchorCacheIsAppleAnchor(g1Anchor));
+    if (SecIsInternalRelease()) {
+        XCTAssert(SecAnchorCacheIsAppleAnchor(g1TestAnchor));
+    } else {
+        XCTAssertFalse(SecAnchorCacheIsAppleAnchor(g1TestAnchor));
+    }
+#else
+    // BridgeOS only supports the hardcoded Apple anchors
+    XCTAssertFalse(SecAnchorCacheIsAppleAnchor(g1Anchor));
+    XCTAssertFalse(SecAnchorCacheIsAppleAnchor(g1TestAnchor));
+#endif
+
+
+
+    CFReleaseNull(legacyAnchor);
+    CFReleaseNull(legacyTestAnchor);
+    CFReleaseNull(g1Anchor);
+    CFReleaseNull(g1TestAnchor);
+    CFReleaseNull(g1Bootstrap);
+    CFReleaseNull(fakeAppleAnchor);
+    CFReleaseNull(nonAppleAnchor);
 }
 
 @end

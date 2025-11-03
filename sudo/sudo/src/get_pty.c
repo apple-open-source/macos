@@ -49,15 +49,16 @@
 # endif
 #endif
 
-#include "sudo.h"
+#include <sudo.h>
 
 #if defined(HAVE_OPENPTY)
-bool
-get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
+char *
+get_pty(int *leader, int *follower, uid_t ttyuid)
 {
     struct group *gr;
     gid_t ttygid = (gid_t)-1;
-    bool ret = false;
+    char name[PATH_MAX];
+    char *ret = NULL;
     debug_decl(get_pty, SUDO_DEBUG_PTY);
 
     if ((gr = getgrnam("tty")) != NULL)
@@ -65,18 +66,18 @@ get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
 
     if (openpty(leader, follower, name, NULL, NULL) == 0) {
 	if (chown(name, ttyuid, ttygid) == 0)
-	    ret = true;
+	    ret = strdup(name);
     }
 
-    debug_return_bool(ret);
+    debug_return_str(ret);
 }
 
 #elif defined(HAVE__GETPTY)
-bool
-get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
+char *
+get_pty(int *leader, int *follower, uid_t ttyuid)
 {
     char *line;
-    bool ret = false;
+    char *ret = NULL;
     debug_decl(get_pty, SUDO_DEBUG_PTY);
 
     /* IRIX-style dynamic ptys (may fork) */
@@ -85,14 +86,13 @@ get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
 	*follower = open(line, O_RDWR|O_NOCTTY, 0);
 	if (*follower != -1) {
 	    (void) chown(line, ttyuid, -1);
-	    strlcpy(name, line, namesz);
-	    ret = true;
+	    ret = strdup(line);
 	} else {
 	    close(*leader);
 	    *leader = -1;
 	}
     }
-    debug_return_bool(ret);
+    debug_return_str(ret);
 }
 #elif defined(HAVE_GRANTPT)
 # ifndef HAVE_POSIX_OPENPT
@@ -110,11 +110,10 @@ posix_openpt(int oflag)
 }
 # endif /* HAVE_POSIX_OPENPT */
 
-bool
-get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
+char *
+get_pty(int *leader, int *follower, uid_t ttyuid)
 {
-    char *line;
-    bool ret = false;
+    char *line, *ret = NULL;
     debug_decl(get_pty, SUDO_DEBUG_PTY);
 
     *leader = posix_openpt(O_RDWR|O_NOCTTY);
@@ -139,24 +138,23 @@ get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
 	ioctl(*follower, I_PUSH, "ldterm");	/* line discipline module */
 # endif
 	(void) chown(line, ttyuid, -1);
-	strlcpy(name, line, namesz);
-	ret = true;
+	ret = strdup(line);
     }
 done:
-    debug_return_bool(ret);
+    debug_return_str(ret);
 }
 
 #else /* Old-style BSD ptys */
 
 static char line[] = _PATH_DEV "ptyXX";
 
-bool
-get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
+char *
+get_pty(int *leader, int *follower, uid_t ttyuid)
 {
     char *bank, *cp;
     struct group *gr;
     gid_t ttygid = -1;
-    bool ret = false;
+    char *ret = NULL;
     debug_decl(get_pty, SUDO_DEBUG_PTY);
 
     if ((gr = getgrnam("tty")) != NULL)
@@ -180,14 +178,13 @@ get_pty(int *leader, int *follower, char *name, size_t namesz, uid_t ttyuid)
 # endif
 	    *follower = open(line, O_RDWR|O_NOCTTY, 0);
 	    if (*follower != -1) {
-		    strlcpy(name, line, namesz);
-		    ret = true; /* success */
+		    ret = strdup(line);
 		    goto done;
 	    }
 	    (void) close(*leader);
 	}
     }
 done:
-    debug_return_bool(ret);
+    debug_return_str(ret);
 }
 #endif /* HAVE_OPENPTY */

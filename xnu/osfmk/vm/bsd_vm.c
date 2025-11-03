@@ -936,6 +936,7 @@ vnode_object_create(
 	vnode_object->vn_pgr_hdr.mo_ikot = IKOT_MEMORY_OBJECT;
 	vnode_object->vn_pgr_hdr.mo_pager_ops = &vnode_pager_ops;
 	vnode_object->vn_pgr_hdr.mo_control = MEMORY_OBJECT_CONTROL_NULL;
+	vnode_object->vn_pgr_hdr.mo_last_unmap_ctid = 0;
 
 	os_ref_init_raw(&vnode_object->vn_pgr_hdr_ref, NULL);
 	vnode_object->vnode_handle = vp;

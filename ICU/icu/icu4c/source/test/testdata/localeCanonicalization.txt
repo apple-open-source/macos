@@ -1,4 +1,5 @@
 # File copied from cldr common/testData/localeIdentifiers/localeCanonicalization.txt
+
 # Test data for locale identifier canonicalization
 #  Copyright © 1991-2024 Unicode, Inc.
 #  For terms of use, see http://www.unicode.org/copyright.html

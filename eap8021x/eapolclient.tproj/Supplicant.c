@@ -2344,11 +2344,11 @@ free_mib_configuration(MIBEAPConfigurationRef *configuration_p)
 static bool
 is_in_box_auth_requested(void)
 {
-#if TARGET_OS_IOS && !TARGET_OS_VISION
+#if (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION
     return MIBConfigurationAccessIsInBoxUpdateMode();
-#else /* TARGET_OS_IOS && !TARGET_OS_VISION */
+#else /* (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION */
     return false;
-#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
+#endif /* (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION */
 }
 
 bool
@@ -2393,10 +2393,10 @@ mib_access_callback(void *context, MIBEAPConfigurationRef configuration)
 static void
 fetch_mib_eap_configuration(SupplicantRef supp)
 {
-#if TARGET_OS_IOS && !TARGET_OS_VISION
+#if (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION
     EAPLOG_FL(LOG_INFO, "fetching EAP configuration from MIB source");
     MIBConfigurationAccessFetchEAPConfiguration(mib_access_callback, supp);
-#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
+#endif /* (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION */
     return;
 }
 

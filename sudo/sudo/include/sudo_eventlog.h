@@ -24,7 +24,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 
 /* Supported event types. */
@@ -43,7 +43,8 @@ enum event_type {
 /* Supported eventlog formats. */
 enum eventlog_format {
     EVLOG_SUDO,
-    EVLOG_JSON
+    EVLOG_JSON_COMPACT,
+    EVLOG_JSON_PRETTY
 };
 
 /* Eventlog flag values. */
@@ -73,11 +74,11 @@ enum eventlog_format {
 struct eventlog_config {
     int type;
     enum eventlog_format format;
+    size_t file_maxlen;
+    size_t syslog_maxlen;
     int syslog_acceptpri;
     int syslog_rejectpri;
     int syslog_alertpri;
-    int syslog_maxlen;
-    int file_maxlen;
     uid_t mailuid;
     bool omit_hostname;
     const char *logpath;
@@ -105,14 +106,16 @@ struct eventlog {
     char *runuser;
     char *peeraddr;
     char *signal_name;
+    char *source;
     char *submithost;
     char *submituser;
     char *submitgroup;
+    char **submitenv;
     char *ttyname;
-    char **argv;
+    char **runargv;
+    char **runenv;
     char **env_add;
-    char **envp;
-    struct timespec submit_time;
+    struct timespec event_time;
     struct timespec iolog_offset;
     struct timespec run_time;
     int exit_value;
@@ -130,6 +133,7 @@ struct json_container;
 struct sudo_lbuf;
 typedef bool (*eventlog_json_callback_t)(struct json_container *, void *);
 
+/* eventlog.c */
 bool eventlog_accept(const struct eventlog *evlog, int flags, eventlog_json_callback_t info_cb, void *info);
 bool eventlog_exit(const struct eventlog *evlog, int flags);
 bool eventlog_alert(const struct eventlog *evlog, int flags, struct timespec *alert_time, const char *reason, const char *errstr);
@@ -137,15 +141,16 @@ bool eventlog_mail(const struct eventlog *evlog, int flags, struct timespec *eve
 bool eventlog_reject(const struct eventlog *evlog, int flags, const char *reason, eventlog_json_callback_t info_cb, void *info);
 bool eventlog_store_json(struct json_container *jsonc, const struct eventlog *evlog);
 bool eventlog_store_sudo(int event_type, const struct eventlog *evlog, struct sudo_lbuf *lbuf);
-size_t eventlog_writeln(FILE *fp, char *line, size_t len, size_t maxlen);
 void eventlog_free(struct eventlog *evlog);
+
+/* eventlog_conf.c */
 void eventlog_set_type(int type);
 void eventlog_set_format(enum eventlog_format format);
 void eventlog_set_syslog_acceptpri(int pri);
 void eventlog_set_syslog_rejectpri(int pri);
 void eventlog_set_syslog_alertpri(int pri);
-void eventlog_set_syslog_maxlen(int len);
-void eventlog_set_file_maxlen(int len);
+void eventlog_set_syslog_maxlen(size_t len);
+void eventlog_set_file_maxlen(size_t len);
 void eventlog_set_mailuid(uid_t uid);
 void eventlog_set_omit_hostname(bool omit_hostname);
 void eventlog_set_logpath(const char *path);
@@ -158,5 +163,14 @@ void eventlog_set_mailsub(const char *subject);
 void eventlog_set_open_log(FILE *(*fn)(int type, const char *));
 void eventlog_set_close_log(void (*fn)(int type, FILE *));
 const struct eventlog_config *eventlog_getconf(void);
+
+/* logwrap.c */
+size_t eventlog_writeln(FILE *fp, char *line, size_t len, size_t maxlen);
+
+/* parse_json.c */
+struct eventlog_json_object;
+struct eventlog_json_object *eventlog_json_read(FILE *fp, const char *filename);
+bool eventlog_json_parse(struct eventlog_json_object *object, struct eventlog *evlog);
+void eventlog_json_free(struct eventlog_json_object *root);
 
 #endif /* SUDO_EVENTLOG_H */

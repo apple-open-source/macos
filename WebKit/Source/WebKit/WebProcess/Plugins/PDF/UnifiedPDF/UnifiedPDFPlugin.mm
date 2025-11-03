@@ -274,7 +274,8 @@ void UnifiedPDFPlugin::teardown()
     m_annotationContainer = nullptr;
 
 #if ENABLE(PDF_PAGE_NUMBER_INDICATOR)
-    frame->protectedPage()->removePDFPageNumberIndicator(*this);
+    if (RefPtr webPage = frame->page())
+        webPage->removePDFPageNumberIndicator(*this);
 #endif
 }
 

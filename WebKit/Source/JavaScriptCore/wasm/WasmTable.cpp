@@ -85,6 +85,7 @@ Table::Table(uint32_t initial, std::optional<uint32_t> maximum, Type wasmType, T
     : m_maximum(maximum)
     , m_type(type)
     , m_wasmType(wasmType)
+    , m_wasmTypeDefinition(TypeInformation::getRef(wasmType.index))
     , m_isFixedSized(maximum && maximum.value() == initial)
     , m_owner(nullptr)
 {

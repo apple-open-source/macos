@@ -40,25 +40,49 @@ enum {
 
 struct IOPCIRange
 {
+    // Start value of this range (e.g. first bus number or memory address)
     IOPCIScalar         start;
+
+    // Size of this range
     IOPCIScalar         size;
+
+    // Total size of all child ranges of this type. Only applicable to bridges.
     IOPCIScalar         totalSize;
+
+    // If the range needs to be extended (e.g. to accommodate a hotplugged device), this field
+    // contains the additional bytes needed. Only applicable to bridges.
     IOPCIScalar         extendSize;
+
+    // Requested size of the range
     IOPCIScalar         proposedSize;
 
     // end marker
     IOPCIScalar         end;
     IOPCIScalar         zero;
 
+    // Required alignment for this resource type (e.g. 1MB for bridge memory range)
     IOPCIScalar         alignment;
+
+    // Smallest legal address for this resource type
     IOPCIScalar         minAddress;
+
+    // Largest legal address for this resource type
     IOPCIScalar         maxAddress;
 
     uint8_t             type;
     uint8_t             resvB[3];
     uint32_t            flags;
+
+    // Linked list pointer for disjoint ranges of the same type (MEM/PFM/etc.)
     struct IOPCIRange * next;
+
+    // Linked list pointer of ranges that come from the same parent range. If NULL, it indicates
+    // that this range hasn't yet been allocated from the parent.
     struct IOPCIRange * nextSubRange;
+
+    // List of ranges that were allocated from this range (linked via nextSubRange). Initialized to
+    // &thisRange->end (size == 0 since it points to the zero field) in IOPCIRangeInit().
+    // Only applicable to bridges.
     struct IOPCIRange * allocations;
 
     struct IOPCIRange *  nextToAllocate;

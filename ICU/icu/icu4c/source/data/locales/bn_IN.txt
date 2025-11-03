@@ -36,19 +36,6 @@ bn_IN{
                     other{"MMMM এর W নম্বর সপ্তাহ"}
                 }
             }
-            dayNames{
-                format{
-                    short{
-                        "রঃ",
-                        "সোঃ",
-                        "মঃ",
-                        "বুঃ",
-                        "বৃঃ",
-                        "শুঃ",
-                        "শঃ",
-                    }
-                }
-            }
             dayPeriod{
                 format{
                     wide{

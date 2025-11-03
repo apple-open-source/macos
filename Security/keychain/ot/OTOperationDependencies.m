@@ -14,6 +14,7 @@
                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
              secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
+                laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
                  ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
             cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper
@@ -39,6 +40,7 @@
         _personaAdapter = personaAdapter;
         _deviceInformationAdapter = deviceInfoAdapter;
         _secureBackupAdapter = secureBackupAdapter;
+        _laContextAdapter = laContextAdapter;
         _ckks = ckks;
         _lockStateTracker = lockStateTracker;
         _cuttlefishXPCWrapper = cuttlefishXPCWrapper;

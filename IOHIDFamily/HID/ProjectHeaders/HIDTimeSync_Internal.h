@@ -51,7 +51,7 @@ typedef enum {
 + (io_service_t)findDeviceForServiceID:(uint64_t)serviceID;
 
 /** Helper to implement the above methods */
-- (void)registerPropertyNotification:(io_service_t)service;
+- (BOOL)registerPropertyNotification:(io_service_t)service;
 
 /** Query the current TimeSync property dictionary from the provider - device or event service
  *  handlePropertyUpdate: will be called when the properties are changed. */

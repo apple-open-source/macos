@@ -442,6 +442,7 @@ tr{
         nds_NL{"Aşağı Saksonca"}
         ne{"Nepalce"}
         new{"Nevari"}
+        nez{"Nez Perce dili"}
         ng{"Ndonga"}
         nia{"Nias"}
         niu{"Niue dili"}

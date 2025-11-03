@@ -57,6 +57,9 @@
 #include <vm/vm_sanitize_internal.h>
 #include <vm/vm_object_internal.h>
 
+#if HAS_MTE
+#include <arm64/mte_xnu.h>
+#endif /* HAS_MTE */
 
 #define VM_SANITIZE_PROT_ALLOWED (VM_PROT_ALL | VM_PROT_ALLEXEC)
 
@@ -481,6 +484,40 @@ vm_sanitize_addr_size(
 	}
 #endif /* KASAN_TBI */
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/*
+	 * The next two flag checks are complementary.
+	 * VM_SANITIZE_FLAGS_STRIP_ADDR ensures that the address is stripped of
+	 * all its metadata bits (PAC, TBI, MTE). This is used by kernel entrypoints
+	 * that are expected to handle metadata-filled addresses to ease adoption.
+	 *
+	 * VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR instead is for entrypoints where
+	 * we require the caller to have performed the necessary stripping of metadata
+	 * and we expect the address to be in its canonical form.
+	 *
+	 * Both these calls _require_ the map to be available, as that's used to determine
+	 * whether the user or kernel canonicalization rules should be applied (we cannot
+	 * rely on the TTBR selector bit - bit 55 - as that one is under caller's control).
+	 */
+	if (flags & VM_SANITIZE_FLAGS_STRIP_ADDR) {
+		/* strip sites must pass map. */
+		assert(map_or_null != NULL);
+		assert(!(flags & VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR));
+		*addr = vm_map_strip_addr(map_or_null, *addr);
+	}
+
+	if (flags & VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR) {
+		/* counter part to strip, also requires a valid map */
+		assert(map_or_null != NULL);
+		if (vm_map_strip_addr(map_or_null, *addr) != *addr) {
+#if HAS_MTE
+			mte_report_non_canonical_address((caddr_t)*addr, map_or_null, __func__);
+#endif /* HAS_MTE */
+			kr = KERN_INVALID_ARGUMENT;
+			goto unsanitary;
+		}
+	}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	addr_aligned = vm_map_trunc_page_mask(*addr, pgmask);
 

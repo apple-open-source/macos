@@ -5,7 +5,7 @@
 #include <../src/internal.h>
 
 T_DECL(bounds_sanity, "Pointer Bounds Sanity Check",
-		T_META_TAG_VM_NOT_PREFERRED)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	size_t size = rand() % 1024;
 	printf("Allocating %zu bytes...", size);

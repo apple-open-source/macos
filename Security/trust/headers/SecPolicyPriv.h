@@ -2655,6 +2655,7 @@ bool SecDNSIsTLD(CFStringRef reference);
 CFDataRef CreateCFDataFromBase64CFString(CFStringRef base64string);
 CFArrayRef parseNSPinnedDomains(CFDictionaryRef nsPinnedDomainsDict, CFStringRef hostName, CFStringRef nsPinnedIdentityType);
 void SecPolicyReconcilePinningRequiredIfInfoSpecified(CFMutableDictionaryRef options);
+CFDictionaryRef SecPolicyGetOptions(SecPolicyRef policy);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

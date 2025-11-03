@@ -1017,6 +1017,8 @@ static void VerifyTranslation(void) {
 // rdar://109529736 (Add new locale for Ingush (inh))
 // rdar://111138831 (Add new locale for Osage (osa))
 // rdar://123393073 (Add new locale for Lushootseed (lut))
+// rdar://153902727 (New Locales: cst, hch, isc, shp)
+// rdar://160427611 (New Locale: nez)
             if (    uprv_strcmp(currLoc,"ba") == 0 || uprv_strncmp(currLoc,"ba_",3) == 0 ||
                     uprv_strcmp(currLoc,"ber") == 0 || uprv_strncmp(currLoc,"ber_",4) == 0 ||
                     uprv_strcmp(currLoc,"dv") == 0 || uprv_strncmp(currLoc,"dv_",3) == 0 ||
@@ -1034,7 +1036,12 @@ static void VerifyTranslation(void) {
                     uprv_strncmp(currLoc,"rhg",3) == 0 ||
                     uprv_strncmp(currLoc,"ks_Deva",7) == 0 || uprv_strncmp(currLoc,"mni_Mtei",8) == 0 ||
                     uprv_strncmp(currLoc,"sd_Deva",7) == 0 || uprv_strncmp(currLoc,"lut",3) == 0 ||
-                    uprv_strncmp(currLoc,"sjd",3) == 0) {
+                    uprv_strncmp(currLoc,"sjd",3) == 0 ||
+                    uprv_strncmp(currLoc,"cst",3) == 0 ||
+                    uprv_strncmp(currLoc,"hch",3) == 0 ||
+                    uprv_strncmp(currLoc,"isc",3) == 0 ||
+                    uprv_strncmp(currLoc,"shp",3) == 0 ||
+                    uprv_strncmp(currLoc,"nez",3) == 0) {
                 log_verbose("skipping day/month tests for %s, missing some translated names\n", currLoc);
             } else
 #endif  // APPLE_ICU_CHANGES

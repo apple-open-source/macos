@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2009-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2009-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,7 +29,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif
 #include <string.h>
 #ifdef HAVE_STRINGS_H
@@ -40,21 +40,24 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-
 #ifdef __APPLE_DYNAMIC_LV__
 #include <System/sys/codesign.h>
 #endif /* __APPLE_DYNAMIC_LV__ */
 
+#ifdef HAVE_DLOPEN
+# include <dlfcn.h>
+#endif
+
 #define SUDO_ERROR_WRAP	0
 
-#include "sudo_compat.h"
-#include "sudo_conf.h"
-#include "sudo_debug.h"
-#include "sudo_fatal.h"
-#include "sudo_gettext.h"
-#include "sudo_plugin.h"
-#include "sudo_util.h"
-#include "pathnames.h"
+#include <sudo_compat.h>
+#include <sudo_conf.h>
+#include <sudo_debug.h>
+#include <sudo_fatal.h>
+#include <sudo_gettext.h>
+#include <sudo_plugin.h>
+#include <sudo_util.h>
+#include <pathnames.h>
 
 #ifndef _PATH_SUDO_INTERCEPT
 # define _PATH_SUDO_INTERCEPT NULL
@@ -364,7 +367,7 @@ parse_plugin(const char *entry, const char *conf_file, unsigned int lineno)
 	options[nopts] = NULL;
     }
 
-    info = calloc(sizeof(*info), 1);
+    info = calloc(1, sizeof(*info));
     if (info == NULL)
 	    goto oom;
     info->symbol_name = strndup(symbol, symlen);
@@ -381,8 +384,8 @@ parse_plugin(const char *entry, const char *conf_file, unsigned int lineno)
 oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     if (options != NULL) {
-	while (nopts--)
-	    free(options[nopts]);
+	while (nopts)
+	    free(options[--nopts]);
 	free(options);
     }
     if (info != NULL) {
@@ -436,7 +439,7 @@ set_var_max_groups(const char *strval, const char *conf_file,
     int max_groups;
     debug_decl(set_var_max_groups, SUDO_DEBUG_UTIL);
 
-    max_groups = sudo_strtonum(strval, 1, 1024, NULL);
+    max_groups = (int)sudo_strtonum(strval, 1, 1024, NULL);
     if (max_groups <= 0) {
 	sudo_warnx(U_("invalid max groups \"%s\" in %s, line %u"), strval,
 	    conf_file, lineno);
@@ -546,6 +549,28 @@ sudo_conf_debug_files_v1(const char *progname)
 	}
 	if (strcmp(debug_spec->progname, prog) == 0)
 	    debug_return_ptr(&debug_spec->debug_files);
+
+#ifdef RTLD_MEMBER
+	/* Handle names like sudoers.a(sudoers.so) for AIX. */
+	const char *cp = strchr(prog, '(');
+	const char *ep = strchr(prog, ')');
+	if (cp != NULL && ep != NULL) {
+	    /* Match on the program name without the member. */
+	    size_t len = (size_t)(cp - prog);
+	    if (strncmp(debug_spec->progname, prog, len) == 0 &&
+		    debug_spec->progname[len] == '\0') {
+		debug_return_ptr(&debug_spec->debug_files);
+	    }
+
+	    /* Match on the member itself. */
+	    cp++;
+	    len = (size_t)(ep - cp);
+	    if (strncmp(debug_spec->progname, cp, len) == 0 &&
+		    debug_spec->progname[len] == '\0') {
+		debug_return_ptr(&debug_spec->debug_files);
+	    }
+	}
+#endif
     }
     debug_return_ptr(NULL);
 }
@@ -579,7 +604,7 @@ sudo_conf_init(int conf_types)
     struct sudo_conf_debug *debug_spec;
     struct sudo_debug_file *debug_file;
     struct plugin_info *plugin_info;
-    int i;
+    size_t i;
     debug_decl(sudo_conf_init, SUDO_DEBUG_UTIL);
 
     /* Free and reset paths. */
@@ -633,12 +658,13 @@ sudo_conf_init(int conf_types)
  * Read in /etc/sudo.conf and populates sudo_conf_data.
  */
 int
-sudo_conf_read_v1(const char *conf_file, int conf_types)
+sudo_conf_read_v1(const char *path, int conf_types)
 {
     FILE *fp = NULL;
-    int fd, ret = false;
+    int fd = -1, ret = false;
     char *prev_locale, *line = NULL;
     unsigned int conf_lineno = 0;
+    char conf_file[PATH_MAX];
     size_t linesize = 0;
     debug_decl(sudo_conf_read, SUDO_DEBUG_UTIL);
 
@@ -669,57 +695,62 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
     if (prev_locale[0] != 'C' || prev_locale[1] != '\0')
         setlocale(LC_ALL, "C");
 
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-    if (conf_file == NULL) {
-	struct stat sb;
-	int error;
-
-	conf_file = _PATH_SUDO_CONF;
-	fd = sudo_secure_open_file(conf_file, ROOT_UID, -1, &sb, &error);
-	if (fd == -1) {
-	    switch (error) {
-	    case SUDO_PATH_MISSING:
-		/* Root should always be able to read sudo.conf. */
-		if (errno != ENOENT && geteuid() == ROOT_UID)
-		    sudo_warn(U_("unable to open %s"), conf_file);
-		break;
-	    case SUDO_PATH_BAD_TYPE:
-		sudo_warnx(U_("%s is not a regular file"), conf_file);
-		break;
-	    case SUDO_PATH_WRONG_OWNER:
-		sudo_warnx(U_("%s is owned by uid %u, should be %u"),
-		    conf_file, (unsigned int) sb.st_uid, ROOT_UID);
-		break;
-	    case SUDO_PATH_WORLD_WRITABLE:
-		sudo_warnx(U_("%s is world writable"), conf_file);
-		break;
-	    case SUDO_PATH_GROUP_WRITABLE:
-		sudo_warnx(U_("%s is group writable"), conf_file);
-		break;
-	    default:
-		sudo_warnx("%s: internal error, unexpected error %d",
-		    __func__, error);
-		break;
-	    }
+    if (path != NULL) {
+	/* Caller specified a single file, which must exist. */
+	if (strlcpy(conf_file, path, sizeof(conf_file)) >= sizeof(conf_file)) {
+	    errno = ENAMETOOLONG;
+	    sudo_warn("%s", path);
 	    goto done;
 	}
-    } else
-#else
-    if (conf_file == NULL)
-	conf_file = _PATH_SUDO_CONF;
-#endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
-    {
 	fd = open(conf_file, O_RDONLY);
 	if (fd == -1) {
 	    sudo_warn(U_("unable to open %s"), conf_file);
 	    goto done;
 	}
+    } else {
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	struct stat sb;
+	int error;
+
+	/* _PATH_SUDO_CONF is a colon-separated list of path. */
+	fd = sudo_open_conf_path(_PATH_SUDO_CONF, conf_file,
+	    sizeof(conf_file), NULL);
+	error = sudo_secure_fd(fd, S_IFREG, ROOT_UID, (gid_t)-1, &sb);
+	switch (error) {
+	case SUDO_PATH_SECURE:
+	    /* OK! */
+	    break;
+	case SUDO_PATH_MISSING:
+	    /* Root should always be able to read sudo.conf. */
+	    if (errno != ENOENT && geteuid() == ROOT_UID)
+		sudo_warn(U_("unable to open %s"), conf_file);
+	    goto done;
+	case SUDO_PATH_BAD_TYPE:
+	    sudo_warnx(U_("%s is not a regular file"), conf_file);
+	    goto done;
+	case SUDO_PATH_WRONG_OWNER:
+	    sudo_warnx(U_("%s is owned by uid %u, should be %u"),
+		conf_file, (unsigned int) sb.st_uid, ROOT_UID);
+	    goto done;
+	case SUDO_PATH_WORLD_WRITABLE:
+	    sudo_warnx(U_("%s is world writable"), conf_file);
+	    goto done;
+	case SUDO_PATH_GROUP_WRITABLE:
+	    sudo_warnx(U_("%s is group writable"), conf_file);
+	    goto done;
+	default:
+	    sudo_warnx("%s: internal error, unexpected error %d",
+		__func__, error);
+	    goto done;
+	}
+#else
+	/* No default sudo.conf when fuzzing. */
+	goto done;
+#endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
     }
 
     if ((fp = fdopen(fd, "r")) == NULL) {
-	if (errno != ENOENT && geteuid() == ROOT_UID)
-	    sudo_warn(U_("unable to open %s"), conf_file);
-	close(fd);
+	sudo_warn(U_("unable to open %s"), conf_file);
 	goto done;
     }
 
@@ -729,7 +760,7 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
 
     while (sudo_parseln(&line, &linesize, &conf_lineno, fp, 0) != -1) {
 	struct sudo_conf_table *cur;
-	unsigned int i;
+	size_t i;
 	char *cp;
 
 	if (*(cp = line) == '\0')
@@ -767,6 +798,8 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
 done:
     if (fp != NULL)
 	fclose(fp);
+    else if (fd != -1)
+	close(fd);
     free(line);
 
     /* Restore locale if needed. */

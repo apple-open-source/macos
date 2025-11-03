@@ -34,32 +34,10 @@
 		F651494C298027DB00C0E084 /* iolog_mkdirs.c in Sources */ = {isa = PBXBuildFile; fileRef = F6514941298027DB00C0E084 /* iolog_mkdirs.c */; };
 		F651494D298027DB00C0E084 /* iolog_write.c in Sources */ = {isa = PBXBuildFile; fileRef = F6514942298027DB00C0E084 /* iolog_write.c */; };
 		F651494E298027DB00C0E084 /* iolog_nextid.c in Sources */ = {isa = PBXBuildFile; fileRef = F6514943298027DB00C0E084 /* iolog_nextid.c */; };
-		F651495929802BDF00C0E084 /* rcstr.c in Sources */ = {isa = PBXBuildFile; fileRef = F651494F29802BDF00C0E084 /* rcstr.c */; };
-		F651495A29802BDF00C0E084 /* timegm.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495029802BDF00C0E084 /* timegm.c */; };
-		F651495B29802BDF00C0E084 /* gmtime_r.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495129802BDF00C0E084 /* gmtime_r.c */; };
-		F651495C29802BDF00C0E084 /* regex.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495229802BDF00C0E084 /* regex.c */; };
-		F651495D29802BDF00C0E084 /* mmap_alloc.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495329802BDF00C0E084 /* mmap_alloc.c */; };
-		F651495E29802BDF00C0E084 /* basename.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495429802BDF00C0E084 /* basename.c */; };
-		F651495F29802BDF00C0E084 /* fchownat.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495529802BDF00C0E084 /* fchownat.c */; };
-		F651496029802BDF00C0E084 /* mkdirat.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495629802BDF00C0E084 /* mkdirat.c */; };
-		F651496129802BDF00C0E084 /* localtime_r.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495729802BDF00C0E084 /* localtime_r.c */; };
-		F651496229802BDF00C0E084 /* multiarch.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495829802BDF00C0E084 /* multiarch.c */; };
-		F651496D29802E6D00C0E084 /* fmtsudoers_cvt.c in Sources */ = {isa = PBXBuildFile; fileRef = F651496729802E6D00C0E084 /* fmtsudoers_cvt.c */; };
-		F651496F29802E6D00C0E084 /* b64_decode.c in Sources */ = {isa = PBXBuildFile; fileRef = F651496929802E6D00C0E084 /* b64_decode.c */; };
-		F651497029802E6D00C0E084 /* b64_encode.c in Sources */ = {isa = PBXBuildFile; fileRef = F651496A29802E6D00C0E084 /* b64_encode.c */; };
-		F651497229802E6D00C0E084 /* check_aliases.c in Sources */ = {isa = PBXBuildFile; fileRef = F651496C29802E6D00C0E084 /* check_aliases.c */; };
-		F651497729802EB600C0E084 /* suspend_nopty.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497329802EB500C0E084 /* suspend_nopty.c */; };
-		F651497829802EB600C0E084 /* intercept.pb-c.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497429802EB500C0E084 /* intercept.pb-c.c */; };
-		F651497929802EB600C0E084 /* sudo_intercept.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497529802EB600C0E084 /* sudo_intercept.c */; };
-		F651497A29802EB600C0E084 /* sudo_intercept_common.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497629802EB600C0E084 /* sudo_intercept_common.c */; };
-		F651497B29802EE300C0E084 /* libplugin_sudoers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FEDF25C13874001A75CF /* libplugin_sudoers.a */; };
-		F651497C29802EF800C0E084 /* libplugin_sudoers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FEDF25C13874001A75CF /* libplugin_sudoers.a */; };
 		F651497D29802EFC00C0E084 /* libparsesudoers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FF1625C139DC001A75CF /* libparsesudoers.a */; };
 		F651498329803DE700C0E084 /* exec_intercept.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497E29803DE700C0E084 /* exec_intercept.c */; };
 		F651498429803DE700C0E084 /* exec_preload.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497F29803DE700C0E084 /* exec_preload.c */; };
 		F651498529803DE700C0E084 /* exec_ptrace.c in Sources */ = {isa = PBXBuildFile; fileRef = F651498029803DE700C0E084 /* exec_ptrace.c */; };
-		F651498629803DE700C0E084 /* apparmor.c in Sources */ = {isa = PBXBuildFile; fileRef = F651498129803DE700C0E084 /* apparmor.c */; };
-		F651498729803DE700C0E084 /* exec_iolog.c in Sources */ = {isa = PBXBuildFile; fileRef = F651498229803DE700C0E084 /* exec_iolog.c */; };
 		F651498A29803E1100C0E084 /* eventlog_free.c in Sources */ = {isa = PBXBuildFile; fileRef = F651498829803E1100C0E084 /* eventlog_free.c */; };
 		F651498B29803E1100C0E084 /* eventlog_conf.c in Sources */ = {isa = PBXBuildFile; fileRef = F651498929803E1100C0E084 /* eventlog_conf.c */; };
 		F651499329803E3300C0E084 /* iolog_gets.c in Sources */ = {isa = PBXBuildFile; fileRef = F651498C29803E3200C0E084 /* iolog_gets.c */; };
@@ -69,18 +47,139 @@
 		F651499729803E3300C0E084 /* iolog_eof.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499029803E3300C0E084 /* iolog_eof.c */; };
 		F651499829803E3300C0E084 /* iolog_conf.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499129803E3300C0E084 /* iolog_conf.c */; };
 		F651499929803E3300C0E084 /* iolog_clearerr.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499229803E3300C0E084 /* iolog_clearerr.c */; };
-		F651499B29803E8200C0E084 /* protobuf-c.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499A29803E8200C0E084 /* protobuf-c.c */; };
-		F65149A029803EBE00C0E084 /* serialize_list.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499C29803EBE00C0E084 /* serialize_list.c */; };
-		F65149A129803EBE00C0E084 /* strlcpy_unesc.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499D29803EBE00C0E084 /* strlcpy_unesc.c */; };
-		F65149A229803EBE00C0E084 /* strvec_join.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499E29803EBE00C0E084 /* strvec_join.c */; };
-		F65149A329803EBE00C0E084 /* sudoers_hooks.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499F29803EBE00C0E084 /* sudoers_hooks.c */; };
-		F65149A529803EF400C0E084 /* unesc_str.c in Sources */ = {isa = PBXBuildFile; fileRef = F65149A429803EF400C0E084 /* unesc_str.c */; };
 		F65149A729803F5700C0E084 /* iolog_loginfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F65149A629803F5700C0E084 /* iolog_loginfo.c */; };
 		F65149AA29803FAE00C0E084 /* iolog_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = F65149A829803FA500C0E084 /* iolog_legacy.c */; };
-		F6EC3E7729CCA4E7009A96E3 /* hexchar.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EC3E7529CC5BC7009A96E3 /* hexchar.c */; };
-		FE54001325C13E22001A75CF /* libparsesudoers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FF1625C139DC001A75CF /* libparsesudoers.a */; };
+		F6539C6E2E467E0F00C5C187 /* libEndpointSecuritySystem.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A77C68D4294A5A6B00EAF32D /* libEndpointSecuritySystem.tbd */; };
+		F6539C6F2E467E3000C5C187 /* libpam.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = FE5400AF25C141B0001A75CF /* libpam.tbd */; };
+		F6539C772E467FB200C5C187 /* parse_json.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C762E467FB200C5C187 /* parse_json.c */; };
+		F6539C792E46805100C5C187 /* parse_json.h in Headers */ = {isa = PBXBuildFile; fileRef = F6539C782E46805100C5C187 /* parse_json.h */; };
+		F6539C8A2E469D4D00C5C187 /* edit_open.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C812E469D4D00C5C187 /* edit_open.c */; };
+		F6539C8D2E469D4D00C5C187 /* exec_iolog.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C832E469D4D00C5C187 /* exec_iolog.c */; };
+		F6539C8F2E469D4D00C5C187 /* suspend_parent.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C892E469D4D00C5C187 /* suspend_parent.c */; };
+		F6539CDC2E469E2A00C5C187 /* protobuf-c.c in Sources */ = {isa = PBXBuildFile; fileRef = F651499A29803E8200C0E084 /* protobuf-c.c */; };
+		F6539CE32E4744FF00C5C187 /* check_aliases.c in Sources */ = {isa = PBXBuildFile; fileRef = F651496C29802E6D00C0E084 /* check_aliases.c */; };
+		F6539CE42E47454500C5C187 /* gc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC7625C135CE001A75CF /* gc.c */; };
+		F6539CE52E47455300C5C187 /* sethost.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C582E464D1A00C5C187 /* sethost.c */; };
+		F6539CE62E47455800C5C187 /* stubs.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAA925C135CD001A75CF /* stubs.c */; };
+		F6539CE72E47456200C5C187 /* sudo_printf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC7025C135CE001A75CF /* sudo_printf.c */; };
+		F6539CE82E47456E00C5C187 /* sudoers_ctx_free.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C5A2E464D1A00C5C187 /* sudoers_ctx_free.c */; };
+		F6539CE92E47457D00C5C187 /* visudo_cb.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C5E2E464D1A00C5C187 /* visudo_cb.c */; };
+		F6539CEE2E474A2300C5C187 /* hexchar.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EC3E7529CC5BC7009A96E3 /* hexchar.c */; };
+		F6539CEF2E474A2300C5C187 /* lbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2325C135CE001A75CF /* lbuf.c */; };
+		F6539CF22E474A2300C5C187 /* gettime.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2925C135CE001A75CF /* gettime.c */; };
+		F6539CF52E474A2300C5C187 /* gethostname.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2D25C135CE001A75CF /* gethostname.c */; };
+		F6539CF62E474A2300C5C187 /* event.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9125C135CE001A75CF /* event.c */; };
+		F6539CF72E474A2300C5C187 /* basename.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495429802BDF00C0E084 /* basename.c */; };
+		F6539CFC2E474A2300C5C187 /* digest.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA625C135CE001A75CF /* digest.c */; };
+		F6539CFD2E474A2300C5C187 /* fatal.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7425C135CE001A75CF /* fatal.c */; };
+		F6539D022E474A2300C5C187 /* gidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2725C135CE001A75CF /* gidlist.c */; };
+		F6539D0F2E474A2300C5C187 /* key_val.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B161C6AB3CB006A214E /* key_val.c */; };
+		F6539D122E474A2300C5C187 /* locking.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA725C135CE001A75CF /* locking.c */; };
+		F6539D132E474A2300C5C187 /* json.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD1925C135CE001A75CF /* json.c */; };
+		F6539D142E474A2300C5C187 /* getgrouplist.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8D25C135CE001A75CF /* getgrouplist.c */; };
+		F6539D292E474AF300C5C187 /* logfac.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2E25C135CE001A75CF /* logfac.c */; };
+		F6539D2A2E474AFE00C5C187 /* login_max.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C722E467F8500C5C187 /* login_max.c */; };
+		F6539D2B2E474B2700C5C187 /* logpri.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7C25C135CE001A75CF /* logpri.c */; };
+		F6539D2C2E474B3500C5C187 /* mkdir_parents.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA825C135CE001A75CF /* mkdir_parents.c */; };
+		F6539D2D2E474B4700C5C187 /* mmap_alloc.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495329802BDF00C0E084 /* mmap_alloc.c */; };
+		F6539D2E2E474B5100C5C187 /* multiarch.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495829802BDF00C0E084 /* multiarch.c */; };
+		F6539D2F2E474B6A00C5C187 /* parseln.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8525C135CE001A75CF /* parseln.c */; };
+		F6539D302E474B7200C5C187 /* progname.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDAB25C135CE001A75CF /* progname.c */; };
+		F6539D312E474B7900C5C187 /* rcstr.c in Sources */ = {isa = PBXBuildFile; fileRef = F651494F29802BDF00C0E084 /* rcstr.c */; };
+		F6539D322E474BB700C5C187 /* regex.c in Sources */ = {isa = PBXBuildFile; fileRef = F651495229802BDF00C0E084 /* regex.c */; };
+		F6539D332E474BBF00C5C187 /* roundup.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7225C135CE001A75CF /* roundup.c */; };
+		F6539D342E474BC800C5C187 /* secure_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8C25C135CE001A75CF /* secure_path.c */; };
+		F6539D352E474BD100C5C187 /* setgroups.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7625C135CE001A75CF /* setgroups.c */; };
+		F6539D362E474BDB00C5C187 /* strsplit.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7825C135CE001A75CF /* strsplit.c */; };
+		F6539D372E474BE300C5C187 /* strtobool.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B661C6AB3CB006A214E /* strtobool.c */; };
+		F6539D382E474BEB00C5C187 /* strtoid.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B671C6AB3CB006A214E /* strtoid.c */; };
+		F6539D392E474BF800C5C187 /* strtomode.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8B25C135CE001A75CF /* strtomode.c */; };
+		F6539D3A2E474C2300C5C187 /* strtonum.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B691C6AB3CB006A214E /* strtonum.c */; };
+		F6539D3B2E474C2D00C5C187 /* sudo_conf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9E25C135CE001A75CF /* sudo_conf.c */; };
+		F6539D3C2E474C3400C5C187 /* sudo_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2A25C135CE001A75CF /* sudo_debug.c */; };
+		F6539D3D2E474C3B00C5C187 /* sudo_dso.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B6C1C6AB3CB006A214E /* sudo_dso.c */; };
+		F6539D3E2E474C4200C5C187 /* term.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2125C135CE001A75CF /* term.c */; };
+		F6539D3F2E474C4800C5C187 /* ttyname_dev.c in Sources */ = {isa = PBXBuildFile; fileRef = FEB8CD982373353100FE6119 /* ttyname_dev.c */; };
+		F6539D402E474C4F00C5C187 /* ttysize.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA325C135CE001A75CF /* ttysize.c */; };
+		F6539D412E474C5900C5C187 /* uuid.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9825C135CE001A75CF /* uuid.c */; };
+		F6539D772E474FD600C5C187 /* exec_preload.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497F29803DE700C0E084 /* exec_preload.c */; };
+		F6539D782E474FDE00C5C187 /* sudo_intercept.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497529802EB600C0E084 /* sudo_intercept.c */; };
+		F6539D792E474FE800C5C187 /* sudo_intercept_common.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497629802EB600C0E084 /* sudo_intercept_common.c */; };
+		F6539D7A2E474FEF00C5C187 /* intercept.pb-c.c in Sources */ = {isa = PBXBuildFile; fileRef = F651497429802EB500C0E084 /* intercept.pb-c.c */; };
+		F6539D862E47500100C5C187 /* sudo_noexec.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE7025C135CF001A75CF /* sudo_noexec.c */; };
+		F6539D8F2E47503500C5C187 /* alias.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC5925C135CE001A75CF /* alias.c */; };
+		F6539E272E47519F00C5C187 /* log_server.pb-c.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDED25C135CE001A75CF /* log_server.pb-c.c */; };
+		F6539E282E47E72900C5C187 /* get_pty.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5925C135CF001A75CF /* get_pty.c */; };
+		F6539E292E47ED4900C5C187 /* libsudo_util.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539D282E474A2300C5C187 /* libsudo_util.a */; };
+		F6539E2A2E47ED7000C5C187 /* libsudo_eventlog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54F9DF25C132CB001A75CF /* libsudo_eventlog.a */; };
+		F6539E2B2E47ED7700C5C187 /* libsudo_util.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539D282E474A2300C5C187 /* libsudo_util.a */; };
+		F6539E2C2E47EE6700C5C187 /* libprotobuf-c.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539CDB2E469E1A00C5C187 /* libprotobuf-c.a */; };
+		F6539E2D2E47EE9E00C5C187 /* libsudo_iolog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54F9ED25C132D7001A75CF /* libsudo_iolog.a */; };
+		F6539E2E2E47EEA200C5C187 /* liblogsrv.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539E262E47519000C5C187 /* liblogsrv.a */; };
+		F6539E2F2E47EEC300C5C187 /* libparsesudoers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FF1625C139DC001A75CF /* libparsesudoers.a */; };
+		F6539E302E47EEE200C5C187 /* libsudo_util.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539D282E474A2300C5C187 /* libsudo_util.a */; };
+		F6539E3F2E47F05200C5C187 /* canon_path.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C512E464D1A00C5C187 /* canon_path.c */; };
+		F6539E402E47F07100C5C187 /* b64_decode.c in Sources */ = {isa = PBXBuildFile; fileRef = F651496929802E6D00C0E084 /* b64_decode.c */; };
+		F6539E412E47F0ED00C5C187 /* parser_warnx.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C562E464D1A00C5C187 /* parser_warnx.c */; };
+		F6539E422E47F11100C5C187 /* resolve_cmnd.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539C572E464D1A00C5C187 /* resolve_cmnd.c */; };
+		F6539E452E47F32100C5C187 /* libprotobuf-c.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539CDB2E469E1A00C5C187 /* libprotobuf-c.a */; };
+		F6539E462E47F32600C5C187 /* libsudo_util.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539D282E474A2300C5C187 /* libsudo_util.a */; };
+		F6539E472E47F9FB00C5C187 /* libsudo_util.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539D282E474A2300C5C187 /* libsudo_util.a */; };
+		F6539E482E47FDA000C5C187 /* sha2.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD1D25C135CE001A75CF /* sha2.c */; };
+		F6539E492E47FDEE00C5C187 /* explicit_bzero.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9C25C135CE001A75CF /* explicit_bzero.c */; };
+		F6539E4A2E47FE2200C5C187 /* reallocarray.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9625C135CE001A75CF /* reallocarray.c */; };
+		F6539E4B2E47FE2A00C5C187 /* memrchr.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2425C135CE001A75CF /* memrchr.c */; };
+		F6539E4C2E47FE3200C5C187 /* freezero.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA025C135CE001A75CF /* freezero.c */; };
+		F6539E4D2E47FE4600C5C187 /* closefrom.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9425C135CE001A75CF /* closefrom.c */; };
+		F6539E4E2E47FED300C5C187 /* sudo_printf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801CBD1C6AD2B9006A214E /* sudo_printf.c */; };
+		F6539E4F2E47FEF600C5C187 /* libsudoers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539D8E2E47502500C5C187 /* libsudoers.a */; };
+		F6539E502E47FFAA00C5C187 /* pipe2.c in Sources */ = {isa = PBXBuildFile; fileRef = FEB8CDA32373353200FE6119 /* pipe2.c */; };
+		F6539E512E47FFBC00C5C187 /* sha2.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B5C1C6AB3CB006A214E /* sha2.c */; };
+		F6539E522E48002C00C5C187 /* libsudo_intercept.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6539D762E474FC400C5C187 /* libsudo_intercept.a */; };
+		F6539E532E48005800C5C187 /* sudo_auth.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BD41C6AD2B9006A214E /* sudo_auth.c */; };
+		F6539E542E48007200C5C187 /* dup3.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8725C135CE001A75CF /* dup3.c */; };
+		F6539E552E48009100C5C187 /* event_select.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B071C6AB3CB006A214E /* event_select.c */; };
+		F6539E562E4800B600C5C187 /* pam.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BCE1C6AD2B9006A214E /* pam.c */; };
+		F6539E572E4800DB00C5C187 /* preload.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5A25C135CF001A75CF /* preload.c */; };
+		F6539E582E4800FD00C5C187 /* starttime.c in Sources */ = {isa = PBXBuildFile; fileRef = FEA24F8D23725A9900EC0605 /* starttime.c */; };
+		F6539E592E48011200C5C187 /* pw_dup.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B241C6AB3CB006A214E /* pw_dup.c */; };
+		F6539E5A2E48012A00C5C187 /* sig2str.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B5D1C6AB3CB006A214E /* sig2str.c */; };
+		F6539E612E492D0700C5C187 /* audit.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BC51C6AD2B9006A214E /* audit.c */; };
+		F6539E622E492D2800C5C187 /* boottime.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BD71C6AD2B9006A214E /* boottime.c */; };
+		F6539E632E492D9D00C5C187 /* check.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BDA1C6AD2B9006A214E /* check.c */; };
+		F6539E652E492DAF00C5C187 /* check_util.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E642E492DAF00C5C187 /* check_util.c */; };
+		F6539E722E492DFD00C5C187 /* sudoers_ctx_free.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E6F2E492DFD00C5C187 /* sudoers_ctx_free.c */; };
+		F6539E732E492DFD00C5C187 /* sethost.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E6B2E492DFD00C5C187 /* sethost.c */; };
+		F6539E742E492DFD00C5C187 /* serialize_list.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E6A2E492DFD00C5C187 /* serialize_list.c */; };
+		F6539E752E492DFD00C5C187 /* log_client.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E682E492DFD00C5C187 /* log_client.c */; };
+		F6539E762E492DFD00C5C187 /* lookup.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E692E492DFD00C5C187 /* lookup.c */; };
+		F6539E772E492DFD00C5C187 /* sudoers_hooks.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E702E492DFD00C5C187 /* sudoers_hooks.c */; };
+		F6539E782E492DFD00C5C187 /* unesc_str.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E712E492DFD00C5C187 /* unesc_str.c */; };
+		F6539E792E492DFD00C5C187 /* display.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E662E492DFD00C5C187 /* display.c */; };
+		F6539E7A2E492DFD00C5C187 /* strlcpy_unesc.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E6C2E492DFD00C5C187 /* strlcpy_unesc.c */; };
+		F6539E7B2E492DFD00C5C187 /* strvec_join.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E6D2E492DFD00C5C187 /* strvec_join.c */; };
+		F6539E7C2E492DFD00C5C187 /* iolog_path_escapes.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E672E492DFD00C5C187 /* iolog_path_escapes.c */; };
+		F6539E7D2E492DFD00C5C187 /* sudoers_cb.c in Sources */ = {isa = PBXBuildFile; fileRef = F6539E6E2E492DFD00C5C187 /* sudoers_cb.c */; };
+		F6539E7E2E492E3400C5C187 /* editor.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BE11C6AD2B9006A214E /* editor.c */; };
+		F6539E7F2E492E4F00C5C187 /* env_pattern.c in Sources */ = {isa = PBXBuildFile; fileRef = FEA24F7F23725A9700EC0605 /* env_pattern.c */; };
+		F6539E802E492E4F00C5C187 /* env.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BE21C6AD2B9006A214E /* env.c */; };
+		F6539E812E492E9900C5C187 /* file.c in Sources */ = {isa = PBXBuildFile; fileRef = FEA24F8423725A9800EC0605 /* file.c */; };
+		F6539E822E492E9900C5C187 /* policy.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801C3E1C6AD2B9006A214E /* policy.c */; };
+		F6539E832E492E9900C5C187 /* locale.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BFA1C6AD2B9006A214E /* locale.c */; };
+		F6539E842E492E9900C5C187 /* fmtsudoers.c in Sources */ = {isa = PBXBuildFile; fileRef = FEA24F8523725A9800EC0605 /* fmtsudoers.c */; };
+		F6539E852E492E9900C5C187 /* goodpath.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BE71C6AD2B9006A214E /* goodpath.c */; };
+		F6539E862E492E9900C5C187 /* gc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE1D68FF1CC06B1A00EBFCDF /* gc.c */; };
+		F6539E872E492E9900C5C187 /* logging.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BFB1C6AD2B9006A214E /* logging.c */; };
+		F6539E882E492E9900C5C187 /* iolog.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BF41C6AD2B9006A214E /* iolog.c */; };
+		F6539E892E492E9900C5C187 /* find_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BE31C6AD2B9006A214E /* find_path.c */; };
+		F6539E8A2E492E9900C5C187 /* interfaces.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BF21C6AD2B9006A214E /* interfaces.c */; };
+		F6539E8B2E492F9B00C5C187 /* timestamp.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801CC91C6AD2B9006A214E /* timestamp.c */; };
+		F6539E8C2E492FB400C5C187 /* group_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BEB1C6AD2B9006A214E /* group_plugin.c */; };
+		F6539E8D2E492FCA00C5C187 /* prompt.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801C3F1C6AD2B9006A214E /* prompt.c */; };
+		F6539E8E2E492FF600C5C187 /* sudoers.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801CBF1C6AD2B9006A214E /* sudoers.c */; };
+		F6539E8F2E4930B400C5C187 /* sudo_nss.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801CBB1C6AD2B9006A214E /* sudo_nss.c */; };
+		F6539E902E4930D000C5C187 /* set_perms.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801CB71C6AD2B9006A214E /* set_perms.c */; };
 		FE54007A25C140E7001A75CF /* conversation.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5525C135CF001A75CF /* conversation.c */; };
-		FE54007B25C140E7001A75CF /* get_pty.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5925C135CF001A75CF /* get_pty.c */; };
 		FE54007C25C140E7001A75CF /* hooks.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6225C135CF001A75CF /* hooks.c */; };
 		FE54007D25C140E7001A75CF /* sudo_edit.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5D25C135CF001A75CF /* sudo_edit.c */; };
 		FE54007E25C140E7001A75CF /* copy_file.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6925C135CF001A75CF /* copy_file.c */; };
@@ -88,12 +187,9 @@
 		FE54008025C140E7001A75CF /* parse_args.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE4725C135CF001A75CF /* parse_args.c */; };
 		FE54008125C140E7001A75CF /* env_hooks.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6725C135CF001A75CF /* env_hooks.c */; };
 		FE54008225C140E7001A75CF /* exec_common.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6A25C135CF001A75CF /* exec_common.c */; };
-		FE54008325C140E7001A75CF /* tcsetpgrp_nobg.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5725C135CF001A75CF /* tcsetpgrp_nobg.c */; };
 		FE54008425C140E7001A75CF /* load_plugins.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6825C135CF001A75CF /* load_plugins.c */; };
-		FE54008525C140E7001A75CF /* preload.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5A25C135CF001A75CF /* preload.c */; };
 		FE54008625C140E7001A75CF /* sudo.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5C25C135CF001A75CF /* sudo.c */; };
 		FE54008725C140E7001A75CF /* exec_pty.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6425C135CF001A75CF /* exec_pty.c */; };
-		FE54008825C140E7001A75CF /* edit_open.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6025C135CF001A75CF /* edit_open.c */; };
 		FE54008925C140E7001A75CF /* exec.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE4D25C135CF001A75CF /* exec.c */; };
 		FE54008A25C140E7001A75CF /* exec_monitor.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE5625C135CF001A75CF /* exec_monitor.c */; };
 		FE54008B25C140E7001A75CF /* ttyname.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6F25C135CF001A75CF /* ttyname.c */; };
@@ -103,54 +199,8 @@
 		FE54008F25C140E7001A75CF /* limits.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6125C135CF001A75CF /* limits.c */; };
 		FE54009025C140E7001A75CF /* tgetpass.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE4C25C135CF001A75CF /* tgetpass.c */; };
 		FE54009125C140E7001A75CF /* exec_nopty.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FE6625C135CF001A75CF /* exec_nopty.c */; };
-		FE5400A525C14171001A75CF /* libutil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54F9D225C132BD001A75CF /* libutil.a */; };
 		FE5400B025C141B0001A75CF /* libpam.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = FE5400AF25C141B0001A75CF /* libpam.tbd */; };
 		FE5400BB25C141C0001A75CF /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = FE5400BA25C141C0001A75CF /* libbsm.tbd */; };
-		FE5400CE25C14217001A75CF /* file.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC6225C135CE001A75CF /* file.c */; };
-		FE5400D825C14264001A75CF /* key_val.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801B161C6AB3CB006A214E /* key_val.c */; };
-		FE54010825C146D3001A75CF /* libeventlog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54F9DF25C132CB001A75CF /* libeventlog.a */; };
-		FE54FE7925C136D7001A75CF /* digest.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA625C135CE001A75CF /* digest.c */; };
-		FE54FE7A25C136D7001A75CF /* strtomode.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8B25C135CE001A75CF /* strtomode.c */; };
-		FE54FE7B25C136D7001A75CF /* setgroups.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7625C135CE001A75CF /* setgroups.c */; };
-		FE54FE7C25C136D7001A75CF /* sudo_dso.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7B25C135CE001A75CF /* sudo_dso.c */; };
-		FE54FE7D25C136D7001A75CF /* logfac.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2E25C135CE001A75CF /* logfac.c */; };
-		FE54FE7E25C136D7001A75CF /* getgrouplist.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8D25C135CE001A75CF /* getgrouplist.c */; };
-		FE54FE7F25C136D7001A75CF /* ttyname_dev.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD1B25C135CE001A75CF /* ttyname_dev.c */; };
-		FE54FE8025C136D7001A75CF /* closefrom.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9425C135CE001A75CF /* closefrom.c */; };
-		FE54FE8125C136D7001A75CF /* logpri.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7C25C135CE001A75CF /* logpri.c */; };
-		FE54FE8225C136D7001A75CF /* json.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD1925C135CE001A75CF /* json.c */; };
-		FE54FE8325C136D7001A75CF /* roundup.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7225C135CE001A75CF /* roundup.c */; };
-		FE54FE8425C136D7001A75CF /* secure_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8C25C135CE001A75CF /* secure_path.c */; };
-		FE54FE8525C136D7001A75CF /* sudo_conf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9E25C135CE001A75CF /* sudo_conf.c */; };
-		FE54FE8625C136D7001A75CF /* str2sig.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2525C135CE001A75CF /* str2sig.c */; };
-		FE54FE8725C136D7001A75CF /* dup3.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8725C135CE001A75CF /* dup3.c */; };
-		FE54FE8825C136D7001A75CF /* strtobool.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9725C135CE001A75CF /* strtobool.c */; };
-		FE54FE8925C136D7001A75CF /* reallocarray.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9625C135CE001A75CF /* reallocarray.c */; };
-		FE54FE8A25C136D7001A75CF /* strsplit.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7825C135CE001A75CF /* strsplit.c */; };
-		FE54FE8B25C136D7001A75CF /* uuid.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9825C135CE001A75CF /* uuid.c */; };
-		FE54FE8C25C136D7001A75CF /* term.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2125C135CE001A75CF /* term.c */; };
-		FE54FE8D25C136D7001A75CF /* fatal.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD7425C135CE001A75CF /* fatal.c */; };
-		FE54FE8E25C136D7001A75CF /* sig2str.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8325C135CE001A75CF /* sig2str.c */; };
-		FE54FE8F25C136D7001A75CF /* strtoid.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2B25C135CE001A75CF /* strtoid.c */; };
-		FE54FE9025C136D7001A75CF /* gettime.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2925C135CE001A75CF /* gettime.c */; };
-		FE54FE9125C136D7001A75CF /* sha2.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD1D25C135CE001A75CF /* sha2.c */; };
-		FE54FE9225C136D7001A75CF /* ttysize.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA325C135CE001A75CF /* ttysize.c */; };
-		FE54FE9325C136D7001A75CF /* locking.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA725C135CE001A75CF /* locking.c */; };
-		FE54FE9425C136D7001A75CF /* event_select.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDAA25C135CE001A75CF /* event_select.c */; };
-		FE54FE9525C136D7001A75CF /* memrchr.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2425C135CE001A75CF /* memrchr.c */; };
-		FE54FE9625C136D7001A75CF /* progname.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDAB25C135CE001A75CF /* progname.c */; };
-		FE54FE9725C136D7001A75CF /* event.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9125C135CE001A75CF /* event.c */; };
-		FE54FE9825C136D7001A75CF /* gidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2725C135CE001A75CF /* gidlist.c */; };
-		FE54FE9925C136D7001A75CF /* parseln.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8525C135CE001A75CF /* parseln.c */; };
-		FE54FE9A25C136D7001A75CF /* lbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2325C135CE001A75CF /* lbuf.c */; };
-		FE54FE9B25C136D7001A75CF /* mkdir_parents.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA825C135CE001A75CF /* mkdir_parents.c */; };
-		FE54FE9C25C136D7001A75CF /* pw_dup.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9325C135CE001A75CF /* pw_dup.c */; };
-		FE54FE9D25C136D7001A75CF /* pipe2.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD8625C135CE001A75CF /* pipe2.c */; };
-		FE54FE9E25C136D7001A75CF /* strtonum.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9025C135CE001A75CF /* strtonum.c */; };
-		FE54FE9F25C136D7001A75CF /* gethostname.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2D25C135CE001A75CF /* gethostname.c */; };
-		FE54FEA025C136D7001A75CF /* explicit_bzero.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD9C25C135CE001A75CF /* explicit_bzero.c */; };
-		FE54FEA125C136D7001A75CF /* freezero.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDA025C135CE001A75CF /* freezero.c */; };
-		FE54FEA225C136D7001A75CF /* sudo_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FD2A25C135CE001A75CF /* sudo_debug.c */; };
 		FE54FEB325C1376B001A75CF /* eventlog.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDF825C135CE001A75CF /* eventlog.c */; };
 		FE54FEB425C1376B001A75CF /* logwrap.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDF125C135CE001A75CF /* logwrap.c */; };
 		FE54FEC525C137B4001A75CF /* iolog_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDD125C135CE001A75CF /* iolog_path.c */; };
@@ -158,18 +208,15 @@
 		FE54FEC725C137B4001A75CF /* iolog_json.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDE825C135CE001A75CF /* iolog_json.c */; };
 		FE54FEC825C137B4001A75CF /* iolog_util.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDE725C135CE001A75CF /* iolog_util.c */; };
 		FE54FEC925C137B4001A75CF /* host_port.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDE625C135CE001A75CF /* host_port.c */; };
-		FE54FF0725C139A5001A75CF /* log_server.pb-c.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FDED25C135CE001A75CF /* log_server.pb-c.c */; };
 		FE54FF3A25C13A47001A75CF /* filedigest.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FA9B25C135CD001A75CF /* filedigest.c */; };
 		FE54FF3B25C13A47001A75CF /* gram.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAA825C135CD001A75CF /* gram.c */; };
 		FE54FF3C25C13A47001A75CF /* defaults.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBE725C135CD001A75CF /* defaults.c */; };
 		FE54FF3D25C13A47001A75CF /* exptilde.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC5B25C135CE001A75CF /* exptilde.c */; };
-		FE54FF3E25C13A47001A75CF /* hexchar.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC6525C135CE001A75CF /* hexchar.c */; };
 		FE54FF3F25C13A47001A75CF /* match.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FA9325C135CD001A75CF /* match.c */; };
 		FE54FF4025C13A47001A75CF /* pwutil_impl.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC6C25C135CE001A75CF /* pwutil_impl.c */; };
 		FE54FF4125C13A47001A75CF /* pwutil.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FA9525C135CD001A75CF /* pwutil.c */; };
 		FE54FF4225C13A47001A75CF /* timestr.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAAA25C135CD001A75CF /* timestr.c */; };
 		FE54FF4325C13A47001A75CF /* match_digest.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC5525C135CE001A75CF /* match_digest.c */; };
-		FE54FF4425C13A47001A75CF /* audit.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC0625C135CD001A75CF /* audit.c */; };
 		FE54FF4525C13A47001A75CF /* gentime.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBF825C135CD001A75CF /* gentime.c */; };
 		FE54FF4625C13A47001A75CF /* match_addr.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC6325C135CE001A75CF /* match_addr.c */; };
 		FE54FF4825C13A47001A75CF /* toke.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBF725C135CD001A75CF /* toke.c */; };
@@ -181,55 +228,15 @@
 		FE54FF5025C13A47001A75CF /* timeout.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBDE25C135CD001A75CF /* timeout.c */; };
 		FE54FF5125C13A47001A75CF /* toke_util.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBEB25C135CD001A75CF /* toke_util.c */; };
 		FE54FF5225C13A47001A75CF /* strlist.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBE225C135CD001A75CF /* strlist.c */; };
-		FE54FF5E25C13A8B001A75CF /* passwd.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAB125C135CD001A75CF /* passwd.c */; };
-		FE54FF6A25C13A90001A75CF /* pam.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAAF25C135CD001A75CF /* pam.c */; };
-		FE54FF6B25C13A90001A75CF /* sudo_auth.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAAD25C135CD001A75CF /* sudo_auth.c */; };
-		FE54FF7725C13B02001A75CF /* iolog_path_escapes.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC0725C135CD001A75CF /* iolog_path_escapes.c */; };
-		FE54FF7825C13B02001A75CF /* fmtsudoers.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FA9225C135CD001A75CF /* fmtsudoers.c */; };
-		FE54FF7925C13B02001A75CF /* find_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC5A25C135CE001A75CF /* find_path.c */; };
-		FE54FF7A25C13B02001A75CF /* prompt.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBF425C135CD001A75CF /* prompt.c */; };
-		FE54FF7B25C13B02001A75CF /* goodpath.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FA9725C135CD001A75CF /* goodpath.c */; };
-		FE54FF7C25C13B02001A75CF /* logging.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC7325C135CE001A75CF /* logging.c */; };
-		FE54FF7D25C13B02001A75CF /* env_pattern.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC0225C135CD001A75CF /* env_pattern.c */; };
-		FE54FF7E25C13B02001A75CF /* env.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC0525C135CD001A75CF /* env.c */; };
-		FE54FF7F25C13B02001A75CF /* interfaces.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBFF25C135CD001A75CF /* interfaces.c */; };
-		FE54FF8025C13B02001A75CF /* policy.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC5825C135CE001A75CF /* policy.c */; };
-		FE54FF8125C13B02001A75CF /* group_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAA625C135CD001A75CF /* group_plugin.c */; };
-		FE54FF8225C13B02001A75CF /* iolog.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBEA25C135CD001A75CF /* iolog.c */; };
-		FE54FF8325C13B02001A75CF /* check.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FAA725C135CD001A75CF /* check.c */; };
-		FE54FF8425C13B02001A75CF /* editor.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC4E25C135CD001A75CF /* editor.c */; };
-		FE54FF8525C13B02001A75CF /* gc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC7625C135CE001A75CF /* gc.c */; };
-		FE54FF8625C13B02001A75CF /* boottime.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBEF25C135CD001A75CF /* boottime.c */; };
-		FE54FF8725C13B02001A75CF /* log_client.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBE625C135CD001A75CF /* log_client.c */; };
-		FE54FF8825C13B02001A75CF /* starttime.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FA9D25C135CD001A75CF /* starttime.c */; };
-		FE54FF8925C13B02001A75CF /* sudo_nss.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC5225C135CD001A75CF /* sudo_nss.c */; };
-		FE54FF8A25C13B02001A75CF /* sudoers.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FA9C25C135CD001A75CF /* sudoers.c */; };
-		FE54FF8B25C13B02001A75CF /* timestamp.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBF525C135CD001A75CF /* timestamp.c */; };
-		FE54FF8C25C13B02001A75CF /* set_perms.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FBED25C135CD001A75CF /* set_perms.c */; };
-		FE54FF8D25C13B02001A75CF /* parse.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC6425C135CE001A75CF /* parse.c */; };
-		FE54FF8E25C13B02001A75CF /* locale.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54FC5325C135CE001A75CF /* locale.c */; };
-		FE54FF9D25C13B8A001A75CF /* libpam.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FF9C25C13B8A001A75CF /* libpam.tbd */; };
-		FE54FFAA25C13BA2001A75CF /* libiolog.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54F9ED25C132D7001A75CF /* libiolog.a */; };
-		FE54FFAB25C13BA2001A75CF /* liblogsrv.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FEEF25C13982001A75CF /* liblogsrv.a */; };
-		FE54FFC225C13C39001A75CF /* libutil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54F9D225C132BD001A75CF /* libutil.a */; };
 		FE54FFE125C13CDB001A75CF /* libparsesudoers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FE54FF1625C139DC001A75CF /* libparsesudoers.a */; };
 		FEB8CD9123725C7D00FE6119 /* editor.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BE11C6AD2B9006A214E /* editor.c */; };
 		FEB8CD9223725C7D00FE6119 /* find_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BE31C6AD2B9006A214E /* find_path.c */; };
 		FEB8CD9323725C7D00FE6119 /* goodpath.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BE71C6AD2B9006A214E /* goodpath.c */; };
 		FEB8CD9423725C7D00FE6119 /* locale.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801BFA1C6AD2B9006A214E /* locale.c */; };
-		FEB8CD9523725C7D00FE6119 /* stubs.c in Sources */ = {isa = PBXBuildFile; fileRef = FEA24F8F23725A9900EC0605 /* stubs.c */; };
-		FEB8CD9623725C7D00FE6119 /* sudo_printf.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801CBD1C6AD2B9006A214E /* sudo_printf.c */; };
 		FEB8CD9723725C7D00FE6119 /* visudo.c in Sources */ = {isa = PBXBuildFile; fileRef = FE801CD11C6AD2B9006A214E /* visudo.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		F651496329802BFD00C0E084 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FE54F9D125C132BD001A75CF;
-			remoteInfo = util;
-		};
 		F651496529802C1000C0E084 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -237,40 +244,89 @@
 			remoteGlobalIDString = FE54FF1525C139DC001A75CF;
 			remoteInfo = parsesudoers;
 		};
-		F6682237297F9C8200FB9E05 /* PBXContainerItemProxy */ = {
+		F6539CDE2E469E6700C5C187 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FE54FEDE25C13874001A75CF;
-			remoteInfo = plugin_sudoers;
+			remoteGlobalIDString = F6539CD42E469E1A00C5C187;
+			remoteInfo = protobuf_c;
 		};
-		FE54000125C13E03001A75CF /* PBXContainerItemProxy */ = {
+		F6539D422E474C8F00C5C187 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FE54F9D125C132BD001A75CF;
-			remoteInfo = util;
+			remoteGlobalIDString = F6539CEA2E474A2300C5C187;
+			remoteInfo = libsudo_util;
 		};
-		FE54000325C13E12001A75CF /* PBXContainerItemProxy */ = {
+		F6539E312E47EF9500C5C187 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FE54F9EC25C132D7001A75CF;
-			remoteInfo = iolog;
+			remoteGlobalIDString = F6539CEA2E474A2300C5C187;
+			remoteInfo = "libsudo_util*";
 		};
-		FE54000525C13E12001A75CF /* PBXContainerItemProxy */ = {
+		F6539E332E47EF9C00C5C187 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FE54FEEE25C13982001A75CF;
-			remoteInfo = logsrv;
+			remoteGlobalIDString = FE54F9DE25C132CB001A75CF;
+			remoteInfo = "libsudo_eventlog*";
 		};
-		FE54000725C13E12001A75CF /* PBXContainerItemProxy */ = {
+		F6539E352E47EFA100C5C187 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6539CEA2E474A2300C5C187;
+			remoteInfo = "libsudo_util*";
+		};
+		F6539E372E47EFAE00C5C187 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6539CD42E469E1A00C5C187;
+			remoteInfo = "libprotobuf-c*";
+		};
+		F6539E392E47EFBA00C5C187 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = FE54FF1525C139DC001A75CF;
-			remoteInfo = parsesudoers;
+			remoteInfo = "libparsesudoers*";
+		};
+		F6539E3B2E47EFBE00C5C187 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6539E1F2E47519000C5C187;
+			remoteInfo = "liblogsrv*";
+		};
+		F6539E3D2E47EFC200C5C187 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE54F9EC25C132D7001A75CF;
+			remoteInfo = "libsudo_iolog*";
+		};
+		F6539E432E47F1D300C5C187 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6539CEA2E474A2300C5C187;
+			remoteInfo = "libsudo_util*";
+		};
+		F6539E5B2E48023D00C5C187 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6539D5A2E474FC400C5C187;
+			remoteInfo = sudo_intercept;
+		};
+		F6539E5F2E48026500C5C187 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6539D872E47502500C5C187;
+			remoteInfo = sudoers;
 		};
 		FE54001E25C13E89001A75CF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -278,27 +334,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = FE54FF1525C139DC001A75CF;
 			remoteInfo = parsesudoers;
-		};
-		FE54002025C13E89001A75CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FE54F9D125C132BD001A75CF;
-			remoteInfo = util;
-		};
-		FE5400F425C145E7001A75CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FE54FEDE25C13874001A75CF;
-			remoteInfo = plugin_sudoers;
-		};
-		FE54011225C146FA001A75CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FE54F9DE25C132CB001A75CF;
-			remoteInfo = eventlog;
 		};
 		FE801D241C6ADC5F006A214E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -350,7 +385,6 @@
 		F651496A29802E6D00C0E084 /* b64_encode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = b64_encode.c; sourceTree = "<group>"; };
 		F651496B29802E6D00C0E084 /* cvtsudoers_csv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cvtsudoers_csv.c; sourceTree = "<group>"; };
 		F651496C29802E6D00C0E084 /* check_aliases.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = check_aliases.c; sourceTree = "<group>"; };
-		F651497329802EB500C0E084 /* suspend_nopty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = suspend_nopty.c; sourceTree = "<group>"; };
 		F651497429802EB500C0E084 /* intercept.pb-c.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "intercept.pb-c.c"; sourceTree = "<group>"; };
 		F651497529802EB600C0E084 /* sudo_intercept.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sudo_intercept.c; sourceTree = "<group>"; };
 		F651497629802EB600C0E084 /* sudo_intercept_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sudo_intercept_common.c; sourceTree = "<group>"; };
@@ -376,13 +410,60 @@
 		F65149A429803EF400C0E084 /* unesc_str.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = unesc_str.c; sourceTree = "<group>"; };
 		F65149A629803F5700C0E084 /* iolog_loginfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iolog_loginfo.c; sourceTree = "<group>"; };
 		F65149A829803FA500C0E084 /* iolog_legacy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iolog_legacy.c; sourceTree = "<group>"; };
+		F6539C512E464D1A00C5C187 /* canon_path.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = canon_path.c; sourceTree = "<group>"; };
+		F6539C522E464D1A00C5C187 /* check_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = check_util.c; sourceTree = "<group>"; };
+		F6539C532E464D1A00C5C187 /* display.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = display.c; sourceTree = "<group>"; };
+		F6539C542E464D1A00C5C187 /* ldap_innetgr.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ldap_innetgr.c; sourceTree = "<group>"; };
+		F6539C552E464D1A00C5C187 /* lookup.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lookup.c; sourceTree = "<group>"; };
+		F6539C562E464D1A00C5C187 /* parser_warnx.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parser_warnx.c; sourceTree = "<group>"; };
+		F6539C572E464D1A00C5C187 /* resolve_cmnd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = resolve_cmnd.c; sourceTree = "<group>"; };
+		F6539C582E464D1A00C5C187 /* sethost.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sethost.c; sourceTree = "<group>"; };
+		F6539C592E464D1A00C5C187 /* sudoers_cb.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudoers_cb.c; sourceTree = "<group>"; };
+		F6539C5A2E464D1A00C5C187 /* sudoers_ctx_free.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudoers_ctx_free.c; sourceTree = "<group>"; };
+		F6539C5B2E464D1A00C5C187 /* testsudoers_pwutil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = testsudoers_pwutil.h; sourceTree = "<group>"; };
+		F6539C5C2E464D1A00C5C187 /* testsudoers_pwutil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testsudoers_pwutil.c; sourceTree = "<group>"; };
+		F6539C5D2E464D1A00C5C187 /* timestamp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = timestamp.h; sourceTree = "<group>"; };
+		F6539C5E2E464D1A00C5C187 /* visudo_cb.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = visudo_cb.c; sourceTree = "<group>"; };
+		F6539C722E467F8500C5C187 /* login_max.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = login_max.c; sourceTree = "<group>"; };
+		F6539C732E467F8500C5C187 /* realpath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = realpath.c; sourceTree = "<group>"; };
+		F6539C762E467FB200C5C187 /* parse_json.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parse_json.c; sourceTree = "<group>"; };
+		F6539C782E46805100C5C187 /* parse_json.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parse_json.h; sourceTree = "<group>"; };
+		F6539C7F2E469D4D00C5C187 /* apparmor.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = apparmor.c; sourceTree = "<group>"; };
+		F6539C802E469D4D00C5C187 /* copy_file.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = copy_file.c; sourceTree = "<group>"; };
+		F6539C812E469D4D00C5C187 /* edit_open.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = edit_open.c; sourceTree = "<group>"; };
+		F6539C822E469D4D00C5C187 /* exec_intercept.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = exec_intercept.c; sourceTree = "<group>"; };
+		F6539C832E469D4D00C5C187 /* exec_iolog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = exec_iolog.c; sourceTree = "<group>"; };
+		F6539C842E469D4D00C5C187 /* exec_preload.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = exec_preload.c; sourceTree = "<group>"; };
+		F6539C852E469D4D00C5C187 /* exec_ptrace.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = exec_ptrace.c; sourceTree = "<group>"; };
+		F6539C862E469D4D00C5C187 /* intercept.pb-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "intercept.pb-c.c"; sourceTree = "<group>"; };
+		F6539C872E469D4D00C5C187 /* sudo_intercept.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudo_intercept.c; sourceTree = "<group>"; };
+		F6539C882E469D4D00C5C187 /* sudo_intercept_common.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudo_intercept_common.c; sourceTree = "<group>"; };
+		F6539C892E469D4D00C5C187 /* suspend_parent.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = suspend_parent.c; sourceTree = "<group>"; };
+		F6539CDB2E469E1A00C5C187 /* libprotobuf-c.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libprotobuf-c.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6539D282E474A2300C5C187 /* libsudo_util.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsudo_util.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6539D762E474FC400C5C187 /* libsudo_intercept.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsudo_intercept.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6539D852E474FF200C5C187 /* libsudo_noexec.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsudo_noexec.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6539D8E2E47502500C5C187 /* libsudoers.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsudoers.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6539E262E47519000C5C187 /* liblogsrv.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblogsrv.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6539E642E492DAF00C5C187 /* check_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = check_util.c; sourceTree = "<group>"; };
+		F6539E662E492DFD00C5C187 /* display.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = display.c; sourceTree = "<group>"; };
+		F6539E672E492DFD00C5C187 /* iolog_path_escapes.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = iolog_path_escapes.c; sourceTree = "<group>"; };
+		F6539E682E492DFD00C5C187 /* log_client.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = log_client.c; sourceTree = "<group>"; };
+		F6539E692E492DFD00C5C187 /* lookup.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lookup.c; sourceTree = "<group>"; };
+		F6539E6A2E492DFD00C5C187 /* serialize_list.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = serialize_list.c; sourceTree = "<group>"; };
+		F6539E6B2E492DFD00C5C187 /* sethost.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sethost.c; sourceTree = "<group>"; };
+		F6539E6C2E492DFD00C5C187 /* strlcpy_unesc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = strlcpy_unesc.c; sourceTree = "<group>"; };
+		F6539E6D2E492DFD00C5C187 /* strvec_join.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = strvec_join.c; sourceTree = "<group>"; };
+		F6539E6E2E492DFD00C5C187 /* sudoers_cb.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudoers_cb.c; sourceTree = "<group>"; };
+		F6539E6F2E492DFD00C5C187 /* sudoers_ctx_free.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudoers_ctx_free.c; sourceTree = "<group>"; };
+		F6539E702E492DFD00C5C187 /* sudoers_hooks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudoers_hooks.c; sourceTree = "<group>"; };
+		F6539E712E492DFD00C5C187 /* unesc_str.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = unesc_str.c; sourceTree = "<group>"; };
 		F6EC3E7529CC5BC7009A96E3 /* hexchar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hexchar.c; sourceTree = "<group>"; };
 		FE1D68FF1CC06B1A00EBFCDF /* gc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gc.c; sourceTree = "<group>"; };
 		FE5400AF25C141B0001A75CF /* libpam.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libpam.tbd; path = usr/lib/libpam.tbd; sourceTree = SDKROOT; };
 		FE5400BA25C141C0001A75CF /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
-		FE54F9D225C132BD001A75CF /* libutil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libutil.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		FE54F9DF25C132CB001A75CF /* libeventlog.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libeventlog.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		FE54F9ED25C132D7001A75CF /* libiolog.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libiolog.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE54F9DF25C132CB001A75CF /* libsudo_eventlog.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsudo_eventlog.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE54F9ED25C132D7001A75CF /* libsudo_iolog.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsudo_iolog.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE54FA1525C135CC001A75CF /* plugin_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = plugin_test.c; sourceTree = "<group>"; };
 		FE54FA1625C135CC001A75CF /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FE54FA1725C135CC001A75CF /* group_file.exp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.exports; path = group_file.exp; sourceTree = "<group>"; };
@@ -823,7 +904,6 @@
 		FE54FBDC25C135CD001A75CF /* test13.out.ok */ = {isa = PBXFileReference; lastKnownFileType = text; path = test13.out.ok; sourceTree = "<group>"; };
 		FE54FBDD25C135CD001A75CF /* cvtsudoers_ldif.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cvtsudoers_ldif.c; sourceTree = "<group>"; };
 		FE54FBDE25C135CD001A75CF /* timeout.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = timeout.c; sourceTree = "<group>"; };
-		FE54FBDF25C135CD001A75CF /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FE54FBE025C135CD001A75CF /* solaris_audit.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = solaris_audit.c; sourceTree = "<group>"; };
 		FE54FBE125C135CD001A75CF /* sudo_ldap_conf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sudo_ldap_conf.h; sourceTree = "<group>"; };
 		FE54FBE225C135CD001A75CF /* strlist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = strlist.c; sourceTree = "<group>"; };
@@ -935,7 +1015,6 @@
 		FE54FC4E25C135CD001A75CF /* editor.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = editor.c; sourceTree = "<group>"; };
 		FE54FC4F25C135CD001A75CF /* sudoers_debug.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudoers_debug.c; sourceTree = "<group>"; };
 		FE54FC5025C135CD001A75CF /* gram.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = gram.h; sourceTree = "<group>"; };
-		FE54FC5125C135CD001A75CF /* check.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = check.h; sourceTree = "<group>"; };
 		FE54FC5225C135CD001A75CF /* sudo_nss.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudo_nss.c; sourceTree = "<group>"; };
 		FE54FC5325C135CE001A75CF /* locale.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = locale.c; sourceTree = "<group>"; };
 		FE54FC5525C135CE001A75CF /* match_digest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = match_digest.c; sourceTree = "<group>"; };
@@ -953,8 +1032,6 @@
 		FE54FC6125C135CE001A75CF /* log_client.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = log_client.h; sourceTree = "<group>"; };
 		FE54FC6225C135CE001A75CF /* file.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = file.c; sourceTree = "<group>"; };
 		FE54FC6325C135CE001A75CF /* match_addr.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = match_addr.c; sourceTree = "<group>"; };
-		FE54FC6425C135CE001A75CF /* parse.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parse.c; sourceTree = "<group>"; };
-		FE54FC6525C135CE001A75CF /* hexchar.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = hexchar.c; sourceTree = "<group>"; };
 		FE54FC6625C135CE001A75CF /* mkdefaults */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = mkdefaults; sourceTree = "<group>"; };
 		FE54FC6725C135CE001A75CF /* strlist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = strlist.h; sourceTree = "<group>"; };
 		FE54FC6825C135CE001A75CF /* match_command.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = match_command.c; sourceTree = "<group>"; };
@@ -1098,7 +1175,6 @@
 		FE54FD6D25C135CE001A75CF /* globtest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = globtest.c; sourceTree = "<group>"; };
 		FE54FD6E25C135CE001A75CF /* files */ = {isa = PBXFileReference; lastKnownFileType = text; path = files; sourceTree = "<group>"; };
 		FE54FD7025C135CE001A75CF /* getdelim_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = getdelim_test.c; sourceTree = "<group>"; };
-		FE54FD7125C135CE001A75CF /* getcwd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = getcwd.c; sourceTree = "<group>"; };
 		FE54FD7225C135CE001A75CF /* roundup.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = roundup.c; sourceTree = "<group>"; };
 		FE54FD7325C135CE001A75CF /* aix.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = aix.c; sourceTree = "<group>"; };
 		FE54FD7425C135CE001A75CF /* fatal.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fatal.c; sourceTree = "<group>"; };
@@ -1274,10 +1350,8 @@
 		FE54FE4E25C135CF001A75CF /* sudo_usage.h.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = sudo_usage.h.in; sourceTree = "<group>"; };
 		FE54FE5125C135CF001A75CF /* check_ttyname.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = check_ttyname.c; sourceTree = "<group>"; };
 		FE54FE5325C135CF001A75CF /* check_noexec.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = check_noexec.c; sourceTree = "<group>"; };
-		FE54FE5425C135CF001A75CF /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FE54FE5525C135CF001A75CF /* conversation.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = conversation.c; sourceTree = "<group>"; };
 		FE54FE5625C135CF001A75CF /* exec_monitor.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = exec_monitor.c; sourceTree = "<group>"; };
-		FE54FE5725C135CF001A75CF /* tcsetpgrp_nobg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tcsetpgrp_nobg.c; sourceTree = "<group>"; };
 		FE54FE5825C135CF001A75CF /* sudo_usage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sudo_usage.h; sourceTree = "<group>"; };
 		FE54FE5925C135CF001A75CF /* get_pty.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = get_pty.c; sourceTree = "<group>"; };
 		FE54FE5A25C135CF001A75CF /* preload.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = preload.c; sourceTree = "<group>"; };
@@ -1303,8 +1377,6 @@
 		FE54FE6E25C135CF001A75CF /* net_ifs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = net_ifs.c; sourceTree = "<group>"; };
 		FE54FE6F25C135CF001A75CF /* ttyname.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ttyname.c; sourceTree = "<group>"; };
 		FE54FE7025C135CF001A75CF /* sudo_noexec.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sudo_noexec.c; sourceTree = "<group>"; };
-		FE54FEDF25C13874001A75CF /* libplugin_sudoers.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libplugin_sudoers.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		FE54FEEF25C13982001A75CF /* liblogsrv.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblogsrv.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE54FF1625C139DC001A75CF /* libparsesudoers.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libparsesudoers.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE54FF9C25C13B8A001A75CF /* libpam.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libpam.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/lib/libpam.tbd; sourceTree = DEVELOPER_DIR; };
 		FE6006AD2371FF7700917205 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -1361,9 +1433,9 @@
 		FE801AF11C6AB1A5006A214E /* tgetpass.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tgetpass.c; sourceTree = "<group>"; };
 		FE801AF21C6AB1A5006A214E /* ttyname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ttyname.c; sourceTree = "<group>"; };
 		FE801AF31C6AB1A5006A214E /* utmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = utmp.c; sourceTree = "<group>"; };
-		FE801AF41C6AB1E8006A214E /* sudo.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sudo.man; sourceTree = "<group>"; };
-		FE801AF51C6AB1E8006A214E /* sudoers.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sudoers.man; sourceTree = "<group>"; };
-		FE801AF61C6AB1E8006A214E /* visudo.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = visudo.man; sourceTree = "<group>"; };
+		FE801AF41C6AB1E8006A214E /* sudo.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file; name = sudo.man; path = sudo/docs/sudo.man; sourceTree = "<group>"; };
+		FE801AF51C6AB1E8006A214E /* sudoers.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file; name = sudoers.man; path = sudo/docs/sudoers.man; sourceTree = "<group>"; };
+		FE801AF61C6AB1E8006A214E /* visudo.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file; name = visudo.man; path = sudo/docs/visudo.man; sourceTree = "<group>"; };
 		FE801AFB1C6AB210006A214E /* sudo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sudo; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE801B031C6AB3CB006A214E /* aix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = aix.c; sourceTree = "<group>"; };
 		FE801B041C6AB3CB006A214E /* closefrom.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = closefrom.c; sourceTree = "<group>"; };
@@ -1373,10 +1445,8 @@
 		FE801B081C6AB3CB006A214E /* fatal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fatal.c; sourceTree = "<group>"; };
 		FE801B091C6AB3CB006A214E /* fnmatch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fnmatch.c; sourceTree = "<group>"; };
 		FE801B0A1C6AB3CB006A214E /* getaddrinfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getaddrinfo.c; sourceTree = "<group>"; };
-		FE801B0B1C6AB3CB006A214E /* getcwd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getcwd.c; sourceTree = "<group>"; };
 		FE801B0C1C6AB3CB006A214E /* getgrouplist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getgrouplist.c; sourceTree = "<group>"; };
 		FE801B0D1C6AB3CB006A214E /* gethostname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gethostname.c; sourceTree = "<group>"; };
-		FE801B0E1C6AB3CB006A214E /* getline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getline.c; sourceTree = "<group>"; };
 		FE801B0F1C6AB3CB006A214E /* getopt_long.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getopt_long.c; sourceTree = "<group>"; };
 		FE801B101C6AB3CB006A214E /* gettime.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gettime.c; sourceTree = "<group>"; };
 		FE801B111C6AB3CB006A214E /* gidlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gidlist.c; sourceTree = "<group>"; };
@@ -1387,14 +1457,9 @@
 		FE801B161C6AB3CB006A214E /* key_val.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = key_val.c; sourceTree = "<group>"; };
 		FE801B171C6AB3CB006A214E /* lbuf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lbuf.c; sourceTree = "<group>"; };
 		FE801B181C6AB3CB006A214E /* locking.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = locking.c; sourceTree = "<group>"; };
-		FE801B191C6AB3CB006A214E /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		FE801B1A1C6AB3CB006A214E /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.in; sourceTree = "<group>"; };
 		FE801B1B1C6AB3CB006A214E /* memrchr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = memrchr.c; sourceTree = "<group>"; };
-		FE801B1C1C6AB3CB006A214E /* memset_s.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = memset_s.c; sourceTree = "<group>"; };
 		FE801B1D1C6AB3CB006A214E /* mksiglist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mksiglist.c; sourceTree = "<group>"; };
-		FE801B1E1C6AB3CB006A214E /* mksiglist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mksiglist.h; sourceTree = "<group>"; };
 		FE801B1F1C6AB3CB006A214E /* mksigname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mksigname.c; sourceTree = "<group>"; };
-		FE801B201C6AB3CB006A214E /* mksigname.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mksigname.h; sourceTree = "<group>"; };
 		FE801B211C6AB3CB006A214E /* mktemp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mktemp.c; sourceTree = "<group>"; };
 		FE801B221C6AB3CB006A214E /* parseln.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parseln.c; sourceTree = "<group>"; };
 		FE801B231C6AB3CB006A214E /* progname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = progname.c; sourceTree = "<group>"; };
@@ -1482,12 +1547,10 @@
 		FE801BD31C6AD2B9006A214E /* sia.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sia.c; sourceTree = "<group>"; };
 		FE801BD41C6AD2B9006A214E /* sudo_auth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sudo_auth.c; sourceTree = "<group>"; };
 		FE801BD51C6AD2B9006A214E /* sudo_auth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sudo_auth.h; sourceTree = "<group>"; };
-		FE801BD61C6AD2B9006A214E /* base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = base64.c; sourceTree = "<group>"; };
 		FE801BD71C6AD2B9006A214E /* boottime.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = boottime.c; sourceTree = "<group>"; };
 		FE801BD81C6AD2B9006A214E /* bsm_audit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = bsm_audit.c; sourceTree = "<group>"; };
 		FE801BD91C6AD2B9006A214E /* bsm_audit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bsm_audit.h; sourceTree = "<group>"; };
 		FE801BDA1C6AD2B9006A214E /* check.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = check.c; sourceTree = "<group>"; };
-		FE801BDB1C6AD2B9006A214E /* check.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = check.h; sourceTree = "<group>"; };
 		FE801BDC1C6AD2B9006A214E /* def_data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = def_data.c; sourceTree = "<group>"; };
 		FE801BDD1C6AD2B9006A214E /* def_data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = def_data.h; sourceTree = "<group>"; };
 		FE801BDE1C6AD2B9006A214E /* def_data.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = def_data.in; sourceTree = "<group>"; };
@@ -1504,7 +1567,6 @@
 		FE801BE91C6AD2B9006A214E /* gram.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gram.h; sourceTree = "<group>"; };
 		FE801BEA1C6AD2B9006A214E /* gram.y */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.yacc; path = gram.y; sourceTree = "<group>"; };
 		FE801BEB1C6AD2B9006A214E /* group_plugin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = group_plugin.c; sourceTree = "<group>"; };
-		FE801BEC1C6AD2B9006A214E /* hexchar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hexchar.c; sourceTree = "<group>"; };
 		FE801BED1C6AD2B9006A214E /* ins_2001.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ins_2001.h; sourceTree = "<group>"; };
 		FE801BEE1C6AD2B9006A214E /* ins_classic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ins_classic.h; sourceTree = "<group>"; };
 		FE801BEF1C6AD2B9006A214E /* ins_csops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ins_csops.h; sourceTree = "<group>"; };
@@ -1513,21 +1575,16 @@
 		FE801BF21C6AD2B9006A214E /* interfaces.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = interfaces.c; sourceTree = "<group>"; };
 		FE801BF31C6AD2B9006A214E /* interfaces.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = interfaces.h; sourceTree = "<group>"; };
 		FE801BF41C6AD2B9006A214E /* iolog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iolog.c; sourceTree = "<group>"; };
-		FE801BF51C6AD2B9006A214E /* iolog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = iolog.h; sourceTree = "<group>"; };
-		FE801BF61C6AD2B9006A214E /* iolog_path.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iolog_path.c; sourceTree = "<group>"; };
 		FE801BF71C6AD2B9006A214E /* ldap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ldap.c; sourceTree = "<group>"; };
 		FE801BF81C6AD2B9006A214E /* linux_audit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = linux_audit.c; sourceTree = "<group>"; };
 		FE801BF91C6AD2B9006A214E /* linux_audit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = linux_audit.h; sourceTree = "<group>"; };
 		FE801BFA1C6AD2B9006A214E /* locale.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = locale.c; sourceTree = "<group>"; };
 		FE801BFB1C6AD2B9006A214E /* logging.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = logging.c; sourceTree = "<group>"; };
 		FE801BFC1C6AD2B9006A214E /* logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = logging.h; sourceTree = "<group>"; };
-		FE801BFD1C6AD2B9006A214E /* logwrap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = logwrap.c; sourceTree = "<group>"; };
-		FE801BFE1C6AD2B9006A214E /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FE801BFF1C6AD2B9006A214E /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.in; sourceTree = "<group>"; };
 		FE801C001C6AD2B9006A214E /* match.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = match.c; sourceTree = "<group>"; };
 		FE801C011C6AD2B9006A214E /* match_addr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = match_addr.c; sourceTree = "<group>"; };
 		FE801C021C6AD2B9006A214E /* mkdefaults */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = mkdefaults; sourceTree = "<group>"; };
-		FE801C031C6AD2B9006A214E /* parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parse.c; sourceTree = "<group>"; };
 		FE801C041C6AD2B9006A214E /* parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parse.h; sourceTree = "<group>"; };
 		FE801C061C6AD2B9006A214E /* ca.mo */ = {isa = PBXFileReference; lastKnownFileType = file; path = ca.mo; sourceTree = "<group>"; };
 		FE801C071C6AD2B9006A214E /* ca.po */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ca.po; sourceTree = "<group>"; };
@@ -1728,13 +1785,11 @@
 		FE801D4D1C6AFCFD006A214E /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		FEA24F792372599E00EC0605 /* parse_ldif.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parse_ldif.c; sourceTree = "<group>"; };
 		FEA24F7B23725A9700EC0605 /* cvtsudoers_pwutil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cvtsudoers_pwutil.c; sourceTree = "<group>"; };
-		FEA24F7C23725A9700EC0605 /* iolog_files.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = iolog_files.h; sourceTree = "<group>"; };
 		FEA24F7D23725A9700EC0605 /* tsdump.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tsdump.c; sourceTree = "<group>"; };
 		FEA24F7E23725A9700EC0605 /* ins_python.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ins_python.h; sourceTree = "<group>"; };
 		FEA24F7F23725A9700EC0605 /* env_pattern.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = env_pattern.c; sourceTree = "<group>"; };
 		FEA24F8023725A9800EC0605 /* gentime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = gentime.c; sourceTree = "<group>"; };
 		FEA24F8123725A9800EC0605 /* cvtsudoers_json.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cvtsudoers_json.c; sourceTree = "<group>"; };
-		FEA24F8223725A9800EC0605 /* gmtoff.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = gmtoff.c; sourceTree = "<group>"; };
 		FEA24F8323725A9800EC0605 /* match_command.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = match_command.c; sourceTree = "<group>"; };
 		FEA24F8423725A9800EC0605 /* file.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = file.c; sourceTree = "<group>"; };
 		FEA24F8523725A9800EC0605 /* fmtsudoers.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fmtsudoers.c; sourceTree = "<group>"; };
@@ -1746,15 +1801,12 @@
 		FEA24F8B23725A9800EC0605 /* match_digest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = match_digest.c; sourceTree = "<group>"; };
 		FEA24F8C23725A9800EC0605 /* ldap_conf.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ldap_conf.c; sourceTree = "<group>"; };
 		FEA24F8D23725A9900EC0605 /* starttime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = starttime.c; sourceTree = "<group>"; };
-		FEA24F8E23725A9900EC0605 /* mkdir_parents.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mkdir_parents.c; sourceTree = "<group>"; };
 		FEA24F8F23725A9900EC0605 /* stubs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stubs.c; sourceTree = "<group>"; };
 		FEA24F9023725A9900EC0605 /* sudo_ldap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sudo_ldap.h; sourceTree = "<group>"; };
 		FEA24F9123725A9900EC0605 /* ldap_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ldap_util.c; sourceTree = "<group>"; };
-		FEA24F9223725A9900EC0605 /* iolog_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = iolog_util.c; sourceTree = "<group>"; };
 		FEA24F9323725A9900EC0605 /* cvtsudoers.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cvtsudoers.c; sourceTree = "<group>"; };
 		FEA24F9423725A9900EC0605 /* filedigest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = filedigest.c; sourceTree = "<group>"; };
 		FEA24F9523725A9900EC0605 /* strlist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = strlist.h; sourceTree = "<group>"; };
-		FEA24F9623725A9900EC0605 /* rcstr.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = rcstr.c; sourceTree = "<group>"; };
 		FEA24F9723725A9900EC0605 /* digestname.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = digestname.c; sourceTree = "<group>"; };
 		FEAF13A5237336A7008A1D92 /* exec_monitor.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = exec_monitor.c; sourceTree = "<group>"; };
 		FEAF13A6237336A7008A1D92 /* limits.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = limits.c; sourceTree = "<group>"; };
@@ -1764,7 +1816,6 @@
 		FEB8CD992373353100FE6119 /* digest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = digest.c; sourceTree = "<group>"; };
 		FEB8CD9A2373353100FE6119 /* digest_openssl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = digest_openssl.c; sourceTree = "<group>"; };
 		FEB8CD9B2373353100FE6119 /* digest_gcrypt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = digest_gcrypt.c; sourceTree = "<group>"; };
-		FEB8CD9C2373353200FE6119 /* arc4random.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arc4random.h; sourceTree = "<group>"; };
 		FEB8CD9D2373353200FE6119 /* getentropy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = getentropy.c; sourceTree = "<group>"; };
 		FEB8CD9E2373353200FE6119 /* nanosleep.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nanosleep.c; sourceTree = "<group>"; };
 		FEB8CD9F2373353200FE6119 /* str2sig.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = str2sig.c; sourceTree = "<group>"; };
@@ -1772,15 +1823,55 @@
 		FEB8CDA12373353200FE6119 /* chacha_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = chacha_private.h; sourceTree = "<group>"; };
 		FEB8CDA22373353200FE6119 /* getdelim.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = getdelim.c; sourceTree = "<group>"; };
 		FEB8CDA32373353200FE6119 /* pipe2.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pipe2.c; sourceTree = "<group>"; };
-		FEB8CDA42373353200FE6119 /* vsyslog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vsyslog.c; sourceTree = "<group>"; };
 		FEC569F6241C638C00262D84 /* sudo-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "sudo-entitlements.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		FE54F9D025C132BD001A75CF /* Frameworks */ = {
+		F6539CD82E469E1A00C5C187 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D252E474A2300C5C187 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D732E474FC400C5C187 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539E462E47F32600C5C187 /* libsudo_util.a in Frameworks */,
+				F6539E452E47F32100C5C187 /* libprotobuf-c.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D822E474FF200C5C187 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D8B2E47502500C5C187 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539E2F2E47EEC300C5C187 /* libparsesudoers.a in Frameworks */,
+				F6539E2E2E47EEA200C5C187 /* liblogsrv.a in Frameworks */,
+				F6539E2D2E47EE9E00C5C187 /* libsudo_iolog.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539E232E47519000C5C187 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539E2C2E47EE6700C5C187 /* libprotobuf-c.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1788,6 +1879,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6539E292E47ED4900C5C187 /* libsudo_util.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1795,25 +1887,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE54FEDD25C13874001A75CF /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FE54010825C146D3001A75CF /* libeventlog.a in Frameworks */,
-				FE54001325C13E22001A75CF /* libparsesudoers.a in Frameworks */,
-				FE54FFAA25C13BA2001A75CF /* libiolog.a in Frameworks */,
-				FE54FFAB25C13BA2001A75CF /* liblogsrv.a in Frameworks */,
-				FE54FF9D25C13B8A001A75CF /* libpam.tbd in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE54FEED25C13982001A75CF /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+				F6539E2B2E47ED7700C5C187 /* libsudo_util.a in Frameworks */,
+				F6539E2A2E47ED7000C5C187 /* libsudo_eventlog.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1828,11 +1903,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6539E522E48002C00C5C187 /* libsudo_intercept.a in Frameworks */,
+				F6539E4F2E47FEF600C5C187 /* libsudoers.a in Frameworks */,
+				F6539E472E47F9FB00C5C187 /* libsudo_util.a in Frameworks */,
 				F651497D29802EFC00C0E084 /* libparsesudoers.a in Frameworks */,
-				F651497C29802EF800C0E084 /* libplugin_sudoers.a in Frameworks */,
 				FE5400BB25C141C0001A75CF /* libbsm.tbd in Frameworks */,
 				FE5400B025C141B0001A75CF /* libpam.tbd in Frameworks */,
-				FE5400A525C14171001A75CF /* libutil.a in Frameworks */,
 				A77C68D5294A5A6F00EAF32D /* libEndpointSecuritySystem.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1841,9 +1917,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F651497B29802EE300C0E084 /* libplugin_sudoers.a in Frameworks */,
+				F6539C6F2E467E3000C5C187 /* libpam.tbd in Frameworks */,
+				F6539C6E2E467E0F00C5C187 /* libEndpointSecuritySystem.tbd in Frameworks */,
 				FE54FFE125C13CDB001A75CF /* libparsesudoers.a in Frameworks */,
-				FE54FFC225C13C39001A75CF /* libutil.a in Frameworks */,
+				F6539E302E47EEE200C5C187 /* libsudo_util.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1875,12 +1952,15 @@
 			children = (
 				FE801AFB1C6AB210006A214E /* sudo */,
 				FE801D2A1C6AFB2E006A214E /* visudo */,
-				FE54F9D225C132BD001A75CF /* libutil.a */,
-				FE54F9DF25C132CB001A75CF /* libeventlog.a */,
-				FE54F9ED25C132D7001A75CF /* libiolog.a */,
-				FE54FEDF25C13874001A75CF /* libplugin_sudoers.a */,
-				FE54FEEF25C13982001A75CF /* liblogsrv.a */,
+				FE54F9DF25C132CB001A75CF /* libsudo_eventlog.a */,
+				FE54F9ED25C132D7001A75CF /* libsudo_iolog.a */,
 				FE54FF1625C139DC001A75CF /* libparsesudoers.a */,
+				F6539CDB2E469E1A00C5C187 /* libprotobuf-c.a */,
+				F6539D282E474A2300C5C187 /* libsudo_util.a */,
+				F6539D762E474FC400C5C187 /* libsudo_intercept.a */,
+				F6539D852E474FF200C5C187 /* libsudo_noexec.a */,
+				F6539D8E2E47502500C5C187 /* libsudoers.a */,
+				F6539E262E47519000C5C187 /* liblogsrv.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2114,6 +2194,20 @@
 		FE54FA9025C135CD001A75CF /* sudoers */ = {
 			isa = PBXGroup;
 			children = (
+				F6539C512E464D1A00C5C187 /* canon_path.c */,
+				F6539C522E464D1A00C5C187 /* check_util.c */,
+				F6539C532E464D1A00C5C187 /* display.c */,
+				F6539C542E464D1A00C5C187 /* ldap_innetgr.c */,
+				F6539C552E464D1A00C5C187 /* lookup.c */,
+				F6539C562E464D1A00C5C187 /* parser_warnx.c */,
+				F6539C572E464D1A00C5C187 /* resolve_cmnd.c */,
+				F6539C582E464D1A00C5C187 /* sethost.c */,
+				F6539C592E464D1A00C5C187 /* sudoers_cb.c */,
+				F6539C5A2E464D1A00C5C187 /* sudoers_ctx_free.c */,
+				F6539C5B2E464D1A00C5C187 /* testsudoers_pwutil.h */,
+				F6539C5C2E464D1A00C5C187 /* testsudoers_pwutil.c */,
+				F6539C5D2E464D1A00C5C187 /* timestamp.h */,
+				F6539C5E2E464D1A00C5C187 /* visudo_cb.c */,
 				F65149A429803EF400C0E084 /* unesc_str.c */,
 				F651499C29803EBE00C0E084 /* serialize_list.c */,
 				F651499D29803EBE00C0E084 /* strlcpy_unesc.c */,
@@ -2132,7 +2226,6 @@
 				FE54FC0025C135CD001A75CF /* bsm_audit.c */,
 				FE54FA9825C135CD001A75CF /* bsm_audit.h */,
 				FE54FAA725C135CD001A75CF /* check.c */,
-				FE54FC5125C135CD001A75CF /* check.h */,
 				FE54FBE825C135CD001A75CF /* cvtsudoers_json.c */,
 				FE54FBDD25C135CD001A75CF /* cvtsudoers_ldif.c */,
 				FE54FC6025C135CE001A75CF /* cvtsudoers_pwutil.c */,
@@ -2162,7 +2255,6 @@
 				FE54FC5025C135CD001A75CF /* gram.h */,
 				FE54FA9F25C135CD001A75CF /* gram.y */,
 				FE54FAA625C135CD001A75CF /* group_plugin.c */,
-				FE54FC6525C135CE001A75CF /* hexchar.c */,
 				FE54FAA225C135CD001A75CF /* ins_2001.h */,
 				FE54FC5E25C135CE001A75CF /* ins_classic.h */,
 				FE54FAA325C135CD001A75CF /* ins_csops.h */,
@@ -2183,7 +2275,6 @@
 				FE54FC6125C135CE001A75CF /* log_client.h */,
 				FE54FC7325C135CE001A75CF /* logging.c */,
 				FE54FBF225C135CD001A75CF /* logging.h */,
-				FE54FBDF25C135CD001A75CF /* Makefile */,
 				FE54FC6D25C135CE001A75CF /* Makefile.in */,
 				FE54FC6325C135CE001A75CF /* match_addr.c */,
 				FE54FC6825C135CE001A75CF /* match_command.c */,
@@ -2191,7 +2282,6 @@
 				FE54FA9325C135CD001A75CF /* match.c */,
 				FE54FC6625C135CE001A75CF /* mkdefaults */,
 				FE54FA9625C135CD001A75CF /* parse_ldif.c */,
-				FE54FC6425C135CE001A75CF /* parse.c */,
 				FE54FBE525C135CD001A75CF /* parse.h */,
 				FE54FC0825C135CD001A75CF /* po */,
 				FE54FC5825C135CE001A75CF /* policy.c */,
@@ -2829,6 +2919,8 @@
 		FE54FD1825C135CE001A75CF /* util */ = {
 			isa = PBXGroup;
 			children = (
+				F6539C722E467F8500C5C187 /* login_max.c */,
+				F6539C732E467F8500C5C187 /* realpath.c */,
 				F6EC3E7529CC5BC7009A96E3 /* hexchar.c */,
 				F651495429802BDF00C0E084 /* basename.c */,
 				F651495529802BDF00C0E084 /* fchownat.c */,
@@ -2861,7 +2953,6 @@
 				FE54FDA025C135CE001A75CF /* freezero.c */,
 				FE54FD1E25C135CE001A75CF /* fstatat.c */,
 				FE54FD8F25C135CE001A75CF /* getaddrinfo.c */,
-				FE54FD7125C135CE001A75CF /* getcwd.c */,
 				FE54FDAD25C135CE001A75CF /* getdelim.c */,
 				FE54FD9525C135CE001A75CF /* getentropy.c */,
 				FE54FD8D25C135CE001A75CF /* getgrouplist.c */,
@@ -3238,6 +3329,8 @@
 		FE54FDF025C135CE001A75CF /* eventlog */ = {
 			isa = PBXGroup;
 			children = (
+				F6539C782E46805100C5C187 /* parse_json.h */,
+				F6539C762E467FB200C5C187 /* parse_json.c */,
 				F651498929803E1100C0E084 /* eventlog_conf.c */,
 				F651498829803E1100C0E084 /* eventlog_free.c */,
 				FE54FDF125C135CE001A75CF /* logwrap.c */,
@@ -3333,7 +3426,6 @@
 				F651497429802EB500C0E084 /* intercept.pb-c.c */,
 				F651497629802EB600C0E084 /* sudo_intercept_common.c */,
 				F651497529802EB600C0E084 /* sudo_intercept.c */,
-				F651497329802EB500C0E084 /* suspend_nopty.c */,
 				FE54FE5525C135CF001A75CF /* conversation.c */,
 				FE54FE6925C135CF001A75CF /* copy_file.c */,
 				FE54FE6025C135CF001A75CF /* edit_open.c */,
@@ -3347,7 +3439,6 @@
 				FE54FE6225C135CF001A75CF /* hooks.c */,
 				FE54FE6125C135CF001A75CF /* limits.c */,
 				FE54FE6825C135CF001A75CF /* load_plugins.c */,
-				FE54FE5425C135CF001A75CF /* Makefile */,
 				FE54FE6D25C135CF001A75CF /* Makefile.in */,
 				FE54FE6E25C135CF001A75CF /* net_ifs.c */,
 				FE54FE5B25C135CF001A75CF /* openbsd.c */,
@@ -3368,7 +3459,6 @@
 				FE54FE4E25C135CF001A75CF /* sudo_usage.h.in */,
 				FE54FE5C25C135CF001A75CF /* sudo.c */,
 				FE54FE4B25C135CF001A75CF /* sudo.h */,
-				FE54FE5725C135CF001A75CF /* tcsetpgrp_nobg.c */,
 				FE54FE4C25C135CF001A75CF /* tgetpass.c */,
 				FE54FE6F25C135CF001A75CF /* ttyname.c */,
 				FE54FE4925C135CF001A75CF /* utmp.c */,
@@ -3474,6 +3564,17 @@
 		FE801AD21C6AB1A5006A214E /* src */ = {
 			isa = PBXGroup;
 			children = (
+				F6539C7F2E469D4D00C5C187 /* apparmor.c */,
+				F6539C802E469D4D00C5C187 /* copy_file.c */,
+				F6539C812E469D4D00C5C187 /* edit_open.c */,
+				F6539C822E469D4D00C5C187 /* exec_intercept.c */,
+				F6539C832E469D4D00C5C187 /* exec_iolog.c */,
+				F6539C842E469D4D00C5C187 /* exec_preload.c */,
+				F6539C852E469D4D00C5C187 /* exec_ptrace.c */,
+				F6539C862E469D4D00C5C187 /* intercept.pb-c.c */,
+				F6539C872E469D4D00C5C187 /* sudo_intercept.c */,
+				F6539C882E469D4D00C5C187 /* sudo_intercept_common.c */,
+				F6539C892E469D4D00C5C187 /* suspend_parent.c */,
 				FE801AD31C6AB1A5006A214E /* conversation.c */,
 				FE801AD41C6AB1A5006A214E /* env_hooks.c */,
 				FE801AD61C6AB1A5006A214E /* exec_common.c */,
@@ -3533,7 +3634,6 @@
 			children = (
 				FE801B031C6AB3CB006A214E /* aix.c */,
 				FEB8CDA02373353200FE6119 /* arc4random.c */,
-				FEB8CD9C2373353200FE6119 /* arc4random.h */,
 				FEB8CDA12373353200FE6119 /* chacha_private.h */,
 				FE801B041C6AB3CB006A214E /* closefrom.c */,
 				FEB8CD9B2373353100FE6119 /* digest_gcrypt.c */,
@@ -3545,12 +3645,10 @@
 				FE801B081C6AB3CB006A214E /* fatal.c */,
 				FE801B091C6AB3CB006A214E /* fnmatch.c */,
 				FE801B0A1C6AB3CB006A214E /* getaddrinfo.c */,
-				FE801B0B1C6AB3CB006A214E /* getcwd.c */,
 				FEB8CDA22373353200FE6119 /* getdelim.c */,
 				FEB8CD9D2373353200FE6119 /* getentropy.c */,
 				FE801B0C1C6AB3CB006A214E /* getgrouplist.c */,
 				FE801B0D1C6AB3CB006A214E /* gethostname.c */,
-				FE801B0E1C6AB3CB006A214E /* getline.c */,
 				FE801B0F1C6AB3CB006A214E /* getopt_long.c */,
 				FE801B101C6AB3CB006A214E /* gettime.c */,
 				FE801B111C6AB3CB006A214E /* gidlist.c */,
@@ -3561,14 +3659,9 @@
 				FE801B161C6AB3CB006A214E /* key_val.c */,
 				FE801B171C6AB3CB006A214E /* lbuf.c */,
 				FE801B181C6AB3CB006A214E /* locking.c */,
-				FE801B191C6AB3CB006A214E /* Makefile */,
-				FE801B1A1C6AB3CB006A214E /* Makefile.in */,
 				FE801B1B1C6AB3CB006A214E /* memrchr.c */,
-				FE801B1C1C6AB3CB006A214E /* memset_s.c */,
 				FE801B1D1C6AB3CB006A214E /* mksiglist.c */,
-				FE801B1E1C6AB3CB006A214E /* mksiglist.h */,
 				FE801B1F1C6AB3CB006A214E /* mksigname.c */,
-				FE801B201C6AB3CB006A214E /* mksigname.h */,
 				FE801B211C6AB3CB006A214E /* mktemp.c */,
 				FEB8CD9E2373353200FE6119 /* nanosleep.c */,
 				FE801B221C6AB3CB006A214E /* parseln.c */,
@@ -3603,7 +3696,6 @@
 				FE801B6F1C6AB3CB006A214E /* util.exp */,
 				FE801B701C6AB3CB006A214E /* util.exp.in */,
 				FE801B711C6AB3CB006A214E /* utimens.c */,
-				FEB8CDA42373353200FE6119 /* vsyslog.c */,
 			);
 			name = util;
 			path = sudo/lib/util;
@@ -3743,17 +3835,17 @@
 				FE801BC41C6AD2B9006A214E /* alias.c */,
 				FE801BC51C6AD2B9006A214E /* audit.c */,
 				FE801BC61C6AD2B9006A214E /* auth */,
-				FE801BD61C6AD2B9006A214E /* base64.c */,
 				FE801BD71C6AD2B9006A214E /* boottime.c */,
 				FE801BD81C6AD2B9006A214E /* bsm_audit.c */,
 				FE801BD91C6AD2B9006A214E /* bsm_audit.h */,
 				FE801BDA1C6AD2B9006A214E /* check.c */,
-				FE801BDB1C6AD2B9006A214E /* check.h */,
+				F6539E642E492DAF00C5C187 /* check_util.c */,
 				FEA24F8123725A9800EC0605 /* cvtsudoers_json.c */,
 				FEA24F8723725A9800EC0605 /* cvtsudoers_ldif.c */,
 				FEA24F7B23725A9700EC0605 /* cvtsudoers_pwutil.c */,
 				FEA24F9323725A9900EC0605 /* cvtsudoers.c */,
 				FEA24F8623725A9800EC0605 /* cvtsudoers.h */,
+				F6539E662E492DFD00C5C187 /* display.c */,
 				FE801BDC1C6AD2B9006A214E /* def_data.c */,
 				FE801BDD1C6AD2B9006A214E /* def_data.h */,
 				FE801BDE1C6AD2B9006A214E /* def_data.in */,
@@ -3772,13 +3864,11 @@
 				FE801BE41C6AD2B9006A214E /* getdate.c */,
 				FE801BE51C6AD2B9006A214E /* getdate.y */,
 				FE801BE61C6AD2B9006A214E /* getspwuid.c */,
-				FEA24F8223725A9800EC0605 /* gmtoff.c */,
 				FE801BE71C6AD2B9006A214E /* goodpath.c */,
 				FE801BE81C6AD2B9006A214E /* gram.c */,
 				FE801BE91C6AD2B9006A214E /* gram.h */,
 				FE801BEA1C6AD2B9006A214E /* gram.y */,
 				FE801BEB1C6AD2B9006A214E /* group_plugin.c */,
-				FE801BEC1C6AD2B9006A214E /* hexchar.c */,
 				FE801BED1C6AD2B9006A214E /* ins_2001.h */,
 				FE801BEE1C6AD2B9006A214E /* ins_classic.h */,
 				FE801BEF1C6AD2B9006A214E /* ins_csops.h */,
@@ -3787,30 +3877,25 @@
 				FE801BF11C6AD2B9006A214E /* insults.h */,
 				FE801BF21C6AD2B9006A214E /* interfaces.c */,
 				FE801BF31C6AD2B9006A214E /* interfaces.h */,
-				FEA24F7C23725A9700EC0605 /* iolog_files.h */,
-				FE801BF61C6AD2B9006A214E /* iolog_path.c */,
-				FEA24F9223725A9900EC0605 /* iolog_util.c */,
 				FE801BF41C6AD2B9006A214E /* iolog.c */,
-				FE801BF51C6AD2B9006A214E /* iolog.h */,
+				F6539E672E492DFD00C5C187 /* iolog_path_escapes.c */,
 				FEA24F8C23725A9800EC0605 /* ldap_conf.c */,
 				FEA24F9123725A9900EC0605 /* ldap_util.c */,
 				FE801BF71C6AD2B9006A214E /* ldap.c */,
 				FE801BF81C6AD2B9006A214E /* linux_audit.c */,
 				FE801BF91C6AD2B9006A214E /* linux_audit.h */,
 				FE801BFA1C6AD2B9006A214E /* locale.c */,
+				F6539E682E492DFD00C5C187 /* log_client.c */,
 				FE801BFB1C6AD2B9006A214E /* logging.c */,
 				FE801BFC1C6AD2B9006A214E /* logging.h */,
-				FE801BFD1C6AD2B9006A214E /* logwrap.c */,
-				FE801BFE1C6AD2B9006A214E /* Makefile */,
+				F6539E692E492DFD00C5C187 /* lookup.c */,
 				FE801BFF1C6AD2B9006A214E /* Makefile.in */,
 				FE801C011C6AD2B9006A214E /* match_addr.c */,
 				FEA24F8323725A9800EC0605 /* match_command.c */,
 				FEA24F8B23725A9800EC0605 /* match_digest.c */,
 				FE801C001C6AD2B9006A214E /* match.c */,
 				FE801C021C6AD2B9006A214E /* mkdefaults */,
-				FEA24F8E23725A9900EC0605 /* mkdir_parents.c */,
 				FEA24F792372599E00EC0605 /* parse_ldif.c */,
-				FE801C031C6AD2B9006A214E /* parse.c */,
 				FE801C041C6AD2B9006A214E /* parse.h */,
 				FE801C051C6AD2B9006A214E /* po */,
 				FE801C3E1C6AD2B9006A214E /* policy.c */,
@@ -3818,17 +3903,20 @@
 				FE801C421C6AD2B9006A214E /* pwutil_impl.c */,
 				FE801C401C6AD2B9006A214E /* pwutil.c */,
 				FE801C411C6AD2B9006A214E /* pwutil.h */,
-				FEA24F9623725A9900EC0605 /* rcstr.c */,
 				FE801C431C6AD2B9006A214E /* redblack.c */,
 				FE801C441C6AD2B9006A214E /* redblack.h */,
 				FE801C451C6AD2B9006A214E /* regress */,
+				F6539E6A2E492DFD00C5C187 /* serialize_list.c */,
 				FE801CB71C6AD2B9006A214E /* set_perms.c */,
+				F6539E6B2E492DFD00C5C187 /* sethost.c */,
 				FE801CB81C6AD2B9006A214E /* solaris_audit.c */,
 				FE801CB91C6AD2B9006A214E /* solaris_audit.h */,
 				FE801CBA1C6AD2B9006A214E /* sssd.c */,
 				FEA24F8D23725A9900EC0605 /* starttime.c */,
 				FEA24F8923725A9800EC0605 /* strlist.c */,
 				FEA24F9523725A9900EC0605 /* strlist.h */,
+				F6539E6C2E492DFD00C5C187 /* strlcpy_unesc.c */,
+				F6539E6D2E492DFD00C5C187 /* strvec_join.c */,
 				FEA24F8F23725A9900EC0605 /* stubs.c */,
 				FEA24F8823725A9800EC0605 /* sudo_ldap_conf.h */,
 				FEA24F9023725A9900EC0605 /* sudo_ldap.h */,
@@ -3836,8 +3924,11 @@
 				FE801CBC1C6AD2B9006A214E /* sudo_nss.h */,
 				FE801CBD1C6AD2B9006A214E /* sudo_printf.c */,
 				FE801CBE1C6AD2B9006A214E /* sudoers */,
+				F6539E6E2E492DFD00C5C187 /* sudoers_cb.c */,
+				F6539E6F2E492DFD00C5C187 /* sudoers_ctx_free.c */,
 				FE801CC41C6AD2B9006A214E /* sudoers_debug.c */,
 				FE801CC51C6AD2B9006A214E /* sudoers_debug.h */,
+				F6539E702E492DFD00C5C187 /* sudoers_hooks.c */,
 				FE801CC61C6AD2B9006A214E /* sudoers_version.h */,
 				FE801CBF1C6AD2B9006A214E /* sudoers.c */,
 				FE801CC01C6AD2B9006A214E /* sudoers.exp */,
@@ -3855,6 +3946,7 @@
 				FEA24F7D23725A9700EC0605 /* tsdump.c */,
 				FE801CCF1C6AD2B9006A214E /* tsgetgrpw.c */,
 				FE801CD01C6AD2B9006A214E /* tsgetgrpw.h */,
+				F6539E712E492DFD00C5C187 /* unesc_str.c */,
 				FE801CD11C6AD2B9006A214E /* visudo.c */,
 			);
 			name = sudoers;
@@ -4125,7 +4217,42 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		FE54F9CE25C132BD001A75CF /* Headers */ = {
+		F6539CD52E469E1A00C5C187 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539CEB2E474A2300C5C187 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D5B2E474FC400C5C187 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D7C2E474FF200C5C187 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D882E47502500C5C187 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539E202E47519000C5C187 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -4136,24 +4263,11 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6539C792E46805100C5C187 /* parse_json.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FE54F9E925C132D7001A75CF /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE54FEDB25C13874001A75CF /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE54FEEB25C13982001A75CF /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -4170,26 +4284,115 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		FE54F9D125C132BD001A75CF /* util */ = {
+		F6539CD42E469E1A00C5C187 /* protobuf-c */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = FE54F9D325C132BD001A75CF /* Build configuration list for PBXNativeTarget "util" */;
+			buildConfigurationList = F6539CD92E469E1A00C5C187 /* Build configuration list for PBXNativeTarget "protobuf-c" */;
 			buildPhases = (
-				FE54F9CE25C132BD001A75CF /* Headers */,
-				FE54F9CF25C132BD001A75CF /* Sources */,
-				FE54F9D025C132BD001A75CF /* Frameworks */,
+				F6539CD52E469E1A00C5C187 /* Headers */,
+				F6539CD62E469E1A00C5C187 /* Sources */,
+				F6539CD82E469E1A00C5C187 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = util;
-			productName = util;
-			productReference = FE54F9D225C132BD001A75CF /* libutil.a */;
+			name = "protobuf-c";
+			productName = lib_logsrv;
+			productReference = F6539CDB2E469E1A00C5C187 /* libprotobuf-c.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		FE54F9DE25C132CB001A75CF /* eventlog */ = {
+		F6539CEA2E474A2300C5C187 /* sudo_util */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = FE54F9E025C132CB001A75CF /* Build configuration list for PBXNativeTarget "eventlog" */;
+			buildConfigurationList = F6539D262E474A2300C5C187 /* Build configuration list for PBXNativeTarget "sudo_util" */;
+			buildPhases = (
+				F6539CEB2E474A2300C5C187 /* Headers */,
+				F6539CEC2E474A2300C5C187 /* Sources */,
+				F6539D252E474A2300C5C187 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sudo_util;
+			productName = util;
+			productReference = F6539D282E474A2300C5C187 /* libsudo_util.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		F6539D5A2E474FC400C5C187 /* sudo_intercept */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F6539D742E474FC400C5C187 /* Build configuration list for PBXNativeTarget "sudo_intercept" */;
+			buildPhases = (
+				F6539D5B2E474FC400C5C187 /* Headers */,
+				F6539D5C2E474FC400C5C187 /* Sources */,
+				F6539D732E474FC400C5C187 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sudo_intercept;
+			productName = lib_parsesudoers;
+			productReference = F6539D762E474FC400C5C187 /* libsudo_intercept.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		F6539D7B2E474FF200C5C187 /* sudo_noexec */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F6539D832E474FF200C5C187 /* Build configuration list for PBXNativeTarget "sudo_noexec" */;
+			buildPhases = (
+				F6539D7C2E474FF200C5C187 /* Headers */,
+				F6539D7D2E474FF200C5C187 /* Sources */,
+				F6539D822E474FF200C5C187 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sudo_noexec;
+			productName = lib_parsesudoers;
+			productReference = F6539D852E474FF200C5C187 /* libsudo_noexec.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		F6539D872E47502500C5C187 /* sudoers */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F6539D8C2E47502500C5C187 /* Build configuration list for PBXNativeTarget "sudoers" */;
+			buildPhases = (
+				F6539D882E47502500C5C187 /* Headers */,
+				F6539D892E47502500C5C187 /* Sources */,
+				F6539D8B2E47502500C5C187 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F6539E3E2E47EFC200C5C187 /* PBXTargetDependency */,
+				F6539E3C2E47EFBE00C5C187 /* PBXTargetDependency */,
+				F6539E3A2E47EFBA00C5C187 /* PBXTargetDependency */,
+			);
+			name = sudoers;
+			productName = lib_parsesudoers;
+			productReference = F6539D8E2E47502500C5C187 /* libsudoers.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		F6539E1F2E47519000C5C187 /* logsrv */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F6539E242E47519000C5C187 /* Build configuration list for PBXNativeTarget "logsrv" */;
+			buildPhases = (
+				F6539E202E47519000C5C187 /* Headers */,
+				F6539E212E47519000C5C187 /* Sources */,
+				F6539E232E47519000C5C187 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F6539E382E47EFAE00C5C187 /* PBXTargetDependency */,
+			);
+			name = logsrv;
+			productName = lib_parsesudoers;
+			productReference = F6539E262E47519000C5C187 /* liblogsrv.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		FE54F9DE25C132CB001A75CF /* sudo_eventlog */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE54F9E025C132CB001A75CF /* Build configuration list for PBXNativeTarget "sudo_eventlog" */;
 			buildPhases = (
 				FE54F9DB25C132CB001A75CF /* Headers */,
 				FE54F9DC25C132CB001A75CF /* Sources */,
@@ -4198,15 +4401,16 @@
 			buildRules = (
 			);
 			dependencies = (
+				F6539E322E47EF9500C5C187 /* PBXTargetDependency */,
 			);
-			name = eventlog;
+			name = sudo_eventlog;
 			productName = eventlog;
-			productReference = FE54F9DF25C132CB001A75CF /* libeventlog.a */;
+			productReference = FE54F9DF25C132CB001A75CF /* libsudo_eventlog.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		FE54F9EC25C132D7001A75CF /* iolog */ = {
+		FE54F9EC25C132D7001A75CF /* sudo_iolog */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = FE54F9EE25C132D7001A75CF /* Build configuration list for PBXNativeTarget "iolog" */;
+			buildConfigurationList = FE54F9EE25C132D7001A75CF /* Build configuration list for PBXNativeTarget "sudo_iolog" */;
 			buildPhases = (
 				FE54F9E925C132D7001A75CF /* Headers */,
 				FE54F9EA25C132D7001A75CF /* Sources */,
@@ -4215,49 +4419,12 @@
 			buildRules = (
 			);
 			dependencies = (
+				F6539E362E47EFA100C5C187 /* PBXTargetDependency */,
+				F6539E342E47EF9C00C5C187 /* PBXTargetDependency */,
 			);
-			name = iolog;
+			name = sudo_iolog;
 			productName = iolog;
-			productReference = FE54F9ED25C132D7001A75CF /* libiolog.a */;
-			productType = "com.apple.product-type.library.static";
-		};
-		FE54FEDE25C13874001A75CF /* plugin_sudoers */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FE54FEE025C13874001A75CF /* Build configuration list for PBXNativeTarget "plugin_sudoers" */;
-			buildPhases = (
-				FE54FEDB25C13874001A75CF /* Headers */,
-				FE54FEDC25C13874001A75CF /* Sources */,
-				FE54FEDD25C13874001A75CF /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				FE54011325C146FA001A75CF /* PBXTargetDependency */,
-				FE54000425C13E12001A75CF /* PBXTargetDependency */,
-				FE54000625C13E12001A75CF /* PBXTargetDependency */,
-				FE54000825C13E12001A75CF /* PBXTargetDependency */,
-				FE54000225C13E03001A75CF /* PBXTargetDependency */,
-			);
-			name = plugin_sudoers;
-			productName = plugin_sudoers;
-			productReference = FE54FEDF25C13874001A75CF /* libplugin_sudoers.a */;
-			productType = "com.apple.product-type.library.static";
-		};
-		FE54FEEE25C13982001A75CF /* logsrv */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FE54FEF025C13982001A75CF /* Build configuration list for PBXNativeTarget "logsrv" */;
-			buildPhases = (
-				FE54FEEB25C13982001A75CF /* Headers */,
-				FE54FEEC25C13982001A75CF /* Sources */,
-				FE54FEED25C13982001A75CF /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = logsrv;
-			productName = lib_logsrv;
-			productReference = FE54FEEF25C13982001A75CF /* liblogsrv.a */;
+			productReference = FE54F9ED25C132D7001A75CF /* libsudo_iolog.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 		FE54FF1525C139DC001A75CF /* parsesudoers */ = {
@@ -4292,9 +4459,10 @@
 			buildRules = (
 			);
 			dependencies = (
+				F6539E602E48026500C5C187 /* PBXTargetDependency */,
+				F6539E5C2E48023D00C5C187 /* PBXTargetDependency */,
+				F6539D432E474C8F00C5C187 /* PBXTargetDependency */,
 				F651496629802C1000C0E084 /* PBXTargetDependency */,
-				F651496429802BFD00C0E084 /* PBXTargetDependency */,
-				FE5400F525C145E7001A75CF /* PBXTargetDependency */,
 			);
 			name = sudo;
 			productName = sudo;
@@ -4312,9 +4480,9 @@
 			buildRules = (
 			);
 			dependencies = (
-				F6682238297F9C8200FB9E05 /* PBXTargetDependency */,
+				F6539E442E47F1D300C5C187 /* PBXTargetDependency */,
+				F6539CDF2E469E6700C5C187 /* PBXTargetDependency */,
 				FE54001F25C13E89001A75CF /* PBXTargetDependency */,
-				FE54002125C13E89001A75CF /* PBXTargetDependency */,
 			);
 			name = visudo;
 			productName = visudo;
@@ -4332,8 +4500,22 @@
 					1C0BFECC0F42468C00798D84 = {
 						ProvisioningStyle = Manual;
 					};
-					FE54F9D125C132BD001A75CF = {
-						CreatedOnToolsVersion = 12.4;
+					F6539CD42E469E1A00C5C187 = {
+						ProvisioningStyle = Automatic;
+					};
+					F6539CEA2E474A2300C5C187 = {
+						ProvisioningStyle = Automatic;
+					};
+					F6539D5A2E474FC400C5C187 = {
+						ProvisioningStyle = Automatic;
+					};
+					F6539D7B2E474FF200C5C187 = {
+						ProvisioningStyle = Automatic;
+					};
+					F6539D872E47502500C5C187 = {
+						ProvisioningStyle = Automatic;
+					};
+					F6539E1F2E47519000C5C187 = {
 						ProvisioningStyle = Automatic;
 					};
 					FE54F9DE25C132CB001A75CF = {
@@ -4341,14 +4523,6 @@
 						ProvisioningStyle = Automatic;
 					};
 					FE54F9EC25C132D7001A75CF = {
-						CreatedOnToolsVersion = 12.4;
-						ProvisioningStyle = Automatic;
-					};
-					FE54FEDE25C13874001A75CF = {
-						CreatedOnToolsVersion = 12.4;
-						ProvisioningStyle = Automatic;
-					};
-					FE54FEEE25C13982001A75CF = {
 						CreatedOnToolsVersion = 12.4;
 						ProvisioningStyle = Automatic;
 					};
@@ -4384,12 +4558,15 @@
 				1C0BFECC0F42468C00798D84 /* Build All */,
 				FE801AFA1C6AB210006A214E /* sudo */,
 				FE801D291C6AFB2E006A214E /* visudo */,
-				FE54F9D125C132BD001A75CF /* util */,
-				FE54F9DE25C132CB001A75CF /* eventlog */,
-				FE54F9EC25C132D7001A75CF /* iolog */,
-				FE54FEEE25C13982001A75CF /* logsrv */,
+				F6539D5A2E474FC400C5C187 /* sudo_intercept */,
+				F6539D7B2E474FF200C5C187 /* sudo_noexec */,
+				F6539D872E47502500C5C187 /* sudoers */,
 				FE54FF1525C139DC001A75CF /* parsesudoers */,
-				FE54FEDE25C13874001A75CF /* plugin_sudoers */,
+				F6539CEA2E474A2300C5C187 /* sudo_util */,
+				FE54F9DE25C132CB001A75CF /* sudo_eventlog */,
+				FE54F9EC25C132D7001A75CF /* sudo_iolog */,
+				F6539E1F2E47519000C5C187 /* logsrv */,
+				F6539CD42E469E1A00C5C187 /* protobuf-c */,
 			);
 		};
 /* End PBXProject section */
@@ -4488,64 +4665,142 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		FE54F9CF25C132BD001A75CF /* Sources */ = {
+		F6539CD62E469E1A00C5C187 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F651495C29802BDF00C0E084 /* regex.c in Sources */,
-				F6EC3E7729CCA4E7009A96E3 /* hexchar.c in Sources */,
-				FE54FE9A25C136D7001A75CF /* lbuf.c in Sources */,
-				F651495D29802BDF00C0E084 /* mmap_alloc.c in Sources */,
-				FE54FE8E25C136D7001A75CF /* sig2str.c in Sources */,
-				FE54FE9025C136D7001A75CF /* gettime.c in Sources */,
-				F651495F29802BDF00C0E084 /* fchownat.c in Sources */,
-				FE54FE9925C136D7001A75CF /* parseln.c in Sources */,
-				FE54FE9F25C136D7001A75CF /* gethostname.c in Sources */,
-				FE54FE9725C136D7001A75CF /* event.c in Sources */,
-				F651495E29802BDF00C0E084 /* basename.c in Sources */,
-				FE54FEA225C136D7001A75CF /* sudo_debug.c in Sources */,
-				FE54FE8725C136D7001A75CF /* dup3.c in Sources */,
-				FE54FE7B25C136D7001A75CF /* setgroups.c in Sources */,
-				F651495B29802BDF00C0E084 /* gmtime_r.c in Sources */,
-				FE54FE7925C136D7001A75CF /* digest.c in Sources */,
-				FE54FE8D25C136D7001A75CF /* fatal.c in Sources */,
-				FE54FE8125C136D7001A75CF /* logpri.c in Sources */,
-				FE54FE8825C136D7001A75CF /* strtobool.c in Sources */,
-				FE54FEA025C136D7001A75CF /* explicit_bzero.c in Sources */,
-				FE54FE7A25C136D7001A75CF /* strtomode.c in Sources */,
-				FE54FE9825C136D7001A75CF /* gidlist.c in Sources */,
-				FE54FE9B25C136D7001A75CF /* mkdir_parents.c in Sources */,
-				FE54FE9525C136D7001A75CF /* memrchr.c in Sources */,
-				FE54FE8925C136D7001A75CF /* reallocarray.c in Sources */,
-				FE54FE9C25C136D7001A75CF /* pw_dup.c in Sources */,
-				FE54FE8625C136D7001A75CF /* str2sig.c in Sources */,
-				FE54FE9625C136D7001A75CF /* progname.c in Sources */,
-				FE54FE7C25C136D7001A75CF /* sudo_dso.c in Sources */,
-				FE54FEA125C136D7001A75CF /* freezero.c in Sources */,
-				F651496129802BDF00C0E084 /* localtime_r.c in Sources */,
-				FE54FE9425C136D7001A75CF /* event_select.c in Sources */,
-				FE5400D825C14264001A75CF /* key_val.c in Sources */,
-				F651495929802BDF00C0E084 /* rcstr.c in Sources */,
-				FE54FE8425C136D7001A75CF /* secure_path.c in Sources */,
-				FE54FE9325C136D7001A75CF /* locking.c in Sources */,
-				FE54FE8225C136D7001A75CF /* json.c in Sources */,
-				FE54FE7E25C136D7001A75CF /* getgrouplist.c in Sources */,
-				FE54FE9125C136D7001A75CF /* sha2.c in Sources */,
-				FE54FE8325C136D7001A75CF /* roundup.c in Sources */,
-				F651496029802BDF00C0E084 /* mkdirat.c in Sources */,
-				FE54FE9E25C136D7001A75CF /* strtonum.c in Sources */,
-				F651496229802BDF00C0E084 /* multiarch.c in Sources */,
-				FE54FE7D25C136D7001A75CF /* logfac.c in Sources */,
-				F651495A29802BDF00C0E084 /* timegm.c in Sources */,
-				FE54FE9D25C136D7001A75CF /* pipe2.c in Sources */,
-				FE54FE8025C136D7001A75CF /* closefrom.c in Sources */,
-				FE54FE8F25C136D7001A75CF /* strtoid.c in Sources */,
-				FE54FE8C25C136D7001A75CF /* term.c in Sources */,
-				FE54FE8B25C136D7001A75CF /* uuid.c in Sources */,
-				FE54FE9225C136D7001A75CF /* ttysize.c in Sources */,
-				FE54FE8525C136D7001A75CF /* sudo_conf.c in Sources */,
-				FE54FE8A25C136D7001A75CF /* strsplit.c in Sources */,
-				FE54FE7F25C136D7001A75CF /* ttyname_dev.c in Sources */,
+				F6539CDC2E469E2A00C5C187 /* protobuf-c.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539CEC2E474A2300C5C187 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539E552E48009100C5C187 /* event_select.c in Sources */,
+				F6539E502E47FFAA00C5C187 /* pipe2.c in Sources */,
+				F6539E5A2E48012A00C5C187 /* sig2str.c in Sources */,
+				F6539CF72E474A2300C5C187 /* basename.c in Sources */,
+				F6539CFC2E474A2300C5C187 /* digest.c in Sources */,
+				F6539E4D2E47FE4600C5C187 /* closefrom.c in Sources */,
+				F6539CF62E474A2300C5C187 /* event.c in Sources */,
+				F6539E492E47FDEE00C5C187 /* explicit_bzero.c in Sources */,
+				F6539CFD2E474A2300C5C187 /* fatal.c in Sources */,
+				F6539E4C2E47FE3200C5C187 /* freezero.c in Sources */,
+				F6539D0F2E474A2300C5C187 /* key_val.c in Sources */,
+				F6539CF52E474A2300C5C187 /* gethostname.c in Sources */,
+				F6539CF22E474A2300C5C187 /* gettime.c in Sources */,
+				F6539D142E474A2300C5C187 /* getgrouplist.c in Sources */,
+				F6539D022E474A2300C5C187 /* gidlist.c in Sources */,
+				F6539E542E48007200C5C187 /* dup3.c in Sources */,
+				F6539CEE2E474A2300C5C187 /* hexchar.c in Sources */,
+				F6539E592E48011200C5C187 /* pw_dup.c in Sources */,
+				F6539D132E474A2300C5C187 /* json.c in Sources */,
+				F6539CEF2E474A2300C5C187 /* lbuf.c in Sources */,
+				F6539D122E474A2300C5C187 /* locking.c in Sources */,
+				F6539D292E474AF300C5C187 /* logfac.c in Sources */,
+				F6539D2A2E474AFE00C5C187 /* login_max.c in Sources */,
+				F6539D2B2E474B2700C5C187 /* logpri.c in Sources */,
+				F6539E4B2E47FE2A00C5C187 /* memrchr.c in Sources */,
+				F6539D2C2E474B3500C5C187 /* mkdir_parents.c in Sources */,
+				F6539D2D2E474B4700C5C187 /* mmap_alloc.c in Sources */,
+				F6539E512E47FFBC00C5C187 /* sha2.c in Sources */,
+				F6539D2E2E474B5100C5C187 /* multiarch.c in Sources */,
+				F6539D2F2E474B6A00C5C187 /* parseln.c in Sources */,
+				F6539D302E474B7200C5C187 /* progname.c in Sources */,
+				F6539D312E474B7900C5C187 /* rcstr.c in Sources */,
+				F6539E4A2E47FE2200C5C187 /* reallocarray.c in Sources */,
+				F6539D322E474BB700C5C187 /* regex.c in Sources */,
+				F6539D332E474BBF00C5C187 /* roundup.c in Sources */,
+				F6539D342E474BC800C5C187 /* secure_path.c in Sources */,
+				F6539D352E474BD100C5C187 /* setgroups.c in Sources */,
+				F6539E482E47FDA000C5C187 /* sha2.c in Sources */,
+				F6539D362E474BDB00C5C187 /* strsplit.c in Sources */,
+				F6539D372E474BE300C5C187 /* strtobool.c in Sources */,
+				F6539D382E474BEB00C5C187 /* strtoid.c in Sources */,
+				F6539D392E474BF800C5C187 /* strtomode.c in Sources */,
+				F6539D3A2E474C2300C5C187 /* strtonum.c in Sources */,
+				F6539D3B2E474C2D00C5C187 /* sudo_conf.c in Sources */,
+				F6539D3C2E474C3400C5C187 /* sudo_debug.c in Sources */,
+				F6539D3D2E474C3B00C5C187 /* sudo_dso.c in Sources */,
+				F6539D3E2E474C4200C5C187 /* term.c in Sources */,
+				F6539D3F2E474C4800C5C187 /* ttyname_dev.c in Sources */,
+				F6539D402E474C4F00C5C187 /* ttysize.c in Sources */,
+				F6539D412E474C5900C5C187 /* uuid.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D5C2E474FC400C5C187 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539D772E474FD600C5C187 /* exec_preload.c in Sources */,
+				F6539D7A2E474FEF00C5C187 /* intercept.pb-c.c in Sources */,
+				F6539D782E474FDE00C5C187 /* sudo_intercept.c in Sources */,
+				F6539D792E474FE800C5C187 /* sudo_intercept_common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D7D2E474FF200C5C187 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539D862E47500100C5C187 /* sudo_noexec.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539D892E47502500C5C187 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539E4E2E47FED300C5C187 /* sudo_printf.c in Sources */,
+				F6539D8F2E47503500C5C187 /* alias.c in Sources */,
+				F6539E632E492D9D00C5C187 /* check.c in Sources */,
+				F6539E532E48005800C5C187 /* sudo_auth.c in Sources */,
+				F6539E582E4800FD00C5C187 /* starttime.c in Sources */,
+				F6539E722E492DFD00C5C187 /* sudoers_ctx_free.c in Sources */,
+				F6539E732E492DFD00C5C187 /* sethost.c in Sources */,
+				F6539E742E492DFD00C5C187 /* serialize_list.c in Sources */,
+				F6539E7F2E492E4F00C5C187 /* env_pattern.c in Sources */,
+				F6539E802E492E4F00C5C187 /* env.c in Sources */,
+				F6539E752E492DFD00C5C187 /* log_client.c in Sources */,
+				F6539E762E492DFD00C5C187 /* lookup.c in Sources */,
+				F6539E8D2E492FCA00C5C187 /* prompt.c in Sources */,
+				F6539E8B2E492F9B00C5C187 /* timestamp.c in Sources */,
+				F6539E812E492E9900C5C187 /* file.c in Sources */,
+				F6539E822E492E9900C5C187 /* policy.c in Sources */,
+				F6539E832E492E9900C5C187 /* locale.c in Sources */,
+				F6539E842E492E9900C5C187 /* fmtsudoers.c in Sources */,
+				F6539E852E492E9900C5C187 /* goodpath.c in Sources */,
+				F6539E8C2E492FB400C5C187 /* group_plugin.c in Sources */,
+				F6539E862E492E9900C5C187 /* gc.c in Sources */,
+				F6539E872E492E9900C5C187 /* logging.c in Sources */,
+				F6539E882E492E9900C5C187 /* iolog.c in Sources */,
+				F6539E892E492E9900C5C187 /* find_path.c in Sources */,
+				F6539E8A2E492E9900C5C187 /* interfaces.c in Sources */,
+				F6539E8E2E492FF600C5C187 /* sudoers.c in Sources */,
+				F6539E8F2E4930B400C5C187 /* sudo_nss.c in Sources */,
+				F6539E772E492DFD00C5C187 /* sudoers_hooks.c in Sources */,
+				F6539E782E492DFD00C5C187 /* unesc_str.c in Sources */,
+				F6539E792E492DFD00C5C187 /* display.c in Sources */,
+				F6539E902E4930D000C5C187 /* set_perms.c in Sources */,
+				F6539E7A2E492DFD00C5C187 /* strlcpy_unesc.c in Sources */,
+				F6539E7B2E492DFD00C5C187 /* strvec_join.c in Sources */,
+				F6539E7C2E492DFD00C5C187 /* iolog_path_escapes.c in Sources */,
+				F6539E7D2E492DFD00C5C187 /* sudoers_cb.c in Sources */,
+				F6539E562E4800B600C5C187 /* pam.c in Sources */,
+				F6539E652E492DAF00C5C187 /* check_util.c in Sources */,
+				F6539E612E492D0700C5C187 /* audit.c in Sources */,
+				F6539E7E2E492E3400C5C187 /* editor.c in Sources */,
+				F6539E622E492D2800C5C187 /* boottime.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6539E212E47519000C5C187 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6539E272E47519F00C5C187 /* log_server.pb-c.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4553,10 +4808,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FE54FEB425C1376B001A75CF /* logwrap.c in Sources */,
-				F651498B29803E1100C0E084 /* eventlog_conf.c in Sources */,
 				FE54FEB325C1376B001A75CF /* eventlog.c in Sources */,
+				F651498B29803E1100C0E084 /* eventlog_conf.c in Sources */,
 				F651498A29803E1100C0E084 /* eventlog_free.c in Sources */,
+				FE54FEB425C1376B001A75CF /* logwrap.c in Sources */,
+				F6539C772E467FB200C5C187 /* parse_json.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4564,82 +4820,31 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F6514948298027DB00C0E084 /* iolog_open.c in Sources */,
-				F651499929803E3300C0E084 /* iolog_clearerr.c in Sources */,
-				F6514947298027DB00C0E084 /* iolog_seek.c in Sources */,
-				FE54FEC825C137B4001A75CF /* iolog_util.c in Sources */,
-				F6514945298027DB00C0E084 /* iolog_openat.c in Sources */,
-				F651499429803E3300C0E084 /* iolog_filter.c in Sources */,
-				F651494E298027DB00C0E084 /* iolog_nextid.c in Sources */,
-				F65149A729803F5700C0E084 /* iolog_loginfo.c in Sources */,
-				F651499829803E3300C0E084 /* iolog_conf.c in Sources */,
-				F651499329803E3300C0E084 /* iolog_gets.c in Sources */,
-				F651494A298027DB00C0E084 /* iolog_swapids.c in Sources */,
-				F6514946298027DB00C0E084 /* iolog_read.c in Sources */,
-				F651499629803E3300C0E084 /* iolog_close.c in Sources */,
-				FE54FEC625C137B4001A75CF /* hostcheck.c in Sources */,
-				F651499529803E3300C0E084 /* iolog_flush.c in Sources */,
-				F651499729803E3300C0E084 /* iolog_eof.c in Sources */,
-				FE54FEC725C137B4001A75CF /* iolog_json.c in Sources */,
-				F651494C298027DB00C0E084 /* iolog_mkdirs.c in Sources */,
-				F6514944298027DB00C0E084 /* iolog_mkpath.c in Sources */,
-				F651494D298027DB00C0E084 /* iolog_write.c in Sources */,
-				F651494B298027DB00C0E084 /* iolog_timing.c in Sources */,
-				F65149AA29803FAE00C0E084 /* iolog_legacy.c in Sources */,
-				F6514949298027DB00C0E084 /* iolog_mkdtemp.c in Sources */,
-				FE54FEC525C137B4001A75CF /* iolog_path.c in Sources */,
 				FE54FEC925C137B4001A75CF /* host_port.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE54FEDC25C13874001A75CF /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FE54FF8525C13B02001A75CF /* gc.c in Sources */,
-				FE54FF8425C13B02001A75CF /* editor.c in Sources */,
-				FE54FF6B25C13A90001A75CF /* sudo_auth.c in Sources */,
-				F651497229802E6D00C0E084 /* check_aliases.c in Sources */,
-				F65149A029803EBE00C0E084 /* serialize_list.c in Sources */,
-				FE54FF8725C13B02001A75CF /* log_client.c in Sources */,
-				FE54FF8D25C13B02001A75CF /* parse.c in Sources */,
-				FE54FF8125C13B02001A75CF /* group_plugin.c in Sources */,
-				FE54FF8925C13B02001A75CF /* sudo_nss.c in Sources */,
-				FE54FF8625C13B02001A75CF /* boottime.c in Sources */,
-				F65149A529803EF400C0E084 /* unesc_str.c in Sources */,
-				F65149A229803EBE00C0E084 /* strvec_join.c in Sources */,
-				FE54FF8225C13B02001A75CF /* iolog.c in Sources */,
-				F651496F29802E6D00C0E084 /* b64_decode.c in Sources */,
-				FE54FF8025C13B02001A75CF /* policy.c in Sources */,
-				FE54FF7F25C13B02001A75CF /* interfaces.c in Sources */,
-				FE54FF7C25C13B02001A75CF /* logging.c in Sources */,
-				FE54FF7B25C13B02001A75CF /* goodpath.c in Sources */,
-				FE54FF8E25C13B02001A75CF /* locale.c in Sources */,
-				FE54FF8B25C13B02001A75CF /* timestamp.c in Sources */,
-				F65149A129803EBE00C0E084 /* strlcpy_unesc.c in Sources */,
-				FE54FF7D25C13B02001A75CF /* env_pattern.c in Sources */,
-				F65149A329803EBE00C0E084 /* sudoers_hooks.c in Sources */,
-				FE54FF7A25C13B02001A75CF /* prompt.c in Sources */,
-				FE54FF8325C13B02001A75CF /* check.c in Sources */,
-				FE54FF7825C13B02001A75CF /* fmtsudoers.c in Sources */,
-				FE54FF7725C13B02001A75CF /* iolog_path_escapes.c in Sources */,
-				F651497029802E6D00C0E084 /* b64_encode.c in Sources */,
-				FE54FF8A25C13B02001A75CF /* sudoers.c in Sources */,
-				FE54FF7E25C13B02001A75CF /* env.c in Sources */,
-				FE54FF8825C13B02001A75CF /* starttime.c in Sources */,
-				FE54FF6A25C13A90001A75CF /* pam.c in Sources */,
-				FE54FF8C25C13B02001A75CF /* set_perms.c in Sources */,
-				F651496D29802E6D00C0E084 /* fmtsudoers_cvt.c in Sources */,
-				FE54FF7925C13B02001A75CF /* find_path.c in Sources */,
-				FE5400CE25C14217001A75CF /* file.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE54FEEC25C13982001A75CF /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FE54FF0725C139A5001A75CF /* log_server.pb-c.c in Sources */,
+				FE54FEC625C137B4001A75CF /* hostcheck.c in Sources */,
+				F651499929803E3300C0E084 /* iolog_clearerr.c in Sources */,
+				F651499629803E3300C0E084 /* iolog_close.c in Sources */,
+				F651499829803E3300C0E084 /* iolog_conf.c in Sources */,
+				F651499729803E3300C0E084 /* iolog_eof.c in Sources */,
+				F651499429803E3300C0E084 /* iolog_filter.c in Sources */,
+				F651499529803E3300C0E084 /* iolog_flush.c in Sources */,
+				F651499329803E3300C0E084 /* iolog_gets.c in Sources */,
+				FE54FEC725C137B4001A75CF /* iolog_json.c in Sources */,
+				F65149AA29803FAE00C0E084 /* iolog_legacy.c in Sources */,
+				F65149A729803F5700C0E084 /* iolog_loginfo.c in Sources */,
+				F651494C298027DB00C0E084 /* iolog_mkdirs.c in Sources */,
+				F6514949298027DB00C0E084 /* iolog_mkdtemp.c in Sources */,
+				F6514944298027DB00C0E084 /* iolog_mkpath.c in Sources */,
+				F651494E298027DB00C0E084 /* iolog_nextid.c in Sources */,
+				F6514948298027DB00C0E084 /* iolog_open.c in Sources */,
+				F6514945298027DB00C0E084 /* iolog_openat.c in Sources */,
+				FE54FEC525C137B4001A75CF /* iolog_path.c in Sources */,
+				F6514946298027DB00C0E084 /* iolog_read.c in Sources */,
+				F6514947298027DB00C0E084 /* iolog_seek.c in Sources */,
+				F651494A298027DB00C0E084 /* iolog_swapids.c in Sources */,
+				F651494B298027DB00C0E084 /* iolog_timing.c in Sources */,
+				FE54FEC825C137B4001A75CF /* iolog_util.c in Sources */,
+				F651494D298027DB00C0E084 /* iolog_write.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4647,29 +4852,30 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FE54FF4825C13A47001A75CF /* toke.c in Sources */,
-				FE54FF5E25C13A8B001A75CF /* passwd.c in Sources */,
-				FE54FF3B25C13A47001A75CF /* gram.c in Sources */,
-				FE54FF4925C13A47001A75CF /* redblack.c in Sources */,
-				FE54FF5125C13A47001A75CF /* toke_util.c in Sources */,
-				FE54FF5225C13A47001A75CF /* strlist.c in Sources */,
-				FE54FF4625C13A47001A75CF /* match_addr.c in Sources */,
-				FE54FF4325C13A47001A75CF /* match_digest.c in Sources */,
-				FE54FF3C25C13A47001A75CF /* defaults.c in Sources */,
-				FE54FF3D25C13A47001A75CF /* exptilde.c in Sources */,
-				FE54FF3F25C13A47001A75CF /* match.c in Sources */,
-				FE54FF3E25C13A47001A75CF /* hexchar.c in Sources */,
-				FE54FF4425C13A47001A75CF /* audit.c in Sources */,
-				FE54FF4525C13A47001A75CF /* gentime.c in Sources */,
 				FE54FF4C25C13A47001A75CF /* alias.c in Sources */,
-				FE54FF4D25C13A47001A75CF /* sudoers_debug.c in Sources */,
-				FE54FF4025C13A47001A75CF /* pwutil_impl.c in Sources */,
-				FE54FF4125C13A47001A75CF /* pwutil.c in Sources */,
+				F6539E402E47F07100C5C187 /* b64_decode.c in Sources */,
+				F6539E3F2E47F05200C5C187 /* canon_path.c in Sources */,
+				FE54FF3C25C13A47001A75CF /* defaults.c in Sources */,
 				FE54FF4E25C13A47001A75CF /* digestname.c in Sources */,
+				FE54FF3D25C13A47001A75CF /* exptilde.c in Sources */,
 				FE54FF3A25C13A47001A75CF /* filedigest.c in Sources */,
-				FE54FF4225C13A47001A75CF /* timestr.c in Sources */,
-				FE54FF5025C13A47001A75CF /* timeout.c in Sources */,
+				FE54FF4525C13A47001A75CF /* gentime.c in Sources */,
+				FE54FF3B25C13A47001A75CF /* gram.c in Sources */,
+				FE54FF3F25C13A47001A75CF /* match.c in Sources */,
+				FE54FF4625C13A47001A75CF /* match_addr.c in Sources */,
 				FE54FF4F25C13A47001A75CF /* match_command.c in Sources */,
+				FE54FF4325C13A47001A75CF /* match_digest.c in Sources */,
+				F6539E412E47F0ED00C5C187 /* parser_warnx.c in Sources */,
+				FE54FF4125C13A47001A75CF /* pwutil.c in Sources */,
+				FE54FF4025C13A47001A75CF /* pwutil_impl.c in Sources */,
+				FE54FF4925C13A47001A75CF /* redblack.c in Sources */,
+				F6539E422E47F11100C5C187 /* resolve_cmnd.c in Sources */,
+				FE54FF5225C13A47001A75CF /* strlist.c in Sources */,
+				FE54FF4D25C13A47001A75CF /* sudoers_debug.c in Sources */,
+				FE54FF5025C13A47001A75CF /* timeout.c in Sources */,
+				FE54FF4225C13A47001A75CF /* timestr.c in Sources */,
+				FE54FF4825C13A47001A75CF /* toke.c in Sources */,
+				FE54FF5125C13A47001A75CF /* toke_util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4677,40 +4883,34 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F651497929802EB600C0E084 /* sudo_intercept.c in Sources */,
-				F651498329803DE700C0E084 /* exec_intercept.c in Sources */,
-				FE54009025C140E7001A75CF /* tgetpass.c in Sources */,
-				F651497729802EB600C0E084 /* suspend_nopty.c in Sources */,
-				FE54008A25C140E7001A75CF /* exec_monitor.c in Sources */,
-				FE54008725C140E7001A75CF /* exec_pty.c in Sources */,
-				FE54009125C140E7001A75CF /* exec_nopty.c in Sources */,
-				FE54008625C140E7001A75CF /* sudo.c in Sources */,
-				FE54008125C140E7001A75CF /* env_hooks.c in Sources */,
-				F651497829802EB600C0E084 /* intercept.pb-c.c in Sources */,
-				FE54007D25C140E7001A75CF /* sudo_edit.c in Sources */,
-				FE54008D25C140E7001A75CF /* utmp.c in Sources */,
-				FE54007C25C140E7001A75CF /* hooks.c in Sources */,
-				FE54007B25C140E7001A75CF /* get_pty.c in Sources */,
-				F651499B29803E8200C0E084 /* protobuf-c.c in Sources */,
-				F651498429803DE700C0E084 /* exec_preload.c in Sources */,
-				FE54008325C140E7001A75CF /* tcsetpgrp_nobg.c in Sources */,
-				FE54008B25C140E7001A75CF /* ttyname.c in Sources */,
-				FE54008525C140E7001A75CF /* preload.c in Sources */,
-				FE54008225C140E7001A75CF /* exec_common.c in Sources */,
-				FE54008025C140E7001A75CF /* parse_args.c in Sources */,
-				FE54008425C140E7001A75CF /* load_plugins.c in Sources */,
-				FE54007F25C140E7001A75CF /* signal.c in Sources */,
-				F651497A29802EB600C0E084 /* sudo_intercept_common.c in Sources */,
-				FE54008E25C140E7001A75CF /* net_ifs.c in Sources */,
-				FE54008925C140E7001A75CF /* exec.c in Sources */,
-				FE54008F25C140E7001A75CF /* limits.c in Sources */,
-				F651498529803DE700C0E084 /* exec_ptrace.c in Sources */,
-				FE54007E25C140E7001A75CF /* copy_file.c in Sources */,
-				FE54008C25C140E7001A75CF /* preserve_fds.c in Sources */,
-				F651498629803DE700C0E084 /* apparmor.c in Sources */,
 				FE54007A25C140E7001A75CF /* conversation.c in Sources */,
-				F651498729803DE700C0E084 /* exec_iolog.c in Sources */,
-				FE54008825C140E7001A75CF /* edit_open.c in Sources */,
+				FE54007E25C140E7001A75CF /* copy_file.c in Sources */,
+				F6539C8A2E469D4D00C5C187 /* edit_open.c in Sources */,
+				FE54008125C140E7001A75CF /* env_hooks.c in Sources */,
+				FE54008925C140E7001A75CF /* exec.c in Sources */,
+				FE54008225C140E7001A75CF /* exec_common.c in Sources */,
+				F651498329803DE700C0E084 /* exec_intercept.c in Sources */,
+				F6539C8D2E469D4D00C5C187 /* exec_iolog.c in Sources */,
+				FE54008A25C140E7001A75CF /* exec_monitor.c in Sources */,
+				FE54009125C140E7001A75CF /* exec_nopty.c in Sources */,
+				F651498429803DE700C0E084 /* exec_preload.c in Sources */,
+				F651498529803DE700C0E084 /* exec_ptrace.c in Sources */,
+				FE54008725C140E7001A75CF /* exec_pty.c in Sources */,
+				F6539E282E47E72900C5C187 /* get_pty.c in Sources */,
+				FE54007C25C140E7001A75CF /* hooks.c in Sources */,
+				FE54008F25C140E7001A75CF /* limits.c in Sources */,
+				FE54008425C140E7001A75CF /* load_plugins.c in Sources */,
+				FE54008E25C140E7001A75CF /* net_ifs.c in Sources */,
+				FE54008025C140E7001A75CF /* parse_args.c in Sources */,
+				FE54008C25C140E7001A75CF /* preserve_fds.c in Sources */,
+				FE54007F25C140E7001A75CF /* signal.c in Sources */,
+				FE54008625C140E7001A75CF /* sudo.c in Sources */,
+				FE54007D25C140E7001A75CF /* sudo_edit.c in Sources */,
+				F6539C8F2E469D4D00C5C187 /* suspend_parent.c in Sources */,
+				FE54009025C140E7001A75CF /* tgetpass.c in Sources */,
+				F6539E572E4800DB00C5C187 /* preload.c in Sources */,
+				FE54008B25C140E7001A75CF /* ttyname.c in Sources */,
+				FE54008D25C140E7001A75CF /* utmp.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4718,73 +4918,93 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FEB8CD9723725C7D00FE6119 /* visudo.c in Sources */,
-				FEB8CD9323725C7D00FE6119 /* goodpath.c in Sources */,
-				FEB8CD9623725C7D00FE6119 /* sudo_printf.c in Sources */,
-				FEB8CD9523725C7D00FE6119 /* stubs.c in Sources */,
-				FEB8CD9423725C7D00FE6119 /* locale.c in Sources */,
+				F6539CE32E4744FF00C5C187 /* check_aliases.c in Sources */,
 				FEB8CD9123725C7D00FE6119 /* editor.c in Sources */,
 				FEB8CD9223725C7D00FE6119 /* find_path.c in Sources */,
+				F6539CE42E47454500C5C187 /* gc.c in Sources */,
+				FEB8CD9323725C7D00FE6119 /* goodpath.c in Sources */,
+				FEB8CD9423725C7D00FE6119 /* locale.c in Sources */,
+				F6539CE52E47455300C5C187 /* sethost.c in Sources */,
+				F6539CE62E47455800C5C187 /* stubs.c in Sources */,
+				F6539CE72E47456200C5C187 /* sudo_printf.c in Sources */,
+				F6539CE82E47456E00C5C187 /* sudoers_ctx_free.c in Sources */,
+				FEB8CD9723725C7D00FE6119 /* visudo.c in Sources */,
+				F6539CE92E47457D00C5C187 /* visudo_cb.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		F651496429802BFD00C0E084 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FE54F9D125C132BD001A75CF /* util */;
-			targetProxy = F651496329802BFD00C0E084 /* PBXContainerItemProxy */;
-		};
 		F651496629802C1000C0E084 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FE54FF1525C139DC001A75CF /* parsesudoers */;
 			targetProxy = F651496529802C1000C0E084 /* PBXContainerItemProxy */;
 		};
-		F6682238297F9C8200FB9E05 /* PBXTargetDependency */ = {
+		F6539CDF2E469E6700C5C187 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = FE54FEDE25C13874001A75CF /* plugin_sudoers */;
-			targetProxy = F6682237297F9C8200FB9E05 /* PBXContainerItemProxy */;
+			target = F6539CD42E469E1A00C5C187 /* protobuf-c */;
+			targetProxy = F6539CDE2E469E6700C5C187 /* PBXContainerItemProxy */;
 		};
-		FE54000225C13E03001A75CF /* PBXTargetDependency */ = {
+		F6539D432E474C8F00C5C187 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = FE54F9D125C132BD001A75CF /* util */;
-			targetProxy = FE54000125C13E03001A75CF /* PBXContainerItemProxy */;
+			target = F6539CEA2E474A2300C5C187 /* sudo_util */;
+			targetProxy = F6539D422E474C8F00C5C187 /* PBXContainerItemProxy */;
 		};
-		FE54000425C13E12001A75CF /* PBXTargetDependency */ = {
+		F6539E322E47EF9500C5C187 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = FE54F9EC25C132D7001A75CF /* iolog */;
-			targetProxy = FE54000325C13E12001A75CF /* PBXContainerItemProxy */;
+			target = F6539CEA2E474A2300C5C187 /* sudo_util */;
+			targetProxy = F6539E312E47EF9500C5C187 /* PBXContainerItemProxy */;
 		};
-		FE54000625C13E12001A75CF /* PBXTargetDependency */ = {
+		F6539E342E47EF9C00C5C187 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = FE54FEEE25C13982001A75CF /* logsrv */;
-			targetProxy = FE54000525C13E12001A75CF /* PBXContainerItemProxy */;
+			target = FE54F9DE25C132CB001A75CF /* sudo_eventlog */;
+			targetProxy = F6539E332E47EF9C00C5C187 /* PBXContainerItemProxy */;
 		};
-		FE54000825C13E12001A75CF /* PBXTargetDependency */ = {
+		F6539E362E47EFA100C5C187 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6539CEA2E474A2300C5C187 /* sudo_util */;
+			targetProxy = F6539E352E47EFA100C5C187 /* PBXContainerItemProxy */;
+		};
+		F6539E382E47EFAE00C5C187 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6539CD42E469E1A00C5C187 /* protobuf-c */;
+			targetProxy = F6539E372E47EFAE00C5C187 /* PBXContainerItemProxy */;
+		};
+		F6539E3A2E47EFBA00C5C187 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FE54FF1525C139DC001A75CF /* parsesudoers */;
-			targetProxy = FE54000725C13E12001A75CF /* PBXContainerItemProxy */;
+			targetProxy = F6539E392E47EFBA00C5C187 /* PBXContainerItemProxy */;
+		};
+		F6539E3C2E47EFBE00C5C187 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6539E1F2E47519000C5C187 /* logsrv */;
+			targetProxy = F6539E3B2E47EFBE00C5C187 /* PBXContainerItemProxy */;
+		};
+		F6539E3E2E47EFC200C5C187 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE54F9EC25C132D7001A75CF /* sudo_iolog */;
+			targetProxy = F6539E3D2E47EFC200C5C187 /* PBXContainerItemProxy */;
+		};
+		F6539E442E47F1D300C5C187 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6539CEA2E474A2300C5C187 /* sudo_util */;
+			targetProxy = F6539E432E47F1D300C5C187 /* PBXContainerItemProxy */;
+		};
+		F6539E5C2E48023D00C5C187 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6539D5A2E474FC400C5C187 /* sudo_intercept */;
+			targetProxy = F6539E5B2E48023D00C5C187 /* PBXContainerItemProxy */;
+		};
+		F6539E602E48026500C5C187 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6539D872E47502500C5C187 /* sudoers */;
+			targetProxy = F6539E5F2E48026500C5C187 /* PBXContainerItemProxy */;
 		};
 		FE54001F25C13E89001A75CF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FE54FF1525C139DC001A75CF /* parsesudoers */;
 			targetProxy = FE54001E25C13E89001A75CF /* PBXContainerItemProxy */;
-		};
-		FE54002125C13E89001A75CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FE54F9D125C132BD001A75CF /* util */;
-			targetProxy = FE54002025C13E89001A75CF /* PBXContainerItemProxy */;
-		};
-		FE5400F525C145E7001A75CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FE54FEDE25C13874001A75CF /* plugin_sudoers */;
-			targetProxy = FE5400F425C145E7001A75CF /* PBXContainerItemProxy */;
-		};
-		FE54011325C146FA001A75CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FE54F9DE25C132CB001A75CF /* eventlog */;
-			targetProxy = FE54011225C146FA001A75CF /* PBXContainerItemProxy */;
 		};
 		FE801D251C6ADC5F006A214E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4865,7 +5085,167 @@
 			};
 			name = Release;
 		};
-		FE54F9D425C132BD001A75CF /* Release */ = {
+		F6539CDA2E469E1A00C5C187 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		F6539D272E474A2300C5C187 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		F6539D752E474FC400C5C187 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		F6539D842E474FF200C5C187 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		F6539D8D2E47502500C5C187 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		F6539E252E47519000C5C187 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -4921,6 +5301,13 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/sudo",
+					"$(SRCROOT)/sudo/include",
+					"$(SRCROOT)/sudo/plugins/sudoers",
+					"$(SRCROOT)/sudo/src",
+					"$(SRCROOT)/sudo/lib/eventlog",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -4930,70 +5317,6 @@
 			name = Release;
 		};
 		FE54F9EF25C132D7001A75CF /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				MACOSX_DEPLOYMENT_TARGET = 11.3;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = Release;
-		};
-		FE54FEE125C13874001A75CF /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				MACOSX_DEPLOYMENT_TARGET = 11.3;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = Release;
-		};
-		FE54FEF125C13982001A75CF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -5141,15 +5464,55 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		FE54F9D325C132BD001A75CF /* Build configuration list for PBXNativeTarget "util" */ = {
+		F6539CD92E469E1A00C5C187 /* Build configuration list for PBXNativeTarget "protobuf-c" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				FE54F9D425C132BD001A75CF /* Release */,
+				F6539CDA2E469E1A00C5C187 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		FE54F9E025C132CB001A75CF /* Build configuration list for PBXNativeTarget "eventlog" */ = {
+		F6539D262E474A2300C5C187 /* Build configuration list for PBXNativeTarget "sudo_util" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6539D272E474A2300C5C187 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F6539D742E474FC400C5C187 /* Build configuration list for PBXNativeTarget "sudo_intercept" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6539D752E474FC400C5C187 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F6539D832E474FF200C5C187 /* Build configuration list for PBXNativeTarget "sudo_noexec" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6539D842E474FF200C5C187 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F6539D8C2E47502500C5C187 /* Build configuration list for PBXNativeTarget "sudoers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6539D8D2E47502500C5C187 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F6539E242E47519000C5C187 /* Build configuration list for PBXNativeTarget "logsrv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6539E252E47519000C5C187 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE54F9E025C132CB001A75CF /* Build configuration list for PBXNativeTarget "sudo_eventlog" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FE54F9E125C132CB001A75CF /* Release */,
@@ -5157,26 +5520,10 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		FE54F9EE25C132D7001A75CF /* Build configuration list for PBXNativeTarget "iolog" */ = {
+		FE54F9EE25C132D7001A75CF /* Build configuration list for PBXNativeTarget "sudo_iolog" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FE54F9EF25C132D7001A75CF /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		FE54FEE025C13874001A75CF /* Build configuration list for PBXNativeTarget "plugin_sudoers" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FE54FEE125C13874001A75CF /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		FE54FEF025C13982001A75CF /* Build configuration list for PBXNativeTarget "logsrv" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FE54FEF125C13982001A75CF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

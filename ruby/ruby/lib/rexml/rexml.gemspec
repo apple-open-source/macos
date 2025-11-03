@@ -16,70 +16,52 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/ruby/rexml"
   spec.license       = "BSD-2-Clause"
 
-  spec.files         = [
-    ".gitignore",
-    ".travis.yml",
-    "Gemfile",
+  spec.metadata = {
+    "changelog_uri" => "#{spec.homepage}/releases/tag/v#{spec.version}"
+  }
+
+  files = [
     "LICENSE.txt",
     "NEWS.md",
     "README.md",
-    "Rakefile",
-    "lib/rexml/attlistdecl.rb",
-    "lib/rexml/attribute.rb",
-    "lib/rexml/cdata.rb",
-    "lib/rexml/child.rb",
-    "lib/rexml/comment.rb",
-    "lib/rexml/doctype.rb",
-    "lib/rexml/document.rb",
-    "lib/rexml/dtd/attlistdecl.rb",
-    "lib/rexml/dtd/dtd.rb",
-    "lib/rexml/dtd/elementdecl.rb",
-    "lib/rexml/dtd/entitydecl.rb",
-    "lib/rexml/dtd/notationdecl.rb",
-    "lib/rexml/element.rb",
-    "lib/rexml/encoding.rb",
-    "lib/rexml/entity.rb",
-    "lib/rexml/formatters/default.rb",
-    "lib/rexml/formatters/pretty.rb",
-    "lib/rexml/formatters/transitive.rb",
-    "lib/rexml/functions.rb",
-    "lib/rexml/instruction.rb",
-    "lib/rexml/light/node.rb",
-    "lib/rexml/namespace.rb",
-    "lib/rexml/node.rb",
-    "lib/rexml/output.rb",
-    "lib/rexml/parent.rb",
-    "lib/rexml/parseexception.rb",
-    "lib/rexml/parsers/baseparser.rb",
-    "lib/rexml/parsers/lightparser.rb",
-    "lib/rexml/parsers/pullparser.rb",
-    "lib/rexml/parsers/sax2parser.rb",
-    "lib/rexml/parsers/streamparser.rb",
-    "lib/rexml/parsers/treeparser.rb",
-    "lib/rexml/parsers/ultralightparser.rb",
-    "lib/rexml/parsers/xpathparser.rb",
-    "lib/rexml/quickpath.rb",
-    "lib/rexml/rexml.rb",
-    "lib/rexml/sax2listener.rb",
-    "lib/rexml/security.rb",
-    "lib/rexml/source.rb",
-    "lib/rexml/streamlistener.rb",
-    "lib/rexml/syncenumerator.rb",
-    "lib/rexml/text.rb",
-    "lib/rexml/undefinednamespaceexception.rb",
-    "lib/rexml/validation/relaxng.rb",
-    "lib/rexml/validation/validation.rb",
-    "lib/rexml/validation/validationexception.rb",
-    "lib/rexml/xmldecl.rb",
-    "lib/rexml/xmltokens.rb",
-    "lib/rexml/xpath.rb",
-    "lib/rexml/xpath_parser.rb",
-    "rexml.gemspec",
   ]
-  spec.bindir        = "exe"
-  spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
-  spec.require_paths = ["lib"]
+  rdoc_files = files.dup
+  lib_path = "lib"
+  spec.require_paths = [lib_path]
+#ifdef __APPLE__
+  lib_dir = __dir__
+#else
+#  lib_dir = File.join(__dir__, lib_path)
+#endif
+  if File.exist?(lib_dir)
+    Dir.chdir(lib_dir) do
+      Dir.glob("**/*.rb").each do |file|
+        files << "lib/#{file}"
+      end
+    end
+  end
+  doc_path = "doc"
+  doc_dir = File.join(__dir__, doc_path)
+  if File.exist?(doc_dir)
+    Dir.chdir(doc_dir) do
+      Dir.glob("**/*.rdoc").each do |rdoc_file|
+        files << "#{doc_path}/#{rdoc_file}"
+        rdoc_files << "#{doc_path}/#{rdoc_file}"
+      end
+    end
+  end
+#ifndef __APPLE__
+#  tasks_path = "tasks"
+#  tasks_dir = File.join(__dir__, tasks_path)
+#  Dir.chdir(doc_dir) do
+#    Dir.glob("**/*.rake").each do |task_file|
+#      files << "#{tasks_path}/#{task_file}"
+#    end
+#  end
+#endif
+  spec.files = files
+  spec.rdoc_options.concat(["--main", "README.md"])
+  spec.extra_rdoc_files = rdoc_files
 
-  spec.add_development_dependency "bundler"
-  spec.add_development_dependency "rake"
+  spec.required_ruby_version = '>= 2.5.0'
 end

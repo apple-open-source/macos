@@ -26,7 +26,8 @@
 // madvise behaviour predictable under test.
 T_DECL(madvise_free_debug, "test vm.madvise_free_debug",
 	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
-	   T_META_ASROOT(YES), T_META_TAG_VM_NOT_PREFERRED)
+	   T_META_ASROOT(YES), T_META_TAG_VM_NOT_PREFERRED,
+	   T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	// Map 32k of memory.
 	size_t memsz = 32 * vm_page_size;
@@ -48,7 +49,8 @@ T_DECL(madvise_free_debug, "test vm.madvise_free_debug",
 
 T_DECL(subpage_madvise_free_debug, "test vm.madvise_free_debug",
 	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
-	   T_META_ASROOT(YES))
+	   T_META_ASROOT(YES), T_META_TAG_NO_ALLOCATOR_OVERRIDE,
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	// Skip if we dont' have vm_kernel_page_size < vm_page_size
 	if (vm_kernel_page_size >= vm_page_size) {
@@ -349,6 +351,7 @@ test_aggressive_madvise(const vm_size_t total_size, const size_t granularity)
 }
 
 T_DECL(tiny_aggressive_madvise, "tiny allocator free with MallocAggressiveMadvise=1",
+	   T_META_TAG_MAGAZINE_ONLY,
 	   T_META_TAG_VM_NOT_PREFERRED,
 	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
 	   T_META_ENVVAR("MallocNanoZone=0"),
@@ -362,6 +365,7 @@ T_DECL(tiny_aggressive_madvise, "tiny allocator free with MallocAggressiveMadvis
 T_DECL(small_aggressive_madvise, "small allocator free with MallocAggressiveMadvise=1",
 	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
 	   T_META_ENVVAR("MallocAggressiveMadvise=1"),
+	   T_META_TAG_MAGAZINE_ONLY,
 	   T_META_TAG_VM_NOT_PREFERRED,
 	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
 	   T_META_ASROOT(YES))
@@ -377,6 +381,7 @@ T_DECL(medium_aggressive_madvise, "medium allocator free with MallocAggressiveMa
 	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR),
 	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
 	   T_META_ASROOT(YES),
+	   T_META_TAG_MAGAZINE_ONLY,
 	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_aggressive_madvise(16 * 64 * 1024, 64 * 1024);

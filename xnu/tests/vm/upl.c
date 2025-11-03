@@ -457,7 +457,7 @@ typedef struct {
 	uint32_t size;
 	bool upl_rw;
 	bool should_fail;
-	bool exec_fault;
+	uint8_t fault_prot;
 } upl_object_test_args;
 
 T_DECL(vm_upl_rw_on_exec_object,
@@ -494,7 +494,7 @@ T_DECL(vm_upl_rw_on_exec_object,
 	/* Ensure that guard exceptions will not be fatal to the test process. */
 	enable_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY);
 
-	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = true, .should_fail = true, .exec_fault = false };
+	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = true, .should_fail = true, .fault_prot = VM_PROT_NONE };
 
 	int64_t addr = (int64_t)&args;
 	int64_t result = 0;
@@ -513,6 +513,8 @@ T_DECL(vm_upl_rw_on_exec_object,
 	} else {
 		T_ASSERT_FALSE(caught_exception, "Passing test should not throw guard exception");
 	}
+
+	munmap(buf, buf_size);
 }
 
 T_DECL(vm_upl_ro_with_exec_fault,
@@ -546,7 +548,8 @@ T_DECL(vm_upl_ro_with_exec_fault,
 	/* Ensure that guard exceptions will not be fatal to the test process. */
 	enable_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY);
 
-	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = false, .should_fail = false, .exec_fault = true };
+	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = false, .should_fail = false,
+		                      .fault_prot = VM_PROT_EXECUTE | VM_PROT_READ };
 
 	int64_t addr = (int64_t)&args;
 	int64_t result = 0;
@@ -561,6 +564,94 @@ T_DECL(vm_upl_ro_with_exec_fault,
 	T_ASSERT_EQ(exc_info.guard_flavor, kGUARD_EXC_SEC_EXEC_ON_IOPL_PAGE,
 	    "Attempted exec fault throws the expected guard exception flavor");
 	T_ASSERT_EQ(exc_info.catch_count, 1, "Attempted exec fault should throw exactly one guard exception");
+
+	munmap(buf, buf_size);
+}
+
+T_DECL(vm_upl_ro_with_write_fault_on_exec_file,
+    "Attempt to write-fault a file-backed executable region while a UPL is in-flight for that region")
+{
+#if TARGET_OS_OSX
+	/**
+	 * Test the bug uncovered in rdar://158063220.  This requires an on-the-fly retype to an
+	 * executable frame type in conjunction with a write fault on a file-backed page that is also
+	 * being cleaned in place.  This implies a "legacy JIT" mapping, since modern MAP_JIT mappings
+	 * aren't allowed for file-backed memory.  The existing vm_upl_object test hook can already
+	 * simulate the concurrent retype and in-place clean, so this test is mostly a matter of
+	 * setting up the file-backed memory correctly.
+	 */
+	/**
+	 * This test is meant to exercise functionality that is currently SPTM-specific.
+	 */
+	if (!sptm_enabled()) {
+		T_SKIP("Write-fault-on-exec test only supported on SPTM-enabled devices, skipping...");
+	}
+
+	if (process_is_translated()) {
+		/* TODO: Remove this once rdar://142438840 is fixed. */
+		T_SKIP("Guard exception handling does not work correctly with Rosetta (rdar://142438840), skipping...");
+	}
+
+	/* First, generate our backing file. */
+	const size_t buf_size = 10 * PAGE_SIZE;
+	unsigned int *buf = mmap(NULL, buf_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	T_QUIET; T_ASSERT_NE_PTR(buf, MAP_FAILED, "map buffer");
+
+	for (unsigned int i = 0; i < (buf_size / sizeof(*buf)); i++) {
+		buf[i] = (unsigned int)'a' + i;
+	}
+
+	ssize_t nbytes;
+	int fd;
+	const char tmp_file_name[PATH_MAX] = "/tmp/vm_upl_data.XXXXXXXX";
+	T_ASSERT_NOTNULL(mktemp(tmp_file_name), "create temporary file name");
+	T_WITH_ERRNO; T_QUIET; T_ASSERT_GE(fd = open(tmp_file_name, O_CREAT | O_RDWR),
+	    0, "create temp file");
+	T_WITH_ERRNO; T_QUIET; T_ASSERT_EQ(nbytes = write(fd, buf, buf_size),
+	    (ssize_t)buf_size, "write %zu bytes", buf_size);
+	munmap(buf, buf_size);
+
+	/* Map the backing file. */
+	buf = mmap(NULL, buf_size, PROT_READ | PROT_WRITE, MAP_FILE | MAP_SHARED, fd, 0);
+	T_QUIET; T_ASSERT_NE_PTR(buf, MAP_FAILED, "map buffer");
+
+	/**
+	 * Twiddle the mapping permissions between RX and RW.  This will mark the mapping as "user debug",
+	 * which will induce a retype when the backing pages are faulted in.
+	 */
+	kern_return_t kr = mach_vm_protect(mach_task_self(), buf, buf_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_protect(RX)");
+
+	kr = mach_vm_protect(mach_task_self(), buf, buf_size, FALSE, VM_PROT_READ | VM_PROT_WRITE);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_protect(RW)");
+
+	/* Ensure that guard exceptions will not be fatal to the test process. */
+	enable_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY);
+
+	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = false, .should_fail = false,
+		                      .fault_prot = VM_PROT_WRITE | VM_PROT_READ };
+
+	int64_t addr = (int64_t)&args;
+	int64_t result = 0;
+	size_t s = sizeof(result);
+	exc_guard_helper_info_t exc_info;
+	bool caught_exception =
+	    block_raised_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY, &exc_info, ^{
+		T_ASSERT_POSIX_SUCCESS(sysctlbyname("debug.test.vm_upl_object", &result, &s, &addr, sizeof(addr)),
+		"sysctlbyname(debug.test.vm_upl_object)");
+	});
+	if (!process_is_translated()) {
+		T_ASSERT_TRUE(caught_exception, "Exec fault should throw guard exception");
+		T_ASSERT_EQ(exc_info.guard_flavor, kGUARD_EXC_SEC_EXEC_ON_IOPL_PAGE,
+		    "Attempted exec fault throws the expected guard exception flavor");
+		T_ASSERT_EQ(exc_info.catch_count, 1, "Attempted exec fault should throw exactly one guard exception");
+	}
+
+	munmap(buf, buf_size);
+	close(fd);
+#else
+	T_SKIP("Write-fault on exec file requires non-MAP_JIT RWX support");
+#endif /* TARGET_OS_OSX */
 }
 
 typedef struct {

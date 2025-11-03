@@ -56,7 +56,7 @@ hw_lck_ticket_test_wait_for_delta(hw_lck_ticket_t *lck, uint8_t delta, int msec)
 		}
 		delay(1);
 	}
-	assert(false);
+	release_assert(false);
 }
 
 __dead2
@@ -71,8 +71,8 @@ hw_lck_ticket_allow_invalid_worker(void *arg, wait_result_t __unused wr)
 
 	rc = hw_lck_ticket_lock_allow_invalid(lck,
 	    &hw_lock_test_give_up_policy, NULL);
-	assert(rc == HW_LOCK_INVALID); // because the other thread invalidated it
-	assert(preemption_enabled());
+	release_assert(rc == HW_LOCK_INVALID); // because the other thread invalidated it
+	release_assert(preemption_enabled());
 
 	thread_terminate_self();
 	__builtin_unreachable();
@@ -99,19 +99,19 @@ hw_lck_ticket_allow_invalid_test(__unused int64_t in, int64_t *out)
 	lck = (hw_lck_ticket_t *)addr;
 	rc = hw_lck_ticket_lock_allow_invalid(lck,
 	    &hw_lock_test_give_up_policy, NULL);
-	assert(rc == HW_LOCK_INVALID); // because the lock is 0
-	assert(preemption_enabled());
+	release_assert(rc == HW_LOCK_INVALID); // because the lock is 0
+	release_assert(preemption_enabled());
 
 	hw_lck_ticket_init(lck, NULL);
 
-	assert(hw_lck_ticket_lock_try(lck, NULL));
-	assert(!hw_lck_ticket_lock_try(lck, NULL));
+	release_assert(hw_lck_ticket_lock_try(lck, NULL));
+	release_assert(!hw_lck_ticket_lock_try(lck, NULL));
 	hw_lck_ticket_unlock(lck);
 
 	rc = hw_lck_ticket_lock_allow_invalid(lck,
 	    &hw_lock_test_give_up_policy, NULL);
-	assert(rc == HW_LOCK_ACQUIRED); // because the lock is initialized
-	assert(!preemption_enabled());
+	release_assert(rc == HW_LOCK_ACQUIRED); // because the lock is initialized
+	release_assert(!preemption_enabled());
 
 #if SCHED_HYGIENE_DEBUG
 	if (os_atomic_load(&sched_preemption_disable_threshold_mt, relaxed) < sane_us2abs(20 * 1000)) {
@@ -125,14 +125,14 @@ hw_lck_ticket_allow_invalid_test(__unused int64_t in, int64_t *out)
 #endif
 
 	hw_lck_ticket_unlock(lck);
-	assert(preemption_enabled());
+	release_assert(preemption_enabled());
 
 #if !KASAN
 	thread_t th;
 
 	kr = kernel_thread_start_priority(hw_lck_ticket_allow_invalid_worker, lck,
 	    BASEPRI_KERNEL, &th);
-	assert(kr == KERN_SUCCESS);
+	release_assert(kr == KERN_SUCCESS);
 	thread_deallocate(th);
 
 	/* invalidate the lock */
@@ -152,7 +152,7 @@ hw_lck_ticket_allow_invalid_test(__unused int64_t in, int64_t *out)
 
 	rc = hw_lck_ticket_lock_allow_invalid(lck,
 	    &hw_lock_test_give_up_policy, NULL);
-	assert(rc == HW_LOCK_INVALID); // because the memory is unmapped
+	release_assert(rc == HW_LOCK_INVALID); // because the memory is unmapped
 
 	kmem_free(kernel_map, addr, PAGE_SIZE);
 
@@ -202,16 +202,16 @@ smr_hash_basic_test(__unused int64_t in, int64_t *out)
 
 		for (int i = 0; i < nelems / 2; i++) {
 			key = SMRH_SCALAR_KEY(elems[i].val);
-			assert(smr_hash_entered_find(h, key, T));
+			release_assert(smr_hash_entered_find(h, key, T));
 
 			key = SMRH_SCALAR_KEY(elems[i + nelems / 2].val);
-			assert(!smr_hash_entered_find(h, key, T));
+			release_assert(!smr_hash_entered_find(h, key, T));
 		}
 
 		smr_hash_foreach(e, h, T) {
 			for (int i = 0; i < nelems / 2; i++) {
 				if (e->val == elems[i].val) {
-					assert(!seen[i]);
+					release_assert(!seen[i]);
 					seen[i] = true;
 					break;
 				}
@@ -219,7 +219,7 @@ smr_hash_basic_test(__unused int64_t in, int64_t *out)
 		}
 
 		for (int i = 0; i < nelems / 2; i++) {
-			assert(seen[i]);
+			release_assert(seen[i]);
 		}
 	};
 
@@ -228,14 +228,14 @@ smr_hash_basic_test(__unused int64_t in, int64_t *out)
 	smr_hash_init_empty(h);
 
 	assert3u(smr_hash_serialized_count(h), ==, 0);
-	assert(!smr_hash_entered_find(h, SMRH_SCALAR_KEY(0ul), T));
-	assert(!smr_hash_entered_find(h, SMRH_SCALAR_KEY(42ul), T));
-	assert(!smr_hash_entered_find(h, SMRH_SCALAR_KEY(314ul), T));
-	assert(smr_hash_is_empty_initialized(h));
+	release_assert(!smr_hash_entered_find(h, SMRH_SCALAR_KEY(0ul), T));
+	release_assert(!smr_hash_entered_find(h, SMRH_SCALAR_KEY(42ul), T));
+	release_assert(!smr_hash_entered_find(h, SMRH_SCALAR_KEY(314ul), T));
+	release_assert(smr_hash_is_empty_initialized(h));
 
 	smr_hash_init(h, 4);
 
-	assert(!smr_hash_is_empty_initialized(h));
+	release_assert(!smr_hash_is_empty_initialized(h));
 
 	printf("%s: populating the hash with unique entries\n", __func__);
 
@@ -308,9 +308,9 @@ smr_shash_basic_test(__unused int64_t in, int64_t *out)
 			}
 			key = SMRH_SCALAR_KEY(elems[i].val);
 			if (i < max_inserted) {
-				assert(smr_shash_entered_find(h, key, T));
+				release_assert(smr_shash_entered_find(h, key, T));
 			} else {
-				assert(!smr_shash_entered_find(h, key, T));
+				release_assert(!smr_shash_entered_find(h, key, T));
 			}
 		}
 
@@ -340,7 +340,7 @@ smr_shash_basic_test(__unused int64_t in, int64_t *out)
 		}
 
 		dupe = smr_shash_get_or_insert(h, key, &elems[i].link, T);
-		assert(dupe == NULL);
+		release_assert(dupe == NULL);
 	}
 	check_content(nelems - never);
 
@@ -457,7 +457,7 @@ smr_sleepable_stress_worker(void *arg, wait_result_t wr __unused)
 		}
 
 		smr_enter_sleepable(smr, &smrt);
-		assert(smr_entered(smr));
+		release_assert(smr_entered(smr));
 
 		what = early_random() % 100;
 		if (what == 0 && idx == 1) {
@@ -476,7 +476,7 @@ smr_sleepable_stress_worker(void *arg, wait_result_t wr __unused)
 			} while (delta < (what + 50) * NSEC_PER_USEC);
 		}
 
-		assert(smr_entered(smr));
+		release_assert(smr_entered(smr));
 		smr_leave_sleepable(smr, &smrt);
 
 		what = early_random() % 100;

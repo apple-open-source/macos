@@ -19,6 +19,9 @@ endif
 
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries
+ifeq ($(RC_DEPLOYMENT_TARGET_SETTING_NAME),MACOSX_DEPLOYMENT_TARGET)
+GnuAfterInstall	      += install-tests strip-tests
+endif
 
 ifeq ($(RC_PURPLE),YES)
 Extra_Configure_Flags += --host=arm-apple-darwin
@@ -34,12 +37,26 @@ endif
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+BATSCONF_DIR = /AppleInternal/CoreOS/BATS/unit_tests
+ZSHTEST_DIR = /AppleInternal/Tests/zsh
+
 post-install:
 	rm -f $(DSTROOT)/bin/zsh-$(ProjectVersion)
 	rm $(DSTROOT)/usr/share/zsh/$(ProjectVersion)/scripts/newuser
 	mkdir -p $(DSTROOT)/private/etc
 	install -m 0444 -o root -g wheel zprofile $(DSTROOT)/private/etc
 	install -m 0444 -o root -g wheel zshrc $(DSTROOT)/private/etc
+
+install-tests:
+	mkdir -p $(DSTROOT)$(BATSCONF_DIR) $(DSTROOT)$(ZSHTEST_DIR)
+	install -m 0644 -o root -g wheel tests/zsh.plist $(DSTROOT)$(BATSCONF_DIR)
+	install -m 0755 -o root -g wheel tests/unpriv_env.sh $(DSTROOT)$(ZSHTEST_DIR)
+	$(CC) $(CFLAGS) -o $(DSTROOT)$(ZSHTEST_DIR)/seteuser tests/seteuser.c
+
+strip-tests:
+	$(MKDIR) $(SYMROOT)$(ZSHTEST_DIR)
+	$(CP) $(DSTROOT)$(ZSHTEST_DIR)/seteuser $(SYMROOT)$(ZSHTEST_DIR)
+	$(STRIP) -x $(DSTROOT)$(ZSHTEST_DIR)/seteuser
 
 ZSH_MODULE_DIR = /usr/lib/zsh/$(ProjectVersion)/zsh
 

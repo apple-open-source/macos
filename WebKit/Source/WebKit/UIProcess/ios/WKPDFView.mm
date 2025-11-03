@@ -250,7 +250,7 @@ static void* kvoContext = &kvoContext;
     [[_webView _wkScrollView] _setBackgroundColorInternal:backgroundColor];
 }
 
-- (void)web_setContentProviderData:(NSData *)data suggestedFilename:(NSString *)filename
+- (void)web_setContentProviderData:(NSData *)data suggestedFilename:(NSString *)filename completionHandler:(void (^)(void))completionHandler
 {
     _data = adoptNS([data copy]);
     _suggestedFilename = adoptNS([filename copy]);
@@ -290,6 +290,8 @@ static void* kvoContext = &kvoContext;
         hostViewController.delegate = self;
         [hostViewController setDocumentData:_data.get() withScrollView:scrollView];
     } forExtensionIdentifier:nil];
+
+    completionHandler();
 }
 
 - (CGPoint)_offsetForPageNumberIndicator

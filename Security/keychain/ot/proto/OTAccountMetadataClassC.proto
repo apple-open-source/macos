@@ -104,4 +104,7 @@ message AccountMetadataClassC {
 
     // Machine id
     optional string machineID = 26;
+
+    // Escrow repair "version" for the most recent repair attempt.
+    optional int64 escrowRepairAttemptVersion = 27;
 }

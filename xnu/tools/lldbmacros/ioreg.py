@@ -252,7 +252,7 @@ def DumpObject(cmd_args=None):
             print(DumpObject.__doc__)
             return False
 
-        srch = re.search(r'<vtable for ([A-Za-z].*)>', object_info)
+        srch = re.search(r'<vtable for ([A-Za-z][^>]*)>', object_info)
         if not srch:
             print("Error!! Couldn't find object in registry, input type manually as 2nd argument")
             print(DumpObject.__doc__)
@@ -356,6 +356,16 @@ def FindRegistryProp(cmd_args=None):
     entry = kern.GetValueFromAddress(cmd_args[0], 'IOService *')
     propertyTable = entry.fPropertyTable
     print(GetObjectSummary(LookupKeyInPropTable(propertyTable, cmd_args[1])))
+
+@lldb_command('showuserserver')
+def ShowUserServer(cmd_args=None):
+    """ Show info about an IOUserServer object
+        syntax: (lldb) showuserserver 0xaddr
+    """
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError("Please specify the address of the IOUserServer object whose info you want to view.")
+        return
+    ShowUserServerSummary(cmd_args[0])
 
 @lldb_command('readioport8')
 def ReadIOPort8(cmd_args=None):
@@ -577,6 +587,41 @@ def ShowIOPMQueues(cmd_args=None):
     print("IOPMWorkQueue 0x{:<16x} ({:<d} IOServicePM)\n".format(
         kern.globals.gIOPMWorkQueue, kern.globals.gIOPMWorkQueue.fQueueLength))
     print(GetIOPMWorkQueueSummary(kern.globals.gIOPMWorkQueue))
+
+@lldb_command('showiouserserverpm')
+def ShowIOUserServerPM(cmd_args=None):
+    """ Show pending power requests managed by IOUserServer instances.
+    """
+    pendingServers = kern.globals.fUserServersWait
+    count = int(pendingServers.count)
+    if count == 0:
+        print("No user servers with pending power request found")
+        return
+    for idx in range(count):
+        server = CastIOKitClass(pendingServers.array[idx], "IOUserServer *")
+        print(f"IOUserServer: {hex(server)}")
+        services = server.fServices
+        serviceCount = services.count
+        services = services.array
+        for serviceIdx in range(serviceCount):
+            service = CastIOKitClass(services[serviceIdx], "IOService *")
+            uvars = service.reserved.uvars
+            powerState = uvars.powerState
+            pmPending = int(powerState)
+            if pmPending == 0:
+                continue
+            # blatantly copied from GetRegistryEntrySummary
+            name = None
+            registryTable = service.fRegistryTable
+            propertyTable = service.fPropertyTable
+            name = LookupKeyInOSDict(registryTable, kern.globals.gIOServicePlane.nameKey)
+            if name is None:
+                name = LookupKeyInOSDict(registryTable, kern.globals.gIONameKey)
+            if name is None:
+                name = LookupKeyInOSDict(propertyTable, kern.globals.gIOClassKey)
+            name = GetString(CastIOKitClass(name, 'OSString *'))
+            print(f"{name}: {hex(service)}")
+        print("")
 
 @lldb_type_summary(['IOService *'])
 @header("")
@@ -847,6 +892,120 @@ def FindRegistryObjectRecurse(entry, search_name):
             else:
                 return registry_object
     return None
+
+def ShowUserServiceRecursive(service, prefix, last, childServices, sortedServices):
+    # blatantly copied from GetRegistryEntrySummary
+    name = None
+    registryTable = service.fRegistryTable
+    propertyTable = service.fPropertyTable
+    name = LookupKeyInOSDict(registryTable, kern.globals.gIOServicePlane.nameKey)
+    if name is None:
+        name = LookupKeyInOSDict(registryTable, kern.globals.gIONameKey)
+    if name is None:
+        name = LookupKeyInOSDict(propertyTable, kern.globals.gIOClassKey)
+    name = GetString(CastIOKitClass(name, 'OSString *'))
+    sortedServices.append((service, f"{prefix}+-o {name}"))
+    if last:
+        prefix += "  "
+    else:
+        prefix += "| "
+    if int(service) not in childServices:
+        return
+    children = childServices[int(service)]
+    if len(children) == 0:
+        return
+    childrenCount = len(children)
+    for idx in range(childrenCount):
+        ShowUserServiceRecursive(children[idx], prefix, idx == childrenCount - 1, childServices, sortedServices)
+
+def ShowUserServerSummary(server):
+    reasonStrings = {
+        1: "jetsam",
+        2: "signal",
+        3: "codesigning",
+        6: "dyld",
+        9: "exec",
+        23: "guard",
+        25: "sandbox",
+        26: "security",
+        28: "PAC exception",
+        30: "port space",
+        34: "Rosetta"
+    }
+    server = kern.GetValueFromAddress(server, "IOUserServer *")
+    services = server.fServices
+    serviceCount = services.count
+    services = services.array
+    print(f"IOUserServer {hex(server)} (task {hex(server.fOwningTask)}):")
+    if int(server.fTaskCrashReason) != 0:
+        reasonString = "Dext crash reason: "
+        if server.fTaskCrashReason.osr_namespace in reasonStrings:
+            reasonString += reasonStrings[server.fTaskCrashReason.osr_namespace]
+            if server.fTaskCrashReason.osr_namespace == 2:
+                reasonString += f", {server.fTaskCrashReason.osr_namespace.osr_ode}"
+        print(reasonString)
+    # Attempt to reconstruct registry hierarchy
+    childServices = {}
+    for serviceIdx in range(serviceCount):
+        service = CastIOKitClass(services[serviceIdx], "IOService *")
+        provider = service.__provider
+        if int(provider) not in childServices:
+            childServices[int(provider)] = []
+        childServices[int(provider)].append(service)
+    rootServices = []
+    for provider in childServices:
+        provider = kern.GetValueFromAddress(provider, "IOService *")
+        if int(provider.__provider) not in childServices:
+            rootServices.append(provider)
+    sortedServices = []
+    for service in rootServices:
+        ShowUserServiceRecursive(service, "", True, childServices, sortedServices)
+    maxNameLen = -1
+    minNameLen = -1
+    for serviceData in sortedServices:
+        currNameLen = len(serviceData[1])
+        if maxNameLen < 0 or currNameLen > maxNameLen:
+            maxNameLen = currNameLen
+        if minNameLen < 0 or currNameLen < minNameLen:
+            minNameLen = currNameLen
+    nameLen = maxNameLen + 4
+    print("wt: willTerminate")
+    print("dt: didTerminate")
+    print("sd: serverDied")
+    print("it: instantiated")
+    print("sr: started")
+    print("sp: stopped")
+    print("wp: willPower")
+    print("ps: powerState")
+    print("Service" + (nameLen - len("Service")) * " ", end = "")
+    print("Address             wt  dt  sd  it  sr  sp  wp  ps")
+    for serviceData in sortedServices:
+        service = serviceData[0]
+        currNameLen = len(serviceData[1])
+
+        print(serviceData[1] + (nameLen - currNameLen) * " ", end = "")
+        print(f"{hex(serviceData[0])}  ", end = "")
+        if int(service.reserved) == 0 or int(service.reserved.uvars) == 0:
+            print("")
+            continue
+        #print(f"service {hex(service)}")
+        wt = service.reserved.uvars.willTerminate
+        wt = "N   " if int(wt) == 0 else "Y   "
+        dt = service.reserved.uvars.didTerminate
+        dt = "N   " if int(dt) == 0 else "Y   "
+        sd = service.reserved.uvars.serverDied
+        sd = "N   " if int(sd) == 0 else "Y   "
+        it = service.reserved.uvars.instantiated
+        it = "N   " if int(it) == 0 else "Y   "
+        sr = service.reserved.uvars.started
+        sr = "N   " if int(sr) == 0 else "Y   "
+        sp = service.reserved.uvars.stopped
+        sp = "N   " if int(sp) == 0 else "Y   "
+        wp = service.reserved.uvars.willPower
+        wp = "N   " if int(wp) == 0 else "Y   "
+        ps = service.reserved.uvars.powerState
+        ps = "N   " if int(ps) == 0 else "Y   "
+        print(wt + dt + sd + it + sr + sp + wp + ps)
 
 def CompareStringToOSSymbol(string, os_sym):
     """

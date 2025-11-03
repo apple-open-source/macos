@@ -173,7 +173,7 @@ void BoxGeometryUpdater::setListMarkerOffsetForMarkerOutside(const RenderListMar
         }
         auto offset = offsetFromParentListItem;
         for (ancestor = ancestor->containingBlock(); ancestor; ancestor = ancestor->containingBlock()) {
-            offset -= (ancestor->borderStart() + ancestor->paddingStart());
+            offset -= (ancestor->marginStart() + ancestor->borderStart() + ancestor->paddingStart());
             if (ancestor == associatedListItem)
                 break;
         }

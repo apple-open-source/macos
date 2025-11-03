@@ -394,6 +394,7 @@ sk{
         nds_NL{"dolná saština"}
         ne{"nepálčina"}
         new{"nevárčina"}
+        nez{"nez perce"}
         ng{"ndonga"}
         nia{"niasánčina"}
         niu{"niueština"}

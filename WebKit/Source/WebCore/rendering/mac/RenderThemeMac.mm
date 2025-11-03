@@ -1157,6 +1157,10 @@ void RenderThemeMac::adjustRepaintRect(const RenderBox& renderer, FloatRect& rec
 
 bool RenderThemeMac::controlSupportsTints(const RenderObject& o) const
 {
+#if ENABLE(FORM_CONTROL_REFRESH)
+    if (o.settings().formControlRefreshEnabled())
+        return RenderThemeCocoa::controlSupportsTints(o);
+#endif
     // An alternate way to implement this would be to get the appropriate cell object
     // and call the private _needRedrawOnWindowChangedKeyState method. An advantage of
     // that would be that we would match AppKit behavior more closely, but a disadvantage

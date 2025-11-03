@@ -411,12 +411,15 @@ SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issue
         if (status == errSecSuccess) {
             return status;
         }
-        // try the modern system keychain if not found in data protection keychain
-        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
-        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
-        status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
-        if (status == errSecSuccess) {
-            return status;
+
+        if (SecItemCanUseSystemDataProtectionKeychain()) {
+            // try the modern system keychain if not found in data protection keychain
+            CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+            CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+            status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+            if (status == errSecSuccess) {
+                return status;
+            }
         }
     }
 
@@ -454,12 +457,14 @@ SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *sub
         if (status == errSecSuccess) {
             return status;
         }
-        // try the modern system keychain if not found in data protection keychain
-        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
-        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
-        status = SecItemCopyMatching(query, (CFTypeRef *)certificate);
-        if (status == errSecSuccess) {
-            return status;
+        if (SecItemCanUseSystemDataProtectionKeychain()) {
+            // try the modern system keychain if not found in data protection keychain
+            CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+            CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+            status = SecItemCopyMatching(query, (CFTypeRef *)certificate);
+            if (status == errSecSuccess) {
+                return status;
+            }
         }
     }
 
@@ -500,12 +505,14 @@ SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailAddress, S
         if (status == errSecSuccess) {
             return status;
         }
-        // try the modern system keychain if not found in data protection keychain
-        CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
-        CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
-        status = SecItemCopyMatching(query, (CFTypeRef *)certificate);
-        if (status == errSecSuccess) {
-            return status;
+        if (SecItemCanUseSystemDataProtectionKeychain()) {
+            // try the modern system keychain if not found in data protection keychain
+            CFDictionaryRemoveValue(query, kSecUseDataProtectionKeychain);
+            CFDictionarySetValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+            status = SecItemCopyMatching(query, (CFTypeRef *)certificate);
+            if (status == errSecSuccess) {
+                return status;
+            }
         }
     }
 

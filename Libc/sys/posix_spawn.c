@@ -194,8 +194,13 @@ retry:		err = posix_spawn(pid, bp, file_actions, attrp, argv, envp);
 	}
 	if (eacces)
 		err = EACCES;
-	/* Preserve errno from posix_spawn(3) if it wasn't a PATH search. */
-	else if (env_path != NULL)
+	/*
+	 * Preserve errno from posix_spawn(3) if it wasn't a PATH search, or
+	 * if it was a PATH search and we bailed out early.  Note that every
+	 * branch in the loop jumps to the `done` label to preserve errno, so
+	 * this is more of a defensive check.
+	 */
+	else if (env_path != NULL && op == NULL)
 		err = ENOENT;
 done:
 	return (err);

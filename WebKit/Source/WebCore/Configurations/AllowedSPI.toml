@@ -32,3 +32,10 @@ symbols = [
     # Only used for benchmarking, see 293525@main.
     "_nw_parameters_set_source_application_by_bundle_id",
 ]
+
+[fonts."rdar://161402565"]
+request = "rdar://161402565"
+cleanup = "rdar://161402756"
+symbols = [
+    "_FPFontCreateMemorySafeFontsFromData",
+]

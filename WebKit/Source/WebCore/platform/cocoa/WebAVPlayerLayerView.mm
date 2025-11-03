@@ -158,6 +158,11 @@ static void WebAVPlayerLayerView_dealloc(id aSelf, SEL)
 {
     WebAVPlayerLayerView *playerLayerView = aSelf;
 
+    RetainPtr<UIView> videoView = playerLayerView.videoView;
+    [playerLayerView setVideoView:nil];
+    [videoView removeFromSuperview];
+    videoView = nil;
+
 #if HAVE(PICTUREINPICTUREPLAYERLAYERVIEW)
     [playerLayerView setValue:nil forKey:pictureInPicturePlayerLayerViewKey];
 #endif

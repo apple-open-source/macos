@@ -1856,7 +1856,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     // The parentView should have an accessibilityContainer, if the UIKit accessibility bundle was loaded.
     // The exception is DRT, which tests accessibility without the entire system turning accessibility on. Hence,
     // this check should be valid for everything except DRT.
-    ASSERT([parentView accessibilityContainer] || WTF::IOSApplication::isDumpRenderTree());
+    ASSERT([parentView accessibilityContainer] || WTF::CocoaApplication::isDumpRenderTree());
 
     return [parentView accessibilityContainer];
 }

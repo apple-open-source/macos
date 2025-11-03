@@ -342,7 +342,7 @@ const command commands[] =
         "    -l  Match \"label\" string\n"
         "    -s  Match \"service\" string\n"
         "    -S  Comma-separated list of allowed partition IDs\n"
-        "    -k  The password for the keychain (required)\n"
+        "    -k  The password for the keychain (deprecated)\n"
         "If no keychains are specified to search, the default search list is used.\n"
         "Use of the -k option is insecure. Omit it to be prompted.\n",
         "Set the partition list of a generic password item.",
@@ -401,7 +401,7 @@ const command commands[] =
         "    -s  Match \"server\" string\n"
         "    -t  Match \"authenticationType\" (four-character code)\n"
         "    -S  Comma-separated list of allowed partition IDs\n"
-        "    -k  password for keychain (required)\n"
+        "    -k  password for keychain (deprecated)\n"
 
         "If no keychains are specified to search, the default search list is used.\n"
         "Use of the -k option is insecure. Omit it to be prompted.\n",
@@ -444,7 +444,7 @@ const command commands[] =
         "    -v  Match keys that can verify\n"
         "    -w  Match keys that can wrap\n"
         "    -S  Comma-separated list of allowed partition IDs\n"
-        "    -k  password for keychain (required)\n"
+        "    -k  password for keychain (deprecated)\n"
 
         "If no keychains are specified to search, the default search list is used.",
         "Set the partition list of a key.",

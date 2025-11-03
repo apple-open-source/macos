@@ -228,6 +228,14 @@ Lbegin_panic_lockdown_continue_\@:
  * This may mutate x18.
  */
 .macro BRANCH_TO_KVA_VECTOR
+#if HAS_MTE
+	/*
+	 * PSTATE.TCO (Tag Check Override) is automatically set by the architecture
+	 * whenever an exception is taken. TCO disables tag checking, so we want to
+	 * restore it ahead of servicing the exception.
+	 */
+	msr		TCO, #0
+#endif /* HAS_MTE */
 
 #if __ARM_KERNEL_PROTECT__
 	/*
@@ -745,12 +753,24 @@ el1_sp1_serror_vector_long:
 #if HAS_ARM_FEAT_SME
 	str		x2, [sp, SS64_X2]
 	// current_thread()->machine.umatrix_hdr == NULL: this thread has never
-	// executed smstart, so no SME state to save
+	// executed a matrix instruction, so no matrix state to save
 	add		x0, x1, ACT_UMATRIX_HDR
 	ldr		x2, [x0]
 	cbz		x2, 1f
 	AUTDA_DIVERSIFIED x2, address=x0, diversifier=ACT_UMATRIX_HDR_DIVERSIFIER
 
+
+	adrp	x0, EXT(sme_version)@page
+	add		x0, x0, EXT(sme_version)@pageoff
+	ldr		w0, [x0]
+	cbz		w0, 1f
+
+	adrp	x0, EXT(sme_state_hdr)@page
+	add		x0, x0, EXT(sme_state_hdr)@pageoff
+	ldr		x0, [x0]
+	str		x0, [x2]
+	rdsvl	x0, #1
+	strh	w0, [x2, SME_SVL_B]
 	mrs		x0, SVCR
 	str		x0, [x2, SME_SVCR]
 	// SVCR.SM == 0: save SVCR only (ZA is handled during context-switch)
@@ -884,6 +904,35 @@ fleh_dispatch64:
 
 
 2:
+#if HAS_MTE
+	/*
+	 * Exception came from userspace, so there's some gatekeeping that we
+	 * have to do for MTE. First of all, we need to generate a new seed value
+	 * for RGSR_EL1.SEED. Hidra pseudo-random generator for tags is weak, which
+	 * may allow an attacker observing a short sequence of tags to predict the
+	 * rest of it. We therefore restore it as often as possible at context
+	 * switch, reseeding it with another source of randomness.
+	 */
+#if NEEDS_MTE_IRG_RESEED
+	PACGA_IRG_RESEED x2, x3, x4
+#endif
+
+	/*
+	 * IRG default exclude mask. GCR_EL1 allows to exclude certain tags from
+	 * the selection options for any IRG execution. We want to exclude
+	 * 0 in userspace and F in the kernel as they match the canonical tags.
+	 * GCR_EL1 modifications require a CSE, but we do not want to impact
+	 * speculative performance wins here, so we simply set the register
+	 * and let the operation go. IRG calls in the kernel force the F tag
+	 * out with GMI, so this is mostly to recapture the ability to
+	 * use tag 0. In the very vast majority of cases, this path will commit
+	 * before we get to an IRG.
+	 */
+	eor		x4, x4, x4
+	mov		x4, #(GCR_EL1_RRND_ASM)
+	orr		x4, x4, #(GCR_EL1_EXCLUDE_TAGS_KERNEL)
+	msr		GCR_EL1, x4
+#endif /* HAS_MTE */
 
 	mov		x2, #0
 	mov		x3, #0
@@ -1639,6 +1688,24 @@ Lskip_restore_neon_saved_state:
 #endif
 
 
+#if HAS_MTE
+#if NEEDS_MTE_IRG_RESEED
+	PACGA_IRG_RESEED x2, x3, x4
+#endif
+	// Switch GCR_EL1 Exclude Tag Mask to the userland one.
+	mrs             x2, SPSR_EL1
+	and             x2, x2, #(PSR64_MODE_EL_MASK)
+	cmp             x2, #(PSR64_MODE_EL0)
+	bne             Lno_gcr_mask_el0_reset
+	eor		x2, x2, x2
+	mov		x2, #(GCR_EL1_RRND_ASM)
+	orr		x2, x2, #(GCR_EL1_EXCLUDE_TAGS_USER)
+	msr		GCR_EL1, x2
+#if ERET_NEEDS_ISB
+	orr		x5, x5, #(1 << BIT_ISB_PENDING)
+#endif /* ERET_NEEDS_ISB */
+Lno_gcr_mask_el0_reset:
+#endif /* HAS_MTE */
 	// If sync_on_cswitch and ERET is not a CSE, issue an ISB now. Unconditionally clear the
 	// sync_on_cswitch flag.
 	mrs		x1, TPIDR_EL1

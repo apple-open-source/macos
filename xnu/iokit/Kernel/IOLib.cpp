@@ -1113,6 +1113,24 @@ IOMallocZeroData_external(vm_size_t size)
 	return IOMalloc_internal(GET_KEXT_KHEAP_DATA(), size, Z_ZERO_VM_TAG_BT_BIT);
 }
 
+void *
+IOMallocDataSharable_external(
+	vm_size_t size);
+void *
+IOMallocDataSharable_external(vm_size_t size)
+{
+	return IOMalloc_internal(KHEAP_DATA_SHARED, size, Z_VM_TAG_BT_BIT);
+}
+
+void *
+IOMallocZeroDataSharable_external(
+	vm_size_t size);
+void *
+IOMallocZeroDataSharable_external(vm_size_t size)
+{
+	return IOMalloc_internal(KHEAP_DATA_SHARED, size, Z_ZERO_VM_TAG_BT_BIT);
+}
+
 void
 IOFreeData(void * address, vm_size_t size)
 {

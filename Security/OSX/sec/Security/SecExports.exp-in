@@ -173,6 +173,7 @@ _SecPolicyCreateWithProperties
 _SecPolicyGetName
 _SecPolicyGetCompatibilityOidString
 _SecPolicyGetOidString
+_SecPolicyGetOptions
 _SecPolicyGetTypeID
 _SecPolicySetATSPinning
 _SecPolicySetName
@@ -674,6 +675,13 @@ _kSecACMEDirectoryURL
 _kSecACMEPermitLocalIssuer
 _kSecACMEServerURL
 _SecRequestClientIdentity
+#if __OBJC2__
+_SecJWSErrorDomain
+_OBJC_CLASS_$_SecJWSDecoder
+_OBJC_METACLASS_$_SecJWSDecoder
+_OBJC_CLASS_$_SecJWSEncoder
+_OBJC_METACLASS_$_SecJWSEncoder
+#endif
 
 //
 // OTR
@@ -1977,6 +1985,7 @@ SEC_EXP_CLASS(ExternalPreSharedKey)
 SEC_EXP_CLASS(SecExternalPreSharedKey)
 SEC_EXP_CLASS(OfferedEPSK)
 SEC_EXP_CLASS(SecOfferedEPSK)
+SEC_EXP_CLASS(SecOfferedPAKEIdentity)
 _sec_array_create
 _sec_array_append
 _sec_array_get_count
@@ -2123,6 +2132,7 @@ _sec_protocol_options_get_default_max_tls_protocol_version
 _sec_protocol_options_get_default_min_tls_protocol_version
 _sec_protocol_options_set_pre_shared_key_selection_block
 _sec_protocol_options_set_tls_pre_shared_key_identity_hint
+_sec_protocol_options_set_pake_challenge_block
 _sec_protocol_configuration_copy_singleton
 _sec_protocol_configuration_set_ats_overrides
 _sec_protocol_configuration_copy_transformed_options

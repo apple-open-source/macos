@@ -389,6 +389,7 @@ ro{
         nds_NL{"saxona de jos"}
         ne{"nepaleză"}
         new{"newari"}
+        nez{"nez perce"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niueană"}

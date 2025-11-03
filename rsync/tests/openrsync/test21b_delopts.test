@@ -1,0 +1,206 @@
+#! /bin/sh
+
+# Test various permutations of the --delete option to ensure
+# that the correct "deleting ..." messages are emitted.
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Cleanup from previous run:
+#
+rm -rf src dst log--*
+
+# Create the source tree:
+#
+dircnt=5
+
+for i in $(seq ${dircnt}) ; do
+    mkdir -p src/dir$i
+    echo $i > src/dir$i/file$i
+done
+
+mkdir -p src/dir
+touch src/file
+
+
+# Create the dest tree:
+#
+rsync -a -- src/ dst/
+compare_trees src dst
+
+
+# Add junk files to dest tree for --delete to remove:
+#
+junkify() {
+    for i in $(seq ${dircnt}) ; do
+        mkdir -p "dst/dir$i/jdir$i/jdir"
+    done
+
+    mkdir -p dst/jdir0/jdir
+    touch dst/jfile
+
+    rm -rf dst/dir dst/file dst/dir1/file1
+
+    junkcnt=$((dircnt * 2 + 3))
+}
+
+# Check to see that junk files in dest dir are noted in the log
+# as being deleted, and that files that exist in the source dir
+# but not the dest dir are noted in the log as being created:
+#
+junkcheck() {
+    local log="$1"
+    local delcnt="$2"
+    local verbose="$3"
+    local itemize="$4"
+    local asterisk=''
+
+    set -x
+    if [ -n "${verbose}${itemize}" ] ; then
+        if [ -n "${verbose}" ] ; then
+            sed -E -i.orig -e '/^(Transfer|building|sent|total)/d' "${log}"
+
+            X=$(grep -c -- '^$' "${log}")
+            [ $X -le 2 ]
+        fi
+
+        if [ -n "${itemize}" ] ; then
+            grep -- '.f++++* *file$' "${log}"
+            grep -- 'cd++++* *dir/$' "${log}"
+            if [ "${delcnt}" -eq "${junkcnt}" ] ; then
+                grep -- '.f++++* *dir1/file1$' "${log}"
+            fi
+            asterisk='\*'
+        else
+            grep -- '^file$' "${log}"
+            grep -- '^dir/$' "${log}"
+            if [ "${delcnt}" -eq "${junkcnt}" ] ; then
+                grep -- '^dir1/file1$' "${log}"
+            fi
+        fi
+
+        X=$(grep -c -- 'deleting' "${log}")
+        [ $X -eq "${delcnt}" ]
+
+        if [ "${delcnt}" -eq "${junkcnt}" ] ; then
+            for i in $(seq ${dircnt}) ; do
+                grep -- "^${asterisk}deleting *dir$i/jdir$i/jdir/\$" "${log}"
+                grep -- "^${asterisk}deleting *dir$i/jdir$i/\$" "${log}"
+            done
+        fi
+
+        grep -- "^${asterisk}deleting *jdir0/jdir/\$" "${log}"
+        grep -- "^${asterisk}deleting *jdir0/\$" "${log}"
+        grep -- "^${asterisk}deleting *jfile\$" "${log}"
+    else
+        [ ! -s "${log}" ]
+    fi
+    set +x
+}
+
+opts='--delete --delete-before --delete-during --del --delete-after'
+
+# If both client and server support the --delete-delay option
+# then add it to the list of delete options to test:
+#
+X=$(${RSYNC_CLIENT:-rsync} --help | grep -- --delete-delay || true)
+Y=$(${RSYNC_SERVER:-rsync} --help | grep -- --delete-delay || true)
+if [ -n "$X" -a -n "$Y" ] ; then
+    opts="${opts} --delete-delay"
+fi
+
+for opt in ${opts} ; do
+    echo "Test 1.1: ${opt}"
+    log="log${opt}-1"
+    junkify
+    rsync -n -a ${opt} -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" "" ""
+
+    echo "Test 1.2: ${opt}"
+    rsync -n -av ${opt} -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v ""
+
+    echo "Test 1.3: ${opt}"
+    rsync -av ${opt} -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v ""
+    compare_trees src dst
+
+
+    echo "Test 2.1: ${opt} -i"
+    log="log${opt}-2"
+    junkify
+    rsync -n -i -a ${opt} -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" "" -i
+
+    echo "Test 2.2: ${opt} -i"
+    rsync -n -i -av ${opt} -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v -i
+
+    echo "Test 2.3: ${opt} -i"
+    rsync -i -av ${opt} -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v -i
+    compare_trees src dst
+
+
+    echo "Test 3.1: ${opt} --no-r"
+    log="log${opt}-3"
+    rsync -n -i -av ${opt} --no-r -- src/ dst/ > ${log} 2>&1 || true
+
+    grep -- '--delete does not work' ${log}
+
+
+    echo "Test 4.1: ${opt} --dirs"
+    log="log${opt}-4"
+    junkify
+    rsync -n -a ${opt} --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" "" ""
+
+    echo "Test 4.2: ${opt} --dirs"
+    rsync -n -av ${opt} --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v ""
+
+    echo "Test 4.3: ${opt} --dirs"
+    rsync -av ${opt} --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v ""
+    compare_trees src dst
+
+
+    echo "Test 5.1: ${opt} --dirs -n -i"
+    log="log${opt}-5"
+    junkify
+    rsync -n -i -a ${opt} --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" "" -i
+
+    echo "Test 5.2: ${opt} --dirs -n -i -v"
+    rsync -n -i -av ${opt} --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v -i
+
+    echo "Test 5.3: ${opt} --dirs -i -v"
+    rsync -i -av ${opt} --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" "${junkcnt}" -v -i
+    compare_trees src dst
+
+
+    echo "Test 6.1: ${opt} --no-r --dirs -n"
+    log="log${opt}-6"
+    junkify
+    rsync -n -av ${opt} --no-r --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" 3 -v ""
+
+    echo "Test 6.2: ${opt} --no-r --dirs"
+    rsync -av ${opt} --no-r --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" 3 -v ""
+    #compare_trees src dst
+
+
+    echo "Test 7.1: ${opt} --no-r --dirs -i -n"
+    log="log${opt}-7"
+    junkify
+    rsync -n -i -av ${opt} --no-r --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" 3 -v -i
+
+    echo "Test 7.2: ${opt} --no-r --dirs -i"
+    rsync -i -av ${opt} --no-r --dirs -- src/ dst/ > ${log} 2>&1
+    junkcheck "${log}" 3 -v -i
+    #compare_trees src dst
+done

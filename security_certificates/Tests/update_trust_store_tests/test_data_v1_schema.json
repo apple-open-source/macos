@@ -1,0 +1,27 @@
+[
+   {
+      "change_type":"Addition",
+      "change_reason":"Test v1 schema format",
+      "certificate_details":{
+         "sha256_fingerprint":"371A00DC0533B3721A7EEB40E8419E70799D2B0A0F2C1D80693165F7CEC4AD75",
+         "spki":"6A97B51C8219E93E5DEC64BAD5806CDEB0F8355BE47E757010B702456E01AAFD",
+         "common_name":"DigiCert TLS RSA4096 Root G5",
+         "not_before":"2021-01-15 00:00:00 UTC",
+         "not_after":"2046-01-14 23:59:59 UTC",
+         "pem":"-----BEGIN CERTIFICATE-----\nMIIFZjCCA06gAwIBAgIQCPm0eKj6ftpqMzeJ3nzPijANBgkqhkiG9w0BAQwFADBN\nMQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xJTAjBgNVBAMT\nHERpZ2lDZXJ0IFRMUyBSU0E0MDk2IFJvb3QgRzUwHhcNMjEwMTE1MDAwMDAwWhcN\nNDYwMTE0MjM1OTU5WjBNMQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQs\nIEluYy4xJTAjBgNVBAMTHERpZ2lDZXJ0IFRMUyBSU0E0MDk2IFJvb3QgRzUwggIi\nMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQCz0PTJeRGd/fxmgefM1eS87IE+\n/najWOLrfn3q/5B03PMJ3qCQuZvWxX2hhKuHisOjmopkisLnLlvevxGs3npAOpPx\nG0/n2C+JFvuUAT27L/gTBaF4HI4o4EXgg/RZG5Wzrn4DReW+wkL+7vI8toUTmDKd\nFqgp/nwgscONyfMXdcvyej/Cestyu9dJsXLfKB2l2w4SMXPohKEiPQ6s+d3gMXsU\nJKoBZM/npG2T6T867jp8nVid9E6P/DsjyG244gXazOvswzH016cpVIDPRFtMbzCe\n88zdH5RD/nnU1/cHAN1DrRN/BsnZvAFJNY781BOHW8EwOVfH/jXOnVDdXifBBiqm\nvwPXbzP6Po/nsMH976pXTayGpxi0KcEsDr9kvimM2AItzVwv8n/vFfQMFawKsPHT\nDU9qTXeXAaDx/nZre3zu/O7Oyldcqs4+Fj97ihBMi8ez9dLRYiVu1ISf6nL3kwJZ\nu6ay0/nTvEF+cd/nLvvyz6b84xQslpghjLSR6Rlgg/IwKwZzUNWYOwbpx4oMYIwo\n+FKbbuH2TbsGJJvX/nKyY//SovcfXWJL5/MZ4PbeiPT02jP/816t9JXkGPhvnxd3\nlLG7SjXi/7RgLQZhNe/nXoVPzthwiHvOAbWWl9fNff2C+MIkwcoBOU+NosEUQB+c\nZtUMCUbW8tDRSHZWOkPL/ntgoRObqME2wGtZ7P6wIDAQABo0IwQDAdBgNVHQ4EFgQU\nUTMc7TZArxfTJc1paPKv/nTiM+s0EwDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQF\nMAMBAf8wDQYJKoZIhvcNAQEMBQADggIBAGCmr1tfV9qJ20tQqcQjNSH/0GEwhJG3\nPxDPJY7Jv0Y02cEhJhxw/nGXIeo8mH/qlDZJY6yFMECrZBu8RHANmfGBg7sg7zNO\nok992vIGCukihfNudd5N7H/nPNtQOa27PShNlnx2xlv0wdsUpasZYgcYQF+Xkdyc\nx6u1UQ3maVNVzDl92sURVXLF/nO4uJ+DQtpBflF+aZfTCIITfNMBc9uPK8qHWgQ9\nw+iUuQrm0D4ByjoJYJu32jtyoQ/nREtGBzRj7TG5BO6jm5qu5jF49OokYTurWGT/\nu4cnYiWB39yhL/btp/96j1EuMPik/nAdKFOV8BmZZvWltwGUb+hmA+rYAQCd05JS\n9Yf7vSdPD3Rh9GOUrYU9DzLjtxpdRv/n/PNn5AeP3SYZ4Y1b+qOTEZvpyDrDVWia\nkuFSdjjo4bq9+0/V77PnSIMx8IIh47a+/np6tv75/fTM8BuGJqIz3nCU2AG3swpM\nPdB380vqQmsvZB6Akd4yCYqjdP//fx4ilw/nMUc/dNAUFvohigLVigmUdy7yWSiL\nfFCSCmZ4OIN1xLVaqBHG5cGdZlXPU8Sv13WF/nqUITVuwhd4GTWgzqltlJyqEI8p\nc7bZsEGCREjnwB8twl2F6GmrE52/WRMmrRpnCK/novfepEWFJqgejF0pW8hL2Jpq\nA15w8oVPbEtoL8pU9ozaMv7Da4M/OMZ+/n-----END CERTIFICATE-----"
+      },
+      "anchor_type": "System",
+      "valid":{
+         "allowed_policies":[
+            "Server Authentication",
+            "Client Authentication"
+         ],
+         "not_before":"",
+         "not_after":"",
+         "full_crl_url":"http://crl3.digicert.com/DigiCertTLSRSA4096RootG5.crl"
+      },
+      "ev_tls_oids":[
+         "2.23.140.1.1"
+      ]
+   }
+]

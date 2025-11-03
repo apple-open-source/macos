@@ -65,6 +65,7 @@ int popup_create_preview_window(int info);
 void popup_close_preview(void);
 void popup_hide_info(void);
 void popup_close_info(void);
+int popup_overlaps_cmdline(void);
 win_T *popup_get_message_win(void);
 void popup_show_message_win(void);
 int popup_message_win_visible(void);

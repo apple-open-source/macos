@@ -32,9 +32,9 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-#include "sudo_compat.h"
-#include "sudo_util.h"
-#include "sudo_rand.h"
+#include <sudo_compat.h>
+#include <sudo_util.h>
+#include <sudo_rand.h>
 
 struct uuid {
     uint32_t time_low;
@@ -50,7 +50,7 @@ struct uuid {
  * As per RFC 4122 section 4.4.
  */
 void
-sudo_uuid_create_v1(unsigned char uuid_out[16])
+sudo_uuid_create_v1(unsigned char uuid_out[restrict static 16])
 {
     struct uuid uuid;
 
@@ -71,11 +71,11 @@ sudo_uuid_create_v1(unsigned char uuid_out[16])
  * Format a uuid as a 36-byte string (plus one for the NUL).
  */
 char *
-sudo_uuid_to_string_v1(unsigned char uuid[16], char *dst, size_t dstsiz)
+sudo_uuid_to_string_v1(const unsigned char uuid[restrict static 16], char * restrict dst, size_t dstsiz)
 {
     const char hex[] = "0123456789abcdef";
     char *cp = dst;
-    int i;
+    unsigned int i;
 
     if (dstsiz < sizeof("123e4567-e89b-12d3-a456-426655440000"))
 	return NULL;

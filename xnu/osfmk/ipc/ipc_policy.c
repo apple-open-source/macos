@@ -35,6 +35,7 @@
 #include <kern/assert.h>
 #include <kern/exc_guard.h>
 #include <kern/ipc_kobject.h>
+#include <kern/ipc_tt.h>
 #include <kern/kern_types.h>
 #include <kern/mach_filter.h>
 #include <kern/task.h>
@@ -532,7 +533,7 @@ flush_ipc_policy_violations_telemetry(void)
 void
 ipc_stash_policy_violations_telemetry(
 	ipc_policy_violation_id_t    violation_id,
-	ipc_port_t                   service_port,
+	ipc_port_t                   port,
 	int                          aux_data)
 {
 	if (!ipcpv_telemetry_enabled) {
@@ -545,18 +546,21 @@ ipc_stash_policy_violations_telemetry(
 	int pid = -1;
 
 #if CONFIG_SERVICE_PORT_INFO
-	if (IP_VALID(service_port)) {
+	if (IP_VALID(port)) {
 		/*
 		 * dest_port lock must be held to avoid race condition
 		 * when accessing ip_splabel rdar://139066947
 		 */
 		struct mach_service_port_info sp_info;
-		ipc_object_label_t label = ip_mq_lock_label_get(service_port);
-		if (io_state_active(label.io_state) && ip_is_any_service_port_type(label.io_type)) {
-			ipc_service_port_label_get_info(label.iol_service, &sp_info);
-			service_name = sp_info.mspi_string_name;
+		ipc_object_label_t label = ip_mq_lock_label_get(port);
+		if (io_state_active(label.io_state)) {
+			if (ip_is_any_service_port_type(label.io_type) ||
+			    ip_is_bootstrap_port_type(label.io_type)) {
+				ipc_service_port_label_get_info(label.iol_service, &sp_info);
+				service_name = sp_info.mspi_string_name;
+			}
 		}
-		ip_mq_unlock_label_put(service_port, &label);
+		ip_mq_unlock_label_put(port, &label);
 	}
 #endif /* CONFIG_SERVICE_PORT_INFO */
 
@@ -665,7 +669,8 @@ ipc_validate_local_port(
 	}
 
 	/* bootstrap port defense */
-	if (ip_is_bootstrap_port(dest_port) && ipc_should_apply_policy(pol, IPC_POLICY_ENHANCED_V2)) {
+	if (ip_is_bootstrap_port(dest_port) &&
+	    ipc_should_apply_policy(pol, IPC_POLICY_ENHANCED_V2)) {
 		if (bootstrap_port_telemetry_enabled &&
 		    !ipc_space_has_telemetry_type(current_space(), IS_HAS_BOOTSTRAP_PORT_TELEMETRY)) {
 			ipc_stash_policy_violations_telemetry(IPCPV_BOOTSTRAP_PORT, dest_port, 0);
@@ -678,7 +683,7 @@ ipc_validate_local_port(
 
 	/* regular enforcement */
 	if (!ip_is_bootstrap_port(dest_port)) {
-		if (ip_type(dest_port) == IOT_SERVICE_PORT) {
+		if (ip_is_strong_service_port(dest_port)) {
 			ipc_stash_policy_violations_telemetry(IPCPV_REPLY_PORT_SEMANTICS_OPTOUT, dest_port, 0);
 		}
 		mach_port_guard_exception(ip_get_receiver_name(dest_port), 0, kGUARD_EXC_REQUIRE_REPLY_PORT_SEMANTICS);
@@ -750,21 +755,21 @@ ipc_filter_kmsg_header_from_user(
 
 	if (io_state_active(dlabel.io_state) && dlabel.io_filtered) {
 		switch (dlabel.io_type) {
-		case IOT_SERVICE_PORT:
-		case IOT_WEAK_SERVICE_PORT:
+		case IOT_BOOTSTRAP_PORT:
 			/*
 			 * Mask the top byte for messages sent to launchd's bootstrap port.
 			 * Filter any messages with domain 0 (as they correspond to MIG
 			 * based messages)
 			 */
-			if (dlabel.iol_service->ispl_bootstrap_port) {
-				if ((msg_id & ~MACH_BOOTSTRAP_PORT_MSG_ID_MASK) == 0) {
-					ip_mq_unlock_label_put(dport, &dlabel);
-					goto filtered_msg;
-				}
-				msg_id = msg_id & MACH_BOOTSTRAP_PORT_MSG_ID_MASK;
+			if ((msg_id & ~MACH_BOOTSTRAP_PORT_MSG_ID_MASK) == 0) {
+				ip_mq_unlock_label_put(dport, &dlabel);
+				goto filtered_msg;
 			}
+			msg_id = msg_id & MACH_BOOTSTRAP_PORT_MSG_ID_MASK;
+			OS_FALLTHROUGH;
 
+		case IOT_SERVICE_PORT:
+		case IOT_WEAK_SERVICE_PORT:
 			sblabel = dlabel.iol_service->ispl_sblabel;
 			break;
 
@@ -999,9 +1004,9 @@ ipc_move_receive_allowed(
 	 * with reason kGUARD_EXC_SERVICE_PORT_VIOLATION_FATAL
 	 */
 	if (service_port_defense_enabled &&
-	    ip_type(port) == IOT_SERVICE_PORT &&
+	    ip_is_strong_service_port(port) &&
 	    !task_is_initproc(space->is_task)) {
-		mach_port_guard_exception(IPCPV_MOVE_SERVICE_PORT, name,
+		mach_port_guard_exception(0, name,
 		    kGUARD_EXC_SERVICE_PORT_VIOLATION_FATAL);
 		return false;
 	}
@@ -1025,41 +1030,63 @@ ipc_move_receive_allowed(
 
 bool
 ipc_should_mark_immovable_send(
-	task_t task,
+	task_t curr_task,
 	ipc_port_t port,
 	ipc_object_label_t label)
 {
+	thread_t ctrl_thread = THREAD_NULL;
+	task_t   ctrl_task   = TASK_NULL;
+
 	/*
-	 * some entitled processes are allowed to get movable control ports
-	 * see `task_set_ctrl_port_default` - also all control ports are movable
-	 * before/after the space becomes inactive. They will be made movable before
-	 * the `task` is able to run code in userspace in `task_wait_to_return`
+	 * task obtaining its own task control port is controlled by security policy
+	 * see `task_set_ctrl_port_default`
+	 * This must come first so that we avoid evaluating the kobject port before ipc_task_enable has run
 	 */
-	if ((!task_is_immovable(task) ||
-	    !is_active(task->itk_space)) &&
-	    ip_is_tt_control_port_type(label.io_type)) {
+	if (curr_task->itk_task_ports[TASK_FLAVOR_CONTROL] == port) {
+		return task_is_immovable(curr_task);
+	}
+
+	switch (ip_type(port)) {
+	case IKOT_TASK_CONTROL:
+		ctrl_task = ipc_kobject_get_raw(port, IKOT_TASK_CONTROL);
+		break;
+	case IKOT_THREAD_CONTROL:
+		ctrl_thread = ipc_kobject_get_raw(port, IKOT_THREAD_CONTROL);
+		if (ctrl_thread) {
+			ctrl_task = get_threadtask(ctrl_thread);
+		}
+		break;
+	default:
+		break;
+	}
+
+	/*
+	 * task obtaining its own thread control port is controlled by security policy
+	 * see `task_set_ctrl_port_default`
+	 */
+	if (ctrl_thread && curr_task == ctrl_task) {
+		/*
+		 * we cannot assert that the control port options for the task are set up
+		 * yet because we may be copying out the thread control port during exec.
+		 * This means that the first thread control port copyout will always be movable, but other
+		 * copyouts will occur before userspace is allowed to run any code which will subsequently mark it
+		 * as immovable if needed.
+		 */
+		return task_is_immovable_no_assert(curr_task);
+	}
+
+	/*
+	 * all control ports obtained by another process are movable
+	 * while the space is inactive (for corpses).
+	 */
+	if (ctrl_task && !is_active(ctrl_task->itk_space)) {
+		assert(ctrl_task != curr_task);
+		assert(ip_is_tt_control_port_type(label.io_type));
 		return false;
 	}
 
-	/* tasks get their own thread control port as immovable */
-	if (label.io_type == IKOT_THREAD_CONTROL) {
-		thread_t thread = ipc_kobject_get_raw(port, IKOT_THREAD_CONTROL);
-		if (thread != THREAD_NULL && task == get_threadtask(thread)) {
-			return true;
-		}
-	}
-
-	/* tasks get their own task control port as immovable */
-	if (task->itk_task_ports[TASK_FLAVOR_CONTROL] == port) {
-		return true;
-	}
-
-	/* special cases are handled, check the default policy */
-	if (!ipc_policy(label)->pol_movable_send) {
-		return true;
-	}
-
-	return false;
+	/* special cases are handled, now we refer to the default policy */
+	return !ipc_policy(label)->pol_movable_send;
 }
 
 /* requires: nothing locked, port is valid */
@@ -1067,16 +1094,9 @@ static bool
 ip_is_currently_immovable_send(ipc_port_t port)
 {
 	ipc_object_label_t label = ipc_port_lock_label_get(port);
-	if (task_is_immovable(current_task()) &&
-	    (ip_is_tt_control_port_type(label.io_type))) {
-		/* most tasks cannot move their control ports */
-		ip_mq_unlock_label_put(port, &label);
-		return true;
-	}
-
-	bool is_always_immovable_send = !ipc_policy(label)->pol_movable_send;
+	bool port_is_immovable_send = ipc_should_mark_immovable_send(current_task(), port, label);
 	ip_mq_unlock_label_put(port, &label);
-	return is_always_immovable_send;
+	return port_is_immovable_send;
 }
 
 bool
@@ -1149,18 +1169,8 @@ mach_port_guard_exception_immovable(
 	if (space == current_space()) {
 		assert(entry->ie_bits & IE_BITS_IMMOVABLE_SEND);
 		assert(entry->ie_port == port);
-
-		boolean_t hard = task_get_control_port_options(current_task()) & TASK_CONTROL_PORT_IMMOVABLE_HARD;
 		uint64_t payload = MPG_PAYLOAD(MPG_FLAGS_NONE, ip_type(port), disp);
-
-		if (ip_is_tt_control_port(port)) {
-			assert(task_is_immovable(current_task()));
-			mach_port_guard_exception(name, payload,
-			    hard ? kGUARD_EXC_IMMOVABLE : kGUARD_EXC_IMMOVABLE_NON_FATAL);
-		} else {
-			/* always fatal exception for non-control port violation */
-			mach_port_guard_exception(name, payload, kGUARD_EXC_IMMOVABLE);
-		}
+		mach_port_guard_exception(name, payload, kGUARD_EXC_IMMOVABLE);
 	}
 }
 
@@ -1427,6 +1437,15 @@ struct ipc_object_policy ipc_policy_array[IOT_UNKNOWN] = {
 		.pol_notif_no_senders   = true,
 		.pol_notif_port_destroy = true,
 	},
+	[IOT_BOOTSTRAP_PORT] = {
+		.pol_name               = "bootstrap port",
+		.pol_movability         = IPC_MOVE_POLICY_NEVER, /* bootstrap port should never leave launchd */
+		.pol_movable_send       = true,
+		.pol_label_free         = ipc_service_port_label_dealloc,
+		.pol_enforce_reply_semantics = PENDING(true), /* pending on service port defense cleanup */
+		.pol_notif_dead_name    = true,
+		.pol_notif_no_senders   = true,
+	},
 	[IOT_WEAK_SERVICE_PORT] = {
 		.pol_name               = "weak service port",
 		.pol_movability         = IPC_MOVE_POLICY_ALWAYS,
@@ -1619,7 +1638,7 @@ ipc_is_valid_exception_port(
 		 * rdar://153108740
 		 * Temporarily allow service ports until telemetry is clean.
 		 */
-		if (ip_type(port) == IOT_SERVICE_PORT) {
+		if (ip_is_strong_service_port(port)) {
 			return true;
 		}
 		return false;

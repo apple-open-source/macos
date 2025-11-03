@@ -61,6 +61,11 @@ constexpr bool needsToGrowToProduceCString(UErrorCode errorCode)
     return needsToGrowToProduceBuffer(errorCode) || errorCode == U_STRING_NOT_TERMINATED_WARNING;
 }
 
+constexpr bool isICUMemoryAllocationError(UErrorCode errorCode)
+{
+    return errorCode == U_MEMORY_ALLOCATION_ERROR;
+}
+
 namespace CallBufferProducingFunction {
 
 template<typename CharacterType, size_t inlineCapacity, typename ...ArgumentTypes> auto& findVector(Vector<CharacterType, inlineCapacity>& buffer, ArgumentTypes&&...)
@@ -128,4 +133,5 @@ WTF_EXPORT_PRIVATE unsigned minorVersion();
 using WTF::callBufferProducingFunction;
 using WTF::needsToGrowToProduceCString;
 using WTF::needsToGrowToProduceBuffer;
+using WTF::isICUMemoryAllocationError;
 using WTF::ICUDeleter;

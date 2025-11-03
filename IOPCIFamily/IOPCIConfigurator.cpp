@@ -3659,8 +3659,13 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
     bzero(shortage, sizeof(shortage));
     bzero(shortageAlignments, sizeof(shortageAlignments));
 
+#if ACPI_SUPPORT
     haveAllocs = bridge->haveAllocs;
     bridge->haveAllocs = 0;
+#else
+    haveAllocs = bridge->haveAllocs & typeMask;
+    bridge->haveAllocs &= ~typeMask;
+#endif
 
     // determine kIOPCIRangeFlagRelocatable
     FOREACH_CHILD(bridge, child)

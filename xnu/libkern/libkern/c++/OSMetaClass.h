@@ -1146,7 +1146,7 @@ protected:
  * for as long as its kernel extension is loaded,
  * OSMetaClass does not use reference-counting.
  */
-	virtual void retain() const;
+	virtual void retain() const override;
 
 
 /*!
@@ -1160,7 +1160,7 @@ protected:
  * for as long as its kernel extension is loaded,
  * OSMetaClass does not use reference-counting.
  */
-	virtual void release() const;
+	virtual void release() const override;
 
 
 /*!
@@ -1177,7 +1177,7 @@ protected:
  * for as long as its kernel extension is loaded,
  * OSMetaClass does not use reference-counting.
  */
-	virtual void release(int freeWhen) const;
+	virtual void release(int freeWhen) const override;
 
 
 /*!
@@ -1194,7 +1194,7 @@ protected:
  * for as long as its kernel extension is loaded,
  * OSMetaClass does not use reference-counting.
  */
-	virtual void taggedRetain(const void * tag = NULL) const;
+	virtual void taggedRetain(const void * tag = NULL) const override;
 
 
 /*!
@@ -1211,7 +1211,7 @@ protected:
  * for as long as its kernel extension is loaded,
  * OSMetaClass does not use reference-counting.
  */
-	virtual void taggedRelease(const void * tag = NULL) const;
+	virtual void taggedRelease(const void * tag = NULL) const override;
 
 
 /*!
@@ -1231,7 +1231,7 @@ protected:
  */
 	virtual void taggedRelease(
 		const void * tag,
-		const int    freeWhen) const;
+		const int    freeWhen) const override;
 
 
 /*!
@@ -1249,7 +1249,7 @@ protected:
  * for as long as its kernel extension is loaded,
  * OSMetaClass does not use reference-counting.
  */
-	virtual int getRetainCount() const;
+	virtual int getRetainCount() const override;
 
 
 /* Not to be included in headerdoc.
@@ -1262,7 +1262,7 @@ protected:
  * @result
  * The metaclass of the OSMetaClass object.
  */
-	virtual const OSMetaClass * getMetaClass() const;
+	virtual const OSMetaClass * getMetaClass() const override;
 
 
 /*!
@@ -1334,7 +1334,7 @@ protected:
  * from the run-time type information system.
  */
 	virtual
-	~OSMetaClass();
+	~OSMetaClass() override;
 
 // Needs to be overriden as NULL as all OSMetaClass objects are allocated
 // statically at compile time, don't accidently try to free them.
@@ -2612,7 +2612,7 @@ public:
 private:
 // Obsolete APIs
 	static OSDictionary * getClassDictionary();
-	virtual bool serialize(OSSerialize * serializer) const;
+	virtual bool serialize(OSSerialize * serializer) const override;
 
 // Virtual Padding functions for MetaClass's
 	OSMetaClassDeclareReservedUnused(OSMetaClass, 0);

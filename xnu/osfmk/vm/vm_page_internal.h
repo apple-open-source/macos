@@ -39,6 +39,22 @@ PERCPU_DECL(unsigned int, start_color);
 
 extern struct vm_page_free_queue vm_page_queue_free;
 
+/*
+ * @var vm_page_deactivate_behind
+ * @brief Whether the system should proactively deactivate pages in large
+ *        sequential vm-objects/xfers to prevent file-cache/compressor
+ *        thrashing.
+ */
+extern bool vm_page_deactivate_behind;
+
+/*
+ * @var vm_page_deactivate_behind_min_resident_ratio
+ * @brief The minimum size of an xfer/vm-object at which proactive deactivation
+ *        should be engaged to prevent file-cache/compressor thrashing.
+ */
+extern uint32_t vm_page_deactivate_behind_min_resident_ratio;
+
+
 /*!
  * @abstract
  * Applies a signed delta to a VM counter that is not meant to ever overflow.
@@ -681,6 +697,31 @@ extern void             vm_page_make_private(vm_page_t m, ppnum_t base_page);
  */
 extern void             vm_page_reset_private(vm_page_t m);
 
+#if HAS_MTE
+
+/*!
+ * @abstract
+ * Returns whether the specified physical page number is actual tag storage.
+ *
+ * @discussion
+ * This returns fails for pages in the tag storage range that is recursive or
+ * unmanaged, unlike pmap_in_tag_storage_range().
+ *
+ * Note that it might return "true" for pages that the MTE Info data structure
+ * considers covering "unmanaged" memory.
+ *
+ * @param page          A canonical VM page.
+ * @param pnum          The page physical number for @c page.
+ */
+extern bool vm_page_is_tag_storage_pnum(vm_page_t page, ppnum_t pnum) __pure2;
+
+static inline bool
+vm_page_is_tag_storage(vm_page_t page)
+{
+	return vm_page_is_tag_storage_pnum(page, VM_PAGE_GET_PHYS_PAGE(page));
+}
+
+#endif /* HAS_MTE */
 
 extern bool             vm_pool_low(void);
 
@@ -815,8 +856,14 @@ extern void             vm_page_remove(
 	vm_page_t       page,
 	boolean_t       remove_from_hash);
 
+#if HAS_MTE
+extern void             vm_page_zero_fill(
+	vm_page_t       page,
+	bool            zero_tags);
+#else /* HAS_MTE */
 extern void             vm_page_zero_fill(
 	vm_page_t       page);
+#endif /* HAS_MTE */
 
 extern void             vm_page_part_zero_fill(
 	vm_page_t       m,
@@ -1082,6 +1129,13 @@ extern kern_return_t pmap_enter_check(
 #define DW_VM_PAGE_QUEUES_REMOVE        0x2000
 #define DW_enqueue_cleaned              0x4000
 #define DW_vm_phantom_cache_update      0x8000
+#if HAS_MTE
+/*
+ * Wake up a tag storage page if it's done being used
+ * in a UPL. This requires the page queues lock.
+ */
+#define DW_vm_page_wakeup_tag_storage   0x10000
+#endif /* HAS_MTE */
 #define DW_vm_page_iopl_wire            0x20000
 #define DW_vm_page_iopl_wire_write      0x40000
 

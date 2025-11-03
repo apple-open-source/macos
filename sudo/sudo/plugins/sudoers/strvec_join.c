@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sudoers.h"
+#include <sudoers.h>
 
 #ifdef HAVE_STRLCPY
 # define cpy_default	strlcpy
@@ -40,7 +40,7 @@
  * char.  If non-NULL, the copy function must have strlcpy-like semantics.
  */
 char *
-strvec_join(char *const argv[], char sep, size_t (*cpy)(char *, const char *, size_t))
+strvec_join(char *const argv[], char sep, size_t (*cpy)(char * restrict, const char * restrict, size_t))
 {
     char *dst, *result = NULL;
     char *const *av;

@@ -293,8 +293,13 @@ retry:		(void)_execve(bp, argv, envp);
 	if (eacces)
 		errno = EACCES;
 #ifdef __APPLE__
-	/* Preserve errno from execve(2) if it wasn't a PATH search. */
-	else if (path != NULL)
+	/*
+	 * Preserve errno from execve(2) if it wasn't a PATH search, or
+	 * if it was a PATH search and we bailed out early.  Note that every
+	 * branch in the loop jumps to the `done` label to preserve errno, so
+	 * this is more of a defensive check.
+	 */
+	else if (path != NULL && op == NULL)
 #else
 	else
 #endif

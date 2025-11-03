@@ -4,6 +4,9 @@
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 #import "keychain/ot/OTPersonaAdapter.h"
 
+// For the escrowRepairAttemptVersion field.
+#define ESCROW_REPAIR_CURRENT_VERSION 1
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTAccountMetadataClassC (KeychainSupport)

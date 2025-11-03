@@ -5,7 +5,7 @@
 
 #if CONFIG_XZONE_MALLOC
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_NOT_PREFERRED);
 
 // Ensure that all allocations get the same bucketing
 MALLOC_NOINLINE
@@ -110,7 +110,8 @@ T_DECL(tiny_freelist_linkage_corruption,
 #else // CONFIG_XZONE_MALLOC
 
 T_DECL(tiny_freelist_corruption, "Crash on corruption of tiny freelist",
-		T_META_ENABLED(false))
+		T_META_ENABLED(false), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	T_SKIP("Nothing to test for !CONFIG_XZONE_MALLOC");
 }

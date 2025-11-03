@@ -56,8 +56,6 @@ for f in \
 	macros/README.txt.info \
 	macros/urm/README.txt.info \
 	macros/urm.info \
-	tutor/README.txt.info \
-	tutor/tutor.info \
 	tools/mve.awk \
 	tools/ccfilter.1 \
 	tools/shtags.1 \
@@ -70,4 +68,3 @@ cp "$SRCROOT"/local/vimrc "$DESTDIR"/vimrc
 
 chmod -R "$ALTERNATE_MODE" "$DESTDIR"
 chown -R "$ALTERNATE_OWNER:$ALTERNATE_GROUP" "$DESTDIR"
-chmod a-x,u+w "$RUNTIMEDIR"/tutor/README.txt.info

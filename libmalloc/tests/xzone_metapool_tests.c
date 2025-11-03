@@ -4,9 +4,12 @@
 #define TESTING_METAPOOL 1
 #include "xzone_testing.h"
 
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE);
+
 #if CONFIG_XZONE_MALLOC
 
-#include "../src/xzone/xzone_metapool.c"
+#include "../src/xzone_malloc/xzone_metapool.c"
 
 #if !MALLOC_TARGET_EXCLAVES
 bool check_page_is_dirty(void *page) {

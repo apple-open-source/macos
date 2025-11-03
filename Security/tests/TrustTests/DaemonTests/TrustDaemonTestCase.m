@@ -30,11 +30,44 @@
 #include <utilities/debugging.h>
 #include "ipc/securityd_client.h"
 #include "trust/trustd/trustd_spi.h"
+#include "trust/trustd/trustdFileLocations.h"
 
 #import "../TrustEvaluationTestHelpers.h"
 #import "TrustDaemonTestCase.h"
 
 @implementation TrustDaemonInitializationTestCase
+
+- (void)createTrustdHierarchy {
+    WithPathInProtectedDirectory(CFSTR("trustd"), ^(const char *path) {
+        mode_t permissions = 0755; // Non-system trustd's create directory with expansive permissions
+        int ret = mkpath_np(path, permissions);
+        chmod(path, permissions);
+        if (!(ret == 0 || ret ==  EEXIST)) {
+            secerror("could not create path: %s (%s)", path, strerror(ret));
+        }
+    });
+    WithPathInProtectedTrustdDirectory(CFSTR("private"), ^(const char *path) {
+        mode_t permissions = 0777;
+        int ret = mkpath_np(path, permissions);
+        if (!(ret == 0 || ret ==  EEXIST)) {
+            secerror("could not create path: %s (%s)", path, strerror(ret));
+        }
+        chmod(path, permissions);
+    });
+#if TARGET_OS_OSX
+    CFStringRef uuidStr = SecCopyUUIDStringForUID(geteuid());
+    NSString *uuidString = (uuidStr) ? CFBridgingRelease(uuidStr) : nil;
+    NSString *directory = [NSString stringWithFormat:@"/%@",uuidString];
+    WithPathInPrivateTrustdDirectory((__bridge  CFStringRef)directory, ^(const char *path) {
+        mode_t permissions = 0700;
+        int mkpath_ret = mkpath_np(path, permissions);
+        if (!(mkpath_ret == 0 || mkpath_ret ==  EEXIST)) {
+            secerror("could not create path: %s (%s)", path, strerror(mkpath_ret));
+        }
+        chmod(path, permissions);
+    });
+#endif
+}
 
 /* make a new directory for each test case */
 static int testNumber = 0;
@@ -55,14 +88,7 @@ static int testNumber = 0;
 
     /* Because each test case gets a new "home" directory but we only create the data vault hierarchy once per
      * launch, we need to initialize those directories for each test case. */
-    WithPathInProtectedDirectory(CFSTR("trustd"), ^(const char *path) {
-        mode_t permissions = 0755; // Non-system trustd's create directory with expansive permissions
-        int ret = mkpath_np(path, permissions);
-        chmod(path, permissions);
-        if (!(ret == 0 || ret ==  EEXIST)) {
-            secerror("could not create path: %s (%s)", path, strerror(ret));
-        }
-    });
+    [self createTrustdHierarchy];
 }
 @end
 
@@ -82,6 +108,23 @@ static os_transaction_t transaction = nil;
     [defaults setInteger:INT32_MAX forKey:@"PinningEventAnalyticsRate"];
     [defaults setInteger:INT32_MAX forKey:@"SystemRootUsageEventAnalyticsRate"];
     [defaults setInteger:INT32_MAX forKey:@"TrustFailureEventAnalyticsRate"];
+}
+
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromResource:(NSString *)name
+                                                         subdirectory:(NSString *)dir
+{
+    NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".cer"
+                                                           subdirectory:dir];
+    if (!url) {
+        url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".crt"
+                                                        subdirectory:dir];
+    }
+    NSData *certData = [NSData dataWithContentsOfURL:url];
+    if (!certData) {
+        return nil;
+    }
+    SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (__bridge CFDataRef)certData);
+    return (__bridge id)cert;
 }
 
 - (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromPEMResource:(NSString *)name

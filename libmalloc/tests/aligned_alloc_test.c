@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_ALL_ALLOCATORS);
 
 static inline void*
 t_aligned_alloc(size_t alignment, size_t size)
@@ -33,9 +33,9 @@ t_aligned_alloc(size_t alignment, size_t size)
 }
 
 T_DECL(aligned_alloc_free, "aligned_alloc all power of two alignments <= 64kb",
-		T_META_TAG_VM_NOT_PREFERRED)
+		T_META_TAG_VM_PREFERRED)
 {
-#if TARGET_OS_WATCH
+#if TARGET_OS_WATCH && !defined(__LP64__)
 	const size_t max_alignment = 4096;
 #else
 	const size_t max_alignment = 64 * 1024;

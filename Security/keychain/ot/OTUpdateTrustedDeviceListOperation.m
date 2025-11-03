@@ -66,8 +66,9 @@
     WEAKIFY(self);
     secnotice("octagon-authkit", "Attempting to update trusted device list");
 
-    NSDictionary* metrics = nil;
-    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
+    NSDictionary* metrics = @{
+        kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW),
+    };
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                  altDSID:self.deps.activeAccount.altDSID
                                                                                                   flowID:self.deps.flowID

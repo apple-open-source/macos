@@ -22,6 +22,8 @@
  */
 #if OCTAGON
 
+#import <AppleKeyStore/AppleKeyStoreDefs.h>
+
 #import <CoreCDP/CDPAccount.h>
 #import <notify.h>
 #import <os/feature_private.h>
@@ -160,11 +162,13 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     BOOL _skipRateLimitingCheck;
     BOOL _repair;
     BOOL _danglingPeersCleanup;
+    BOOL _caesarPeersCleanup;
     BOOL _updateIdMS;
     BOOL _reportRateLimitingError;
     TrustedPeersHelperHealthCheckResult* _healthCheckResults;
     AccountTypeDuringRPD _accountType;
     BOOL _accountIsW;
+    AppleKeyStorePasscodeCacheReason _contextType;
 }
 
 @property SecLaunchSequence* launchSequence;
@@ -221,6 +225,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                   accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer>)accountStateTracker
              deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                   secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
+                     laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                    escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
                         notifierClass:(Class<CKKSNotifier>)notifierClass
@@ -282,6 +287,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
         _personaAdapter = personaAdapter;
         _deviceAdapter = deviceInformationAdapter;
         _secureBackupAdapter = secureBackupAdapter;
+        _laContextAdapter = laContextAdapter;
         [_deviceAdapter registerForDeviceNameUpdates:self];
 
         _cuttlefishXPCWrapper = [[CuttlefishXPCWrapper alloc] initWithCuttlefishXPCConnection:cuttlefish];
@@ -597,20 +603,75 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     [self.stateMachine handleFlag:OctagonFlagCheckTrustState];
 }
 
-- (void)passcodeStashAvailable
+- (void)passcodeStashAvailable:(NSNumber*)aksEventContext
 {
-    [self.stateMachine handleFlag:OctagonFlagPasscodeStashAvailable];
+    WEAKIFY(self);
+    OTOperationConfiguration *configuration = [[OTOperationConfiguration alloc] init];
+    [self rpcTrustStatus:configuration reply:^(CliqueStatus status,
+                                               NSString* __unused peerID,
+                                               NSDictionary<NSString*,NSNumber*>* __unused peerCountByModelID,
+                                               BOOL __unused isExcluded,
+                                               BOOL __unused isLocked,
+                                               NSError* __unused error) {
+        STRONGIFY(self);
 
-    __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
-    AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
-                                                                                                altDSID:self.activeAccount.altDSID
-                                                                                                 flowID:localSessionMetrics.flowID
-                                                                                        deviceSessionID:localSessionMetrics.deviceSessionID
-                                                                                              eventName:kSecurityRTCEventNameEscrowPasscodeCacheAvailable
-                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                         canSendMetrics:YES
-                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-    [event sendMetricWithResult:YES error:nil];
+        self->_contextType = AppleKeyStorePasscodeCacheReasonUnknown;
+
+        cache_flow_enabled_context_t contextType = (cache_flow_enabled_context_t)[aksEventContext unsignedCharValue];
+
+        if (status == CliqueStatusIn) {
+#if !TARGET_OS_SIMULATOR
+            switch(contextType) {
+                case cache_flow_enabled_passcode_changed:
+                {
+                    secnotice("octagon", "cache flow enabled passcode changed");
+                    self->_contextType = AppleKeyStorePasscodeCacheReasonPasscodeChanged;
+                    // reset the rate limit time stamp
+                    NSError* localError = nil;
+                    BOOL result = [self.accountMetadataStore clearLastEscrowRepairAttempt:&localError];
+                    if (result == NO || localError) {
+                        secerror("failed to clear last escrow repair attempt: %@", localError);
+                    }
+                    break;
+                }
+                case cache_flow_enabled_passcode_validated:
+                {
+                    secnotice("octagon", "cache flow enabled passcode validated");
+                    // discard passcode cache and bail out
+                    [self.laContextAdapter discardPasscodeStashSecret:contextType];
+                    return;
+                }
+                case cache_flow_enabled_passcode_unlocked:
+                {
+                    // just proceed with OctagonFlagPasscodeStashAvailable
+                    secnotice("octagon", "cache flow enabled passcode unlocked");
+                    self->_contextType = AppleKeyStorePasscodeCacheReasonPasscodeUnlocked;
+                    break;
+                }
+                default:
+                {
+                    secerror("cache flow enabled unknown value: %@", aksEventContext);
+                    return;
+                }
+            }
+#endif // !TARGET_OS_SIMULATOR
+            [self.stateMachine handleFlag:OctagonFlagPasscodeStashAvailable];
+
+            __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
+            AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                        altDSID:self.activeAccount.altDSID
+                                                                                                         flowID:localSessionMetrics.flowID
+                                                                                                deviceSessionID:localSessionMetrics.deviceSessionID
+                                                                                                      eventName:kSecurityRTCEventNameEscrowPasscodeCacheAvailable
+                                                                                                testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                 canSendMetrics:YES
+                                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+            [event sendMetricWithResult:YES error:nil];
+        } else {
+            secnotice("octagon", "not in clique, discarding passcode stash");
+            [self.laContextAdapter discardPasscodeStashSecret:contextType];
+        }
+    }];
 }
 
 - (BOOL)idmsTrustLevelChanged:(NSError**)error
@@ -767,7 +828,6 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                            path:path
                                           reply:reply];
 }
-- (void)performCKServerUnreadableDataRemoval:(NSString*)altDSID reply:(void (^)(NSError* _Nullable error))reply
 {
     NSError* accountError = [self errorIfNoCKAccount:nil];
     if (accountError != nil) {
@@ -956,6 +1016,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                               personaAdapter:self.personaAdapter
                                            deviceInfoAdapter:self.deviceAdapter
                                          secureBackupAdapter:self.secureBackupAdapter
+                                            laContextAdapter:self.laContextAdapter
                                              ckksAccountSync:self.ckks
                                             lockStateTracker:self.lockStateTracker
                                         cuttlefishXPCWrapper:self.cuttlefishXPCWrapper
@@ -1698,7 +1759,8 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
             return [[OTEscrowRepairOperation alloc] initWithDependencies:self.operationDependencies
                                                            intendedState:OctagonStateReady
                                                               errorState:OctagonStateReady
-                                                         followupHandler:self.followupHandler];
+                                                         followupHandler:self.followupHandler
+                                                             contextType:_contextType];
         }
 
         if([flags _onqueueContains:OctagonFlagAttemptSOSUpdatePreapprovals]) {
@@ -2087,6 +2149,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                                               reportRateLimitingError:_reportRateLimitingError
                                                                                repair:_repair
                                                                   danglingPeerCleanup:_danglingPeersCleanup
+                                                                    caesarPeerCleanup:_caesarPeersCleanup
                                                                            updateIdMS:_updateIdMS];
 
     WEAKIFY(self);
@@ -3713,6 +3776,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     result[@"lastEscrowRepairTriggered"] = lastEscrowRepairTriggered ?: @"never";
     NSDate* lastEscrowRepairAttempted = currentAccountMetadata.memoizedLastEscrowRepairAttempted;
     result[@"lastEscrowRepairAttempted"] = lastEscrowRepairAttempted ?: @"never";
+    result[@"escrowRepairAttemptVersion"] = @(currentAccountMetadata.escrowRepairAttemptVersion);
 
     NSDate* lastHealthCheck = currentAccountMetadata.memoizedLastHealthCheck;
     result[@"memoizedlastHealthCheck"] = lastHealthCheck ?: @"Never checked";
@@ -4845,6 +4909,13 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
         return;
     }
 
+    if (!self.cloudKitAccountInfo.hasValidCredentials) {
+        NSError* invalidAccountCredentialsError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorAccountDoesNotHaveValidCreds description:@"No valid credentials for signed in account"];
+        secerror("rpc-vouch: Don't have valid credentials for account: %@", invalidAccountCredentialsError);
+        reply(@0, invalidAccountCredentialsError);
+        return;
+    }
+
     [self.cuttlefishXPCWrapper fetchTrustedFullPeerCountWithSpecificUser:self.activeAccount reply:^(NSNumber * _Nullable count, NSError * _Nullable error) {
         reply(count, error);
     }];
@@ -5013,6 +5084,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 - (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck
                     repair:(BOOL)repair
        danglingPeerCleanup:(BOOL)danglingPeerCleanup
+         caesarPeerCleanup:(BOOL)caesarPeerCleanup
                 updateIdMS:(BOOL)updateIdMS
                      reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError * _Nullable error))reply
 {
@@ -5036,6 +5108,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     _skipRateLimitingCheck = skipRateLimitingCheck;
     _repair = repair;
     _danglingPeersCleanup = danglingPeerCleanup;
+    _caesarPeersCleanup = caesarPeerCleanup;
     _updateIdMS = updateIdMS;
     _reportRateLimitingError = YES;
 

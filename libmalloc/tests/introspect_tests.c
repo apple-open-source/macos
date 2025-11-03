@@ -16,7 +16,7 @@
 #include <../private/malloc_private.h>
 #include <../src/internal.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED);
 
 extern int32_t malloc_num_zones;
 extern malloc_zone_t **malloc_zones;
@@ -71,7 +71,7 @@ void test_stats(int limit)
 
 T_DECL(nano_statistics_test, "Test that we can introspect nano zone statistics",
 		T_META_ENVVAR("MallocNanoZone=V2"), T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_CHECK_LEAKS(false))
+		T_META_CHECK_LEAKS(false), T_META_TAG_ALL_ALLOCATORS)
 {
 #if CONFIG_NANOZONE
 	(void)malloc(16);
@@ -84,9 +84,8 @@ T_DECL(nano_statistics_test, "Test that we can introspect nano zone statistics",
 
 
 T_DECL(szone_statistics_test, "Test that we can introspect szone zone statistics",
-		T_META_TAG_VM_NOT_PREFERRED, T_META_TAG_XZONE,
-		T_META_ENVVAR("MallocNanoZone=0"), T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_CHECK_LEAKS(false))
+		T_META_TAG_ALL_ALLOCATORS, T_META_ENVVAR("MallocNanoZone=0"),
+		T_META_ENVVAR("MallocProbGuard=0"), T_META_CHECK_LEAKS(false))
 {
 	(void)malloc(16);
 	T_ASSERT_EQ(malloc_engaged_nano(), 0, "Nanozone not engaged");
@@ -104,7 +103,7 @@ void check_zones(vm_address_t *zones, unsigned zone_count)
 
 T_DECL(malloc_get_all_zones,
 		"Test that we can retrieve the zones of our own process with a NULL reader",
-		T_META_TAG_XZONE, T_META_TAG_VM_PREFERRED)
+		T_META_TAG_ALL_ALLOCATORS)
 {
 	vm_address_t *zones;
 	unsigned zone_count;

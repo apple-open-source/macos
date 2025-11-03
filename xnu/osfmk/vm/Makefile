@@ -48,12 +48,13 @@ XNU_ONLY_EXPORTS = \
 	vm_pageout_xnu.h \
 	vm_purgeable_xnu.h \
 	vm_reclaim_xnu.h \
-	vm_shared_region_xnu.h
-
+	vm_shared_region_xnu.h \
+	vm_mteinfo_internal.h
 
 # Internal headers for the sake of bsd/vm/* and bsd/kern/kern_mman.c files only
 XNU_ONLY_EXPORTS += \
 	vm_compressor_backing_store_internal.h \
+	vm_compressor_internal.h \
 	vm_dyld_pager_internal.h \
 	vm_log.h \
 	vm_map_internal.h \

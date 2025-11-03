@@ -2488,7 +2488,7 @@ main(int argc, char * argv[])
     int				gratuitous = 0;
 
     init_log();
-    S_interfaces = ifl_init();
+    S_interfaces = ifl_create(NULL);
     if (S_interfaces == NULL) {
 	fprintf(stderr, "couldn't get interface list\n");
 	exit(1);

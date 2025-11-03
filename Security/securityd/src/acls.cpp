@@ -41,6 +41,7 @@
 #include <sys/sysctl.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/cfmunge.h>
+#include <Security/SecCoreAnalytics.h>
 
 //
 // SecurityServerAcl is virtual
@@ -69,7 +70,7 @@ void SecurityServerAcl::getAcl(const char *tag, uint32 &count, AclEntryInfo *&ac
 }
 
 void SecurityServerAcl::changeAcl(const AclEdit &edit, const AccessCredentials *cred,
-	Database *db)
+	Database *db, const char* const client_path)
 {
 	StLock<Mutex> _(aclSequence);
 	SecurityServerEnvironment env(*this, db);
@@ -88,12 +89,21 @@ void SecurityServerAcl::changeAcl(const AclEdit &edit, const AccessCredentials *
 
     // If these access credentials, by themselves, protect this database, force success and don't
     // restrict changing PARTITION_ID
-    if(db && db->checkCredentials(cred)) {
-        env.forceSuccess = true;
-        ObjectAcl::cssmChangeAcl(edit, cred, &env, NULL);
-    } else {
-        ObjectAcl::cssmChangeAcl(edit, cred, &env, CSSM_APPLE_ACL_TAG_PARTITION_ID);
+    cssmChangeAcl_xara_partition_tag_allowed allow = cssmChangeAcl_xara_partition_tag_disallowed;
+    if(db) {
+        Database::checkCredentials_kind kind = db->checkCredentials(cred);
+        if (kind == Database::checkCredentials_masterkey) {
+            env.forceSuccess = true;
+            allow = cssmChangeAcl_all_tags_allowed;
+            SecCoreAnalyticsSendLegacyKeychainUIEvent("SecurityServerAcl::changeAcl all", client_path);
+        } else if (kind == Database::checkCredentials_password) {
+            env.forceSuccess = true;
+            allow = cssmChangeAcl_only_xara_partition_tag_allowed;
+            SecCoreAnalyticsSendLegacyKeychainUIEvent("SecurityServerAcl::changeAcl only", client_path);
+        }
     }
+
+    ObjectAcl::cssmChangeAcl(edit, cred, &env, allow);
 }
 
 void SecurityServerAcl::changeOwner(const AclOwnerPrototype &newOwner,

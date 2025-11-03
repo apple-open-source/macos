@@ -5459,7 +5459,7 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
         if ((assertType->kassert == kDeclareUserActivityType) && activesForTheType) {
             setClamshellSleepState();
             sendActivityTickle();
-            _unclamp_silent_running(true);
+            _unclamp_silent_running(true, false);
         }
 
         /*
@@ -5474,7 +5474,7 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
                 setClamshellSleepState();
             }
 #endif
-            _unclamp_silent_running(true);
+            _unclamp_silent_running(true, false);
             setVMDarkwakeMode(false);
         }
         /*
@@ -5505,7 +5505,7 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
     else { // op == kAssertionOpEval
 
         if ( (assertType->kassert == kPreventSleepType) && activesForTheType)
-            _unclamp_silent_running(true);
+            _unclamp_silent_running(true, false);
 
         if (activeExists && (kerAssertionBits & assertBit))
             return;
@@ -5666,7 +5666,7 @@ check_silentRunning:
             }
         });
         if (userActive) {
-            _unclamp_silent_running(true);
+            _unclamp_silent_running(true, false);
         }
     }
 }
@@ -5886,6 +5886,13 @@ static IOReturn raiseAssertion(assertion_t *assertion)
     if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
         assertion->state |= kAssertionLidStateModifier;
     }
+
+    val = CFDictionaryGetValue(assertion->props, kIOPMAssertionSensorsActive);
+    if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
+        assertion->state |= kAssertionLidStateModifier;
+        assertion->state |= kAssertionStateValidOnBatt;
+    }
+
 #endif
 
     /* Is this timed */

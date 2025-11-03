@@ -1560,7 +1560,7 @@ static void _addAnchorInfoForCert(NSString *oid, SecCertificateRef cert,
     anchorRecord[@"oids"] = oids;
     anchorRecord[@"sha2"] = sha2String;
     anchorRecord[@"spki-sha2"] = sha2spkiString;
-    anchorRecord[@"type"] = (__bridge NSString*)kSecAnchorTypeCustom;
+    anchorRecord[@"type"] = (__bridge NSString*)kSecAnchorTypeCustomTEST;
 
     if (lookupAdditions[anchorLookupKey]) {
         NSMutableArray *anchorRecords = lookupAdditions[anchorLookupKey];
@@ -1960,12 +1960,12 @@ static SecOTAPKIRef SecOTACreate(void) {
             [otapkiref->_autoAssetClient registerForAssetChangedNotificationsWithBlock:^{
                 dispatch_sync(kOTAReloadAssetsQueue, ^{
                     secnotice("OTATrust", "--- Received asset download notification ---");
+                    [[TrustAnalytics logger] logSuccessForEventNamed:TAEventAssetTrigger];
                     trustd_exit_clean("Will exit when clean to use downloaded asset.");
                 });
             }];
         } else {
             secerror("Error initializing OTAAutoAssetClient: %@", assetError);
-            TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, (assetError) ? (OSStatus)CFErrorGetCode((__bridge CFErrorRef)assetError) : -1);
         }
 #endif
         assetError = nil;
@@ -2040,18 +2040,17 @@ static SecOTAPKIRef SecOTACreate(void) {
     /* Initialize constrained anchors from asset, falling back to system constrained anchors on failure */
     CFDictionaryRef constrainedAnchorLookupTable = NULL;
     CFDictionaryRef testConstrainedAnchorTable = NULL;
-    if (_SecTrustStoreRootConstraintsEnabled()) {
-        CFDictionaryRef testAnchorLookupAdditions = NULL;
-        if (!InitializeConstrainedTestAnchors(&testAnchorLookupAdditions, &testConstrainedAnchorTable)) {
-            secnotice("OTATrust", "failed to load constrained test anchors");
-        }
-        otapkiref->_testConstrainedAnchorTable = testConstrainedAnchorTable;
-        if (!InitializeConstrainedAnchorLookupTable(otapkiref, &constrainedAnchorLookupTable, testAnchorLookupAdditions, otapkiref->_useAutoAsset)) {
-            CFReleaseSafe(constrainedAnchorLookupTable);
-            CFReleaseNull(otapkiref);
-            return otapkiref;
-        }
+    CFDictionaryRef testAnchorLookupAdditions = NULL;
+    if (!InitializeConstrainedTestAnchors(&testAnchorLookupAdditions, &testConstrainedAnchorTable)) {
+        secnotice("OTATrust", "failed to load constrained test anchors");
     }
+    otapkiref->_testConstrainedAnchorTable = testConstrainedAnchorTable;
+    if (!InitializeConstrainedAnchorLookupTable(otapkiref, &constrainedAnchorLookupTable, testAnchorLookupAdditions, otapkiref->_useAutoAsset)) {
+        CFReleaseSafe(constrainedAnchorLookupTable);
+        CFReleaseNull(otapkiref);
+        return otapkiref;
+    }
+    CFReleaseNull(testAnchorLookupAdditions);
     otapkiref->_constrainedAnchorLookupTable = constrainedAnchorLookupTable;
 
     /* Initialize trust store asset version */
@@ -2075,8 +2074,7 @@ static SecOTAPKIRef SecOTACreate(void) {
     return otapkiref;
 }
 
-SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void) {
-    __block SecOTAPKIRef result = NULL;
+static void SecOTAPKIInitializeCurrent(void) {
     static dispatch_once_t kInitializeOTAPKI = 0;
     dispatch_once(&kInitializeOTAPKI, ^{
         @autoreleasepool {
@@ -2094,7 +2092,11 @@ SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void) {
             });
         }
     });
+}
 
+SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void) {
+    SecOTAPKIInitializeCurrent();
+    __block SecOTAPKIRef result = NULL;
     dispatch_sync(kOTAQueue, ^{
         result = kCurrentOTAPKIRef;
         CFRetainSafe(result);
@@ -2350,7 +2352,7 @@ CFArrayRef SecOTAPKICopyAllowListForAuthKeyID(SecOTAPKIRef otapkiRef, CFStringRe
 
 CFDictionaryRef SecOTAPKICopyTrustedCTLogs(void) {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
 
     /* Trigger periodic background MA checks in system trustd
@@ -2367,7 +2369,7 @@ CFDictionaryRef SecOTAPKICopyTrustedCTLogs(void) {
 
 CFDictionaryRef SecOTAPKICopyNonTlsTrustedCTLogs(void) {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
 
     /* Trigger periodic background MA checks in system trustd
@@ -2403,7 +2405,7 @@ CFDictionaryRef SecOTAPKICopyEVPolicyToAnchorMapping(SecOTAPKIRef otapkiRef) {
 
 CFDictionaryRef SecOTAPKICopyConstrainedAnchorLookupTable() {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
 
     __block CFDictionaryRef result = NULL;
@@ -2501,7 +2503,7 @@ uint64_t SecOTAPKIGetAssetVersion(SecOTAPKIRef otapkiRef) {
 
 CFDateRef SecOTAPKICopyLastAssetCheckInDate(void) {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
     __block CFDateRef result = NULL;
     dispatch_sync(kOTAQueue, ^{
@@ -2524,7 +2526,7 @@ bool SecOTAPKIAssetStalenessLessThanSeconds(CFTimeInterval seconds) {
 
 NSNumber *SecOTAPKIGetSamplingRateForEvent(NSString *eventName) {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
 
     /* Trigger periodic background MA checks in system trustd
@@ -2544,7 +2546,7 @@ NSNumber *SecOTAPKIGetSamplingRateForEvent(NSString *eventName) {
 
 CFArrayRef SecOTAPKICopyAppleCertificateAuthorities(void) {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
 
     /* Trigger periodic background MA checks in system trustd
@@ -2561,7 +2563,10 @@ CFArrayRef SecOTAPKICopyAppleCertificateAuthorities(void) {
 }
 
 bool SecOTAPKIKillSwitchEnabled(CFStringRef key) {
-    if (NULL == key || !kOTAQueue) {
+    if (!kOTAQueue) {
+        SecOTAPKIInitializeCurrent();
+    }
+    if (NULL == key) {
         return false;
     }
     __block bool result = false;
@@ -2768,7 +2773,7 @@ uint64_t SecOTASecExperimentGetNewAsset(CFErrorRef* error) {
 
 CFDictionaryRef SecOTASecExperimentCopyAsset(CFErrorRef* error) {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
     __block CFDictionaryRef asset = NULL;
     dispatch_sync(kOTAQueue, ^{
@@ -2907,15 +2912,31 @@ static CFDataRef SecTrustStoreAssetMetadataCopyResourceContents(SecOTAPKIRef ota
 /* MARK: Unit test setters */
 bool SecOTAPKISetConstrainedAnchorLookupTable(CFDictionaryRef table) {
     if (!kOTAQueue) {
-        return NULL;
+        SecOTAPKIInitializeCurrent();
     }
 
     __block bool result = false;
     dispatch_sync(kOTAQueue, ^{
         if (kCurrentOTAPKIRef) {
-            CFReleaseSafe(kCurrentOTAPKIRef->_constrainedAnchorLookupTable);
-            kCurrentOTAPKIRef->_constrainedAnchorLookupTable = CFRetainSafe(table);
-            result = true;
+            if (table) {
+                CFReleaseSafe(kCurrentOTAPKIRef->_constrainedAnchorLookupTable);
+                kCurrentOTAPKIRef->_constrainedAnchorLookupTable = CFRetainSafe(table);
+                result = true;
+            } else {
+                /* reset */
+                CFDictionaryRef constrainedAnchorLookupTable = NULL;
+                CFDictionaryRef testConstrainedAnchorTable = NULL;
+                CFDictionaryRef testAnchorLookupAdditions = NULL;
+                if (!InitializeConstrainedTestAnchors(&testAnchorLookupAdditions, &testConstrainedAnchorTable)) {
+                    secnotice("OTATrust", "failed to load constrained test anchors");
+                }
+                if (InitializeConstrainedAnchorLookupTable(kCurrentOTAPKIRef, &constrainedAnchorLookupTable, testAnchorLookupAdditions, kCurrentOTAPKIRef->_useAutoAsset)) {
+                    CFReleaseSafe(kCurrentOTAPKIRef->_constrainedAnchorLookupTable);
+                    kCurrentOTAPKIRef->_constrainedAnchorLookupTable = constrainedAnchorLookupTable;
+                }
+                CFReleaseNull(testConstrainedAnchorTable);
+                CFReleaseNull(testAnchorLookupAdditions);
+            }
         }
     });
     return result;

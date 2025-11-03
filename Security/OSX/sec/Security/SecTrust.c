@@ -174,6 +174,7 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust);
 static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
 												 dispatch_queue_t queue,
 												 void (^handler)(OSStatus status));
+static CFPropertyListRef _onQueue_SecTrustCopyPlist(SecTrustRef trust);
 
 /* Static functions. */
 static CFStringRef SecTrustCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
@@ -1545,58 +1546,6 @@ static void handle_trust_evaluate_xpc_async(dispatch_queue_t replyq, trust_handl
 	});
 }
 
-#if IS_TRUSTTESTS
-/* In the debug tests, we may get different type IDs if the object was created via the framework instead of the tests.
- * Do some swizzling of the type IDs to make the type checks work. */
-#include <dlfcn.h>
-
-typedef CFTypeID (*get_typeid_f)(void);
-static CFTypeID SecFrameworkCertificateGetTypeID(void) {
-    static get_typeid_f FrameworkCertTypeIDFunctionPtr = NULL;
-    static dispatch_once_t onceToken;
-
-    dispatch_once(&onceToken, ^{
-        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-        if (framework) {
-            FrameworkCertTypeIDFunctionPtr = dlsym(framework, "SecCertificateGetTypeID");
-        }
-    });
-
-    if (FrameworkCertTypeIDFunctionPtr) {
-        return FrameworkCertTypeIDFunctionPtr();
-    } else {
-        return SecCertificateGetTypeID();
-    }
-}
-
-static CFTypeID SecFrameworkPolicyGetTypeID(void) {
-    static get_typeid_f FrameworkPolicyTypeIDFunctionPtr = NULL;
-    static dispatch_once_t onceToken;
-
-    dispatch_once(&onceToken, ^{
-        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-        if (framework) {
-            FrameworkPolicyTypeIDFunctionPtr = dlsym(framework, "SecPolicyGetTypeID");
-        }
-    });
-
-    if (FrameworkPolicyTypeIDFunctionPtr) {
-        return FrameworkPolicyTypeIDFunctionPtr();
-    } else {
-        return SecPolicyGetTypeID();
-    }
-}
-
-static CFTypeID convert_framework_typeId_to_test_typeId(CFTypeID type) {
-    if (type == SecFrameworkCertificateGetTypeID()) {
-        return SecCertificateGetTypeID();
-    } else if (type == SecFrameworkPolicyGetTypeID()) {
-        return SecPolicyGetTypeID();
-    }
-    return type;
-}
-#endif
-
 OSStatus validate_array_of_items(CFArrayRef array, CFStringRef arrayItemType, CFTypeID itemTypeID, bool required) {
 	OSStatus result = errSecSuccess;
 	CFIndex index, count;
@@ -1613,11 +1562,6 @@ OSStatus validate_array_of_items(CFArrayRef array, CFStringRef arrayItemType, CF
 			continue;
 		}
         CFTypeID type = CFGetTypeID(item);
-#if IS_TRUSTTESTS
-        if (gTrustd) {
-            type = convert_framework_typeId_to_test_typeId(type);
-        }
-#endif
 		if (type != itemTypeID) {
 			secerror("%@ %@ (index %d)", arrayItemType, CFSTR("is not the expected CF type"), (int)index);
 			result = errSecParam;
@@ -1842,6 +1786,32 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
     return result;
 }
 
+static CF_RETURNS_RETAINED SecTrustRef _resetAndDeepCopyTrust(SecTrustRef trust) {
+    dispatch_assert_queue(trust->_trustQueue);
+
+    /* Reset */
+    trust->_trustResult = kSecTrustResultOtherError; /* to avoid potential recursion */
+
+    CFReleaseNull(trust->_chain);
+    CFReleaseNull(trust->_details);
+    CFReleaseNull(trust->_info);
+    if (trust->_legacy_info_array) {
+        free(trust->_legacy_info_array);
+        trust->_legacy_info_array = NULL;
+    }
+    if (trust->_legacy_status_array) {
+        free(trust->_legacy_status_array);
+        trust->_legacy_status_array = NULL;
+    }
+
+    /* Deep Copy */
+    CFPropertyListRef plist = _onQueue_SecTrustCopyPlist(trust);
+    SecTrustRef copiedTrust = SecTrustCreateFromPropertyListRepresentation(plist, NULL);
+    CFReleaseNull(plist);
+
+    return copiedTrust;
+}
+
 // IMPORTANT: this MUST be called on the provided queue as it will call the handler synchronously
 // if no asynchronous work is needed
 static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
@@ -1881,19 +1851,9 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
         }
 
         dispatch_group_enter(trust->_asyncEvalGroup); /* enter group again for async trustd work */
-        trust->_trustResult = kSecTrustResultOtherError; /* to avoid potential recursion */
 
-        CFReleaseNull(trust->_chain);
-        CFReleaseNull(trust->_details);
-        CFReleaseNull(trust->_info);
-        if (trust->_legacy_info_array) {
-            free(trust->_legacy_info_array);
-            trust->_legacy_info_array = NULL;
-        }
-        if (trust->_legacy_status_array) {
-            free(trust->_legacy_status_array);
-            trust->_legacy_status_array = NULL;
-        }
+        /* Deep copy trust since TRUSTD_XPC_ASYNC async's off the trustQueue protecting the input trust */
+        __block SecTrustRef blockTrust = _resetAndDeepCopyTrust(trust);
 
         os_activity_t activity = os_activity_create("SecTrustEvaluateIfNecessaryFastAsync",
                                                     OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
@@ -1901,13 +1861,8 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
         os_activity_scope_enter(activity, &activityState);
         os_release(activity);
 
-        SecTrustValidateInput(trust);
+        SecTrustValidateInput(blockTrust);
 
-        struct {
-            CFArrayRef details;
-            CFDictionaryRef info;
-            CFArrayRef chain;
-        } *trustContext = calloc(1, sizeof(*trustContext));
         TRUSTD_XPC_ASYNC(sec_trust_evaluate,
                          handle_trust_evaluate_xpc_async,
                          queue,
@@ -1916,10 +1871,10 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
             __block OSStatus result = errSecInternalError;
             dispatch_sync(trust->_trustQueue, ^{
                 trust->_trustResult = tr;
-                CFAssignRetained(trust->_details, trustContext->details);
-                CFAssignRetained(trust->_info, trustContext->info);
-                CFAssignRetained(trust->_chain, trustContext->chain);
-                free(trustContext);
+                CFRetainAssign(trust->_details, blockTrust->_details);
+                CFRetainAssign(trust->_info, blockTrust->_info);
+                CFRetainAssign(trust->_chain, blockTrust->_chain);
+                CFReleaseNull(blockTrust);
                 if (trust->_trustResult == kSecTrustResultInvalid /* TODO check domain */ &&
                     SecErrorGetOSStatus(error) == errSecNotAvailable &&
                     CFArrayGetCount(trust->_certificates)) {
@@ -1953,10 +1908,10 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
             handler(result);
             CFReleaseSafe(trust);
         },
-                         trust->_certificates, trust->_anchors, trust->_anchorsOnly, trust->_keychainsAllowed,
-                         trust->_policies, trust->_responses, trust->_SCTs, trust->_trustedLogs,
-                         verifyTime, SecTrustGetCurrentAccessGroups(), trust->_exceptions, trust->_auditToken, trust->_attribution,
-                         &trustContext->details, &trustContext->info, &trustContext->chain);
+                         blockTrust->_certificates, blockTrust->_anchors, blockTrust->_anchorsOnly, blockTrust->_keychainsAllowed,
+                         blockTrust->_policies, blockTrust->_responses, blockTrust->_SCTs, blockTrust->_trustedLogs,
+                         verifyTime, SecTrustGetCurrentAccessGroups(), blockTrust->_exceptions, blockTrust->_auditToken, blockTrust->_attribution,
+                         &blockTrust->_details, &blockTrust->_info, &blockTrust->_chain);
         dispatch_release(queue); // dispatch_async call above retained the queue for the block
     };
 
@@ -3104,12 +3059,10 @@ errOut:
     return result;
 }
 
-static CFPropertyListRef SecTrustCopyPlist(SecTrustRef trust) {
+static CFPropertyListRef _onQueue_SecTrustCopyPlist(SecTrustRef trust) {
     __block CFMutableDictionaryRef output = NULL;
     output = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
                                        &kCFTypeDictionaryValueCallBacks);
-
-    dispatch_sync(trust->_trustQueue, ^{
         if (trust->_certificates) {
             CFArrayRef serializedCerts = SecCertificateArraySerialize(trust->_certificates);
             if (serializedCerts) {
@@ -3174,18 +3127,19 @@ static CFPropertyListRef SecTrustCopyPlist(SecTrustRef trust) {
         } else {
             CFDictionaryAddValue(output, CFSTR(kSecTrustKeychainsAllowedKey), kCFBooleanFalse);
         }
-    });
 
     return output;
 }
 
 CFDataRef SecTrustSerialize(SecTrustRef trust, CFErrorRef *error) {
-    CFPropertyListRef plist = NULL;
+    __block CFPropertyListRef plist = NULL;
     CFDataRef derTrust = NULL;
     require_action_quiet(trust, out,
                          SecError(errSecParam, error, CFSTR("null trust input")));
-    require_action_quiet(plist = SecTrustCopyPlist(trust), out,
-                         SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
+    dispatch_sync(trust->_trustQueue, ^{
+        plist = _onQueue_SecTrustCopyPlist(trust);
+    });
+    require_action_quiet(plist, out, SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
     require_quiet(derTrust = CFPropertyListCreateDERData(NULL, plist, error), out);
 
 out:
@@ -3288,11 +3242,13 @@ out:
 }
 
 CFPropertyListRef SecTrustCopyPropertyListRepresentation(SecTrustRef trust, CFErrorRef *error) {
-    CFPropertyListRef trustPlist = NULL;
+    __block CFPropertyListRef trustPlist = NULL;
     require_action_quiet(trust, out,
                          SecError(errSecParam, error, CFSTR("null trust input")));
-    require_action_quiet(trustPlist = SecTrustCopyPlist(trust), out,
-                         SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
+    dispatch_sync(trust->_trustQueue, ^{
+        trustPlist = _onQueue_SecTrustCopyPlist(trust);
+    });
+    require_action_quiet(trustPlist, out, SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
 out:
     return trustPlist;
 }
@@ -3373,6 +3329,7 @@ OSStatus SecTrustSetClientAuditToken(SecTrustRef trust, CFDataRef auditToken) {
 }
 
 CFArrayRef SecTrustGetAppleAnchors(void) {
+    // TODO: rdar://144133514 (provide new copy apple anchor function that takes policy) and XPC to trustd to get answer
     return SecGetAppleTrustAnchors(false);
 }
 

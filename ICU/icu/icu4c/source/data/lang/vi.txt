@@ -419,6 +419,7 @@ vi{
         nds_NL{"Tiếng Hạ Saxon"}
         ne{"Tiếng Nepal"}
         new{"Tiếng Newari"}
+        nez{"Tiếng Nez Perce"}
         ng{"Tiếng Ndonga"}
         nia{"Tiếng Nias"}
         niu{"Tiếng Niuean"}
@@ -853,7 +854,7 @@ vi{
             islamic-umalqura{"Lịch Hijri (Umm al-Qura)"}
             iso8601{"Lịch ISO-8601"}
             japanese{"Lịch Nhật Bản"}
-            kannada{"Lịch kannada"}
+            kannada{"Lịch Kannada"}
             malayalam{"Lịch Malayalam"}
             marathi{"Lịch Marathi"}
             odia{"Lịch Odia"}
@@ -861,7 +862,7 @@ vi{
             roc{"Lịch Trung Hoa Dân Quốc"}
             tamil{"Lịch Tamil"}
             telugu{"Lịch Telugu"}
-            vietnamese{"lịch Việt Nam"}
+            vietnamese{"Âm lịch"}
             vikram{"Lịch Vikram"}
         }
         cf{

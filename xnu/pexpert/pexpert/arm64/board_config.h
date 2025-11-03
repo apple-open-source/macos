@@ -201,6 +201,30 @@
 #endif  /* ARM64_BOARD_CONFIG_T8132 */
 
 
+#ifdef ARM64_BOARD_CONFIG_T8142
+#include <pexpert/arm64/H17.h>
+
+#define MAX_L2_CLINE                   7
+#define MAX_CPUS                       10
+#define MAX_CPU_CLUSTERS               2
+
+#ifndef CONFIG_SPTM
+#define PMAP_CS                        1
+#define PMAP_CS_ENABLE                 1
+#define XNU_MONITOR                    1 /* Secure pmap runtime */
+#endif /* CONFIG_SPTM */
+
+#define __ARM_42BIT_PA_SPACE__         1
+#define USE_APPLEARMSMP                1
+#define NO_CPU_OVRD                    1 /* CPU_OVRD register accesses are banned */
+
+
+#define XNU_HANDLE_MCC                 1 /* This platform may support MCC error recovery */
+
+#define XNU_PLATFORM_ERROR_HANDLER     1 /* This platform uses the platform error handler inside XNU rather than a kext */
+
+#define HAS_PRIVATE_L2_CACHE           1 /* Has Private L2 cache */
+#endif  /* ARM64_BOARD_CONFIG_T8142 */
 
 
 

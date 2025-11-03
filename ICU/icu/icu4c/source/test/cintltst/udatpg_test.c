@@ -487,6 +487,10 @@ static void TestOptions(void) {
         { "en_JP@calendar=japanese", skel_mmss, UDATPG_MATCH_NO_OPTIONS, patn_mmcss },
         { "en_JP@calendar=japanese", skel_mmssSS, UDATPG_MATCH_NO_OPTIONS, patn_mmcsspSS },
         { "en@calendar=chinese", skel_yMdjm, UDATPG_MATCH_NO_OPTIONS, patn_Mdrhmm_a }, // rdar://122117069
+        { "th@calendar=buddhist",    u"y",    UDATPG_MATCH_NO_OPTIONS, u"y" }, // rdar://153888302
+        { "th@calendar=buddhist",    u"yyyy", UDATPG_MATCH_NO_OPTIONS, u"y" }, // rdar://153888302
+        { "th_TH@calendar=buddhist", u"y",    UDATPG_MATCH_NO_OPTIONS, u"y" }, // rdar://153888302
+        { "th_TH@calendar=buddhist", u"yyyy", UDATPG_MATCH_NO_OPTIONS, u"y" }, // rdar://153888302
         { "da",              u"jm",   UDATPG_MATCH_ALL_FIELDS_LENGTH, u"HH.mm" },
 #else
         // tests for ICU-22669
@@ -1049,7 +1053,7 @@ static void TestCountryFallback(void) {
 
         // Tests for rdar://64948924 (D431/18A314: Incorrect date format in description: th_US)
         u"th_TH", u"Gy", u"G y",
-        u"th_TH", u"y", u"G y",
+        u"th_TH", u"y", u"y", // rdar://153888302
         u"th_TH@calendar=gregorian", u"Gy", u"G y",
         u"th_TH@calendar=gregorian", u"y", u"y",
         u"th_US", u"Gy", u"G y",

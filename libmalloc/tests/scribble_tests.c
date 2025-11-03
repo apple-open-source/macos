@@ -27,7 +27,8 @@ static bool memchk(void *ptr, uint8_t byte, size_t size)
 
 // note that scribble seems to break leaks for szone malloc
 T_DECL(malloc_scribble_check, "check MallocScribble works",
-	T_META_TAG_XZONE,
+	T_META_TAG_ALL_ALLOCATORS,
+	T_META_TAG_VM_PREFERRED,
 	T_META_ENVVAR("MallocScribble=1"),
 	T_META_ENVVAR("MallocProbGuard=0"),  // rdar://121458833
 	T_META_CHECK_LEAKS(false))

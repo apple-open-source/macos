@@ -122,8 +122,7 @@ typedef natural_t ipc_space_refs_t;
 __options_decl(is_telemetry_t, uint8_t, {
 	IS_HAS_BOOTSTRAP_PORT_TELEMETRY         = 0x01,     /* space has emitted a bootstrap port telemetry */
 	IS_HAS_CREATE_PRP_TELEMETRY             = 0x02,     /* space has emitted a create provisional reply port telemetry */
-	IS_HAS_SERVICE_PORT_TELEMETRY           = 0x04,     /* space has emitted a service port telemetry */
-	IS_HAS_MOVE_PRP_TELEMETRY               = 0x08,     /* space has emitted a move provisional reply port telemetry */
+	IS_HAS_MOVE_PRP_TELEMETRY               = 0x04,     /* space has emitted a move provisional reply port telemetry */
 });
 
 struct ipc_space {

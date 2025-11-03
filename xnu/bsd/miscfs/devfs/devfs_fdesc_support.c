@@ -305,7 +305,6 @@ devfs_devfd_lookup(struct vnop_lookup_args *ap)
 	struct componentname *cnp = ap->a_cnp;
 	char *pname = cnp->cn_nameptr;
 	struct proc *p = vfs_context_proc(ap->a_context);
-	int numfiles = p->p_fd.fd_nfiles;
 	int fd;
 	int error;
 	struct vnode *fvp;
@@ -331,10 +330,21 @@ devfs_devfd_lookup(struct vnop_lookup_args *ap)
 		goto bad;
 	}
 
-	if (fd < 0 || fd >= numfiles ||
+	proc_fdlock_spin(p);
+	if (fd < 0 || fd >= p->p_fd.fd_nfiles ||
 	    *fdfile(p, fd) == NULL ||
 	    (*fdflags(p, fd) & UF_RESERVED)) {
+		proc_fdunlock(p);
 		error = EBADF;
+		goto bad;
+	}
+	proc_fdunlock(p);
+
+	/*
+	 * Don't allow mount/unmount operations on fdesc vnodes
+	 */
+	if (cnp->cn_ndp->ni_op == OP_MOUNT || cnp->cn_ndp->ni_op == OP_UNMOUNT) {
+		error = ENOTSUP;
 		goto bad;
 	}
 
@@ -599,6 +609,7 @@ devfs_devfd_readdir(struct vnop_readdir_args *ap)
 	struct proc *p = current_proc();
 	off_t i;
 	int error;
+	bool proc_fd_locked = false;
 
 	/*
 	 * We don't allow exporting fdesc mounts, and currently local
@@ -618,13 +629,19 @@ devfs_devfd_readdir(struct vnop_readdir_args *ap)
 	i = uio->uio_offset / UIO_MX;
 	error = 0;
 	while (uio_resid(uio) >= UIO_MX) {
+		proc_fdlock(p);
 		if (i >= p->p_fd.fd_nfiles || i < 0) {
+			proc_fdunlock(p);
 			break;
 		}
+		proc_fd_locked = true;
 
 		if (*fdfile(p, i) != NULL && !(*fdflags(p, i) & UF_RESERVED)) {
 			struct dirent d;
 			struct dirent *dp = &d;
+
+			proc_fdunlock(p);
+			proc_fd_locked = false;
 
 			bzero((caddr_t) dp, UIO_MX);
 
@@ -640,6 +657,11 @@ devfs_devfd_readdir(struct vnop_readdir_args *ap)
 			if (error) {
 				break;
 			}
+		}
+
+		if (proc_fd_locked) {
+			proc_fdunlock(p);
+			proc_fd_locked = false;
 		}
 		i++;
 	}

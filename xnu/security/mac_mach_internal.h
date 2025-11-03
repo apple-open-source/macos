@@ -96,6 +96,7 @@ int	mac_task_check_set_task_exception_ports(struct task *task,
 int	mac_task_check_set_thread_exception_ports(struct task *task,
 	    struct task *target, unsigned int exception_mask, int new_behavior);
 int mac_task_check_get_movable_control_port(void);
+int mac_task_check_get_movable_control_port_during_spawn(struct task *new_task);
 int mac_task_check_dyld_process_info_notify_register(void);
 
 /* See rdar://problem/58989880 */

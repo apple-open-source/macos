@@ -214,6 +214,9 @@ typedef struct cpu_data {
 	vm_offset_t                     coresight_base[CORESIGHT_REGIONS];
 #endif
 
+#if NEEDS_MTE_IRG_RESEED
+	uint64_t                        cpu_irg_reseed_counter;
+#endif
 
 	/* CCC ARMv8 registers */
 	uint64_t                        cpu_regmap_paddr;
@@ -290,6 +293,9 @@ typedef struct cpu_data {
 	uint64_t cpm_reg_paddr;
 #endif
 
+#if HAS_MTE
+	uint64_t mte_rgsr_el1_seed;
+#endif
 } cpu_data_t;
 
 extern  cpu_data_entry_t                CpuDataEntries[MAX_CPUS];

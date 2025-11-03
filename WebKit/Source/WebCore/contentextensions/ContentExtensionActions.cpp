@@ -371,20 +371,23 @@ size_t RedirectAction::serializedLength(std::span<const uint8_t> span)
 
 void RedirectAction::applyToRequest(ResourceRequest& request, const URL& extensionBaseURL)
 {
-    WTF::visit(WTF::makeVisitor([&](const ExtensionPathAction& action) {
+    auto url = request.url();
+    modifyURL(url, extensionBaseURL);
+    request.setURL(WTFMove(url));
+}
+
+void RedirectAction::modifyURL(URL& originalURL, const URL& extensionBaseURL)
+{
+    return WTF::visit(WTF::makeVisitor([&](const ExtensionPathAction& action) {
         auto url = extensionBaseURL;
         url.setPath(action.extensionPath);
-        request.setURL(WTFMove(url));
+        originalURL = url;
     }, [&] (const RegexSubstitutionAction& action) {
-        auto url = request.url();
-        action.applyToURL(url);
-        request.setURL(WTFMove(url));
+        action.applyToURL(originalURL);
     }, [&] (const URLTransformAction& action) {
-        auto url = request.url();
-        action.applyToURL(url);
-        request.setURL(WTFMove(url));
+        action.applyToURL(originalURL);
     }, [&] (const URLAction& action) {
-        request.setURL(URL { action.url });
+        originalURL = URL { action.url };
     }), action);
 }
 

@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # cgi.rb -- Yet another CGI library
 #
@@ -6,7 +6,7 @@
 # Copyright (c) 2003 Internet Programming with Ruby writers. All rights
 # reserved.
 #
-# $Id: cgi.rb 65505 2018-11-02 17:52:33Z marcandre $
+# $Id$
 
 require_relative "httprequest"
 require_relative "httpresponse"
@@ -160,7 +160,7 @@ module WEBrick
         __send__(method_name, req, res)
       else
         raise HTTPStatus::MethodNotAllowed,
-              "unsupported method `#{req.request_method}'."
+              "unsupported method '#{req.request_method}'."
       end
     end
 

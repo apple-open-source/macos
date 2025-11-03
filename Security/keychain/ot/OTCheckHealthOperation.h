@@ -48,6 +48,7 @@ NS_ASSUME_NONNULL_BEGIN
              reportRateLimitingError:(BOOL)reportRateLimitingError
                               repair:(BOOL)repair
                  danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                   caesarPeerCleanup:(BOOL)caesarPeerCleanup
                           updateIdMS:(BOOL)updateIdMS;
 
 @property OTDeviceInformation* deviceInfo;
@@ -56,6 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) BOOL reportRateLimitingError;
 @property (readonly) BOOL repair;
 @property (readonly) BOOL danglingPeerCleanup;
+@property (readonly) BOOL caesarPeerCleanup;
 @property (readonly) BOOL updateIdMS;
 
 @property (nullable) TrustedPeersHelperHealthCheckResult* results;

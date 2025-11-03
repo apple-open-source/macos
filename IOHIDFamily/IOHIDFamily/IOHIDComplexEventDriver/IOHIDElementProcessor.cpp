@@ -743,8 +743,22 @@ bool IOHIDButtonElementProcessor::init(IOService * owner, IOHIDElement * collect
     children = collection->getChildElements();
     require_action_quiet(children, exit, HIDElementProcessorLogError("collection has no child elements"));
 
-    _input = copyElement(children, kIOHIDElementTypeInput_Button, kHIDPage_Button);
-    if (_input) {
+    if ((_input = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_Button, collection->getUsage()))) {
+        // SV (multi-bit) element
+        require_action_quiet(_input->getPhysicalMin() == 0, exit, HIDElementProcessorLogError("unexpected physical min:%d for button %u", _input->getPhysicalMin(), collection->getUsage()));
+        require_action_quiet(_input->getPhysicalMax() == 1, exit, HIDElementProcessorLogError("unexpected physical max:%d for button %u", _input->getPhysicalMax(), collection->getUsage()));
+
+        // For analog buttons, allow the device to report a "press" state in addition to the analog
+        // 0-1 value. This is done via a single-bit element with the same button usage.
+        if ((_pressState = copyElement(children, kIOHIDElementTypeInput_Button, kHIDPage_Button, collection->getUsage()))) {
+            require_action_quiet(_pressState->getReportSize() == 1, exit, HIDElementProcessorLogError("unexpected report size:%d for switch element (button %u)", _pressState->getReportSize(), collection->getUsage()));
+            require_action_quiet(_pressState->getLogicalMin() == 0, exit, HIDElementProcessorLogError("unexpected logical min:%d for switch element (button %u)", _pressState->getLogicalMin(), collection->getUsage()));
+            require_action_quiet(_pressState->getLogicalMax() == 1, exit, HIDElementProcessorLogError("unexpected logical max:%d for switch element (button %u)", _pressState->getLogicalMax(), collection->getUsage()));
+        }
+
+        setProperty(key.get(), kOSBooleanTrue);
+    }
+    else if ((_input = copyElement(children, kIOHIDElementTypeInput_Button, kHIDPage_Button, collection->getUsage()))) {
         // MC element
         require_action_quiet(_input->getReportSize() == 1, exit, HIDElementProcessorLogError("unexpected report size:%d for button %u", _input->getReportSize(), collection->getUsage()));
         require_action_quiet(_input->getLogicalMin() == 0, exit, HIDElementProcessorLogError("unexpected logical min:%d for button %u", _input->getLogicalMin(), collection->getUsage()));
@@ -752,18 +766,11 @@ bool IOHIDButtonElementProcessor::init(IOService * owner, IOHIDElement * collect
 
         setProperty(key.get(), kOSBooleanFalse);
     }
-    else {
-        // SV element
-        _input = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_Button);
-        require_action_quiet(_input, exit, HIDElementProcessorLog("missing input element for button %u", collection->getUsage()));
-        require_action_quiet(_input->getPhysicalMin() == 0, exit, HIDElementProcessorLogError("unexpected physical min:%d for button %u", _input->getPhysicalMin(), collection->getUsage()));
-        require_action_quiet(_input->getPhysicalMax() == 1, exit, HIDElementProcessorLogError("unexpected physical max:%d for button %u", _input->getPhysicalMax(), collection->getUsage()));
+    require_action_quiet(_input, exit, HIDElementProcessorLogError("missing input element for button %u", collection->getUsage()));
 
-        setProperty(key.get(), kOSBooleanTrue);
-    }
-
-    _pressThreshold = getPressThreshold();
-    _releaseThreshold = getReleaseThreshold();
+    // arbitrary default thresholds to use if there is no press state element
+    _pressThreshold = CAST_DOUBLE_TO_FIXED(0.5);
+    _releaseThreshold = CAST_DOUBLE_TO_FIXED(0.4);
 
     success = super::init(owner, _input->getReportID(), kIOHIDEventTypeButton, kHIDPage_Button, collection->getUsage());
     if (success) {
@@ -841,26 +848,16 @@ IOHIDButtonElementProcessor::getButtonPressure() const
 void
 IOHIDButtonElementProcessor::updateButtonState(IOFixed pressure)
 {
-    if (!_state && pressure >= _pressThreshold) {
+    // prefer explicit press-state element if present
+    if (_pressState) {
+        _state = _pressState->getValue();
+    }
+    else if (!_state && pressure >= _pressThreshold) {
         _state = true;
     }
     else if (_state && pressure < _releaseThreshold) {
         _state = false;
     }
-}
-
-IOFixed
-IOHIDButtonElementProcessor::getPressThreshold() const
-{
-    // TODO: <rdar://148054441> Query this threshold from device.
-    return CAST_DOUBLE_TO_FIXED(0.5);
-}
-
-IOFixed
-IOHIDButtonElementProcessor::getReleaseThreshold() const
-{
-    // TODO: <rdar://148054441> Query this threshold from device.
-    return CAST_DOUBLE_TO_FIXED(0.4);
 }
 
 #pragma mark - IOHIDForceSensorElementProcessor
@@ -885,6 +882,8 @@ IOHIDForceSensorElementProcessor::init(IOService * owner, IOHIDElement * collect
 {
     bool success = false;
     OSArray * children = nullptr;
+    OSSharedPtr<OSString> key = nullptr;
+    OSSharedPtr<OSNumber> num = nullptr;
 
     assert(collection);
 
@@ -899,6 +898,14 @@ IOHIDForceSensorElementProcessor::init(IOService * owner, IOHIDElement * collect
     // inputs
     _force = copyElement(children, kIOHIDElementTypeInput_Misc, kHIDPage_Sensor, kHIDUsage_Snsr_Data_Mechanical_Force);
     require_action_quiet(_force.get(), exit, HIDElementProcessorLogError("missing force element"));
+
+    key = OSString::withCString("PhysicalMin");
+    num = OSNumber::withNumber(_force->getPhysicalMin(), 32);
+    setProperty(key.get(), num.get());
+
+    key = OSString::withCString("PhysicalMax");
+    num = OSNumber::withNumber(_force->getPhysicalMax(), 32);
+    setProperty(key.get(), num.get());
 
     success = super::init(owner, _force->getReportID(), kIOHIDEventTypeVendorDefined, kHIDPage_Sensor, kHIDUsage_Snsr_Mechanical_Force);
     if (success) {

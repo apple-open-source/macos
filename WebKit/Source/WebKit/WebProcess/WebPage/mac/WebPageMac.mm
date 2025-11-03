@@ -64,6 +64,7 @@
 #import <WebCore/DataDetection.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/Editing.h>
+#import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FocusController.h>
@@ -72,7 +73,6 @@
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/HTMLAttachmentElement.h>
-#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLImageElement.h>
 #import <WebCore/HTMLPlugInImageElement.h>
 #import <WebCore/HitTestResult.h>
@@ -83,6 +83,7 @@
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/NetworkStorageSession.h>
+#import <WebCore/NodeHTMLConverter.h>
 #import <WebCore/NodeRenderStyle.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageOverlayController.h>
@@ -218,17 +219,6 @@ void WebPage::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandid
 {
     if (RefPtr frame = m_page->focusController().focusedLocalFrame())
         frame->protectedEditor()->handleAcceptedCandidate(acceptedCandidate);
-}
-
-NSObject *WebPage::accessibilityObjectForMainFramePlugin()
-{
-    if (!m_page)
-        return nil;
-    
-    if (RefPtr pluginView = mainFramePlugIn())
-        return pluginView->accessibilityObject();
-
-    return nil;
 }
 
 static String commandNameForSelectorName(const String& selectorName)

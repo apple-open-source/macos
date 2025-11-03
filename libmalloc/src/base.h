@@ -210,6 +210,10 @@ extern size_t malloc_absolute_max_size; // caches the definition above
 // See malloc_implementation.h
 // MALLOC_MSL_LITE_WRAPPED_ZONE_FLAGS == (1 << 10)
 
+#if CONFIG_MTE
+// allocate objects such that they can be MTE-tagged
+#define MALLOC_MTE_TAGGABLE (1 << 11)
+#endif
 
 /*
  * These commpage routines provide fast access to the logical cpu number

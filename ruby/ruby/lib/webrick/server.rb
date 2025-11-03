@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # server.rb -- GenericServer Class
 #
@@ -102,6 +102,9 @@ module WEBrick
       @listeners = []
       @shutdown_pipe = nil
       unless @config[:DoNotListen]
+        raise ArgumentError, "Port must be an integer" unless @config[:Port].to_s == @config[:Port].to_i.to_s
+
+        @config[:Port] = @config[:Port].to_i
         if @config[:Listen]
           warn(":Listen option is deprecated; use GenericServer#listen", uplevel: 1)
         end
@@ -362,7 +365,7 @@ module WEBrick
         begin
           s.shutdown
         rescue Errno::ENOTCONN
-          # when `Errno::ENOTCONN: Socket is not connected' on some platforms,
+          # when 'Errno::ENOTCONN: Socket is not connected' on some platforms,
           # call #close instead of #shutdown.
           # (ignore @config[:ShutdownSocketWithoutClose])
           s.close

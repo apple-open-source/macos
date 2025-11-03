@@ -61,7 +61,6 @@
  *
  *	Resident memory management module.
  */
-#include <AppleFeatures.h>
 #include <debug.h>
 #include <libkern/OSDebug.h>
 
@@ -105,6 +104,9 @@
 #include <vm/vm_iokit.h>
 #include <vm/vm_object_internal.h>
 
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#endif /* HAS_MTE */
 
 #if defined (__x86_64__)
 #include <i386/misc_protos.h>
@@ -232,6 +234,9 @@ boolean_t       hibernation_vmqueues_inspection = FALSE; /* Tracks if the hibern
 
 static void             vm_page_free_prepare(vm_page_t  page);
 
+#if HAS_MTE
+void                    vm_page_wire_boot_tags(void);
+#endif /* HAS_MTE */
 
 static void vm_tag_init(void);
 
@@ -379,6 +384,10 @@ SECURITY_READ_ONLY_LATE(uint32_t)  vm_pages_count;
 #if XNU_VM_HAS_LINEAR_PAGES_ARRAY
 SECURITY_READ_ONLY_LATE(ppnum_t)   vm_pages_first_pnum;
 #endif /* XNU_VM_HAS_LINEAR_PAGES_ARRAY */
+#if HAS_MTE
+SECURITY_READ_ONLY_LATE(vm_page_t) vm_pages_tag_storage;
+SECURITY_READ_ONLY_LATE(vm_page_t) vm_pages_tag_storage_end;
+#endif /* HAS_MTE */
 #if CONFIG_SPTM
 /*
  * When used, these 128bit (MAX_COLORS bits) masks represent a "cluster"
@@ -613,6 +622,16 @@ vm_set_page_size(void)
 	}
 }
 
+#if HAS_MTE
+
+bool
+vm_page_is_tag_storage_pnum(vm_page_t mem, ppnum_t pnum)
+{
+	return pmap_in_tag_storage_range(pnum) &&
+	       !mteinfo_tag_storage_disabled(mem);
+}
+
+#endif
 
 /*
  * @abstract
@@ -628,7 +647,19 @@ vm_page_get_memory_class(vm_page_t mem __unused, ppnum_t pnum __unused)
 		return VM_MEMORY_CLASS_LOPAGE;
 	}
 #endif /* XNU_VM_HAS_LOPAGE */
+#if HAS_MTE
+	if (mem->vmp_using_mte) {
+		return VM_MEMORY_CLASS_TAGGED;
+	} else if (!is_mte_enabled || !pmap_in_tag_storage_range(pnum)) {
+		return VM_MEMORY_CLASS_REGULAR;
+	} else if (mteinfo_tag_storage_disabled(mem)) {
+		return VM_MEMORY_CLASS_DEAD_TAG_STORAGE;
+	} else {
+		return VM_MEMORY_CLASS_TAG_STORAGE;
+	}
+#else /* !HAS_MTE */
 	return VM_MEMORY_CLASS_REGULAR;
+#endif /* !HAS_MTE */
 }
 
 /*
@@ -720,6 +751,14 @@ vm_page_free_queue_for_class(vm_memory_class_t mem_class, unsigned int color)
 {
 	switch (mem_class) {
 	case VM_MEMORY_CLASS_REGULAR:
+#if HAS_MTE
+	case VM_MEMORY_CLASS_TAGGED:
+	case VM_MEMORY_CLASS_TAG_STORAGE:
+		if (is_mte_enabled) {
+			return NULL;
+		}
+	case VM_MEMORY_CLASS_DEAD_TAG_STORAGE:
+#endif
 		return &vm_page_queue_free.vmpfq_queues[color].qhead;
 #if XNU_VM_HAS_LOPAGE
 	case VM_MEMORY_CLASS_LOPAGE:
@@ -738,6 +777,11 @@ vm_page_free_queue_has_colors(vm_memory_class_t mem_class)
 {
 	switch (mem_class) {
 	case VM_MEMORY_CLASS_REGULAR:
+#if HAS_MTE
+	case VM_MEMORY_CLASS_TAGGED:
+	case VM_MEMORY_CLASS_TAG_STORAGE:
+	case VM_MEMORY_CLASS_DEAD_TAG_STORAGE:
+#endif
 		return true;
 #if XNU_VM_HAS_LOPAGE
 	case VM_MEMORY_CLASS_LOPAGE:
@@ -761,6 +805,11 @@ vm_page_secluded_pool_eligible(vm_memory_class_t class)
 	case VM_MEMORY_CLASS_LOPAGE:
 		return false;
 #endif /* XNU_VM_HAS_LOPAGE */
+#if HAS_MTE
+	case VM_MEMORY_CLASS_TAG_STORAGE:
+	case VM_MEMORY_CLASS_TAGGED:
+		return false;
+#endif /* HAS_MTE */
 	default:
 		return true;
 	}
@@ -959,6 +1008,20 @@ vm_page_free_queue_enter(vm_memory_class_t class, vm_page_t mem, ppnum_t pnum)
 		break;
 	}
 
+#if HAS_MTE
+	if (is_mte_enabled) {
+		switch (class) {
+		case VM_MEMORY_CLASS_REGULAR:
+			return mteinfo_covered_page_set_free(pnum, false);
+		case VM_MEMORY_CLASS_TAGGED:
+			return mteinfo_covered_page_set_free(pnum, true);
+		case VM_MEMORY_CLASS_TAG_STORAGE:
+			return mteinfo_tag_storage_set_inactive(mem, false);
+		default:
+			break;
+		}
+	}
+#endif /* HAS_MTE */
 
 	color = VM_PAGE_GET_COLOR_PNUM(pnum);
 	queue = vm_page_free_queue_for_class(class, color);
@@ -989,6 +1052,13 @@ vm_page_free_queue_enter(vm_memory_class_t class, vm_page_t mem, ppnum_t pnum)
 		VM_COUNTER_INC(&vm_page_queue_free.vmpfq_count);
 		VM_COUNTER_INC(&vm_page_free_count);
 		break;
+#if HAS_MTE
+	case VM_MEMORY_CLASS_DEAD_TAG_STORAGE:
+		VM_COUNTER_INC(&vm_page_queue_free.vmpfq_count);
+		VM_COUNTER_INC(&vm_page_free_unmanaged_tag_storage_count);
+		/* these do not participate to the vm page free count */
+		break;
+#endif
 #if XNU_VM_HAS_LOPAGE
 	case VM_MEMORY_CLASS_LOPAGE:
 		VM_COUNTER_INC(&vm_lopage_free_count);
@@ -1022,6 +1092,10 @@ vm_page_free_queue_enter(vm_memory_class_t class, vm_page_t mem, ppnum_t pnum)
  */
 typedef struct {
 	uint8_t vmpr_regular;
+#if HAS_MTE
+	uint8_t vmpr_taggable;
+	uint8_t vmpr_tag_storage;
+#endif /* HAS_MTE */
 	uint8_t vmpr_lopage;
 #if CONFIG_SECLUDED_MEMORY
 	uint8_t vmpr_secluded;
@@ -1042,6 +1116,10 @@ vm_page_free_queue_has_any_waiters(void)
 
 	result |= vm_page_free_wanted;
 	result |= vm_page_free_wanted_privileged;
+#if HAS_MTE
+	result |= vm_page_free_wanted_tagged;
+	result |= vm_page_free_wanted_tagged_privileged;
+#endif /* HAS_MTE */
 #if CONFIG_SECLUDED_MEMORY
 	result |= vm_page_free_wanted_secluded;
 #endif /* CONFIG_SECLUDED_MEMORY */
@@ -1086,6 +1164,13 @@ vm_page_free_queue_handle_wakeups_and_unlock(vmp_free_list_result_t vmpr)
 	unsigned int    need_wakeup_secluded = 0;
 #endif /* CONFIG_SECLUDED_MEMORY */
 	unsigned int    unpriv_limit;
+#if HAS_MTE
+	unsigned int    need_tagged_wakeup = 0;
+	unsigned int    need_priv_tagged_wakeup = 0;
+	unsigned int    unpriv_tagged_limit;
+	unsigned int    n;
+	bool            wakeup_refill_thread = false;
+#endif /* HAS_MTE */
 
 #define DONATE_TO_WAITERS(wake, count, waiters_count, limit)  ({ \
 	uint32_t __n = MIN(MIN(waiters_count, vmpr.count), limit);              \
@@ -1098,10 +1183,35 @@ vm_page_free_queue_handle_wakeups_and_unlock(vmp_free_list_result_t vmpr)
 	/*
 	 *	Step 1: privileged waiters get to be satisfied first
 	 */
+#if HAS_MTE
+	if (vm_page_free_wanted_tagged_privileged) {
+		DONATE_TO_WAITERS(need_priv_tagged_wakeup,
+		    vmpr_taggable, vm_page_free_wanted_tagged_privileged,
+		    UINT32_MAX);
+
+		/*
+		 * If we will not wake up privileged threads, and there are
+		 * tagged privileged waiters, we need the refill thread to do
+		 * an emergency activation or reclaim to fulfill this need.
+		 *
+		 * We need to at least have 2 extra free pages because the
+		 * reclaim path might require to relocate a page to give us one.
+		 */
+		if (!need_priv_tagged_wakeup &&
+		    vm_page_free_count >= vm_page_free_taggable_count + 2) {
+			wakeup_refill_thread = true;
+		}
+	}
+#endif /* HAS_MTE */
 	if (vm_page_free_wanted_privileged) {
 		DONATE_TO_WAITERS(need_priv_wakeup,
 		    vmpr_regular, vm_page_free_wanted_privileged,
 		    UINT32_MAX);
+#if HAS_MTE
+		DONATE_TO_WAITERS(need_priv_wakeup,
+		    vmpr_taggable, vm_page_free_wanted_privileged,
+		    UINT32_MAX);
+#endif /* HAS_MTE */
 	}
 
 
@@ -1116,6 +1226,14 @@ vm_page_free_queue_handle_wakeups_and_unlock(vmp_free_list_result_t vmpr)
 	} else {
 		unpriv_limit = vm_page_free_count - vm_page_free_reserved;
 	}
+#if HAS_MTE
+	if (vm_page_free_taggable_count <= vm_page_free_reserved) {
+		unpriv_tagged_limit = 0;
+	} else {
+		unpriv_tagged_limit = vm_page_free_taggable_count -
+		    vm_page_free_reserved;
+	}
+#endif /* HAS_MTE */
 
 	/*
 	 *	Step 3: satisfy secluded waiters, using the secluded pool first,
@@ -1139,10 +1257,40 @@ vm_page_free_queue_handle_wakeups_and_unlock(vmp_free_list_result_t vmpr)
 	/*
 	 *	Step 4: satisfy regular demand last.
 	 */
+#if HAS_MTE
+	if (vm_page_free_wanted_tagged) {
+		n = DONATE_TO_WAITERS(need_tagged_wakeup,
+		    vmpr_taggable, vm_page_free_wanted_tagged,
+		    MIN(unpriv_limit, unpriv_tagged_limit));
+
+		unpriv_limit -= n;
+		unpriv_tagged_limit -= n;
+
+		if (vm_page_free_wanted_tagged == 0) {
+			need_tagged_wakeup = UINT32_MAX;
+		} else if (vm_page_free_count >=
+		    MAX(vm_page_free_taggable_count + 2, vm_page_free_min)) {
+			/*
+			 * If we still have tagged waiters, and that rebalancing
+			 * pages would get us above vm_page_free_min, then wake
+			 * up the refill thread to help do that rebalance.
+			 */
+			wakeup_refill_thread = true;
+		}
+	}
+#endif /* HAS_MTE */
 	if (vm_page_free_wanted) {
 		unpriv_limit -= DONATE_TO_WAITERS(need_wakeup,
 		    vmpr_regular, vm_page_free_wanted,
 		    unpriv_limit);
+#if HAS_MTE
+		n = DONATE_TO_WAITERS(need_wakeup,
+		    vmpr_taggable, vm_page_free_wanted,
+		    MIN(unpriv_limit, unpriv_tagged_limit));
+
+		unpriv_limit -= n;
+		unpriv_tagged_limit -= n;
+#endif /* HAS_MTE */
 		if (vm_page_free_wanted == 0) {
 			need_wakeup = UINT32_MAX;
 		}
@@ -1177,6 +1325,19 @@ vm_page_free_queue_handle_wakeups_and_unlock(vmp_free_list_result_t vmpr)
 	if (need_wakeup) {
 		vm_page_free_wakeup(&vm_page_free_count, need_wakeup);
 	}
+#if HAS_MTE
+	if (need_priv_tagged_wakeup) {
+		vm_page_free_wakeup(&vm_page_free_wanted_tagged_privileged,
+		    UINT32_MAX);
+	}
+	if (need_tagged_wakeup) {
+		vm_page_free_wakeup(&vm_page_free_wanted_tagged,
+		    need_tagged_wakeup);
+	}
+	if (wakeup_refill_thread) {
+		mteinfo_wake_fill_thread();
+	}
+#endif /* HAS_MTE */
 #if CONFIG_SECLUDED_MEMORY
 	if (need_wakeup_secluded) {
 		vm_page_free_wakeup(&vm_page_free_wanted_secluded,
@@ -1199,6 +1360,14 @@ vm_page_free_queue_handle_wakeups_and_unlock(vmp_free_list_result_t vmpr)
  *
  * The list must contain less than 255 elements.
  */
+#if HAS_MTE
+/*
+ * To put it more bluntly: this will demux pages onto the free tag storage
+ * queue or the global free queue, as appropriate.  If we start freeing tagged
+ * pages onto the free tagged queue, this function should be updated to deal
+ * with that too.
+ */
+#endif /* HAS_MTE */
 static void
 vm_page_free_queue_enter_list(vm_page_list_t list, vmp_release_options_t opts)
 {
@@ -1224,6 +1393,33 @@ vm_page_free_queue_enter_list(vm_page_list_t list, vmp_release_options_t opts)
 
 #if CONFIG_SECLUDED_MEMORY
 	do_secluded = vm_page_secluded_pool_depleted();
+#if HAS_MTE
+	if (do_secluded && list.vmpl_has_tagged &&
+	    (opts & VMP_RELEASE_Q_LOCKED) == 0) {
+		/*
+		 * Try to do the untagging so that pages become eligible
+		 * for the secluded pool while holding the least amount
+		 * of locks possible.
+		 *
+		 * This does mean we shouldn't do this retyping if the page
+		 * queue lock is held for real. The only path doing this
+		 * right now is vm_page_free() which is one page at a time,
+		 * so it's probably "fine" to not contribute these to the
+		 * secluded pool.
+		 */
+		const unified_page_list_t pmap_batch_list = {
+			.page_slist = list.vmpl_head,
+			.type = UNIFIED_PAGE_LIST_TYPE_VM_PAGE_LIST,
+		};
+
+		pmap_unmake_tagged_pages(&pmap_batch_list);
+		vm_page_list_foreach(mem, list) {
+			mem->vmp_using_mte = false;
+		}
+		list.vmpl_has_tagged = false;
+		list.vmpl_has_untagged = true;
+	}
+#endif /* HAS_MTE */
 #endif /* CONFIG_SECLUDED_MEMORY */
 
 	if (!page_queues_locked && (list.vmpl_has_realtime || do_secluded)) {
@@ -1275,8 +1471,24 @@ vm_page_free_queue_enter_list(vm_page_list_t list, vmp_release_options_t opts)
 
 		switch (class) {
 		case VM_MEMORY_CLASS_REGULAR:
+#if HAS_MTE
+			if (is_mte_enabled && mteinfo_covered_page_taggable(pnum)) {
+				result.vmpr_taggable++;
+				break;
+			}
+			OS_FALLTHROUGH;
+		case VM_MEMORY_CLASS_DEAD_TAG_STORAGE:
+#endif /* HAS_MTE */
 			result.vmpr_regular++;
 			break;
+#if HAS_MTE
+		case VM_MEMORY_CLASS_TAGGED:
+			result.vmpr_taggable++;
+			break;
+		case VM_MEMORY_CLASS_TAG_STORAGE:
+			result.vmpr_tag_storage++;
+			break;
+#endif /* HAS_MTE */
 #if XNU_VM_HAS_LOPAGE
 		case VM_MEMORY_CLASS_LOPAGE:
 			result.vmpr_lopage++;
@@ -1339,6 +1551,20 @@ vm_page_free_queue_remove(
 
 	mem->vmp_q_state = q_state;
 
+#if HAS_MTE
+	if (is_mte_enabled) {
+		switch (class) {
+		case VM_MEMORY_CLASS_REGULAR:
+			return mteinfo_covered_page_set_used(pnum, false);
+		case VM_MEMORY_CLASS_TAGGED:
+			return mteinfo_covered_page_set_used(pnum, true);
+		case VM_MEMORY_CLASS_TAG_STORAGE:
+			return mteinfo_tag_storage_set_claimed(mem);
+		default:
+			break;
+		}
+	}
+#endif /* HAS_MTE */
 
 	color = VM_PAGE_GET_COLOR_PNUM(pnum);
 	queue = vm_page_free_queue_for_class(class, color);
@@ -1373,6 +1599,13 @@ vm_page_free_queue_remove(
 		VM_COUNTER_DEC(&vm_page_queue_free.vmpfq_count);
 		VM_COUNTER_DEC(&vm_page_free_count);
 		break;
+#if HAS_MTE
+	case VM_MEMORY_CLASS_DEAD_TAG_STORAGE:
+		VM_COUNTER_DEC(&vm_page_queue_free.vmpfq_count);
+		VM_COUNTER_DEC(&vm_page_free_unmanaged_tag_storage_count);
+		/* these do not participate to the vm page free count */
+		break;
+#endif /* HAS_MTE */
 #if XNU_VM_HAS_LOPAGE
 	case VM_MEMORY_CLASS_LOPAGE:
 		VM_COUNTER_DEC(&vm_lopage_free_count);
@@ -1408,6 +1641,11 @@ vm_page_free_queue_grab(
 	assert(get_preemption_level() != 0);
 	assert(q_state <= VM_PAGE_Q_STATE_LAST_VALID_VALUE);
 
+#if HAS_MTE
+	if (is_mte_enabled && class != VM_MEMORY_CLASS_DEAD_TAG_STORAGE) {
+		return mteinfo_free_queue_grab(options, class, num_pages, q_state);
+	}
+#endif /* HAS_MTE */
 
 	colorp = PERCPU_GET(start_color);
 	color  = *colorp;
@@ -1503,6 +1741,13 @@ vm_page_free_queue_grab(
 		VM_COUNTER_SUB(&vm_page_queue_free.vmpfq_count, list.vmpl_count);
 		VM_COUNTER_SUB(&vm_page_free_count, list.vmpl_count);
 		break;
+#if HAS_MTE
+	case VM_MEMORY_CLASS_DEAD_TAG_STORAGE:
+		VM_COUNTER_SUB(&vm_page_queue_free.vmpfq_count, list.vmpl_count);
+		VM_COUNTER_SUB(&vm_page_free_unmanaged_tag_storage_count, list.vmpl_count);
+		/* these do not participate to the vm page free count */
+		break;
+#endif /* HAS_MTE */
 #if XNU_VM_HAS_LOPAGE
 	case VM_MEMORY_CLASS_LOPAGE:
 		VM_COUNTER_SUB(&vm_lopage_free_count, list.vmpl_count);
@@ -2106,6 +2351,13 @@ vm_page_bootstrap(
 #if CONFIG_SECLUDED_MEMORY
 	vm_page_wire_count -= vm_page_secluded_count;
 #endif
+#if HAS_MTE
+	/*
+	 * Discount any tag storage pages that we have set aside in
+	 * vm_page_release_startup().
+	 */
+	vm_page_wire_count -= mte_tag_storage_count;
+#endif
 	vm_page_wire_count_initial = vm_page_wire_count;
 
 	/* capture this for later use */
@@ -2242,6 +2494,12 @@ pmap_steal_memory_internal(
 #endif
 		pmap_flags = flags ? flags : VM_WIMG_USE_DEFAULT;
 
+#if HAS_MTE
+		if (pmap_flags & VM_MEM_MAP_MTE) {
+			mteinfo_covered_page_set_stolen_tagged(phys_page);
+			pmap_make_tagged_page(phys_page);
+		}
+#endif /* HAS_MTE */
 
 		kr = pmap_enter(kernel_pmap, map_addr, phys_page,
 		    VM_PROT_READ | VM_PROT_WRITE, VM_PROT_NONE,
@@ -2290,6 +2548,15 @@ pmap_steal_freeable_memory(
 	return pmap_steal_memory_internal(size, 0, TRUE, 0, PMAP_MAPPING_TYPE_RESTRICTED);
 }
 
+#if HAS_MTE
+void *
+pmap_steal_zone_memory(
+	vm_size_t size,
+	vm_size_t alignment)
+{
+	return pmap_steal_memory_internal(size, alignment, FALSE, VM_MEM_MAP_MTE, PMAP_MAPPING_TYPE_RESTRICTED);
+}
+#endif /* HAS_MTE */
 
 
 #if CONFIG_SECLUDED_MEMORY
@@ -2359,6 +2626,9 @@ pmap_startup(
 
 #if XNU_VM_HAS_LINEAR_PAGES_ARRAY
 	mem_sz  = ptoa(pmap_free_pages_span());
+#if HAS_MTE
+	if (!is_mte_enabled)
+#endif /* HAS_MTE */
 #if CONFIG_SPTM
 	{
 		uint32_t count = vm_pages_free_mask_len();
@@ -2461,6 +2731,14 @@ pmap_startup(
 			vm_pages_first_pnum = phys_page;
 			patch_low_glo_vm_page_info(vm_pages, vm_pages_end,
 			    vm_pages_first_pnum);
+#if HAS_MTE
+			if (is_mte_enabled) {
+				vm_pages_tag_storage = vm_page_get(
+					(mte_tag_storage_start_pnum - vm_pages_first_pnum));
+				vm_pages_tag_storage_end = vm_tag_storage_page_get(mte_tag_storage_count);
+				assert3p(vm_pages_tag_storage_end, <=, vm_pages_end);
+			}
+#endif /* HAS_MTE */
 		}
 #else
 		/* The x86 clump freeing code requires increasing ppn's to work correctly */
@@ -2724,6 +3002,10 @@ vm_pages_radix_next(uint32_t *cursor, ppnum_t *pnum)
 	index  = *cursor;
 	node   = vm_pages_radix_load_root(&level);
 
+	if (node == NULL) {
+		return VM_PAGE_NULL;
+	}
+
 	while (index < max_index) {
 		vm_page_radix_ptr_t *slot = vm_page_radix_slot(node, level, index);
 		vm_page_radix_ptr_t  ptr  = os_atomic_load(slot, dependency);
@@ -2892,6 +3174,9 @@ vm_page_create(ppnum_t phys_page, bool canonical, zalloc_flags_t flags)
 	if (canonical) {
 		assert((flags & (Z_NOWAIT | Z_NOPAGEWAIT)) == 0);
 		m->vmp_canonical = true;
+#if HAS_MTE
+		m->vmp_using_mte = pmap_is_tagged_page(phys_page);
+#endif /* HAS_MTE */
 #if XNU_VM_HAS_LINEAR_PAGES_ARRAY
 		vm_pages_radix_insert(phys_page, m);
 #endif /* XNU_VM_HAS_LINEAR_PAGES_ARRAY */
@@ -2997,6 +3282,9 @@ vm_page_insert_internal(
 	assert(!VM_PAGE_WIRED(mem) || !vm_page_is_canonical(mem) ||
 	    (tag != VM_KERN_MEMORY_NONE));
 
+#if HAS_MTE
+	assert_mte_vmo_matches_vmp(object, mem);
+#endif /* HAS_MTE */
 	vm_object_lock_assert_exclusive(object);
 	LCK_MTX_ASSERT(&vm_page_queue_lock,
 	    queues_lock_held ? LCK_MTX_ASSERT_OWNED
@@ -3061,11 +3349,40 @@ vm_page_insert_internal(
 
 		cache_attr = object->wimg_bits & VM_WIMG_MASK;
 
+#if HAS_MTE
+		/*
+		 * Set the cache attributes if it's neither the default atttributes
+		 * nor it's WIMG_MTE because we would have already set it before
+		 * inserting the page into this object. There is no need to take
+		 * the set hit.
+		 *
+		 *
+		 */
+		if (cache_attr == VM_WIMG_MTE) {
+			if (vm_object_is_mte_mappable_with_page(object, mem)) {
+				/*
+				 * By now, we expect non-fictitious pages to have been made
+				 * tagged. This should happen in mteinfo_page_list_fix_tagging()
+				 * when the page is inserted onto the per-CPU free tagged queue.
+				 */
+				assert(mem->vmp_using_mte);
+				assert(pmap_cache_attributes(VM_PAGE_GET_PHYS_PAGE(mem)) == VM_WIMG_MTE);
+			} else {
+				/*
+				 * We don't want the object for fictitious pages to have its
+				 * cache attributes set if the object is MTE.
+				 */
+			}
+		} else {
+#endif /* HAS_MTE */
 
 		if (cache_attr != VM_WIMG_USE_DEFAULT) {
 			PMAP_SET_CACHE_ATTR(mem, object, cache_attr, batch_pmap_op);
 		}
 
+#if HAS_MTE
+	}
+#endif
 	}
 
 	/*
@@ -3204,6 +3521,19 @@ vm_page_insert_internal(
 		}
 	}
 
+#if HAS_MTE
+	/*
+	 * If adding pages to the compressor object, account for whether it's
+	 * tag storage or not.
+	 */
+	if (object == compressor_object) {
+		if (vm_page_is_tag_storage(mem)) {
+			counter_inc(&compressor_tag_storage_pages_in_pool);
+		} else {
+			counter_inc(&compressor_non_tag_storage_pages_in_pool);
+		}
+	}
+#endif /* HAS_MTE */
 
 #if VM_OBJECT_TRACKING_OP_MODIFIED
 	if (vm_object_tracking_btlog &&
@@ -3245,6 +3575,9 @@ vm_page_replace(
 	 */
 	VM_PAGE_CHECK(mem);
 #endif
+#if HAS_MTE
+	assert_mte_vmo_matches_vmp(object, mem);
+#endif /* HAS_MTE */
 	vm_object_lock_assert_exclusive(object);
 #if DEBUG || VM_PAGE_BUCKETS_CHECK
 	if (mem->vmp_tabled || mem->vmp_object) {
@@ -3516,9 +3849,28 @@ vm_page_remove(
 		}
 	}
 
+#if HAS_MTE
+	/*
+	 * If removing pages from the compressor object, account for whether it's
+	 * tag storage or not.
+	 */
+	if (m_object == compressor_object) {
+		if (vm_page_is_tag_storage(mem)) {
+			counter_dec(&compressor_tag_storage_pages_in_pool);
+		} else {
+			counter_dec(&compressor_non_tag_storage_pages_in_pool);
+		}
+	}
+
+	assert_mte_vmo_matches_vmp(m_object, mem);
+	if (!vm_object_is_mte_mappable(m_object)) {
+#endif /* HAS_MTE */
 	if (m_object->set_cache_attr == TRUE) {
 		pmap_set_cache_attributes(VM_PAGE_GET_PHYS_PAGE(mem), 0);
 	}
+#if HAS_MTE
+}
+#endif /* HAS_MTE */
 
 	mem->vmp_tabled = FALSE;
 	mem->vmp_object = 0;
@@ -4310,6 +4662,16 @@ vm_page_grab_finalize(vm_grab_options_t grab_options __unused, vm_page_t mem)
 	mem->vmp_q_state = VM_PAGE_NOT_ON_Q;
 	VM_PAGE_ZERO_PAGEQ_ENTRY(mem);
 
+#if HAS_MTE
+	if (!(grab_options & VM_PAGE_GRAB_ALLOW_TAG_STORAGE)) {
+		assert(!vm_page_is_tag_storage(mem));
+	}
+	if (grab_options & VM_PAGE_GRAB_MTE) {
+		assert(mem->vmp_using_mte);
+		VM_DEBUG_EVENT(vm_page_grab, DBG_VM_PAGE_GRAB_MTE,
+		    DBG_FUNC_NONE, grab_options, 0, 0, 0);
+	} else
+#endif /* HAS_MTE */
 	{
 		VM_DEBUG_EVENT(vm_page_grab, DBG_VM_PAGE_GRAB,
 		    DBG_FUNC_NONE, grab_options, 0, 0, 0);
@@ -4417,6 +4779,11 @@ vm_page_grab_secluded(vm_grab_options_t grab_options)
 	vm_object_t     object;
 	int             refmod_state;
 
+#if HAS_MTE
+	if (grab_options & VM_PAGE_GRAB_MTE) {
+		return VM_PAGE_NULL;
+	}
+#endif /* HAS_MTE */
 	if (vm_page_secluded_count == 0) {
 		return VM_PAGE_NULL;
 	}
@@ -4620,6 +4987,41 @@ vm_page_grab_from_cpu(vm_page_t *cpu_list, scalable_counter_t *counter)
 	return mem;
 }
 
+#if HAS_MTE
+/*!
+ * @brief
+ * Attempts to allocate pages from free tag storage percpu queue.
+ */
+static vm_page_t
+vm_page_grab_claimed_from_cpu(mte_pcpu_t pcpu, vm_grab_options_t options)
+{
+	vm_page_t mem = VM_PAGE_NULL;
+
+	if (!(options & VM_PAGE_GRAB_ALLOW_TAG_STORAGE)) {
+		return VM_PAGE_NULL;
+	}
+
+	if (vm_page_queue_empty(&pcpu->free_claimed_pages)) {
+		return VM_PAGE_NULL;
+	}
+
+	lck_ticket_lock(&pcpu->free_claimed_lock, &vm_page_lck_grp_bucket);
+
+	if (!vm_page_queue_empty(&pcpu->free_claimed_pages)) {
+		vm_page_queue_remove_first(&pcpu->free_claimed_pages,
+		    mem, vmp_pageq);
+		counter_dec_preemption_disabled(&vm_cpu_free_claimed_count);
+		counter_inc(&vm_cpu_claimed_count);
+		/* must be done immediately to synchronize with stealing */
+		mem->vmp_q_state  = VM_PAGE_NOT_ON_Q;
+		mem->vmp_local_id = 0;
+	}
+
+	lck_ticket_unlock(&pcpu->free_claimed_lock);
+
+	return mem;
+}
+#endif /* HAS_MTE */
 
 /*!
  * @brief
@@ -4636,6 +5038,10 @@ __attribute__((noinline))
 static vm_page_t
 vm_page_grab_slow(vm_grab_options_t grab_options)
 {
+#if HAS_MTE
+	unsigned int        mte_draw = 0;
+	unsigned int        mte_slop = 0;
+#endif /* HAS_MTE */
 	unsigned int        target   = vm_free_magazine_refill_limit;
 	vm_memory_class_t   class    = VM_MEMORY_CLASS_REGULAR;
 	vm_page_t           mem      = VM_PAGE_NULL;
@@ -4650,6 +5056,26 @@ vm_page_grab_slow(vm_grab_options_t grab_options)
 #endif /* LCK_MTX_USE_ARCH */
 	cpu_list = PERCPU_GET(free_pages);
 	counter  = &vm_cpu_free_count;
+#if HAS_MTE
+	if (grab_options & VM_PAGE_GRAB_MTE) {
+again:
+		cpu_list = &PERCPU_GET(mte_pcpu)->free_tagged_pages;
+		counter  = &vm_cpu_free_tagged_count;
+		target   = vm_free_magazine_refill_limit / 2;
+		class    = VM_MEMORY_CLASS_TAGGED;
+		mte_slop = 0;
+	} else if (grab_options & VM_PAGE_GRAB_ALLOW_TAG_STORAGE) {
+		/*
+		 * Note that this is the last time we'll explicitly try to grab
+		 * free, claimable pages. If it comes down to it, we'll grab either
+		 * normal or dead tag storage pages in vm_page_free_queue_grab()
+		 * and hopefully refill the per-CPU free claimable queue.
+		 */
+		mte_pcpu_t mte_pcpu = PERCPU_GET(mte_pcpu);
+		mem = vm_page_grab_claimed_from_cpu(mte_pcpu, grab_options);
+	}
+	if (mem == VM_PAGE_NULL)
+#endif /* HAS_MTE */
 	{
 		mem = vm_page_grab_from_cpu(cpu_list, counter);
 	}
@@ -4672,6 +5098,52 @@ vm_page_grab_slow(vm_grab_options_t grab_options)
 	} else {
 		target = MIN(target, vm_page_free_count - vm_page_free_reserved);
 	}
+#if HAS_MTE
+	if (grab_options & VM_PAGE_GRAB_MTE) {
+		mte_draw = target;
+		target   = 0;
+		if (vm_page_free_taggable_count < mte_draw + vm_page_free_min &&
+		    vm_page_free_count >= mte_draw + vm_page_free_min &&
+		    !(grab_options & VM_PAGE_GRAB_Q_LOCK_HELD)) {
+			/*
+			 * If the mte draw is such that we deplete our reserves,
+			 * but there are enough free untaggable pages available,
+			 * attempt to activate pages in order to rebalance
+			 * toward the taggable pool.
+			 *
+			 * If the operation succeeds, the free page queue lock
+			 * was dropped and we need to re-take it from the top.
+			 */
+			if (mteinfo_tag_storage_try_activate(mte_draw +
+			    vm_page_free_min - vm_page_free_taggable_count,
+			    /* lock_spin */ true)) {
+				goto again;
+			}
+		}
+	} else if (target > vm_page_free_count - vm_page_free_taggable_count) {
+		mte_draw = target - (vm_page_free_count - vm_page_free_taggable_count);
+		target   = (vm_page_free_count - vm_page_free_taggable_count);
+	} else {
+		mte_draw = 0;
+	}
+
+	if (vm_page_free_taggable_count <= vm_page_free_reserved) {
+		if ((current_thread()->options & TH_OPT_VMPRIV) == 0) {
+			mte_draw = 0;
+		} else if (vm_page_free_taggable_count == 0) {
+			mte_draw = 0;
+		} else if (target) {
+			mte_draw = 0;
+		} else {
+			mte_draw = 1;
+		}
+	} else {
+		mte_draw = MIN(mte_draw,
+		    vm_page_free_taggable_count - vm_page_free_reserved);
+	}
+
+	target += mte_draw;
+#endif /* HAS_MTE */
 
 #if HIBERNATION
 	if (target > 0 && hibernate_rebuild_needed) {
@@ -4715,6 +5187,9 @@ vm_page_grab_slow(vm_grab_options_t grab_options)
 	VM_CHECK_MEMORYSTATUS;
 
 	if (list.vmpl_head) {
+#if HAS_MTE
+		mteinfo_page_list_fix_tagging(class, &list);
+#endif /* HAS_MTE */
 		/* Steal a page off the list for the caller. */
 		mem = vm_page_list_pop(&list);
 
@@ -4732,6 +5207,11 @@ vm_page_grab_slow(vm_grab_options_t grab_options)
 vm_page_t
 vm_page_grab_options(vm_grab_options_t options)
 {
+#if HAS_MTE
+	mte_pcpu_t          mte_pcpu;
+	vm_page_t          *cpu_list;
+	scalable_counter_t *counter;
+#endif
 	vm_page_t           mem;
 
 restart:
@@ -4741,7 +5221,27 @@ restart:
 	 */
 
 	disable_preemption();
+#if HAS_MTE
+	mte_pcpu = PERCPU_GET(mte_pcpu);
+	if (options & VM_PAGE_GRAB_MTE) {
+		cpu_list = &mte_pcpu->free_tagged_pages;
+		counter  = &vm_cpu_free_tagged_count;
+		mem      = VM_PAGE_NULL;
+	} else {
+		cpu_list = PERCPU_GET(free_pages);
+		counter  = &vm_cpu_free_count;
+		mem      = VM_PAGE_NULL;
+	}
+
+	if (options & VM_PAGE_GRAB_ALLOW_TAG_STORAGE) {
+		mem = vm_page_grab_claimed_from_cpu(mte_pcpu, options);
+	}
+	if (mem == VM_PAGE_NULL) {
+		mem = vm_page_grab_from_cpu(cpu_list, counter);
+	}
+#else
 	mem = vm_page_grab_from_cpu(PERCPU_GET(free_pages), &vm_cpu_free_count);
+#endif /* HAS_MTE */
 	enable_preemption();
 
 	if (mem != VM_PAGE_NULL) {
@@ -4785,6 +5285,13 @@ restart:
 	 *	Step 3: Privileged threads block and retry, others fail.
 	 */
 
+#if HAS_MTE
+	if (options & VM_PAGE_GRAB_MTE) {
+		current_thread()->page_wait_class = VM_MEMORY_CLASS_TAGGED;
+	} else {
+		current_thread()->page_wait_class = VM_MEMORY_CLASS_REGULAR;
+	}
+#endif /* HAS_MTE */
 	if ((options & VM_PAGE_GRAB_NOPAGEWAIT) == 0 &&
 	    (current_thread()->options & TH_OPT_VMPRIV) != 0) {
 		VM_PAGE_WAIT();
@@ -4804,6 +5311,11 @@ vm_page_grab_options_for_object(vm_object_t object __unused)
 		options |= VM_PAGE_GRAB_SECLUDED;
 	}
 #endif /* CONFIG_SECLUDED_MEMORY */
+#if HAS_MTE
+	if (vm_object_is_mte_mappable(object)) {
+		options |= VM_PAGE_GRAB_MTE;
+	}
+#endif /* HAS_MTE */
 
 	return options;
 }
@@ -4840,6 +5352,37 @@ vm_page_free_queue_steal(vm_grab_options_t options, vm_page_t mem)
 	}
 }
 
+#if HAS_MTE
+/*!
+ * @function _vm_page_wait_wakeup_fill_thread()
+ *
+ * @abstract
+ * Given the number of waiters, return whether the MTE fill thread should
+ * wake up.
+ *
+ * @discussion
+ * The idea is to wake up the MTE fill thread without explicitly triggering
+ * pageout_scan(), which means @c vm_page_free_count must be at least
+ * @c vm_page_free_min. On top of that, it's possible that tag storage pages
+ * may get relocated, which means that some free untagged pages will be needed
+ * to activate a tag storage page. This function uses the naive, pessimistic
+ * heuristic that a given tag storage page does not have many free covered
+ * pages, and some number of those tag storage pages will need to be relocated.
+ *
+ * The free queue lock should be held during this function.
+ *
+ * @param n_waiters					The number of waiters for tagged memory.
+ *
+ * @returns							Whether the system has enough free pages to
+ *                                  wake up the MTE fill thread.
+ */
+static bool
+_vm_page_wait_wakeup_fill_thread(uint32_t n_waiters)
+{
+	LCK_MTX_ASSERT(&vm_page_queue_free_lock, LCK_MTX_ASSERT_OWNED);
+	return vm_page_free_count > vm_page_free_min + (3 * n_waiters) / 2;
+}
+#endif /* HAS_MTE */
 
 /*
  *	vm_page_wait:
@@ -4867,9 +5410,37 @@ vm_page_wait(int interruptible)
 	bool          is_privileged = cur_thread->options & TH_OPT_VMPRIV;
 	bool          need_wakeup   = false;
 	event_t       wait_event    = NULL;
+#if HAS_MTE
+	bool              wakeup_refill_thread = false;
+#endif /* HAS_MTE */
 
 	vm_free_page_lock_spin();
 
+#if HAS_MTE
+	if (cur_thread->page_wait_class == VM_MEMORY_CLASS_TAGGED) {
+		if (is_privileged) {
+			if (vm_page_free_taggable_count) {
+				vm_free_page_unlock();
+				goto out;
+			}
+
+			if (vm_page_free_wanted_tagged_privileged++ == 0) {
+				wakeup_refill_thread = true;
+			}
+
+			wait_event = (event_t)&vm_page_free_wanted_tagged_privileged;
+		} else if (vm_page_free_taggable_count >= vm_page_free_target) {
+			vm_free_page_unlock();
+			goto out;
+		} else {
+			if (vm_page_free_wanted_tagged++ == 0) {
+				wakeup_refill_thread = true;
+			}
+
+			wait_event = (event_t)&vm_page_free_wanted_tagged;
+		}
+	} else
+#endif /* !HAS_MTE */
 	if (is_privileged) {
 		if (vm_page_free_count) {
 			vm_free_page_unlock();
@@ -4910,6 +5481,38 @@ vm_page_wait(int interruptible)
 		wait_event = (event_t)&vm_page_free_count;
 	}
 
+#if HAS_MTE
+	/*
+	 * If we're here, it means that the free taggable count is low.
+	 * If there are enough free pages in the system, we can ask the
+	 * fill thread to convert some free untagged pages to free tagged
+	 * pages. Otherwise, we will wake up pageout_scan(), which will
+	 * free pages, and on the free path, the fill thread will get woken up
+	 * (see vm_page_free_queue_handle_wakeups_and_unlock()).
+	 *
+	 * The fill thread will run or not run under a variety of conditions
+	 * (see mteinfo_tag_storage_active_should_refill() for more details),
+	 * but what's relevant here is that the fill thread will run so long
+	 * as there are tagged waiters. We should at least ensure that the
+	 * system has enough free untagged memory to service the existing
+	 * tagged waiters.
+	 */
+	if (wakeup_refill_thread) {
+		uint32_t total_tagged_waiters = vm_page_free_wanted_tagged_privileged +
+		    vm_page_free_wanted_tagged;
+		if (_vm_page_wait_wakeup_fill_thread(total_tagged_waiters)) {
+			/* If there are enough pages for tagged waiters. */
+		} else {
+			/*
+			 * Otherwise, wake up pageout_scan(), and the fill thread will
+			 * run later.
+			 */
+			wakeup_refill_thread = false;
+			need_wakeup = true;
+		}
+	}
+
+#endif /* HAS_MTE */
 	if (vm_pageout_running) {
 		need_wakeup = false;
 	}
@@ -4929,6 +5532,11 @@ vm_page_wait(int interruptible)
 		 * context switch. Could be a perf. issue.
 		 */
 
+#if HAS_MTE
+		if (cur_thread->page_wait_class != VM_MEMORY_CLASS_REGULAR) {
+			panic("vm_page_wait does not support MTE+vps_dynamic_priority_enabled");
+		}
+#endif /* HAS_MTE */
 		if (need_wakeup) {
 			thread_wakeup((event_t)&vm_page_free_wanted);
 		}
@@ -4961,11 +5569,32 @@ vm_page_wait(int interruptible)
 		if (need_wakeup) {
 			thread_wakeup((event_t)&vm_page_free_wanted);
 		}
+#if HAS_MTE
+		if (wakeup_refill_thread) {
+			assert(!need_wakeup);
+			mteinfo_wake_fill_thread();
+		}
+#endif /* HAS_MTE */
 
 		if (wait_result != THREAD_WAITING) {
 			goto out;
 		}
 
+#if HAS_MTE
+		if (cur_thread->page_wait_class == VM_MEMORY_CLASS_TAGGED) {
+			VM_DEBUG_CONSTANT_EVENT(vm_page_wait_block,
+			    DBG_VM_PAGE_MTE_WAIT_BLOCK,
+			    DBG_FUNC_START,
+			    vm_page_free_wanted_tagged_privileged,
+			    vm_page_free_wanted_tagged,
+			    0,
+			    0);
+			wait_result = thread_block(THREAD_CONTINUE_NULL);
+			VM_DEBUG_CONSTANT_EVENT(vm_page_wait_block,
+			    DBG_VM_PAGE_MTE_WAIT_BLOCK, DBG_FUNC_END, 0, 0, 0, 0);
+			goto out;
+		}
+#endif /* HAS_MTE */
 
 		VM_DEBUG_CONSTANT_EVENT(vm_page_wait_block,
 		    DBG_VM_PAGE_WAIT_BLOCK,
@@ -4984,6 +5613,9 @@ vm_page_wait(int interruptible)
 	}
 
 out:
+#if HAS_MTE
+	cur_thread->page_wait_class = VM_MEMORY_CLASS_REGULAR;
+#endif /* HAS_MTE */
 	return (wait_result == THREAD_AWAKENED) || (wait_result == THREAD_NOT_WAITING);
 }
 
@@ -5014,6 +5646,17 @@ vm_page_free_prepare(
 	assert(frame_type == XNU_DEFAULT);
 #endif /* CONFIG_SPTM */
 
+#if HAS_MTE
+	/*
+	 * At this point, any busy bit on `mem` has been cleared. If the refill
+	 * thread wanted this page, update the cell state from PINNED to CLAIMED.
+	 *
+	 * We only expect to come through here when swap-ins/outs have erred.
+	 */
+	if (mem->vmp_q_state == VM_PAGE_USED_BY_COMPRESSOR && mem->vmp_ts_wanted) {
+		mteinfo_tag_storage_wakeup(mem, false);
+	}
+#endif /* HAS_MTE */
 }
 
 
@@ -5119,6 +5762,9 @@ vm_page_free_prepare_queues(
 			vm_page_wire_count--;
 		}
 
+#if HAS_MTE
+		mteinfo_decrement_wire_count(mem, true);
+#endif /* HAS_MTE */
 
 		mem->vmp_q_state = VM_PAGE_NOT_ON_Q;
 		mem->vmp_iopl_wired = false;
@@ -5148,6 +5794,9 @@ vm_page_reset_canonical(vm_page_t mem)
 		.vmp_canonical   = true,
 		.vmp_busy        = true,
 		.vmp_realtime    = mem->vmp_realtime,
+#if HAS_MTE
+		.vmp_using_mte   = mem->vmp_using_mte,
+#endif
 #if !XNU_VM_HAS_LINEAR_PAGES_ARRAY
 		.vmp_phys_page   = mem->vmp_phys_page,
 #endif /* !XNU_VM_HAS_LINEAR_PAGES_ARRAY */
@@ -5217,6 +5866,18 @@ vm_page_release(vm_page_t mem, vmp_release_options_t options)
 void
 vm_page_release_startup(vm_page_t mem)
 {
+#if HAS_MTE
+	if (pmap_in_tag_storage_range(VM_PAGE_GET_PHYS_PAGE(mem)) && is_mte_enabled) {
+		/*
+		 * Add the MTE tag page to the FREE_MTE_TAG queue.  These pages
+		 * can be used/claimed for other purposes (other than tag pages)
+		 * provided that they can be reclaimed quickly without waiting
+		 * on I/O, e.g. readonly/clean file pages.
+		 */
+		mteinfo_tag_storage_release_startup(mem);
+		return;
+	}
+#endif /* HAS_MTE */
 	vm_page_free_queue_enter_list(vm_page_list_for_page(mem),
 	    VMP_RELEASE_STARTUP);
 }
@@ -5474,6 +6135,15 @@ vm_page_wire(
 	assert(mem->vmp_q_state == VM_PAGE_IS_WIRED);
 	mem->vmp_wire_count++;
 
+#if HAS_MTE
+	if (mem->vmp_wire_count == 1 && tag != VM_KERN_MEMORY_MTAG) {
+		/*
+		 * Only notify Mte Info if the caller isn't
+		 * mteinfo_tag_storage_wire_locked().
+		 */
+		mteinfo_increment_wire_count(mem);
+	}
+#endif /* HAS_MTE */
 
 	if (__improbable(mem->vmp_wire_count == 0)) {
 		panic("vm_page_wire(%p): wire_count overflow", mem);
@@ -5527,6 +6197,9 @@ vm_page_unwire(
 			vm_page_wire_count--;
 		}
 
+#if HAS_MTE
+		mteinfo_decrement_wire_count(mem, true);
+#endif /* HAS_MTE */
 
 		assert(m_object->resident_page_count >=
 		    m_object->wired_page_count);
@@ -6246,6 +6919,9 @@ vm_page_part_zero_fill(
 	}
 	vm_page_zero_fill(
 		tmp
+#if HAS_MTE
+		, false /* zero_tags */
+#endif /* HAS_MTE */
 		);
 	if (m_pa != 0) {
 		vm_page_part_copy(m, 0, tmp, 0, m_pa);
@@ -6267,9 +6943,17 @@ vm_page_part_zero_fill(
  *
  * @param m				the page to be zero-filled.
  */
+#if HAS_MTE && !defined(KASAN)
+/*!
+ * @param zero_tags     if true, and the page is MTE-tagged, its corresponding tags will be zeroed.
+ */
+#endif /* HAS_MTE && !defined(KASAN) */
 void
 vm_page_zero_fill(
 	vm_page_t       m
+#if HAS_MTE
+	, bool zero_tags
+#endif /* HAS_MTE */
 	)
 {
 	int options = 0;
@@ -6282,6 +6966,20 @@ vm_page_zero_fill(
 #endif
 
 //	dbgTrace(0xAEAEAEAE, VM_PAGE_GET_PHYS_PAGE(m), 0);		/* (BRINGUP) */
+#if HAS_MTE
+	assert(!zero_tags || VM_PAGE_OBJECT(m) != VM_OBJECT_NULL);
+
+	/*
+	 *       TODO: this can be checked more easily using m->vmp_using_mte once
+	 *       page reclamation work is complete
+	 */
+	if (zero_tags && vm_object_is_mte_mappable(VM_PAGE_OBJECT(m))) {
+		options = cppvZeroPageTags;
+		KDBG(VMDBG_CODE(DBG_VM_PAGE_MTE_ZFOD) | DBG_FUNC_NONE,
+		    VM_KERNEL_ADDRHIDE(m), VM_KERNEL_ADDRHIDE(VM_PAGE_OBJECT(m)),
+		    m->vmp_offset);
+	}
+#endif /* HAS_MTE */
 	pmap_zero_page_with_options(VM_PAGE_GET_PHYS_PAGE(m), options);
 }
 
@@ -6325,6 +7023,15 @@ vm_page_part_copy(
 		panic("%s: cannot copy into a restricted page", __func__);
 	}
 
+#if HAS_MTE
+	/*
+	 * As an example of a necessary expansion for vm_page_part_copy(),
+	 * MTE objects are currently not overwriteable, but whenever
+	 * rdar://134375521 ([VM MTE] Handle overwriting of MTE objects)
+	 * gets dealt with, we'll have to update the call down here to pass
+	 * the right flags to bcopy_phys().
+	 */
+#endif /* HAS_MTE */
 
 	pmap_copy_part_page(VM_PAGE_GET_PHYS_PAGE(src_m), src_pa,
 	    VM_PAGE_GET_PHYS_PAGE(dst_m), dst_pa, len);
@@ -6400,6 +7107,29 @@ vm_page_copy(
 		vm_page_copy_cs_tainted++;
 	}
 
+#if HAS_MTE
+	/*
+	 * vm_page_copy-ing from an untagged page into a tagged page
+	 * would happen with tag checking disabled and actually potentially be
+	 * an MTE violation.
+	 */
+	if (!src_m->vmp_using_mte && dest_m->vmp_using_mte) {
+		panic("Attempt to write to an MTE tagged page through the physical aperture");
+	}
+
+	if (src_m->vmp_using_mte) {
+		/* If we are copying from an MTE-enabled page, disable tag checking */
+		options |= cppvDisableTagCheck;
+
+		if (dest_m->vmp_using_mte) {
+			/*
+			 * If both source and destination are tagged, this means that we are
+			 * either CoWing or relocating a page. Tags need to follow along.
+			 */
+			options |= cppvCopyTags;
+		}
+	}
+#endif /* HAS_MTE */
 
 	dest_m->vmp_error = VMP_ERROR_GET(src_m); /* sliding src_m might have failed... */
 	pmap_copy_page(VM_PAGE_GET_PHYS_PAGE(src_m), VM_PAGE_GET_PHYS_PAGE(dest_m), options);
@@ -6686,8 +7416,34 @@ vm_page_is_relocatable(vm_page_t m, vm_relocate_reason_t reloc_reason)
 	 * the caller's use case.
 	 */
 	switch (reloc_reason) {
+#if HAS_MTE
+	case VM_RELOCATE_REASON_TAG_STORAGE_RECLAIM:
+	{
+		/*
+		 * Relocating the content of tag storage pages so the
+		 * fill thread can reclaim a page is perfectly valid,
+		 * unless the page is busy.
+		 */
+		if (m->vmp_busy) {
+			return FALSE;
+		}
+		break;
+	}
+	case VM_RELOCATE_REASON_TAG_STORAGE_WIRE:
+#endif /* HAS_MTE */
 	case VM_RELOCATE_REASON_CONTIGUOUS:
 	{
+#if HAS_MTE
+		/*
+		 * Tag storage pages may be needed for tag storage.  Because
+		 * the contiguous allocator is likely being used for wired
+		 * allocations, this page is not eligible to be relocated in
+		 * this case.
+		 */
+		if (vm_page_is_tag_storage(m)) {
+			return FALSE;
+		}
+#endif /* HAS_MTE */
 		break;
 	}
 
@@ -6733,8 +7489,35 @@ vm_page_relocate(
 	switch (reloc_reason) {
 	case VM_RELOCATE_REASON_CONTIGUOUS:
 	{
+#if HAS_MTE
+		/*
+		 * The contiguous allocator should not be considering tag
+		 * storage pages.
+		 */
+		assert(!vm_page_is_tag_storage(m1));
+#endif /* HAS_MTE */
 		break;
 	}
+#if HAS_MTE
+	case VM_RELOCATE_REASON_TAG_STORAGE_RECLAIM:
+	{
+		/*
+		 * If we are trying to reclaim tag storage, we should be
+		 * relocating a tag storage page.
+		 */
+		assert(vm_page_is_tag_storage(m1));
+		if (m1->vmp_q_state == VM_PAGE_USED_BY_COMPRESSOR) {
+			vm_page_tag_storage_compressor_relocation_count++;
+		}
+		break;
+	}
+	case VM_RELOCATE_REASON_TAG_STORAGE_WIRE:
+	{
+		assert(vm_page_is_tag_storage(m1) && m1->vmp_q_state != VM_PAGE_USED_BY_COMPRESSOR);
+		vm_page_tag_storage_wire_relocation_count++;
+		break;
+	}
+#endif /* HAS_MTE */
 	default:
 	{
 		panic("Unrecognized relocation reason %u\n", reloc_reason);
@@ -6788,6 +7571,12 @@ vm_page_relocate(
 		vm_object_offset_t offset;
 		int copy_page_options = 0;
 
+#if HAS_MTE
+		if (m1->vmp_using_mte) {
+			grab_options |= VM_PAGE_GRAB_MTE;
+			copy_page_options |= cppvCopyTags;
+		}
+#endif /* HAS_MTE */
 		/* page is not reusable, we need to allocate a new page
 		 * and move its contents there.
 		 */
@@ -6805,6 +7594,13 @@ vm_page_relocate(
 			}
 		}
 
+#if HAS_MTE
+		assert(m1->vmp_using_mte == m2->vmp_using_mte);
+		if (m1->vmp_using_mte) {
+			assert(pmap_is_tagged_page(VM_PAGE_GET_PHYS_PAGE(m2)));
+			copy_page_options |= (cppvCopyTags | cppvDisableTagCheck);
+		}
+#endif /* HAS_MTE */
 		/* copy the page's contents */
 		pmap_copy_page(VM_PAGE_GET_PHYS_PAGE(m1), VM_PAGE_GET_PHYS_PAGE(m2), copy_page_options);
 
@@ -6952,6 +7748,11 @@ vm_page_relocate(
 
 			/* The caller still wanted a page, so let's give them a new one. */
 			offset = m1->vmp_offset;
+#if HAS_MTE
+			if (m1->vmp_using_mte) {
+				grab_options |= VM_PAGE_GRAB_MTE;
+			}
+#endif /* HAS_MTE */
 			m2 = vm_page_grab_options(grab_options);
 
 			if (m2 == VM_PAGE_NULL) {
@@ -7449,6 +8250,42 @@ did_consider:
 			free_available = vm_page_free_count - vm_page_free_reserved;
 			goto retry;
 		}
+#if HAS_MTE
+		else if (list.vmpl_has_tagged) {
+			const unified_page_list_t pmap_batch_list = {
+				.page_slist = list.vmpl_head,
+				.type = UNIFIED_PAGE_LIST_TYPE_VM_PAGE_LIST,
+			};
+
+			/*
+			 * We successfully found a contiguous range we could
+			 * steal all the pages from.  As a last step, make
+			 * certain all pages are regular pages, or convert
+			 * any non-regular pages to regular pages.
+			 */
+			vm_page_unlock_queues();
+
+			/* Make any tagged pages we stole non-tagged. */
+			pmap_unmake_tagged_pages(&pmap_batch_list);
+
+			vm_free_page_lock();
+
+			/* Mark any tagged pages we stole as non-tagged. */
+			vm_page_list_foreach(m1, list) {
+				if (m1->vmp_using_mte) {
+					ppnum_t pnum = VM_PAGE_GET_PHYS_PAGE(m1);
+
+					m1->vmp_using_mte = false;
+					mteinfo_covered_page_clear_tagged(pnum);
+				}
+			}
+			list.vmpl_has_tagged = false;
+			list.vmpl_has_untagged = true;
+
+			vm_free_page_unlock();
+			vm_page_lock_queues();
+		}
+#endif /* HAS_MTE */
 
 		vm_page_list_foreach(m1, list) {
 			assert(m1->vmp_q_state == VM_PAGE_NOT_ON_Q);
@@ -7458,6 +8295,11 @@ did_consider:
 				m1->vmp_wire_count++;
 				m1->vmp_q_state = VM_PAGE_IS_WIRED;
 
+#if HAS_MTE
+				if (m1->vmp_wire_count == 1) {
+					mteinfo_increment_wire_count(m1);
+				}
+#endif /* HAS_MTE */
 			} else {
 				m1->vmp_gobbled = TRUE;
 			}
@@ -7582,6 +8424,9 @@ cpm_allocate(
 		for (vm_page_t m = pages; m; m = NEXT_PAGE(m)) {
 			vm_page_zero_fill(
 				m
+#if HAS_MTE
+				, false
+#endif /* HAS_MTE */
 				);
 		}
 	}
@@ -7788,6 +8633,12 @@ vm_page_do_delayed_work(
 			if (dwp->dw_mask & DW_PAGE_WAKEUP) {
 				vm_page_wakeup(object, m);
 			}
+#if HAS_MTE
+			if (dwp->dw_mask & DW_vm_page_wakeup_tag_storage) {
+				assert(m->vmp_ts_wanted);
+				mteinfo_tag_storage_wakeup(m, false);
+			}
+#endif /* HAS_MTE */
 		}
 	}
 	vm_page_unlock_queues();
@@ -7825,6 +8676,18 @@ vm_page_alloc_list(vm_size_t page_count, kma_flags_t flags, vm_page_t *list)
 		for (;;) {
 			vm_grab_options_t options = VM_PAGE_GRAB_OPTIONS_NONE;
 
+#if HAS_MTE
+			if (flags & KMA_TAG) {
+				options |= VM_PAGE_GRAB_MTE;
+			}
+			if (vm_mte_tag_storage_for_compressor && (flags & KMA_COMPRESSOR)) {
+				/*
+				 * These pages will be used in the compressor pool.
+				 * Prefer tag storage pages for these allocations.
+				 */
+				options |= VM_PAGE_GRAB_ALLOW_TAG_STORAGE;
+			}
+#endif /* HAS_MTE */
 			if (flags & KMA_NOPAGEWAIT) {
 				options |= VM_PAGE_GRAB_NOPAGEWAIT;
 			}
@@ -7869,6 +8732,9 @@ vm_page_alloc_list(vm_size_t page_count, kma_flags_t flags, vm_page_t *list)
 		for (mem = page_list; mem; mem = mem->vmp_snext) {
 			vm_page_zero_fill(
 				mem
+#if HAS_MTE
+				, false /* zero_tags */
+#endif /* HAS_MTE */
 				);
 		}
 	}
@@ -8745,6 +9611,19 @@ hibernate_page_list_setall(hibernate_page_list_t * page_list,
 				hib_free_boilerplate(m);
 			}
 		}
+#if HAS_MTE
+		percpu_foreach(mte_pcpu, mte_pcpu) {
+			_vm_page_list_foreach(m, mte_pcpu->free_tagged_pages) {
+				assert(m->vmp_q_state == VM_PAGE_ON_FREE_LOCAL_Q);
+				hib_free_boilerplate(m);
+			}
+			vm_page_queue_iterate(&mte_pcpu->free_claimed_pages,
+			    m, vmp_pageq) {
+				assert(m->vmp_q_state == VM_PAGE_ON_FREE_LOCAL_Q);
+				hib_free_boilerplate(m);
+			}
+		}
+#endif /* HAS_MTE */
 	}
 
 #if CONFIG_SPTM
@@ -8764,6 +9643,9 @@ hibernate_page_list_setall(hibernate_page_list_t * page_list,
 	{
 		vm_page_free_queue_foreach(&vm_page_queue_free, hib_free_boilerplate);
 	}
+#if HAS_MTE
+	mteinfo_free_queue_foreach(hib_free_boilerplate);
+#endif /* HAS_MTE */
 #if XNU_VM_HAS_LOPAGE
 	vm_page_free_queue_foreach(&vm_lopage_queue_free, hib_free_boilerplate);
 #endif /* XNU_VM_HAS_LOPAGE */
@@ -9380,6 +10262,9 @@ hibernate_free_range(vm_page_list_t *list, int sindx, int eindx)
 		ppnum_t   pnum = hibernate_lookup_paddr(sindx);
 
 		vm_page_init(mem, pnum);
+#if HAS_MTE
+		mem->vmp_using_mte = pmap_is_tagged_page(pnum);
+#endif /* HAS_MTE */
 		vm_page_list_push(list, mem);
 
 		/* Max batch size of these lists is 255 due to vmp_free_list_result_t */
@@ -9956,6 +10841,9 @@ vm_page_remove_internal(vm_page_t page)
 		vm_page_secluded.eligible_for_secluded--;
 	}
 #endif /* CONFIG_SECLUDED_MEMORY */
+#if HAS_MTE
+	assert_mte_vmo_matches_vmp(__object, page);
+#endif /* HAS_MTE */
 }
 
 void
@@ -10298,7 +11186,7 @@ const char *vm_kern_memory_names[] = {
 	VM_KERN_MEMORY_ELEM(KALLOC_TYPE),
 	VM_KERN_MEMORY_ELEM(TRIAGE),
 	VM_KERN_MEMORY_ELEM(RECOUNT),
-	"VM_KERN_MEMORY_34",
+	VM_KERN_MEMORY_ELEM(MTAG),
 	VM_KERN_MEMORY_ELEM(EXCLAVES),
 	VM_KERN_MEMORY_ELEM(EXCLAVES_SHARED),
 	VM_KERN_MEMORY_ELEM(KALLOC_SHARED),

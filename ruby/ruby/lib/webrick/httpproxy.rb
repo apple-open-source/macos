@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # httpproxy.rb -- HTTPProxy Class
 #
@@ -115,10 +115,10 @@ module WEBrick
       proxy_auth(req, res)
 
       begin
-        self.send("do_#{req.request_method}", req, res)
+        public_send("do_#{req.request_method}", req, res)
       rescue NoMethodError
         raise HTTPStatus::MethodNotAllowed,
-          "unsupported method `#{req.request_method}'."
+          "unsupported method '#{req.request_method}'."
       rescue => err
         logger.debug("#{err.class}: #{err.message}")
         raise HTTPStatus::ServiceUnavailable, err.message
@@ -149,7 +149,7 @@ module WEBrick
       end
 
       begin
-        @logger.debug("CONNECT: upstream proxy is `#{host}:#{port}'.")
+        @logger.debug("CONNECT: upstream proxy is '#{host}:#{port}'.")
         os = TCPSocket.new(host, port)     # origin server
 
         if proxy
@@ -175,7 +175,7 @@ module WEBrick
         @logger.debug("CONNECT #{host}:#{port}: succeeded")
         res.status = HTTPStatus::RC_OK
       rescue => ex
-        @logger.debug("CONNECT #{host}:#{port}: failed `#{ex.message}'")
+        @logger.debug("CONNECT #{host}:#{port}: failed '#{ex.message}'")
         res.set_error(ex)
         raise HTTPStatus::EOFError
       ensure
@@ -241,7 +241,7 @@ module WEBrick
         if HopByHop.member?(key)          || # RFC2616: 13.5.1
            connections.member?(key)       || # RFC2616: 14.10
            ShouldNotTransfer.member?(key)    # pragmatics
-          @logger.debug("choose_header: `#{key}: #{value}'")
+          @logger.debug("choose_header: '#{key}: #{value}'")
           next
         end
         dst[key] = value
@@ -295,6 +295,10 @@ module WEBrick
       return FakeProxyURI
     end
 
+    def create_net_http(uri, upstream)
+      Net::HTTP.new(uri.host, uri.port, upstream.host, upstream.port)
+    end
+
     def perform_proxy_request(req, res, req_class, body_stream = nil)
       uri = req.request_uri
       path = uri.path.dup
@@ -303,7 +307,7 @@ module WEBrick
       upstream = setup_upstream_proxy_authentication(req, res, header)
 
       body_tmp = []
-      http = Net::HTTP.new(uri.host, uri.port, upstream.host, upstream.port)
+      http = create_net_http(uri, upstream)
       req_fib = Fiber.new do
         http.start do
           if @config[:ProxyTimeout]

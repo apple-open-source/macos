@@ -4971,7 +4971,6 @@
 		<key>FeatureFlags</key>
 		<array>
 			<string>QWACValidation</string>
-			<string>RootConstraints</string>
 		</array>
 		<key>CertDirectory</key>
 		<string>si-20-sectrust-policies-data</string>
@@ -5003,7 +5002,6 @@
 		<key>FeatureFlags</key>
 		<array>
 			<string>QWACValidation</string>
-			<string>RootConstraints</string>
 		</array>
 		<key>CertDirectory</key>
 		<string>si-20-sectrust-policies-data</string>

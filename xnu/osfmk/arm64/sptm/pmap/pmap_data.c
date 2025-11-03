@@ -365,6 +365,19 @@ pmap_data_bootstrap(void)
 	/* Number of VM pages that span all of kernel-managed memory. */
 	unsigned int npages = (unsigned int)atop(mem_size);
 
+#if HAS_MTE
+	/*
+	 * MTE tag page reclaiming algorithm allows to steal pages from the tag
+	 * region and reuse them as regular, non-MTE-tagged, pages. To achieve this
+	 * xnu VM layer must know about these pages and they have to be part of the
+	 * main page-related data structures. Account for them here.
+	 *
+	 * NOTE: the exact location of the MTE tag metadata is still under discussion
+	 * and this code was developed under the assumption that it would sit at the _top_
+	 * of DRAM.
+	 */
+	npages += SPTMArgs->n_tag_storage_frames;
+#endif /* HAS_MTE */
 
 	/* The pv_head_table and pp_attr_table both have one entry per VM page. */
 	const vm_size_t pp_attr_table_size = npages * sizeof(pp_attr_t);

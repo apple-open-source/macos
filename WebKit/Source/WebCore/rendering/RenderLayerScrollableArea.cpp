@@ -2034,7 +2034,7 @@ void RenderLayerScrollableArea::invalidateScrollAnchoringElement()
 
 void RenderLayerScrollableArea::updateAnchorPositionedAfterScroll()
 {
-    Style::AnchorPositionEvaluator::updatePositionsAfterScroll(m_layer.renderer().document());
+    Style::AnchorPositionEvaluator::updateScrollAdjustments(m_layer.renderer().view());
 }
 
 std::optional<FrameIdentifier> RenderLayerScrollableArea::rootFrameID() const

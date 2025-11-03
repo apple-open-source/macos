@@ -8,7 +8,7 @@
 #include <darwintest.h>
 #include <../src/internal.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_MAGAZINE_ONLY);
 
 T_DECL(tiny_region_cookie_test, "Crash on corruption of tiny region cookie",
 		T_META_TAG_VM_NOT_PREFERRED,

@@ -88,6 +88,7 @@ test_bucketing(void)
 
 T_DECL(malloc_type_callsite_fastpath,
 		"Validate bucketing for callsite type descriptors from fast path",
+		T_META_TAG_VM_NOT_PREFERRED,
 		T_META_TAG_XZONE_ONLY,
 		T_META_TAG_XZONE_AND_PGM,
 		T_META_TAG("no_debug"),
@@ -99,6 +100,7 @@ T_DECL(malloc_type_callsite_fastpath,
 
 T_DECL(malloc_type_callsite_slowpath,
 		"Validate bucketing for callsite type descriptors from slow path",
+		T_META_TAG_VM_NOT_PREFERRED,
 		T_META_TAG_XZONE_ONLY,
 		T_META_TAG_XZONE_AND_PGM,
 		T_META_TAG("no_debug"),
@@ -113,7 +115,8 @@ T_DECL(malloc_type_callsite_slowpath,
 
 T_DECL(malloc_type_callsite_fastpath,
 		"Validate bucketing for callsite type descriptors from fast path",
-		T_META_ENABLED(false))
+		T_META_ENABLED(false), T_META_TAG_VM_PREFERRED,
+		T_META_TAG_NO_ALLOCATOR_OVERRIDE)
 {
 	T_SKIP("Nothing to test under !CONFIG_XZONE_MALLOC");
 }

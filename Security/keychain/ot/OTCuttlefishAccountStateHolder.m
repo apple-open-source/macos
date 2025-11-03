@@ -255,6 +255,23 @@
 {
     return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
         metadata.lastEscrowRepairAttempted = date ? (uint64_t)([date timeIntervalSince1970] * 1000) : 0ull;
+        metadata.escrowRepairAttemptVersion = ESCROW_REPAIR_CURRENT_VERSION;
+        return metadata;
+    } error:error];
+}
+
+- (BOOL)_persistEscrowRepairAttemptVersion:(int64_t)version error:(NSError**)error
+{
+    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
+        metadata.escrowRepairAttemptVersion = version;
+        return metadata;
+    } error:error];
+}
+
+- (BOOL)clearLastEscrowRepairAttempt:(NSError**)error
+{
+    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
+        metadata.lastEscrowRepairAttempted = 0ull;
         return metadata;
     } error:error];
 }

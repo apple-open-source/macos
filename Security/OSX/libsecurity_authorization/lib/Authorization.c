@@ -152,6 +152,88 @@ done:
     return status;
 }
 
+OSStatus AuthorizationMakeSafePlugin(const char * _Nonnull pluginPath, char * _Nonnull * _Nonnull safePath)
+{
+    OSStatus status = errAuthorizationInternal;
+    xpc_object_t message = NULL;
+    xpc_object_t reply = NULL;
+    
+    // Enhanced input validation
+    require_action(pluginPath != NULL, done, status = errAuthorizationInvalidPointer);
+    require_action(safePath != NULL, done, status = errAuthorizationInvalidPointer);
+    
+    // Initialize output parameter
+    *safePath = NULL;
+    
+    // Validate plugin path
+    size_t pathLen = strlen(pluginPath);
+    require_action(pathLen > 0 && pathLen < PATH_MAX, done, status = errAuthorizationInvalidPointer);
+    
+    
+    // Create XPC message
+    message = xpc_dictionary_create(NULL, NULL, 0);
+    require_action(message != NULL, done, status = errAuthorizationInternal);
+    
+    xpc_dictionary_set_uint64(message, AUTH_XPC_TYPE, AUTHORIZATION_STAGE_PLUGIN);
+    xpc_dictionary_set_string(message, AUTH_XPC_PLUGIN_PATH, pluginPath);
+    xpc_dictionary_set_bool(message, AUTH_XPC_BOOL, true); // true for install/stage
+    
+    // Send message and get reply
+    xpc_connection_t conn = get_authorization_connection();
+    require_action(conn != NULL, done, status = errAuthorizationInternal);
+    
+    reply = xpc_connection_send_message_with_reply_sync(conn, message);
+    require_action(reply != NULL, done, status = errAuthorizationInternal);
+    require_action(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
+    
+    status = (OSStatus)xpc_dictionary_get_int64(reply, AUTH_XPC_STATUS);
+    
+    // Extract safe path on success
+    if (status == errAuthorizationSuccess) {
+        const char *path = xpc_dictionary_get_string(reply, AUTH_XPC_PLUGIN_SAFE_PATH);
+        require_action(path != NULL, done, status = errAuthorizationInternal);
+        
+        // Validate returned path length
+        size_t safePathLen = strlen(path);
+        require_action(safePathLen > 0 && safePathLen < PATH_MAX, done, status = errAuthorizationInternal);
+        
+        *safePath = strndup(path, PATH_MAX);
+        require_action(*safePath != NULL, done, status = errAuthorizationInternal);
+    }
+
+done:
+    xpc_release_safe(message);
+    xpc_release_safe(reply);
+    return status;
+}
+
+OSStatus AuthorizationRemoveSafePlugins(void)
+{
+    OSStatus status = errAuthorizationInternal;
+    xpc_object_t message = NULL;
+    xpc_object_t reply = NULL;
+        
+    // Send
+    message = xpc_dictionary_create(NULL, NULL, 0);
+    require_action(message != NULL, done, status = errAuthorizationInternal);
+    xpc_dictionary_set_uint64(message, AUTH_XPC_TYPE, AUTHORIZATION_STAGE_PLUGIN);
+    xpc_dictionary_set_bool(message, AUTH_XPC_BOOL, false); // false for uninstall/remove
+    
+    // Reply
+    xpc_connection_t conn = get_authorization_connection();
+    require_action(conn != NULL, done, status = errAuthorizationInternal);
+    reply = xpc_connection_send_message_with_reply_sync(conn, message);
+    require_action(reply != NULL, done, status = errAuthorizationInternal);
+    require_action(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
+    
+    status = (OSStatus)xpc_dictionary_get_int64(reply, AUTH_XPC_STATUS);
+
+done:
+    xpc_release_safe(message);
+    xpc_release_safe(reply);
+    return status;
+}
+
 OSStatus AuthorizationCreateWithAuditToken(audit_token_t token,
                                  const AuthorizationEnvironment *environment,
                                  AuthorizationFlags flags,

@@ -43,6 +43,13 @@ StyleRulePositionTry::StyleRulePositionTry(AtomString&& name, Ref<StylePropertie
 {
 }
 
+StyleRulePositionTry::StyleRulePositionTry(const StyleRulePositionTry& o)
+    : StyleRuleBase(o)
+    , m_name(o.m_name)
+    , m_properties(o.protectedProperties()->mutableCopy())
+{
+}
+
 MutableStyleProperties& StyleRulePositionTry::mutableProperties()
 {
     Ref properties = m_properties;
@@ -87,6 +94,8 @@ String CSSPositionTryRule::cssText() const
 void CSSPositionTryRule::reattach(StyleRuleBase& rule)
 {
     m_positionTryRule = downcast<StyleRulePositionTry>(rule);
+    if (RefPtr propertiesCSSOMWrapper = m_propertiesCSSOMWrapper)
+        propertiesCSSOMWrapper->reattach(protectedPositionTryRule()->protectedMutableProperties());
 }
 
 AtomString CSSPositionTryRule::name() const

@@ -1411,14 +1411,14 @@ it{
             }
             week{
                 dnam{"sett."}
-                one{"{0}sett."}
-                other{"{0}sett."}
+                one{"{0} sett."}
+                other{"{0} sett."}
                 per{"{0}/sett."}
             }
             year{
                 dnam{"anno"}
-                one{"{0}anno"}
-                other{"{0}anni"}
+                one{"{0} anno"}
+                other{"{0} anni"}
             }
         }
         electric{

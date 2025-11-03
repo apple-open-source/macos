@@ -2102,13 +2102,9 @@ static bool SecCertificateIsCertificate(SecCertificateRef certificate) {
     if (!certificate || !certificate->_der.data || certificate->_der.length > LONG_MAX) {
         return false;
     }
-#ifndef IS_TRUSTTESTS
-    /* TrustTests registers two SecCertificate TypeIDs, so we'll skip this check
-     * in the tests and just let the tests crash if they pass the wrong object type. */
     if (CFGetTypeID(certificate) != SecCertificateGetTypeID()) {
         return false;
     }
-#endif
     return true;
 }
 

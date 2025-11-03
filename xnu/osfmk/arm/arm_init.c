@@ -533,6 +533,9 @@ arm_init(
 	__builtin_arm_wsr("pan", 1);
 #endif  /* __ARM_PAN_AVAILABLE__ */
 
+#if HAS_MTE
+	panic("This code path should never be hit: MTE devices should always flow through the SPTM-assisted init");
+#endif /* HAS_MTE */
 
 	/*
 	 * gPhysBase/Size only represent kernel-managed memory. These globals represent

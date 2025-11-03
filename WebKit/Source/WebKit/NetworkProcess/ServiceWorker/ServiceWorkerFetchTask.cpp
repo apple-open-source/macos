@@ -59,7 +59,7 @@ Ref<ServiceWorkerFetchTask> ServiceWorkerFetchTask::create(WebSWServerConnection
     return adoptRef(*new ServiceWorkerFetchTask(connection, loader, WTFMove(request), connectionIdentifier, workerIdentifier, registration, session, isWorkerReady));
 }
 
-Ref<ServiceWorkerFetchTask> ServiceWorkerFetchTask::create(WebSWServerConnection& connection, NetworkResourceLoader& loader, std::unique_ptr<ServiceWorkerNavigationPreloader>&& preloader)
+Ref<ServiceWorkerFetchTask> ServiceWorkerFetchTask::create(WebSWServerConnection& connection, NetworkResourceLoader& loader, RefPtr<ServiceWorkerNavigationPreloader>&& preloader)
 {
     return adoptRef(*new ServiceWorkerFetchTask(connection, loader, WTFMove(preloader)));
 }
@@ -79,7 +79,7 @@ RefPtr<ServiceWorkerFetchTask> ServiceWorkerFetchTask::fromNavigationPreloader(W
     return ServiceWorkerFetchTask::create(swServerConnection, loader, WTFMove(preload));
 }
 
-ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerConnection, NetworkResourceLoader& loader, std::unique_ptr<ServiceWorkerNavigationPreloader>&& preloader)
+ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerConnection, NetworkResourceLoader& loader, RefPtr<ServiceWorkerNavigationPreloader>&& preloader)
     : m_swServerConnection(swServerConnection)
     , m_loader(loader)
     , m_fetchIdentifier(WebCore::FetchIdentifier::generate())
@@ -114,10 +114,10 @@ ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerCo
     if (shouldDoNavigationPreload && (!isWorkerReady || registration.navigationPreloadState().enabled)) {
         NetworkLoadParameters parameters = loader.parameters().networkLoadParameters();
         parameters.request = m_currentRequest;
-        m_preloader = makeUnique<ServiceWorkerNavigationPreloader>(*session, WTFMove(parameters), registration.navigationPreloadState(), loader.shouldCaptureExtraNetworkLoadMetrics());
+        m_preloader = ServiceWorkerNavigationPreloader::create(*session, WTFMove(parameters), registration.navigationPreloadState(), loader.shouldCaptureExtraNetworkLoadMetrics());
         session->addNavigationPreloaderTask(*this);
 
-        checkedPreloader()->waitForResponse([weakThis = WeakPtr { *this }] {
+        protectedPreloader()->waitForResponse([weakThis = WeakPtr { *this }] {
             if (RefPtr protectedThis = weakThis.get())
                 protectedThis->preloadResponseIsReady();
         });
@@ -485,7 +485,7 @@ void ServiceWorkerFetchTask::loadResponseFromPreloader()
         return;
 
     m_isLoadingFromPreloader = true;
-    checkedPreloader()->waitForResponse([weakThis = WeakPtr { *this }] {
+    protectedPreloader()->waitForResponse([weakThis = WeakPtr { *this }] {
         if (RefPtr protectedThis = weakThis.get())
             protectedThis->preloadResponseIsReady();
     });
@@ -530,9 +530,9 @@ void ServiceWorkerFetchTask::sendNavigationPreloadUpdate()
     connection->send(Messages::WebSWContextManagerConnection::NavigationPreloadIsReady { *m_serverConnectionIdentifier, *m_serviceWorkerIdentifier, m_fetchIdentifier, m_preloader->response() }, 0);
 }
 
-CheckedPtr<ServiceWorkerNavigationPreloader> ServiceWorkerFetchTask::checkedPreloader()
+RefPtr<ServiceWorkerNavigationPreloader> ServiceWorkerFetchTask::protectedPreloader()
 {
-    return m_preloader.get();
+    return m_preloader;
 }
 
 void ServiceWorkerFetchTask::loadBodyFromPreloader()
@@ -546,7 +546,7 @@ void ServiceWorkerFetchTask::loadBodyFromPreloader()
         return;
     }
 
-    checkedPreloader()->waitForBody([weakThis = WeakPtr { *this }](RefPtr<const WebCore::FragmentedSharedBuffer>&& chunk) {
+    protectedPreloader()->waitForBody([weakThis = WeakPtr { *this }](RefPtr<const WebCore::FragmentedSharedBuffer>&& chunk) {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -571,7 +571,7 @@ void ServiceWorkerFetchTask::cancelPreloadIfNecessary()
     if (CheckedPtr session = this->session())
         session->removeNavigationPreloaderTask(*this);
 
-    checkedPreloader()->cancel();
+    protectedPreloader()->cancel();
     m_preloader = nullptr;
 }
 
@@ -583,7 +583,7 @@ NetworkSession* ServiceWorkerFetchTask::session()
 
 bool ServiceWorkerFetchTask::convertToDownload(DownloadManager& manager, DownloadID downloadID, const ResourceRequest& request, const ResourceResponse& response)
 {
-    if (CheckedPtr preloader = m_preloader.get())
+    if (RefPtr preloader = m_preloader.get())
         return preloader->convertToDownload(manager, downloadID, request, response);
 
     CheckedPtr session = this->session();

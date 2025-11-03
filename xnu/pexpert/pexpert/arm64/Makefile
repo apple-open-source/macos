@@ -32,6 +32,7 @@ PRIVATE_KERNELFILES = \
 	H14.h \
 	H15.h \
 	H16.h \
+	H17.h \
 	VMAPPLE.h
 
 

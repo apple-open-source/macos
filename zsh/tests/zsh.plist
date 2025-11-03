@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>zsh</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>unpriv_env_test</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/zsh/unpriv_env.sh</string>
+			</array>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+		</dict>
+	</array>
+	<key>Timeout</key>
+	<integer>30</integer>
+</dict>
+</plist>

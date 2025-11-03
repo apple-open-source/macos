@@ -848,6 +848,7 @@ extern int              vttoif_tab[];
 #define VNODE_REMOVE_SYSTEM_DISCARDED           0x0020 /* Update speculative telemetry with SYSTEM_DISCARDED use state (Default USER_DISCARDED use state) */
 #ifdef BSD_KERNEL_PRIVATE
 #define VNODE_REMOVE_RESOLVE_BENEATH            0x0040 /* path must reside in the hierarchy beneath the starting directory */
+#define VNODE_REMOVE_UNIQUE                     0x0080 /* prevent a path lookup from succeeding on a vnode with multiple links */
 #endif /* BSD_KERNEL_PRIVATE */
 
 /* VNOP_READDIR flags: */

@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2010-2015, 2017-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+# Copyright (c) 2010-2015, 2017-2023 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -31,6 +31,7 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 sbindir = @sbindir@
 sysconfdir = @sysconfdir@
+adminconfdir = @adminconfdir@
 libexecdir = @libexecdir@
 includedir = @includedir@
 datarootdir = @datarootdir@
@@ -56,9 +57,10 @@ shlib_mode = @SHLIB_MODE@
 python_version = @PYTHON_VERSION@
 
 SUBDIRS = lib/util @ZLIB_SRC@ lib/eventlog lib/fuzzstub lib/iolog \
-	  lib/protobuf-c @LOGSRV_SRC@ @LOGSRVD_SRC@ plugins/audit_json \
-	  plugins/group_file plugins/sudoers plugins/system_group \
-	  @PYTHON_PLUGIN_SRC@ src include docs examples
+	  lib/protobuf-c @SSL_COMPAT_SRC@ @LOGSRV_SRC@ @LOGSRVD_SRC@ \
+	  plugins/audit_json plugins/group_file plugins/sudoers \
+	  plugins/system_group @PYTHON_PLUGIN_SRC@ src include \
+	  docs examples
 
 SAMPLES = plugins/sample plugins/sample_approval
 
@@ -94,7 +96,7 @@ XGETTEXT_OPTS = -F -k_ -kN_ -kU_ --copyright-holder="Todd C. Miller" \
 		--flag sudo_lbuf_append_quoted:3:c-format --foreign-user
 
 # Default cppcheck options when run from the top-level Makefile
-CPPCHECK_OPTS = -q --enable=warning,performance,portability --suppress=constStatement --suppress=compareBoolExpressionWithInt --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_HOST_NAME_MAX -U_POSIX_PATH_MAX -U__NBBY -DNSIG=64
+CPPCHECK_OPTS = -q --enable=warning,performance,portability --suppress=constStatement --suppress=compareBoolExpressionWithInt --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_PATH_MAX -U__NBBY
 
 # Default splint options when run from the top-level Makefile
 SPLINT_OPTS = -D__restrict= -checks
@@ -192,6 +194,9 @@ install: config.status ChangeLog pre-install install-nls
 	    exit $$?; \
 	done
 
+postinstall:
+	@POSTINSTALL@
+
 uninstall: uninstall-nls
 	for d in $(SUBDIRS); do \
 	    (cd $$d && exec $(MAKE) $@) && continue; \
@@ -207,26 +212,33 @@ uninstall-nls:
 siglist.c signame.c:
 	cd lib/util && exec $(MAKE) $@
 
-depend: siglist.c signame.c
+tsgetusershell.c:
+	cd plugins/sudoers && exec $(MAKE) $@
+
+depend: siglist.c signame.c tsgetusershell.c
 	$(scriptdir)/mkdep.pl \
 	    --srcdir=$(abs_top_srcdir) --builddir=$(abs_top_builddir) \
 	    lib/util/Makefile.in lib/zlib/Makefile.in \
 	    lib/fuzzstub/Makefile.in lib/eventlog/Makefile.in \
 	    lib/iolog/Makefile.in lib/logsrv/Makefile.in logsrvd/Makefile.in \
-	    lib/protobuf-c/Makefile.in plugins/group_file/Makefile.in \
-	    plugins/sample/Makefile.in plugins/sudoers/Makefile.in \
-	    plugins/system_group/Makefile.in plugins/python/Makefile.in \
-	    src/Makefile.in && \
+	    lib/protobuf-c/Makefile.in lib/ssl_compat/Makefile.in \
+	    plugins/group_file/Makefile.in plugins/audit_json/Makefile.in \
+	    plugins/sample/Makefile.in plugins/sample_approval/Makefile.in \
+	    plugins/sudoers/Makefile.in plugins/system_group/Makefile.in \
+	    plugins/python/Makefile.in src/Makefile.in && \
 	$(top_builddir)/config.status --file $(top_builddir)/lib/util/Makefile \
 	    --file $(top_builddir)/lib/zlib/Makefile \
-	    --file $(top_builddir)/lib/eventlog/Makefile \
 	    --file $(top_builddir)/lib/fuzzstub/Makefile \
+	    --file $(top_builddir)/lib/eventlog/Makefile \
 	    --file $(top_builddir)/lib/iolog/Makefile \
 	    --file $(top_builddir)/lib/logsrv/Makefile \
 	    --file $(top_builddir)/lib/protobuf-c/Makefile \
+	    --file $(top_builddir)/lib/ssl_compat/Makefile \
 	    --file $(top_builddir)/logsrvd/Makefile \
-	    --file $(top_builddir)/plugins/sample/Makefile \
 	    --file $(top_builddir)/plugins/group_file/Makefile \
+	    --file $(top_builddir)/plugins/audit_json/Makefile \
+	    --file $(top_builddir)/plugins/sample/Makefile \
+	    --file $(top_builddir)/plugins/sample_approval/Makefile \
 	    --file $(top_builddir)/plugins/sudoers/Makefile \
 	    --file $(top_builddir)/plugins/system_group/Makefile \
 	    --file $(top_builddir)/plugins/python/Makefile \
@@ -236,14 +248,7 @@ depend: siglist.c signame.c
 # The CODEOWNERS file is not present in the release tarball.
 ChangeLog:
 	if test -f $(srcdir)/docs/CODEOWNERS; then \
-	    if test -d $(srcdir)/.hg && hg -R $(srcdir) identify -ibt >stamp-$@.tmp 2>&1; then \
-		cmp stamp-$@.tmp stamp-$@ >/dev/null 2>&1 || { \
-		    mv -f stamp-$@.tmp stamp-$@; \
-		    if hg log -R $(srcdir) --template=changelog -r "sort(branch(.) or follow(), -date)" > $@.tmp; then \
-			mv -f $@.tmp $(srcdir)/$@; \
-		    fi; \
-		}; \
-	    elif test -d $(srcdir)/.git && git --git-dir $(srcdir)/.git describe --tags >stamp-$@.tmp 2>&1; then \
+	    if test -d $(srcdir)/.git && git --git-dir $(srcdir)/.git describe --tags >stamp-$@.tmp 2>&1; then \
 		cmp stamp-$@.tmp stamp-$@ >/dev/null 2>&1 || { \
 		    mv -f stamp-$@.tmp stamp-$@; \
 		    if $(scriptdir)/log2cl.pl -R $(srcdir)/.git > $@.tmp; then \
@@ -373,10 +378,10 @@ mkdefaults:
 	cd plugins/sudoers && exec $(MAKE) DEVEL=1 ./def_data.c ./def_data.h
 
 check-dist: update-pot compile-po mkdefaults
-	@if test -d $(srcdir)/.hg && cd $(srcdir); then \
-	    if test `hg stat -am | wc -l` -ne 0; then \
+	@if test -d $(srcdir)/.git && cd $(srcdir); then \
+	    if git status -s | grep -q '^ *M'; then \
 		echo "Uncommitted changes" 1>&2; \
-		hg stat -am 1>&2; \
+		git status -s | grep '^ *M'; \
 		exit 1; \
 	    fi; \
 	fi
@@ -393,6 +398,7 @@ force-dist: ChangeLog $(srcdir)/MANIFEST
 package: @PPFILES@
 	DESTDIR=$(abs_top_builddir)/destdir; rm -rf $$DESTDIR; \
 	$(MAKE) install INSTALL_OWNER= DESTDIR=$$DESTDIR && \
+	$(MAKE) postinstall INSTALL_OWNER= DESTDIR=$$DESTDIR && \
 	for p in @PPFILES@; do \
 	    $(SHELL) $(scriptdir)/pp $(PPFLAGS) --destdir=$$DESTDIR $$p \
 		srcdir=$(top_srcdir) \

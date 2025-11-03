@@ -103,6 +103,9 @@
 #include <vm/vm_purgeable_internal.h>   /* Needed by some vm_page.h macros */
 #include <vm/vm_shared_region.h>
 #include <vm/vm_page_internal.h>
+#if HAS_MTE
+#include <vm/vm_mteinfo_internal.h>
+#endif /* HAS_MTE */
 
 #include <sys/codesign.h>
 #include <sys/code_signing.h>
@@ -337,8 +340,8 @@ vm_fault_init(void)
 	}
 #if CONFIG_FREEZE
 	if (need_default_val) {
-		if (osenvironment_is_diagnostics()) {
-			printf("osenvironment == \"diagnostics\". Setting \"vm_compressor_mode\" to in-core compressor only\n");
+		if (osenvironment_is_diagnostics() || osenvironment_is_device_recovery()) {
+			printf("osenvironment == \"diagnostics or device-recovery\". Setting \"vm_compressor_mode\" to in-core compressor only\n");
 			vm_compressor_mode = VM_PAGER_COMPRESSOR_NO_SWAP;
 			need_default_val = false;
 		}
@@ -610,7 +613,7 @@ vm_fault_deactivate_behind(
 	if (is_kernel_object(object) ||
 	    !vm_page_deactivate_behind ||
 	    (vm_object_trunc_page(offset) != offset) ||
-	    (object->resident_page_count <
+	    (object->resident_page_count - object->wired_page_count <
 	    vm_page_active_count / vm_page_deactivate_behind_min_resident_ratio)) {
 		/*
 		 * Do not deactivate pages from the kernel object: they
@@ -983,6 +986,9 @@ vm_fault_zero_page(vm_page_t m, boolean_t no_zero_fill)
 	} else {
 		vm_page_zero_fill(
 			m
+#if HAS_MTE
+			, true /* zero_tags */
+#endif /* HAS_MTE */
 			);
 
 		counter_inc(&vm_statistics_zero_fill_count);
@@ -1019,6 +1025,9 @@ vm_fault_page_release_page(
 		if (*clear_absent_on_error && m->vmp_absent) {
 			vm_page_zero_fill(
 				m
+#if HAS_MTE
+				, false /* zero_tags */
+#endif /* HAS_MTE */
 				);
 			counter_inc(&vm_statistics_zero_fill_count);
 			DTRACE_VM2(zfod, int, 1, (uint64_t *), NULL);
@@ -1201,6 +1210,12 @@ vm_fault_page(
 #endif
 
 		grab_options = vm_page_grab_options_for_object(object);
+#if HAS_MTE
+		if (!(grab_options & VM_PAGE_GRAB_MTE) &&
+		    mteinfo_vm_tag_can_use_tag_storage((vm_tag_t)fault_info->user_tag)) {
+			grab_options |= VM_PAGE_GRAB_ALLOW_TAG_STORAGE;
+		}
+#endif /* HAS_MTE */
 
 		if (!object->alive) {
 			/*
@@ -1758,6 +1773,11 @@ vm_fault_page(
 #endif /* PAGE_SLEEP_WITH_INHERITOR */
 
 				vm_object_unlock(object);
+#if HAS_MTE
+				if (vm_object_is_mte_mappable(object)) {
+					c_flags |= C_MTE;
+				}
+#endif /* HAS_MTE */
 				rc = vm_compressor_pager_get(
 					pager,
 					offset + object->paging_offset,
@@ -3499,6 +3519,30 @@ vm_fault_enter_set_mapped(
 	return page_needs_sync;
 }
 
+#if HAS_MTE
+static bool
+vm_should_override_mte_cacheattr(
+	pmap_t pmap,
+	vm_object_t obj,
+	__unused vm_map_address_t va,
+	pmap_paddr_t pa)
+{
+	/*
+	 * We need to ask whether _any_ tagged mapping exists for this frame,
+	 * rather than asking whether the object we're holding _now_ is tagged.
+	 * This is how we ensure that if an MTE mapping escapes into a non-MTE
+	 * context, shuffles around a bit, then comes back around to the originating
+	 * context, we'll enter it as MTE.
+	 */
+	if (obj != VM_OBJECT_NULL
+	    && pmap_is_tagged_page((ppnum_t)atop(pa))
+	    && pmap->associated_vm_map_serial_id != obj->vmo_provenance) {
+		return true;
+	}
+
+	return false;
+}
+#endif
 
 static inline kern_return_t
 vm_fault_pmap_validate_page(
@@ -3558,6 +3602,49 @@ pmap_enter_object_options_check(
 	}
 	pmap_paddr_t physical_address = (pmap_paddr_t)ptoa(pn) + fault_phys_offset;
 
+#if HAS_MTE
+	/*
+	 * By policy we sometimes decide to enter an MTE-capable object
+	 *  as non-MTE in a particular map.
+	 *
+	 * Most notably, we enact a general policy that MTE memory which escapes its
+	 * original context will be aliased in other maps as non-MTE (aliasing back
+	 *  into the originating map will result in an MTE-enabled mapping.)
+	 *
+	 * Using VM_WIMG_DEFAULT for this pmap_enter only sets the PTE values
+	 * correctly *for this mapping only* without changing the MTE-ness
+	 * of the underlying page.
+	 */
+	if (vm_should_override_mte_cacheattr(pmap, obj, virtual_address, physical_address)) {
+		/*
+		 * Certain first-party actors (such as WCP and BlastDoor) are modeled untrustworthy, and should never
+		 * be allowed to receive untagged aliases to tagged memory from other actors.
+		 * If we make it this far on a pmap that should never receive untagged aliases, throw a fatal guard.
+		 */
+		if (pmap->restrict_receiving_aliases_to_tagged_memory) {
+			/* Immediately send a fatal guard */
+			uint64_t address_to_report = 0;
+#if DEBUG || DEVELOPMENT
+			/* On internal variants, report the PA we tried to alias */
+			address_to_report = physical_address;
+#endif /* DEBUG || DEVELOPMENT */
+			mach_exception_code_t code = 0;
+			EXC_GUARD_ENCODE_TYPE(code, GUARD_TYPE_VIRT_MEMORY);
+			EXC_GUARD_ENCODE_FLAVOR(code, kGUARD_EXC_SEC_SHARING_DENIED);
+			thread_guard_violation(
+				current_thread(),
+				code,
+				address_to_report,
+				/* Fatal */
+				true);
+			/* And indicate that something went wrong */
+			return VM_FAULT_MEMORY_ERROR;
+		} else {
+			assert(!(flags & VM_WIMG_MASK));
+			flags |= VM_WIMG_USE_DEFAULT;
+		}
+	}
+#endif /* HAS_MTE */
 
 	return pmap_enter_options_addr(pmap,
 	           virtual_address,
@@ -3712,7 +3799,7 @@ vm_fault_pmap_enter(
 	vm_prot_t fault_type,
 	bool wired,
 	int pmap_options,
-	boolean_t *need_retry)
+	bool *need_retry)
 {
 	kern_return_t kr;
 	if (need_retry != NULL) {
@@ -3733,7 +3820,7 @@ vm_fault_pmap_enter(
 			 * lock on the top object in the chain. The caller
 			 * will need to deal with this by dropping that lock and retrying.
 			 */
-			*need_retry = TRUE;
+			*need_retry = true;
 			vm_pmap_enter_retried++;
 		}
 	}
@@ -3762,10 +3849,14 @@ vm_fault_pmap_enter_with_object_lock(
 	vm_prot_t fault_type,
 	bool wired,
 	int pmap_options,
-	boolean_t *need_retry,
+	bool *need_retry,
 	uint8_t *object_lock_type)
 {
 	kern_return_t kr;
+
+	assert(need_retry != NULL);
+	*need_retry = false;
+
 	/*
 	 * Prevent a deadlock by not
 	 * holding the object lock if we need to wait for a page in
@@ -3789,53 +3880,17 @@ vm_fault_pmap_enter_with_object_lock(
 #endif /* __x86_64__ */
 
 	if (kr == KERN_RESOURCE_SHORTAGE) {
-		if (need_retry) {
-			/*
-			 * this will be non-null in the case where we hold the lock
-			 * on the top-object in this chain... we can't just drop
-			 * the lock on the object we're inserting the page into
-			 * and recall the PMAP_ENTER since we can still cause
-			 * a deadlock if one of the critical paths tries to
-			 * acquire the lock on the top-object and we're blocked
-			 * in PMAP_ENTER waiting for memory... our only recourse
-			 * is to deal with it at a higher level where we can
-			 * drop both locks.
-			 */
-			*need_retry = TRUE;
-			vm_pmap_enter_retried++;
-			goto done;
-		}
 		/*
-		 * The nonblocking version of pmap_enter did not succeed.
-		 * and we don't need to drop other locks and retry
-		 * at the level above us, so
-		 * use the blocking version instead. Requires marking
-		 * the page busy and unlocking the object
+		 * We can't drop the object lock(s) here to retry the pmap_enter()
+		 * in a blocking way so that it can expand the page table as needed.
+		 * That would allow vm_object_copy_delayed() to create a new copy object
+		 * and change the copy-on-write obligations.
+		 * Our only recourse is to deal with it at a higher level where we can
+		 * drop both locks, expand the page table and retry the fault.
 		 */
-		boolean_t was_busy = m->vmp_busy;
-
-		vm_object_lock_assert_exclusive(object);
-
-		m->vmp_busy = TRUE;
-		vm_object_unlock(object);
-
-		kr = pmap_enter_options_check(pmap, vaddr,
-		    fault_phys_offset,
-		    m, *prot, fault_type,
-		    wired, pmap_options);
-
-		assert(VM_PAGE_OBJECT(m) == object);
-
-		/* Take the object lock again. */
-		vm_object_lock(object);
-
-		/* If the page was busy, someone else will wake it up.
-		 * Otherwise, we have to do it now. */
-		assert(m->vmp_busy);
-		if (!was_busy) {
-			vm_page_wakeup_done(object, m);
-		}
-		vm_pmap_enter_blocked++;
+		*need_retry = true;
+		vm_pmap_enter_retried++;
+		goto done;
 	}
 
 #if CONFIG_TRACK_UNMODIFIED_ANON_PAGES
@@ -3863,6 +3918,7 @@ vm_fault_pmap_enter_with_object_lock(
 		vm_object_compressor_pager_state_clr(VM_PAGE_OBJECT(m), m->vmp_offset);
 	}
 #else /* CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
+#pragma unused(object)
 #pragma unused(object_lock_type)
 #endif /* CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
 
@@ -4074,7 +4130,7 @@ vm_fault_enter(
 	boolean_t wired,
 	vm_tag_t  wire_tag,
 	vm_object_fault_info_t fault_info,
-	boolean_t *need_retry,
+	bool *need_retry,
 	int *type_of_fault,
 	uint8_t *object_lock_type,
 	bool *page_needs_sleep)
@@ -4084,6 +4140,8 @@ vm_fault_enter(
 	bool            page_needs_data_sync;
 	vm_prot_t       fault_type;
 	int             pmap_options = fault_info->pmap_options;
+
+	assert(need_retry != NULL);
 
 	if (vm_page_is_guard(m)) {
 		return KERN_SUCCESS;
@@ -4256,7 +4314,7 @@ vm_fault_complete(
 	__unused vm_map_offset_t real_vaddr,
 #endif /* CONFIG_DTRACE */
 	int type_of_fault,
-	boolean_t need_retry,
+	bool need_retry,
 	kern_return_t kr,
 	ppnum_t *physpage_p,
 	vm_prot_t prot,
@@ -4269,6 +4327,7 @@ vm_fault_complete(
 	vm_object_offset_t *written_on_offset)
 {
 	int     event_code = 0;
+
 	vm_map_lock_assert_shared(map);
 	vm_object_lock_assert_held(m_object);
 	if (top_object != VM_OBJECT_NULL) {
@@ -4284,7 +4343,7 @@ vm_fault_complete(
 		event_code = (MACHDBG_CODE(DBG_MACH_WORKINGSET, VM_REAL_FAULT_ADDR_EXTERNAL));
 	}
 	KDBG_RELEASE(event_code | DBG_FUNC_NONE, trace_real_vaddr, (fault_info->user_tag << 16) | (caller_prot << 8) | type_of_fault, m->vmp_offset, get_current_unique_pid());
-	if (need_retry == FALSE) {
+	if (!need_retry) {
 		KDBG_FILTERED(MACHDBG_CODE(DBG_MACH_WORKINGSET, VM_REAL_FAULT_FAST), get_current_unique_pid());
 	}
 	DTRACE_VM6(real_fault, vm_map_offset_t, real_vaddr, vm_map_offset_t, m->vmp_offset, int, event_code, int, caller_prot, int, type_of_fault, int, fault_info->user_tag);
@@ -4316,7 +4375,7 @@ vm_fault_complete(
 		vm_object_collapse(object, vm_object_trunc_page(offset), TRUE);
 	}
 
-	if (need_retry == FALSE &&
+	if (!need_retry &&
 	    (type_of_fault == DBG_PAGEIND_FAULT || type_of_fault == DBG_PAGEINV_FAULT || type_of_fault == DBG_CACHE_HIT_FAULT)) {
 		/*
 		 * evaluate access pattern and update state
@@ -4335,10 +4394,10 @@ vm_fault_complete(
 		vm_page_wakeup_done(m_object, m);
 	}
 
-	if (need_retry == FALSE && !m_object->internal && (fault_type & VM_PROT_WRITE)) {
+	if (!need_retry && !m_object->internal && (fault_type & VM_PROT_WRITE)) {
 		vm_object_paging_begin(m_object);
 
-		assert(*written_on_object == VM_OBJECT_NULL);
+		assert3p(*written_on_object, ==, VM_OBJECT_NULL);
 		*written_on_object = m_object;
 		*written_on_pager = m_object->pager;
 		*written_on_offset = m_object->paging_offset + m->vmp_offset;
@@ -4414,8 +4473,7 @@ vm_fault_internal(
 	vm_prot_t               fault_type;
 	vm_prot_t               original_fault_type;
 	bool                    need_collapse = FALSE;
-	boolean_t               need_retry = FALSE;
-	boolean_t               *need_retry_ptr = NULL;
+	bool                    need_retry = false;
 	uint8_t                 object_lock_type = 0;
 	uint8_t                 cur_object_lock_type;
 	vm_object_t             top_object = VM_OBJECT_NULL;
@@ -4449,6 +4507,15 @@ vm_fault_internal(
 
 	vmlp_api_start(VM_FAULT_INTERNAL);
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/*
+	 * We may be faulting on a tagged address. Canonicalize it here so we have
+	 * a chance to find it in the VM map.
+	 */
+	if (current_task_has_sec_enabled()) {
+		vaddr = vm_memtag_canonicalize(map, vaddr);
+	}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	real_vaddr = vaddr;
 	trace_real_vaddr = vaddr;
@@ -4565,7 +4632,7 @@ vm_fault_internal(
 		}
 	}
 RetryFault:
-	assert(written_on_object == VM_OBJECT_NULL);
+	assert3p(written_on_object, ==, VM_OBJECT_NULL);
 
 	/*
 	 * assume we will hit a page in the cache
@@ -4783,6 +4850,12 @@ RetryFault:
 	cur_offset = offset;
 
 	grab_options = vm_page_grab_options_for_object(object);
+#if HAS_MTE
+	if (!(grab_options & VM_PAGE_GRAB_MTE) &&
+	    mteinfo_vm_tag_can_use_tag_storage((vm_tag_t)fault_info->user_tag)) {
+		grab_options |= VM_PAGE_GRAB_ALLOW_TAG_STORAGE;
+	}
+#endif /* HAS_MTE */
 
 	while (TRUE) {
 		if (!cur_object->pager_created &&
@@ -4811,6 +4884,10 @@ RetryFault:
 				 */
 				kr = vm_fault_pmap_validate_page(pmap, m, vaddr, prot, fault_info, &page_sleep_needed);
 				if (__improbable(kr != KERN_SUCCESS)) {
+					vm_object_unlock(object);
+					if (object != cur_object) {
+						vm_object_unlock(cur_object);
+					}
 					vm_map_unlock_read(map);
 					if (real_map != map) {
 						vm_map_unlock(real_map);
@@ -5191,11 +5268,6 @@ FastPmapEnter:
 				 * cur_object == NULL or it's been unlocked
 				 * no paging references on either object or cur_object
 				 */
-				if (top_object != VM_OBJECT_NULL || object_lock_type != OBJECT_LOCK_EXCLUSIVE) {
-					need_retry_ptr = &need_retry;
-				} else {
-					need_retry_ptr = NULL;
-				}
 
 				if (fault_page_size < PAGE_SIZE) {
 					DEBUG4K_FAULT("map %p original %p pmap %p va 0x%llx caller pmap %p va 0x%llx pa 0x%llx (0x%llx+0x%llx) prot 0x%x caller_prot 0x%x\n", map, original_map, pmap, (uint64_t)vaddr, caller_pmap, (uint64_t)caller_pmap_addr, (uint64_t)((((pmap_paddr_t)VM_PAGE_GET_PHYS_PAGE(m)) << PAGE_SHIFT) + fault_phys_offset), (uint64_t)(((pmap_paddr_t)VM_PAGE_GET_PHYS_PAGE(m)) << PAGE_SHIFT), (uint64_t)fault_phys_offset, prot, caller_prot);
@@ -5219,6 +5291,7 @@ FastPmapEnter:
 				}
 				assertf(VM_PAGE_OBJECT(m) == m_object, "m=%p m_object=%p object=%p", m, m_object, object);
 				assert(VM_PAGE_OBJECT(m) != VM_OBJECT_NULL);
+				need_retry = false;
 				if (caller_pmap) {
 					kr = vm_fault_enter(m,
 					    caller_pmap,
@@ -5230,7 +5303,7 @@ FastPmapEnter:
 					    wired,
 					    wire_tag,
 					    fault_info,
-					    need_retry_ptr,
+					    &need_retry,
 					    &type_of_fault,
 					    &object_lock_type,
 					    &page_sleep_needed);
@@ -5245,7 +5318,7 @@ FastPmapEnter:
 					    wired,
 					    wire_tag,
 					    fault_info,
-					    need_retry_ptr,
+					    &need_retry,
 					    &type_of_fault,
 					    &object_lock_type,
 					    &page_sleep_needed);
@@ -5263,7 +5336,7 @@ FastPmapEnter:
 					caller_prot,
 					real_vaddr,
 					vm_fault_type_for_tracing(need_copy_on_read, type_of_fault),
-					need_retry,
+					need_retry || page_sleep_needed,
 					kr,
 					physpage_p,
 					prot,
@@ -5275,7 +5348,7 @@ FastPmapEnter:
 					&written_on_pager,
 					&written_on_offset);
 				top_object = VM_OBJECT_NULL;
-				if (need_retry == TRUE) {
+				if (need_retry) {
 					/*
 					 * vm_fault_enter couldn't complete the PMAP_ENTER...
 					 * at this point we don't hold any locks so it's safe
@@ -5288,7 +5361,7 @@ FastPmapEnter:
 						pmap, vaddr, 0, 0, 0, 0, 0,
 						PMAP_OPTIONS_NOENTER, NULL, PMAP_MAPPING_TYPE_INFER);
 
-					need_retry = FALSE;
+					need_retry = false;
 					goto RetryFault;
 				}
 				if (page_sleep_needed) {
@@ -5566,6 +5639,11 @@ FastPmapEnter:
 						}
 					}
 
+#if HAS_MTE
+					if (vm_object_is_mte_mappable(object)) {
+						c_flags |= C_MTE;
+					}
+#endif /* HAS_MTE */
 					m = vm_page_grab_options(grab_options);
 					m_object = NULL;
 
@@ -5956,6 +6034,9 @@ FastPmapEnter:
 						 */
 						vm_page_zero_fill(
 							m
+#if HAS_MTE
+							, true /* zero_tags */
+#endif /* HAS_MTE */
 							);
 						counter_inc(&vm_statistics_zero_fill_count);
 						DTRACE_VM2(zfod, int, 1, (uint64_t *), NULL);
@@ -6000,11 +6081,6 @@ FastPmapEnter:
 						pmap_sync_page_data_phys(VM_PAGE_GET_PHYS_PAGE(m));
 					}
 
-					if (top_object != VM_OBJECT_NULL) {
-						need_retry_ptr = &need_retry;
-					} else {
-						need_retry_ptr = NULL;
-					}
 					if (fault_info->fi_xnu_user_debug &&
 					    !object->code_signed) {
 						fault_info->pmap_options |= PMAP_OPTIONS_XNU_USER_DEBUG;
@@ -6014,16 +6090,17 @@ FastPmapEnter:
 						kr = vm_fault_pmap_enter(destination_pmap, destination_pmap_vaddr,
 						    fault_page_size, fault_phys_offset,
 						    m, &prot, caller_prot, enter_fault_type, wired,
-						    fault_info->pmap_options, need_retry_ptr);
+						    fault_info->pmap_options, &need_retry);
 						vm_object_lock(object);
 						assertf(!((prot & VM_PROT_WRITE) && object->vo_copy),
 						    "prot 0x%x object %p copy %p\n",
 						    prot, object, object->vo_copy);
 					} else {
+						need_retry = false;
 						kr = vm_fault_pmap_enter_with_object_lock(object, destination_pmap, destination_pmap_vaddr,
 						    fault_page_size, fault_phys_offset,
 						    m, &prot, caller_prot, enter_fault_type, wired,
-						    fault_info->pmap_options, need_retry_ptr, &object_lock_type);
+						    fault_info->pmap_options, &need_retry, &object_lock_type);
 					}
 				}
 zero_fill_cleanup:
@@ -6073,7 +6150,7 @@ zero_fill_cleanup:
 					&written_on_pager,
 					&written_on_offset);
 				top_object = VM_OBJECT_NULL;
-				if (need_retry == TRUE) {
+				if (need_retry) {
 					/*
 					 * vm_fault_enter couldn't complete the PMAP_ENTER...
 					 * at this point we don't hold any locks so it's safe
@@ -6588,6 +6665,7 @@ handle_copy_delay:
 		}
 		assertf(VM_PAGE_OBJECT(m) == m_object, "m=%p m_object=%p", m, m_object);
 		assert(VM_PAGE_OBJECT(m) != VM_OBJECT_NULL);
+		need_retry = false;
 		if (caller_pmap) {
 			kr = vm_fault_enter(m,
 			    caller_pmap,
@@ -6599,7 +6677,7 @@ handle_copy_delay:
 			    wired,
 			    wire_tag,
 			    fault_info,
-			    NULL,
+			    &need_retry,
 			    &type_of_fault,
 			    &object_lock_type,
 			    &page_sleep_needed);
@@ -6614,7 +6692,7 @@ handle_copy_delay:
 			    wired,
 			    wire_tag,
 			    fault_info,
-			    NULL,
+			    &need_retry,
 			    &type_of_fault,
 			    &object_lock_type,
 			    &page_sleep_needed);
@@ -6637,20 +6715,43 @@ handle_copy_delay:
 
 			DTRACE_VM6(real_fault, vm_map_offset_t, real_vaddr, vm_map_offset_t, m->vmp_offset, int, event_code, int, caller_prot, int, type_of_fault, int, fault_info->user_tag);
 		}
-		if ((kr != KERN_SUCCESS) || page_sleep_needed) {
+		if ((kr != KERN_SUCCESS) || page_sleep_needed || need_retry) {
 			/* abort this page fault */
+			vm_page_wakeup_done(m_object, m);
+			vm_fault_cleanup(m_object, top_page);
+			vm_object_deallocate(object);
+
+			if (need_retry) {
+				/*
+				 * We could not expand the page table while holding an
+				 * object lock.
+				 * Expand it now and retry the fault.
+				 */
+				assert3u(kr, ==, KERN_RESOURCE_SHORTAGE);
+				if (caller_pmap) {
+					(void)pmap_enter_options(
+						caller_pmap, caller_pmap_addr, 0, 0, 0, 0, 0,
+						PMAP_OPTIONS_NOENTER, NULL,
+						PMAP_MAPPING_TYPE_INFER);
+				} else {
+					(void)pmap_enter_options(
+						pmap, vaddr, 0, 0, 0, 0, 0,
+						PMAP_OPTIONS_NOENTER, NULL,
+						PMAP_MAPPING_TYPE_INFER);
+				}
+				need_retry = FALSE;
+				kr = KERN_SUCCESS; /* retry fault instead of failing below */
+			}
+
 			vm_map_unlock_read(map);
 			if (real_map != map) {
 				vm_map_unlock(real_map);
 			}
-			vm_page_wakeup_done(m_object, m);
-			vm_fault_cleanup(m_object, top_page);
-			vm_object_deallocate(object);
+
 			if (kr != KERN_SUCCESS) {
 				goto done;
-			} else {
-				goto RetryFault;
 			}
+			goto RetryFault;
 		}
 		if (physpage_p != NULL) {
 			/* for vm_map_wire_and_extract() */
@@ -6756,6 +6857,16 @@ handle_copy_delay:
 				block_map_pmap = real_map->pmap;
 				block_map_va = (addr64_t)(vaddr - ldelta);
 			}
+#if HAS_MTE
+			/*
+			 * We hit this path if we return SUCCESS from vm_fault_page but don't
+			 * return a page. This happens if we're trying to fault in a
+			 * phys_contiguous object (used by device pagers and superpages), or
+			 * if the page is non-VM managed. Both of these cases are not
+			 * expected to occur with MTE.
+			 */
+			assert(!vm_should_override_mte_cacheattr(block_map_pmap, object, block_map_va, block_map_pa));
+#endif /* HAS_MTE */
 			kr = pmap_map_block_addr(block_map_pmap,
 			    block_map_va,
 			    block_map_pa,
@@ -6803,7 +6914,7 @@ cleanup:
 		if (!m_object->internal && (fault_type & VM_PROT_WRITE)) {
 			vm_object_paging_begin(m_object);
 
-			assert(written_on_object == VM_OBJECT_NULL);
+			assert3p(written_on_object, ==, VM_OBJECT_NULL);
 			written_on_object = m_object;
 			written_on_pager = m_object->pager;
 			written_on_offset = m_object->paging_offset + m->vmp_offset;
@@ -7368,6 +7479,7 @@ vm_fault_wire_fast(
 	type_of_fault = DBG_CACHE_HIT_FAULT;
 	assert3p(VM_PAGE_OBJECT(m), ==, object);
 	bool page_sleep_needed = false;
+	bool need_retry = false;
 	kr = vm_fault_enter(m,
 	    pmap,
 	    pmap_addr,
@@ -7378,11 +7490,11 @@ vm_fault_wire_fast(
 	    TRUE,                  /* wired */
 	    wire_tag,
 	    &fault_info,
-	    NULL,
+	    &need_retry,
 	    &type_of_fault,
 	    &object_lock_type, /* Exclusive lock mode. Will remain unchanged.*/
 	    &page_sleep_needed);
-	if ((kr != KERN_SUCCESS) || page_sleep_needed) {
+	if ((kr != KERN_SUCCESS) || page_sleep_needed || need_retry) {
 		RELEASE_PAGE(m);
 		GIVE_UP;
 	}
@@ -7794,6 +7906,9 @@ RetrySourceFault:;
 			if (result_page == VM_PAGE_NULL) {
 				vm_page_zero_fill(
 					dst_page
+#if HAS_MTE
+					, false /* zero_tags */
+#endif /* HAS_MTE */
 					);
 			} else {
 				vm_object_lock(result_page_object);
@@ -7921,6 +8036,10 @@ object_supports_coredump(const vm_object_t object)
 	switch (object->wimg_bits & VM_WIMG_MASK) {
 	case VM_WIMG_DEFAULT:
 		return true;
+#if HAS_MTE
+	case VM_WIMG_MTE:
+		return true;
+#endif /* HAS_MTE */
 	default:
 		return false;
 	}
@@ -8056,6 +8175,11 @@ kdp_lightweight_fault(vm_map_t map, vm_offset_t cur_target_addr, bool multi_cpu)
 
 		if (object->pager_created && MUST_ASK_PAGER(object, object_offset, compressor_external_state)) {
 			if (compressor_external_state == VM_EXTERNAL_STATE_EXISTS) {
+#if HAS_MTE
+				if (vm_object_is_mte_mappable(object)) {
+					compressor_flags |= C_MTE | C_MTE_DROP_TAGS;
+				}
+#endif /* HAS_MTE */
 				kr = vm_compressor_pager_get(object->pager,
 				    vm_object_trunc_page(object_offset + object->paging_offset),
 				    decomp_ppnum, &my_fault_type,

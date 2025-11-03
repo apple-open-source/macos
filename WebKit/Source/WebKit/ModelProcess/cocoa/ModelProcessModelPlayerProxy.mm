@@ -902,19 +902,19 @@ void ModelProcessModelPlayerProxy::animateModelToFitPortal(CompletionHandler<voi
 #if HAVE(MODEL_MEMORY_ATTRIBUTION)
 static void setIBLAssetOwnership(const String& attributionTaskID, REAssetRef iblAsset)
 {
-    const char* attributionIDString = attributionTaskID.utf8().data();
+    auto attributionIDString = attributionTaskID.utf8();
 
     if (REPtr<REAssetRef> skyboxTexture = REIBLAssetGetSkyboxTexture(iblAsset)) {
-        RELEASE_LOG_DEBUG(ModelElement, "Attributing skyboxTexture to task ID: %s", attributionIDString);
-        REAssetSetMemoryAttributionTarget(skyboxTexture.get(), attributionIDString);
+        RELEASE_LOG_DEBUG(ModelElement, "Attributing skyboxTexture to task ID: %s", attributionIDString.data());
+        REAssetSetMemoryAttributionTarget(skyboxTexture.get(), attributionIDString.data());
     }
     if (REPtr<REAssetRef> diffuseTexture = REIBLAssetGetDiffuseTexture(iblAsset)) {
-        RELEASE_LOG_DEBUG(ModelElement, "Attributing diffuseTexture to task ID: %s", attributionIDString);
-        REAssetSetMemoryAttributionTarget(diffuseTexture.get(), attributionIDString);
+        RELEASE_LOG_DEBUG(ModelElement, "Attributing diffuseTexture to task ID: %s", attributionIDString.data());
+        REAssetSetMemoryAttributionTarget(diffuseTexture.get(), attributionIDString.data());
     }
     if (REPtr<REAssetRef> specularTexture = REIBLAssetGetSpecularTexture(iblAsset)) {
-        RELEASE_LOG_DEBUG(ModelElement, "Attributing specularTexture to task ID: %s", attributionIDString);
-        REAssetSetMemoryAttributionTarget(specularTexture.get(), attributionIDString);
+        RELEASE_LOG_DEBUG(ModelElement, "Attributing specularTexture to task ID: %s", attributionIDString.data());
+        REAssetSetMemoryAttributionTarget(specularTexture.get(), attributionIDString.data());
     }
 }
 #endif

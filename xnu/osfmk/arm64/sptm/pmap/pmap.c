@@ -2163,6 +2163,329 @@ pmap_is_bad_ram(__unused ppnum_t ppn)
 /**
  * Prepare bad ram pages to be skipped.
  */
+#if HAS_MTE
+
+/*
+ * Things to track use of MTE tag pages.
+ *
+ * The tag storage region starts at mte_tag_storage_start, and ends at
+ * mte_tag_storage_end.  The tag storage region should consist of
+ * mte_tag_storage_count pages.
+ *
+ * mte_tag_storage_start_pnum is just the physical page number of the first
+ * page in the tag storage region.
+ */
+SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_start;
+SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_end;
+SECURITY_READ_ONLY_LATE(ppnum_t)      mte_tag_storage_start_pnum;
+SECURITY_READ_ONLY_LATE(uint_t)       mte_tag_storage_count;
+
+/*
+ * Bounds for calculating which portions of the tag storage range that won't be
+ * used for tag storage
+ *
+ * We currently expect DRAM to look (very roughly) like this (unless the maxmem
+ * boot-arg is being used):
+ *
+ * +-----------+---------+-------------+-----------------+-----------+
+ * | Unmanaged | Managed | Tag Storage | Managed (maybe) | Unmanaged |
+ * +-----------+---------+-------------+-----------------+-----------+
+ *
+ * The system will never tag the unmanaged pages, as it will not have data
+ * structures for those pages.  The system will also never tag the tag storage
+ * pages, as this is forbidden by the hardware.
+ *
+ * The maxmem boot-arg may grow the size of the ending unmanaged region
+ * (potentially extended into or past the tag storage region).
+ *
+ * As far as the terminology goes, "recursive" tag storage is the tag storage
+ * range that covers the tag storage region.  The "managed" tag storage is the
+ * tag storage range that covers managed memory (which includes the tag storage
+ * range itself, unless the maxmem boot-arg is involved).  This implicitly
+ * means that the "unmanaged" tag storage range is all tag storage outside the
+ * "managed" range.
+ */
+static SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_recursive_start_pnum;
+static SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_recursive_end_pnum;
+static SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_managed_start_pnum;
+static SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_managed_end_pnum;
+static SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_discarded_start_pnum;
+static SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_discarded_end_pnum;
+static SECURITY_READ_ONLY_LATE(pmap_paddr_t) mte_tag_storage_recursive_discarded_end_pnum;
+
+static inline void
+pmap_tag_op(const unified_page_list_t *page_list, bool tag_not_untag, __assert_only bool panic_on_redundant_calls)
+{
+	pmap_sptm_percpu_data_t *sptm_pcpu = NULL;
+	sptm_paddr_t *paddr_list = NULL;
+
+	unsigned int num_paddrs = 0;
+
+	/**
+	 * Drain the epochs to ensure any lingering batched operations that may have taken
+	 * an in-flight reference to these pages are complete.  sptm_tag_papt_multipage(),
+	 * much like sptm_retype(), takes exclusive guards on each physical page, so this
+	 * is needed as a precaution to avoid a race with (for example) a concurrent
+	 * pmap_remove() which may still hold a lingering shared guard on a page in this
+	 * list after removing a mapping.  The VM layer should guarantee that all existing
+	 * mappings have been disconnected and no new mappings should be incoming for the
+	 * pages when this function is called.
+	 */
+	pmap_epoch_prepare_drain();
+	pmap_epoch_drain();
+
+	unified_page_list_iterator_t iter;
+
+	for (unified_page_list_iterator_init(page_list, &iter);
+	    !unified_page_list_iterator_end(&iter);
+	    unified_page_list_iterator_next(&iter)) {
+		bool is_fictitious = false;
+		const ppnum_t pn = unified_page_list_iterator_page(&iter, &is_fictitious);
+		const pmap_paddr_t paddr = ptoa(pn);
+		vm_page_t page;
+
+		/**
+		 * The VM may pass a fictitious or guard page here, which doesn't have a valid
+		 * managed PA.
+		 */
+		if (__improbable(!pa_valid(paddr) || is_fictitious)) {
+			continue;
+		}
+
+		page = unified_page_list_iterator_vm_page(&iter);
+		if (page == VM_PAGE_NULL) {
+			/*
+			 * all pages that we tag or untag are managed, meaning
+			 * that resolution should always succeed once we're past
+			 * bootstrap.
+			 *
+			 * Before bootstrap it means that callers must be sure
+			 * there's work to do.
+			 */
+			assert(startup_phase < STARTUP_SUB_KMEM);
+		} else if (page->vmp_using_mte == tag_not_untag) {
+			/* pmap_tag_op shoudldn't be called with no effect while
+			* panic_on_redundant_calls is set. Hence assert below */
+			assert(!panic_on_redundant_calls);
+			continue;
+		}
+
+		const unsigned int pai = pa_index(paddr);
+		pp_attr_t pp_attr_current, pp_attr_template;
+		unsigned int cacheattr = (tag_not_untag ? VM_WIMG_MTE : VM_WIMG_DEFAULT);
+
+		/**
+		 * We should not need the PVH lock here as the VM should not be issuing any concurrent
+		 * mappings requests against these pages.
+		 */
+		os_atomic_rmw_loop(&pp_attr_table[pai], pp_attr_current, pp_attr_template, relaxed, {
+			if (tag_not_untag) {
+			        if (pp_attr_current & PP_ATTR_WIMG_MASK) {
+			                assert3u(pp_attr_current & PP_ATTR_WIMG_MASK, ==, VM_WIMG_DEFAULT);
+				}
+			} else {
+			        assert3u(pp_attr_current & PP_ATTR_WIMG_MASK, ==, VM_WIMG_MTE);
+			}
+			pp_attr_template = (pp_attr_current & ~PP_ATTR_WIMG_MASK) | PP_ATTR_WIMG(cacheattr);
+		});
+
+		if (num_paddrs == 0) {
+			disable_preemption();
+			sptm_pcpu = PERCPU_GET(pmap_sptm_percpu);
+			paddr_list = sptm_pcpu->sptm_paddrs;
+		}
+		paddr_list[num_paddrs++] = paddr;
+		if (num_paddrs == SPTM_MAPPING_LIMIT) {
+			if (tag_not_untag) {
+				sptm_tag_papt_multipage(sptm_pcpu->sptm_paddrs_pa, num_paddrs, 0);
+			} else {
+				sptm_untag_papt_multipage(sptm_pcpu->sptm_paddrs_pa, num_paddrs);
+			}
+			enable_preemption();
+			num_paddrs = 0;
+		}
+	}
+
+	if (num_paddrs != 0) {
+		if (tag_not_untag) {
+			sptm_tag_papt_multipage(sptm_pcpu->sptm_paddrs_pa, num_paddrs, 0);
+		} else {
+			sptm_untag_papt_multipage(sptm_pcpu->sptm_paddrs_pa, num_paddrs);
+		}
+		enable_preemption();
+	}
+}
+
+void
+pmap_make_tagged_pages(const unified_page_list_t *page_list)
+{
+	pmap_tag_op(page_list, true, false);
+}
+
+void
+pmap_make_tagged_page(ppnum_t pnum)
+{
+	upl_page_info_t single_page_upl = { .phys_addr = pnum };
+	const unified_page_list_t page_list = {
+		.upl = {.upl_info = &single_page_upl, .upl_size = 1},
+		.type = UNIFIED_PAGE_LIST_TYPE_UPL_ARRAY,
+	};
+	pmap_tag_op(&page_list, true, true);
+}
+
+void
+pmap_unmake_tagged_pages(const unified_page_list_t *page_list)
+{
+	pmap_tag_op(page_list, false, false);
+}
+
+void
+pmap_unmake_tagged_page(ppnum_t pnum)
+{
+	upl_page_info_t single_page_upl = { .phys_addr = pnum };
+	const unified_page_list_t page_list = {
+		.upl = {.upl_info = &single_page_upl, .upl_size = 1},
+		.type = UNIFIED_PAGE_LIST_TYPE_UPL_ARRAY,
+	};
+	pmap_tag_op(&page_list, false, true);
+}
+
+bool
+pmap_is_tag_storage_page(ppnum_t pnum)
+{
+	return sptm_get_frame_type(ptoa(pnum)) == XNU_TAG_STORAGE;
+}
+
+bool
+pmap_in_tag_storage_range(ppnum_t pnum)
+{
+	pmap_paddr_t addr = ptoa(pnum);
+
+	return (mte_tag_storage_start <= addr) && (addr < mte_tag_storage_end);
+}
+
+bool
+pmap_tag_storage_is_recursive(ppnum_t pnum)
+{
+	assert(pmap_in_tag_storage_range(pnum));
+
+	return (mte_tag_storage_recursive_start_pnum <= pnum) &&
+	       (pnum < mte_tag_storage_recursive_end_pnum);
+}
+
+bool
+pmap_tag_storage_is_unmanaged(ppnum_t pnum)
+{
+	assert(pmap_in_tag_storage_range(pnum));
+
+	return (pnum < mte_tag_storage_managed_start_pnum) ||
+	       (mte_tag_storage_managed_end_pnum <= pnum);
+}
+
+/*
+ * Returns whether a physical page is MTE-tagged.
+ *
+ * Being a "tagged" page means the following:
+ * 1. The cache attribute of the backing page is VM_WIMG_MTE.
+ * 2. There is at least one MTE-enabled mapping of this physical page (the
+ *     physical aperture mapping, which is explicitly managed alongside the
+ *     page's cache attributes).
+ *
+ * IMPORTANT: this means that even if the mapping that "you" (the caller) have
+ * is MTE-disabled, this function may still return true.
+ */
+bool
+pmap_tag_storage_is_discarded(ppnum_t pnum)
+{
+	assert(pmap_in_tag_storage_range(pnum));
+
+	return mte_tag_storage_discarded_start_pnum && (((pnum >= mte_tag_storage_discarded_start_pnum) &&
+	       (pnum < mte_tag_storage_discarded_end_pnum)) || ((pnum >= mte_tag_storage_recursive_start_pnum) && (pnum < mte_tag_storage_recursive_discarded_end_pnum)));
+}
+
+bool
+pmap_is_tagged_page(ppnum_t pnum)
+{
+	const pmap_paddr_t pa = ptoa(pnum);
+
+	if (!pmap_valid_address(pa)) {
+		return false;
+	}
+
+	unsigned int wimg = pmap_cache_attributes(pnum);
+	return (wimg & VM_WIMG_MASK) == VM_WIMG_MTE;
+}
+
+/*
+ * Returns whether or not the specific translation corresponding to a given
+ * virtual address is an MTE-enabled translation.
+ */
+bool
+pmap_is_tagged_mapping(pmap_t pmap, vm_map_offset_t va)
+{
+	pt_entry_t *ptep = pmap_pte(pmap, va);
+	return ptep && (*ptep & ARM_PTE_ATTRINDX(CACHE_ATTRINDX_MTE));
+}
+
+void
+pmap_make_tag_storage_page(ppnum_t pnum)
+{
+	/**
+	 * Drain the epochs to ensure any lingering batched operations that may have taken
+	 * an in-flight reference to this page are complete.
+	 */
+	pmap_epoch_prepare_drain();
+	const pmap_paddr_t pa = ptoa(pnum);
+	const sptm_retype_params_t retype_params = {.raw = SPTM_RETYPE_PARAMS_NULL};
+	pmap_epoch_drain();
+	sptm_retype(pa, XNU_DEFAULT, XNU_TAG_STORAGE, retype_params);
+}
+
+void
+pmap_unmake_tag_storage_page(ppnum_t pnum)
+{
+	/**
+	 * Drain the epochs to ensure any lingering batched operations that may have operated
+	 * on just-removed mappings to this tag storage page have completed and are thus no
+	 * longer holding an in-flight reference to this page.
+	 */
+	pmap_epoch_prepare_drain();
+	const pmap_paddr_t pa = ptoa(pnum);
+	const sptm_retype_params_t retype_params = {.raw = SPTM_RETYPE_PARAMS_NULL};
+	pmap_epoch_drain();
+	sptm_retype(pa, XNU_TAG_STORAGE, XNU_DEFAULT, retype_params);
+}
+
+/*
+ * Given a physical address, calculates the physical page number of the tag
+ * storage page that covers it.
+ */
+static ppnum_t
+map_paddr_to_tag_ppnum(pmap_paddr_t paddr)
+{
+	uint64_t tag_page_index;
+
+	assert((paddr >= gDramBase) && (paddr < (gDramBase + gDramSize)));
+	assert((paddr & PAGE_MASK) == 0);
+
+	tag_page_index = atop(paddr - gDramBase) / MTE_PAGES_PER_TAG_PAGE;
+	return mte_tag_storage_start_pnum + tag_page_index;
+}
+
+/*
+ * Given the physical page number of a tag storage page, calculates the physical
+ * page number of the first page covered by it.
+ */
+ppnum_t
+map_tag_ppnum_to_first_covered_ppnum(ppnum_t tag_ppnum)
+{
+	assert((mte_tag_storage_start_pnum <= tag_ppnum) && (tag_ppnum <= (mte_tag_storage_start_pnum + mte_tag_storage_count)));
+
+	uint64_t tag_page_index = tag_ppnum - mte_tag_storage_start_pnum;
+	return atop(ptoa(tag_page_index * MTE_PAGES_PER_TAG_PAGE) + gDramBase);
+}
+
+#endif /* HAS_MTE */
 
 /*
  * Initialize the count of available pages. No lock needed here,
@@ -2180,6 +2503,68 @@ initialize_ram_ranges(void)
 
 	need_ram_ranges_init = false;
 
+#if HAS_MTE
+	if (is_mte_enabled) {
+		assert3u(atop(gDramSize) / MTE_PAGES_PER_TAG_PAGE, ==,
+		    SPTMArgs->n_tag_storage_frames);
+		/* Export MTE tag region boundaries to the VM */
+		mte_tag_storage_start = SPTMArgs->first_tag_storage_paddr;
+		mte_tag_storage_count = SPTMArgs->n_tag_storage_frames;
+		mte_tag_storage_end = mte_tag_storage_start + ptoa(mte_tag_storage_count);
+		mte_tag_storage_start_pnum = atop(mte_tag_storage_start);
+
+		/*
+		 * Calculate the bounds of the recursive and managed tag
+		 * storage regions.  These will be used to determine which tag
+		 * storage pages will never be used to store tags.
+		 */
+		mte_tag_storage_recursive_start_pnum = map_paddr_to_tag_ppnum(mte_tag_storage_start);
+		mte_tag_storage_recursive_end_pnum   = map_paddr_to_tag_ppnum(mte_tag_storage_end);
+		mte_tag_storage_managed_start_pnum   = map_paddr_to_tag_ppnum(gPhysBase);
+		mte_tag_storage_managed_end_pnum     = map_paddr_to_tag_ppnum(gPhysBase + mem_size);
+
+		/*
+		 * If a capped memory override has been set via maxmem= / hw.memsize,
+		 * discard the remainder of memory and adjust the number of tag pages
+		 * available to the system by discarding them.
+		 */
+		if (max_mem != mem_size) {
+#define TAG_STORAGE_MASK ((PAGE_SIZE * MTE_PAGES_PER_TAG_PAGE) - 1)
+			assert(max_mem <= mem_size);
+			assert(!(max_mem & TAG_STORAGE_MASK));
+			// Make sure we do not retire a tag page that might have tagged pages associated
+			first_avail = (first_avail + TAG_STORAGE_MASK) & ~TAG_STORAGE_MASK;
+
+			uint64_t discarding = mte_tag_storage_start - (max_mem - max_mem / MTE_PAGES_PER_TAG_PAGE) - avail_start;
+			/*
+			 * Also align how much we discard up to a ~512KiB boundary. We might be
+			 * over/under discarding +=512KiB here (which is fine accuracy wise because
+			 * ml_static_mfree will also release different amount of memory depending on the
+			 * actual device config)
+			 */
+			discarding &= ~TAG_STORAGE_MASK;
+
+			mte_tag_storage_discarded_start_pnum = map_paddr_to_tag_ppnum(first_avail);
+
+			first_avail += discarding;
+
+			mte_tag_storage_discarded_end_pnum = map_paddr_to_tag_ppnum(first_avail);
+
+			/*
+			 * Also adjust the number of recursive dead tag storage pages to match
+			 * the capped memory size
+			 */
+			mte_tag_storage_recursive_discarded_end_pnum = mte_tag_storage_recursive_end_pnum - (mte_tag_storage_recursive_end_pnum - mte_tag_storage_recursive_start_pnum) * max_mem / mem_size;
+		}
+	} else {
+		assert3u(SPTMArgs->n_tag_storage_frames, ==, 0);
+	}
+
+#if DEVELOPMENT || DEBUG
+	printf("MTE [0x%llx, 0x%llx]\n", mte_tag_storage_start, mte_tag_storage_end);
+	printf("MTE tag storage 0x%x\n", mte_tag_storage_count);
+#endif /* DEVELOPMENT || DEBUG */
+#endif /* HAS_MTE */
 	avail_page_count = atop(end - first_avail);
 }
 
@@ -2487,6 +2872,9 @@ pmap_create_options_internal(
 	p->nested_region_unnested_table_bitmap = NULL;
 
 	p->associated_vm_map_serial_id = VM_MAP_SERIAL_NONE;
+#if HAS_MTE
+	p->restrict_receiving_aliases_to_tagged_memory = false;
+#endif /* HAS_MTE */
 
 #if MACH_ASSERT
 	p->pmap_pid = 0;
@@ -3785,8 +4173,14 @@ pmap_switch_internal(
 	}
 
 	__unused sptm_return_t sptm_return;
+#if HAS_MTE
+	if (ml_thread_get_sec_override(thread)) {
+		assert(pmap != kernel_pmap);
+		sptm_return = sptm_switch_root(pmap->ttep, 0, SPTM_ROOT_PT_FLAG_MTE);
+#else
 #pragma unused(thread)
 	if (0) {
+#endif
 	} else {
 		sptm_return = sptm_switch_root(pmap->ttep, 0, 0);
 	}
@@ -4937,6 +5331,12 @@ pmap_has_prot_policy(__unused pmap_t pmap, __unused bool translated_allow_execut
 	return false;
 }
 
+static inline bool
+pmap_allows_xo(pmap_t pmap __unused)
+{
+	return true;
+}
+
 /*
  *	Set the physical protection on the
  *	specified range of this map as requested.
@@ -4993,15 +5393,18 @@ pmap_protect_options_internal(
 	{
 		/* Determine the new protection. */
 		switch (prot) {
-		case VM_PROT_EXECUTE:
-			set_XO = true;
-			OS_FALLTHROUGH;
 		case VM_PROT_READ:
 		case VM_PROT_READ | VM_PROT_EXECUTE:
 			break;
 		case VM_PROT_READ | VM_PROT_WRITE:
 		case VM_PROT_ALL:
 			return end;         /* nothing to do */
+		case VM_PROT_EXECUTE:
+			set_XO = true;
+			if (pmap_allows_xo(pmap)) {
+				break;
+			}
+		/* Fall through and panic if this pmap shouldn't be allowed to have XO mappings. */
 		default:
 			should_have_removed = true;
 		}
@@ -5070,7 +5473,7 @@ pmap_protect_options_internal(
 			tmplate = pt_attr_leaf_rw(pt_attr);
 		} else
 #endif
-		if (set_XO) {
+		if (__improbable(set_XO)) {
 			tmplate = pt_attr_leaf_rona(pt_attr);
 		} else {
 			tmplate = pt_attr_leaf_ro(pt_attr);
@@ -5258,13 +5661,17 @@ pmap_protect_options(
 	{
 		/* Determine the new protection. */
 		switch (prot) {
-		case VM_PROT_EXECUTE:
 		case VM_PROT_READ:
 		case VM_PROT_READ | VM_PROT_EXECUTE:
 			break;
 		case VM_PROT_READ | VM_PROT_WRITE:
 		case VM_PROT_ALL:
 			return;         /* nothing to do */
+		case VM_PROT_EXECUTE:
+			if (pmap_allows_xo(pmap)) {
+				break;
+			}
+		/* Fall through and remove the mapping if XO is requested and [pmap] doesn't allow it. */
 		default:
 			pmap_remove_options(pmap, b, e, options);
 			return;
@@ -5437,6 +5844,7 @@ pmap_frame_type_for_pte(
 	assert(new_frame_type != NULL);
 	*prev_frame_type = *new_frame_type = XNU_DEFAULT;
 
+	const uint64_t pte_perms = pte_to_xprr_perm(pte);
 	/*
 	 * If the caller specified a mapping type of PMAP_MAPPINGS_TYPE_INFER, then we
 	 * keep the existing logic of deriving the SPTM frame type from the XPRR permissions.
@@ -5448,7 +5856,7 @@ pmap_frame_type_for_pte(
 	 *
 	 * In the future, we should move entirely to use pmap_mapping_type_t; see rdar://114886323.
 	 */
-	if (mapping_type != PMAP_MAPPING_TYPE_INFER) {
+	if (__improbable(mapping_type != PMAP_MAPPING_TYPE_INFER)) {
 		switch (mapping_type) {
 		case PMAP_MAPPING_TYPE_DEFAULT:
 			*new_frame_type = (sptm_frame_type_t)mapping_type;
@@ -5467,7 +5875,7 @@ pmap_frame_type_for_pte(
 		default:
 			panic("invalid mapping type: %d", mapping_type);
 		}
-	} else if (__improbable(pte_to_xprr_perm(pte) == XPRR_USER_JIT_PERM)) {
+	} else if (__improbable(pte_perms == XPRR_USER_JIT_PERM)) {
 		/*
 		 * Always check for XPRR_USER_JIT_PERM before we check for anything else. When using
 		 * RWX permissions, the only allowed type is XNU_USER_JIT, regardless of any other
@@ -5489,10 +5897,10 @@ pmap_frame_type_for_pte(
 		 * XNU_USER_DEBUG type overlays the XNU_USER_EXEC type.
 		 */
 		*new_frame_type = XNU_USER_DEBUG;
-	} else if (pte_to_xprr_perm(pte) == XPRR_USER_RX_PERM) {
+	} else if (pte_perms == XPRR_USER_RX_PERM) {
 		*new_frame_type = XNU_USER_EXEC;
-	} else if ((pte_to_xprr_perm(pte) == XPRR_USER_RW_PERM) ||
-	    (pte_was_writeable(pte) && (pte_to_xprr_perm(pte) == XPRR_USER_RO_PERM))) {
+	} else if ((pte_perms == XPRR_USER_RW_PERM) ||
+	    (pte_was_writeable(pte) && (pte_perms == XPRR_USER_RO_PERM))) {
 		/**
 		 * Allow retyping from user executable types (except XNU_USER_DEBUG, which already
 		 * allows user RW mappings) back to XNU_DEFAULT if a writable mapping is requested.
@@ -5525,6 +5933,7 @@ pmap_frame_type_for_pte(
  * @param fault_type The type of access fault that is triggering the request
  *                   to construct the new PTE.
  * @param wired Whether the new PTE should have the wired bit set.
+ * @param options The extra mapping options passed to pmap_enter().
  * @param pp_attr_bits Output parameter that will return the physical page attributes
  *                     to apply to pp_attr_table for the new mapping.
  *
@@ -5538,11 +5947,12 @@ pmap_construct_pte(
 	vm_prot_t prot,
 	vm_prot_t fault_type,
 	boolean_t wired,
+	unsigned int options __unused,
 	uint16_t *pp_attr_bits /* OUTPUT */
 	)
 {
 	const pt_attr_t* const pt_attr = pmap_get_pt_attr(pmap);
-	bool set_NX = false, set_XO = false;
+	bool set_NX = false, set_XO = false, set_TPRO = false;
 	pt_entry_t pte = pa_to_pte(pa) | ARM_PTE_TYPE_VALID;
 	assert(pp_attr_bits != NULL);
 	*pp_attr_bits = 0;
@@ -5562,9 +5972,11 @@ pmap_construct_pte(
 		set_NX = true;
 	}
 
-	if (prot == VM_PROT_EXECUTE) {
+	if (__improbable(prot == VM_PROT_EXECUTE)) {
 		set_XO = true;
-
+		if (!pmap_allows_xo(pmap)) {
+			panic("%s: attempted execute-only mapping", __func__);
+		}
 	}
 
 	if (set_NX) {
@@ -5592,7 +6004,10 @@ pmap_construct_pte(
 		if (pmap->type != PMAP_TYPE_NESTED) {
 			pte |= ARM_PTE_NG;
 		}
-		if (prot & VM_PROT_WRITE) {
+		if (set_TPRO) {
+			pte |= pt_attr_leaf_rona(pt_attr);
+			*pp_attr_bits |= PP_ATTR_REFERENCED | PP_ATTR_MODIFIED;
+		} else if (prot & VM_PROT_WRITE) {
 			assert(pmap->type != PMAP_TYPE_NESTED);
 			if (pa_valid(pa) && (!ppattr_pa_test_bits(pa, PP_ATTR_MODIFIED))) {
 				if (fault_type & VM_PROT_WRITE) {
@@ -5612,7 +6027,7 @@ pmap_construct_pte(
 				*pp_attr_bits |= (PP_ATTR_REFERENCED | PP_ATTR_MODIFIED);
 			}
 		} else {
-			if (set_XO) {
+			if (__improbable(set_XO)) {
 				pte |= pt_attr_leaf_rona(pt_attr);
 			} else {
 				pte |= pt_attr_leaf_ro(pt_attr);
@@ -5653,7 +6068,7 @@ pmap_will_retype(
 {
 	const pmap_paddr_t paddr = ptoa(pn);
 	uint16_t pp_attr_bits;
-	pt_entry_t pte = pmap_construct_pte(pmap, paddr, prot, prot, false, &pp_attr_bits);
+	pt_entry_t pte = pmap_construct_pte(pmap, paddr, prot, prot, false, options, &pp_attr_bits);
 	sptm_frame_type_t prev_frame_type, new_frame_type;
 	pmap_frame_type_for_pte(pmap, pte, vaddr, options, mapping_type, &prev_frame_type, &new_frame_type);
 
@@ -5887,10 +6302,19 @@ wimg_to_pte(unsigned int wimg, pmap_paddr_t pa)
 		pte = ARM_PTE_ATTRINDX(CACHE_ATTRINDX_WRITEBACK);
 		pte |= ARM_PTE_SH(SH_OUTER_MEMORY);
 		break;
+#if HAS_MTE
+	case VM_WIMG_MTE:
+		assert(is_mte_enabled);
+
+		pte = ARM_PTE_ATTRINDX(CACHE_ATTRINDX_MTE);
+		pte |= ARM_PTE_SH(SH_MTE);
+		break;
+#else /* HAS_MTE */
 	case VM_WIMG_INNERWBACK:
 		pte = ARM_PTE_ATTRINDX(CACHE_ATTRINDX_INNERWRITEBACK);
 		pte |= ARM_PTE_SH(SH_INNER_MEMORY);
 		break;
+#endif /* HAS_MTE */
 	default:
 		pte = ARM_PTE_ATTRINDX(CACHE_ATTRINDX_DEFAULT);
 		pte |= ARM_PTE_SH(SH_OUTER_MEMORY);
@@ -5951,13 +6375,17 @@ pmap_enter_options_internal(
 	/* The PA should not extend beyond the architected physical address space */
 	pa &= ARM_PTE_PAGE_MASK;
 
-	if ((prot & VM_PROT_EXECUTE) && (pmap == kernel_pmap)) {
+	if (__improbable((prot & VM_PROT_EXECUTE) && (pmap == kernel_pmap))) {
 #if (defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)) && defined(CONFIG_XNUPOST)
 		extern vm_offset_t ctrr_test_page;
 		if (__probable(v != ctrr_test_page))
 #endif
 		panic("pmap_enter_options(): attempt to add executable mapping to kernel_pmap");
 	}
+	if (__improbable((prot == VM_PROT_EXECUTE) && !pmap_allows_xo(pmap))) {
+		return KERN_PROTECTION_FAILURE;
+	}
+
 	assert(pn != vm_page_fictitious_addr);
 
 	pmap_lock(pmap, PMAP_LOCK_SHARED);
@@ -6007,24 +6435,12 @@ pmap_enter_options_internal(
 		pmap_remove_range(pmap, v, v + PAGE_SIZE);
 	}
 
+	const pt_entry_t pte = pmap_construct_pte(pmap, pa, prot, fault_type, wired, options, &pp_attr_bits);
+
 	while (!committed) {
 		pt_entry_t spte = ARM_PTE_EMPTY;
 		pv_alloc_return_t pv_status = PV_ALLOC_SUCCESS;
 		bool skip_footprint_debit = false;
-
-		/*
-		 * The XO index is used for TPRO mappings. To avoid exposing them as --x,
-		 * the VM code tracks VM_MAP_TPRO requests and couples them with the proper
-		 * read-write protection. The PMAP layer though still needs to use the right
-		 * index, which is the older XO-now-TPRO one and that is specially selected
-		 * here thanks to PMAP_OPTIONS_MAP_TPRO.
-		 *
-		 * Note that pmap_construct_pte() may check the nested region ASID bitmap,
-		 * which needs to happen at every iteration of the commit loop in case we
-		 * previously dropped the pmap lock.
-		 */
-		pt_entry_t pte = pmap_construct_pte(pmap, pa,
-		    ((options & PMAP_OPTIONS_MAP_TPRO) ? VM_PROT_RORW_TP : prot), fault_type, wired, &pp_attr_bits);
 
 		if (pa_valid(pa)) {
 			unsigned int pai;
@@ -6100,6 +6516,11 @@ pmap_enter_options_internal(
 				continue;
 			}
 
+#if HAS_MTE
+			if (flags & VM_MEM_MAP_MTE) {
+				wimg_bits = VM_WIMG_MTE;
+			} else
+#endif /* HAS_MTE */
 			if ((flags & (VM_WIMG_MASK | VM_WIMG_USE_DEFAULT))) {
 				wimg_bits = (flags & (VM_WIMG_MASK | VM_WIMG_USE_DEFAULT));
 			} else {
@@ -6111,10 +6532,10 @@ pmap_enter_options_internal(
 			 * Cache attributes for the physical page may have changed while the lock
 			 * was dropped, so update PTE cache attributes on each loop iteration.
 			 */
-			pte |= pmap_get_pt_ops(pmap)->wimg_to_pte(wimg_bits, pa);
+			const pt_entry_t new_pte = pte | pmap_get_pt_ops(pmap)->wimg_to_pte(wimg_bits, pa);
 
 
-			const sptm_return_t sptm_status = pmap_enter_pte(pmap, pte_p, pte, &locked_pvh, &spte, v, options, mapping_type);
+			const sptm_return_t sptm_status = pmap_enter_pte(pmap, pte_p, new_pte, &locked_pvh, &spte, v, options, mapping_type);
 			assert(committed == false);
 			if ((sptm_status == SPTM_SUCCESS) || (sptm_status == SPTM_MAP_VALID)) {
 				committed = true;
@@ -6237,7 +6658,7 @@ pmap_enter_options_internal(
 				wimg_bits = (wimg_bits & (~VM_WIMG_MASK)) | (flags & (VM_WIMG_MASK | VM_WIMG_USE_DEFAULT));
 			}
 
-			pte |= pmap_get_pt_ops(pmap)->wimg_to_pte(wimg_bits, pa);
+			pt_entry_t new_pte = pte | pmap_get_pt_ops(pmap)->wimg_to_pte(wimg_bits, pa);
 
 
 			/**
@@ -6245,7 +6666,7 @@ pmap_enter_options_internal(
 			 * the per-CPU prev_ptes array.
 			 */
 			disable_preemption();
-			const sptm_return_t sptm_status = pmap_enter_pte(pmap, pte_p, pte, NULL, &spte, v, options, mapping_type);
+			const sptm_return_t sptm_status = pmap_enter_pte(pmap, pte_p, new_pte, NULL, &spte, v, options, mapping_type);
 			enable_preemption();
 			assert(committed == false);
 			if ((sptm_status == SPTM_SUCCESS) || (sptm_status == SPTM_MAP_VALID)) {
@@ -6859,7 +7280,11 @@ coredumpok(
 		return FALSE;
 	}
 	spte = *pte_p;
+#if HAS_MTE
+	return ARM_PTE_EXTRACT_ATTRINDX(spte) == CACHE_ATTRINDX_DEFAULT || ARM_PTE_EXTRACT_ATTRINDX(spte) == CACHE_ATTRINDX_MTE;
+#else /* !HAS_MTE */
 	return ARM_PTE_EXTRACT_ATTRINDX(spte) == CACHE_ATTRINDX_DEFAULT;
+#endif /* HAS_MTE */
 }
 #endif
 
@@ -9603,6 +10028,10 @@ cacheattr_supports_compressor(unsigned int cacheattr)
 	switch (cacheattr) {
 	case VM_WIMG_DEFAULT:
 		return true;
+#if HAS_MTE
+	case VM_WIMG_MTE:
+		return true;
+#endif /* HAS_MTE */
 	default:
 		return false;
 	}
@@ -11366,6 +11795,36 @@ pmap_get_tpro(
 	return false;
 }
 
+#if HAS_MTE
+void
+pmap_set_tag_check_enabled(
+	pmap_t pmap)
+{
+	validate_pmap_mutable(pmap);
+
+	if (pmap->type == PMAP_TYPE_USER) {
+		sptm_configure_root(pmap->ttep, SPTM_ROOT_PT_FLAG_MTE, SPTM_ROOT_PT_FLAG_MTE);
+	}
+}
+
+void
+pmap_set_user_tag_check_faults_disabled(
+	pmap_t pmap)
+{
+	validate_pmap_mutable(pmap);
+
+	if (pmap->type != PMAP_TYPE_USER) {
+		return;
+	}
+
+	sptm_configure_root(pmap->ttep, SPTM_ROOT_PT_FLAG_NO_TAG_FAULT, SPTM_ROOT_PT_FLAG_NO_TAG_FAULT);
+	if (pmap == current_pmap()) {
+		/* SPTM defers reconfiguring TCF0 until the next sptm_switch_root() call */
+		sptm_return_t __assert_only ret = sptm_switch_root(pmap->ttep, 0, 0);
+		assert3u(ret & SPTM_SUCCESS, ==, SPTM_SUCCESS);
+	}
+}
+#endif /* HAS_MTE */
 
 uint64_t pmap_query_page_info_retries MARK_AS_PMAP_DATA;
 
@@ -11484,6 +11943,50 @@ pmap_user_va_size(pmap_t pmap)
 	return 1ULL << pmap_user_va_bits(pmap);
 }
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+static vm_map_address_t
+pmap_strip_user_addr(pmap_t pmap, vm_map_address_t ptr)
+{
+	assert(pmap && pmap != kernel_pmap);
+
+	/*
+	 * TTBR_SELECTOR doesn't match our intention of canonicalizing a TTBR0 address.
+	 * Ignore the strip request.
+	 */
+	if ((ptr & TTBR_SELECTOR) != 0) {
+		return ptr;
+	}
+
+	/* This will reset the TTBR_SELECTOR, but we've confirmed above the value. */
+	return ptr & (pmap->max - 1);
+}
+
+static vm_map_address_t
+pmap_strip_kernel_addr(pmap_t pmap, vm_map_address_t ptr)
+{
+	assert(pmap && pmap == kernel_pmap);
+
+	/*
+	 * TTBR_SELECTOR doesn't match our intention of canonicalizing a TTBR1 address.
+	 * Ignore the strip request.
+	 */
+	if ((ptr & TTBR_SELECTOR) == 0) {
+		return ptr;
+	}
+
+	/* This will reset the TTBR_SELECTOR, but we've confirmed above the value. */
+	return ptr | pmap->min;
+}
+
+vm_map_address_t
+pmap_strip_addr(pmap_t pmap, vm_map_address_t ptr)
+{
+	assert(pmap);
+
+	return pmap == kernel_pmap ? pmap_strip_kernel_addr(pmap, ptr) :
+	       pmap_strip_user_addr(pmap, ptr);
+}
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 
 bool
@@ -12343,12 +12846,18 @@ pmap_test_test_config(unsigned int flags)
 	/* Remove remaining mapping */
 	pmap_remove(pmap, va_base, va_base + pmap_page_size);
 
-	T_LOG("Make the first mapping execute-only");
-	pmap_enter_addr(pmap, va_base, pa, VM_PROT_EXECUTE, VM_PROT_EXECUTE, 0, false, PMAP_MAPPING_TYPE_INFER);
+	T_LOG("Test XO mapping");
+	kern_return_t kr = pmap_enter_addr(pmap, va_base, pa, VM_PROT_EXECUTE, VM_PROT_EXECUTE, 0, false, PMAP_MAPPING_TYPE_INFER);
+	if (pmap_allows_xo(pmap)) {
+		if (kr != KERN_SUCCESS) {
+			T_FAIL("XO mapping returned 0x%x instead of KERN_SUCCESS", (unsigned int)kr);
+		}
+	} else if (kr != KERN_PROTECTION_FAILURE) {
+		T_FAIL("XO mapping returned 0x%x instead of KERN_PROTECTION_FAILURE", (unsigned int)kr);
+	}
 
-
-	T_LOG("Validate that reads to our mapping do not fault.");
-	pmap_test_read(pmap, va_base, false);
+	T_LOG("Make the first mapping RX");
+	pmap_enter_addr(pmap, va_base, pa, VM_PROT_EXECUTE | VM_PROT_READ, VM_PROT_EXECUTE, 0, false, PMAP_MAPPING_TYPE_INFER);
 
 	T_LOG("Validate that reads to our mapping do not fault.");
 	pmap_test_read(pmap, va_base, false);
@@ -12361,6 +12870,7 @@ pmap_test_test_config(unsigned int flags)
 	T_LOG("Mark the page unreferenced and unmodified.");
 	pmap_clear_refmod(pn, VM_MEM_MODIFIED | VM_MEM_REFERENCED);
 	pmap_test_check_refmod(pa, 0);
+	pmap_recycle_page(atop(pa));
 
 	/*
 	 * Begin testing the ref/mod state machine.  Re-enter the mapping with
@@ -12471,7 +12981,7 @@ pmap_test_test_config(unsigned int flags)
 	T_LOG("Expect wired mapping to fault in ARM_LARGE_MEMORY when using KERNONLY.");
 
 	/* The mapping should be rejected, it's outside of T0SZ */
-	const kern_return_t kr = pmap_enter_addr(pmap, PMAP_TEST_LARGE_MEMORY_VA, wired_pa,
+	kr = pmap_enter_addr(pmap, PMAP_TEST_LARGE_MEMORY_VA, wired_pa,
 	    VM_PROT_READ | VM_PROT_WRITE, VM_PROT_READ | VM_PROT_WRITE, 0, true, PMAP_MAPPING_TYPE_INFER);
 	T_QUIET; T_ASSERT_NE_INT(kr, KERN_SUCCESS, NULL);
 
@@ -12499,10 +13009,9 @@ kern_return_t
 pmap_test(void)
 {
 	T_LOG("Starting pmap_tests");
-	int flags = 0;
-	flags |= PMAP_CREATE_64BIT;
+	const int flags = PMAP_CREATE_TEST | PMAP_CREATE_64BIT;
 
-#if __ARM_MIXED_PAGE_SIZE__ && !CONFIG_SPTM
+#if __ARM_MIXED_PAGE_SIZE__
 	T_LOG("Testing VM_PAGE_SIZE_4KB");
 	pmap_test_test_config(flags | PMAP_CREATE_FORCE_4K_PAGES);
 	T_LOG("Testing VM_PAGE_SIZE_16KB");

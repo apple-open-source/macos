@@ -164,10 +164,22 @@ bool SQLiteStorageArea::createTableIfNecessary()
     return true;
 }
 
+enum class ShouldCreateParentDirectory : bool { No, Yes };
+static Expected<UniqueRef<WebCore::SQLiteDatabase>, int> createAndOpenDatabase(const String& path, ShouldCreateParentDirectory shouldCreateParentDirectory = ShouldCreateParentDirectory::No)
+{
+    auto database = makeUniqueRef<WebCore::SQLiteDatabase>();
+    if (shouldCreateParentDirectory == ShouldCreateParentDirectory::Yes)
+        FileSystem::makeAllDirectories(FileSystem::parentPath(path));
+    bool opened = database->open(path, WebCore::SQLiteDatabase::OpenMode::ReadWriteCreate, WebCore::SQLiteDatabase::OpenOptions::CanSuspendWhileLocked);
+    if (!opened)
+        return makeUnexpected(database->lastError());
+
+    return database;
+}
+
 bool SQLiteStorageArea::prepareDatabase(ShouldCreateIfNotExists shouldCreateIfNotExists)
 {
-    CheckedPtr database = m_database.get();
-    if (database && database->isOpen())
+    if (m_database && m_database->isOpen())
         return true;
 
     m_database = nullptr;
@@ -175,24 +187,22 @@ bool SQLiteStorageArea::prepareDatabase(ShouldCreateIfNotExists shouldCreateIfNo
     if (shouldCreateIfNotExists == ShouldCreateIfNotExists::No && !databaseExists)
         return true;
 
-    m_database = makeUnique<WebCore::SQLiteDatabase>();
-    CheckedRef resultDatabase = *m_database;
-    FileSystem::makeAllDirectories(FileSystem::parentPath(m_path));
-    auto openResult  = resultDatabase->open(m_path, WebCore::SQLiteDatabase::OpenMode::ReadWriteCreate, WebCore::SQLiteDatabase::OpenOptions::CanSuspendWhileLocked);
-    if (!openResult && handleDatabaseErrorIfNeeded(resultDatabase->lastError()) == IsDatabaseDeleted::Yes) {
+    auto openResult = createAndOpenDatabase(m_path, ShouldCreateParentDirectory::Yes);
+    if (!openResult && handleDatabaseErrorIfNeeded(openResult.error()) == IsDatabaseDeleted::Yes) {
         databaseExists = false;
         if (shouldCreateIfNotExists == ShouldCreateIfNotExists::No)
             return true;
 
-        m_database = makeUnique<WebCore::SQLiteDatabase>();
-        openResult = checkedDatabase()->open(m_path);
+        // Try again after deleting corrupted database file.
+        openResult = createAndOpenDatabase(m_path);
     }
 
     if (!openResult) {
         RELEASE_LOG_ERROR(Storage, "SQLiteStorageArea::prepareDatabase failed to open database at '%s'", m_path.utf8().data());
-        m_database = nullptr;
         return false;
     }
+
+    m_database = openResult.value().moveToUniquePtr();
 
     // Since a WorkQueue isn't bound to a specific thread, we need to disable threading check.
     // We will never access the database from different threads simultaneously.

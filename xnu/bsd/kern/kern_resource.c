@@ -2138,6 +2138,9 @@ iopolicysys(struct proc *p, struct iopolicysys_args *uap, int32_t *retval)
 		}
 		break;
 	case IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES:
+#if !DEVELOPMENT
+		iop_param.iop_policy &= ~IOPOL_MATERIALIZE_DATALESS_FILES_ORIG;
+#endif
 		error = iopolicysys_vfs_materialize_dataless_files(p, uap->cmd, iop_param.iop_scope, iop_param.iop_policy, &iop_param);
 		if (error) {
 			goto out;
@@ -2536,18 +2539,26 @@ set_thread_materialize_policy(struct uthread *ut, int policy)
 static inline void
 set_proc_materialize_policy(struct proc *p, int policy)
 {
-	if (policy == IOPOL_MATERIALIZE_DATALESS_FILES_DEFAULT) {
+	int policy_basic = (policy & IOPOL_MATERIALIZE_DATALESS_FILES_BASIC_MASK);
+
+	if (policy_basic == IOPOL_MATERIALIZE_DATALESS_FILES_DEFAULT) {
 		/*
 		 * Caller has specified "use the default policy".
 		 * The default policy is to NOT materialize dataless
 		 * files.
 		 */
-		policy = IOPOL_MATERIALIZE_DATALESS_FILES_OFF;
+		policy_basic = IOPOL_MATERIALIZE_DATALESS_FILES_OFF;
 	}
-	if (policy == IOPOL_MATERIALIZE_DATALESS_FILES_ON) {
+	if (policy_basic == IOPOL_MATERIALIZE_DATALESS_FILES_ON) {
 		OSBitOrAtomic16((uint16_t)P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES, &p->p_vfs_iopolicy);
+		if (policy & IOPOL_MATERIALIZE_DATALESS_FILES_ORIG) {
+			OSBitOrAtomic16((uint16_t)P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES_ORIG, &p->p_vfs_iopolicy);
+		}
 	} else {
 		OSBitAndAtomic16(~((uint16_t)P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES), &p->p_vfs_iopolicy);
+		if (policy & IOPOL_MATERIALIZE_DATALESS_FILES_ORIG) {
+			OSBitAndAtomic16(~(uint16_t)P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES_ORIG, &p->p_vfs_iopolicy);
+		}
 	}
 }
 
@@ -2578,7 +2589,8 @@ iopolicysys_vfs_materialize_dataless_files(struct proc *p __unused, int cmd, int
 
 	/* Validate policy */
 	if (cmd == IOPOL_CMD_SET) {
-		switch (policy) {
+		int dataless_policy = policy & IOPOL_MATERIALIZE_DATALESS_FILES_BASIC_MASK;
+		switch (dataless_policy) {
 		case IOPOL_MATERIALIZE_DATALESS_FILES_DEFAULT:
 		case IOPOL_MATERIALIZE_DATALESS_FILES_OFF:
 		case IOPOL_MATERIALIZE_DATALESS_FILES_ON:
@@ -2591,13 +2603,15 @@ iopolicysys_vfs_materialize_dataless_files(struct proc *p __unused, int cmd, int
 
 	/* Perform command */
 	switch (cmd) {
-	case IOPOL_CMD_SET:
+	case IOPOL_CMD_SET: {
+		int dataless_policy = policy & IOPOL_MATERIALIZE_DATALESS_FILES_BASIC_MASK;
 		if (thread != THREAD_NULL) {
-			set_thread_materialize_policy(get_bsdthread_info(thread), policy);
+			set_thread_materialize_policy(get_bsdthread_info(thread), dataless_policy);
 		} else {
 			set_proc_materialize_policy(p, policy);
 		}
 		break;
+	}
 	case IOPOL_CMD_GET:
 		if (thread != THREAD_NULL) {
 			policy = get_thread_materialize_policy(get_bsdthread_info(thread));

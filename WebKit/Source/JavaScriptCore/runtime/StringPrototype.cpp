@@ -1417,6 +1417,12 @@ static JSValue normalize(JSGlobalObject* globalObject, JSString* string, Normali
     if (view->is8Bit() && (form == NormalizationForm::NFC || view->containsOnlyASCII()))
         RELEASE_AND_RETURN(scope, string);
 
+    // rdar://160634825
+    // ICU isn't able to handle large strings due to buffer length calculations potentially overflowing.
+    // We'll add a length check here to catch those cases ahead of time.
+    if (view->length() >= (1 << 30))
+        return throwOutOfMemoryError(globalObject, scope);
+
     const UNormalizer2* normalizer = JSC::normalizer(form);
 
     // Since ICU does not offer functions that can perform normalization or check for
@@ -1430,6 +1436,8 @@ static JSValue normalize(JSGlobalObject* globalObject, JSString* string, Normali
         RELEASE_AND_RETURN(scope, string);
 
     int32_t normalizedStringLength = unorm2_normalize(normalizer, characters, view->length(), nullptr, 0, &status);
+    if (isICUMemoryAllocationError(status))
+        return throwOutOfMemoryError(globalObject, scope);
     ASSERT(needsToGrowToProduceBuffer(status));
 
     std::span<char16_t> buffer;

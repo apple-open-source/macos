@@ -88,7 +88,7 @@ Ref<ImmutableStyleProperties> ImmutableStyleProperties::createDeduplicating(std:
     if (!hash)
         return create(properties, mode);
 
-    auto result = deduplicationMap().ensure(hash, [&] {
+    auto result = deduplicationMap().ensure(AlreadyHashed::avoidDeletedValue(hash), [&] {
         return create(properties, mode);
     });
 

@@ -654,7 +654,27 @@ commpage_init_arm_optional_features_pfr1(uint64_t *commpage_bits)
 		gARM_FEAT_SME2 = 1;
 		*commpage_bits |= kHasFeatSME2;
 	}
+	if (sme_version >= ARM_FEAT_SME2p1) {
+		gARM_FEAT_SME2p1 = 1;
+		*commpage_bits |= kHasFeatSME2p1;
+	}
 
+	uint64_t mte_ver = (pfr1 & ID_AA64PFR1_EL1_MTE_MASK) >> ID_AA64PFR1_EL1_MTE_OFFSET;
+	if (mte_ver >= 1) {
+		gARM_FEAT_MTE = 1;
+	}
+	if (mte_ver >= 2) {
+		gARM_FEAT_MTE2 = 1;
+		if ((pfr1 & ID_AA64PFR1_EL1_MTEX_MASK) >= ID_AA64PFR1_EL1_MTEX_EN) {
+			gARM_FEAT_MTE4 = 1;
+		}
+		if ((pfr1 & ID_AA64PFR1_EL1_MTE_FRAC_MASK) == 0) {
+			gARM_FEAT_MTE_ASYNC = 1;
+		}
+	}
+	if (mte_ver >= 3) {
+		gARM_FEAT_MTE3 = 1;
+	}
 }
 
 /**
@@ -665,6 +685,9 @@ commpage_init_arm_optional_features_pfr2(__unused uint64_t *commpage_bits)
 {
 	uint64_t pfr2 __unused = __builtin_arm_rsr64("ID_AA64PFR2_EL1");
 
+	if ((pfr2 & ID_AA64PFR2_EL1_MTE_STORE_ONLY_MASK) >= ID_AA64PFR2_EL1_MTE_STORE_ONLY_EN) {
+		gARM_FEAT_MTE_STORE_ONLY = 1;
+	}
 
 }
 
@@ -707,6 +730,12 @@ commpage_init_arm_optional_features_smfr0(void)
 	}
 	if (smfr0 & ID_AA64SMFR0_EL1_F64F64_EN) {
 		gARM_FEAT_SME_F64F64 = 1;
+	}
+	if (smfr0 & ID_AA64SMFR0_EL1_F16F16_EN) {
+		gARM_FEAT_SME_F16F16 = 1;
+	}
+	if (smfr0 & ID_AA64SMFR0_EL1_B16B16_EN) {
+		gARM_FEAT_SME_B16B16 = 1;
 	}
 
 	/* 4-bit fields (0 bits are ignored) */
@@ -787,6 +816,10 @@ commpage_init_arm_optional_features_fpcr(uint64_t *commpage_bits)
 static void
 commpage_init_arm_optional_features_misc(__unused uint64_t *commpage_bits)
 {
+	if (gARM_FEAT_MTE4) {
+		gARM_FEAT_MTE_CANONICAL_TAGS = 1;
+		gARM_FEAT_MTE_NO_ADDRESS_TAGS = 1;
+	}
 }
 
 /**

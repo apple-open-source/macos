@@ -94,7 +94,7 @@ flist_cmp(const void *p1, const void *p2)
  * Rule #2: Directories sort after non-directories
  * Rule #3: a directory named "." sorts first
  */
-static int
+int
 flist_cmp29(const void *p1, const void *p2)
 {
 	const struct flist *f1 = p1, *f2 = p2;
@@ -366,7 +366,7 @@ flist_topdirs(struct sess *sess, struct flist *fl, size_t flsz)
 	const char	*cp, *wpath;
 	struct flist	*ltop;
 
-	if (!sess->opts->recursive && !sess->opts->dirs)
+	if (!(sess->opts->recursive || (sess->opts->dirs == DIRMODE_REQUESTED)))
 		return;
 
 	ltop = NULL;
@@ -396,6 +396,7 @@ flist_topdirs(struct sess *sess, struct flist *fl, size_t flsz)
 		}
 
 		ltop = &fl[i];
+
 		fl[i].st.flags |= FLSTAT_TOP_DIR;
 		LOG4("%s: top-level", fl[i].wpath);
 	}
@@ -1013,7 +1014,6 @@ fl_new_index(struct fl *fl)
 struct flist *
 fl_new(struct fl *fl)
 {
-	struct flist *newfl;
 	long index;
 
 	index = fl_new_index(fl);
@@ -1144,7 +1144,6 @@ flist_append_dirs(struct sess *sess, const char *path, struct fl *fl)
 			goto out;
 		}
 
-		memset(f, 0, sizeof(struct flist));
 		f->path = begin;
 		f->wpath = wbegin;
 		flist_assert_wpath_len(f->wpath);
@@ -2693,22 +2692,24 @@ int
 flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
     size_t *sz,	const struct flist *wfl, size_t wflsz)
 {
-	char		**cargv = NULL;
+	char		**cargv = NULL, **skipv = NULL;
+	const char	 *topdir;
 	int		  rc = 0, skip_post = 0, c;
 	FTS		 *fts = NULL;
 	FTSENT		 *ent, *perish_ent = NULL;
 	struct flist	 *f;
-	size_t		  cargvs = 0, i, j, max = 0, stripdir;
+	size_t		  cargvs = 0, skipc = 0, i, j, max = 0, stripdir;
 	ENTRY		  hent;
 	ENTRY		 *hentp;
 	int		  fts_flags;
+	bool		  have_dotdir = false;
 
 	*fl = NULL;
 	*sz = 0;
 
-	/* Only run this code when we're recursive. */
+	/* Only run this code when we're recursive or in dirs mode. */
 
-	if (!sess->opts->recursive)
+	if (!(sess->opts->recursive || (sess->opts->dirs == DIRMODE_REQUESTED)))
 		return 1;
 
 	/*
@@ -2718,15 +2719,27 @@ flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
 	 * command line.
 	 */
 
-	for (i = 0; i < wflsz; i++)
-		if (FLSTAT_TOP_DIR & wfl[i].st.flags)
+	for (i = 0; i < wflsz; i++) {
+		if (FLSTAT_TOP_DIR & wfl[i].st.flags) {
 			cargvs++;
+
+			if (!have_dotdir && strcmp(wfl[i].wpath, ".") == 0)
+				have_dotdir = true;
+		}
+	}
 	if (cargvs == 0)
 		return 1;
 
 	if ((cargv = calloc(cargvs + 1, sizeof(char *))) == NULL) {
 		ERR("calloc");
 		return 0;
+	}
+
+	if (have_dotdir) {
+		if ((skipv = calloc(cargvs + 1, sizeof(char *))) == NULL) {
+			ERR("calloc");
+			return 0;
+		}
 	}
 
 	for (i = j = 0; i < wflsz && j < cargvs; i++) {
@@ -2758,13 +2771,23 @@ flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
 			continue;
 		}
 
+		if (have_dotdir && strcmp(wfl[i].wpath, ".") != 0) {
+			c = asprintf(&skipv[skipc], "%s/./%s", root, wfl[i].wpath);
+			if (c == -1) {
+				ERR("asprintf");
+				skipv[skipc] = NULL;
+				goto out;
+			}
+			skipc++;
+		}
+
 		LOG4("%s: will scan for deletions", cargv[j]);
 		j++;
 	}
 
 	cargv[j] = NULL;
 
-	LOG2("delete from %zu directories", cargvs);
+	LOG3("delete from %zu directories", cargvs);
 
 	/*
 	 * Next, use the standard hcreate(3) hashtable interface to hash
@@ -2820,6 +2843,7 @@ flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
 	}
 
 	stripdir = strlen(root) + 1;
+	topdir = NULL;
 	errno = 0;
 	while ((ent = fts_read(fts)) != NULL) {
 		const char *rpath;
@@ -2835,6 +2859,43 @@ flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
 		if (skip_post && ent->fts_info == FTS_DP) {
 			skip_post = 0;
 			continue;
+		}
+
+		/*
+		 * Skip subdirs of ${root}/. that are also top-level dirs.
+		 * This prevents visiting them more than once (i.e., once
+		 * via ${root}/./topdir and once via ${root}/topdir).  We'll
+		 * prefer to traverse top dirs via the latter path, which
+		 * also allows us to determine the directory name needed
+		 * for "deleting in ${topdir}" messages.
+		 */
+		if (ent->fts_info == FTS_D) {
+			assert(skip_post == 0);
+
+			for (j = 0; j < skipc; ++j) {
+				if (strcmp(ent->fts_path, skipv[j]) == 0) {
+					fts_set(fts, ent, FTS_SKIP);
+					skip_post = 1;
+					break;
+				}
+			}
+
+			if (skip_post)
+				continue;
+		}
+
+		/*
+		 * Determine the name of the top-level directory that we're
+		 * currently traversing, to be used for "deleting in ${topdir}"
+		 * messages.
+		 */
+		if (ent->fts_info == FTS_D) {
+			for (j = 0; j < cargvs; ++j) {
+				if (strcmp(ent->fts_path, cargv[j]) == 0) {
+					topdir = cargv[j];
+					break;
+				}
+			}
 		}
 
 		/*
@@ -2889,8 +2950,15 @@ flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
 		/* Look up in hashtable. */
 		memset(&hent, 0, sizeof(ENTRY));
 		hent.key = (char *)rpath;
-		if (hsearch(hent, FIND) != NULL)
+		if (hsearch(hent, FIND) != NULL) {
+			if (ent->fts_info == FTS_D &&
+			    !sess->opts->recursive &&
+			    strcmp(rpath, ".") != 0) {
+				assert(sess->opts->dirs == DIRMODE_REQUESTED);
+				fts_set(fts, ent, FTS_SKIP);
+			}
 			continue;
+		}
 
 		/*
 		 * Pre-order isn't used for deleting directories because we may
@@ -2932,10 +3000,15 @@ flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
 		f->wpath = f->path + stripdir;
 		flist_assert_wpath_len(f->wpath);
 		flist_copy_stat(f, ent->fts_statp);
-		errno = 0;
 
-		if (sess->itemize)
-			print_7_or_8_bit(sess, "*deleting %s\n", rpath, NULL);
+		assert(topdir != NULL);
+		f->link = strdup(topdir + stripdir);
+		if (f->link == NULL) {
+			ERR("strdup");
+			goto out;
+		}
+
+		errno = 0;
 	}
 
 	if (errno) {
@@ -2954,7 +3027,10 @@ out:
 		fts_close(fts);
 	for (i = 0; i < cargvs; i++)
 		free(cargv[i]);
+	for (i = 0; i < skipc; i++)
+		free(skipv[i]);
 	free(cargv);
+	free(skipv);
 	hdestroy();
 	return rc;
 }
@@ -3005,7 +3081,8 @@ flist_del(struct sess *sess, int root, const struct flist *fl, size_t flsz)
 		return 1;
 
 	assert(sess->opts->del || sess->opts->force_delete);
-	assert(sess->opts->recursive || sess->opts->force_delete);
+	assert(sess->opts->recursive || sess->opts->force_delete ||
+	       sess->opts->dirs == DIRMODE_REQUESTED);
 
 	if (sess->total_errors > 0 && !sess->opts->ignore_errors)
 		return 1;
@@ -3046,8 +3123,50 @@ flist_del(struct sess *sess, int root, const struct flist *fl, size_t flsz)
 		inc = -1;
 	}
 
+	/* Note: The only fields in fl[*] guaranteed to be valid are:
+	 * path, wpath, st, and link (as initialized by flist_gen_dels()).
+	 */
 	for (i = begin; i != end; i += inc) {
-		LOG1("%s: deleting", fl[i].wpath);
+		if (sess->itemize || verbose > 0) {
+			const char *path = fl[i].wpath;
+			const char *fmt;
+
+			/* Append a "/" to the "deleting ..." message
+			 * format if the file is a directory:
+			 */
+			if (S_ISDIR(fl[i].st.mode))
+				fmt = "*deleting %s/\n";
+			else
+				fmt = "*deleting %s\n";
+
+			/* Suppress the leading "*" from the "deleting ..."
+			 * message format if not itemizing:
+			 */
+			if (!sess->itemize)
+				fmt++;
+
+			/* Strip all redundant leading "./" from the path:
+			 */
+			while (strncmp(path, "./", 2) == 0 && path[2] != '\0')
+				path += 2;
+
+			/* Print "deleting in <topdir>" once for each unique
+			 * top-level directory specified as a top-level dir
+			 * in the flist (and hence scanned by flist_gen_dels()).
+			 * So, irrespective of fl[]'s order by file type, print
+			 * "deleting in <topdir>" exactly once for any given
+			 * topdir, before any "deleting <file>" messages are
+			 * printed for files within that top-level directory.
+			 */
+			if (fl[i].link) {
+				if (i == begin ||
+				    strcmp(fl[i].link, fl[i - inc].link) != 0) {
+					LOG2("deleting in %s", fl[i].link);
+				}
+			}
+
+			print_7_or_8_bit(sess, fmt, path, NULL);
+		}
 		if (sess->opts->dry_run)
 			continue;
 		assert(root != -1);

@@ -1,1 +1,0 @@
-libmalloc should build without warnings, but can't be configured with `-Werror` in B&I.  [Run BATS with `-Werror` to check for warnings](https://a1391192.slack.com/archives/C05B26YAVBL/p1685996132641879).

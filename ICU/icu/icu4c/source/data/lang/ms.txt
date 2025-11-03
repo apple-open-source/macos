@@ -364,6 +364,7 @@ ms{
         nds_NL{"Saxon Rendah"}
         ne{"Nepal"}
         new{"Newari"}
+        nez{"Nez Perce"}
         ng{"Ndonga"}
         nia{"Nias"}
         niu{"Niu"}

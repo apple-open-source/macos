@@ -77,6 +77,9 @@ __BEGIN_DECLS
 #include <vm/vm_iokit.h>
 #include <vm/vm_map_xnu.h>
 #include <kern/thread.h>
+#if HAS_MTE
+#include <vm/vm_memtag.h>
+#endif /* HAS_MTE */
 
 extern ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 extern void ipc_port_release_send(ipc_port_t port);
@@ -663,6 +666,15 @@ IOGeneralMemoryDescriptor::memoryReferenceCreate(
 				}
 
 				mach_vm_offset_t entryAddrForVm = entryAddr;
+#if HAS_MTE
+				vmne_kflags.vmnekf_is_iokit = TRUE;
+				/* If we're holding a specific address and map, canonicalize the
+				 * address before passing it through to the VM.
+				 */
+				if (entryAddr != 0 && map != NULL) {
+					entryAddrForVm = vm_memtag_canonicalize(map, entryAddr);
+				}
+#endif /* HAS_MTE */
 				err = mach_make_memory_entry_internal(map,
 				    &actualSize, entryAddrForVm, prot, vmne_kflags, &entry, cloneEntry);
 
@@ -1486,6 +1498,13 @@ IOGeneralMemoryDescriptor::memoryReferenceMapNew(
 #if LOGUNALIGN
 				printf("mapAddr i %qx chunk %qx\n", mapAddr, chunk);
 #endif
+#if HAS_MTE
+				/* The memory that originated this IOMD might've been MTE-enabled,
+				 * so we need to inform the VM that MTE policies apply.
+				 */
+				vmk_flags.vmf_mte = true;
+				vmk_flags.vmkf_is_iokit = true;
+#endif /* HAS_MTE */
 				err = mach_vm_map_kernel(map,
 				    &mapAddrOut,
 				    chunk, 0 /* mask */,
@@ -2593,6 +2612,30 @@ IOMemoryDescriptor::getSourceSegment( IOByteCount   offset, IOByteCount * length
 
 #endif /* !__LP64__ */
 
+#if HAS_MTE
+/* Ideally this would be a method on IOMD that's overridden by IOGMD, but there's
+ * ABI considerations with extending the vtable so just make it a free function for now.
+ */
+static void
+handleCopyAbortedTCF(void)
+{
+	/*
+	 * Only calls passing through an IOGMD will have a faultable provider, so we check
+	 * for one here, as we might have recovered from a tag check fault through e.g.
+	 * an IOSubMD that cannot provide one.
+	 */
+	task_t task_providing_faultable_buffer = current_thread_get_iomd_faultable_access_buffer_provider();
+	if (task_providing_faultable_buffer) {
+		/*
+		 * Register an AST over the victim task so that a proper MTE exception
+		 * will be generated when it gets scheduled. The fault handler already
+		 * recorded the necessary data that the exception-synthesizing code
+		 * will require to create the exception.
+		 */
+		task_set_ast_mte_synthesize_mach_exception(task_providing_faultable_buffer);
+	}
+}
+#endif /* HAS_MTE */
 
 IOByteCount
 IOMemoryDescriptor::readBytes
@@ -2643,9 +2686,59 @@ IOMemoryDescriptor::readBytes
 			srcLen = (UINT_MAX - PAGE_SIZE + 1);
 		}
 
+#if HAS_MTE
+		if (pmap_is_tagged_page((ppnum_t)atop(srcAddr64))) {
+			if (current_thread_get_iomd_faultable_access_buffer_provider() != NULL) {
+				/*
+				 * We're going to wind up accessing the memory via peeking into the
+				 * physical aperture. Our physical aperture access will naturally be
+				 * canonically tagged, which will mismatch the correct tag. This option
+				 * tells bcopy_phys to actually fixup via LDG the tag. We won't catch
+				 * UaFs with this, but any OOB will fault therefore...
+				 */
+				options |= cppvFixupPhysmapTag;
+
+				/*
+				 * ...this flag sets up machinery such that fault on this access will be
+				 * recoverable (i.e. this thread will continue execution). We can do that
+				 * only when coming through an IOGMD and having a faultable task to blame.
+				 */
+				options |= cppvDenoteAccessMayFault;
+
+				/*
+				 * And if we do fault during the access, it also means we don't have
+				 * recourse to read the memory contents.
+				 * Unfortunately, consumers of this API expect it to always work, so
+				 * in an attempt to minimize risk we'll zero the buffer upfront,
+				 * so if we failed to read it'll look as though we just read zeroes.
+				 */
+				memset((void*)dstAddr, 0, srcLen);
+			} else {
+				/*
+				 * We don't have a task to blame, resort to the unsafe TCO copy.
+				 * We could just return EFAULT here, but that would require callers to
+				 * actively check for it, which unfortunately may not be the case as
+				 * these operations never failed before.
+				 *
+				 * Defer a proper support to buffered creation of IOMDs.
+				 */
+				options |= cppvDisableTagCheck;
+			}
+		}
+#endif /* HAS_MTE */
 
 		kern_return_t copy_ret = copypv(srcAddr64, dstAddr, (unsigned int) srcLen, options);
+#if HAS_MTE
+		/*
+		 * copypv recovery handler will only fire in case of a tag check fault. Let's handle
+		 * the special case here.
+		 */
+		if (copy_ret == KERN_ABORTED) {
+			handleCopyAbortedTCF();
+		}
+#else /* HAS_MTE */
 #pragma unused(copy_ret)
+#endif /* HAS_MTE */
 
 		dstAddr   += srcLen;
 		offset    += srcLen;
@@ -2716,12 +2809,33 @@ IOMemoryDescriptor::writeBytes
 			dstLen = (UINT_MAX - PAGE_SIZE + 1);
 		}
 
+#if HAS_MTE
+		if (pmap_is_tagged_page((ppnum_t)atop(dstAddr64))) {
+			/* Same drill as readBytes(), please check the comment there for details. */
+			if (current_thread_get_iomd_faultable_access_buffer_provider() != NULL) {
+				options |= cppvFixupPhysmapTag;
+				options |= cppvDenoteAccessMayFault;
+			} else {
+				options |= cppvDisableTagCheck;
+			}
+		}
+#endif /* HAS_MTE */
 
 		if (!srcAddr) {
 			bzero_phys(dstAddr64, (unsigned int) dstLen);
 		} else {
 			kern_return_t copy_ret = copypv(srcAddr, (addr64_t) dstAddr64, (unsigned int) dstLen, options);
+#if HAS_MTE
+			/*
+			 * copypv recovery handler will only fire in case of a tag check fault. Let's handle
+			 * the special case here.
+			 */
+			if (copy_ret == KERN_ABORTED) {
+				handleCopyAbortedTCF();
+			}
+#else /* HAS_MTE */
 #pragma unused(copy_ret)
+#endif /* HAS_MTE */
 			srcAddr   += dstLen;
 		}
 		offset    += dstLen;
@@ -3521,7 +3635,28 @@ IOByteCount
 IOGeneralMemoryDescriptor::readBytes
 (IOByteCount offset, void *bytes, IOByteCount length)
 {
+#if HAS_MTE
+	/* We might fault while accessing the wired memory if the underlying memory
+	 * is tagged and someone else has since changed the tag.
+	 * We need to set up context on the current thread so that we can keep track
+	 * of who caused us to fault within the fault handler.
+	 * Here, 'who caused us to fault' would be the other end of the true
+	 * share (i.e. the task which handed us the memory in the first place).
+	 * Ideally we'd only set up this context just surrounding the potentially
+	 * faulting access, but the access happens deeper within IOMD machinery
+	 * by which point we've lost this _task ivar. So, just hold onto it here.
+	 * (Note that it's possible for the culprit who changed the tag to be
+	 * another party holding a true share to the mapping, separate from the task
+	 * which handed us the memory that backs the IOMD, but we're not going to
+	 * worry too much about this case for now.)
+	 */
+	/* Note that we don't need any special handling for when _task is NULL. */
+	current_thread_enter_iomd_faultable_access_with_buffer_provider(_task);
+#endif /* HAS_MTE */
 	IOByteCount count = super::readBytes(offset, bytes, length);
+#if HAS_MTE
+	current_thread_exit_iomd_faultable_access();
+#endif /* HAS_MTE */
 	return count;
 }
 
@@ -3529,7 +3664,28 @@ IOByteCount
 IOGeneralMemoryDescriptor::writeBytes
 (IOByteCount offset, const void* bytes, IOByteCount withLength)
 {
+#if HAS_MTE
+	/* We might fault while accessing the wired memory if the underlying memory
+	 * is tagged and someone else has since changed the tag.
+	 * We need to set up context on the current thread so that we can keep track
+	 * of who caused us to fault within the fault handler.
+	 * Here, 'who caused us to fault' would be the other end of the true
+	 * share (i.e. the task which handed us the memory in the first place).
+	 * Ideally we'd only set up this context just surrounding the potentially
+	 * faulting access, but the access happens deeper within IOMD machinery
+	 * by which point we've lost this _task ivar. So, just hold onto it here.
+	 * (Note that it's possible for the culprit who changed the tag to be
+	 * another party holding a true share to the mapping, separate from the task
+	 * which handed us the memory that backs the IOMD, but we're not going to
+	 * worry too much about this case for now.)
+	 */
+	/* Note that we don't need any special handling for when _task is NULL. */
+	current_thread_enter_iomd_faultable_access_with_buffer_provider(_task);
+#endif /* HAS_MTE */
 	IOByteCount count = super::writeBytes(offset, bytes, withLength);
+#if HAS_MTE
+	current_thread_exit_iomd_faultable_access();
+#endif /* HAS_MTE */
 	return count;
 }
 
@@ -4404,7 +4560,11 @@ IOGeneralMemoryDescriptor::wireVirtual(IODirection forDirection)
 				} else {
 					assert(theMap);
 					error = vm_map_create_upl(theMap,
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+					    vm_memtag_canonicalize(theMap, startPage),
+#else /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 					    startPage,
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 					    (upl_size_t*)&ioplSize,
 					    &iopl.fIOPL,
 					    baseInfo,

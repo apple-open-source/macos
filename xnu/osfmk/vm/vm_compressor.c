@@ -65,6 +65,10 @@
 #if defined(__arm64__)
 #include <arm/machine_routines.h>
 #endif
+#if HAS_MTE
+#include <arm64/mte_xnu.h>
+#include <arm64/vm_mte_compress.h>
+#endif /* HAS_MTE */
 
 #include <IOKit/IOHibernatePrivate.h>
 
@@ -173,8 +177,8 @@ int             vm_compressor_mode = VM_PAGER_COMPRESSOR_WITH_SWAP;
 #endif /* !XNU_TARGET_OS_OSX */
 
 TUNABLE(uint32_t, vm_compression_limit, "vm_compression_limit", 0);
-int             vm_compressor_is_active = 0;
-int             vm_compressor_available = 0;
+boolean_t             vm_compressor_is_active = 0;
+boolean_t             vm_compressor_available = 0;
 
 extern uint64_t vm_swap_get_max_configured_space(void);
 extern void     vm_pageout_io_throttle(void);
@@ -399,7 +403,7 @@ static void vm_compressor_process_major_segments(bool);
 
 void compute_swapout_target_age(void);
 
-boolean_t c_seg_major_compact(c_segment_t, c_segment_t);
+boolean_t c_seg_coalesce(c_segment_t, c_segment_t);
 boolean_t c_seg_major_compact_ok(c_segment_t, c_segment_t);
 
 int  c_seg_minor_compaction_and_unlock(c_segment_t, boolean_t);
@@ -694,6 +698,9 @@ cslot_copy(c_slot_t cdst, c_slot_t csrc)
 	cdst->c_pop_cdata = csrc->c_pop_cdata;
 #endif
 	cdst->c_size = csrc->c_size;
+#if HAS_MTE
+	cdst->c_mte_size = csrc->c_mte_size;
+#endif
 	cdst->c_packed_ptr = csrc->c_packed_ptr;
 #if defined(__arm64__)
 	cdst->c_codec = csrc->c_codec;
@@ -971,6 +978,20 @@ osenvironment_is_diagnostics(void)
 	return false;
 }
 
+bool
+osenvironment_is_device_recovery(void)
+{
+	DTEntry chosen;
+	const char *osenvironment;
+	unsigned int size;
+	if (kSuccess == SecureDTLookupEntry(0, "/chosen", &chosen)) {
+		if (kSuccess == SecureDTGetProperty(chosen, "osenvironment", (void const **) &osenvironment, &size)) {
+			return strcmp(osenvironment, "device-recovery") == 0;
+		}
+	}
+	return false;
+}
+
 void
 vm_compressor_init(void)
 {
@@ -985,8 +1006,9 @@ vm_compressor_init(void)
 	__unused uint64_t early_boot_compressor_size = compressor_size;
 
 #if CONFIG_JETSAM
-	if (memorystatus_swap_all_apps && osenvironment_is_diagnostics()) {
-		printf("osenvironment == \"diagnostics\". Disabling app swap.\n");
+	if (memorystatus_swap_all_apps &&
+	    (osenvironment_is_diagnostics() || osenvironment_is_device_recovery())) {
+		printf("osenvironment == \"diagnostics or device-recovery\". Disabling app swap.\n");
 		memorystatus_disable_swap();
 	}
 
@@ -1336,8 +1358,12 @@ vm_compressor_kdp_teardown(void)
 static uint32_t
 c_slot_extra_size(c_slot_t cs)
 {
+#if HAS_MTE
+	return vm_mte_compressed_tags_actual_size(cs->c_mte_size);
+#else /* HAS_MTE */
 #pragma unused(cs)
 	return 0;
+#endif /* HAS_MTE */
 }
 
 #if VALIDATE_C_SEGMENTS
@@ -2187,11 +2213,18 @@ c_seg_minor_compaction_and_unlock(c_segment_t c_seg, boolean_t clear_busy)
 
 	assert(c_seg->c_busy);
 
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_MINOR) | DBG_FUNC_START,
+	    VM_KERNEL_ADDRHIDE(c_seg), c_seg->c_state,
+	    c_seg->c_bytes_unused, c_seg->c_slots_used);
+
+
 #if VALIDATE_C_SEGMENTS
 	c_seg_validate(c_seg, FALSE);
 #endif
 	if (c_seg->c_bytes_used == 0) {
 		c_seg_free(c_seg);
+		KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_MINOR) | DBG_FUNC_END,
+		    true, 0, 0);
 		return 1;
 	}
 	lck_mtx_unlock_always(&c_seg->c_lock);
@@ -2237,6 +2270,9 @@ c_seg_minor_compaction_and_unlock(c_segment_t c_seg, boolean_t clear_busy)
 
 		c_offset += C_SEG_BYTES_TO_OFFSET(c_rounded_size);
 		PACK_C_SIZE(c_src, 0);
+#if HAS_MTE
+		c_src->c_mte_size = 0;
+#endif /* HAS_MTE */
 		c_indx++;
 
 		c_dst = C_SEG_SLOT_FROM_INDEX(c_seg, c_indx);
@@ -2266,6 +2302,9 @@ c_seg_minor_compaction_and_unlock(c_segment_t c_seg, boolean_t clear_busy)
 #endif
 
 done:
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_MINOR) | DBG_FUNC_END,
+	    false, c_seg->c_bytes_unused, c_seg->c_bytes_used);
+
 	if (clear_busy == TRUE) {
 		lck_mtx_lock_spin_always(&c_seg->c_lock);
 		C_SEG_WAKEUP_DONE(c_seg);
@@ -2318,7 +2357,7 @@ c_seg_alloc_nextslot(c_segment_t c_seg)
 
 #define C_SEG_MAJOR_COMPACT_STATS_MAX   (30)
 
-struct {
+struct vm_major_compact_stats_s {
 	uint64_t asked_permission;
 	uint64_t compactions;
 	uint64_t moved_slots;
@@ -2327,14 +2366,15 @@ struct {
 	uint64_t count_of_swapouts;
 	uint64_t count_of_freed_segs;
 	uint64_t bailed_compactions;
-	uint64_t bytes_freed_rate_us;
-} c_seg_major_compact_stats[C_SEG_MAJOR_COMPACT_STATS_MAX];
+	uint64_t bytes_freed;
+	uint64_t runtime_us;
+};
+
+struct vm_major_compact_stats_s c_seg_major_compact_stats[C_SEG_MAJOR_COMPACT_STATS_MAX];
 
 int c_seg_major_compact_stats_now = 0;
 
-
 #define C_MAJOR_COMPACTION_SIZE_APPROPRIATE     ((c_seg_bufsize * 90) / 100)
-
 
 boolean_t
 c_seg_major_compact_ok(
@@ -2342,6 +2382,7 @@ c_seg_major_compact_ok(
 	c_segment_t c_seg_src)
 {
 	c_seg_major_compact_stats[c_seg_major_compact_stats_now].asked_permission++;
+	vm_pageout_vminfo.vm_compactor_major_compactions_considered++;
 
 	if (c_seg_src->c_bytes_used >= C_MAJOR_COMPACTION_SIZE_APPROPRIATE &&
 	    c_seg_dst->c_bytes_used >= C_MAJOR_COMPACTION_SIZE_APPROPRIATE) {
@@ -2363,7 +2404,7 @@ c_seg_major_compact_ok(
  * returns TRUE if we can continue compacting further to the same dst segment
  */
 boolean_t
-c_seg_major_compact(
+c_seg_coalesce(
 	c_segment_t c_seg_dst,
 	c_segment_t c_seg_src)
 {
@@ -2375,6 +2416,10 @@ c_seg_major_compact(
 	c_slot_t        c_dst;
 	c_slot_t        c_src;
 	boolean_t       keep_compacting = TRUE;
+
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_COALESCE) | DBG_FUNC_START,
+	    VM_KERNEL_ADDRHIDE(c_seg_dst), c_seg_dst->c_populated_offset,
+	    VM_KERNEL_ADDRHIDE(c_seg_src), c_seg_src->c_populated_offset);
 
 	/*
 	 * segments are not locked but they are both marked c_busy
@@ -2393,6 +2438,7 @@ c_seg_major_compact(
 #endif
 	assertf(c_seg_dst->c_has_donated_pages == c_seg_src->c_has_donated_pages, "Mismatched donation status Dst: %p, Src: %p\n", c_seg_dst, c_seg_src);
 	c_seg_major_compact_stats[c_seg_major_compact_stats_now].compactions++;
+	vm_pageout_vminfo.vm_compactor_major_compactions_completed++;
 
 	dst_slot = c_seg_dst->c_nextslot;
 
@@ -2457,7 +2503,9 @@ c_seg_major_compact(
 		PAGE_REPLACEMENT_DISALLOWED(FALSE);
 
 		c_seg_major_compact_stats[c_seg_major_compact_stats_now].moved_slots++;
+		vm_pageout_vminfo.vm_compactor_major_compaction_slots_moved++;
 		c_seg_major_compact_stats[c_seg_major_compact_stats_now].moved_bytes += combined_size;
+		vm_pageout_vminfo.vm_compactor_major_compaction_bytes_moved += combined_size;
 
 		cslot_copy(c_dst, c_src);
 		c_dst->c_offset = c_seg_dst->c_nextoffset;
@@ -2471,6 +2519,9 @@ c_seg_major_compact(
 		c_seg_dst->c_nextoffset += C_SEG_BYTES_TO_OFFSET(c_rounded_size);
 
 		PACK_C_SIZE(c_src, 0);
+#if HAS_MTE
+		c_src->c_mte_size = 0;
+#endif
 
 		c_seg_src->c_bytes_used -= c_rounded_size;
 		c_seg_src->c_bytes_unused += c_rounded_size;
@@ -2512,6 +2563,9 @@ c_seg_major_compact(
 		}
 		PAGE_REPLACEMENT_ALLOWED(FALSE);
 	}
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_COALESCE) | DBG_FUNC_END,
+	    keep_compacting, c_seg_dst->c_nextoffset,
+	    c_seg_dst->c_populated_offset, c_seg_dst->c_bytes_used);
 	return keep_compacting;
 }
 
@@ -3002,17 +3056,19 @@ vm_compressor_do_delayed_compactions(boolean_t flush_all)
 {
 	c_segment_t     c_seg;
 	int             number_compacted = 0;
-	boolean_t       needs_to_swap = FALSE;
+	bool            needs_to_swap = false;
 	uint32_t        c_swapout_count = 0;
 
 
 	VM_DEBUG_CONSTANT_EVENT(vm_compressor_do_delayed_compactions, DBG_VM_COMPRESSOR_DELAYED_COMPACT, DBG_FUNC_START, c_minor_count, flush_all, 0, 0);
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_DEFERRED) | DBG_FUNC_START,
+	    c_minor_count, flush_all);
 
 #if XNU_TARGET_OS_OSX
 	LCK_MTX_ASSERT(c_list_lock, LCK_MTX_ASSERT_OWNED);
 #endif /* XNU_TARGET_OS_OSX */
 
-	while (!queue_empty(&c_minor_list_head) && needs_to_swap == FALSE) {
+	while (!queue_empty(&c_minor_list_head) && !needs_to_swap) {
 		c_seg = (c_segment_t)queue_first(&c_minor_list_head);
 
 		lck_mtx_lock_spin_always(&c_seg->c_lock);
@@ -3029,17 +3085,18 @@ vm_compressor_do_delayed_compactions(boolean_t flush_all)
 		c_seg_do_minor_compaction_and_unlock(c_seg, TRUE, FALSE, TRUE);
 
 		c_swapout_count = c_early_swapout_count + c_regular_swapout_count + c_late_swapout_count;
-		if (VM_CONFIG_SWAP_IS_ACTIVE && (number_compacted++ > DELAYED_COMPACTIONS_PER_PASS)) {
+		number_compacted++;
+		if (VM_CONFIG_SWAP_IS_ACTIVE && (number_compacted % DELAYED_COMPACTIONS_PER_PASS) == 0) {
 			if ((flush_all == TRUE || compressor_needs_to_swap()) && c_swapout_count < C_SWAPOUT_LIMIT) {
-				needs_to_swap = TRUE;
+				needs_to_swap = true;
 			}
-
-			number_compacted = 0;
 		}
 		lck_mtx_lock_spin_always(c_list_lock);
 	}
 
 	VM_DEBUG_CONSTANT_EVENT(vm_compressor_do_delayed_compactions, DBG_VM_COMPRESSOR_DELAYED_COMPACT, DBG_FUNC_END, c_minor_count, number_compacted, needs_to_swap, 0);
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_DEFERRED) | DBG_FUNC_END,
+	    c_minor_count, number_compacted, needs_to_swap);
 }
 
 int min_csegs_per_major_compaction = DELAYED_COMPACTIONS_PER_PASS;
@@ -3063,6 +3120,10 @@ vm_compressor_major_compact_cseg(c_segment_t c_seg, uint32_t* c_seg_considered, 
 		assert(c_seg->c_has_donated_pages);
 		list_head = &c_late_swappedin_list_head;
 	}
+
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_MAJOR) | DBG_FUNC_START,
+	    VM_KERNEL_ADDRHIDE(c_seg), c_seg->c_state,
+	    c_seg->c_bytes_used);
 
 	while (keep_compacting == TRUE) {
 		assert(c_seg->c_busy);
@@ -3096,6 +3157,7 @@ vm_compressor_major_compact_cseg(c_segment_t c_seg, uint32_t* c_seg_considered, 
 				lck_mtx_unlock_always(&c_seg_next->c_lock);
 				fully_compacted = false;
 				c_seg_major_compact_stats[c_seg_major_compact_stats_now].bailed_compactions++;
+				vm_pageout_vminfo.vm_compactor_major_compactions_bailed++;
 				*bail_wanted_cseg = true;
 				break;
 			}
@@ -3120,6 +3182,7 @@ vm_compressor_major_compact_cseg(c_segment_t c_seg, uint32_t* c_seg_considered, 
 			 */
 			bytes_freed += bytes_to_free;
 			c_seg_major_compact_stats[c_seg_major_compact_stats_now].count_of_freed_segs++;
+			vm_pageout_vminfo.vm_compactor_major_compaction_segments_freed++;
 			continue;
 		}
 
@@ -3128,7 +3191,7 @@ vm_compressor_major_compact_cseg(c_segment_t c_seg, uint32_t* c_seg_considered, 
 
 		/* do the major compaction */
 
-		keep_compacting = c_seg_major_compact(c_seg, c_seg_next);
+		keep_compacting = c_seg_coalesce(c_seg, c_seg_next);
 
 		VM_DEBUG_CONSTANT_EVENT(vm_compressor_compact_and_swap, DBG_VM_COMPRESSOR_COMPACT_AND_SWAP, DBG_FUNC_NONE, 9, keep_compacting, 0, 0);
 
@@ -3149,6 +3212,7 @@ vm_compressor_major_compact_cseg(c_segment_t c_seg, uint32_t* c_seg_considered, 
 		if (c_seg_minor_compaction_and_unlock(c_seg_next, TRUE)) {
 			bytes_freed += bytes_to_free;
 			c_seg_major_compact_stats[c_seg_major_compact_stats_now].count_of_freed_segs++;
+			vm_pageout_vminfo.vm_compactor_major_compaction_segments_freed++;
 		} else {
 			bytes_to_free -= C_SEG_OFFSET_TO_BYTES(c_seg_next->c_populated_offset);
 			bytes_freed += bytes_to_free;
@@ -3170,6 +3234,7 @@ vm_compressor_major_compact_cseg(c_segment_t c_seg, uint32_t* c_seg_considered, 
 			fully_compacted = false;
 			*bail_wanted_cseg = true;
 			c_seg_major_compact_stats[c_seg_major_compact_stats_now].bailed_compactions++;
+			vm_pageout_vminfo.vm_compactor_major_compactions_bailed++;
 			break;
 		}
 	} /* major compaction */
@@ -3180,6 +3245,9 @@ vm_compressor_major_compact_cseg(c_segment_t c_seg, uint32_t* c_seg_considered, 
 	*total_bytes_freed += bytes_freed;
 
 	lck_mtx_lock_spin_always(&c_seg->c_lock);
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_MAJOR) | DBG_FUNC_END,
+	    fully_compacted, *bail_wanted_cseg,
+	    bytes_freed, c_seg->c_bytes_used);
 	return fully_compacted;
 }
 
@@ -3310,8 +3378,9 @@ vm_compressor_process_special_swapped_in_segments_locked(void)
 {
 	c_segment_t c_seg = NULL;
 	bool            switch_state = true, bail_wanted_cseg = false;
-	unsigned int    number_considered = 0, yield_after_considered_per_pass = 0;
-	uint64_t        bytes_freed = 0;
+	unsigned int    yield_after_considered_per_pass = 0;
+	unsigned int    total_considered = 0, total_bailed = 0;
+	uint64_t        total_bytes_freed = 0;
 	queue_head_t    *special_swappedin_list_head;
 
 #if XNU_TARGET_OS_OSX
@@ -3325,8 +3394,14 @@ vm_compressor_process_special_swapped_in_segments_locked(void)
 	}
 #endif /* XNU_TARGET_OS_OSX */
 
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_SPECIAL) | DBG_FUNC_START,
+	    c_early_swappedin_count, c_late_swappedin_count);
+
 	yield_after_considered_per_pass = MAX(min_csegs_per_major_compaction, DELAYED_COMPACTIONS_PER_PASS);
 	while (!queue_empty(special_swappedin_list_head)) {
+		uint64_t cur_bytes_freed = 0;
+		uint32_t cur_considered = 0;
+
 		c_seg = (c_segment_t)queue_first(special_swappedin_list_head);
 
 		lck_mtx_lock_spin_always(&c_seg->c_lock);
@@ -3359,7 +3434,7 @@ vm_compressor_process_special_swapped_in_segments_locked(void)
 		PAGE_REPLACEMENT_DISALLOWED(FALSE);
 		lck_mtx_lock_spin_always(c_list_lock);
 
-		switch_state = vm_compressor_major_compact_cseg(c_seg, &number_considered, &bail_wanted_cseg, &bytes_freed);
+		switch_state = vm_compressor_major_compact_cseg(c_seg, &cur_considered, &bail_wanted_cseg, &cur_bytes_freed);
 		assert(c_seg->c_busy);
 		assert(!c_seg->c_on_minorcompact_q);
 
@@ -3383,7 +3458,13 @@ vm_compressor_process_special_swapped_in_segments_locked(void)
 
 		lck_mtx_unlock_always(&c_seg->c_lock);
 
-		if (number_considered >= yield_after_considered_per_pass) {
+		total_considered += cur_considered;
+		total_bytes_freed += cur_bytes_freed;
+		if (bail_wanted_cseg) {
+			total_bailed++;
+		}
+
+		if (cur_considered >= yield_after_considered_per_pass) {
 			if (bail_wanted_cseg) {
 				/*
 				 * We stopped major compactions on a c_seg
@@ -3396,16 +3477,21 @@ vm_compressor_process_special_swapped_in_segments_locked(void)
 				 * tasks.
 				 */
 				bail_wanted_cseg = false;
+				KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_PAUSE) | DBG_FUNC_START);
 				lck_mtx_unlock_always(c_list_lock);
 
 				mutex_pause(2); /* 100us yield */
 
 				lck_mtx_lock_spin_always(c_list_lock);
+				KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_PAUSE) | DBG_FUNC_END);
 			}
 
-			number_considered = 0;
+			cur_considered = 0;
 		}
 	}
+
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_SPECIAL) | DBG_FUNC_END,
+	    total_considered, total_bailed, total_bytes_freed);
 }
 
 void
@@ -3433,6 +3519,7 @@ vm_compressor_process_regular_swapped_in_segments(boolean_t flush_all)
 	c_segment_t     c_seg;
 	clock_sec_t     now;
 	clock_nsec_t    nsec;
+	unsigned int    num_processed = 0;
 
 	unsigned long limit = C_SEGMENT_SWAPPEDIN_AGE_LIMIT_NORMAL;
 
@@ -3451,6 +3538,8 @@ vm_compressor_process_regular_swapped_in_segments(boolean_t flush_all)
 		limit = C_SEGMENT_SWAPPEDIN_AGE_LIMIT_LOW;
 	}
 #endif
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_PROCESS_SWAPPEDIN) | DBG_FUNC_START,
+	    c_regular_swappedin_count, c_age_count, limit, flush_all);
 
 	clock_get_system_nanotime(&now, &nsec);
 
@@ -3467,9 +3556,12 @@ vm_compressor_process_regular_swapped_in_segments(boolean_t flush_all)
 
 		c_seg_switch_state(c_seg, C_ON_AGE_Q, FALSE);
 		c_seg->c_agedin_ts = (uint32_t) now;
+		num_processed++;
 
 		lck_mtx_unlock_always(&c_seg->c_lock);
 	}
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_PROCESS_SWAPPEDIN) | DBG_FUNC_END,
+	    num_processed);
 }
 
 
@@ -3822,6 +3914,12 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 
 	VM_DEBUG_CONSTANT_EVENT(vm_compressor_compact_and_swap, DBG_VM_COMPRESSOR_COMPACT_AND_SWAP, DBG_FUNC_START, c_age_count, c_minor_count, c_major_count, vm_page_free_count);
 
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_AND_SWAP) | DBG_FUNC_START,
+	    vm_compressor_fragmentation_level(),
+	    VM_PAGE_COMPRESSOR_COUNT,
+	    c_segment_count - c_swappedout_count - c_swappedout_sparse_count,
+	    flush_all);
+
 	if (fastwake_warmup == TRUE) {
 		uint64_t        starting_warmup_count;
 
@@ -4005,6 +4103,7 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 			 */
 			VM_DEBUG_CONSTANT_EVENT(vm_compressor_compact_and_swap, DBG_VM_COMPRESSOR_COMPACT_AND_SWAP, DBG_FUNC_NONE, 7, 0, 0, 0);
 			c_seg_major_compact_stats[c_seg_major_compact_stats_now].count_of_freed_segs++;
+			vm_pageout_vminfo.vm_compactor_major_compaction_segments_freed++;
 			continue;
 		}
 
@@ -4069,7 +4168,9 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 				c_seg_switch_state(c_seg, C_ON_MAJORCOMPACT_Q, FALSE);
 			} else {
 				c_seg_major_compact_stats[c_seg_major_compact_stats_now].wasted_space_in_swapouts += c_seg_bufsize - c_seg->c_bytes_used;
+				vm_pageout_vminfo.vm_compactor_swapout_bytes_wasted += c_seg_bufsize - c_seg->c_bytes_used;
 				c_seg_major_compact_stats[c_seg_major_compact_stats_now].count_of_swapouts++;
+				vm_pageout_vminfo.vm_compactor_swapouts_queued++;
 			}
 		}
 
@@ -4107,6 +4208,7 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 				 * the system is running a few CPU intensive
 				 * tasks.
 				 */
+				KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_PAUSE) | DBG_FUNC_START);
 				lck_mtx_unlock_always(c_list_lock);
 
 				mutex_pause(2); /* 100us yield */
@@ -4116,6 +4218,7 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 				VM_DEBUG_CONSTANT_EVENT(vm_compressor_compact_and_swap, DBG_VM_COMPRESSOR_COMPACT_AND_SWAP, DBG_FUNC_NONE, 11, number_considered, number_yields, 0);
 
 				lck_mtx_lock_spin_always(c_list_lock);
+				KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_PAUSE) | DBG_FUNC_END);
 			}
 
 			number_considered = 0;
@@ -4132,15 +4235,22 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 
 	delta_usec = MAX(1, delta_usec); /* we could have 0 usec run if conditions weren't right */
 
-	c_seg_major_compact_stats[c_seg_major_compact_stats_now].bytes_freed_rate_us = (bytes_freed / delta_usec);
+	c_seg_major_compact_stats[c_seg_major_compact_stats_now].bytes_freed = bytes_freed;
+	vm_pageout_vminfo.vm_compactor_major_compaction_bytes_freed += bytes_freed;
+	c_seg_major_compact_stats[c_seg_major_compact_stats_now].runtime_us = delta_usec;
 
-	if ((c_seg_major_compact_stats_now + 1) == C_SEG_MAJOR_COMPACT_STATS_MAX) {
-		c_seg_major_compact_stats_now = 0;
-	} else {
-		c_seg_major_compact_stats_now++;
-	}
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_AND_SWAP) | DBG_FUNC_NONE,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].asked_permission,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].bailed_compactions,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].count_of_swapouts,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].wasted_space_in_swapouts);
+	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_AND_SWAP) | DBG_FUNC_END,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].compactions,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].moved_slots,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].count_of_freed_segs,
+	    c_seg_major_compact_stats[c_seg_major_compact_stats_now].bytes_freed);
 
-	assert(c_seg_major_compact_stats_now < C_SEG_MAJOR_COMPACT_STATS_MAX);
+	c_seg_major_compact_stats_now = (c_seg_major_compact_stats_now + 1) % C_SEG_MAJOR_COMPACT_STATS_MAX;
 
 	VM_DEBUG_CONSTANT_EVENT(vm_compressor_compact_and_swap, DBG_VM_COMPRESSOR_COMPACT_AND_SWAP, DBG_FUNC_END, c_age_count, c_minor_count, c_major_count, vm_page_free_count);
 }
@@ -4784,6 +4894,69 @@ c_compressed_record_data(char *src, int c_size)
 }
 #endif
 
+#if HAS_MTE
+
+/* with KASAN we panic unconditionally in the next MTE compression functions */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+
+/*
+ * Compress the MTE tags for a page that starts in va.
+ */
+static uint32_t
+compress_mte_tags(void *va, char *buffer_out, uint32_t size_out)
+{
+#if defined(KASAN)
+#pragma unused(va)
+#pragma unused(buffer_out)
+#pragma unused(size_out)
+	panic("KASAN with MTE pages is not supported (%s)", __func__);
+#endif /* KASAN */
+
+	MTE_BULK_DECLARE_TAGLIST(temp_tags, PAGE_SIZE);
+
+	/* copy tags to temp buffer */
+	mte_bulk_read_tags(va, PAGE_SIZE, temp_tags, sizeof(temp_tags));
+
+	uint32_t size_written = vm_mte_rle_compress_tags((uint8_t*)temp_tags, C_MTE_SIZE, (uint8_t*)buffer_out, size_out);
+	assert(size_written > 0);
+	/* size_written can be > 512 which indicates single-tag optimization,
+	 * in which case nothing written to the out buffer */
+	vm_mte_tags_stats_compressed(size_written);
+
+	return size_written;
+}
+
+/*
+ * Decompress the MTE tags for the page that starts in va.
+ */
+static bool
+decompress_mte_tags(void *va, uint32_t size_in, char *buffer_in)
+{
+#if defined(KASAN)
+#pragma unused(va)
+#pragma unused(buffer_in)
+#pragma unused(size_in)
+	panic("KASAN with MTE pages is not supported (%s)", __func__);
+#endif /* KASAN */
+	assert(size_in > 0);
+
+	MTE_BULK_DECLARE_TAGLIST(temp_tags, PAGE_SIZE);
+
+	bool ok = vm_mte_rle_decompress_tags((uint8_t*)buffer_in, size_in, (uint8_t*)temp_tags, C_MTE_SIZE);
+	/* returns false if the compression encoding was somehow corrupted */
+	assertf(ok, "corrupt tags encoding in:%p, %ud out:%p", buffer_in, size_in, temp_tags);
+
+	if (ok) {
+		mte_bulk_write_tags(va, PAGE_SIZE, temp_tags, sizeof(temp_tags));
+	}
+
+	return ok;
+}
+
+#pragma clang diagnostic pop
+
+#endif /* HAS_MTE */
 
 /**
  * Do the actual compression of the given page
@@ -4838,6 +5011,17 @@ retry:  /* may need to retry if the currently filling c_seg will not have enough
 
 	unsigned int avail_space = c_seg_bufsize - C_SEG_OFFSET_TO_BYTES((int32_t)cs->c_offset);
 
+#if HAS_MTE
+	/* Hold back room for the MTE tags, which can be as long as C_MTE_SIZE in the worst case */
+	/* possible optimization: radr://133756934 */
+	if (flags & C_MTE) {
+		if (avail_space > C_MTE_SIZE) {
+			avail_space -= C_MTE_SIZE;
+		} else {
+			avail_space = 0;
+		}
+	}
+#endif /* HAS_MTE */
 
 	max_csize = avail_space;
 	if (max_csize > PAGE_SIZE) {
@@ -4934,6 +5118,11 @@ retry:  /* may need to retry if the currently filling c_seg will not have enough
 
 		os_atomic_inc(&c_segment_noncompressible_pages, relaxed);
 	} else if (c_size == 0) {
+#if HAS_MTE
+		/* don't try to query the hash if we need to save the MTE tags since we won't have where to put the tags
+		 * (also, reading the uint32 at src for the hash query would be an MTE violation) tag:NO-SV-AND-MTE */
+		if (!(flags & C_MTE))
+#endif /* HAS_MTE */
 		{
 			/*
 			 * Special case - this is a page completely full of a single 32 bit value.
@@ -4978,7 +5167,21 @@ retry:  /* may need to retry if the currently filling c_seg will not have enough
 
 	PACK_C_SIZE(cs, c_size);
 
+#if HAS_MTE
+	/* For bring up, just copy the tags into the segment */
+	if (c_size && (flags & C_MTE)) {
+		/* current data we filled started at c_offset and had size c_size */
+		int space_left = c_seg_bufsize - C_SEG_OFFSET_TO_BYTES((int32_t)cs->c_offset) - c_size;
+		assert(space_left >= C_MTE_SIZE); /* This is guaranteed by the avail_space modification above */
+		cs->c_mte_size = compress_mte_tags(src, ((char *)&c_seg->c_store.c_buffer[cs->c_offset]) + c_size, (uint32_t)space_left);
+	} else {
+		cs->c_mte_size = 0;
+	}
+	/* next invocation of WKDMc expects to be writing at a 64 byte alignment */
+	c_rounded_size = C_SEG_ROUND_TO_ALIGNMENT(c_size + c_slot_extra_size(cs));
+#else /* HAS_MTE */
 	c_rounded_size = C_SEG_ROUND_TO_ALIGNMENT(c_size);
+#endif /* HAS_MTE */
 
 	c_seg->c_bytes_used += c_rounded_size;
 	c_seg->c_nextoffset += C_SEG_BYTES_TO_OFFSET(c_rounded_size);
@@ -5112,6 +5315,9 @@ c_decompress_page(
 	boolean_t       consider_defragmenting = FALSE;
 	boolean_t       kdp_mode = FALSE;
 
+#if HAS_MTE
+	vm_mte_c_tags_removal_reason_t        mte_tags_removal_reason = VM_MTE_C_TAGS_REMOVAL_FREE;
+#endif
 	if (__improbable(flags & C_KDP)) {
 		if (not_in_kdp) {
 			panic("C_KDP passed to decompress page from outside of debugger context");
@@ -5229,6 +5435,18 @@ bypass_busy_check:
 
 	c_size = UNPACK_C_SIZE(cs);
 
+#if HAS_MTE
+	if (dst) { /* if we're coming from vm_compressor_free() we're not going to have flags,
+		    * see rdar://133837861 to make this more generic */
+		if (cs->c_mte_size != 0) {
+			assertf(flags & C_MTE,
+			    "decompress page with mte_size=%d but no C_MTE in flags=%x", (int) cs->c_mte_size, flags);
+		} else {
+			assertf(!(flags & C_MTE),
+			    "decompress page without mte (mte_size=%d) and with C_MTE in flags=%x", (int) cs->c_mte_size, flags);
+		}
+	}
+#endif /* HAS_MTE */
 
 	if (__improbable(c_size == 0)) { /* sanity check it's not an empty slot */
 		panic("c_decompress_page: c_size == 0, c_seg(%p), slot_ptr(%p), slot_data(%x)",
@@ -5393,6 +5611,22 @@ bypass_busy_check:
 			os_atomic_inc(&sample_period_decompression_count, relaxed);
 		}
 
+#if HAS_MTE
+		/*
+		 * Only decompress tags if there are tags to decompress and the
+		 * out page is actually going to use tagging.
+		 */
+		if (cs->c_mte_size != 0 && (flags & C_MTE_DROP_TAGS) == 0) {
+			if (!decompress_mte_tags(dst, cs->c_mte_size, ((char *)&c_seg->c_store.c_buffer[cs->c_offset]) + c_size)) {
+				retval = DECOMPRESS_FAILED_TAGS;
+				mte_tags_removal_reason = VM_MTE_C_TAGS_REMOVAL_CORRUPT;
+			} else {
+				mte_tags_removal_reason = VM_MTE_C_TAGS_REMOVAL_DECOMPRESSED;
+			}
+		} else {
+			mte_tags_removal_reason = VM_MTE_C_TAGS_REMOVAL_FREE;
+		}
+#endif /* HAS_MTE */
 
 #if TRACK_C_SEGMENT_UTILIZATION
 		if (c_seg->c_swappedin) {
@@ -5435,6 +5669,9 @@ bypass_busy_check:
 			goto done; /* this is intended to avoid the decrement of c_segment_pages_compressed_incore below */
 #endif /* CONFIG_FREEZE */
 		}
+#if HAS_MTE
+		mte_tags_removal_reason = VM_MTE_C_TAGS_REMOVAL_FREE;
+#endif /* HAS_MTE */
 	}
 
 	if (flags & C_KEEP) {
@@ -5442,6 +5679,11 @@ bypass_busy_check:
 		goto done;
 	}
 
+#if HAS_MTE
+	if (cs->c_mte_size != 0) {
+		vm_mte_tags_stats_removed(cs->c_mte_size, mte_tags_removal_reason);
+	}
+#endif /* HAS_MTE */
 
 	/* now perform needed bookkeeping for the removal of the slot from the segment */
 	assert(kdp_mode == FALSE);
@@ -5459,6 +5701,9 @@ bypass_busy_check:
 	}
 
 	PACK_C_SIZE(cs, 0); /* mark slot as empty */
+#if HAS_MTE
+	cs->c_mte_size = 0;
+#endif /* HAS_MTE */
 
 	if (c_indx < c_seg->c_firstemptyslot) {
 		c_seg->c_firstemptyslot = c_indx;
@@ -5633,6 +5878,10 @@ vm_compressor_get(ppnum_t pn, int *slot, vm_compressor_options_t flags)
 	assert(dst != NULL);
 
 	if (slot_ptr->s_cseg == C_SV_CSEG_ID) {
+#if HAS_MTE
+		/* single value page can't be an MTE page (since there's no place to put the tags) see tag:NO-SV-AND-MTE */
+		assert(!(flags & C_MTE));
+#endif
 		int32_t         data;
 		int32_t         *dptr;
 
@@ -5704,6 +5953,9 @@ vm_compressor_free(int *slot, vm_compressor_options_t flags)
 			return 0;
 		}
 
+#if HAS_MTE
+		/* Don't need to worry about C_MTE flag when just freeing */
+#endif
 		retval = c_decompress_page(NULL, slot_ptr, flags, &zeroslot);
 		/*
 		 * returns 0 if we successfully freed the specified compressed page
@@ -5751,6 +6003,10 @@ vm_compressor_put(ppnum_t pn, int *slot, void  **current_chead, char *scratch_bu
 #endif /* CONFIG_TRACK_UNMODIFIED_ANON_PAGES */
 
 	/* get the address of the page in the physical apperture in the kernel task virtual memory */
+#if HAS_MTE
+	/* By the time we get here the physical apperture page should be already have tags enabled in pmap
+	 * see pmap_[un]make_tagged_page() */
+#endif
 	src = pmap_map_compressor_page(pn);
 	assert(src != NULL);
 
@@ -6041,6 +6297,9 @@ Relookup_src:
 
 
 	PACK_C_SIZE(c_src, 0);
+#if HAS_MTE
+	c_src->c_mte_size = 0;
+#endif
 
 	c_seg_src->c_bytes_used -= c_rounded_size;
 	c_seg_src->c_bytes_unused += c_rounded_size;
@@ -6265,6 +6524,9 @@ vm_compressor_serialize_segment_debug_info(int segno, char *buf, size_t *size, v
 #else
 	csi->csi_decompressions_since_swapin = 0;
 #endif /* TRACK_C_SEGMENT_UTILIZATION */
+#if HAS_MTE
+	bool cseg_in_mem = !C_SEG_IS_ON_DISK_OR_SOQ(c_seg);
+#endif /* HAS_MTE */
 	/* This entire data collection races with the compressor threads which can change any
 	 * of this data members, and specifically can drop the data buffer to swap
 	 * We don't take the segment lock since that would slow the iteration over the segments down
@@ -6280,8 +6542,23 @@ vm_compressor_serialize_segment_debug_info(int segno, char *buf, size_t *size, v
 		struct c_slot_info* ssi = (struct c_slot_info*)(buf + offset);
 		offset += sizeof(struct c_slot_info);
 		ssi->csi_size = (uint16_t)UNPACK_C_SIZE(cs);
+#if HAS_MTE
+		ssi->csi_mte_size = cs->c_mte_size;
+		ssi->csi_mte_has_data = 0;
+		uint32_t actual_mte_size = vm_mte_compressed_tags_actual_size(ssi->csi_mte_size);
+		if (with_data == VM_C_SERIALIZE_DATA_TAGS && actual_mte_size > 0 && cseg_in_mem) {
+			if (offset + actual_mte_size > insize) {
+				return KERN_NO_SPACE;
+			}
+			char* tags_buf = ((char *)&c_seg->c_store.c_buffer[cs->c_offset]) + ssi->csi_size;
+			memcpy(buf + offset, tags_buf, actual_mte_size);
+			offset += actual_mte_size;
+			ssi->csi_mte_has_data = 1;
+		}
+#else /* HAS_MTE */
 #pragma unused(with_data)
 		ssi->csi_unused = 0;
+#endif /* HAS_MTE */
 	}
 	*size = offset;
 	return KERN_SUCCESS;

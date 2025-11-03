@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: ISC
 #
-# Copyright (c) 2019-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+# Copyright (c) 2019-2024 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -34,6 +34,7 @@ cross_compiling = @CROSS_COMPILING@
 
 # Compiler & tools to use
 CC = @CC@
+CPP = @CPP@
 LIBTOOL = @LIBTOOL@
 SHA1SUM = @SHA1SUM@
 EGREP = @EGREP@
@@ -52,7 +53,7 @@ LT_LIBS = $(top_builddir)/lib/iolog/libsudo_iolog.la \
 LIBS = $(LT_LIBS) @LIBTLS@
 
 # C preprocessor defines
-CPPDEFS = -D_PATH_SUDO_LOGSRVD_CONF=\"$(sysconfdir)/sudo_logsrvd.conf\" \
+CPPDEFS = -D_PATH_SUDO_LOGSRVD_CONF=\"@sudo_logsrvd_conf@\" \
 	  -DLOCALEDIR=\"$(localedir)\"
 
 # C preprocessor flags
@@ -82,7 +83,7 @@ HARDENING_CFLAGS = @HARDENING_CFLAGS@
 HARDENING_LDFLAGS = @HARDENING_LDFLAGS@
 
 # cppcheck options, usually set in the top-level Makefile
-CPPCHECK_OPTS = -q --enable=warning,performance,portability --suppress=constStatement --suppress=compareBoolExpressionWithInt --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_HOST_NAME_MAX -U_POSIX_PATH_MAX -U__NBBY -DNSIG=64
+CPPCHECK_OPTS = -q --enable=warning,performance,portability --suppress=constStatement --suppress=compareBoolExpressionWithInt --error-exitcode=1 --inline-suppr -Dva_copy=va_copy -U__cplusplus -UQUAD_MAX -UQUAD_MIN -UUQUAD_MAX -U_POSIX_PATH_MAX -U__NBBY
 
 # splint options, usually set in the top-level Makefile
 SPLINT_OPTS = -D__restrict= -checks
@@ -98,6 +99,7 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 sbindir = @sbindir@
 sysconfdir = @sysconfdir@
+adminconfdir = @adminconfdir@
 libexecdir = @libexecdir@
 datarootdir = @datarootdir@
 localedir = @localedir@
@@ -168,7 +170,7 @@ Makefile: $(srcdir)/Makefile.in
 	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $<
 
 .c.i:
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+	$(CPP) $(CPPFLAGS) $< > $@
 
 .i.plog:
 	ifile=$<; rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $${ifile%i}c --i-file $< --output-file $@
@@ -317,9 +319,10 @@ fuzz_logsrvd_conf.o: $(srcdir)/regress/fuzz/fuzz_logsrvd_conf.c \
                      $(incdir)/sudo_conf.h $(incdir)/sudo_debug.h \
                      $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
                      $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                     $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                     $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                     $(srcdir)/tls_common.h $(top_builddir)/config.h
+                     $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                     $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                     $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                     $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/regress/fuzz/fuzz_logsrvd_conf.c
 fuzz_logsrvd_conf.i: $(srcdir)/regress/fuzz/fuzz_logsrvd_conf.c \
                      $(incdir)/compat/stdbool.h $(incdir)/log_server.pb-c.h \
@@ -327,21 +330,22 @@ fuzz_logsrvd_conf.i: $(srcdir)/regress/fuzz/fuzz_logsrvd_conf.c \
                      $(incdir)/sudo_conf.h $(incdir)/sudo_debug.h \
                      $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
                      $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                     $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                     $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                     $(srcdir)/tls_common.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                     $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                     $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                     $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                     $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/regress/fuzz/fuzz_logsrvd_conf.c > $@
 fuzz_logsrvd_conf.plog: fuzz_logsrvd_conf.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/regress/fuzz/fuzz_logsrvd_conf.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/regress/fuzz/fuzz_logsrvd_conf.c --i-file fuzz_logsrvd_conf.i --output-file $@
 iolog_writer.o: $(srcdir)/iolog_writer.c $(incdir)/compat/stdbool.h \
                 $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
                 $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                 $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
                 $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
                 $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-                $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                $(top_builddir)/config.h
+                $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                $(srcdir)/tls_common.h $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/iolog_writer.c
 iolog_writer.i: $(srcdir)/iolog_writer.c $(incdir)/compat/stdbool.h \
                 $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
@@ -349,12 +353,12 @@ iolog_writer.i: $(srcdir)/iolog_writer.c $(incdir)/compat/stdbool.h \
                 $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
                 $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
                 $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-                $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                $(srcdir)/tls_common.h $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/iolog_writer.c > $@
 iolog_writer.plog: iolog_writer.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/iolog_writer.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/iolog_writer.c --i-file iolog_writer.i --output-file $@
 logsrv_util.o: $(srcdir)/logsrv_util.c $(incdir)/compat/stdbool.h \
                $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
@@ -368,9 +372,9 @@ logsrv_util.i: $(srcdir)/logsrv_util.c $(incdir)/compat/stdbool.h \
                $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
                $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
                $(srcdir)/logsrv_util.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+	$(CPP) $(CPPFLAGS) $(srcdir)/logsrv_util.c > $@
 logsrv_util.plog: logsrv_util.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrv_util.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrv_util.c --i-file logsrv_util.i --output-file $@
 logsrvd.o: $(srcdir)/logsrvd.c $(incdir)/compat/getopt.h \
            $(incdir)/compat/stdbool.h $(incdir)/hostcheck.h \
            $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
@@ -379,7 +383,8 @@ logsrvd.o: $(srcdir)/logsrvd.c $(incdir)/compat/getopt.h \
            $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
            $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
            $(incdir)/sudo_json.h $(incdir)/sudo_plugin.h \
-           $(incdir)/sudo_queue.h $(incdir)/sudo_rand.h $(incdir)/sudo_util.h \
+           $(incdir)/sudo_queue.h $(incdir)/sudo_rand.h \
+           $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
            $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
            $(top_builddir)/config.h $(top_builddir)/pathnames.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/logsrvd.c
@@ -391,22 +396,23 @@ logsrvd.i: $(srcdir)/logsrvd.c $(incdir)/compat/getopt.h \
            $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
            $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
            $(incdir)/sudo_json.h $(incdir)/sudo_plugin.h \
-           $(incdir)/sudo_queue.h $(incdir)/sudo_rand.h $(incdir)/sudo_util.h \
+           $(incdir)/sudo_queue.h $(incdir)/sudo_rand.h \
+           $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
            $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
            $(top_builddir)/config.h $(top_builddir)/pathnames.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+	$(CPP) $(CPPFLAGS) $(srcdir)/logsrvd.c > $@
 logsrvd.plog: logsrvd.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd.c --i-file logsrvd.i --output-file $@
 logsrvd_conf.o: $(srcdir)/logsrvd_conf.c $(incdir)/compat/getaddrinfo.h \
                 $(incdir)/compat/stdbool.h $(incdir)/log_server.pb-c.h \
                 $(incdir)/protobuf-c/protobuf-c.h $(incdir)/sudo_compat.h \
                 $(incdir)/sudo_debug.h $(incdir)/sudo_eventlog.h \
                 $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
                 $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                $(srcdir)/tls_common.h $(top_builddir)/config.h \
-                $(top_builddir)/pathnames.h
+                $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                $(top_builddir)/config.h $(top_builddir)/pathnames.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/logsrvd_conf.c
 logsrvd_conf.i: $(srcdir)/logsrvd_conf.c $(incdir)/compat/getaddrinfo.h \
                 $(incdir)/compat/stdbool.h $(incdir)/log_server.pb-c.h \
@@ -414,31 +420,31 @@ logsrvd_conf.i: $(srcdir)/logsrvd_conf.c $(incdir)/compat/getaddrinfo.h \
                 $(incdir)/sudo_debug.h $(incdir)/sudo_eventlog.h \
                 $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
                 $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                $(srcdir)/tls_common.h $(top_builddir)/config.h \
-                $(top_builddir)/pathnames.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                $(top_builddir)/config.h $(top_builddir)/pathnames.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/logsrvd_conf.c > $@
 logsrvd_conf.plog: logsrvd_conf.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_conf.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_conf.c --i-file logsrvd_conf.i --output-file $@
 logsrvd_conf_test.o: $(srcdir)/regress/logsrvd_conf/logsrvd_conf_test.c \
                      $(incdir)/compat/stdbool.h $(incdir)/log_server.pb-c.h \
                      $(incdir)/protobuf-c/protobuf-c.h $(incdir)/sudo_compat.h \
                      $(incdir)/sudo_iolog.h $(incdir)/sudo_queue.h \
-                     $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                     $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                     $(top_builddir)/config.h
+                     $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                     $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                     $(srcdir)/tls_common.h $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/regress/logsrvd_conf/logsrvd_conf_test.c
 logsrvd_conf_test.i: $(srcdir)/regress/logsrvd_conf/logsrvd_conf_test.c \
                      $(incdir)/compat/stdbool.h $(incdir)/log_server.pb-c.h \
                      $(incdir)/protobuf-c/protobuf-c.h $(incdir)/sudo_compat.h \
                      $(incdir)/sudo_iolog.h $(incdir)/sudo_queue.h \
-                     $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                     $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                     $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                     $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                     $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                     $(srcdir)/tls_common.h $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/regress/logsrvd_conf/logsrvd_conf_test.c > $@
 logsrvd_conf_test.plog: logsrvd_conf_test.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/regress/logsrvd_conf/logsrvd_conf_test.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/regress/logsrvd_conf/logsrvd_conf_test.c --i-file logsrvd_conf_test.i --output-file $@
 logsrvd_journal.o: $(srcdir)/logsrvd_journal.c $(incdir)/compat/stdbool.h \
                    $(incdir)/log_server.pb-c.h \
                    $(incdir)/protobuf-c/protobuf-c.h $(incdir)/sudo_compat.h \
@@ -446,9 +452,10 @@ logsrvd_journal.o: $(srcdir)/logsrvd_journal.c $(incdir)/compat/stdbool.h \
                    $(incdir)/sudo_event.h $(incdir)/sudo_eventlog.h \
                    $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
                    $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                   $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                   $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                   $(srcdir)/tls_common.h $(top_builddir)/config.h
+                   $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                   $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                   $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                   $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/logsrvd_journal.c
 logsrvd_journal.i: $(srcdir)/logsrvd_journal.c $(incdir)/compat/stdbool.h \
                    $(incdir)/log_server.pb-c.h \
@@ -457,12 +464,13 @@ logsrvd_journal.i: $(srcdir)/logsrvd_journal.c $(incdir)/compat/stdbool.h \
                    $(incdir)/sudo_event.h $(incdir)/sudo_eventlog.h \
                    $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
                    $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                   $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                   $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                   $(srcdir)/tls_common.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                   $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                   $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                   $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                   $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/logsrvd_journal.c > $@
 logsrvd_journal.plog: logsrvd_journal.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_journal.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_journal.c --i-file logsrvd_journal.i --output-file $@
 logsrvd_local.o: $(srcdir)/logsrvd_local.c $(incdir)/compat/stdbool.h \
                  $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
                  $(incdir)/sudo_compat.h $(incdir)/sudo_conf.h \
@@ -471,9 +479,9 @@ logsrvd_local.o: $(srcdir)/logsrvd_local.c $(incdir)/compat/stdbool.h \
                  $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
                  $(incdir)/sudo_json.h $(incdir)/sudo_plugin.h \
                  $(incdir)/sudo_queue.h $(incdir)/sudo_rand.h \
-                 $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                 $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                 $(top_builddir)/config.h
+                 $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                 $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                 $(srcdir)/tls_common.h $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/logsrvd_local.c
 logsrvd_local.i: $(srcdir)/logsrvd_local.c $(incdir)/compat/stdbool.h \
                  $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
@@ -483,12 +491,12 @@ logsrvd_local.i: $(srcdir)/logsrvd_local.c $(incdir)/compat/stdbool.h \
                  $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
                  $(incdir)/sudo_json.h $(incdir)/sudo_plugin.h \
                  $(incdir)/sudo_queue.h $(incdir)/sudo_rand.h \
-                 $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                 $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                 $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                 $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                 $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                 $(srcdir)/tls_common.h $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/logsrvd_local.c > $@
 logsrvd_local.plog: logsrvd_local.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_local.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_local.c --i-file logsrvd_local.i --output-file $@
 logsrvd_queue.o: $(srcdir)/logsrvd_queue.c $(incdir)/compat/stdbool.h \
                  $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
                  $(incdir)/sudo_compat.h $(incdir)/sudo_conf.h \
@@ -496,9 +504,9 @@ logsrvd_queue.o: $(srcdir)/logsrvd_queue.c $(incdir)/compat/stdbool.h \
                  $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
                  $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
                  $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-                 $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                 $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                 $(top_builddir)/config.h
+                 $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                 $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                 $(srcdir)/tls_common.h $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/logsrvd_queue.c
 logsrvd_queue.i: $(srcdir)/logsrvd_queue.c $(incdir)/compat/stdbool.h \
                  $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
@@ -507,21 +515,22 @@ logsrvd_queue.i: $(srcdir)/logsrvd_queue.c $(incdir)/compat/stdbool.h \
                  $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
                  $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
                  $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-                 $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-                 $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
-                 $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                 $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+                 $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
+                 $(srcdir)/tls_common.h $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/logsrvd_queue.c > $@
 logsrvd_queue.plog: logsrvd_queue.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_queue.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_queue.c --i-file logsrvd_queue.i --output-file $@
 logsrvd_relay.o: $(srcdir)/logsrvd_relay.c $(incdir)/compat/stdbool.h \
                  $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
                  $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
                  $(incdir)/sudo_event.h $(incdir)/sudo_eventlog.h \
                  $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
                  $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                 $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                 $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                 $(srcdir)/tls_common.h $(top_builddir)/config.h
+                 $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                 $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                 $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                 $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/logsrvd_relay.c
 logsrvd_relay.i: $(srcdir)/logsrvd_relay.c $(incdir)/compat/stdbool.h \
                  $(incdir)/log_server.pb-c.h $(incdir)/protobuf-c/protobuf-c.h \
@@ -529,12 +538,13 @@ logsrvd_relay.i: $(srcdir)/logsrvd_relay.c $(incdir)/compat/stdbool.h \
                  $(incdir)/sudo_event.h $(incdir)/sudo_eventlog.h \
                  $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
                  $(incdir)/sudo_iolog.h $(incdir)/sudo_plugin.h \
-                 $(incdir)/sudo_queue.h $(incdir)/sudo_util.h \
-                 $(srcdir)/logsrv_util.h $(srcdir)/logsrvd.h \
-                 $(srcdir)/tls_common.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+                 $(incdir)/sudo_queue.h $(incdir)/sudo_ssl_compat.h \
+                 $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
+                 $(srcdir)/logsrvd.h $(srcdir)/tls_common.h \
+                 $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/logsrvd_relay.c > $@
 logsrvd_relay.plog: logsrvd_relay.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_relay.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/logsrvd_relay.c --i-file logsrvd_relay.i --output-file $@
 sendlog.o: $(srcdir)/sendlog.c $(incdir)/compat/getaddrinfo.h \
            $(incdir)/compat/getopt.h $(incdir)/compat/stdbool.h \
            $(incdir)/hostcheck.h $(incdir)/log_server.pb-c.h \
@@ -543,8 +553,9 @@ sendlog.o: $(srcdir)/sendlog.c $(incdir)/compat/getaddrinfo.h \
            $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
            $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
            $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-           $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h $(srcdir)/sendlog.h \
-           $(srcdir)/tls_common.h $(top_builddir)/config.h
+           $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+           $(srcdir)/logsrv_util.h $(srcdir)/sendlog.h $(srcdir)/tls_common.h \
+           $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/sendlog.c
 sendlog.i: $(srcdir)/sendlog.c $(incdir)/compat/getaddrinfo.h \
            $(incdir)/compat/getopt.h $(incdir)/compat/stdbool.h \
@@ -554,42 +565,47 @@ sendlog.i: $(srcdir)/sendlog.c $(incdir)/compat/getaddrinfo.h \
            $(incdir)/sudo_eventlog.h $(incdir)/sudo_fatal.h \
            $(incdir)/sudo_gettext.h $(incdir)/sudo_iolog.h \
            $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-           $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h $(srcdir)/sendlog.h \
-           $(srcdir)/tls_common.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+           $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+           $(srcdir)/logsrv_util.h $(srcdir)/sendlog.h $(srcdir)/tls_common.h \
+           $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/sendlog.c > $@
 sendlog.plog: sendlog.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/sendlog.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/sendlog.c --i-file sendlog.i --output-file $@
 tls_client.o: $(srcdir)/tls_client.c $(incdir)/compat/stdbool.h \
               $(incdir)/hostcheck.h $(incdir)/sudo_compat.h \
               $(incdir)/sudo_debug.h $(incdir)/sudo_event.h \
               $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
               $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-              $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-              $(srcdir)/tls_common.h $(top_builddir)/config.h
+              $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+              $(srcdir)/logsrv_util.h $(srcdir)/tls_common.h \
+              $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/tls_client.c
 tls_client.i: $(srcdir)/tls_client.c $(incdir)/compat/stdbool.h \
               $(incdir)/hostcheck.h $(incdir)/sudo_compat.h \
               $(incdir)/sudo_debug.h $(incdir)/sudo_event.h \
               $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
               $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-              $(incdir)/sudo_util.h $(srcdir)/logsrv_util.h \
-              $(srcdir)/tls_common.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+              $(incdir)/sudo_ssl_compat.h $(incdir)/sudo_util.h \
+              $(srcdir)/logsrv_util.h $(srcdir)/tls_common.h \
+              $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/tls_client.c > $@
 tls_client.plog: tls_client.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/tls_client.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/tls_client.c --i-file tls_client.i --output-file $@
 tls_init.o: $(srcdir)/tls_init.c $(incdir)/compat/stdbool.h \
             $(incdir)/hostcheck.h $(incdir)/sudo_compat.h \
             $(incdir)/sudo_debug.h $(incdir)/sudo_event.h \
             $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
             $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-            $(srcdir)/tls_common.h $(top_builddir)/config.h
+            $(incdir)/sudo_ssl_compat.h $(srcdir)/tls_common.h \
+            $(top_builddir)/config.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(HARDENING_CFLAGS) $(srcdir)/tls_init.c
 tls_init.i: $(srcdir)/tls_init.c $(incdir)/compat/stdbool.h \
             $(incdir)/hostcheck.h $(incdir)/sudo_compat.h \
             $(incdir)/sudo_debug.h $(incdir)/sudo_event.h \
             $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \
             $(incdir)/sudo_plugin.h $(incdir)/sudo_queue.h \
-            $(srcdir)/tls_common.h $(top_builddir)/config.h
-	$(CC) -E -o $@ $(CPPFLAGS) $<
+            $(incdir)/sudo_ssl_compat.h $(srcdir)/tls_common.h \
+            $(top_builddir)/config.h
+	$(CPP) $(CPPFLAGS) $(srcdir)/tls_init.c > $@
 tls_init.plog: tls_init.i
-	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/tls_init.c --i-file $< --output-file $@
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/tls_init.c --i-file tls_init.i --output-file $@

@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <mach/exclaves.h>
 #include <mach/kern_return.h>
+#include <libkern/coreanalytics/coreanalytics.h>
 
 #include "exclaves_boot.h"
 #include "exclaves_debug.h"
@@ -54,6 +55,34 @@
 static uint64_t exclaves_display_healthcheck_rate_hz = 30;
 
 static exclaveindicatorcontroller_sensorrequest_s eic_client;
+
+CA_EVENT(exclave_indicator_controller_metrics_v1,
+    CA_INT, metrics_duration_ms,
+    CA_INT, num_sessions_mic,
+    CA_INT, num_sessions_dropped_mic,
+    CA_INT, num_sessions_denied_healthcheck_mic,
+    CA_INT, num_sessions_denied_sensor_control_mic,
+    CA_INT, duration_allowed_ms_mic,
+    CA_INT, duration_pending_ms_mic,
+    CA_INT, duration_control_ms_mic,
+    CA_INT, duration_denied_ms_mic,
+    CA_INT, bips_allowed_mic,
+    CA_INT, bips_pending_mic,
+    CA_INT, bips_control_mic,
+    CA_INT, bips_denied_mic,
+
+    CA_INT, num_sessions_cam,
+    CA_INT, num_sessions_dropped_cam,
+    CA_INT, num_sessions_denied_healthcheck_cam,
+    CA_INT, num_sessions_denied_sensor_control_cam,
+    CA_INT, duration_allowed_ms_cam,
+    CA_INT, duration_pending_ms_cam,
+    CA_INT, duration_control_ms_cam,
+    CA_INT, duration_denied_ms_cam,
+    CA_INT, bips_allowed_cam,
+    CA_INT, bips_pending_cam,
+    CA_INT, bips_control_cam,
+    CA_INT, bips_denied_cam);
 
 static inline __unused exclaveindicatorcontroller_sensortype_s
 sensor_type_to_eic_sensortype(exclaves_sensor_type_t type)
@@ -508,7 +537,73 @@ exclaves_indicator_min_on_time_deadlines(struct exclaves_indicator_deadlines *de
 	return ret == TB_ERROR_SUCCESS ? KERN_SUCCESS : KERN_FAILURE;
 }
 
+static kern_return_t
+exclaves_sensor_get_and_clear_metrics(ca_event_t event)
+{
+	if (!event) {
+		return KERN_INVALID_ARGUMENT;
+	}
 
+	/*
+	 * Make sure that the initialisation has taken place before calling into
+	 * the EIC. Any sensor is sufficient.
+	 */
+	exclaves_sensor_t *sensor = sensor_type_to_sensor(EXCLAVES_SENSOR_CAM);
+	if (!sensor->s_initialised) {
+		return KERN_FAILURE;
+	}
+
+	CA_EVENT_TYPE(exclave_indicator_controller_metrics_v1) * e = event->data;
+
+	tb_error_t ret = exclaveindicatorcontroller_sensorrequest_getandclearmetrics(
+		&eic_client, ^(exclaveindicatorcontroller_sensorrequestmetrics_s result) {
+		e->metrics_duration_ms = result.metricsdurationms;
+
+		/* Microphone metrics */
+		e->num_sessions_mic = result.numsessionsmic;
+		e->num_sessions_dropped_mic = result.numsessionsdroppedmic;
+		e->num_sessions_denied_healthcheck_mic = result.numsessionsdeniedhealthcheckmic;
+		e->num_sessions_denied_sensor_control_mic = result.numsessionsdeniedsensorcontrolmic;
+		e->duration_allowed_ms_mic = result.durationallowedmsmic;
+		e->duration_pending_ms_mic = result.durationpendingmsmic;
+		e->duration_control_ms_mic = result.durationcontrolmsmic;
+		e->duration_denied_ms_mic = result.durationdeniedmsmic;
+		e->bips_allowed_mic = result.bipsallowedmic;
+		e->bips_pending_mic = result.bipspendingmic;
+		e->bips_control_mic = result.bipscontrolmic;
+		e->bips_denied_mic = result.bipsdeniedmic;
+
+		/* Camera metrics */
+		e->num_sessions_cam = result.numsessionscam;
+		e->num_sessions_dropped_cam = result.numsessionsdroppedcam;
+		e->num_sessions_denied_healthcheck_cam = result.numsessionsdeniedhealthcheckcam;
+		e->num_sessions_denied_sensor_control_cam = result.numsessionsdeniedsensorcontrolcam;
+		e->duration_allowed_ms_cam = result.durationallowedmscam;
+		e->duration_pending_ms_cam = result.durationpendingmscam;
+		e->duration_control_ms_cam = result.durationcontrolmscam;
+		e->duration_denied_ms_cam = result.durationdeniedmscam;
+		e->bips_allowed_cam = result.bipsallowedcam;
+		e->bips_pending_cam = result.bipspendingcam;
+		e->bips_control_cam = result.bipscontrolcam;
+		e->bips_denied_cam = result.bipsdeniedcam;
+	});
+
+	return ret == TB_ERROR_SUCCESS ? KERN_SUCCESS : KERN_FAILURE;
+}
+
+void
+exclaves_indicator_metrics_report(void)
+{
+	ca_event_t event = CA_EVENT_ALLOCATE(exclave_indicator_controller_metrics_v1);
+	kern_return_t kr = exclaves_sensor_get_and_clear_metrics(event);
+
+	if (kr != KERN_SUCCESS) {
+		CA_EVENT_DEALLOCATE(event);
+		return;
+	}
+
+	CA_EVENT_SEND(event);
+}
 
 #else /* CONFIG_EXCLAVES */
 

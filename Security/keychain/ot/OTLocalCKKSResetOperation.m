@@ -41,7 +41,8 @@
     secnotice("octagon-ckks", "Beginning an 'reset CKKS' operation");
 
     NSDictionary* metrics = nil;
-    metrics = @{kSecurityRTCFieldAccountIsW : @(self.operationDependencies.accountIsW)};
+    metrics = @{
+        kSecurityRTCFieldAccountIsW : @(self.operationDependencies.accountIsW)};
 
     AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                 altDSID:self.operationDependencies.activeAccount.altDSID

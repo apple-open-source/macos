@@ -41,6 +41,8 @@ static struct def_values def_data_timestamp_type[] = {
 static struct def_values def_data_log_format[] = {
     { "sudo", sudo },
     { "json", json },
+    { "json_compact", json_compact },
+    { "json_pretty", json_pretty },
     { NULL, 0 },
 };
 
@@ -157,15 +159,15 @@ struct sudo_defs_types sudo_defs_table[] = {
 	NULL,
     }, {
 	"rootpw", T_FLAG,
-	N_("Prompt for root's password, not the users's"),
+	N_("Prompt for root's password, not the user's"),
 	NULL,
     }, {
 	"runaspw", T_FLAG,
-	N_("Prompt for the runas_default user's password, not the users's"),
+	N_("Prompt for the runas_default user's password, not the user's"),
 	NULL,
     }, {
 	"targetpw", T_FLAG,
-	N_("Prompt for the target user's password, not the users's"),
+	N_("Prompt for the target user's password, not the user's"),
 	NULL,
     }, {
 	"use_loginclass", T_FLAG,
@@ -189,11 +191,11 @@ struct sudo_defs_types sudo_defs_table[] = {
 	NULL,
     }, {
 	"timestamp_timeout", T_TIMESPEC|T_BOOL,
-	N_("Authentication timestamp timeout: %.1f minutes"),
+	N_("Authentication timestamp timeout: %d.%d minutes"),
 	NULL,
     }, {
 	"passwd_timeout", T_TIMESPEC|T_BOOL,
-	N_("Password prompt timeout: %.1f minutes"),
+	N_("Password prompt timeout: %d.%d minutes"),
 	NULL,
     }, {
 	"passwd_tries", T_UINT,
@@ -438,6 +440,10 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"pam_acct_mgmt", T_FLAG,
 	N_("Perform PAM account validation management"),
+	NULL,
+    }, {
+	"pam_silent", T_FLAG,
+	N_("Do not allow PAM authentication modules to generate output"),
 	NULL,
     }, {
 	"maxseq", T_STR,
@@ -694,6 +700,10 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"apparmor_profile", T_STR,
 	N_("AppArmor profile to use in the new security context: %s"),
+	NULL,
+    }, {
+	"cmddenial_message", T_STR,
+	N_("Command denial message: %s"),
 	NULL,
     }, {
 	NULL, 0, NULL

@@ -70,19 +70,26 @@ dnssd_txn_t *NULLABLE
 dns_service_ioloop_txn_add(srp_server_t *NULLABLE srp_server, DNSServiceRef NONNULL sdref, void *NULLABLE context,
                            dnssd_txn_finalize_callback_t NULLABLE finalize_callback,
                            dnssd_txn_failure_callback_t NULLABLE failure_callback);
+void dns_service_record_set_callback(srp_server_t UNUSED *NULLABLE srp_server, DNSServiceRef NONNULL sdref,
+                                     DNSRecordRef NONNULL rref, DNSServiceRegisterRecordReply NULLABLE callBack,
+                                     void *NULLABLE context);
+bool dns_service_record_validate(srp_server_t UNUSED *NULLABLE srp_server, DNSServiceRef NONNULL sdref,
+                                 DNSRecordRef NONNULL rref);
 #else
-#define dns_service_ref_deallocate(srp_server, ...)     DNSServiceRefDeallocate(__VA_ARGS__)
-#define dns_service_register_record(srp_server, ...)    DNSServiceRegisterRecord(__VA_ARGS__)
-#define dns_service_register_record_wa(srp_server, ...) DNSServiceRegisterRecordWithAttribute(__VA_ARGS__)
-#define dns_service_register(srp_server, ...)           DNSServiceRegister(__VA_ARGS__)
-#define dns_service_register_wa(srp_server, ...)        DNSServiceRegisterWithAttribute(__VA_ARGS__)
-#define dns_service_remove_record(srp_server, ...)      DNSServiceRemoveRecord(__VA_ARGS__)
-#define dns_service_update_record(srp_server, ...)      DNSServiceUpdateRecord(__VA_ARGS__)
-#define dns_service_update_record_wa(srp_server, ...)   DNSServiceUpdateRecordWithAttribute(__VA_ARGS__)
-#define ioloop_dnssd_txn_cancel_srp(srp_server, ...)    ioloop_dnssd_txn_cancel(__VA_ARGS__)
-#define dns_service_query_record(srp_server, ...)       DNSServiceQueryRecord(__VA_ARGS__)
-#define dns_service_query_record_wa(srp_server, ...)    DNSServiceQueryRecordWithAttribute(__VA_ARGS__)
-#define dns_service_ioloop_txn_add(srp_server, ...)     ioloop_dnssd_txn_add(__VA_ARGS__)
+#define dns_service_ref_deallocate(srp_server, ...)      DNSServiceRefDeallocate(__VA_ARGS__)
+#define dns_service_register_record(srp_server, ...)     DNSServiceRegisterRecord(__VA_ARGS__)
+#define dns_service_register_record_wa(srp_server, ...)  DNSServiceRegisterRecordWithAttribute(__VA_ARGS__)
+#define dns_service_register(srp_server, ...)            DNSServiceRegister(__VA_ARGS__)
+#define dns_service_register_wa(srp_server, ...)         DNSServiceRegisterWithAttribute(__VA_ARGS__)
+#define dns_service_remove_record(srp_server, ...)       DNSServiceRemoveRecord(__VA_ARGS__)
+#define dns_service_update_record(srp_server, ...)       DNSServiceUpdateRecord(__VA_ARGS__)
+#define dns_service_update_record_wa(srp_server, ...)    DNSServiceUpdateRecordWithAttribute(__VA_ARGS__)
+#define ioloop_dnssd_txn_cancel_srp(srp_server, ...)     ioloop_dnssd_txn_cancel(__VA_ARGS__)
+#define dns_service_query_record(srp_server, ...)        DNSServiceQueryRecord(__VA_ARGS__)
+#define dns_service_query_record_wa(srp_server, ...)     DNSServiceQueryRecordWithAttribute(__VA_ARGS__)
+#define dns_service_ioloop_txn_add(srp_server, ...)      ioloop_dnssd_txn_add(__VA_ARGS__)
+#define dns_service_record_validate(srp_server, ...)     DNSServiceRecordValidate(__VA_ARGS__)
+#define dns_service_record_set_callback(srp_server, ...) DNSServiceRecordSetCallback(__VA_ARGS__)
 #endif
 
 // Local Variables:

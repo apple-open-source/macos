@@ -805,6 +805,9 @@ unsigned long           monitor_call(uintptr_t callnum, uintptr_t arg1,
 extern void set_vbar_el1(uint64_t);
 #endif /* __ARM_KERNEL_PROTECT__ */
 
+#if HAS_MTE
+extern void arm_mte_tag_generator_init(bool is_boot_cpu);
+#endif
 
 #endif /* MACH_KERNEL_PRIVATE */
 
@@ -1499,6 +1502,10 @@ bool ml_task_uses_1ghz_timebase(const task_t task);
 
 
 
+#if HAS_MTE && XNU_KERNEL_PRIVATE
+bool ml_thread_get_sec_override(thread_t thread);
+void ml_thread_set_sec_override(thread_t thread, bool sec_override);
+#endif /* HAS_MTE && XNU_KERNEL_PRIVATE */
 
 __END_DECLS
 

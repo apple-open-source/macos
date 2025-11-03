@@ -1128,6 +1128,7 @@ enum {NUM_RETRIES = 5};
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                     repair:(BOOL)repair
                        danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                         caesarPeerCleanup:(BOOL)caesarPeerCleanup
                                 updateIdMS:(BOOL)updateIdMS
                           knownFederations:(NSArray<NSString *> *)knownFederations
                                     flowID:(NSString* _Nullable)flowID
@@ -1151,6 +1152,7 @@ enum {NUM_RETRIES = 5};
                           requiresEscrowCheck:requiresEscrowCheck
                                        repair:repair
                           danglingPeerCleanup:danglingPeerCleanup
+                            caesarPeerCleanup:caesarPeerCleanup
                                    updateIdMS:updateIdMS
                              knownFederations:knownFederations
                                        flowID:flowID
@@ -1593,7 +1595,7 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
-- (void)performCKServerUnreadableDataRemovalWithSpecificUser:(TPSpecificUser * _Nullable)specificUser 
+- (void)performCKServerUnreadableDataRemovalWithSpecificUser:(TPSpecificUser * _Nullable)specificUser
                                                        reply:(nonnull void (^)(NSError * _Nullable))reply {
     __block int i = 0;
     __block bool retry;

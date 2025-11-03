@@ -359,8 +359,27 @@ void ObjectAcl::cssmGetAcl(const char *tag, uint32 &count, AclEntryInfo * &acls)
     count = n;
 }
 
+// Will throw or return
+static void throwIfXARAPartitionTagAllowableMismatch(const ObjectAcl::cssmChangeAcl_xara_partition_tag_allowed allow, const std::string& tag) {
+    if ((allow == ObjectAcl::cssmChangeAcl_xara_partition_tag_disallowed && tag == CSSM_APPLE_ACL_TAG_PARTITION_ID) ||
+        (allow == ObjectAcl::cssmChangeAcl_only_xara_partition_tag_allowed && tag != CSSM_APPLE_ACL_TAG_PARTITION_ID)) {
+        MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+    }
+}
+
+static const char* allowToString(const ObjectAcl::cssmChangeAcl_xara_partition_tag_allowed allow) {
+    switch (allow) {
+        case ObjectAcl::cssmChangeAcl_xara_partition_tag_disallowed:
+            return "disallowed";
+        case ObjectAcl::cssmChangeAcl_only_xara_partition_tag_allowed:
+            return "only allowed";
+        case ObjectAcl::cssmChangeAcl_all_tags_allowed:
+            return "all allowed";
+    }
+}
+
 void ObjectAcl::cssmChangeAcl(const AclEdit &edit,
-	const AccessCredentials *cred, AclValidationEnvironment *env, const char *preserveTag)
+	const AccessCredentials *cred, AclValidationEnvironment *env, const cssmChangeAcl_xara_partition_tag_allowed allow)
 {
 	IFDUMPING("acl", debugDump("acl-change-from"));
 
@@ -373,20 +392,18 @@ void ObjectAcl::cssmChangeAcl(const AclEdit &edit,
     // what is Thy wish, effendi?
     switch (edit.EditMode) {
     case CSSM_ACL_EDIT_MODE_ADD: {
-        secinfo("SecAccess", "adding ACL for %p (%ld) while preserving: %s", this, edit.handle(), preserveTag);
+        secinfo("SecAccess", "adding ACL for %p (%ld) while %s", this, edit.handle(), allowToString(allow));
 		const AclEntryInput &input = Required(edit.newEntry());
-		if (preserveTag && input.proto().s_tag() == preserveTag)
-			MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+        throwIfXARAPartitionTagAllowableMismatch(allow, input.proto().s_tag());
 		add(input.proto().s_tag(), input.proto());
         secinfo("SecAccess", "subject type is %d", input.proto().TypedSubject.Head->WordID);
 		}
         break;
     case CSSM_ACL_EDIT_MODE_REPLACE: {
-        secinfo("SecAccess", "replacing ACL for %p (%ld to %p) while preserving: %s", this, edit.handle(), edit.newEntry(), preserveTag);
+        secinfo("SecAccess", "replacing ACL for %p (%ld to %p) while %s", this, edit.handle(), edit.newEntry(), allowToString(allow));
 		// keep the handle, and try for some modicum of atomicity
         EntryMap::iterator it = findEntryHandle(edit.handle());
-		if (preserveTag && it->second.tag == preserveTag)
-			MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+        throwIfXARAPartitionTagAllowableMismatch(allow, it->second.tag);
         AclEntryPrototype proto2;
         it->second.toEntryInfo(proto2, allocator);
         secinfo("SecAccess", "subject type was %d", proto2.TypedSubject.Head->WordID);
@@ -399,10 +416,9 @@ void ObjectAcl::cssmChangeAcl(const AclEdit &edit,
         }
         break;
 	case CSSM_ACL_EDIT_MODE_DELETE: {
-        secinfo("SecAccess", "deleting ACL for %p (%ld) while preserving: %s", this, edit.handle(), preserveTag);
+        secinfo("SecAccess", "deleting ACL for %p (%ld) while %s", this, edit.handle(), allowToString(allow));
 		EntryMap::iterator it = findEntryHandle(edit.handle());
-		if (preserveTag && it->second.tag == preserveTag)
-			MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+        throwIfXARAPartitionTagAllowableMismatch(allow, it->second.tag);
 
         AclEntryPrototype proto;
         it->second.toEntryInfo(proto, allocator);

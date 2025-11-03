@@ -77,6 +77,7 @@ static const char *_security_xpc_type_desc(uint64_t type)
             ADD_CASE(AUTHORIZATION_COPY_PRELOGIN_PREFS)
             ADD_CASE(AUTHORIZATION_PRELOGIN_SC_OVERRIDE)
             ADD_CASE(AUTHORIZATION_DEV)
+            ADD_CASE(AUTHORIZATION_STAGE_PLUGIN)
     }
     return "Unrecognized request";
 }
@@ -176,6 +177,9 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
                 break;
             case AUTHORIZATION_PRELOGIN_SC_OVERRIDE:
                 status = authorization_prelogin_smartcardonly_override(conn, event, reply);
+                break;
+            case AUTHORIZATION_STAGE_PLUGIN:
+                status = authorization_stage_plugin(conn, event, reply);
                 break;
 #if DEBUG
             case AUTHORIZATION_DEV:

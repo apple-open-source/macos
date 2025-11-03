@@ -172,7 +172,7 @@ struct vnode {
 	int32_t  v_usecount;                    /* reference count of users */
 	int32_t  v_iocount;                     /* iocounters */
 	void *   XNU_PTRAUTH_SIGNED_PTR("vnode.v_owner") v_owner; /* act that owns the vnode */
-	uint8_t  v_ext_flag;                    /* additional vnode flags, (v_flags is not enough) */
+	uint8_t _Atomic v_ext_flag;             /* additional vnode flags, (v_flags is not enough) */
 	uint8_t  v_type;                        /* vnode type */
 	uint16_t v_tag;                         /* type of underlying data */
 	uint32_t v_id;                          /* identity of vnode contents */
@@ -322,6 +322,7 @@ struct vnode {
 #define VE_LINKCHANGE            0x01
 #define VE_LINKCHANGEWAIT        0x02
 #define VE_NOT_HARDLINK          0x04
+#define VE_APPENDONLY            0x08   /* UF_APPEND / SF_APPEND flag set */
 
 /*
  * This structure describes vnode data which is specific to a file descriptor.
@@ -424,15 +425,8 @@ extern struct vnodeop_desc *vnodeop_descs[];
 
 /*
  * This macro is very helpful in defining those offsets in the vdesc struct.
- *
- * This is stolen from X11R4.  I ingored all the fancy stuff for
- * Crays, so if you decide to port this to such a serious machine,
- * you might want to consult Intrisics.h's XtOffset{,Of,To}.
  */
-#define VOPARG_OFFSET(p_type, field) \
-	((int) (((char *) (&(((p_type)NULL)->field))) - ((char *) NULL)))
-#define VOPARG_OFFSETOF(s_type, field) \
-	VOPARG_OFFSET(s_type*,field)
+#define VOPARG_OFFSETOF(s_type, field) (int)offsetof(s_type, field)
 #define VOPARG_OFFSETTO(S_TYPE, S_OFFSET, STRUCT_P) \
 	((S_TYPE)(((char*)(STRUCT_P))+(S_OFFSET)))
 
@@ -569,6 +563,7 @@ int     vnode_put_locked(vnode_t);
 #ifdef BSD_KERNEL_PRIVATE
 int     vnode_put_from_pager(vnode_t);
 vnode_t vnode_drop_and_unlock(vnode_t);
+bool    vnode_isappendonly(vnode_t);
 #endif /* BSD_KERNEL_PRIVATE */
 
 int     vnode_issock(vnode_t);

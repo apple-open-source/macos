@@ -129,6 +129,9 @@ void RemoteImageBuffer::getPixelBufferWithNewMemory(WebCore::SharedMemory::Handl
 void RemoteImageBuffer::putPixelBuffer(const WebCore::PixelBufferSourceView& pixelBuffer, WebCore::IntPoint srcPoint, WebCore::IntSize srcSize, WebCore::IntPoint destPoint, WebCore::AlphaPremultiplication destFormat)
 {
     assertIsCurrent(workQueue());
+
+    MESSAGE_CHECK(m_imageBuffer->resolutionScale() == 1, "putPixelBuffer() should not be called if (resolutionScale() != 1)");
+
     WebCore::IntRect srcRect(srcPoint, srcSize);
     m_imageBuffer->putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
 }

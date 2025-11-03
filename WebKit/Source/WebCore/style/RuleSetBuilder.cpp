@@ -51,12 +51,11 @@
 namespace WebCore {
 namespace Style {
 
-RuleSetBuilder::RuleSetBuilder(RuleSet& ruleSet, const MQ::MediaQueryEvaluator& evaluator, Resolver* resolver, ShrinkToFit shrinkToFit, ShouldResolveNesting shouldResolveNesting)
+RuleSetBuilder::RuleSetBuilder(RuleSet& ruleSet, const MQ::MediaQueryEvaluator& evaluator, Resolver* resolver, ShrinkToFit shrinkToFit)
     : m_ruleSet(&ruleSet)
     , m_mediaQueryCollector({ evaluator })
     , m_resolver(resolver)
     , m_shrinkToFit(shrinkToFit)
-    , m_builderShouldResolveNesting(shouldResolveNesting)
 {
 }
 
@@ -137,15 +136,14 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
         // https://drafts.csswg.org/css-nesting/#nesting-at-scope
         // For the purposes of the style rules in its body and its own <scope-end> selector,
         // the @scope rule is treated as an ancestor style rule, matching the elements matched by its <scope-start> selector.
-        if (m_shouldResolveNestingForSheet) {
+        if (!scopeRule->originalScopeStart().isEmpty() && scopeRule->scopeStart().isEmpty()) {
             const CSSSelectorList* parentResolvedSelectorList = nullptr;
             if (m_selectorListStack.size())
                 parentResolvedSelectorList = m_selectorListStack.last();
-            if (!scopeRule->originalScopeStart().isEmpty())
-                scopeRule->setScopeStart(CSSSelectorParser::resolveNestingParent(scopeRule->originalScopeStart(), parentResolvedSelectorList));
-            if (!scopeRule->originalScopeEnd().isEmpty())
-                scopeRule->setScopeEnd(CSSSelectorParser::resolveNestingParent(scopeRule->originalScopeEnd(), &scopeRule->scopeStart()));
+            scopeRule->setScopeStart(CSSSelectorParser::resolveNestingParent(scopeRule->originalScopeStart(), parentResolvedSelectorList));
         }
+        if (!scopeRule->originalScopeEnd().isEmpty() && scopeRule->scopeEnd().isEmpty())
+            scopeRule->setScopeEnd(CSSSelectorParser::resolveNestingParent(scopeRule->originalScopeEnd(), &scopeRule->scopeStart()));
 
         const auto& scopeStart = scopeRule->scopeStart();
         // If <scope-start> is empty, it doesn't create a nesting context (the nesting selector might eventually be replaced by :scope)
@@ -247,8 +245,6 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
 
 void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
 {
-    auto nestingResolveScope = SetForScope { m_shouldResolveNestingForSheet, m_builderShouldResolveNesting == ShouldResolveNesting::Yes && !sheet.hasResolvedNesting() };
-
     for (auto& rule : sheet.layerRulesBeforeImportRules())
         registerLayers(rule->nameList());
 
@@ -275,43 +271,35 @@ void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
     }
 
     addChildRules(sheet.childRules());
-
-    if (m_shouldResolveNestingForSheet)
-        sheet.setHasResolvedNesting(true);
 }
 
 void RuleSetBuilder::resolveSelectorListWithNesting(StyleRuleWithNesting& rule)
 {
-    ASSERT(m_shouldResolveNestingForSheet);
-
     const CSSSelectorList* parentResolvedSelectorList = nullptr;
     if (m_selectorListStack.size())
         parentResolvedSelectorList = m_selectorListStack.last();
-
-    // If it's a top-level rule without a nesting parent selector, keep the selector list as is.
-    if (!rule.originalSelectorList().hasExplicitNestingParent() && !parentResolvedSelectorList)
-        return;
-
     auto resolvedSelectorList = CSSSelectorParser::resolveNestingParent(rule.originalSelectorList(), parentResolvedSelectorList);
     rule.wrapperAdoptSelectorList(WTFMove(resolvedSelectorList));
 }
 
 void RuleSetBuilder::addStyleRuleWithSelectorList(const CSSSelectorList& selectorList, const StyleRule& rule)
 {
-    if (!selectorList.isEmpty()) {
-        unsigned selectorListIndex = 0;
-        for (size_t selectorIndex = 0; selectorIndex != notFound; selectorIndex = selectorList.indexOfNextSelectorAfter(selectorIndex)) {
-            RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleSet->ruleCount(), m_isStartingStyle);
-            m_mediaQueryCollector.addRuleIfNeeded(ruleData);
-            m_ruleSet->addRule(WTFMove(ruleData), m_currentCascadeLayerIdentifier, m_currentContainerQueryIdentifier, m_currentScopeIdentifier);
-            ++selectorListIndex;
-        }
+    // Empty selector list are only valid in forgiving selector list inside some functional pseudo-class.
+    // It should not happen here.
+    ASSERT(!selectorList.isEmpty());
+    unsigned selectorListIndex = 0;
+    for (size_t selectorIndex = 0; selectorIndex != notFound; selectorIndex = selectorList.indexOfNextSelectorAfter(selectorIndex)) {
+        RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleSet->ruleCount(), m_isStartingStyle);
+        m_mediaQueryCollector.addRuleIfNeeded(ruleData);
+        m_ruleSet->addRule(WTFMove(ruleData), m_currentCascadeLayerIdentifier, m_currentContainerQueryIdentifier, m_currentScopeIdentifier);
+        ++selectorListIndex;
     }
 }
 
 void RuleSetBuilder::addStyleRule(StyleRuleWithNesting& rule)
 {
-    if (m_shouldResolveNestingForSheet)
+    ASSERT(!rule.originalSelectorList().isEmpty());
+    if (rule.selectorList().isEmpty())
         resolveSelectorListWithNesting(rule);
 
     const auto& selectorList = rule.selectorList();
@@ -365,7 +353,7 @@ void RuleSetBuilder::addStyleRule(StyleRuleNestedDeclarations& rule)
         return CSSSelectorList { };
     };
 
-    if (m_shouldResolveNestingForSheet)
+    if (rule.selectorList().isEmpty())
         rule.wrapperAdoptSelectorList(selectorList());
     addStyleRuleWithSelectorList(rule.selectorList(), rule);
 }

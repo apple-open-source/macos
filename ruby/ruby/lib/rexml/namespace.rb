@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 
 require_relative 'xmltokens'
 
@@ -10,13 +10,17 @@ module REXML
     # The expanded name of the object, valid if name is set
     attr_accessor :prefix
     include XMLTokens
+    NAME_WITHOUT_NAMESPACE = /\A#{NCNAME_STR}\z/
     NAMESPLIT = /^(?:(#{NCNAME_STR}):)?(#{NCNAME_STR})/u
 
     # Sets the name and the expanded name
     def name=( name )
       @expanded_name = name
-      case name
-      when NAMESPLIT
+      if name.match?(NAME_WITHOUT_NAMESPACE)
+        @prefix = ""
+        @namespace = ""
+        @name = name
+      elsif name =~ NAMESPLIT
         if $1
           @prefix = $1
         else
@@ -24,7 +28,7 @@ module REXML
           @namespace = ""
         end
         @name = $2
-      when ""
+      elsif name == ""
         @prefix = nil
         @namespace = nil
         @name = nil
@@ -38,11 +42,11 @@ module REXML
     # Compares names optionally WITH namespaces
     def has_name?( other, ns=nil )
       if ns
-        return (namespace() == ns and name() == other)
+        namespace() == ns and name() == other
       elsif other.include? ":"
-        return fully_expanded_name == other
+        fully_expanded_name == other
       else
-        return name == other
+        name == other
       end
     end
 
@@ -53,7 +57,7 @@ module REXML
     def fully_expanded_name
       ns = prefix
       return "#{ns}:#@name" if ns.size > 0
-      return @name
+      @name
     end
   end
 end

@@ -99,7 +99,7 @@ private:
     HashMap<String, RefPtr<MemoryObjectStore>> m_deletedObjectStores;
     HashSet<RefPtr<MemoryIndex>> m_deletedIndexes;
     HashMap<MemoryObjectStore*, String> m_originalObjectStoreNames;
-    HashMap<MemoryIndex*, String> m_originalIndexNames;
+    HashMap<RefPtr<MemoryIndex>, String> m_originalIndexNames;
 
     HashMap<IDBResourceIdentifier, WeakPtr<MemoryCursor>> m_cursors;
 };

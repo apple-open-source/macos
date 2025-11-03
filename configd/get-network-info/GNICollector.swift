@@ -35,7 +35,6 @@ final class GNICollector {
 	private let _collectNDFInformation: Bool
 	private let _collectSensitiveInformation: Bool
 	private let _disablePacketCapture: Bool
-	private var pcapRunning: Bool = false
 
 	init(_ outputDirectory: String, _ collectSystemConfigurationFiles: Bool, _ collectNDFInformation: Bool,
 	     _ collectSensitiveInformation: Bool, _ disablePacketCapture: Bool) {
@@ -229,19 +228,21 @@ final class GNICollector {
 		collectInformation(runTableForNDFInfo)
 	}
 
-	func startPacketCapture() -> Bool {
-		if !self._disablePacketCapture {
-			let (success, _) = gnisr.run(command: "/usr/local/bin/netdiagnose -p \(gniDirectory) start sysdiagpcap",
-						     stdout: "/dev/null")
-			return success
+	func snapshotPacketCaptures() -> Void {
+		guard self._collectSensitiveInformation && !self._disablePacketCapture else {
+			return
 		}
-		return false
-	}
 
-	func stopPacketCapture() -> Void {
-		if !self._disablePacketCapture && self.pcapRunning {
-			let (_, _) = gnisr.run(command: "/usr/local/bin/netdiagnose stop sysdiagpcap",
-					       stdout: "/dev/null")
+		var cmd = "/usr/local/bin/netdiagnose -p \(gniDirectory) snapshot sysdiagpcap"
+		var (success, _) = gnisr.run(command: cmd, stdout: "/dev/null")
+		if !success {
+			gnisr.errorlog("FAILED: '\(cmd)'")
+		}
+
+		cmd = "/usr/local/bin/netdiagnose -p \(gniDirectory) snapshot droptappcap"
+		(success, _) = gnisr.run(command: cmd, stdout: "/dev/null")
+		if !success {
+			gnisr.errorlog("FAILED: '\(cmd)'")
 		}
 	}
 
@@ -249,8 +250,6 @@ final class GNICollector {
 		guard self._collectSensitiveInformation else {
 			return
 		}
-
-		self.pcapRunning = startPacketCapture()
 		collectInformation(runTableForSensitiveInfo)
 	}
 
@@ -302,12 +301,12 @@ final class GNICollector {
 	}
 
 	func collectAll() {
-		collectSensitiveInformation()
+		snapshotPacketCaptures()
 		collectDefaultInformation()
 		collectNDFInformation()
 		collectSystemConfigurationFiles()
 		collectExtraSystemConfigurationFiles()
-		stopPacketCapture()
+		collectSensitiveInformation()
 	}
 
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2008, 2009-2023
+ * Copyright (c) 1996, 1998-2005, 2008, 2009-2024
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -28,6 +28,9 @@
 #include <sys/stat.h>	/* to avoid problems with mismatched headers and libc */
 #include <unistd.h>	/* to avoid problems with mismatched headers and libc */
 #include <stdio.h>
+#if !defined(HAVE_UTIMENSAT) || !defined(HAVE_FUTIMENS)
+# include <time.h>
+#endif
 #if !defined(HAVE_VSNPRINTF) || !defined(HAVE_VASPRINTF) || \
     !defined(HAVE_VSYSLOG) || defined(PREFER_PORTABLE_SNPRINTF)
 # include <stdarg.h>
@@ -36,6 +39,10 @@
 /*
  * Macros and functions that may be missing on some operating systems.
  */
+
+#ifndef NODEV
+# define NODEV	((dev_t)-1)	/* non-existent device */
+#endif
 
 /*
  * Given the pointer x to the member m of the struct s, return
@@ -205,7 +212,7 @@ extern int errno;
 #endif /* !HAVE_DECL_ERRNO */
 
 /* Not all systems define NSIG in signal.h */
-#if !defined(HAVE_DECL_NSIG) || !HAVE_DECL_NSIG
+#if defined(HAVE_DECL_NSIG) && !HAVE_DECL_NSIG
 # if defined(HAVE_DECL__NSIG) && HAVE_DECL__NSIG
 #  define NSIG _NSIG
 # elif defined(HAVE_DECL___NSIG) && HAVE_DECL___NSIG
@@ -306,21 +313,6 @@ int getdomainname(char *, size_t);
 #endif
 
 /*
- * Compatibility defines for OpenSSL 1.0.2 (not needed for 1.1.x)
- */
-#if defined(HAVE_OPENSSL) && !defined(HAVE_WOLFSSL)
-# ifndef HAVE_X509_STORE_CTX_GET0_CERT
-#  define X509_STORE_CTX_get0_cert(x)   ((x)->cert)
-# endif
-# ifndef HAVE_ASN1_STRING_GET0_DATA
-#  define ASN1_STRING_get0_data(x)      ASN1_STRING_data(x)
-# endif
-# ifndef HAVE_TLS_METHOD
-#  define TLS_method()                  SSLv23_method()
-# endif
-#endif /* HAVE_OPENSSL && !HAVE_WOLFSSL */
-
-/*
  * Functions "missing" from libc.
  * All libc replacements are prefixed with "sudo_" to avoid namespace issues.
  */
@@ -351,23 +343,18 @@ sudo_dso_public void sudo_freezero(void *p, size_t n);
 # undef freezero
 # define freezero(_a, _b) sudo_freezero((_a), (_b))
 #endif /* HAVE_FREEZERO */
-#ifdef PREFER_PORTABLE_GETCWD
-sudo_dso_public char *sudo_getcwd(char *, size_t size);
-# undef getcwd
-# define getcwd(_a, _b) sudo_getcwd((_a), (_b))
-#endif /* PREFER_PORTABLE_GETCWD */
 #ifndef HAVE_GETGROUPLIST
 sudo_dso_public int sudo_getgrouplist(const char *name, GETGROUPS_T basegid, GETGROUPS_T *groups, int *ngroupsp);
 # undef getgrouplist
 # define getgrouplist(_a, _b, _c, _d) sudo_getgrouplist((_a), (_b), (_c), (_d))
 #endif /* GETGROUPLIST */
 #if !defined(HAVE_GETDELIM)
-sudo_dso_public ssize_t sudo_getdelim(char **bufp, size_t *bufsizep, int delim, FILE *fp);
+sudo_dso_public ssize_t sudo_getdelim(char ** restrict bufp, size_t * restrict bufsizep, int delim, FILE * restrict fp);
 # undef getdelim
 # define getdelim(_a, _b, _c, _d) sudo_getdelim((_a), (_b), (_c), (_d))
 #elif defined(HAVE_DECL_GETDELIM) && !HAVE_DECL_GETDELIM
 /* getdelim present in libc but missing prototype (old gcc fixed includes?) */
-ssize_t getdelim(char **bufp, size_t *bufsizep, int delim, FILE *fp);
+ssize_t getdelim(char ** restrict bufp, size_t * restrict bufsizep, int delim, FILE * restrict fp);
 #endif /* HAVE_GETDELIM */
 #ifndef HAVE_GETUSERSHELL
 sudo_dso_public char *sudo_getusershell(void);
@@ -386,12 +373,12 @@ void setusershell(void);
 void endusershell(void);
 #endif /* HAVE_GETUSERSHELL */
 #ifndef HAVE_GMTIME_R
-sudo_dso_public struct tm *sudo_gmtime_r(const time_t *, struct tm *);
+sudo_dso_public struct tm *sudo_gmtime_r(const time_t * restrict, struct tm * restrict);
 # undef gmtime_r
 # define gmtime_r(_a, _b) sudo_gmtime_r((_a), (_b))
 #endif /* HAVE_GMTIME_R */
 #ifndef HAVE_LOCALTIME_R
-sudo_dso_public struct tm *sudo_localtime_r(const time_t *, struct tm *);
+sudo_dso_public struct tm *sudo_localtime_r(const time_t * restrict, struct tm * restrict);
 # undef localtime_r
 # define localtime_r(_a, _b) sudo_localtime_r((_a), (_b))
 #endif /* HAVE_LOCALTIME_R */
@@ -399,7 +386,7 @@ sudo_dso_public struct tm *sudo_localtime_r(const time_t *, struct tm *);
 sudo_dso_public time_t sudo_timegm(struct tm *);
 #endif /* HAVE_TIMEGM */
 #ifndef HAVE_UTIMENSAT
-sudo_dso_public int sudo_utimensat(int fd, const char *file, const struct timespec *times, int flag);
+sudo_dso_public int sudo_utimensat(int fd, const char *file, const struct timespec times[2], int flag);
 # undef utimensat
 # define utimensat(_a, _b, _c, _d) sudo_utimensat((_a), (_b), (_c), (_d))
 #endif /* HAVE_UTIMENSAT */
@@ -409,42 +396,42 @@ sudo_dso_public int sudo_fchmodat(int dfd, const char *path, mode_t mode, int fl
 # define fchmodat(_a, _b, _c, _d) sudo_fchmodat((_a), (_b), (_c), (_d))
 #endif /* HAVE_FCHMODAT */
 #ifndef HAVE_FSTATAT
-sudo_dso_public int sudo_fstatat(int dfd, const char *path, struct stat *sb, int flag);
+sudo_dso_public int sudo_fstatat(int dfd, const char * restrict path, struct stat * restrict sb, int flag);
 # undef fstatat
 # define fstatat(_a, _b, _c, _d) sudo_fstatat((_a), (_b), (_c), (_d))
 #endif /* HAVE_FSTATAT */
 #ifndef HAVE_FUTIMENS
-sudo_dso_public int sudo_futimens(int fd, const struct timespec *times);
+sudo_dso_public int sudo_futimens(int fd, const struct timespec times[2]);
 # undef futimens
 # define futimens(_a, _b) sudo_futimens((_a), (_b))
 #endif /* HAVE_FUTIMENS */
 #if !defined(HAVE_SNPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_snprintf(char *str, size_t n, char const *fmt, ...) sudo_printflike(3, 4);
+sudo_dso_public int sudo_snprintf(char * restrict str, size_t n, char const * restrict fmt, ...) sudo_printflike(3, 4);
 # undef snprintf
 # define snprintf sudo_snprintf
 #endif /* HAVE_SNPRINTF */
 #if !defined(HAVE_VSNPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_vsnprintf(char *str, size_t n, const char *fmt, va_list ap) sudo_printflike(3, 0);
+sudo_dso_public int sudo_vsnprintf(char * restrict str, size_t n, const char * restrict fmt, va_list ap) sudo_printflike(3, 0);
 # undef vsnprintf
 # define vsnprintf sudo_vsnprintf
 #endif /* HAVE_VSNPRINTF */
 #if !defined(HAVE_ASPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_asprintf(char **str, char const *fmt, ...) sudo_printflike(2, 3);
+sudo_dso_public int sudo_asprintf(char ** restrict str, char const * restrict fmt, ...) sudo_printflike(2, 3);
 # undef asprintf
 # define asprintf sudo_asprintf
 #endif /* HAVE_ASPRINTF */
 #if !defined(HAVE_VASPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_vasprintf(char **str, const char *fmt, va_list ap) sudo_printflike(2, 0);
+sudo_dso_public int sudo_vasprintf(char ** restrict str, const char * restrict fmt, va_list ap) sudo_printflike(2, 0);
 # undef vasprintf
 # define vasprintf sudo_vasprintf
 #endif /* HAVE_VASPRINTF */
 #ifndef HAVE_STRLCAT
-sudo_dso_public size_t sudo_strlcat(char *dst, const char *src, size_t siz);
+sudo_dso_public size_t sudo_strlcat(char * restrict dst, const char * restrict src, size_t siz);
 # undef strlcat
 # define strlcat(_a, _b, _c) sudo_strlcat((_a), (_b), (_c))
 #endif /* HAVE_STRLCAT */
 #ifndef HAVE_STRLCPY
-sudo_dso_public size_t sudo_strlcpy(char *dst, const char *src, size_t siz);
+sudo_dso_public size_t sudo_strlcpy(char * restrict dst, const char * restrict src, size_t siz);
 # undef strlcpy
 # define strlcpy(_a, _b, _c) sudo_strlcpy((_a), (_b), (_c))
 #endif /* HAVE_STRLCPY */
@@ -528,12 +515,12 @@ sudo_dso_public int sudo_str2sig(const char *signame, int *signum);
 # define str2sig(_a, _b) sudo_str2sig((_a), (_b))
 #endif /* HAVE_STR2SIG */
 #if !defined(HAVE_INET_NTOP) && defined(NEED_INET_NTOP)
-sudo_dso_public char *sudo_inet_ntop(int af, const void *src, char *dst, socklen_t size);
+sudo_dso_public const char *sudo_inet_ntop(int af, const void * restrict src, char * restrict dst, socklen_t size);
 # undef inet_ntop
 # define inet_ntop(_a, _b, _c, _d) sudo_inet_ntop((_a), (_b), (_c), (_d))
 #endif /* HAVE_INET_NTOP */
 #ifndef HAVE_INET_PTON
-sudo_dso_public int sudo_inet_pton(int af, const char *src, void *dst);
+sudo_dso_public int sudo_inet_pton(int af, const char * restrict src, void * restrict dst);
 # undef inet_pton
 # define inet_pton(_a, _b, _c) sudo_inet_pton((_a), (_b), (_c))
 #endif /* HAVE_INET_PTON */
@@ -552,6 +539,11 @@ sudo_dso_public void *sudo_reallocarray(void *ptr, size_t nmemb, size_t size);
 # undef reallocarray
 # define reallocarray(_a, _b, _c) sudo_reallocarray((_a), (_b), (_c))
 #endif /* HAVE_REALLOCARRAY */
+#ifndef HAVE_REALPATH
+sudo_dso_public char *sudo_realpath(const char * restrict path, char * restrict resolved);
+# undef realpath
+# define realpath(_a, _b) sudo_realpath((_a), (_b))
+#endif /* HAVE_REALPATH */
 #ifndef HAVE_DUP3
 sudo_dso_public int sudo_dup3(int oldd, int newd, int flags);
 # undef dup3

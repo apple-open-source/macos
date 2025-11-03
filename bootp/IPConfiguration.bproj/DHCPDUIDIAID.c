@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -331,7 +331,7 @@ get_interface_list(void)
     STATIC interface_list_t *	S_interfaces;
 
     if (S_interfaces == NULL) {
-	S_interfaces = ifl_init();
+	S_interfaces = ifl_create(NULL);
     }
     return (S_interfaces);
 }

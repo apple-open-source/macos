@@ -44,7 +44,7 @@ void getScreenTimeURLs(std::optional<WTF::UUID> identifier, CompletionHandler<vo
 {
     RetainPtr<NSString> profileIdentifier;
     if (identifier)
-        profileIdentifier = identifier->toString().createNSString();
+        profileIdentifier = [identifier->createNSUUID() UUIDString];
 
     RetainPtr webHistory = adoptNS([PAL::allocSTWebHistoryInstance() initWithProfileIdentifier:profileIdentifier.get()]);
 
@@ -71,7 +71,7 @@ void removeScreenTimeData(const HashSet<URL>& websitesToRemove, const WebsiteDat
 {
     RetainPtr<NSString> profileIdentifier;
     if (configuration.identifier())
-        profileIdentifier = configuration.identifier()->toString().createNSString();
+        profileIdentifier = [configuration.identifier()->createNSUUID() UUIDString];
 
     RetainPtr webHistory = adoptNS([PAL::allocSTWebHistoryInstance() initWithProfileIdentifier:profileIdentifier.get()]);
 
@@ -97,7 +97,7 @@ void removeScreenTimeDataWithInterval(WallTime modifiedSince, const WebsiteDataS
 {
     RetainPtr<NSString> profileIdentifier;
     if (configuration.identifier())
-        profileIdentifier = configuration.identifier()->toString().createNSString();
+        profileIdentifier = [configuration.identifier()->createNSUUID() UUIDString];
 
     RetainPtr webHistory = adoptNS([PAL::allocSTWebHistoryInstance() initWithProfileIdentifier:profileIdentifier.get()]);
 

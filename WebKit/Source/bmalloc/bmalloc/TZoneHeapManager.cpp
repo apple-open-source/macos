@@ -35,6 +35,7 @@
 #include "bmalloc.h"
 
 #if BOS(DARWIN)
+#include <CommonCrypto/CommonHMAC.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sysctl.h>
@@ -260,26 +261,25 @@ void TZoneHeapManager::init()
         TZONE_LOG_DEBUG("\n");
     }
 
-    alignas(8) unsigned char seed[CC_SHA1_DIGEST_LENGTH];
-    (void)CC_SHA256(&rawSeed, rawSeedLength, seed);
+    alignas(8) std::array<unsigned char, CC_SHA256_DIGEST_LENGTH> defaultSeed;
+    (void)CC_SHA256(&rawSeed, rawSeedLength, defaultSeed.data());
 #else // OS(DARWIN) => !OS(DARWIN)
     if constexpr (verbose)
         TZONE_LOG_DEBUG("using static seed\n");
 
-    const unsigned char defaultSeed[CC_SHA1_DIGEST_LENGTH] = { "DefaultSeed\x12\x34\x56\x78\x9a\xbc\xde\xf0" };
-    memcpy(m_tzoneKey.seed, defaultSeed, CC_SHA1_DIGEST_LENGTH);
+    const std::array<unsigned char, CC_SHA1_DIGEST_LENGTH> defaultSeed = { "DefaultSeed\x12\x34\x56\x78\x9a\xbc\xde\xf0" };
 #endif // OS(DARWIN) => !OS(DARWIN)
 
-    uint64_t* seedPtr = reinterpret_cast<uint64_t*>(seed);
+    const uint64_t* seedPtr = reinterpret_cast<const uint64_t*>(defaultSeed.data());
     m_tzoneKeySeed = 0;
-    unsigned remainingBytes = CC_SHA1_DIGEST_LENGTH;
+    unsigned remainingBytes = defaultSeed.size();
     while (remainingBytes > sizeof(m_tzoneKeySeed)) {
         m_tzoneKeySeed = m_tzoneKeySeed ^ *seedPtr++;
         remainingBytes -= sizeof(m_tzoneKeySeed);
     }
     uint64_t remainingSeed = 0;
-    unsigned char* seedBytes = reinterpret_cast<unsigned char*>(seedPtr);
-    while (remainingBytes > sizeof(m_tzoneKeySeed)) {
+    const unsigned char* seedBytes = reinterpret_cast<const unsigned char*>(seedPtr);
+    while (remainingBytes) {
         remainingSeed = (remainingSeed << 8) | *seedBytes++;
         remainingBytes--;
     }
@@ -287,8 +287,8 @@ void TZoneHeapManager::init()
 
     if constexpr (verbose) {
         TZONE_LOG_DEBUG("    Computed key {");
-        for (unsigned i = 0; i < CC_SHA1_DIGEST_LENGTH; ++i)
-            TZONE_LOG_DEBUG(" %02x", seed[i]);
+        for (unsigned char byte : defaultSeed)
+            TZONE_LOG_DEBUG(" %02x", byte);
         TZONE_LOG_DEBUG(" }\n");
     }
 
@@ -470,22 +470,24 @@ BINLINE unsigned TZoneHeapManager::bucketCountForSizeClass(SizeAndAlignment::Val
 
 class WeakRandom final {
 public:
-    static constexpr uint64_t nextState(uint64_t x, uint64_t y)
+    static constexpr std::pair<uint64_t, uint64_t> nextState(uint64_t x, uint64_t y)
     {
         x ^= x << 23;
         x ^= x >> 17;
         x ^= y ^ (y >> 26);
-        return x;
+        x += y * 0x10101;
+        return { y, x };
     }
 
-    static constexpr uint64_t generate(uint64_t seed)
+    static constexpr std::pair<uint64_t, uint64_t> generate(uint64_t seed1, uint64_t seed2)
     {
-        if (!seed)
-            seed = 1;
-        uint64_t low = seed;
-        uint64_t high = seed;
-        high = nextState(low, high);
-        return low + high;
+        if (!seed1)
+            seed1 = 1;
+        if (!seed2)
+            seed2 = 1;
+        uint64_t low = seed1;
+        uint64_t high = seed2;
+        return nextState(low, high);
     }
 };
 
@@ -494,11 +496,28 @@ BALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 BINLINE unsigned TZoneHeapManager::tzoneBucketForKey(const TZoneSpecification& spec, unsigned bucketCountForSize, LockHolder&)
 {
     static constexpr bool verboseBucketSelection = false;
-    uint64_t random = WeakRandom::generate(m_tzoneKeySeed);
-    random = WeakRandom::nextState(random, std::bit_cast<uintptr_t>(spec.addressOfHeapRef));
-    random = WeakRandom::nextState(random, spec.size);
-    random = WeakRandom::nextState(random, SizeAndAlignment::decodeAlignment(spec.sizeAndAlignment));
+
+#if BOS(DARWIN)
+    // The output of HMAC_SHA256 is the same length as the SHA256 digest, since HMAC's final step is running
+    // the hash function H on a value derived from the original message.
+    uint64_t hmac[CC_SHA256_DIGEST_LENGTH / sizeof(uint64_t)];
+    static_assert(sizeof(hmac) == 32);
+
+    uintptr_t addressOfHeapRef = std::bit_cast<uintptr_t>(spec.addressOfHeapRef);
+
+    CCHmac(kCCHmacAlgSHA256, &m_tzoneKeySeed, sizeof(m_tzoneKeySeed), &addressOfHeapRef, sizeof(addressOfHeapRef), hmac);
+    uint64_t random = hmac[0];
     unsigned bucket = random % bucketCountForSize;
+
+#else
+    // We don't necessarily have CommonCrypto included. We'll fall back to WeakRandom here.
+    auto [randomLow, randomHigh] = WeakRandom::generate(m_tzoneKeySeed, std::bit_cast<uintptr_t>(spec.addressOfHeapRef));
+    std::tie(randomLow, randomHigh) = WeakRandom::nextState(randomLow, randomHigh);
+    std::tie(randomLow, randomHigh) = WeakRandom::nextState(randomLow, randomHigh);
+    std::tie(randomLow, randomHigh) = WeakRandom::nextState(randomLow, randomHigh);
+    uint64_t random = randomLow;
+    unsigned bucket = random % bucketCountForSize;
+#endif
 
     if constexpr (verboseBucketSelection) {
         TZONE_LOG_DEBUG("Choosing Bucket heapRef: %p size: %u align: %u", spec.addressOfHeapRef, spec.size, SizeAndAlignment::decodeAlignment(spec.sizeAndAlignment));

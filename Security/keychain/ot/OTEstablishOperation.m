@@ -70,8 +70,9 @@
 {
     secnotice("octagon", "Beginning an establish operation");
 
-    NSDictionary* metrics = nil;
-    metrics = @{kSecurityRTCFieldAccountIsW : @(self.operationDependencies.accountIsW)};
+    NSDictionary* metrics = @{
+        kSecurityRTCFieldAccountIsW : @(self.operationDependencies.accountIsW),
+    };
 
     AAFAnalyticsEventSecurity *establishEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                          altDSID:self.operationDependencies.activeAccount.altDSID

@@ -227,15 +227,6 @@ void MediaSessionManagerCocoa::beginInterruption(PlatformMediaSession::Interrupt
     PlatformMediaSessionManager::beginInterruption(type);
 }
 
-void MediaSessionManagerCocoa::prepareToSendUserMediaPermissionRequestForPage(Page& page)
-{
-#if ENABLE(EXTENSION_CAPABILITIES)
-    if (page.settings().mediaCapabilityGrantsEnabled())
-        return;
-#endif
-    providePresentingApplicationPIDIfNecessary(page.presentingApplicationPID());
-}
-
 String MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool preservesPitch, double rate)
 {
     if (!preservesPitch || !rate || rate == 1.)
@@ -518,10 +509,8 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
 #endif
         ALWAYS_LOG(LOGIDENTIFIER, "title = \"", title, "\", isPlaying = ", nowPlayingInfo->isPlaying, ", duration = ", nowPlayingInfo->duration, ", now = ", nowPlayingInfo->currentTime, ", id = ", (nowPlayingInfo->uniqueIdentifier ? nowPlayingInfo->uniqueIdentifier->toUInt64() : 0), ", registered = ", m_registeredAsNowPlayingApplication, ", src = \"", src, "\"");
     }
-    if (!m_registeredAsNowPlayingApplication) {
+    if (!m_registeredAsNowPlayingApplication)
         m_registeredAsNowPlayingApplication = true;
-        providePresentingApplicationPIDIfNecessary(session->presentingApplicationPID());
-    }
 
     updateActiveNowPlayingSession(session);
 

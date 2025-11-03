@@ -53,6 +53,7 @@
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DragImage.h>
 #import <WebCore/Editing.h>
+#import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
@@ -62,7 +63,6 @@
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/HTMLBodyElement.h>
-#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLImageElement.h>
 #import <WebCore/HTMLOListElement.h>
 #import <WebCore/HTMLTextFormControlElement.h>
@@ -75,6 +75,7 @@
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MutableStyleProperties.h>
 #import <WebCore/NetworkExtensionContentFilter.h>
+#import <WebCore/NodeHTMLConverter.h>
 #import <WebCore/NodeRenderStyle.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/NowPlayingInfo.h>
@@ -761,13 +762,9 @@ void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState&
         postLayoutData.selectionIsTransparentOrFullyClipped = selectionIsTransparentOrFullyClipped(selection);
 
 #if PLATFORM(IOS_FAMILY)
-    bool honorOverflowScrolling = m_page->settings().selectionHonorsOverflowScrolling();
-    if (enclosingFormControl || !honorOverflowScrolling)
+    if (enclosingFormControl || !m_page->settings().selectionHonorsOverflowScrolling())
         result.visualData->selectionClipRect = result.visualData->editableRootBounds;
-
-    if (honorOverflowScrolling)
-        computeEnclosingLayerID(result, selection);
-#endif // PLATFORM(IOS_FAMILY)
+#endif
 }
 
 void WebPage::getPDFFirstPageSize(WebCore::FrameIdentifier frameID, CompletionHandler<void(WebCore::FloatSize)>&& completionHandler)
@@ -1447,6 +1444,29 @@ void WebPage::getWebArchives(CompletionHandler<void(HashMap<WebCore::FrameIdenti
             result.add(localFrame->frameID(), archive.releaseNonNull());
     }
     completionHandler(WTFMove(result));
+}
+
+NSObject *WebPage::accessibilityObjectForMainFramePlugin()
+{
+#if ENABLE(PDF_PLUGIN)
+    if (!m_page)
+        return nil;
+
+    if (RefPtr pluginView = mainFramePlugIn())
+        return pluginView->accessibilityObject();
+#endif
+
+    return nil;
+}
+
+bool WebPage::shouldFallbackToWebContentAXObjectForMainFramePlugin() const
+{
+#if ENABLE(PDF_PLUGIN)
+    RefPtr pluginView = mainFramePlugIn();
+    return pluginView && pluginView->isPresentingLockedContent();
+#else
+    return false;
+#endif
 }
 
 } // namespace WebKit

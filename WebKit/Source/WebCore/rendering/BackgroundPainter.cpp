@@ -944,8 +944,8 @@ void BackgroundPainter::paintBoxShadow(const LayoutRect& paintRect, const Render
                 outerRectExpandedToObscureOpenEdges.setHeight(outerRectExpandedToObscureOpenEdges.height() - std::min<LayoutUnit>(shadowOffset.height(), 0) + shadowInfluence);
 
             auto shapeForInnerHole = BorderShape(outerRectExpandedToObscureOpenEdges, borderWidthsWithSpread, borderShape.radii());
-            if (shapeForInnerHole.snappedOuterRect(deviceScaleFactor).isEmpty()) {
-                shapeForInnerHole.fillInnerShape(context, shadowColor, deviceScaleFactor);
+            if (shapeForInnerHole.snappedInnerRect(deviceScaleFactor).isEmpty()) {
+                shapeForInnerHole.fillOuterShape(context, shadowColor, deviceScaleFactor);
                 continue;
             }
 

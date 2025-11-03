@@ -141,6 +141,8 @@ NSString *const kSecurityRTCEventNameOTLocalCKKSResetOperation = @"com.apple.sec
 NSString *const kSecurityRTCEventNameEscrowPasscodeEnableCacheFlow = @"com.apple.security.escrowPasscodeEnableCacheFlow";
 NSString *const kSecurityRTCEventNameEscrowPasscodeCacheAvailable = @"com.apple.security.escrowPasscodeCacheAvailable";
 NSString *const kSecurityRTCEventNameEscrowRepairOperation = @"com.apple.security.escrowRepairOperation";
+NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeChanged = @"com.apple.security.escrowRepairOperationPasscodeChanged";
+NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeUnlocked = @"com.apple.security.escrowRepairOperationPasscodeUnlocked";
 
 // MARK: RPD
 NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemoval = @"com.apple.security.performCKServerUnreadableDataRemoval";
@@ -283,3 +285,7 @@ NSString *const kSecurityRTCFieldTotalNumberOfPreapprovals = @"totalNumberOfPrea
 // MARK: Reset ProtectedData Fields
 NSString *const kSecurityRTCFieldAccountIsW = @"accountIsW";
 NSString *const kSecurityRTCFieldAccountIsG = @"accountIsG";
+NSString *const kSecurityRTCFieldAccountIsDBR = @"accountIsDBR";
+
+// MARK: Piggybacking RTC Fields
+NSString *const kSecurityRTCFieldTotalViableEscrowRecords = @"totalViableEscrowRecords";

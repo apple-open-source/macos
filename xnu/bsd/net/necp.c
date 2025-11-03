@@ -4074,7 +4074,7 @@ struct necp_policy_result_service {
 } __attribute__((__packed__));
 
 static bool
-necp_policy_apply(struct necp_session *session, struct necp_session_policy *policy, bool *should_update_immediately)
+necp_policy_apply(struct necp_session *session, struct necp_session_policy *policy)
 {
 	bool socket_only_conditions = FALSE;
 	bool socket_ip_conditions = FALSE;
@@ -4624,11 +4624,6 @@ necp_policy_apply(struct necp_session *session, struct necp_session_policy *poli
 		if (necp_policy_result_get_parameter_length_from_buffer(policy->result, policy->result_size) > 0) {
 			if (necp_policy_get_result_parameter(policy, (u_int8_t *)&drop_flags, sizeof(drop_flags))) {
 				ultimate_result_parameter.drop_flags = drop_flags;
-				if (ultimate_result_parameter.drop_flags & NECP_KERNEL_POLICY_DROP_FLAG_DEFUNCT_ALL_FLOWS) {
-					if (should_update_immediately != NULL) {
-						*should_update_immediately = TRUE;
-					}
-				}
 			}
 		}
 		if (socket_only_conditions) {         // socket_ip_conditions can be TRUE or FALSE
@@ -4847,7 +4842,6 @@ necp_policy_apply_all(struct necp_session *session)
 	struct necp_session_policy *temp_policy = NULL;
 	struct kev_necp_policies_changed_data kev_data;
 	kev_data.changed_count = 0;
-	bool should_update_immediately = FALSE;
 
 	lck_rw_lock_exclusive(&necp_kernel_policy_lock);
 
@@ -4861,11 +4855,11 @@ necp_policy_apply_all(struct necp_session *session)
 				// Delete the policy
 				necp_policy_delete(session, policy);
 			} else if (!policy->applied) {
-				necp_policy_apply(session, policy, &should_update_immediately);
+				necp_policy_apply(session, policy);
 			} else if (policy->pending_update) {
 				// Must have been applied, but needs an update. Remove and re-add.
 				necp_policy_unapply(policy);
-				necp_policy_apply(session, policy, &should_update_immediately);
+				necp_policy_apply(session, policy);
 			}
 		}
 
@@ -4879,12 +4873,7 @@ necp_policy_apply_all(struct necp_session *session)
 
 	lck_rw_done(&necp_kernel_policy_lock);
 
-	if (!should_update_immediately) {
-		necp_update_all_clients();
-	} else {
-		necp_update_all_clients_immediately_if_needed(true);
-	}
-
+	necp_update_all_clients();
 	necp_post_change_event(&kev_data);
 
 	if (necp_debug) {
@@ -9334,22 +9323,6 @@ necp_socket_check_policy(struct necp_kernel_socket_policy *kernel_policy,
 		}
 	}
 
-	if (kernel_policy->condition_mask & NECP_KERNEL_CONDITION_CUSTOM_ENTITLEMENT) {
-		NECP_DATA_TRACE_LOG_CONDITION_SOCKET_STR(debug, socket, "SOCKET", false, "NECP_KERNEL_CONDITION_CUSTOM_ENTITLEMENT", "n/a", kernel_policy->cond_custom_entitlement);
-		if (kernel_policy->cond_custom_entitlement != NULL) {
-			if (proc == NULL) {
-				// No process found, cannot check entitlement
-				return FALSE;
-			}
-			task_t __single task = proc_task(proc);
-			if (task == NULL ||
-			    !IOTaskHasEntitlementAsBooleanOrObject(task, kernel_policy->cond_custom_entitlement)) {
-				// Process is missing custom entitlement
-				return FALSE;
-			}
-		}
-	}
-
 	if (kernel_policy->condition_mask & NECP_KERNEL_CONDITION_EXACT_DOMAIN) {
 		NECP_DATA_TRACE_LOG_CONDITION_SOCKET_STR(debug, socket, "SOCKET", kernel_policy->condition_negated_mask & NECP_KERNEL_CONDITION_EXACT_DOMAIN,
 		    "NECP_KERNEL_CONDITION_EXACT_DOMAIN", kernel_policy->cond_domain, domain.string);
@@ -9786,6 +9759,22 @@ necp_socket_check_policy(struct necp_kernel_socket_policy *kernel_policy,
 				if (!is_platform_binary) {
 					return FALSE;
 				}
+			}
+		}
+	}
+
+	if (kernel_policy->condition_mask & NECP_KERNEL_CONDITION_CUSTOM_ENTITLEMENT) {
+		NECP_DATA_TRACE_LOG_CONDITION_SOCKET_STR(debug, socket, "SOCKET", false, "NECP_KERNEL_CONDITION_CUSTOM_ENTITLEMENT", "n/a", kernel_policy->cond_custom_entitlement);
+		if (kernel_policy->cond_custom_entitlement != NULL) {
+			if (proc == NULL) {
+				// No process found, cannot check entitlement
+				return FALSE;
+			}
+			task_t __single task = proc_task(proc);
+			if (task == NULL ||
+			    !IOTaskHasEntitlementAsBooleanOrObject(task, kernel_policy->cond_custom_entitlement)) {
+				// Process is missing custom entitlement
+				return FALSE;
 			}
 		}
 	}

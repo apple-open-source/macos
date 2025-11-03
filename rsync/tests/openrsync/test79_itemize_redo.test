@@ -1,0 +1,95 @@
+#! /bin/sh
+
+# Test that the --itemize-changes option works as expected in a redo phase.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Cleanup from previous run:
+#
+rm -rf src dst log log.expected
+
+# Create the source tree:
+#
+mkdir -p src dst
+
+1>&2 echo "Test 1: Basic --append that will trigger a redo"
+
+echo "abc...xyz" > src/file
+
+# Initial sync
+rsync --out-format='%i %n' -a src/ dst/ > log
+compare_trees -t src dst
+
+if ! grep -q '^>f+++++++ file' log; then
+	1>&2 echo "Wrong itemization flags for initial sync:"
+	1>&2 cat log
+	exit 1
+fi
+
+echo "appended" >> src/file
+echo "def...xyz" > dst/file
+
+cat <<EOF > log.expected
+>f.s..... file
+>f....... file
+EOF
+
+rsync --append --out-format='%i %n' -a src/ dst/ > log
+compare_trees -t src dst
+
+lines=$(cat log | wc -l | tr -d '[[:space:]]')
+if [ "$lines" -ne 2 ]; then
+	1>&2 echo "--append did not seem to trigger redo?"
+	1>&2 cat log
+	exit 1
+fi
+
+if ! cmp -s log log.expected; then
+	1>&2 echo "iflags from --append transfer were incorrect"
+	1>&2 echo "ACTUAL"
+	1>&2 cat log
+	1>&2 echo
+	1>&2 echo "EXPECTED"
+	1>&2 cat log.expected
+	exit 1
+fi
+
+1>&2 echo "Test 2: Truncate the source file mid-transfer to trigger redo"
+dd if=/dev/random of=src/file bs=1M count=1 conv=sync
+
+(
+	sleep 4
+	:> src/file
+) &
+
+# Give us some wiggle room, configure the transfer to take ~10 seconds so that
+# we have a wide enough window to truncate the file, but not too wide that the
+# test takes a long time to complete.
+set +e
+rsync --bwlimit=100 --out-format='%i %n' -a src/ dst/ > log
+rc=$?
+set -e
+
+if [ "$rc" -ne 23 ]; then
+	1>&2 echo "Corruption in the source was apparently missed rc=$rc"
+	exit 1
+fi
+
+# We still want a good error if it didn't exist, so capture a grep failure.  We
+# give some wiggle room in the exact iflags because the test may sometimes run
+# fast enough that the timestamp isn't out-of-date, but other times it is.
+if ! grep '>f\.s[t.]\.\.\.\. file' log > log.files; then
+	lines=0
+else
+	lines=$(cat log.files | wc -l | tr -d '[[:space:]]')
+fi
+
+if [ "$lines" -ne 2 ]; then
+	1>&2 echo "Itemization flags did not seem to reflect file existence with new size in both phases"
+	1>&2 cat log
+	exit 1
+fi

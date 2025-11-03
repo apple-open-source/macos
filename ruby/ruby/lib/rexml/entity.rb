@@ -12,6 +12,7 @@ module REXML
     EXTERNALID = "(?:(?:(SYSTEM)\\s+#{SYSTEMLITERAL})|(?:(PUBLIC)\\s+#{PUBIDLITERAL}\\s+#{SYSTEMLITERAL}))"
     NDATADECL = "\\s+NDATA\\s+#{NAME}"
     PEREFERENCE = "%#{NAME};"
+    PEREFERENCE_RE = /#{PEREFERENCE}/um
     ENTITYVALUE = %Q{((?:"(?:[^%&"]|#{PEREFERENCE}|#{REFERENCE})*")|(?:'([^%&']|#{PEREFERENCE}|#{REFERENCE})*'))}
     PEDEF = "(?:#{ENTITYVALUE}|#{EXTERNALID})"
     ENTITYDEF = "(?:#{ENTITYVALUE}|(?:#{EXTERNALID}(#{NDATADECL})?))"
@@ -19,7 +20,7 @@ module REXML
     GEDECL = "<!ENTITY\\s+#{NAME}\\s+#{ENTITYDEF}\\s*>"
     ENTITYDECL = /\s*(?:#{GEDECL})|(?:#{PEDECL})/um
 
-    attr_reader :name, :external, :ref, :ndata, :pubid
+    attr_reader :name, :external, :ref, :ndata, :pubid, :value
 
     # Create a new entity.  Simple entities can be constructed by passing a
     # name, value to the constructor; this creates a generic, plain entity
@@ -68,14 +69,14 @@ module REXML
     end
 
     # Evaluates to the unnormalized value of this entity; that is, replacing
-    # all entities -- both %ent; and &ent; entities.  This differs from
-    # +value()+ in that +value+ only replaces %ent; entities.
+    # &ent; entities.
     def unnormalized
-      document.record_entity_expansion unless document.nil?
-      v = value()
-      return nil if v.nil?
-      @unnormalized = Text::unnormalize(v, parent)
-      @unnormalized
+      document&.record_entity_expansion
+
+      return nil if @value.nil?
+
+      @unnormalized = Text::unnormalize(@value, parent,
+                                        entity_expansion_text_limit: document&.entity_expansion_text_limit)
     end
 
     #once :unnormalized
@@ -90,7 +91,7 @@ module REXML
     # object itself is valid.)
     #
     # out::
-    #   An object implementing <TT>&lt;&lt;<TT> to which the entity will be
+    #   An object implementing <TT>&lt;&lt;</TT> to which the entity will be
     #   output
     # indent::
     #   *DEPRECATED* and ignored
@@ -120,36 +121,6 @@ module REXML
       rv = ''
       write rv
       rv
-    end
-
-    PEREFERENCE_RE = /#{PEREFERENCE}/um
-    # Returns the value of this entity.  At the moment, only internal entities
-    # are processed.  If the value contains internal references (IE,
-    # %blah;), those are replaced with their values.  IE, if the doctype
-    # contains:
-    #  <!ENTITY % foo "bar">
-    #  <!ENTITY yada "nanoo %foo; nanoo>
-    # then:
-    #  doctype.entity('yada').value   #-> "nanoo bar nanoo"
-    def value
-      if @value
-        matches = @value.scan(PEREFERENCE_RE)
-        rv = @value.clone
-        if @parent
-          sum = 0
-          matches.each do |entity_reference|
-            entity_value = @parent.entity( entity_reference[0] )
-            if sum + entity_value.bytesize > Security.entity_expansion_text_limit
-              raise "entity expansion has grown too large"
-            else
-              sum += entity_value.bytesize
-            end
-            rv.gsub!( /%#{entity_reference.join};/um, entity_value )
-          end
-        end
-        return rv
-      end
-      nil
     end
   end
 

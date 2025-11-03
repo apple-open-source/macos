@@ -2,9 +2,9 @@
 // VIM_TEST_SETUP unlet! g:java_no_trail_space_error
 // VIM_TEST_SETUP let[g:java_space_errors,g:java_comment_strings]=[1,1]
 // VIM_TEST_SETUP let[g:java_ignore_html,g:markdown_syntax_conceal]=[1,1]
-
-
-
+// VIM_TEST_SETUP let g:html_syntax_folding = 1
+// VIM_TEST_SETUP let g:java_consent_to_html_syntax_folding = 1
+// VIM_TEST_SETUP let g:markdown_fenced_languages = ["java"]
 
 
 // VIM_TEST_SETUP defer execute('match Visual /\%>21l\s\+$/')

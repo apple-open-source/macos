@@ -10,16 +10,16 @@ about the `configure` script itself.
 
 ## System requirements
 
-To build sudo from the source distribution you need a POSIX-compliant
-operating system (any modern version of BSD, Linux, or Unix should work),
-an ANSI/ISO C compiler that supports the "long long" type, variadic
-macros (a C99 feature) as well as the ar, make, and ranlib utilities.
+To build sudo from the source distribution you will need a
+POSIX-compliant operating system (any modern version of BSD, Linux,
+or Unix should work), a C compiler that conforms to ISO C99 or
+higher, and the ar, make, and ranlib utilities.
 
 If you wish to modify the parser then you will need flex version
-2.5.2 or later and either bison or byacc (sudo comes with a
-pre-generated parser).  You'll also have to run configure with the
---with-devel option or pass DEVEL=1 to make.  You can get flex from
-https://github.com/westes/flex/.  You can get GNU bison from
+2.5.2 or later and either bison or byacc (sudo comes with a parser
+generated with GNU bison).  You'll also have to run configure with
+the --with-devel option or pass DEVEL=1 to make.  You can get flex
+from https://github.com/westes/flex/.  You can get GNU bison from
 https://ftp.gnu.org/pub/gnu/bison/ or any GNU mirror.
 
 Some systems will also require that development library packages be
@@ -110,7 +110,8 @@ Defaults are listed in brackets after the description.
         Install plugins and helper programs in DIR/sudo [PREFIX/libexec/sudo]
 
     --sysconfdir=DIR
-        Look for `sudo.conf` and `sudoers` files in DIR. [/etc]
+        Look for configuration files such as `sudo.conf` and `sudoers`
+        in DIR. [/etc]
 
     --includedir=DIR
         Install sudo_plugin.h include file in DIR [PREFIX/include]
@@ -226,9 +227,11 @@ Defaults are listed in brackets after the description.
         -fstack-clash-protection, -fcf-protection and linking with
         -zrelro, -znow, and -znoexecstack where supported.
 
-    --disable-ssp
-        Disable use of the -fstack-protector compiler option.
-        This does not affect the other hardening options.
+    --disable-largefile
+        Disable support for large (64-bit) files on 32-bit systems
+        where the maximum file size is normally 4GB.  By default,
+        configure will enable support for 64-bit file sizes if
+        supported by the operating system.
 
     --disable-leaks
         Avoid leaking memory even when we are headed for exit,
@@ -237,7 +240,7 @@ Defaults are listed in brackets after the description.
         production environment.
 
     --enable-pie
-        Build sudo and related programs as as a position independent
+        Build sudo and related programs as position independent
         executables (PIE).  This improves the effectiveness of address
         space layout randomization (ASLR) on systems that support it.
         Sudo will create PIE binaries by default on Linux systems.
@@ -278,6 +281,10 @@ Defaults are listed in brackets after the description.
         instead.  This option may only be used in conjunction with
         the --enable-static-sudoers option.
 
+    --disable-ssp
+        Disable use of the -fstack-protector compiler option.
+        This does not affect the other hardening options.
+
     --enable-static-sudoers
         By default, the sudoers plugin is built and installed as a
         dynamic shared object.  When the --enable-static-sudoers
@@ -293,6 +300,11 @@ Defaults are listed in brackets after the description.
         systemd.  If this option is not specified, configure will
         use the /usr/lib/tmpfiles.d directory if the file
         /usr/lib/tmpfiles.d/systemd.conf exists.
+
+    --disable-year2038
+	Disable support for dates after January 2038.  By default,
+        configure will enable support for 64-bit time_t values if
+	supported by the operating system.
 
     --enable-zlib[=location]
         Enable the use of the zlib compress library when storing
@@ -346,6 +358,15 @@ Defaults are listed in brackets after the description.
         --with-aix-soname=svr4 option.
 
 ### Optional features:
+
+    --enable-adminconf=[DIR]
+        Search for configuration files in adminconfdir (PREFIX/etc
+        by default) in preference to configuration files in sysconfdir
+        (/etc by default).  This can be used on systems where
+        sysconfdir is located on a read-only filesystem.  When this
+        option is enabled, the visudo utility will store edited
+        sudoers files in adminconfdir if the original was located
+        in sysconfdir.
 
     --disable-root-mailer
         By default sudo will run the mailer as root when tattling
@@ -413,24 +434,30 @@ Defaults are listed in brackets after the description.
         This is also used to support the "log_subcmds" sudoers
         setting.  For example, this means that for a shell run
         through sudo, the individual commands run by the shell are
-        also subject to rules in the sudoers file.  See the
-        "Preventing Shell Escapes" section in the sudoers man page
-        for details.  If specified, PATH should be a fully qualified
-        path name, e.g.  /usr/local/libexec/sudo/sudo_intercept.so.
-        If PATH is "no", intercept support will not be compiled in.
-        The default is to compile intercept support if libtool
-        supports building shared objects on your system.
+        also subject to rules in the sudoers file.  See the "Preventing
+        Shell Escapes" section in the sudoers man page for details.
+        If specified, PATH should either be a fully-qualified path
+        name such as /usr/local/libexec/sudo/sudo_intercept.so, or,
+        for AIX and Solaris systems, it may optionally be set to a
+        32-bit shared library followed by a 64-bit shared library,
+        separated by a colon.  If PATH is "no", intercept support
+        will not be compiled in.  The default is to compile intercept
+        support if libtool supports building shared objects on your
+        system.
 
     --with-noexec[=PATH]
         Enable support for the "noexec" functionality which prevents
         a dynamically-linked program being run by sudo from executing
         another program (think shell escapes).  See the "Preventing
         Shell Escapes" section in the sudoers man page for details.
-        If specified, PATH should be a fully qualified path name,
-        e.g. /usr/local/libexec/sudo/sudo_noexec.so.  If PATH is
-        "no", noexec support will not be compiled in.  The default
-        is to compile noexec support if libtool supports building
-        shared objects on your system.
+        If specified, PATH should either be a fully-qualified path
+        name such as /usr/local/libexec/sudo/sudo_noexec.so, or,
+        for AIX and Solaris systems, it may optionally be set to a
+        32-bit shared library followed by a 64-bit shared library,
+        separated by a colon.  If PATH is "no", noexec support
+        will not be compiled in.  The default is to compile noexec
+        support if libtool supports building shared objects on your
+        system.
 
     --with-selinux
         Enable support for role based access control (RBAC) on systems
@@ -448,10 +475,6 @@ Defaults are listed in brackets after the description.
     --with-sssd-lib=PATH
         Specify the path to the SSSD shared library, which is loaded
         at run-time.
-
-    --enable-offensive-insults
-        Enable potentially offensive sudo insults from the classic
-        version of sudo.
 
     --enable-pvs-studio
         Generate a sample PVS-Studio.cfg file based on the compiler and
@@ -682,6 +705,11 @@ Defaults are listed in brackets after the description.
         enables extra checks to make sure the environment does not
         become corrupted.
 
+    --enable-postinstall=PATH
+        Enable the use of a postinstall script that is run after
+        the "install" target but before packages as built as part
+        of the "package" target.
+
     --enable-warnings
         Enable compiler warnings when building sudo with gcc or clang.
 
@@ -700,13 +728,21 @@ Defaults are listed in brackets after the description.
         By default, sudo requires the user to authenticate via a
         password or similar means.  This options causes sudo to
         **not** require authentication.  It is possible to turn
-        authentication back on in sudoers via the PASSWD attribute.  
+        authentication back on in sudoers via the PASSWD attribute.
         Sudoers option: !authenticate
 
     --disable-env-reset
         Disable environment resetting.  This sets the default value
-        of the "env_reset" Defaults option in sudoers to false.  
+        of the "env_reset" Defaults option in sudoers to false.
         Sudoers option: !env_reset
+
+    --disable-ignore-dot
+        By default, sudo will not search for a command in the current
+        working directory, even if "." or "" in present in the PATH
+        environment variable.  If this option is disabled, sudo
+        will check the current directory last if it appears anywhere
+        in PATH.  The PATH variable itself is not modified.
+        Sudoers option: ignore_dot
 
     --disable-path-info
         Normally, sudo will tell the user when a command could not be found
@@ -714,43 +750,43 @@ Defaults are listed in brackets after the description.
         be used to gather information on the location of executables that
         the normal user does not have access to.  The disadvantage is that
         if the executable is simply not in the user's path, sudo will tell
-        the user that they are not allowed to run it, which can be confusing.  
+        the user that they are not allowed to run it, which can be confusing.
         Sudoers option: path_info
 
     --disable-root-sudo
         Don't let root run sudo.  This can be used to prevent people from
         "chaining" sudo commands to get a root shell by doing something
-        like `sudo sudo /bin/sh`.  
+        like `sudo sudo /bin/sh`.
         Sudoers option: !root_sudo
 
     --disable-zlib
         Disable the use of the zlib compress library when storing
-        I/O log files.  
+        I/O log files.
         Sudoers option: !compress_io
 
     --enable-log-host
-        Log the hostname in the log file.  
+        Log the hostname in the log file.
         Sudoers option: log_host
 
     --enable-noargs-shell
         If sudo is invoked with no arguments it acts as if the "-s" flag had
         been given.  That is, it runs a shell as root (the shell is determined
         by the SHELL environment variable, falling back on the shell listed
-        in the invoking user's `/etc/passwd` entry).  
+        in the invoking user's `/etc/passwd` entry).
         Sudoers option: shell_noargs
 
     --enable-shell-sets-home
         If sudo is invoked with the "-s" flag the HOME environment variable
         will be set to the home directory of the target user (which is root
         unless the "-u" option is used).  This option effectively makes the
-        "-s" flag imply "-H".  
+        "-s" flag imply "-H".
         Sudoers option: set_home
 
     --enable-timestamp-type=TYPE
         Set the default time stamp record type.  The TYPE may be "global"
         (a single record per user), "ppid" (a single record for process
         with the same parent process), or "tty" (a separate record for
-        each login session).  The default is "tty".  
+        each login session).  The default is "tty".
         Sudoers option: timestamp_type
 
     --with-all-insults
@@ -768,32 +804,34 @@ Defaults are listed in brackets after the description.
 
     --with-badpass-message="MESSAGE"
         Message that is displayed if a user enters an incorrect password.
-        The default is "Sorry, try again." unless insults are turned on.  
+        The default is "Sorry, try again." unless insults are turned on.
         Sudoers option: badpass_message
 
     --with-badpri=PRIORITY
         Determines which syslog priority to log unauthenticated
         commands and errors.  The following priorities are supported:
-        alert, crit, debug, emerg, err, info, notice, and warning.  
+        alert, crit, debug, emerg, err, info, notice, and warning.
         Sudoers option: syslog_badpri
 
     --with-classic-insults
         Uses insults from sudo "classic."  If you just specify --with-insults
-        you will get the classic and CSOps insults.  This is on by default if
-        --with-insults is given.
+	you will get the classic and CSOps insults.  You must either specify
+	--with-insults or enable insults in the sudoers file for this to have
+	any effect.
 
     --with-csops-insults
         Insults the user with an extra set of insults (some quotes, some
-        original) from a sysadmin group at CU (CSOps).  You must specify
-        --with-insults as well for this to have any effect.  This is on by
-        default if --with-insults is given.
+	original) from a sysadmin group at CU (CSOps).  If you just specify
+	--with-insults you will get the classic and CSOps insults.  You
+	must either specify --with-insults or enable insults in the sudoers
+	file for this to have any effect.
 
     --with-editor=PATH
         Specify the default editor path for use by visudo.  This may be a
         single path name or a colon-separated list of editors.  In the latter
         case, visudo will choose the editor that matches the user's SUDO_EDITOR,
         VISUAL or EDITOR environment variable, or the first editor in the list
-        that exists.  The default is the path to vi on your system.  
+        that exists.  The default is the path to vi on your system.
         Sudoers option: editor
 
     --with-env-editor=no, --without-env-editor
@@ -804,31 +842,31 @@ Defaults are listed in brackets after the description.
         commands as root without logging.  Some sites may with to disable this
         and use a colon-separated list of "safe" editors with the --with-editor
         option.  visudo will then only use the SUDO_EDITOR, VISUAL, or EDITOR
-        variables if they match a value specified via --with-editor.  
+        variables if they match a value specified via --with-editor.
         Sudoers option: env_editor
 
     --with-exempt=GROUP
         Users in the specified group don't need to enter a password when
         running sudo.  This may be useful for sites that don't want their
         "core" sysadmins to have to enter a password but where Jr. sysadmins
-        need to.  You should probably use NOPASSWD in sudoers instead.  
+        need to.  You should probably use NOPASSWD in sudoers instead.
         Sudoers option: exempt_group
 
     --with-fqdn
-        Define this if you want to put fully qualified host names in the sudoers
+        Define this if you want to put fully-qualified host names in the sudoers
         file.  Ie: instead of myhost you would use myhost.mydomain.edu.  You may
         still use the short form if you wish (and even mix the two).  Beware
         that turning FQDN on requires sudo to make DNS lookups which may make
         sudo unusable if your DNS is totally hosed.  You must use the host's
         official name as DNS knows it.  That is, you may not use a host alias
         (CNAME entry) due to performance issues and the fact that there is no
-        way to get all aliases from DNS.  
+        way to get all aliases from DNS.
         Sudoers option: fqdn
 
     --with-goodpri=PRIORITY
         Determines which syslog priority to log successfully authenticated
         commands.  The following priorities are supported: alert, crit, debug,
-        emerg, err, info, notice, and warning.  
+        emerg, err, info, notice, and warning.
         Sudoers option: syslog_goodpri
 
     --with-python-insults
@@ -846,29 +884,30 @@ Defaults are listed in brackets after the description.
         You must either specify --with-insults or enable insults in the
         sudoers file for this to have any effect.
 
-    --with-ignore-dot
-        If set, sudo will ignore "." or "" (current dir) in $PATH.
-        The $PATH itself is not modified.  
-        Sudoers option: ignore_dot
-
     --with-insults
-        Define this if you want to be insulted for typing an incorrect password
-        just like the original sudo(8).  This is off by default.  
+        Define this if you want to be insulted by default for typing
+        an incorrect password just like the original sudo(8).
+        Insults may be optionally disabled in the sudoers file.
         Sudoers option: insults
+
+    --with-insults=no, --without-insults
+        By default, sudo will include support for insults that can be
+        enabled via the sudoers file.  However, if --with-insults=no is
+	used, no insults will be available, even if enabled in sudoers.
 
     --with-insults=disabled
         Include support for insults but disable them unless explicitly
-        enabled in sudoers.  
+        enabled in the sudoers file.  This is the default.
         Sudoers option: !insults
 
     --with-iologdir[=DIR]
         By default, sudo stores I/O log files in either /var/log/sudo-io,
         /var/adm/sudo-io, or /usr/log/sudo-io.  If this option is specified,
-        I/O logs will be stored in the indicated directory instead.  
+        I/O logs will be stored in the indicated directory instead.
         Sudoers option: iolog_dir
 
     --with-lecture=no, --without-lecture
-        Don't print the lecture the first time a user runs sudo.  
+        Don't print the lecture the first time a user runs sudo.
         Sudoers option: !lecture
 
     --with-logfac=FACILITY
@@ -877,83 +916,83 @@ Defaults are listed in brackets after the description.
         this for ancient syslogs but it will have no effect.  The
         following facilities are supported: authpriv (if your OS
         supports it), auth, daemon, user, local0, local1, local2,
-        local3, local4, local5, local6, and local7.  
+        local3, local4, local5, local6, and local7.
         Sudoers option: syslog
 
     --with-logging=TYPE
         How you want to do your logging.  You may choose "syslog",
         "file", or "both".  Setting this to "syslog" is nice because
         you can keep all of your sudo logs in one place (see the
-        example syslog.conf file).  The default is "syslog".  
+        example syslog.conf file).  The default is "syslog".
         Sudoers options: syslog and logfile
 
     --with-loglen=NUMBER
         Number of characters per line for the file log.  This is only used if
         you are to "file" or "both".  This value is used to decide when to wrap
         lines for nicer log files.  The default is 80.  Setting this to 0
-        will disable the wrapping.  
+        will disable the wrapping.
         Sudoers options: loglinelen
 
     --with-logpath=PATH
         Override the default location of the sudo log file and use
         "path" instead.  By default will use /var/log/sudo.log if
         there is a /var/log dir, falling back to /var/adm/sudo.log
-        or /usr/adm/sudo.log if not.  
+        or /usr/adm/sudo.log if not.
         Sudoers option: logfile
 
     --with-long-otp-prompt
         When validating with a One Time Password scheme (S/Key or
         OPIE), a two-line prompt is used to make it easier to cut
         and paste the challenge to a local window.  It's not as
-        pretty as the default but some people find it more convenient.  
+        pretty as the default but some people find it more convenient.
         Sudoers option: long_otp_prompt
 
     --with-mail-if-no-user=no, --without-mail-if-no-user
         Normally, sudo will mail to the "alertmail" user if the user invoking
-        sudo is not in the sudoers file.  This option disables that behavior.  
+        sudo is not in the sudoers file.  This option disables that behavior.
         Sudoers option: mail_no_user
 
     --with-mail-if-no-host
         Send mail to the "alermail" user if the user exists in the sudoers
-        file, but is not allowed to run commands on the current host.  
+        file, but is not allowed to run commands on the current host.
         Sudoers option: mail_no_host
 
     --with-mail-if-noperms
         Send mail to the "alermail" user if the user is allowed to use sudo but
-        the command they are trying is not listed in their sudoers file entry.  
+        the command they are trying is not listed in their sudoers file entry.
         Sudoers option: mail_no_perms
 
     --with-mailsubject="SUBJECT"
         Subject of the mail sent to the "mailto" user. The token "%h"
         will expand to the hostname of the machine.
-        The default value is "*** SECURITY information for %h ***".  
+        The default value is "*** SECURITY information for %h ***".
         Sudoers option: mailsub
 
     --with-mailto=USER|MAIL_ALIAS
         User (or mail alias) that mail from sudo is sent to.
-        This should go to a sysadmin at your site.  The default value is "root".  
+        This should go to a sysadmin at your site.  The default value is "root".
         Sudoers option: mailto
 
     --with-passprompt="PROMPT"
         Default prompt to use when asking for a password; can be overridden
         via the -p option and the SUDO_PROMPT environment variable. Supports
         the "%H", "%h", "%U", and "%u" escapes as documented in the sudo
-        manual page.  The default value is "Password:".  
+        manual page.  The default value is "Password:".
         Sudoers option: passprompt
 
     --with-password-timeout=NUMBER
         Number of minutes before the sudo password prompt times out.
-        The default is 5, set this to 0 for no password timeout.  
+        The default is 5, set this to 0 for no password timeout.
         Sudoers option: passwd_timeout
 
     --with-passwd-tries=NUMBER
         Number of tries a user gets to enter his/her password before sudo logs
-        the failure and exits.  The default is 3.  
+        the failure and exits.  The default is 3.
         Sudoers option: passwd_tries
 
     --with-runas-default=USER
         The default user to run commands as if the -u flag is not specified
-        on the command line.  This defaults to "root".  
+        on the command line.  This defaults to "root".
         Sudoers option: runas_default
 
     --with-secure-path[=PATH]
@@ -963,16 +1002,26 @@ Defaults are listed in brackets after the description.
         be separate from the "user path."  You will need to customize the
         path for your site.  This is not applied to users in the group
         specified by --with-exemptgroup.  If you do not specify a path,
-        "/bin:/usr/ucb:/usr/bin:/usr/sbin:/sbin:/usr/etc:/etc" is used.  
+        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        is used.
         Sudoers option: secure_path
 
+    --with-secure-path-value[=PATH]
+        Sets the value of "secure_path" that is substituted into
+        the default sudoers file.  A value of "no" will cause the
+        "secure_path" line in the default sudoers file to be commented
+        out.  This option is intended to be used by package maintainers
+        who wish to set "secure_path" to a system-specific value
+        in the default sudoers file.  It does not actually enable
+        "secure-path" in the sudoers plugin itself.
+
     --with-sendmail=PATH
-        Override configure's guess as to the location of sendmail.  
+        Override configure's guess as to the location of sendmail.
         Sudoers option: mailerpath
 
     --with-sendmail=no, --without-sendmail
         Do not use sendmail to mail messages to the "mailto" user.
-        Use only if you don't run sendmail or the equivalent.  
+        Use only if you don't run sendmail or the equivalent.
         Sudoers options: !mailerpath or !mailto
 
     --with-sudoers-mode=MODE
@@ -993,21 +1042,21 @@ Defaults are listed in brackets after the description.
 
     --with-timeout=NUMBER
         Number of minutes that can elapse before sudo will ask for a passwd
-        again.  The default is 5, set it to 0 to always prompt for a password.  
+        again.  The default is 5, set it to 0 to always prompt for a password.
         Sudoers option: timestamp_timeout
 
     --with-umask=MASK
-        Umask to use when running the root command.  The default is 0022.  
+        Umask to use when running the root command.  The default is 0022.
         Sudoers option: umask
 
     --with-umask=no, --without-umask
-        Preserves the umask of the user invoking sudo.  
+        Preserves the umask of the user invoking sudo.
         Sudoers option: !umask
 
     --with-umask-override
         Use the umask specified in sudoers even if it is less restrictive
         than the user's.  The default is to use the intersection of the
-        user's umask and the umask specified in sudoers.  
+        user's umask and the umask specified in sudoers.
         Sudoers option: umask_override
 
 ## OS dependent notes
@@ -1045,7 +1094,7 @@ You need to have a C compiler in order to build sudo.  Since Solaris
 does not come with one by default this means that you either need
 to either install the Solaris Studio compiler suite, available for
 free from www.oracle.com, or install the GNU C compiler (gcc) which
-is can be installed via the pkg utility on Solaris 11 and higher
+can be installed via the pkg utility on Solaris 11 and higher
 and is distributed on the Solaris Companion CD for older Solaris
 releases.  You can also download gcc packages from
 https://www.opencsw.org/packages/CSWgcc4core/.

@@ -1171,6 +1171,29 @@ uprv_tzname(int n)
         because the tzfile contents is underspecified.
         This isn't guaranteed to work because it may not be a symlink.
         */
+#if APPLE_ICU_CHANGES
+        // rdar://160502962
+        /*
+        The realpath() function is too slow on iOS
+        and we fall through to readlink() on macOS in any case,
+        so let's just go straight to readlink().
+        */
+        int32_t tzZoneInfoTailLen = uprv_strlen(TZZONEINFOTAIL);
+        const char *tzZoneInfoTailPtr = nullptr;
+        ssize_t size = readlink(TZDEFAULT, gTimeZoneBuffer, sizeof(gTimeZoneBuffer)-1);
+        if (size > 0) {
+            gTimeZoneBuffer[size] = 0;
+            tzZoneInfoTailPtr = uprv_strstr(gTimeZoneBuffer, TZZONEINFOTAIL);
+
+            if (tzZoneInfoTailPtr != nullptr) {
+                tzZoneInfoTailPtr += tzZoneInfoTailLen;
+                skipZoneIDPrefix(&tzZoneInfoTailPtr);
+                if (isValidOlsonID(tzZoneInfoTailPtr)) {
+                    return (gTimeZoneBufferPtr = tzZoneInfoTailPtr);
+                }
+            }
+        } else {
+#else
         char *ret = realpath(TZDEFAULT, gTimeZoneBuffer);
         if (ret != nullptr && uprv_strcmp(TZDEFAULT, gTimeZoneBuffer) != 0) {
             int32_t tzZoneInfoTailLen = uprv_strlen(TZZONEINFOTAIL);
@@ -1198,6 +1221,7 @@ uprv_tzname(int n)
                 }
             }
         } else {
+#endif // APPLE_ICU_CHANGES
 #if defined(SEARCH_TZFILE)
             DefaultTZInfo* tzInfo = (DefaultTZInfo*)uprv_malloc(sizeof(DefaultTZInfo));
             if (tzInfo != nullptr) {

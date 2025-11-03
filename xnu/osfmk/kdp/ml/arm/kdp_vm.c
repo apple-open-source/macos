@@ -63,6 +63,12 @@ kdp_vtophys(
 {
 	pmap_paddr_t    pa;
 
+#if HAS_MTE
+	/* Strip any non-valid VA bits */
+	if (pmap) {
+		va = pmap_strip_addr(pmap, va);
+	}
+#endif /* HAS_MTE */
 
 	/* Ensure that the provided va resides within the provided pmap range. */
 	if (!pmap || ((pmap != kernel_pmap) && ((va < pmap->min) || (va >= pmap->max)))) {

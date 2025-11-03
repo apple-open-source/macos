@@ -63,6 +63,7 @@
 #include <machine/cpu_capabilities.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <sys/wait.h>
 
 #include "arm_matrix.h"
 #include "exc_helpers.h"
@@ -132,7 +133,7 @@ test_matrix_not_started(const struct arm_matrix_operations *ops)
 
 
 T_DECL(sme_not_started,
-    "Test that SME instructions before smstart generate mach exceptions.", T_META_TAG_VM_NOT_ELIGIBLE)
+    "Test that SME instructions before smstart generate mach exceptions.")
 {
 #ifndef __arm64__
 	T_SKIP("Running on non-arm64 target, skipping...");
@@ -412,7 +413,7 @@ T_DECL(sme_context_switch,
     "Test that SME contexts are migrated during context switch and do not leak between process contexts.",
     T_META_BOOTARGS_SET("enable_skstb=1"),
     T_META_REQUIRES_SYSCTL_EQ("hw.optional.arm.FEAT_SME2", 1),
-    XNU_T_META_SOC_SPECIFIC, T_META_TAG_VM_NOT_ELIGIBLE)
+    XNU_T_META_SOC_SPECIFIC)
 {
 #ifndef __arm64__
 	T_SKIP("Running on non-arm64 target, skipping...");
@@ -593,4 +594,59 @@ T_DECL(sme_max_svl_b_sysctl,
 		T_EXPECT_EQ(max_svl_b, 0, "Maximum SVL_B is 0 when SME is unavailable");
 	}
 }
+
+static void
+dup_and_check_matrix_state(const struct arm_matrix_operations *ops)
+{
+	if (!ops->is_available()) {
+		T_SKIP("Running on non-%s target, skipping...", ops->name);
+	}
+
+	size_t size = ops->data_size();
+	uint8_t *d_in = ops->alloc_data();
+	uint8_t *d_out = ops->alloc_data();
+	arc4random_buf(d_in, size);
+
+	ops->start();
+	ops->load_data(d_in);
+
+	pid_t pid = fork();
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(pid, "fork()");
+	if (pid == 0) {
+		ops->store_data(d_out);
+		ops->stop();
+
+		int cmp = memcmp(d_in, d_out, size);
+		free(d_out);
+		free(d_in);
+		exit(cmp);
+	}
+
+	ops->stop();
+	free(d_out);
+	free(d_in);
+
+	siginfo_t info;
+	int err = waitid(P_PID, (id_t)pid, &info, WEXITED);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(err, "waitid()");
+	T_QUIET; T_ASSERT_EQ(info.si_signo, SIGCHLD, "child exited");
+	T_QUIET; T_ASSERT_EQ(info.si_code, CLD_EXITED, "child exited");
+	int cmp = info.si_status;
+
+	T_EXPECT_EQ(cmp, 0, "%s state correctly duplicated during fork()", ops->name);
+}
+
+
+T_DECL(sme_thread_dup,
+    "Test duplicating SME thread saved-state",
+    T_META_REQUIRES_SYSCTL_EQ("hw.optional.arm.FEAT_SME2", 1),
+    XNU_T_META_SOC_SPECIFIC)
+{
+	/*
+	 * libsystem has streaming-incompatible atfork handlers, so for this
+	 * test we can only set SVCR.ZA.
+	 */
+	dup_and_check_matrix_state(&sme_za_operations);
+}
+
 #endif /* __arm64__ */

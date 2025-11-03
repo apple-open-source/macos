@@ -186,7 +186,11 @@ struct task_security_config {
 		struct {
 			uint8_t hardened_heap: 1,
 			    tpro :1,
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+			    sec :1,
+#else /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 			reserved: 1,
+#endif
 			platform_restrictions_version :3;
 			uint8_t hardened_process_version;
 		};
@@ -268,9 +272,6 @@ struct task {
 	int16_t                 max_priority;           /* maximum priority for threads */
 
 	integer_t               importance;             /* priority offset (BSD 'nice' value) */
-
-#define task_is_immovable(task) \
-	!!(task_get_control_port_options(task) & TASK_CONTROL_PORT_IMMOVABLE_MASK)
 
 	/* Statistics */
 	uint64_t                total_runnable_time;
@@ -1019,6 +1020,12 @@ extern boolean_t task_is_a_corpse(
 extern boolean_t task_is_ipc_active(
 	task_t task);
 
+extern bool
+task_is_immovable_no_assert(task_t task);
+
+extern bool task_is_immovable(
+	task_t task);
+
 extern void task_set_corpse(
 	task_t task);
 
@@ -1029,9 +1036,6 @@ extern void     task_set_exc_guard_default(
 	boolean_t is_simulated,
 	uint32_t platform,
 	uint32_t sdk);
-
-extern void task_copyout_control_port(
-	task_t task);
 
 extern bool     task_set_ca_client_wi(
 	task_t task,
@@ -1282,6 +1286,26 @@ void    task_set_platform_restrictions_version(task_t task, uint64_t version);
 uint8_t task_get_hardened_process_version(task_t task);
 void    task_set_hardened_process_version(task_t task, uint64_t version);
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+TASK_SECURITY_CONFIG_HELPER_DECLARE(sec);
+/*
+ * Definitions need to be visible on bsd/
+ */
+
+#define TASK_MTE_POLICY_HELPER_DECLARE(suffix)  \
+    extern bool task_has_sec_##suffix(task_t); \
+	extern void task_set_sec_##suffix(task_t)
+
+TASK_MTE_POLICY_HELPER_DECLARE(soft_mode);
+TASK_MTE_POLICY_HELPER_DECLARE(user_data);
+TASK_MTE_POLICY_HELPER_DECLARE(inherit);
+TASK_MTE_POLICY_HELPER_DECLARE(never_check);
+TASK_MTE_POLICY_HELPER_DECLARE(restrict_receiving_aliases_to_tagged_memory);
+
+extern bool current_task_has_sec_enabled(void);
+extern void task_clear_sec_policy(task_t);
+extern uint32_t task_get_sec_policy(task_t);
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 /*
  * Many of the task ledger entries use a reduced feature set
@@ -1321,6 +1345,7 @@ extern boolean_t task_did_exec(task_t task);
 extern boolean_t task_is_active(task_t task);
 extern boolean_t task_is_halting(task_t task);
 extern void task_clear_return_wait(task_t task, uint32_t flags);
+extern void task_set_ctrl_port_default(task_t task, thread_t thread);
 extern void task_wait_to_return(void) __attribute__((noreturn));
 extern void task_post_signature_processing_hook(task_t task);
 extern event_t task_get_return_wait_event(task_t task);
@@ -1607,6 +1632,12 @@ const char *task_best_name(task_t task);
 
 #endif /* MACH_KERNEL_PRIVATE */
 
+#if HAS_MTE
+/* Must be callable from IOKit as it sometimes has need to asynchronously
+ * terminate tasks. Takes the task lock.
+ */
+void task_set_ast_mte_synthesize_mach_exception(task_t task);
+#endif /* HAS_MTE */
 
 
 #ifdef KERNEL_PRIVATE

@@ -75,8 +75,9 @@ interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -framework IOKit -framework IO80211 -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) $(PF_INC) -g -o $@ $^
 	codesign -s - $@
 
-interface_changes: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
+interface-changes: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACE_CHANGES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+	codesign -s - $@
 
 interfaces-no-sc: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -DNO_SYSTEMCONFIGURATION=1 -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
@@ -118,6 +119,10 @@ test-dnsdnrinstance: DNSEncryptedServers.c DNSNameList.c IPv4ClasslessRoute.c IP
 
 dhcp-hostname: cfutil.c
 	$(CC) -DTEST_DHCP_HOSTNAME -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(PF_INC) -Wall -g -o $@ $^ -framework SystemConfiguration -framework CoreFoundation
+	codesign -s - $@
+
+test-write-file: cfutil.c
+	$(CC) -DTEST_WRITE_FILE -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(PF_INC) -Wall -g -o $@ $^ -framework SystemConfiguration -framework CoreFoundation
 	codesign -s - $@
 
 clean:

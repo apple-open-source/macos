@@ -38,6 +38,7 @@ T_DECL(test_platform_restrictions_entitlements,
 	count = TASK_SECURITY_CONFIG_INFO_COUNT;
 	kr = task_info(mach_task_self(), TASK_SECURITY_CONFIG_INFO, (task_info_t)&config, &count);
 	T_ASSERT_MACH_SUCCESS(kr, "task_info(TASK_SECURITY_CONFIG_INFO)");
+	T_ASSERT_EQ(count, TASK_SECURITY_CONFIG_INFO_COUNT, "tsi should return correct count");
 
 	struct task_security_config *conf = (struct task_security_config*)&config;
 	uint8_t vers = conf->platform_restrictions_version;
@@ -50,7 +51,7 @@ T_DECL(test_platform_restrictions_entitlements,
 	count = TASK_IPC_SPACE_POLICY_INFO_COUNT;
 	kr = task_info(mach_task_self(), TASK_IPC_SPACE_POLICY_INFO, (task_info_t)&space_info, &count);
 	T_ASSERT_MACH_SUCCESS(kr, "task_info(TASK_SECURITY_CONFIG_INFO)");
-	T_ASSERT_EQ_UINT(count, 1, "ipc space should return 1 value");
+	T_ASSERT_EQ_UINT(count, TASK_IPC_SPACE_POLICY_INFO_COUNT, "is should return correct count");
 
 	T_EXPECT_TRUE(space_info.space_policy & 0x400, "enhanced V2 bit should be set");
 

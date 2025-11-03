@@ -1703,8 +1703,8 @@ void RenderLayer::updateTransformFromStyle(TransformationMatrix& transform, cons
     // > After layout has been performed for abspos, it is additionally shifted by
     // > the default scroll shift, as if affected by a transform
     // > ** (before any other transforms). **
-    if (m_snapshottedScrollOffsetForAnchorPositioning)
-        transform.translate(m_snapshottedScrollOffsetForAnchorPositioning->width(), m_snapshottedScrollOffsetForAnchorPositioning->height());
+    if (m_anchorScrollAdjustment)
+        transform.translate(m_anchorScrollAdjustment->width(), m_anchorScrollAdjustment->height());
 
     auto referenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().transformReferenceBoxRect(style), renderer());
     renderer().applyTransform(transform, style, referenceBoxRect, options);
@@ -2928,10 +2928,15 @@ LayoutSize RenderLayer::offsetFromAncestor(const RenderLayer* ancestorLayer, Col
     return toLayoutSize(convertToLayerCoords(ancestorLayer, LayoutPoint(), adjustForColumns));
 }
 
-bool RenderLayer::shouldTryToScrollForScrollIntoView() const
+bool RenderLayer::shouldTryToScrollForScrollIntoView(const ScrollRectToVisibleOptions& options) const
 {
     if (!renderer().isRenderBox() || !renderer().hasNonVisibleOverflow())
         return false;
+
+    if (options.allowScrollingOverflowHidden == AllowScrollingOverflowHidden::No) {
+        if (renderer().style().overflowX() == Overflow::Hidden && renderer().style().overflowY() == Overflow::Hidden)
+            return false;
+    }
 
     // Don't scroll to reveal an overflow layer that is restricted by the -webkit-line-clamp property.
     // FIXME: Is this still needed? It used to be relevant for Safari RSS.
@@ -4669,25 +4674,33 @@ bool RenderLayer::participatesInPreserve3D() const
     return ancestorLayerIsDOMParent(parent()) && parent()->preserves3D() && (transform() || renderer().style().backfaceVisibility() == BackfaceVisibility::Hidden || preserves3D());
 }
 
-void RenderLayer::setSnapshottedScrollOffsetForAnchorPositioning(LayoutSize offset)
+bool RenderLayer::setAnchorScrollAdjustment(LayoutSize offset)
 {
-    if (m_snapshottedScrollOffsetForAnchorPositioning == offset)
-        return;
+    if (m_anchorScrollAdjustment == offset)
+        return false;
+
+    if (renderer().renderTreeBeingDestroyed())
+        return false;
 
     // FIXME: Scroll offset should be adjusted in the scrolling tree so layers stay exactly in sync.
-    m_snapshottedScrollOffsetForAnchorPositioning = offset;
+    m_anchorScrollAdjustment = offset;
     updateTransform();
 
     if (isComposited())
         setNeedsCompositingGeometryUpdate();
+
+    return true;
 }
 
-void RenderLayer::clearSnapshottedScrollOffsetForAnchorPositioning()
+void RenderLayer::clearAnchorScrollAdjustment()
 {
-    if (!m_snapshottedScrollOffsetForAnchorPositioning)
+    if (!m_anchorScrollAdjustment)
         return;
 
-    m_snapshottedScrollOffsetForAnchorPositioning = { };
+    if (renderer().renderTreeBeingDestroyed())
+        return;
+
+    m_anchorScrollAdjustment = { };
     updateTransform();
 
     if (isComposited())

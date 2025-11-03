@@ -4,7 +4,7 @@
 #include <malloc/malloc.h>
 #include <../src/internal.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED);
 
 #define NUM_EXECUTIONS 64
 #define BUFFER_SIZE 256

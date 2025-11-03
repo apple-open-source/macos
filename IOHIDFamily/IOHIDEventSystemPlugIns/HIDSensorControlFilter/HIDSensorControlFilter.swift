@@ -38,6 +38,15 @@ extension HIDConnection {
     private var serviceID: UInt64 = 0;
     private let serviceIDStr: String
     
+    /// Default match score for this filter.
+    /// A score of 0 indicates this filter has neutral priority and will be considered
+    /// alongside other filters with the same score.
+    private static let defaultMatchScore = 0
+    
+    /// Default sensor control options.
+    /// A value of 0 indicates this filter is taking over sensor control functionality
+    private static let defaultSensorControlOptions = 0
+    
     typealias ControlHandler = (UInt32, UInt32, String) -> Void
     class ControlState {
         let controlKey:String
@@ -82,21 +91,42 @@ extension HIDConnection {
             updateControlValue()
         }
         
+        /// Updates the effective control value by aggregating all active client values.
+        ///
+        /// **Control Value Aggregation Strategy:**
+        /// - Only considers active clients (ignores inactive/unresponsive clients)
+        /// - Finds the minimum non-zero value among all active clients
+        /// - If no clients have non-zero values, the control value becomes 0
+        ///
+        /// **Rationale for Minimum Value Selection:**
+        /// For sensor properties like report intervals and batch intervals, the minimum
+        /// value represents the most restrictive (highest frequency) requirement among
+        /// all clients. This ensures that the sensor operates at a rate that satisfies
+        /// the most demanding client while being efficient for all others.
+        ///
+        /// **Example:**
+        /// - Client A requests 100ms interval
+        /// - Client B requests 50ms interval
+        /// - Client C requests 200ms interval
+        /// - Result: 50ms interval (satisfies all clients, most efficient)
         func updateControlValue() {
             var newControlValue:UInt32 = 0
-            for client in values.keys {
+            
+            // Iterate through all client values
+            for (client, value) in values {
+                // Skip inactive/unresponsive clients
                 if states[client] != nil && states[client] == true  {
                     continue
                 }
                 
-                let clientValue = values[client]!
-                
-                if clientValue != 0 && (newControlValue == 0 || clientValue < newControlValue) {
-                    newControlValue = clientValue
+                // Find minimum non-zero value (most restrictive requirement)
+                if value != 0 && (newControlValue == 0 || value < newControlValue) {
+                    newControlValue = value
                 }
             }
+            
+            // Only update if the aggregated value has changed
             if newControlValue != controlValue {
-                
                 self.controlHandler(controlValue, newControlValue, controlKey)
                 controlValue = newControlValue
             }
@@ -151,7 +181,7 @@ extension HIDConnection {
         options: [AnyHashable : Any]? = nil,
         score: UnsafeMutablePointer<Int>
     ) -> Bool {
-        score.pointee = 0
+        score.pointee = HIDSensorControlFilter.defaultMatchScore
         return true;
     }
     
@@ -169,7 +199,7 @@ extension HIDConnection {
             ]
             return debugDict
         } else if key == kIOHIDEventServiceSensorControlOptionsKey {
-            return 0 as NSNumber
+            return HIDSensorControlFilter.defaultSensorControlOptions as NSNumber
         }
         return nil;
     }
@@ -214,34 +244,66 @@ extension HIDConnection {
         return event;
     }
     
+    /// Filters events for specific clients based on their type and control state.
+    ///
+    /// **Client Type Filtering:**
+    /// Only processes events for rate-controlled clients. Other client types
+    /// (e.g., standard clients) pass through without filtering because they
+    /// don't participate in the sensor control mechanism.
+    ///
+    /// **Rate Control Validation:**
+    /// For rate-controlled clients, ensures they have a valid report interval
+    /// control value set. Events are dropped if no valid control is established.
     public func filterEvent(_ event: HIDEvent, forClient client: HIDConnection?) -> HIDEvent? {
+        // Only process rate-controlled clients; others pass through unchanged
         guard let client = client, client.type == .rateControlled else {
             return event
         }
         
-        guard let controlValue = controls[kIOHIDServiceReportIntervalKey]!.values[client], controlValue != 0 else {
+        // Ensure the client has established rate control
+        guard let controlState = controls[kIOHIDServiceReportIntervalKey] else {
+            return nil
+        }
+        guard let controlValue = controlState.values[client], controlValue != 0 else {
             return nil
         }
         return event;
     }
     
+    /// Filters property set operations from clients, managing sensor control values.
+    ///
+    /// **Property Filtering Strategy:**
+    /// - Only processes properties from rate-controlled clients
+    /// - Validates property values are UInt32 type
+    /// - Updates the control state for managed properties
+    /// - Sets value to nil to prevent further propagation
+    ///
+    /// **Managed Properties:**
+    /// - kIOHIDSensorPropertyMaxFIFOEventsKey: Maximum FIFO events
+    /// - kIOHIDServiceReportIntervalKey: Report interval in microseconds
+    /// - kIOHIDServiceBatchIntervalKey: Batch interval in microseconds
     public func filterSetProperty(_ value: AutoreleasingUnsafeMutablePointer<AnyObject?>, forKey key: String, forClient client:HIDConnection?) {
         
+        // Only process rate-controlled clients
         guard let client = client, client.type == .rateControlled else {
             return
         }
         
-        guard var controlState = controls[key] else {
+        // Only handle properties we manage
+        guard let controlState = controls[key] else {
             return
         }
                 
+        // Validate property value type
         guard let propertyValue = value.pointee as? UInt32 else {
             self.logger.error("\(self.serviceIDStr): client:\(client.uuid) property:\(key) unexpected value:\(value.pointee?.description ?? "nil")")
             return
         }
   
+        // Update control state and aggregate values
         controlState.setControl(client: client, value: propertyValue)
         
+        // Prevent further propagation by setting to nil
         value.pointee = nil
     }
     

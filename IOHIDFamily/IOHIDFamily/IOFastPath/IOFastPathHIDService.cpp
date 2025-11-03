@@ -336,10 +336,11 @@ OSDefineMetaClassAndStructors(IOFastPathHIDAccelService, IOFastPathHIDService);
 bool
 IOFastPathHIDAccelService::start(IOService * provider)
 {
+    setName("accel");
+
     bool ok = super::start(provider);
     require(ok, exit);
 
-    setName("accel");
     registerService();
 
 exit:
@@ -430,10 +431,11 @@ OSDefineMetaClassAndStructors(IOFastPathHIDGyroService, IOFastPathHIDService);
 bool
 IOFastPathHIDGyroService::start(IOService * provider)
 {
+    setName("gyro");
+
     bool ok = super::start(provider);
     require(ok, exit);
 
-    setName("gyro");
     registerService();
 
 exit:
@@ -515,6 +517,84 @@ IOFastPathHIDGyroService::parseSampleFromHIDEvent(IOHIDEvent * event, QueueEntry
 exit:
     return;
 }
+
+#if APPLE_FEATURE_P192
+
+#pragma mark - IOFastPathHIDButtonService
+
+OSDefineMetaClassAndStructors(IOFastPathHIDButtonService, IOFastPathHIDService);
+
+bool
+IOFastPathHIDButtonService::start(IOService * provider)
+{
+    setName("buttons");
+
+    bool ok = super::start(provider);
+    require_quiet(ok, exit);
+
+    registerService();
+
+exit:
+    return ok;
+}
+
+OSSharedPtr<IOFastPathDescriptor>
+IOFastPathHIDButtonService::createDescriptor()
+{
+    OSSharedPtr<OSArray> fields = OSArray::withCapacity(4);
+
+    fields->setObject(IOFastPathField::create(kIOFastPathFieldKeyTimestamp, kIOFastPathFieldTypeInteger, offsetof(QueueEntry, timestamp), sizeof(QueueEntry::timestamp)));
+    fields->setObject(IOFastPathField::create(kIOHIDEventFieldButtonNumber, kIOFastPathFieldTypeInteger, offsetof(QueueEntry, number), sizeof(QueueEntry::number)));
+    fields->setObject(IOFastPathField::create(kIOHIDEventFieldButtonState, kIOFastPathFieldTypeInteger, offsetof(QueueEntry, state), sizeof(QueueEntry::state)));
+    fields->setObject(IOFastPathField::create(kIOHIDEventFieldButtonPressure, kIOFastPathFieldTypeDouble, offsetof(QueueEntry, pressure), sizeof(QueueEntry::pressure)));
+
+    return IOFastPathDescriptor::create(fields.get());
+}
+
+void
+IOFastPathHIDButtonService::handleEvent(IOHIDEventService * sender, void * context, IOHIDEvent * event, IOOptionBits options)
+{
+    switch (event->getType()) {
+        case kIOHIDEventTypeButton:
+            // base case: handle a button event
+            handleButtonEvent(event);
+            break;
+        case kIOHIDEventTypeCollection:
+            // recursively handle all children
+            for (unsigned int i = 0; event->getChildren() && i < event->getChildren()->getCount(); ++i) {
+                IOHIDEvent * subevent = OSRequiredCast(IOHIDEvent, event->getChildren()->getObject(i));
+                handleEvent(sender, context, subevent, options);
+            }
+            break;
+        default:
+            // do nothing
+            break;
+    }
+
+    return;
+}
+
+void
+IOFastPathHIDButtonService::handleButtonEvent(IOHIDEvent *event)
+{
+    QueueEntry * entry = (QueueEntry *)copySample()->getBytesNoCopy();
+
+    *entry = (QueueEntry) {
+        .timestamp = event->getTimeStamp(),
+        .number = (UInt64)event->getIntegerValue(kIOHIDEventFieldButtonNumber),
+        .state = (UInt64)event->getIntegerValue(kIOHIDEventFieldButtonState),
+        .pressure = event->getDoubleValue(kIOHIDEventFieldButtonPressure, 0),
+    };
+
+    IOHID_DEBUG(kIOHIDDebugCode_IOFastPath_EnqueueSample, event->getTimeStamp(), 0, 0, kIOHIDEventTypeButton);
+
+    IOReturn ret = IOCircularDataQueueEnqueue(getQueue(), entry, copySample()->getLength());
+    if (ret != kIOReturnSuccess) {
+        HIDServiceLogError("IOCircularDataQueueEnqueue:0x%x", ret);
+    }
+}
+
+#endif
 
 
 #pragma mark - IOFastPathLEDHIDService

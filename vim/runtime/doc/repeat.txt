@@ -1,4 +1,4 @@
-*repeat.txt*    For Vim version 9.1.  Last change: 2024 Aug 12
+*repeat.txt*    For Vim version 9.1.  Last change: 2025 Jul 15
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -105,9 +105,9 @@ where the cursor was before the global command).
 
 The global command sets both the last used search pattern and the last used
 substitute pattern (this is vi compatible).  This makes it easy to globally
-replace a string:
+replace a string: >
 	:g/pat/s//PAT/g
-This replaces all occurrences of "pat" with "PAT".  The same can be done with:
+This replaces all occurrences of "pat" with "PAT".  The same can be done with: >
 	:%s/pat/PAT/g
 Which is two characters shorter!
 
@@ -233,7 +233,12 @@ For writing a Vim script, see chapter 41 of the user manual |usr_41.txt|.
 			Examples: >
 				:4,5source
 				:10,18source ++clear
-<
+
+<			Implementation detail: When sourcing a [range] of
+			lines that falls inside a folded region, the range
+			will be adjusted to the start and end of the fold,
+			but only if a two line specifiers range was used.
+
 							*:source!*
 :so[urce]! {file}	Read Vim commands from {file}.  These are commands
 			that are executed from Normal mode, like you type
@@ -526,7 +531,7 @@ Example: the lines >
 		     \:%,
 		     \n:>,
 		     \fb:-
-are interpreted as if they were given in one line:
+are interpreted as if they were given in one line: >
 	:set comments=sr:/*,mb:*,el:*/,://,b:#,:%,n:>,fb:-
 
 All leading whitespace characters in the line before a backslash are ignored.
@@ -611,7 +616,7 @@ advantages over normal plugins:
 Using a package and loading automatically ~
 
 Let's assume your Vim files are in the "~/.vim" directory and you want to add a
-package from a zip archive "/tmp/foopack.zip":
+package from a zip archive "/tmp/foopack.zip": >
 	% mkdir -p ~/.vim/pack/foo
 	% cd ~/.vim/pack/foo
 	% unzip /tmp/foopack.zip
@@ -661,7 +666,7 @@ If the package has an "after" directory, that directory is added to the end of
 Using a single plugin and loading it automatically ~
 
 If you don't have a package but a single plugin, you need to create the extra
-directory level:
+directory level: >
 	% mkdir -p ~/.vim/pack/foo/start/foobar
 	% cd ~/.vim/pack/foo/start/foobar
 	% unzip /tmp/someplugin.zip
@@ -978,13 +983,13 @@ will put the MO files in the "lang/" directory of the Vim editor.
 Type the following commands:
 >
 	cd /d f:\forkvim\src\po
- (the following command must be entered in one line, here it is separated for example)
- For Russian:
+< (the following command must be entered in one line, here it is separated for example)
+ For Russian: >
 	nmake.exe -f Make_mvc.mak "PLUGPACKAGE=aap"
 	"PO_PLUGPACKAGE=e:\project\translate\plugins\ru.po"
 	"MO_PLUGPACKAGE_PATH=d:\Programs\vim\vim91\lang\ru\LC_MESSAGES"
 	aap.mo
- For German:
+< For German: >
 	nmake.exe -f Make_mvc.mak "PLUGPACKAGE=aap"
 	"PO_PLUGPACKAGE=e:\project\translate\plugins\de.po"
 	"MO_PLUGPACKAGE_PATH=d:\Programs\vim\vim91\lang\de\LC_MESSAGES"
@@ -1398,9 +1403,9 @@ For example, to profile the one_script.vim script file: >
 		clear the profiling statistics and start profiling again.
 
 :prof[ile] pause
-		Don't profile until the following `:profile continue`.  Can be
-		used when doing something that should not be counted (e.g., an
-		external command).  Does not nest.
+		Stop profiling until the next `:profile continue` command.
+		Can be used when doing something that should not be counted
+		(e.g., an external command).  Does not nest.
 
 :prof[ile] continue
 		Continue profiling after `:profile pause`.

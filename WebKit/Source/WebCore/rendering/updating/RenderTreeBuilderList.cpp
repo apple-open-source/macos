@@ -83,8 +83,13 @@ static std::pair<RenderBlock*, RenderBlock*> findParentOfEmptyOrFirstLineBox(Ren
 static RenderBlock* parentCandidateForMarker(RenderListItem& listItemRenderer, const RenderListMarker& marker)
 {
     if (marker.isInside()) {
-        if (auto* firstChild = dynamicDowncast<RenderBlock>(listItemRenderer.firstChild()); firstChild && !firstChild->isAnonymous())
-            return &listItemRenderer;
+        if (auto* firstChild = dynamicDowncast<RenderBlock>(listItemRenderer.firstChild())) {
+            if (!firstChild->isAnonymous())
+                return &listItemRenderer;
+            // We may have created this anonymous block for the marker itself. Let's keep it in there.
+            if (firstChild->firstChild() == &marker && !marker.nextSibling())
+                return firstChild;
+        }
         return findParentOfEmptyOrFirstLineBox(listItemRenderer, marker).first;
     }
     auto [parentCandidate, fallbackParent] = findParentOfEmptyOrFirstLineBox(listItemRenderer, marker);

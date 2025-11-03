@@ -118,7 +118,7 @@ tcp_syncookie_ack(struct tcp_inp *tpi, struct socket **so2, int* dropsocket)
 
 	if (ret == false) {
 		TCP_LOG(*tpi->tp, "Segment failed SYNCOOKIE authentication, "
-		    "segment rejected (probably spoofed)");
+		    "segment was rejected (either ACK was sent to listener after connection was closed OR spoofed)");
 		goto failed;
 	}
 

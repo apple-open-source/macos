@@ -250,9 +250,29 @@ const vm_object_t                       compressor_object = &compressor_object_s
 static struct vm_object                 retired_pages_object_store VM_PAGE_PACKED_ALIGNED;
 const vm_object_t                       retired_pages_object = &retired_pages_object_store;
 
+#if HAS_MTE
+/*
+ * This object holds all pages that are currently being used to hold MTE tags.
+ * The pages are wired and may have no pmap mappings of any kind.
+ * The object offset will be the same as physical address.
+ */
+static struct vm_object                 mte_tags_object_store VM_PAGE_PACKED_ALIGNED;
+const vm_object_t                       mte_tags_object = &mte_tags_object_store;
+
+/*
+ * This object is for pages that would have been on kernel_object_default, except
+ * that they are using MTE tags.
+ */
+static struct vm_object                 kernel_object_tagged_store VM_PAGE_PACKED_ALIGNED;
+const vm_object_t                       kernel_object_tagged = &kernel_object_tagged_store;
+#endif /* HAS_MTE */
 
 static struct vm_object                 exclaves_object_store VM_PAGE_PACKED_ALIGNED;
 const vm_object_t                       exclaves_object = &exclaves_object_store;
+#if HAS_MTE
+static struct vm_object                 exclaves_object_tagged_store VM_PAGE_PACKED_ALIGNED;
+const vm_object_t                       exclaves_object_tagged = &exclaves_object_tagged_store;
+#endif /* HAS_MTE */
 
 
 /*
@@ -393,6 +413,7 @@ static const struct vm_object vm_object_template = {
 	.purgeable_volatilizer_bt = {0},
 #endif /* DEBUG */
 	.vmo_provenance = VM_MAP_SERIAL_NONE,
+	.vmo_pl_req_in_progress = 0,
 };
 
 LCK_GRP_DECLARE(vm_object_lck_grp, "vm_object");
@@ -439,6 +460,10 @@ static queue_head_t vm_object_reaper_queue; /* protected by vm_object_reaper_loc
 unsigned int vm_object_reap_count = 0;
 unsigned int vm_object_reap_count_async = 0;
 
+#if HAS_MTE
+unsigned int vm_object_no_compressor_pager_for_mte_count = 0;
+TUNABLE(bool, vm_object_allow_compressor_pager_for_mte, "compress_mte", true);
+#endif
 
 #define vm_object_reaper_lock()         \
 	        lck_mtx_lock(&vm_object_reaper_lock_data)
@@ -568,12 +593,33 @@ vm_object_bootstrap(void)
 	_vm_object_allocate(VM_MAX_KERNEL_ADDRESS + 1, retired_pages_object, VM_MAP_SERIAL_SPECIAL);
 	retired_pages_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
 
+#if HAS_MTE
+	/*
+	 * The object to hold MTE tag pages.
+	 */
+	_vm_object_allocate(VM_MAX_KERNEL_ADDRESS + 1, mte_tags_object, VM_MAP_SERIAL_SPECIAL);
+	mte_tags_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
+
+	_vm_object_allocate(VM_MAX_KERNEL_ADDRESS + 1, kernel_object_tagged, VM_MAP_SERIAL_SPECIAL);
+	kernel_object_tagged->copy_strategy = MEMORY_OBJECT_COPY_NONE;
+	kernel_object_tagged->no_tag_update = TRUE;
+	kernel_object_tagged->wimg_bits = VM_WIMG_MTE;
+#endif /* HAS_MTE */
 
 	/**
 	 * The object to hold pages owned by exclaves.
 	 */
 	_vm_object_allocate(VM_MAX_KERNEL_ADDRESS + 1, exclaves_object, VM_MAP_SERIAL_SPECIAL);
 	exclaves_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
+#if HAS_MTE
+	/**
+	 * The object to hold MTE tag pages owned by exclaves.
+	 */
+	_vm_object_allocate(VM_MAX_KERNEL_ADDRESS + 1, exclaves_object_tagged, VM_MAP_SERIAL_SPECIAL);
+	exclaves_object_tagged->copy_strategy = MEMORY_OBJECT_COPY_NONE;
+	exclaves_object_tagged->no_tag_update = TRUE;
+	exclaves_object_tagged->wimg_bits = VM_WIMG_MTE;
+#endif /* HAS_MTE */
 }
 
 #if CONFIG_IOSCHED
@@ -759,12 +805,33 @@ vm_object_deallocate(
 				    object->named &&
 				    pager != MEMORY_OBJECT_NULL) {
 					vm_object_mapping_begin(object);
+					assert(pager->mo_last_unmap_ctid == 0);
+					/*
+					 * Signal that we're the thread that triggered
+					 * the memory_object_last_unmap(), so that we
+					 * don't deadlock in vm_object_destroy() if this
+					 * was the last reference and we're releasing
+					 * the pager there.
+					 */
+					pager->mo_last_unmap_ctid = thread_get_ctid(current_thread());
 					vm_object_unlock(object);
 
 					memory_object_last_unmap(pager);
+					/* pager might no longer be valid now */
+					pager = MEMORY_OBJECT_NULL;
 
 					vm_object_lock(object);
+
 					vm_object_mapping_end(object);
+					pager = object->pager;
+					if (pager != MEMORY_OBJECT_NULL) {
+						/*
+						 * The pager is still there, so reset its
+						 * "mo_last_unmap_ctid" now that we're done.
+						 */
+						assert3u(pager->mo_last_unmap_ctid, ==, thread_get_ctid(current_thread()));
+						pager->mo_last_unmap_ctid = 0;
+					}
 				}
 			}
 			assert(os_ref_get_count_raw(&object->ref_count) > 0);
@@ -817,10 +884,10 @@ vm_object_deallocate(
 		 *	before destroying or caching the object.
 		 */
 
-		if (object->pager_created && !object->pager_initialized) {
+		if (object->pager_created && !object->pager_ready) {
 			assert(!object->can_persist);
 			vm_object_sleep(object,
-			    VM_OBJECT_EVENT_PAGER_INIT,
+			    VM_OBJECT_EVENT_PAGER_READY,
 			    THREAD_UNINT,
 			    LCK_SLEEP_UNLOCK);
 			continue;
@@ -1686,6 +1753,9 @@ vm_object_reap_freelist(vm_page_t local_free_q, bool do_disconnect, bool set_cac
 		}
 
 		if (set_cache_attr) {
+#if HAS_MTE
+			assert(!local_free_q->vmp_using_mte);
+#endif /* HAS_MTE */
 			const unified_page_list_t pmap_batch_list = {
 				.page_slist = local_free_q,
 				.type = UNIFIED_PAGE_LIST_TYPE_VM_PAGE_LIST,
@@ -2134,8 +2204,27 @@ vm_object_destroy(
 	 * Wait for the existing paging activity (that got
 	 * through before we nulled out the pager) to subside.
 	 */
-
 	vm_object_paging_wait(object, THREAD_UNINT);
+	vm_object_pl_req_wait(object, THREAD_UNINT);
+
+	/*
+	 * Memory objects usually stay alive while their
+	 * VM object is still mapped but vnodes can get
+	 * reclaimed by forced unmounts while still mapped,
+	 * for example, so we could be racing with a
+	 * memory_object_map() or memory_object_last_unmap()
+	 * here.
+	 * We should wait for any memory_object_map/last_unmap()
+	 * to complete, except if we're the thread calling
+	 * memory_object_last_unmap() on this memory object.
+	 */
+	if (old_pager != MEMORY_OBJECT_NULL &&
+	    old_pager->mo_last_unmap_ctid == thread_get_ctid(current_thread())) {
+		old_pager->mo_last_unmap_ctid = 0;
+	} else {
+		vm_object_mapping_wait(object, THREAD_UNINT);
+	}
+
 	vm_object_unlock(object);
 
 	/*
@@ -3274,6 +3363,9 @@ vm_object_copy_slowly(
 	vm_object_offset_t      src_offset,
 	vm_object_size_t        size,
 	boolean_t               interruptible,
+#if HAS_MTE
+	bool                    create_mte_object,
+#endif /* HAS_MTE */
 	vm_object_t             *_result_object)        /* OUT */
 {
 	vm_object_t             new_object;
@@ -3306,6 +3398,16 @@ vm_object_copy_slowly(
 	size = vm_object_round_page(src_offset + size) - vm_object_trunc_page(src_offset);
 	src_offset = vm_object_trunc_page(src_offset);
 
+#if HAS_MTE
+	/*
+	 * Retain the original provenance despite the fact we're creating a byte-for-byte copy.
+	 * As far as I can think, this doesn't have a consequence either way:
+	 * The only path for which we copy slowly MTE-enabled objects is on the fork path,
+	 * during which the two maps will hold the same ID anyway.
+	 * For objects that'll never be MTE-mapped, the provenance has no consequence anyway.
+	 * I'm carrying over the ID here just because it seems more tidy than dropping it.
+	 */
+#endif /* HAS_MTE */
 	new_object = vm_object_allocate(size, src_object->vmo_provenance);
 	new_offset = 0;
 	if (src_object->copy_strategy == MEMORY_OBJECT_COPY_NONE &&
@@ -3314,6 +3416,18 @@ vm_object_copy_slowly(
 		new_object->vo_inherit_copy_none = true;
 	}
 
+#if HAS_MTE
+	/*
+	 * The new object should hold MTE enabled pages. This is a byproduct
+	 * of our current forking strategy.
+	 */
+	if (create_mte_object) {
+		vm_object_mte_set(new_object);
+
+		assert(src_object->copy_strategy == MEMORY_OBJECT_COPY_NONE);
+		new_object->copy_strategy = src_object->copy_strategy;
+	}
+#endif /* HAS_MTE */
 
 	assert(size == trunc_page_64(size));    /* Will the loop terminate? */
 
@@ -3622,7 +3736,12 @@ static uint32_t copy_delayed_max_collisions;
 static uint32_t copy_delayed_lock_contention;
 static uint32_t copy_delayed_protect_iterate;
 
+#if XNU_TARGET_OS_OSX
 unsigned int vm_object_copy_delayed_paging_wait_disable = 0;
+#else /* XNU_TARGET_OS_OSX */
+unsigned int vm_object_copy_delayed_paging_wait_disable = 1;
+#endif /* XNU_TARGET_OS_OSX */
+
 /*
  *	Routine:	vm_object_copy_delayed [internal]
  *
@@ -3694,8 +3813,6 @@ vm_object_copy_delayed(
 
 	copy_size = vm_object_round_page(copy_size);
 Retry:
-	// For iOS, we want to always skip this block. For other OS types, we use the sysctl to control the flow.
- #if !XNU_TARGET_OS_IOS
 	if (!vm_object_copy_delayed_paging_wait_disable) {
 		/*
 		 * Wait for paging in progress.
@@ -3712,7 +3829,15 @@ Retry:
 			vm_object_paging_wait(src_object, THREAD_UNINT);
 		}
 	}
-#endif
+	if (src_object->vmo_pl_req_in_progress) {
+		if (src_object_shared) {
+			vm_object_unlock(src_object);
+			vm_object_lock(src_object);
+			src_object_shared = false;
+			goto Retry;
+		}
+		vm_object_pl_req_wait(src_object, THREAD_UNINT);
+	}
 
 	/*
 	 *	See whether we can reuse the result of a previous
@@ -3797,6 +3922,22 @@ Retry:
 					if (!vm_page_is_fictitious(p) &&
 					    p->vmp_offset >= old_copy->vo_size &&
 					    p->vmp_offset < copy_size) {
+						if (p->vmp_busy && p->vmp_absent) {
+							/*
+							 * A busy/absent page is still
+							 * waiting for its contents.
+							 * It should not be mapped in user
+							 * space (because it has no valid
+							 * contents) so no need to
+							 * write-protect it for copy-on-write.
+							 * It could have been mapped in the
+							 * kernel by the content provider
+							 * (a network filesystem, for example)
+							 * and we do not want to write-protect
+							 * that mapping, so we skip this page.
+							 */
+							continue;
+						}
 						if (VM_PAGE_WIRED(p)) {
 							vm_object_unlock(old_copy);
 							vm_object_unlock(src_object);
@@ -4074,6 +4215,9 @@ vm_object_copy_strategically(
 		result = vm_object_copy_slowly(src_object,
 		    src_offset, size,
 		    interruptible,
+#if HAS_MTE
+		    forking && vm_object_is_mte_mappable(src_object), /* create_mte_object */
+#endif /* HAS_MTE */
 		    dst_object);
 		if (result == KERN_SUCCESS) {
 			*dst_offset = src_offset - vm_object_trunc_page(src_offset);
@@ -4388,7 +4532,7 @@ vm_object_memory_object_associate(
 	}
 
 	VM_OBJECT_SET_PAGER_INITIALIZED(object, TRUE);
-	vm_object_wakeup(object, VM_OBJECT_EVENT_PAGER_INIT);
+	// vm_object_wakeup(object, VM_OBJECT_EVENT_PAGER_INIT);
 
 	vm_object_unlock(object);
 
@@ -4428,9 +4572,9 @@ vm_object_compressor_pager_create(
 		 *	Someone else got to it first...
 		 *	wait for them to finish initializing the ports
 		 */
-		while (!object->pager_initialized) {
+		while (!object->pager_ready) {
 			vm_object_sleep(object,
-			    VM_OBJECT_EVENT_PAGER_INIT,
+			    VM_OBJECT_EVENT_PAGER_READY,
 			    THREAD_UNINT, LCK_SLEEP_EXCLUSIVE);
 		}
 		vm_object_paging_end(object);
@@ -4450,6 +4594,13 @@ vm_object_compressor_pager_create(
 		return;
 	}
 
+#if HAS_MTE /* TODO: remove this when MTE support in the compressor is finalized */
+	if (!vm_object_allow_compressor_pager_for_mte && vm_object_is_mte_mappable(object)) {
+		vm_object_no_compressor_pager_for_mte_count++;
+		vm_object_paging_end(object);
+		return;
+	}
+#endif
 
 	/*
 	 *	Indicate that a memory object has been assigned
@@ -7553,6 +7704,13 @@ vm_object_change_wimg_mode(vm_object_t object, unsigned int wimg_mode)
 
 	vm_object_paging_only_wait(object, THREAD_UNINT);
 
+#if HAS_MTE
+	if (vm_object_is_mte_mappable(object)) {
+		panic("Changing WIMG mode on tagged VM object: %d", wimg_mode);
+	} else if (wimg_mode == VM_WIMG_MTE) {
+		panic("Changing untagged VM object to VM_WIMG_MTE: %d", object->wimg_bits);
+	}
+#endif /* HAS_MTE */
 
 	const unified_page_list_t pmap_batch_list = {
 		.pageq = &object->memq,
@@ -8220,8 +8378,8 @@ vm_object_sleep(
 	vm_object_lock_assert_exclusive(object);
 	assert(reason >= 0 && reason <= VM_OBJECT_EVENT_MAX);
 	switch (reason) {
-	case VM_OBJECT_EVENT_PAGER_INIT:
-		block_hint = kThreadWaitPagerInit;
+	case VM_OBJECT_EVENT_PL_REQ_IN_PROGRESS:
+		block_hint = kThreadWaitPagerInit; /* XXX change that */
 		break;
 	case VM_OBJECT_EVENT_PAGER_READY:
 		block_hint = kThreadWaitPagerReady;
@@ -8256,6 +8414,22 @@ vm_object_sleep(
 	return wr;
 }
 
+wait_result_t
+vm_object_pl_req_wait(vm_object_t object, wait_interrupt_t interruptible)
+{
+	wait_result_t wr = THREAD_NOT_WAITING;
+	vm_object_lock_assert_exclusive(object);
+	while (object->vmo_pl_req_in_progress != 0) {
+		wr = vm_object_sleep(object,
+		    VM_OBJECT_EVENT_PL_REQ_IN_PROGRESS,
+		    interruptible,
+		    LCK_SLEEP_EXCLUSIVE);
+		if (wr != THREAD_AWAKENED) {
+			break;
+		}
+	}
+	return wr;
+}
 
 wait_result_t
 vm_object_paging_wait(vm_object_t object, wait_interrupt_t interruptible)

@@ -239,6 +239,35 @@ struct pr_usrreqs udp_usrreqs = {
 
 struct mem_acct *udp_memacct;
 
+static LCK_ATTR_DECLARE(udp_port_unreach_rlc_attr, 0, 0);
+static LCK_GRP_DECLARE(udp_port_unreach_rlc_mtx_grp, "udp_port_unreach_rlc");
+static LCK_MTX_DECLARE_ATTR(udp_port_unreach_rlc_mtx_data, &udp_port_unreach_rlc_mtx_grp, &udp_port_unreach_rlc_attr);
+static lck_mtx_t  * const udp_port_unreach_rlc_mtx = &udp_port_unreach_rlc_mtx_data;
+
+struct in_endpoints     udp_port_unreach_rlc_state;
+uint32_t                udp_port_unreach_rlc_ts;
+static uint32_t         udp_port_unreach_rlc_cnt = 0;
+
+static int udp_port_unreach_rlc_enable = 1;
+SYSCTL_INT(_net_inet_udp, OID_AUTO, port_unreach_rlc_enable, CTLFLAG_RW | CTLFLAG_LOCKED,
+    &udp_port_unreach_rlc_enable, 1, "Enable ICMP port unreachable run-length-compression");
+
+static int udp_port_unreach_rlc_bucket_ms = 100;
+SYSCTL_INT(_net_inet_udp, OID_AUTO, port_unreach_rlc_bucket_ms, CTLFLAG_RW | CTLFLAG_LOCKED,
+    &udp_port_unreach_rlc_bucket_ms, 100, "Duration of RLC bucket in milliseconds for the ICMP port unreachable run-length-compression");
+
+static int udp_port_unreach_rlc_use_ts = 1;
+SYSCTL_INT(_net_inet_udp, OID_AUTO, port_unreach_rlc_use_ts, CTLFLAG_RW | CTLFLAG_LOCKED,
+    &udp_port_unreach_rlc_use_ts, 0, "Include timestamp in ICMP port unreachable run-length-compression");
+
+static int udp_port_unreach_rlc_verbose = 0;
+SYSCTL_INT(_net_inet_udp, OID_AUTO, port_unreach_rlc_verbose, CTLFLAG_RW | CTLFLAG_LOCKED,
+    &udp_port_unreach_rlc_verbose, 0, "Verbose output: 0: no output; 1: log whenever the ICMP port unreachable RLC buffer changes");
+
+static bool
+udp_port_unreach_rlc_compress(struct in_addr src_addr, in_port_t src_port,
+    struct in_addr dst_addr, in_port_t dst_port);
+
 void
 udp_init(struct protosw *pp, struct domain *dp)
 {
@@ -270,6 +299,8 @@ udp_init(struct protosw *pp, struct domain *dp)
 	if (PE_parse_boot_argn("udp_log", &udp_log_enable_flags, sizeof(udp_log_enable_flags))) {
 		os_log(OS_LOG_DEFAULT, "udp_init: set udp_log_enable_flags to 0x%x", udp_log_enable_flags);
 	}
+
+	bzero(&udp_port_unreach_rlc_state, sizeof(struct in_endpoints));
 
 	LIST_INIT(&udb);
 	udbinfo.ipi_listhead = &udb;
@@ -726,6 +757,11 @@ udp_input(struct mbuf *m, int iphlen)
 			drop_reason = DROP_REASON_UDP_PORT_UNREACHEABLE;
 			goto bad;
 		}
+		if (udp_port_unreach_rlc_compress(ip->ip_src, uh->uh_sport,
+		    ip->ip_dst, uh->uh_dport) == true) {
+			drop_reason = DROP_REASON_UDP_PORT_UNREACHEABLE;
+			goto bad;
+		}
 		if (blackhole) {
 			if (ifp && ifp->if_type != IFT_LOOP) {
 				drop_reason = DROP_REASON_UDP_PORT_UNREACHEABLE;
@@ -737,6 +773,7 @@ udp_input(struct mbuf *m, int iphlen)
 			IF_UDP_STATINC(ifp, linkheur_stealthdrop);
 			goto bad;
 		}
+
 		*ip = save_ip;
 		ip->ip_len += iphlen;
 		icmp_error(m, ICMP_UNREACH, ICMP_UNREACH_PORT, 0, 0);
@@ -3206,4 +3243,88 @@ udp_defunct(struct socket *so)
 	}
 
 	return 0;
+}
+
+static bool
+udp_port_unreach_rlc_common(struct in_endpoints *flow)
+{
+	bool should_throttle = false;
+	uint32_t last_udp_port_unreach_rlc_cnt = 0;
+	in_port_t last_dport = 0;
+	in_port_t last_sport = 0;
+	struct timeval ts;
+	uint32_t now;
+
+	microuptime(&ts);
+	now = (uint32_t)ts.tv_sec * 1000 + ts.tv_usec / 1000;
+
+	lck_mtx_lock(udp_port_unreach_rlc_mtx);
+	if (__improbable((udp_port_unreach_rlc_use_ts == false || now - udp_port_unreach_rlc_ts < udp_port_unreach_rlc_bucket_ms) &&
+	    bcmp(flow, &udp_port_unreach_rlc_state, sizeof(struct in_endpoints)) == 0)) {
+		/*
+		 * The rst rlc state hasn't changed changed, we should throttle.
+		 */
+		should_throttle = true;
+		udp_port_unreach_rlc_cnt++;
+		udpstat.udps_port_unreach_dup_suppressed++;
+	} else {
+		should_throttle = false;
+		last_udp_port_unreach_rlc_cnt = udp_port_unreach_rlc_cnt;
+		last_sport = udp_port_unreach_rlc_state.ie_lport;
+		last_dport = udp_port_unreach_rlc_state.ie_fport;
+		bcopy(flow, &udp_port_unreach_rlc_state, sizeof(struct in_endpoints));
+		udp_port_unreach_rlc_cnt = 0;
+		udp_port_unreach_rlc_ts = now;
+		udpstat.udps_port_unreach_not_suppressed++;
+	}
+	lck_mtx_unlock(udp_port_unreach_rlc_mtx);
+
+	if (udp_port_unreach_rlc_verbose) {
+		if (last_udp_port_unreach_rlc_cnt != 0) {
+			os_log(OS_LOG_DEFAULT, "UDP port unreachable RLC compression: compressed %u ICMP packets [%hu:%hu]",
+			    last_udp_port_unreach_rlc_cnt, ntohs(last_sport), ntohs(last_dport));
+		}
+	}
+
+	return should_throttle;
+}
+
+static bool
+udp_port_unreach_rlc_compress(struct in_addr src_addr, in_port_t src_port,
+    struct in_addr dst_addr, in_port_t dst_port)
+{
+	struct in_endpoints flow;
+
+	if (udp_port_unreach_rlc_enable == 0) {
+		return false;
+	}
+
+	bzero(&flow, sizeof(struct in_endpoints));
+
+	flow.ie_lport = src_port;
+	flow.ie_fport = dst_port;
+	bcopy(&src_addr, &flow.ie_laddr, sizeof(struct in_addr));
+	bcopy(&dst_addr, &flow.ie_faddr, sizeof(struct in_addr));
+
+	return udp_port_unreach_rlc_common(&flow);
+}
+
+bool
+udp6_port_unreach_rlc_compress(struct in6_addr *src_addr, in_port_t src_port,
+    struct in6_addr *dst_addr, in_port_t dst_port)
+{
+	struct in_endpoints flow;
+
+	if (udp_port_unreach_rlc_enable == 0) {
+		return false;
+	}
+
+	bzero(&flow, sizeof(struct in_endpoints));
+
+	flow.ie_lport = src_port;
+	flow.ie_fport = dst_port;
+	bcopy(src_addr, &flow.ie6_laddr, sizeof(struct in6_addr));
+	bcopy(dst_addr, &flow.ie6_faddr, sizeof(struct in6_addr));
+
+	return udp_port_unreach_rlc_common(&flow);
 }

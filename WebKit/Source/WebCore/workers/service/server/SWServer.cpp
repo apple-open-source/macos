@@ -1311,37 +1311,38 @@ void SWServer::unregisterServiceWorkerClientInternal(const ClientOrigin& clientO
 
     auto iterator = m_clientIdentifiersPerOrigin.find(clientOrigin);
     ASSERT(iterator != m_clientIdentifiersPerOrigin.end());
+    if (iterator != m_clientIdentifiersPerOrigin.end()) {
+        auto& clientIdentifiers = iterator->value.identifiers;
+        clientIdentifiers.removeFirst(clientIdentifier);
 
-    auto& clientIdentifiers = iterator->value.identifiers;
-    clientIdentifiers.removeFirst(clientIdentifier);
+        if (clientIdentifiers.isEmpty() && shouldUpdateRegistrations == ShouldUpdateRegistrations::Yes) {
+            ASSERT(!iterator->value.terminateServiceWorkersTimer);
+            iterator->value.terminateServiceWorkersTimer = makeUnique<Timer>([clientOrigin, clientRegistrableDomain, weakThis = WeakPtr { *this }] {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
+                    return;
 
-    if (clientIdentifiers.isEmpty() && shouldUpdateRegistrations == ShouldUpdateRegistrations::Yes) {
-        ASSERT(!iterator->value.terminateServiceWorkersTimer);
-        iterator->value.terminateServiceWorkersTimer = makeUnique<Timer>([clientOrigin, clientRegistrableDomain, weakThis = WeakPtr { *this }] {
-            RefPtr protectedThis = weakThis.get();
-            if (!protectedThis)
-                return;
+                Vector<Ref<SWServerWorker>> workersToTerminate;
+                for (auto& worker : protectedThis->m_runningOrTerminatingWorkers.values()) {
+                    if (worker->isRunning() && worker->origin() == clientOrigin && !worker->shouldContinue())
+                        workersToTerminate.append(worker);
+                }
+                for (auto& worker : workersToTerminate)
+                    worker->terminate();
 
-            Vector<Ref<SWServerWorker>> workersToTerminate;
-            for (auto& worker : protectedThis->m_runningOrTerminatingWorkers.values()) {
-                if (worker->isRunning() && worker->origin() == clientOrigin && !worker->shouldContinue())
-                    workersToTerminate.append(worker);
-            }
-            for (auto& worker : workersToTerminate)
-                worker->terminate();
+                if (protectedThis->removeContextConnectionIfPossible(clientRegistrableDomain) == ShouldDelayRemoval::Yes) {
+                    auto iterator = protectedThis->m_clientIdentifiersPerOrigin.find(clientOrigin);
+                    ASSERT(iterator != protectedThis->m_clientIdentifiersPerOrigin.end());
+                    iterator->value.terminateServiceWorkersTimer->startOneShot(protectedThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
+                    return;
+                }
 
-            if (protectedThis->removeContextConnectionIfPossible(clientRegistrableDomain) == ShouldDelayRemoval::Yes) {
-                auto iterator = protectedThis->m_clientIdentifiersPerOrigin.find(clientOrigin);
-                ASSERT(iterator != protectedThis->m_clientIdentifiersPerOrigin.end());
-                iterator->value.terminateServiceWorkersTimer->startOneShot(protectedThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
-                return;
-            }
-
-            protectedThis->m_clientIdentifiersPerOrigin.remove(clientOrigin);
-        });
-        RefPtr contextConnection = contextConnectionForRegistrableDomain(clientRegistrableDomain);
-        bool shouldContextConnectionBeTerminatedWhenPossible = contextConnection && contextConnection->shouldTerminateWhenPossible();
-        iterator->value.terminateServiceWorkersTimer->startOneShot(m_isProcessTerminationDelayEnabled && !MemoryPressureHandler::singleton().isUnderMemoryPressure() && !shouldContextConnectionBeTerminatedWhenPossible && !didUnregister ? defaultTerminationDelay : 0_s);
+                protectedThis->m_clientIdentifiersPerOrigin.remove(clientOrigin);
+            });
+            RefPtr contextConnection = contextConnectionForRegistrableDomain(clientRegistrableDomain);
+            bool shouldContextConnectionBeTerminatedWhenPossible = contextConnection && contextConnection->shouldTerminateWhenPossible();
+            iterator->value.terminateServiceWorkersTimer->startOneShot(m_isProcessTerminationDelayEnabled && !MemoryPressureHandler::singleton().isUnderMemoryPressure() && !shouldContextConnectionBeTerminatedWhenPossible && !didUnregister ? defaultTerminationDelay : 0_s);
+        }
     }
 
     if (shouldUpdateRegistrations == ShouldUpdateRegistrations::Yes) {

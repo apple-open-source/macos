@@ -71,11 +71,6 @@ void RemoteMediaSessionHelper::stopMonitoringWirelessRoutesInternal()
     ensureConnection().send(Messages::RemoteMediaSessionHelperProxy::StopMonitoringWirelessRoutes(), { });
 }
 
-void RemoteMediaSessionHelper::providePresentingApplicationPID(int pid, ShouldOverride shouldOverride)
-{
-    ensureConnection().send(Messages::RemoteMediaSessionHelperProxy::ProvidePresentingApplicationPID(pid, shouldOverride), { });
-}
-
 void RemoteMediaSessionHelper::activeVideoRouteDidChange(SupportsAirPlayVideo supportsAirPlayVideo, MediaPlaybackTargetContextSerialized&& targetContext)
 {
     WTF::switchOn(targetContext.platformContext(), [](WebCore::MediaPlaybackTargetContextMock&&) {

@@ -1,8 +1,39 @@
 # coding: US-ASCII
 # frozen_string_literal: false
+
+require "stringio"
+require "strscan"
+
 require_relative 'encoding'
 
 module REXML
+  if StringScanner::Version < "1.0.0"
+    module StringScannerCheckScanString
+      refine StringScanner do
+        def check(pattern)
+          pattern = /#{Regexp.escape(pattern)}/ if pattern.is_a?(String)
+          super(pattern)
+        end
+
+        def scan(pattern)
+          pattern = /#{Regexp.escape(pattern)}/ if pattern.is_a?(String)
+          super(pattern)
+        end
+
+        def match?(pattern)
+          pattern = /#{Regexp.escape(pattern)}/ if pattern.is_a?(String)
+          super(pattern)
+        end
+
+        def skip(pattern)
+          pattern = /#{Regexp.escape(pattern)}/ if pattern.is_a?(String)
+          super(pattern)
+        end
+      end
+    end
+    using StringScannerCheckScanString
+  end
+
   # Generates Source-s.  USE THIS CLASS.
   class SourceFactory
     # Generates a Source object
@@ -15,7 +46,6 @@ module REXML
           arg.respond_to? :eof?
         IOSource.new(arg)
       elsif arg.respond_to? :to_str
-        require 'stringio'
         IOSource.new(StringIO.new(arg))
       elsif arg.kind_of? Source
         arg
@@ -30,26 +60,57 @@ module REXML
   # objects and provides consumption of text
   class Source
     include Encoding
-    # The current buffer (what we're going to read next)
-    attr_reader :buffer
     # The line number of the last consumed text
     attr_reader :line
     attr_reader :encoding
+
+    module Private
+      SPACES_PATTERN = /\s+/um
+      SCANNER_RESET_SIZE = 100000
+      PRE_DEFINED_TERM_PATTERNS = {}
+      pre_defined_terms = ["'", '"', "<", "]]>", "?>"]
+      if StringScanner::Version < "3.1.1"
+        pre_defined_terms.each do |term|
+          PRE_DEFINED_TERM_PATTERNS[term] = /#{Regexp.escape(term)}/
+        end
+      else
+        pre_defined_terms.each do |term|
+          PRE_DEFINED_TERM_PATTERNS[term] = term
+        end
+      end
+    end
+    private_constant :Private
 
     # Constructor
     # @param arg must be a String, and should be a valid XML document
     # @param encoding if non-null, sets the encoding of the source to this
     # value, overriding all encoding detection
     def initialize(arg, encoding=nil)
-      @orig = @buffer = arg
+      @orig = arg
+      @scanner = StringScanner.new(@orig)
       if encoding
         self.encoding = encoding
       else
         detect_encoding
       end
       @line = 0
+      @encoded_terms = {}
     end
 
+    # The current buffer (what we're going to read next)
+    def buffer
+      @scanner.rest
+    end
+
+    def drop_parsed_content
+      if @scanner.pos > Private::SCANNER_RESET_SIZE
+        @scanner.string = @scanner.rest
+      end
+    end
+
+    def buffer_encoding=(encoding)
+      @scanner.string.force_encoding(encoding)
+    end
 
     # Inherited from Encoding
     # Overridden to support optimized en/decoding
@@ -58,98 +119,98 @@ module REXML
       encoding_updated
     end
 
-    # Scans the source for a given pattern.  Note, that this is not your
-    # usual scan() method.  For one thing, the pattern argument has some
-    # requirements; for another, the source can be consumed.  You can easily
-    # confuse this method.  Originally, the patterns were easier
-    # to construct and this method more robust, because this method
-    # generated search regexps on the fly; however, this was
-    # computationally expensive and slowed down the entire REXML package
-    # considerably, since this is by far the most commonly called method.
-    # @param pattern must be a Regexp, and must be in the form of
-    # /^\s*(#{your pattern, with no groups})(.*)/.  The first group
-    # will be returned; the second group is used if the consume flag is
-    # set.
-    # @param consume if true, the pattern returned will be consumed, leaving
-    # everything after it in the Source.
-    # @return the pattern, if found, or nil if the Source is empty or the
-    # pattern is not found.
-    def scan(pattern, cons=false)
-      return nil if @buffer.nil?
-      rv = @buffer.scan(pattern)
-      @buffer = $' if cons and rv.size>0
-      rv
+    def read(term = nil)
     end
 
-    def read
+    def read_until(term)
+      pattern = Private::PRE_DEFINED_TERM_PATTERNS[term] || /#{Regexp.escape(term)}/
+      data = @scanner.scan_until(pattern)
+      unless data
+        data = @scanner.rest
+        @scanner.pos = @scanner.string.bytesize
+      end
+      data
     end
 
-    def consume( pattern )
-      @buffer = $' if pattern.match( @buffer )
-    end
-
-    def match_to( char, pattern )
-      return pattern.match(@buffer)
-    end
-
-    def match_to_consume( char, pattern )
-      md = pattern.match(@buffer)
-      @buffer = $'
-      return md
+    def ensure_buffer
     end
 
     def match(pattern, cons=false)
-      md = pattern.match(@buffer)
-      @buffer = $' if cons and md
-      return md
+      if cons
+        @scanner.scan(pattern).nil? ? nil : @scanner
+      else
+        @scanner.check(pattern).nil? ? nil : @scanner
+      end
+    end
+
+    def match?(pattern, cons=false)
+      if cons
+        !@scanner.skip(pattern).nil?
+      else
+        !@scanner.match?(pattern).nil?
+      end
+    end
+
+    def skip_spaces
+      @scanner.skip(Private::SPACES_PATTERN) ? true : false
+    end
+
+    def position
+      @scanner.pos
+    end
+
+    def position=(pos)
+      @scanner.pos = pos
+    end
+
+    def peek_byte
+      @scanner.peek_byte
+    end
+
+    def scan_byte
+      @scanner.scan_byte
     end
 
     # @return true if the Source is exhausted
     def empty?
-      @buffer == ""
-    end
-
-    def position
-      @orig.index( @buffer )
+      @scanner.eos?
     end
 
     # @return the current line in the source
     def current_line
       lines = @orig.split
-      res = lines.grep @buffer[0..30]
+      res = lines.grep @scanner.rest[0..30]
       res = res[-1] if res.kind_of? Array
       lines.index( res ) if res
     end
 
     private
+
     def detect_encoding
-      buffer_encoding = @buffer.encoding
+      scanner_encoding = @scanner.rest.encoding
       detected_encoding = "UTF-8"
       begin
-        @buffer.force_encoding("ASCII-8BIT")
-        if @buffer[0, 2] == "\xfe\xff"
-          @buffer[0, 2] = ""
+        @scanner.string.force_encoding("ASCII-8BIT")
+        if @scanner.scan(/\xfe\xff/n)
           detected_encoding = "UTF-16BE"
-        elsif @buffer[0, 2] == "\xff\xfe"
-          @buffer[0, 2] = ""
+        elsif @scanner.scan(/\xff\xfe/n)
           detected_encoding = "UTF-16LE"
-        elsif @buffer[0, 3] == "\xef\xbb\xbf"
-          @buffer[0, 3] = ""
+        elsif @scanner.scan(/\xef\xbb\xbf/n)
           detected_encoding = "UTF-8"
         end
       ensure
-        @buffer.force_encoding(buffer_encoding)
+        @scanner.string.force_encoding(scanner_encoding)
       end
       self.encoding = detected_encoding
     end
 
     def encoding_updated
       if @encoding != 'UTF-8'
-        @buffer = decode(@buffer)
+        @scanner.string = decode(@scanner.rest)
         @to_utf = true
       else
         @to_utf = false
-        @buffer.force_encoding ::Encoding::UTF_8
+        @scanner.string.force_encoding(::Encoding::UTF_8)
       end
     end
   end
@@ -172,7 +233,7 @@ module REXML
       end
 
       if !@to_utf and
-          @buffer.respond_to?(:force_encoding) and
+          @orig.respond_to?(:force_encoding) and
           @source.respond_to?(:external_encoding) and
           @source.external_encoding != ::Encoding::UTF_8
         @force_utf8 = true
@@ -181,63 +242,87 @@ module REXML
       end
     end
 
-    def scan(pattern, cons=false)
-      rv = super
-      # You'll notice that this next section is very similar to the same
-      # section in match(), but just a liiittle different.  This is
-      # because it is a touch faster to do it this way with scan()
-      # than the way match() does it; enough faster to warrant duplicating
-      # some code
-      if rv.size == 0
-        until @buffer =~ pattern or @source.nil?
-          begin
-            @buffer << readline
-          rescue Iconv::IllegalSequence
-            raise
-          rescue
-            @source = nil
-          end
-        end
-        rv = super
-      end
-      rv.taint
-      rv
-    end
-
-    def read
+    def read(term = nil, min_bytes = 1)
+      term = encode(term) if term
       begin
-        @buffer << readline
+        str = readline(term)
+        @scanner << str
+        read_bytes = str.bytesize
+        begin
+          while read_bytes < min_bytes
+            str = readline(term)
+            @scanner << str
+            read_bytes += str.bytesize
+          end
+        rescue IOError
+        end
+        true
       rescue Exception, NameError
         @source = nil
+        false
       end
     end
 
-    def consume( pattern )
-      match( pattern, true )
+    def read_until(term)
+      pattern = Private::PRE_DEFINED_TERM_PATTERNS[term] || /#{Regexp.escape(term)}/
+      term = @encoded_terms[term] ||= encode(term)
+      until str = @scanner.scan_until(pattern)
+        break if @source.nil?
+        break if @source.eof?
+        @scanner << readline(term)
+      end
+      if str
+        read if @scanner.eos? and !@source.eof?
+        str
+      else
+        rest = @scanner.rest
+        @scanner.pos = @scanner.string.bytesize
+        rest
+      end
+    end
+
+    def ensure_buffer
+      read if @scanner.eos? && @source
     end
 
     def match( pattern, cons=false )
-      rv = pattern.match(@buffer)
-      @buffer = $' if cons and rv
-      while !rv and @source
-        begin
-          @buffer << readline
-          rv = pattern.match(@buffer)
-          @buffer = $' if cons and rv
-        rescue
-          @source = nil
+      # To avoid performance issue, we need to increase bytes to read per scan
+      min_bytes = 1
+      while true
+        if cons
+          md = @scanner.scan(pattern)
+        else
+          md = @scanner.check(pattern)
         end
+        break if md
+        return nil if pattern.is_a?(String)
+        return nil if @source.nil?
+        return nil unless read(nil, min_bytes)
+        min_bytes *= 2
       end
-      rv.taint
-      rv
+
+      md.nil? ? nil : @scanner
+    end
+
+    def match?( pattern, cons=false )
+      # To avoid performance issue, we need to increase bytes to read per scan
+      min_bytes = 1
+      while true
+        if cons
+          n_matched_bytes = @scanner.skip(pattern)
+        else
+          n_matched_bytes = @scanner.match?(pattern)
+        end
+        return true if n_matched_bytes
+        return false if pattern.is_a?(String)
+        return false if @source.nil?
+        return false unless read(nil, min_bytes)
+        min_bytes *= 2
+      end
     end
 
     def empty?
       super and ( @source.nil? || @source.eof? )
-    end
-
-    def position
-      @er_source.pos rescue 0
     end
 
     # @return the current line in the source
@@ -255,7 +340,7 @@ module REXML
         rescue
         end
         @er_source.seek(pos)
-      rescue IOError
+      rescue IOError, SystemCallError
         pos = -1
         line = -1
       end
@@ -263,15 +348,20 @@ module REXML
     end
 
     private
-    def readline
-      str = @source.readline(@line_break)
+    def readline(term = nil)
       if @pending_buffer
+        begin
+          str = @source.readline(term || @line_break)
+        rescue IOError
+        end
         if str.nil?
           str = @pending_buffer
         else
           str = @pending_buffer + str
         end
         @pending_buffer = nil
+      else
+        str = @source.readline(term || @line_break)
       end
       return nil if str.nil?
 
@@ -290,7 +380,7 @@ module REXML
         @source.set_encoding(@encoding, @encoding)
       end
       @line_break = encode(">")
-      @pending_buffer, @buffer = @buffer, ""
+      @pending_buffer, @scanner.string = @scanner.rest, ""
       @pending_buffer.force_encoding(@encoding)
       super
     end

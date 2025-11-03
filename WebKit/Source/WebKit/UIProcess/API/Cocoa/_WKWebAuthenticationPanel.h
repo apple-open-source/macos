@@ -54,6 +54,7 @@ typedef NS_ENUM(NSInteger, _WKWebAuthenticationPanelUpdate) {
     _WKWebAuthenticationPanelUpdateKeyStoreFull,
     _WKWebAuthenticationPanelUpdatePINTooShort,
     _WKWebAuthenticationPanelUpdatePINTooLong,
+    _WKWebAuthenticationPanelUpdatePINSuccessful,
 } WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
 
 typedef NS_ENUM(NSInteger, _WKWebAuthenticationResult) {

@@ -172,8 +172,6 @@ private:
     String extraDefaultStyleSheet() final;
 #endif
 
-    bool isSubmitStyleButton(const Element&) const;
-
     void adjustButtonLikeControlStyle(RenderStyle&, const Element&) const;
 
     Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const override;

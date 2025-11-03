@@ -204,6 +204,46 @@
 
 
 
+#if NEEDS_MTE_IRG_RESEED
+/*
+ * This generates a new 48 bit seed, based on the reseed_counter.
+ * We use the PACGA_TAG_IRG here. and we generate two 32bit values
+ * using pacga twice. using:
+ * cpu_number || 0b0000 || TAG_IRG(0b0011), counter
+ * cpu_number || 0b0001 || TAG_IRG(0b0011), counter
+ *
+ * Needs three registers to use, all will be clobbered
+ * Expects interrupts to be disabled.
+ */
+.macro PACGA_IRG_RESEED x, y, z
+	mrs     \x, TPIDR_EL1
+	ldr     \x, [\x, ACT_CPUDATAP]
+
+	// No need for atomic - These are per CPU and interrupts are disabled
+	ldr     \z, [\x, CPU_IRG_RESEED_COUNTER]
+	add     \y, \z, #1
+	str     \y, [\x, CPU_IRG_RESEED_COUNTER]
+
+	ldrsh   \y, [\x, CPU_NUMBER_GS]
+	lsl     \y, \y, 8
+	add     \y, \y, #0x3                    // Will be resolved after rdar://123719761
+
+	pacga   \x, \y, \z                      // PACGA_TAG_IRG
+	add     \y, \y, 0x10
+	pacga   \y, \y, \z                      // PACGA_TAG_IRG
+	eor     \y, \x, \y, LSR #32
+
+#if APPLEVIRTUALPLATFORM
+	mrs		\x, GCR_EL1
+	tbz		\x, GCR_EL1_RRND_OFFSET, Lpacga_irg_reseed_arm_mode_\@
+#endif
+	orr		\y, \y, (0b111 << RGSR_EL1_SEED_OFFSET)
+#if APPLEVIRTUALPLATFORM
+Lpacga_irg_reseed_arm_mode_\@:
+#endif
+	msr     RGSR_EL1, \y
+.endmacro
+#endif /* NEEDS_MTE_IRG_RESEED */
 
 /* END IGNORE CODESTYLE */
 

@@ -36,6 +36,7 @@ static void	ex_autocmd(exarg_T *eap);
 static void	ex_doautocmd(exarg_T *eap);
 static void	ex_bunload(exarg_T *eap);
 static void	ex_buffer(exarg_T *eap);
+static void	do_exbuffer(exarg_T *eap);
 static void	ex_bmodified(exarg_T *eap);
 static void	ex_bnext(exarg_T *eap);
 static void	ex_bprevious(exarg_T *eap);
@@ -65,7 +66,6 @@ static int	getargopt(exarg_T *eap);
 #endif
 
 static linenr_T default_address(exarg_T *eap);
-static linenr_T get_address(exarg_T *, char_u **, cmd_addr_T addr_type, int skip, int silent, int to_other_file, int address_count);
 static void address_default_all(exarg_T *eap);
 static void	get_flags(exarg_T *eap);
 #if !defined(FEAT_PERL) \
@@ -101,10 +101,14 @@ static void	ex_tabs(exarg_T *eap);
 static void	ex_pclose(exarg_T *eap);
 static void	ex_ptag(exarg_T *eap);
 static void	ex_pedit(exarg_T *eap);
+static void	ex_pbuffer(exarg_T *eap);
+static void	prepare_preview_window(void);
+static void	back_to_current_window(win_T *curwin_save);
 #else
 # define ex_pclose		ex_ni
 # define ex_ptag		ex_ni
 # define ex_pedit		ex_ni
+# define ex_pbuffer		ex_ni
 #endif
 static void	ex_hide(exarg_T *eap);
 static void	ex_exit(exarg_T *eap);
@@ -226,6 +230,7 @@ static void	ex_winpos(exarg_T *eap);
 #endif
 static void	ex_operators(exarg_T *eap);
 static void	ex_put(exarg_T *eap);
+static void	ex_iput(exarg_T *eap);
 static void	ex_copymove(exarg_T *eap);
 static void	ex_submagic(exarg_T *eap);
 static void	ex_join(exarg_T *eap);
@@ -241,6 +246,7 @@ static void	ex_later(exarg_T *eap);
 static void	ex_redir(exarg_T *eap);
 static void	ex_redrawstatus(exarg_T *eap);
 static void	ex_redrawtabline(exarg_T *eap);
+static void	ex_redrawtabpanel(exarg_T *eap);
 static void	close_redir(void);
 static void	ex_mark(exarg_T *eap);
 static void	ex_startinsert(exarg_T *eap);
@@ -283,7 +289,6 @@ static void	ex_tag_cmd(exarg_T *eap, char_u *name);
 # define ex_endif		ex_ni
 # define ex_endtry		ex_ni
 # define ex_endwhile		ex_ni
-# define ex_enum		ex_ni
 # define ex_eval		ex_ni
 # define ex_execute		ex_ni
 # define ex_finally		ex_ni
@@ -366,6 +371,12 @@ static void	ex_folddo(exarg_T *eap);
 #endif
 #if !defined(FEAT_X11) || !defined(FEAT_XCLIPBOARD)
 # define ex_xrestore		ex_ni
+#endif
+#if !defined(FEAT_WAYLAND)
+# define ex_wlrestore		ex_ni
+#endif
+#if !defined(FEAT_CLIPBOARD)
+# define ex_clipreset		ex_ni
 #endif
 #if !defined(FEAT_PROP_POPUP)
 # define ex_popupclear		ex_ni
@@ -495,36 +506,38 @@ restore_dbg_stuff(struct dbg_stuff *dsp)
 
 /*
  * Check if ffname differs from fnum.
- * fnum is a buffer number. 0 == current buffer, 1-or-more must be a valid buffer ID.
+ * fnum is a buffer number. 0 == current buffer, 1-or-more must be a valid
+ * buffer ID.
  * ffname is a full path to where a buffer lives on-disk or would live on-disk.
  *
  */
     static int
 is_other_file(int fnum, char_u *ffname)
 {
-  if (fnum != 0)
-  {
-    if (fnum == curbuf->b_fnum)
-      return FALSE;
+    if (fnum != 0)
+    {
+	if (fnum == curbuf->b_fnum)
+	    return FALSE;
 
-    return TRUE;
-  }
+	return TRUE;
+    }
 
-  if (ffname == NULL)
-    return TRUE;
+    if (ffname == NULL)
+	return TRUE;
 
-  if (*ffname == NUL)
-    return FALSE;
+    if (*ffname == NUL)
+	return FALSE;
 
-  // TODO: Need a reliable way to know whether a buffer is meant to live on-disk
-  // !curbuf->b_dev_valid is not always available (example: missing on Windows)
-  if (curbuf->b_sfname != NULL
-      && *curbuf->b_sfname != NUL)
-    // This occurs with unsaved buffers. In which case `ffname`
-    // actually corresponds to curbuf->b_sfname
-    return fnamecmp(ffname, curbuf->b_sfname) != 0;
+    // TODO: Need a reliable way to know whether a buffer is meant to live
+    // on-disk !curbuf->b_dev_valid is not always available (example: missing
+    // on Windows)
+    if (curbuf->b_sfname != NULL
+	    && *curbuf->b_sfname != NUL)
+	// This occurs with unsaved buffers. In which case `ffname` actually
+	// corresponds to curbuf->b_sfname
+	return fnamecmp(ffname, curbuf->b_sfname) != 0;
 
-  return otherfile(ffname);
+    return otherfile(ffname);
 }
 
 /*
@@ -2412,8 +2425,8 @@ do_one_cmd(
 	    goto doend;
 	}
 #endif
-	if (valid_yank_reg(*ea.arg, (ea.cmdidx != CMD_put
-					      && !IS_USER_CMDIDX(ea.cmdidx))))
+	if (valid_yank_reg(*ea.arg, (!IS_USER_CMDIDX(ea.cmdidx)
+			    && ea.cmdidx != CMD_put && ea.cmdidx != CMD_iput)))
 	{
 	    ea.regname = *ea.arg++;
 #ifdef FEAT_EVAL
@@ -2755,7 +2768,7 @@ static char ex_error_buf[MSG_BUF_LEN];
  * Uses a static buffer, only the last error will be kept.
  * "msg" will be translated, caller should use N_().
  */
-     char *
+    char *
 ex_errmsg(char *msg, char_u *arg)
 {
     vim_snprintf(ex_error_buf, MSG_BUF_LEN, _(msg), arg);
@@ -3747,6 +3760,16 @@ find_ex_command(
 		// "&option" can be followed by "->" or "=", check below
 	    }
 
+	    if (vim9 && *p == '<')
+	    {
+		// generic function type args
+		if (skip_generic_func_type_args(&p) == FAIL)
+		{
+		    eap->cmdidx = CMD_SIZE;
+		    return p;
+		}
+	    }
+
 	    swp = skipwhite(p);
 
 	    if (
@@ -3838,8 +3861,12 @@ find_ex_command(
 		if (eq != NULL)
 		{
 		    eq = skipwhite(eq);
-		    if (vim_strchr((char_u *)"+-*/%", *eq) != NULL)
+		    if (vim_strchr((char_u *)"+-*/%.", *eq) != NULL)
+		    {
+			if (eq[0] == '.' && eq[1] == '.')
+			    ++eq;
 			++eq;
+		    }
 		}
 		if (p == NULL || p == eap->cmd || *eq != '=')
 		{
@@ -4373,7 +4400,7 @@ default_address(exarg_T *eap)
  *
  * Return MAXLNUM when no Ex address was found.
  */
-    static linenr_T
+    linenr_T
 get_address(
     exarg_T	*eap UNUSED,
     char_u	**ptr,
@@ -4567,7 +4594,7 @@ get_address(
 		    else
 			curwin->w_cursor.col = 0;
 		    searchcmdlen = 0;
-		    flags = silent ? 0 : SEARCH_HIS | SEARCH_MSG;
+		    flags = silent ? SEARCH_KEEP : SEARCH_HIS | SEARCH_MSG;
 		    if (!do_search(NULL, c, c, cmd, STRLEN(cmd), 1L, flags, NULL))
 		    {
 			curwin->w_cursor = pos;
@@ -4871,7 +4898,8 @@ invalid_range(exarg_T *eap)
 	    case ADDR_LINES:
 		if (eap->line2 > curbuf->b_ml.ml_line_count
 #ifdef FEAT_DIFF
-			    + (eap->cmdidx == CMD_diffget)
+			    + (eap->cmdidx == CMD_diffget ||
+				eap->cmdidx == CMD_diffput)
 #endif
 		   )
 		    return _(e_invalid_range);
@@ -5769,6 +5797,15 @@ ex_buffer(exarg_T *eap)
 {
     if (ERROR_IF_ANY_POPUP_WINDOW)
 	return;
+    do_exbuffer(eap);
+}
+
+/*
+ * ":buffer" command and alike.
+ */
+    static void
+do_exbuffer(exarg_T *eap)
+{
     if (*eap->arg)
 	eap->errmsg = ex_errmsg(e_trailing_characters_str, eap->arg);
     else
@@ -5992,7 +6029,7 @@ get_command_name(expand_T *xp UNUSED, int idx)
 	return expand_user_command_name(idx);
     // the following are no real commands
     if (STRNCMP(cmdnames[idx].cmd_name, "{", 1) == 0 ||
-        STRNCMP(cmdnames[idx].cmd_name, "}", 1) == 0)
+	STRNCMP(cmdnames[idx].cmd_name, "}", 1) == 0)
 	return (char_u *)"";
     return cmdnames[idx].cmd_name;
 }
@@ -6557,6 +6594,8 @@ tabpage_close(int forceit)
     if (window_layout_locked(CMD_tabclose))
 	return;
 
+    trigger_tabclosedpre(curtab, TRUE);
+
     // First close all the windows but the current one.  If that worked then
     // close the last window in this tab, that will close it.
     if (!ONE_WINDOW)
@@ -6579,6 +6618,8 @@ tabpage_close_other(tabpage_T *tp, int forceit)
 {
     int		done = 0;
     win_T	*wp;
+
+    trigger_tabclosedpre(tp, TRUE);
 
     // Limit to 1000 windows, autocommands may add a window while we close
     // one.  OK, so I'm paranoid...
@@ -6958,6 +6999,210 @@ ex_wrongmodifier(exarg_T *eap)
     eap->errmsg = ex_errmsg(e_invalid_command_str, eap->cmd);
 }
 
+#if defined(FEAT_EVAL) || defined(PROTO)
+
+// callback function for 'findfunc'
+static callback_T ffu_cb;
+
+    static callback_T *
+get_findfunc_callback(void)
+{
+    return *curbuf->b_p_ffu != NUL ? &curbuf->b_ffu_cb : &ffu_cb;
+}
+
+/*
+ * Call 'findfunc' to obtain a list of file names.
+ */
+    static list_T *
+call_findfunc(char_u *pat, int cmdcomplete)
+{
+    typval_T	args[3];
+    callback_T	*cb;
+    typval_T	rettv;
+    int		retval;
+    sctx_T	saved_sctx = current_sctx;
+    sctx_T	*ctx;
+
+    args[0].v_type = VAR_STRING;
+    args[0].vval.v_string = pat;
+    args[1].v_type = VAR_BOOL;
+    args[1].vval.v_number = cmdcomplete;
+    args[2].v_type = VAR_UNKNOWN;
+
+    // Lock the text to prevent weird things from happening.  Also disallow
+    // switching to another window, it should not be needed and may end up in
+    // Insert mode in another buffer.
+    ++textlock;
+
+    ctx = get_option_sctx("findfunc");
+    if (ctx != NULL)
+	current_sctx = *ctx;
+
+    cb = get_findfunc_callback();
+    retval = call_callback(cb, -1, &rettv, 2, args);
+
+    current_sctx = saved_sctx;
+
+    --textlock;
+
+    list_T *retlist = NULL;
+
+    if (retval == OK)
+    {
+	if (rettv.v_type == VAR_LIST)
+	    retlist = list_copy(rettv.vval.v_list, FALSE, FALSE, get_copyID());
+	else
+	    emsg(_(e_invalid_return_type_from_findfunc));
+
+	clear_tv(&rettv);
+    }
+
+    return retlist;
+}
+
+/*
+ * Find file names matching "pat" using 'findfunc' and return it in "files".
+ * Used for expanding the :find, :sfind and :tabfind command argument.
+ * Returns OK on success and FAIL otherwise.
+ */
+    int
+expand_findfunc(char_u *pat, char_u ***files, int *numMatches)
+{
+    list_T	*l;
+    int		len;
+
+    *numMatches = 0;
+    *files = NULL;
+
+    l = call_findfunc(pat, VVAL_TRUE);
+
+    if (l == NULL)
+	return FAIL;
+
+    len = list_len(l);
+    if (len == 0)	    // empty List
+	return FAIL;
+
+    *files = ALLOC_MULT(char_u *, len);
+    if (*files == NULL)
+	return FAIL;
+
+    // Copy all the List items
+    listitem_T *li;
+    int idx = 0;
+    FOR_ALL_LIST_ITEMS(l, li)
+    {
+	if (li->li_tv.v_type == VAR_STRING)
+	{
+	    (*files)[idx] = vim_strsave(li->li_tv.vval.v_string);
+	    idx++;
+	}
+    }
+
+    *numMatches = idx;
+    list_free(l);
+
+    return OK;
+}
+
+/*
+ * Use 'findfunc' to find file 'findarg'.  The 'count' argument is used to find
+ * the n'th matching file.
+ */
+    static char_u *
+findfunc_find_file(char_u *findarg, int findarg_len, int count)
+{
+    list_T	*fname_list;
+    char_u	*ret_fname = NULL;
+    char_u	cc;
+    int		fname_count;
+
+    cc = findarg[findarg_len];
+    findarg[findarg_len] = NUL;
+
+    fname_list = call_findfunc(findarg, VVAL_FALSE);
+    fname_count = list_len(fname_list);
+
+    if (fname_count == 0)
+	semsg(_(e_cant_find_file_str_in_path), findarg);
+    else
+    {
+	if (count > fname_count)
+	    semsg(_(e_no_more_file_str_found_in_path), findarg);
+	else
+	{
+	    listitem_T *li = list_find(fname_list, count - 1);
+	    if (li != NULL && li->li_tv.v_type == VAR_STRING)
+		ret_fname = vim_strsave(li->li_tv.vval.v_string);
+	}
+    }
+
+    if (fname_list != NULL)
+	list_free(fname_list);
+
+    findarg[findarg_len] = cc;
+
+    return ret_fname;
+}
+
+/*
+ * Process the 'findfunc' option value.
+ * Returns NULL on success and an error message on failure.
+ */
+    char *
+did_set_findfunc(optset_T *args UNUSED)
+{
+    int	retval;
+
+    if (args->os_flags & OPT_LOCAL)
+	// buffer-local option set
+	retval = option_set_callback_func(curbuf->b_p_ffu, &curbuf->b_ffu_cb);
+    else
+    {
+	// global option set
+	retval = option_set_callback_func(p_ffu, &ffu_cb);
+	// when using :set, free the local callback
+	if (!(args->os_flags & OPT_GLOBAL))
+	    free_callback(&curbuf->b_ffu_cb);
+    }
+
+    if (retval == FAIL)
+	return e_invalid_argument;
+
+    // If the option value starts with <SID> or s:, then replace that with
+    // the script identifier.
+    char_u	**varp = (char_u **)args->os_varp;
+    char_u	*name = get_scriptlocal_funcname(*varp);
+    if (name != NULL)
+    {
+	free_string_option(*varp);
+	*varp = name;
+    }
+
+    return NULL;
+}
+
+# if defined(EXITFREE) || defined(PROTO)
+    void
+free_findfunc_option(void)
+{
+    free_callback(&ffu_cb);
+}
+# endif
+
+/*
+ * Mark the global 'findfunc' callback with "copyID" so that it is not
+ * garbage collected.
+ */
+    int
+set_ref_in_findfunc(int copyID UNUSED)
+{
+    int abort = FALSE;
+    abort = set_ref_in_callback(&ffu_cb, copyID);
+    return abort;
+}
+#endif
+
 /*
  * :sview [+command] file	split window with new file, read-only
  * :split [[+command] file]	split window with current or new file
@@ -7007,11 +7252,22 @@ ex_splitview(exarg_T *eap)
     {
 	char_u	*file_to_find = NULL;
 	char	*search_ctx = NULL;
-	fname = find_file_in_path(eap->arg, (int)STRLEN(eap->arg),
-					  FNAME_MESS, TRUE, curbuf->b_ffname,
-					  &file_to_find, &search_ctx);
-	vim_free(file_to_find);
-	vim_findfile_cleanup(search_ctx);
+
+	if (*get_findfunc() != NUL)
+	{
+#ifdef FEAT_EVAL
+	    fname = findfunc_find_file(eap->arg, (int)STRLEN(eap->arg),
+				       eap->addr_count > 0 ? eap->line2 : 1);
+#endif
+	}
+	else
+	{
+	    fname = find_file_in_path(eap->arg, (int)STRLEN(eap->arg),
+					      FNAME_MESS, TRUE, curbuf->b_ffname,
+					      &file_to_find, &search_ctx);
+	    vim_free(file_to_find);
+	    vim_findfile_cleanup(search_ctx);
+	}
 	if (fname == NULL)
 	    goto theend;
 	eap->arg = fname;
@@ -7276,27 +7532,37 @@ ex_find(exarg_T *eap)
     if (!check_can_set_curbuf_forceit(eap->forceit))
 	return;
 
-    char_u	*fname;
+    char_u	*fname = NULL;
     int		count;
     char_u	*file_to_find = NULL;
     char	*search_ctx = NULL;
 
-    fname = find_file_in_path(eap->arg, (int)STRLEN(eap->arg), FNAME_MESS,
-			   TRUE, curbuf->b_ffname, &file_to_find, &search_ctx);
-    if (eap->addr_count > 0)
+    if (*get_findfunc() != NUL)
     {
-	// Repeat finding the file "count" times.  This matters when it appears
-	// several times in the path.
-	count = eap->line2;
-	while (fname != NULL && --count > 0)
-	{
-	    vim_free(fname);
-	    fname = find_file_in_path(NULL, 0, FNAME_MESS,
-			  FALSE, curbuf->b_ffname, &file_to_find, &search_ctx);
-	}
+#ifdef FEAT_EVAL
+	fname = findfunc_find_file(eap->arg, (int)STRLEN(eap->arg),
+					eap->addr_count > 0 ? eap->line2 : 1);
+#endif
     }
-    VIM_CLEAR(file_to_find);
-    vim_findfile_cleanup(search_ctx);
+    else
+    {
+	fname = find_file_in_path(eap->arg, (int)STRLEN(eap->arg), FNAME_MESS,
+			       TRUE, curbuf->b_ffname, &file_to_find, &search_ctx);
+	if (eap->addr_count > 0)
+	{
+	    // Repeat finding the file "count" times.  This matters when it appears
+	    // several times in the path.
+	    count = eap->line2;
+	    while (fname != NULL && --count > 0)
+	    {
+		vim_free(fname);
+		fname = find_file_in_path(NULL, 0, FNAME_MESS,
+			      FALSE, curbuf->b_ffname, &file_to_find, &search_ctx);
+	    }
+	}
+	VIM_CLEAR(file_to_find);
+	vim_findfile_cleanup(search_ctx);
+    }
 
     if (fname == NULL)
 	return;
@@ -7807,7 +8073,7 @@ post_chdir(cdscope_T scope)
     }
 
     last_chdir_reason = NULL;
-    shorten_fnames(TRUE);
+    shorten_fnames(vim_strchr(p_cpo, CPO_NOSYMLINKS) == NULL);
 }
 
 /*
@@ -8321,6 +8587,25 @@ ex_put(exarg_T *eap)
 }
 
 /*
+ * ":iput".
+ */
+    static void
+ex_iput(exarg_T *eap)
+{
+    // ":0iput" works like ":1iput!".
+    if (eap->line2 == 0)
+    {
+	eap->line2 = 1;
+	eap->forceit = TRUE;
+    }
+    curwin->w_cursor.lnum = eap->line2;
+    check_cursor_col();
+    do_put(eap->regname, NULL, eap->forceit ? BACKWARD : FORWARD, 1L,
+						      PUT_LINE|PUT_CURSLINE
+						      |PUT_FIXINDENT);
+}
+
+/*
  * Handle ":copy" and ":move".
  */
     static void
@@ -8767,6 +9052,29 @@ ex_redrawtabline(exarg_T *eap UNUSED)
     out_flush();
 }
 
+/*
+ * ":redrawtabpanel": force redraw of the tabpanel
+ */
+    static void
+ex_redrawtabpanel(exarg_T *eap UNUSED)
+{
+    int save_RedrawingDisabled = RedrawingDisabled;
+    RedrawingDisabled = 0;
+
+    int save_p_lz = p_lz;
+    p_lz = FALSE;
+
+#if defined(FEAT_TABPANEL)
+    draw_tabpanel();
+#else
+    emsg(_(e_cannot_not_support_redrawtabpanel));
+#endif
+
+    RedrawingDisabled = save_RedrawingDisabled;
+    p_lz = save_p_lz;
+    out_flush();
+}
+
     static void
 close_redir(void)
 {
@@ -9103,6 +9411,12 @@ ex_stopinsert(exarg_T *eap UNUSED)
 {
     restart_edit = 0;
     stop_insert_mode = TRUE;
+#if defined(FEAT_CLIENTSERVER) || defined(FEAT_EVAL)
+    // when called from remote_expr in insert mode, make sure insert mode is
+    // ended by adding K_NOP to the typeahead buffer
+    if (vgetc_busy)
+	ins_char_typebuf(K_NOP, 0);
+#endif
     clearmode();
 }
 
@@ -9161,8 +9475,8 @@ exec_normal(int was_typed, int use_vpeekc, int may_use_terminal_loop UNUSED)
 ex_checkpath(exarg_T *eap)
 {
     find_pattern_in_path(NULL, 0, 0, FALSE, FALSE, CHECK_PATH, 1L,
-				   eap->forceit ? ACTION_SHOW_ALL : ACTION_SHOW,
-					      (linenr_T)1, (linenr_T)MAXLNUM, eap->forceit);
+	    eap->forceit ? ACTION_SHOW_ALL : ACTION_SHOW,
+	    (linenr_T)1, (linenr_T)MAXLNUM, eap->forceit, FALSE);
 }
 
 #if defined(FEAT_QUICKFIX)
@@ -9230,9 +9544,9 @@ ex_findpat(exarg_T *eap)
     }
     if (!eap->skip)
 	find_pattern_in_path(eap->arg, 0, (int)STRLEN(eap->arg),
-			    whole, !eap->forceit,
-			    *eap->cmd == 'd' ?	FIND_DEFINE : FIND_ANY,
-			    n, action, eap->line1, eap->line2, eap->forceit);
+		whole, !eap->forceit,
+		*eap->cmd == 'd' ? FIND_DEFINE : FIND_ANY, n, action,
+		eap->line1, eap->line2, eap->forceit, FALSE);
 }
 #endif
 
@@ -9255,17 +9569,43 @@ ex_ptag(exarg_T *eap)
 ex_pedit(exarg_T *eap)
 {
     win_T	*curwin_save = curwin;
+    prepare_preview_window();
 
+    // Edit the file.
+    do_exedit(eap, NULL);
+
+    back_to_current_window(curwin_save);
+}
+
+/*
+ * ":pbuffer"
+ */
+    static void
+ex_pbuffer(exarg_T *eap)
+{
+    win_T	*curwin_save = curwin;
+    prepare_preview_window();
+
+    // Go to the buffer.
+    do_exbuffer(eap);
+
+    back_to_current_window(curwin_save);
+}
+
+    static void
+prepare_preview_window(void)
+{
     if (ERROR_IF_ANY_POPUP_WINDOW)
 	return;
 
     // Open the preview window or popup and make it the current window.
     g_do_tagpreview = p_pvh;
     prepare_tagpreview(TRUE, TRUE, FALSE);
+}
 
-    // Edit the file.
-    do_exedit(eap, NULL);
-
+    static void
+back_to_current_window(win_T *curwin_save)
+{
     if (curwin != curwin_save && win_valid(curwin_save))
     {
 	// Return cursor to where we were
@@ -9420,14 +9760,16 @@ find_cmdline_var(char_u *src, size_t *usedlen)
 
     case '<':
 	target.key = 0;
-	target.value = (char *)src + 1;	    // skip over '<'
-	target.length = 0;		    // not used, see cmp_keyvalue_value_n()
+	target.value.string = src + 1;	    // skip over '<'
+	target.value.length = 0;	    // not used, see cmp_keyvalue_value_n()
 
-	entry = (keyvalue_T *)bsearch(&target, &spec_str_tab, ARRAY_LENGTH(spec_str_tab), sizeof(spec_str_tab[0]), cmp_keyvalue_value_n);
+	entry = (keyvalue_T *)bsearch(&target, &spec_str_tab,
+		ARRAY_LENGTH(spec_str_tab), sizeof(spec_str_tab[0]),
+		cmp_keyvalue_value_n);
 	if (entry == NULL)
 	    return -1;
 
-	*usedlen = entry->length + 1;
+	*usedlen = entry->value.length + 1;
 	return entry->key;
 
     default:
@@ -9474,9 +9816,9 @@ eval_vars(
 {
     int		i;
     char_u	*s;
-    char_u	*result;
+    char_u	*result = (char_u *)"";
     char_u	*resultbuf = NULL;
-    int		resultlen;
+    size_t	resultlen;
     buf_T	*buf;
     int		valid = VALID_HEAD + VALID_PATH;    // assume valid result
     int		spec_idx;
@@ -9740,23 +10082,39 @@ eval_vars(
 
 #ifdef FEAT_CLIENTSERVER
 	case SPEC_CLIENT:	// Source of last submitted input
+#ifdef MSWIN
 		sprintf((char *)strbuf, PRINTF_HEX_LONG_U,
 							(long_u)clientWindow);
 		result = strbuf;
+#else
+# ifdef FEAT_SOCKETSERVER
+		if (clientserver_method == CLIENTSERVER_METHOD_SOCKET)
+		{
+		    if (client_socket == NULL)
+			result = (char_u *)"";
+		    else
+			result = client_socket;
+		}
+# endif
+# ifdef FEAT_X11
+		if (clientserver_method == CLIENTSERVER_METHOD_X11)
+		{
+		    sprintf((char *)strbuf, PRINTF_HEX_LONG_U,
+							(long_u)clientWindow);
+		    result = strbuf;
+		}
+# endif
+#endif
 		break;
 #endif
-
-	default:
-		result = (char_u *)""; // avoid gcc warning
-		break;
 	}
 
-	resultlen = (int)STRLEN(result);	// length of new string
+	resultlen = STRLEN(result);	// length of new string
 	if (src[*usedlen] == '<')	// remove the file name extension
 	{
 	    ++*usedlen;
 	    if ((s = vim_strrchr(result, '.')) != NULL && s >= gettail(result))
-		resultlen = (int)(s - result);
+		resultlen = s - result;
 	}
 	else if (!skip_mod)
 	{
@@ -10118,5 +10476,5 @@ get_pressedreturn(void)
     void
 set_pressedreturn(int val)
 {
-     ex_pressedreturn = val;
+    ex_pressedreturn = val;
 }

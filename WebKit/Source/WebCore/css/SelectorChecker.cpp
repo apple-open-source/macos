@@ -223,7 +223,7 @@ bool SelectorChecker::match(const CSSSelector& selector, const Element& element,
         return false;
 
     if (checkingContext.pseudoId == PseudoId::None && pseudoIdSet) {
-        PseudoIdSet publicPseudoIdSet = pseudoIdSet & PseudoIdSet::fromMask(static_cast<unsigned>(PseudoId::PublicPseudoIdMask));
+        PseudoIdSet publicPseudoIdSet = pseudoIdSet & PseudoIdSet::fromMask(PublicPseudoIdMask);
         if (checkingContext.resolvingMode == Mode::ResolvingStyle && publicPseudoIdSet)
             checkingContext.pseudoIDSet = publicPseudoIdSet;
 

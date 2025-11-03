@@ -549,13 +549,13 @@
                 [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassA zoneName:viewState.zoneID.zoneName];
             }
         } else {
-            [logger logRecoverableError:self.error
-                               forEvent:CKKSEventProcessIncomingQueueClassC
-                               zoneName:viewState.zoneID.zoneName
-                         withAttributes:NULL];
 
-            // Don't log a "this device is locked" error as a Class A failure.
+            // Don't log a "this device is locked" error as a failures.
             if(![self.deps.lockStateTracker isLockedError:self.error]) {
+                [logger logRecoverableError:self.error
+                                   forEvent:CKKSEventProcessIncomingQueueClassC
+                                   zoneName:viewState.zoneID.zoneName
+                             withAttributes:NULL];
                 [logger logRecoverableError:self.error
                                    forEvent:CKKSEventProcessIncomingQueueClassA
                                    zoneName:viewState.zoneID.zoneName

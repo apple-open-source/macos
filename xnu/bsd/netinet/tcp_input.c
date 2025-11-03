@@ -237,7 +237,7 @@ SYSCTL_SKMEM_TCP_INT(OID_AUTO, awdl_rtobase,
     CTLFLAG_RW | CTLFLAG_LOCKED, int, tcp_awdl_rtobase, 100,
     "Initial RTO for AWDL interface");
 
-int tcp_syncookie = 1;
+int tcp_syncookie = 0;
 SYSCTL_INT(_net_inet_tcp, OID_AUTO, syncookie,
     CTLFLAG_RW | CTLFLAG_LOCKED, &tcp_syncookie, 1,
     "0: disable, 1: Use SYN cookies when backlog is full, 2: Always use SYN cookies");
@@ -3309,11 +3309,11 @@ findpcb:
 			tpi.ip_ecn = ip_ecn;
 			ret = tcp_syncookie_ack(&tpi, &so2, &dropsocket);
 			if (so2 == NULL) {
-				/* Either cookie validation failed or we could not allocate a socket */
+				/* Either ACK was sent to listener after connection was closed or cookie validation failed or we could not allocate a socket */
 				tcpstat.tcps_listendrop++;
-				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " listen drop with SYN cookies");
+				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " listener dropped ACK while SYN cookies were enabled");
 				drop_reason = DROP_REASON_TCP_LISTENER_DROP;
-				goto drop;
+				goto dropwithreset;
 			}
 			/* Set so to newly connected socket */
 			so = so2;
@@ -5039,7 +5039,15 @@ close:
 	case TCPS_LAST_ACK:
 	case TCPS_TIME_WAIT:
 	{
-		const uint64_t byte_limit = MIN(tp->t_stat.bytes_acked, tp->max_sndwnd);
+		/*
+		 * TODO: The MAX(..., 100) is a temporary workaround for redirection issues with certain captive portals
+		 * in the wild.
+		 * After a successful TCP handshake, these portals send an incorrect ACK number in the data packet containing
+		 * the HTTP redirect response, that is 19 bytes behind the ISS. The security mitigation below caused these
+		 * packets to be dropped. Making the minimum byte_limit 100 works around this issue.
+		 * This workaround will be removed once the operators of these portals patch the issue on their end.
+		 */
+		const uint64_t byte_limit = MAX(MIN(tp->t_stat.bytes_acked, tp->max_sndwnd), 100);
 
 		if (SEQ_GT(th->th_ack, tp->snd_max)) {
 			tcpstat.tcps_rcvacktoomuch++;

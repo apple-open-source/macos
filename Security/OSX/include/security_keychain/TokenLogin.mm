@@ -34,6 +34,7 @@
 #include <security_utilities/cfutilities.h>
 #include <AppleKeyStore/libaks.h>
 #include <AppleKeyStore/libaks_smartcard.h>
+#include <os/feature_private.h>
 
 #import <CryptoTokenKit/CryptoTokenKit_Private.h>
 #import <LocalAuthentication/LocalAuthentication_Private.h>
@@ -397,8 +398,14 @@ OSStatus TokenLoginUpdateUnlockData(CFDictionaryRef context, CFStringRef passwor
 
 OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CFDataRef pubKeyHashWrap, CFDataRef unlockKey, CFDataRef scBlob)
 {
-    if (!tokenId || !pubKeyHash || !pubKeyHashWrap || !unlockKey || !scBlob) {
+    
+    if (!tokenId || !pubKeyHash || !pubKeyHashWrap || !scBlob) {
         os_log_error(TL_LOG, "Create login data - wrong params");
+        return errSecParam;
+    }
+    
+    if (!os_feature_enabled(Security, ProtectLoginKeychainWithDP) && !unlockKey) {
+        os_log_error(TL_LOG, "Create login data - missing unlock key");
         return errSecParam;
     }
 
@@ -407,68 +414,77 @@ OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CF
 												  kSecAttrPublicKeyHash,	pubKeyHash,
 												  kSecAttrAccount,			pubKeyHashWrap
 												  );
-	CFRef<SecKeyRef> privKey;
-	OSStatus result = privKeyForPubKeyHashWrap(ctx, privKey.take(), NULL);
-	if (result != errSecSuccess) {
-        os_log_error(TL_LOG, "Failed to get private key for public key hash %{public}@: %d", pubKeyHashWrap, (int)result);
-		return result;
-	}
-
-	CFRef<SecKeyRef> pubKey = SecKeyCopyPublicKey(privKey);
-	if (!pubKey) {
-		os_log_error(TL_LOG, "Failed to get public key from private key");
-		return errSecParam;
-	}
-
-	SecKeyAlgorithm algorithms[] = {
-		kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM,
-		kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM,
-		kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM,
-		kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM,
-		kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM,
-		kSecKeyAlgorithmRSAEncryptionOAEPSHA512AESGCM,
-		kSecKeyAlgorithmRSAEncryptionOAEPSHA384AESGCM,
-		kSecKeyAlgorithmRSAEncryptionOAEPSHA256AESGCM,
-		kSecKeyAlgorithmRSAEncryptionOAEPSHA224AESGCM,
-		kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM
-	};
-
-	SecKeyAlgorithm algorithm = NULL;
-	for (size_t i = 0; i < sizeof(algorithms) / sizeof(*algorithms); i++) {
-		if (SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeEncrypt, algorithms[i])
-			&& SecKeyIsAlgorithmSupported(privKey, kSecKeyOperationTypeDecrypt, algorithms[i])) {
-			algorithm = algorithms[i];
-			break;
-		}
-	}
-	if (algorithm == NULL) {
-		os_log_error(TL_LOG, "Failed to find supported wrap algorithm");
-		return errSecParam;
-	}
-
-	CFRef<CFErrorRef> error;
-	CFRef<CFDataRef> wrappedUnlockKey = SecKeyCreateEncryptedData(pubKey, algorithm, unlockKey, error.take());
-	if (!wrappedUnlockKey) {
-		os_log_error(TL_LOG, "Failed to wrap unlock key: %{public}@", error.get());
-		return errSecParam;
-	}
-
-	CFRef<CFDictionaryRef> loginData = makeCFDictionary(4,
-														kSecAttrService,		algorithm,
-														kSecAttrPublicKeyHash,	pubKeyHashWrap,
-														kSecValueData,			wrappedUnlockKey.get(),
-														kSecClassKey,			scBlob
-														);
-	return TokenLoginStoreUnlockData(ctx, loginData);
+    CFRef<CFDictionaryRef> loginData;
+    
+    if (os_feature_enabled(Security, ProtectLoginKeychainWithDP)) {
+        loginData = makeCFDictionary(2,
+                                     kSecClassKey,            scBlob,
+                                     kSecAttrPublicKeyHash,    pubKeyHashWrap
+                                     );
+    } else {
+        CFRef<SecKeyRef> privKey;
+        OSStatus result = privKeyForPubKeyHashWrap(ctx, privKey.take(), NULL);
+        if (result != errSecSuccess) {
+            os_log_error(TL_LOG, "Failed to get private key for public key hash %{public}@: %d", pubKeyHashWrap, (int)result);
+            return result;
+        }
+        
+        CFRef<SecKeyRef> pubKey = SecKeyCopyPublicKey(privKey);
+        if (!pubKey) {
+            os_log_error(TL_LOG, "Failed to get public key from private key");
+            return errSecParam;
+        }
+        
+        SecKeyAlgorithm algorithms[] = {
+            kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM,
+            kSecKeyAlgorithmRSAEncryptionOAEPSHA512AESGCM,
+            kSecKeyAlgorithmRSAEncryptionOAEPSHA384AESGCM,
+            kSecKeyAlgorithmRSAEncryptionOAEPSHA256AESGCM,
+            kSecKeyAlgorithmRSAEncryptionOAEPSHA224AESGCM,
+            kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM
+        };
+        
+        SecKeyAlgorithm algorithm = NULL;
+        for (size_t i = 0; i < sizeof(algorithms) / sizeof(*algorithms); i++) {
+            if (SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeEncrypt, algorithms[i])
+                && SecKeyIsAlgorithmSupported(privKey, kSecKeyOperationTypeDecrypt, algorithms[i])) {
+                algorithm = algorithms[i];
+                break;
+            }
+        }
+        if (algorithm == NULL) {
+            os_log_error(TL_LOG, "Failed to find supported wrap algorithm");
+            return errSecParam;
+        }
+        
+        CFRef<CFErrorRef> error;
+        CFRef<CFDataRef> wrappedUnlockKey = SecKeyCreateEncryptedData(pubKey, algorithm, unlockKey, error.take());
+        if (!wrappedUnlockKey) {
+            os_log_error(TL_LOG, "Failed to wrap unlock key: %{public}@", error.get());
+            return errSecParam;
+        }
+        
+        loginData = makeCFDictionary(4,
+                                     kSecAttrService,		algorithm,
+                                     kSecAttrPublicKeyHash,	pubKeyHashWrap,
+                                     kSecValueData,			wrappedUnlockKey.get(),
+                                     kSecClassKey,			scBlob
+                                     );
+    }
+    return TokenLoginStoreUnlockData(ctx, loginData);
 }
 
-OSStatus TokenLoginStoreUnlockData(CFDictionaryRef context, CFDictionaryRef loginData)
+OSStatus TokenLoginStoreUnlockData(CFDictionaryRef context, CFDictionaryRef loginDataForPlist)
 {
     os_log_debug(TL_LOG, "Storing unlock data");
 
 	CFRef<CFErrorRef> error;
 	CFRef<CFDataRef> data = CFPropertyListCreateData(kCFAllocatorDefault,
-										   loginData,
+										   loginDataForPlist,
 										   kCFPropertyListBinaryFormat_v1_0,
 										   0,
 										   error.take());

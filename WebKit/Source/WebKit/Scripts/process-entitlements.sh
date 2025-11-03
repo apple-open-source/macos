@@ -646,6 +646,11 @@ fi
     plistbuddy Add :com.apple.private.assets.accessible-asset-types array
     plistbuddy Add :com.apple.private.assets.accessible-asset-types:0 string com.apple.MobileAsset.WebContentRestrictions
     plistbuddy Add :com.apple.developer.hardened-process bool YES
+
+    plistbuddy Add :com.apple.private.security.mutable-state-flags array
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string BlockNetworkAccess
+    plistbuddy Add :com.apple.private.security.enable-state-flags array
+    plistbuddy Add :com.apple.private.security.enable-state-flags:0 string BlockNetworkAccess
 }
 
 rm -f "${WK_PROCESSED_XCENT_FILE}"

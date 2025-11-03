@@ -22,6 +22,18 @@ module REXML
         @parser.source
       end
 
+      def entity_expansion_count
+        @parser.entity_expansion_count
+      end
+
+      def entity_expansion_limit=( limit )
+        @parser.entity_expansion_limit = limit
+      end
+
+      def entity_expansion_text_limit=( limit )
+        @parser.entity_expansion_text_limit = limit
+      end
+
       def add_listener( listener )
         @parser.add_listener( listener )
       end
@@ -157,25 +169,8 @@ module REXML
               end
             end
           when :text
-            #normalized = @parser.normalize( event[1] )
-            #handle( :characters, normalized )
-            copy = event[1].clone
-
-            esub = proc { |match|
-              if @entities.has_key?($1)
-                @entities[$1].gsub(Text::REFERENCE, &esub)
-              else
-                match
-              end
-            }
-
-            copy.gsub!( Text::REFERENCE, &esub )
-            copy.gsub!( Text::NUMERICENTITY ) {|m|
-              m=$1
-              m = "0#{m}" if m[0] == ?x
-              [Integer(m)].pack('U*')
-            }
-            handle( :characters, copy )
+            unnormalized = @parser.unnormalize( event[1], @entities )
+            handle( :characters, unnormalized )
           when :entitydecl
             handle_entitydecl( event )
           when :processing_instruction, :comment, :attlistdecl,
@@ -264,6 +259,8 @@ module REXML
       end
 
       def get_namespace( prefix )
+        return nil if @namespace_stack.empty?
+
         uris = (@namespace_stack.find_all { |ns| not ns[prefix].nil? }) ||
           (@namespace_stack.find { |ns| not ns[nil].nil? })
         uris[-1][prefix] unless uris.nil? or 0 == uris.size

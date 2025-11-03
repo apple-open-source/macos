@@ -89,6 +89,21 @@ AUTH_NONNULL2
 OSStatus
 server_authorize(connection_t, auth_token_t, AuthorizationFlags, auth_rights_t, auth_items_t, engine_t *);
 
+/*!
+    @function authorization_stage_plugin
+    @abstract Securely stages or removes authorization plugins for safe execution
+    @discussion This function handles the staging of authorization plugins by copying them to a secure location
+                or removing previously staged plugins. The function validates input parameters, prevents path
+                traversal attacks, and manages plugin lifecycle per process.
+    @param conn The XPC connection from the requesting process
+    @param message XPC message containing plugin path (for staging) and operation type
+    @param reply XPC reply object to send response back to client
+    @result OSStatus indicating success or specific error condition
+*/
+AUTH_NONNULL_ALL
+OSStatus
+authorization_stage_plugin(connection_t conn, xpc_object_t message, xpc_object_t reply);
+
 #if defined(__cplusplus)
 }
 #endif

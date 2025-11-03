@@ -368,6 +368,15 @@ SecCDSAKeyCopyExternalRepresentation(SecKeyRef keyRef, CFErrorRef *error) {
 
     KeychainCore::KeyItem *keyItem = CDSASecKey::keyItem(keyRef);
     Key &key = keyItem->key();
+    
+    // Check extractable flag for private keys only (public keys are always extractable)
+    if (key->keyClass() == CSSM_KEYCLASS_PRIVATE_KEY) {
+        const CSSM_KEY *cssmKey = keyItem->key();
+        if (cssmKey && (0==(cssmKey->KeyHeader.KeyAttr & CSSM_KEYATTR_EXTRACTABLE))) {
+            MacOSError::throwMe(errSecDataNotAvailable);
+        }
+    }
+
     WrapKey wrapKey(key->csp(), CSSM_ALGID_NONE);
     if (key->keyClass() == CSSM_KEYCLASS_PRIVATE_KEY) {
         // Creds are needed for wrapping private keys.

@@ -328,6 +328,11 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
         m_transactionIDForPendingCACommit = layerTreeTransaction.transactionID();
         m_activityStateChangeID = layerTreeTransaction.activityStateChangeID();
 
+        if (m_activityStateChangeID == m_activityStateChangeForUnhidingContent) {
+            RELEASE_LOG(RemoteLayerTree, "RemoteLayerTreeDrawingAreaProxy(%" PRIu64 ")::hideContentUntilDidUpdateActivityState completed", identifier().toUInt64());
+            m_activityStateChangeForUnhidingContent = std::nullopt;
+        }
+
         // FIXME(site-isolation): Editor state should be updated for subframes.
         didUpdateEditorState = layerTreeTransaction.hasEditorState() && page->updateEditorState(EditorState { layerTreeTransaction.editorState() }, WebPageProxy::ShouldMergeVisualEditorState::Yes);
     }
@@ -341,6 +346,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
     if (layerTreeTransaction.isMainFrameProcessTransaction()) {
         for (auto& callbackID : layerTreeTransaction.callbackIDs()) {
             if (callbackID == m_replyForUnhidingContent) {
+                RELEASE_LOG(RemoteLayerTree, "RemoteLayerTreeDrawingAreaProxy(%" PRIu64 ")::hideContentUntilPendingUpdate completed", identifier().toUInt64());
                 m_replyForUnhidingContent = std::nullopt;
                 break;
             }
@@ -353,9 +359,12 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
             ++m_countOfTransactionsWithNonEmptyLayerChanges;
 
         if (m_remoteLayerTreeHost->updateLayerTree(connection, layerTreeTransaction)) {
-            if (!m_replyForUnhidingContent)
+            if (!m_replyForUnhidingContent && !m_activityStateChangeForUnhidingContent) {
+                if (m_hasDetachedRootLayer)
+                    RELEASE_LOG(RemoteLayerTree, "RemoteLayerTreeDrawingAreaProxy(%" PRIu64 ") Unhiding layer tree", identifier().toUInt64());
                 page->setRemoteLayerTreeRootNode(m_remoteLayerTreeHost->protectedRootNode().get());
-            else
+                m_hasDetachedRootLayer = false;
+            } else
                 m_remoteLayerTreeHost->detachRootLayer();
         }
 #if ENABLE(ASYNC_SCROLLING)
@@ -674,13 +683,29 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStat
 
 void RemoteLayerTreeDrawingAreaProxy::hideContentUntilPendingUpdate()
 {
+    RELEASE_LOG(RemoteLayerTree, "RemoteLayerTreeDrawingAreaProxy(%" PRIu64 ")::hideContentUntilPendingUpdate", identifier().toUInt64());
     m_replyForUnhidingContent = webProcessProxy().sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [] () { }, messageSenderDestinationID(), { }, WebProcessProxy::ShouldStartProcessThrottlerActivity::No);
     m_remoteLayerTreeHost->detachRootLayer();
+    m_hasDetachedRootLayer = true;
+}
+
+void RemoteLayerTreeDrawingAreaProxy::hideContentUntilDidUpdateActivityState(ActivityStateChangeID activityStateChangeID)
+{
+    if (activityStateChangeID == ActivityStateChangeAsynchronous) {
+        hideContentUntilAnyUpdate();
+        return;
+    }
+    RELEASE_LOG(RemoteLayerTree, "RemoteLayerTreeDrawingAreaProxy(%" PRIu64 ")::hideContentUntilDidUpdateActivityState", identifier().toUInt64());
+    m_activityStateChangeForUnhidingContent = activityStateChangeID;
+    m_remoteLayerTreeHost->detachRootLayer();
+    m_hasDetachedRootLayer = true;
 }
 
 void RemoteLayerTreeDrawingAreaProxy::hideContentUntilAnyUpdate()
 {
+    RELEASE_LOG(RemoteLayerTree, "RemoteLayerTreeDrawingAreaProxy(%" PRIu64 ")::hideContentUntilAnyUpdate", identifier().toUInt64());
     m_remoteLayerTreeHost->detachRootLayer();
+    m_hasDetachedRootLayer = true;
 }
 
 void RemoteLayerTreeDrawingAreaProxy::prepareForAppSuspension()

@@ -459,11 +459,7 @@ WASM_IPINT_EXTERN_CPP_DECL(rethrow_exception, CallFrame* callFrame, IPIntStackEn
     JSWebAssemblyException* exception = std::bit_cast<JSWebAssemblyException*>(pl[callee->localSizeToAlloc() + tryDepth - 1].i32);
 #endif
     RELEASE_ASSERT(exception);
-    JSValue thrownValue = exception;
-    if (&exception->tag() == &Wasm::Tag::jsExceptionTag())
-        thrownValue = JSValue::decode(exception->payload().at(0));
-
-    throwException(globalObject, throwScope, thrownValue);
+    throwException(globalObject, throwScope, exception);
 
     genericUnwind(vm, callFrame);
     ASSERT(!!vm.callFrameForCatch);
@@ -481,10 +477,7 @@ WASM_IPINT_EXTERN_CPP_DECL(throw_ref, CallFrame* callFrame, EncodedJSValue exnre
 
     auto* exception = jsSecureCast<JSWebAssemblyException*>(JSValue::decode(exnref));
     RELEASE_ASSERT(exception);
-    JSValue thrownValue = exception;
-    if (&exception->tag() == &Wasm::Tag::jsExceptionTag())
-        thrownValue = JSValue::decode(exception->payload().at(0));
-    throwException(globalObject, throwScope, thrownValue);
+    throwException(globalObject, throwScope, exception);
 
     genericUnwind(vm, callFrame);
     ASSERT(!!vm.callFrameForCatch);

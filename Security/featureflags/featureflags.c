@@ -94,19 +94,6 @@ bool _SecTrustQWACValidationEnabled(void)
     return QWACValidationEnabled;
 }
 
-bool _SecTrustStoreRootConstraintsEnabled(void)
-{
-    /* NOTE: This feature flags are referenced by string in unit tests.
-     * If you're here cleaning up, please remove it from the tests as well. */
-    static bool RootConstraintsEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        RootConstraintsEnabled = os_feature_enabled(Security, RootConstraints);
-        _SecTrustShowFeatureStatus("RootConstraints", RootConstraintsEnabled);
-    });
-    return RootConstraintsEnabled;
-}
-
 bool _SecProtectLoginKeychainWithDP(void)
 {
     static bool ffProtectLoginKeychainWithDP = false;
@@ -135,6 +122,27 @@ bool _SecTrustEarlyAnchorExpirationEnabled(void)
     return false;
 }
 
+bool _SecTrustRemoveOldAppleAnchorSource(void)
+{
+    static bool RemoveOldAppleAnchorSourceEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        RemoveOldAppleAnchorSourceEnabled  = os_feature_enabled(Security, RemoveOldAppleAnchorSource);
+        _SecTrustShowFeatureStatus("RemoveOldAppleAnchorSource", RemoveOldAppleAnchorSourceEnabled);
+    });
+    return RemoveOldAppleAnchorSourceEnabled ;
+}
+
+bool _SecTrustRemoveOldSystemAnchorSource(void)
+{
+    static bool RemoveOldSystemAnchorSourceEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        RemoveOldSystemAnchorSourceEnabled  = os_feature_enabled(Security, RemoveOldSystemAnchorSource);
+        _SecTrustShowFeatureStatus("RemoveOldSystemAnchorSource", RemoveOldSystemAnchorSourceEnabled);
+    });
+    return RemoveOldSystemAnchorSourceEnabled ;
+}
 
 typedef enum {
     SecDbVerboseDatabaseLogging_DEFAULT,

@@ -39,7 +39,8 @@
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState
-                     followupHandler:(OTFollowup*)followupHandler;
+                     followupHandler:(OTFollowup*)followupHandler
+                         contextType:(AppleKeyStorePasscodeCacheReason)contextType;
 
 @end
 

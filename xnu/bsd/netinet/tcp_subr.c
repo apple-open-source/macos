@@ -309,6 +309,99 @@ static void tcp_flow_ecn_perf_stats(struct ifnet_stats_per_flow *ifs,
 
 static aes_encrypt_ctx tfo_ctx; /* Crypto-context for TFO */
 
+/* TCP RST duplicate suppression */
+static LCK_ATTR_DECLARE(tcp_rst_rlc_attr, 0, 0);
+static LCK_GRP_DECLARE(tcp_rst_rlc_mtx_grp, "rst_rlc");
+static LCK_MTX_DECLARE_ATTR(tcp_rst_rlc_mtx_data, &tcp_rst_rlc_mtx_grp, &tcp_rst_rlc_attr);
+static lck_mtx_t  * const tcp_rst_rlc_mtx = &tcp_rst_rlc_mtx_data;
+
+static struct in_endpoints      tcp_rst_rlc_state;
+static uint32_t                 tcp_rst_rlc_ts;
+static uint32_t                 tcp_rst_rlc_cnt = 0;
+
+SYSCTL_SKMEM_TCP_INT(OID_AUTO, rst_rlc_enable,
+    CTLFLAG_RW | CTLFLAG_LOCKED, static int, tcp_rst_rlc_enable, 1,
+    "Enable RST run-length-compression");
+
+SYSCTL_SKMEM_TCP_INT(OID_AUTO, rst_rlc_bucket_ms,
+    CTLFLAG_RW | CTLFLAG_LOCKED, static int, tcp_rst_rlc_bucket_ms, 200,
+    "Duration of RLC bucket in milliseconds for the RST run-length-compression");
+
+SYSCTL_SKMEM_TCP_INT(OID_AUTO, rst_rlc_use_ts,
+    CTLFLAG_RW | CTLFLAG_LOCKED, static int, tcp_rst_rlc_use_ts, 1,
+    "Include timestamp in RST run-length-compression");
+
+SYSCTL_SKMEM_TCP_INT(OID_AUTO, rst_rlc_verbose,
+    CTLFLAG_RW | CTLFLAG_LOCKED, static int, tcp_rst_rlc_verbose, 0,
+    "Verbose output: 0: no output; 1: log whenever the RST RLC buffer changes");
+
+
+bool
+tcp_rst_rlc_compress(void *ipgen __sized_by(ipgen_size), size_t ipgen_size __unused, struct tcphdr *th)
+{
+	struct ip *ip;
+	struct ip6_hdr *ip6;
+	bool isipv6;
+	struct in_endpoints flow;
+	bool should_throttle = false;
+	uint32_t last_tcp_rst_rlc_cnt = 0;
+	in_port_t last_sport = 0;
+	in_port_t last_dport = 0;
+
+	if (tcp_rst_rlc_enable == 0 || (th->th_flags & TH_RST) == 0) {
+		return false;
+	}
+	bzero(&flow, sizeof(flow));
+
+	isipv6 = IP_VHL_V(((struct ip *)ipgen)->ip_vhl) == 6;
+
+	ip6 = ipgen;
+	ip = ipgen;
+
+	flow.ie_lport = th->th_sport;
+	flow.ie_fport = th->th_dport;
+
+	if (isipv6) {
+		bcopy(&ip6->ip6_src, &flow.ie6_laddr, sizeof(struct in6_addr));
+		bcopy(&ip6->ip6_dst, &flow.ie6_faddr, sizeof(struct in6_addr));
+	} else {
+		bcopy(&ip->ip_src, &flow.ie_laddr, sizeof(struct in_addr));
+		bcopy(&ip->ip_dst, &flow.ie_faddr, sizeof(struct in_addr));
+	}
+
+	lck_mtx_lock(tcp_rst_rlc_mtx);
+	if (__improbable((tcp_rst_rlc_use_ts == false || tcp_now - tcp_rst_rlc_ts < tcp_rst_rlc_bucket_ms) &&
+	    bcmp(&flow, &tcp_rst_rlc_state, sizeof(struct in_endpoints)) == 0)) {
+		/*
+		 * The rst rlc state hasn't changed changed, we should throttle.
+		 */
+		should_throttle = true;
+		tcp_rst_rlc_cnt++;
+		tcpstat.tcps_rst_dup_suppressed++;
+	} else {
+		should_throttle = false;
+		last_tcp_rst_rlc_cnt = tcp_rst_rlc_cnt;
+		last_sport = tcp_rst_rlc_state.ie_lport;
+		last_dport = tcp_rst_rlc_state.ie_fport;
+
+		bcopy(&flow, &tcp_rst_rlc_state, sizeof(struct in_endpoints));
+		tcp_rst_rlc_ts = tcp_now;
+
+		tcp_rst_rlc_cnt = 0;
+		tcpstat.tcps_rst_not_suppressed++;
+	}
+	lck_mtx_unlock(tcp_rst_rlc_mtx);
+
+	if (tcp_rst_rlc_verbose) {
+		if (last_tcp_rst_rlc_cnt != 0) {
+			os_log(OS_LOG_DEFAULT, "RST RLC compression: compressed %u RST segments [%hu:%hu]",
+			    last_tcp_rst_rlc_cnt, ntohs(last_sport), ntohs(last_dport));
+		}
+	}
+
+	return should_throttle;
+}
+
 void
 tcp_tfo_gen_cookie(struct inpcb *inp, u_char *out __sized_by(blk_size), size_t blk_size)
 {
@@ -655,6 +748,8 @@ tcp_init(struct protosw *pp, struct domain *dp)
 	tcp_cc_init();
 
 	read_frandom(&isn_secret, sizeof(isn_secret));
+
+	bzero(&tcp_rst_rlc_state, sizeof(struct in_endpoints));
 }
 
 /*
@@ -995,6 +1090,12 @@ tcp_respond(struct tcpcb *tp, void *ipgen __sized_by(ipgen_size), size_t ipgen_s
 		m->m_pkthdr.csum_flags = CSUM_TCP;
 		m->m_pkthdr.csum_data = offsetof(struct tcphdr, th_sum);
 	}
+
+	if (tcp_rst_rlc_compress(mtod(m, void *), m->m_len, nth) == true) {
+		m_freem(m);
+		return;
+	}
+
 #if NECP
 	necp_mark_packet_from_socket(m, tp ? tp->t_inpcb : NULL, 0, 0, 0, 0);
 #endif /* NECP */

@@ -42,6 +42,19 @@ __options_decl(vm_compressor_options_t, uint32_t, {
 	C_KDP                   = 0x00000004, /* kdp fault tells the compressor to not do locking */
 	C_PAGE_UNMODIFIED       = 0x00000008,
 	C_KDP_MULTICPU          = 0x00000010,
+#if HAS_MTE
+	C_MTE                   = 0x00000020,
+
+	/*
+	 * Tells the compressor NOT to decompress the tags into the associated
+	 * tag storage page.  This is used by kernel-debugger context code
+	 * (such as stackshot); such code will need to inspect compressed data,
+	 * but will only be decompressing into temporary buffers that will not
+	 * be MTE-enabled, so decompressing the tags is neither safe or
+	 * necessary.
+	 */
+	C_MTE_DROP_TAGS         = 0x00000040,
+#endif
 });
 
 extern kern_return_t vm_compressor_pager_get(

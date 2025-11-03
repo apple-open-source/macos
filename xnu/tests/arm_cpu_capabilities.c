@@ -517,6 +517,42 @@ try_sme_i16i64(void)
         );
 }
 
+__attribute__((target("sme2p1")))
+static void
+try_sme2p1(void)
+{
+	asm volatile (
+                "mov    x8, #0"                 "\n"
+                "smstart"                       "\n"
+                "zero   za.d[w8, #0, VGx2]"     "\n"
+                "smstop"                        "\n"
+                :
+                :
+                : "x8"
+        );
+}
+
+__attribute__((target("sme2p1,sme-f16f16")))
+static void
+try_sme_f16f16(void)
+{
+	asm volatile (
+               "smstart"                                "\n"
+               "fmopa   za0.h, p0/m, p0/m, z0.h, z0.h"  "\n"
+               "smstop"                                 "\n"
+        );
+}
+
+__attribute__((target("sme2p1,b16b16,sme-b16b16")))
+static void
+try_sme_b16b16(void)
+{
+	asm volatile (
+               "smstart"                                "\n"
+               "bfmopa  za0.h, p0/m, p0/m, z0.h, z0.h"  "\n"
+               "smstop"                                 "\n"
+        );
+}
 
 
 static void
@@ -658,6 +694,7 @@ T_DECL(cpu_capabilities, "Verify ARM CPU capabilities", T_META_TAG_VM_NOT_ELIGIB
 	test_cpu_capability("FP16", kHasFP_SyncExceptions, "hw.optional.arm.FP_SyncExceptions", -1, try_fpexcp);
 	test_cpu_capability("SME", kHasFeatSME, "hw.optional.arm.FEAT_SME", CAP_BIT_FEAT_SME, try_sme);
 	test_cpu_capability("SME2", kHasFeatSME2, "hw.optional.arm.FEAT_SME2", CAP_BIT_FEAT_SME2, try_sme2);
+	test_cpu_capability("SME2.1", kHasFeatSME2p1, "hw.optional.arm.FEAT_SME2p1", CAP_BIT_FEAT_SME2p1, try_sme2p1);
 
 	// The following features do not have a commpage entry
 	test_cpu_capability("BF16", 0, "hw.optional.arm.FEAT_BF16", CAP_BIT_FEAT_BF16, try_bf16);
@@ -673,6 +710,8 @@ T_DECL(cpu_capabilities, "Verify ARM CPU capabilities", T_META_TAG_VM_NOT_ELIGIB
 	test_cpu_capability("SME_I16I32", 0, "hw.optional.arm.SME_I16I32", CAP_BIT_SME_I16I32, try_sme_i16i32);
 	test_cpu_capability("SME_F64F64", 0, "hw.optional.arm.FEAT_SME_F64F64", CAP_BIT_FEAT_SME_F64F64, try_sme_f64f64);
 	test_cpu_capability("SME_I16I64", 0, "hw.optional.arm.FEAT_SME_I16I64", CAP_BIT_FEAT_SME_I16I64, try_sme_i16i64);
+	test_cpu_capability("SME_F16F16", 0, "hw.optional.arm.FEAT_SME_F16F16", CAP_BIT_FEAT_SME_F16F16, try_sme_f16f16);
+	test_cpu_capability("SME_B16B16", 0, "hw.optional.arm.FEAT_SME_B16B16", CAP_BIT_FEAT_SME_B16B16, try_sme_b16b16);
 
 	// The following features do not add instructions or registers to test for the presence of
 	test_deprecated_sysctl("PACIMP", kHasArmv8GPI, "hw.optional.armv8_gpi");

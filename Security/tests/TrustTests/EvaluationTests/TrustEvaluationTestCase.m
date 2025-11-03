@@ -52,8 +52,11 @@ static os_transaction_t transaction = nil;
 /* Build in trustd functionality to the tests */
 + (void) setUp {
     transaction = os_transaction_create("com.apple.trusttests.noExitWhenClean");
-    /* Use the production Valid DB by default (so we'll have data to test against) */
+    /* Use the production Valid DB by default (so we'll have data to test against)
+     * But don't allow updating since during the DB writes Valid is disabled, causing flakiness
+     * in tests that require Valid data. */
     CFPreferencesSetAppValue(CFSTR("ValidUpdateServer"), kValidUpdateProdServer, kSecurityPreferencesDomain);
+    CFPreferencesSetAppValue(CFSTR("ValidUpdateEnabled"), kCFBooleanFalse, kSecurityPreferencesDomain);
     CFPreferencesSetAppValue(CFSTR("DefaultHTTPTimeout"), (__bridge CFNumberRef)(@10), kSecurityPreferencesDomain);
     CFPreferencesAppSynchronize(kSecurityPreferencesDomain);
 
@@ -83,9 +86,7 @@ static os_transaction_t transaction = nil;
         return nil;
     }
 
-    /* Since we're interacting with the keychain we need a framework cert */
-    SecCertificateRef frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert);
-    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)frameworkCert,
+    attrs = @{(__bridge NSString*)kSecValueRef: (__bridge id)cert,
               (__bridge NSString*)kSecUseKeychain: (__bridge id)kcRef,
               (__bridge NSString*)kSecReturnPersistentRef: @YES};
     OSStatus status = SecItemAdd((CFDictionaryRef)attrs, (void *)&certRef);
@@ -94,12 +95,11 @@ static os_transaction_t transaction = nil;
     CFReleaseNull(kcRef);
     CFReleaseNull(certRef);
 
-    status = SecTrustSettingsSetTrustSettings(frameworkCert, kSecTrustSettingsDomainAdmin,
+    status = SecTrustSettingsSetTrustSettings(cert, kSecTrustSettingsDomainAdmin,
                                               (__bridge CFTypeRef)trustSettings);
     XCTAssert(errSecSuccess == status, "failed to set trust settings: %d", status);
     usleep(20000);
 
-    CFReleaseNull(frameworkCert);
     return result;
 #endif
 }
@@ -123,12 +123,10 @@ static os_transaction_t transaction = nil;
     SecTrustStoreRef defaultStore = SecTrustStoreForDomain(kSecTrustStoreDomainUser);
     XCTAssert(errSecSuccess == SecTrustStoreRemoveCertificate(defaultStore, cert), "failed to remove trust settings");
 #else
-    SecCertificateRef frameworkCert = SecFrameworkCertificateCreateFromTestCert(cert);
-    XCTAssert(errSecSuccess == SecTrustSettingsRemoveTrustSettings(frameworkCert, kSecTrustSettingsDomainAdmin),
+    XCTAssert(errSecSuccess == SecTrustSettingsRemoveTrustSettings(cert, kSecTrustSettingsDomainAdmin),
               "failed to remove trust settings");
     XCTAssert(errSecSuccess == SecItemDelete((CFDictionaryRef)@{ (__bridge NSString*)kSecValuePersistentRef: persistentRef}),
               "failed to remove item from keychain");
-    CFReleaseNull(frameworkCert);
 #endif
 }
 
@@ -312,111 +310,3 @@ exit:
 }
 
 @end
-
-/* MARK: Framework type conversion functions */
-
-typedef SecCertificateRef (*cert_create_f)(CFAllocatorRef allocator,
-                           const UInt8 *der_bytes, CFIndex der_length);
-CF_RETURNS_RETAINED _Nullable
-SecCertificateRef SecFrameworkCertificateCreate(const uint8_t * _Nonnull der_bytes, CFIndex der_length) {
-    static cert_create_f FrameworkCertCreateFunctionPtr = NULL;
-    static dispatch_once_t onceToken;
-
-    dispatch_once(&onceToken, ^{
-        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-        if (framework) {
-            FrameworkCertCreateFunctionPtr = dlsym(framework, "SecCertificateCreateWithBytes");
-        }
-    });
-
-    if (FrameworkCertCreateFunctionPtr) {
-        return FrameworkCertCreateFunctionPtr(NULL, der_bytes, der_length);
-    } else {
-        NSLog(@"WARNING: not using Security framework certificate");
-        return SecCertificateCreateWithBytes(NULL, der_bytes, der_length);
-    }
-}
-
-SecCertificateRef SecFrameworkCertificateCreateFromTestCert(SecCertificateRef cert) {
-    return SecFrameworkCertificateCreate(SecCertificateGetBytePtr(cert), SecCertificateGetLength(cert));
-}
-
-typedef  SecPolicyRef (*ssl_policy_create_f)(Boolean server, CFStringRef hostname);
-SecPolicyRef SecFrameworkPolicyCreateSSL(Boolean server, CFStringRef __nullable hostname) {
-    static ssl_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
-    static dispatch_once_t onceToken;
-
-    dispatch_once(&onceToken, ^{
-        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-        if (framework) {
-            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreateSSL");
-        }
-    });
-
-    if (FrameworkPolicyCreateFunctionPtr) {
-        return FrameworkPolicyCreateFunctionPtr(server, hostname);
-    } else {
-        NSLog(@"WARNING: not using Security framework policy");
-        return SecPolicyCreateSSL(server, hostname);
-    }
-}
-
-typedef  SecPolicyRef (*basic_policy_create_f)(void);
-SecPolicyRef SecFrameworkPolicyCreateBasicX509(void) {
-    static basic_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
-    static dispatch_once_t onceToken;
-
-    dispatch_once(&onceToken, ^{
-        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-        if (framework) {
-            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreateBasicX509");
-        }
-    });
-
-    if (FrameworkPolicyCreateFunctionPtr) {
-        return FrameworkPolicyCreateFunctionPtr();
-    } else {
-        NSLog(@"WARNING: not using Security framework policy");
-        return SecPolicyCreateBasicX509();
-    }
-}
-
-typedef  SecPolicyRef (*smime_policy_create_f)(CFIndex smimeUsage, CFStringRef email);
-SecPolicyRef SecFrameworkPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef email) {
-    static smime_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
-    static dispatch_once_t onceToken;
-
-    dispatch_once(&onceToken, ^{
-        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-        if (framework) {
-            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreateSMIME");
-        }
-    });
-
-    if (FrameworkPolicyCreateFunctionPtr) {
-        return FrameworkPolicyCreateFunctionPtr(smimeUsage, email);
-    } else {
-        NSLog(@"WARNING: not using Security framework policy");
-        return SecPolicyCreateSMIME(smimeUsage, email);
-    }
-}
-
-typedef  SecPolicyRef (*passbook_policy_create_f)(CFStringRef cardIssuer, CFStringRef teamIdentifier);
-SecPolicyRef SecFrameworkPolicyCreatePassbookCardSigner(CFStringRef cardIssuer, CFStringRef teamIdentifier) {
-    static passbook_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
-    static dispatch_once_t onceToken;
-
-    dispatch_once(&onceToken, ^{
-        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
-        if (framework) {
-            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreatePassbookCardSigner");
-        }
-    });
-
-    if (FrameworkPolicyCreateFunctionPtr) {
-        return FrameworkPolicyCreateFunctionPtr(cardIssuer, teamIdentifier);
-    } else {
-        NSLog(@"WARNING: not using Security framework policy");
-        return SecPolicyCreatePassbookCardSigner(cardIssuer, teamIdentifier);
-    }
-}

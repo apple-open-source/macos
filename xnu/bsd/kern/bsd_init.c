@@ -1204,6 +1204,7 @@ bsd_utaskbootstrap(void)
 
 	task_t task = get_threadtask(thread);
 	vm_map_setup(get_task_map(task), task);
+	task_set_ctrl_port_default(task, thread);
 	ipc_task_enable(task);
 
 	task_clear_return_wait(task, TCRW_CLEAR_ALL_WAIT);

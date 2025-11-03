@@ -1681,7 +1681,10 @@ T_DECL(early_boot_tracing,
 // Allocating ~4TB should be clamped to some lower number.
 T_DECL(early_boot_tracing_too_large,
     "ensure early boot tracing can allocate up to a clamped size",
-	T_META_BOOTARGS_SET("trace=64000000000"), XNU_T_META_SOC_SPECIFIC, T_META_TAG_VM_NOT_ELIGIBLE)
+	T_META_BOOTARGS_SET("trace=64000000000"),
+	XNU_T_META_SOC_SPECIFIC,
+	T_META_TAG_VM_NOT_ELIGIBLE,
+	T_META_ENABLED(false) /* rdar://151582520 */)
 {
 	expect_kernel_task_tracing();
 	T_EXPECT_NE(get_nevents(), 0, "allocated some events");

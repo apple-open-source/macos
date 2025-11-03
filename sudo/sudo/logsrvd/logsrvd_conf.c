@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -36,7 +36,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif
 #include <stddef.h>
 #include <stdio.h>
@@ -48,19 +48,19 @@
 #include <grp.h>
 #include <pwd.h>
 #ifndef HAVE_GETADDRINFO
-# include "compat/getaddrinfo.h"
+# include <compat/getaddrinfo.h>
 #endif
 
-#include "pathnames.h"
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_eventlog.h"
-#include "sudo_fatal.h"
-#include "sudo_gettext.h"
-#include "sudo_iolog.h"
-#include "sudo_util.h"
+#include <pathnames.h>
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_eventlog.h>
+#include <sudo_fatal.h>
+#include <sudo_gettext.h>
+#include <sudo_iolog.h>
+#include <sudo_util.h>
 
-#include "logsrvd.h"
+#include <logsrvd.h>
 
 #if defined(HAVE_OPENSSL)
 # define DEFAULT_CA_CERT_PATH       "/etc/ssl/sudo/cacert.pem"
@@ -468,7 +468,7 @@ cb_iolog_maxseq(struct logsrvd_config *config, const char *str, size_t offset)
     unsigned int value;
     debug_decl(cb_iolog_maxseq, SUDO_DEBUG_UTIL);
 
-    value = sudo_strtonum(str, 0, SESSID_MAX, &errstr);
+    value = (unsigned int)sudo_strtonum(str, 0, SESSID_MAX, &errstr);
     if (errstr != NULL) {
         if (errno != ERANGE) {
 	    sudo_warnx(U_("invalid value for %s: %s"), "maxseq", errstr);
@@ -544,9 +544,6 @@ append_address(struct server_address_list *addresses, const char *str,
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
-#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-    hints.ai_flags |= AI_NUMERICSERV;
-#endif
     error = getaddrinfo(host, port, &hints, &res0);
     if (error != 0) {
 	sudo_gai_warn(error, U_("%s:%s"), host ? host : "*", port);
@@ -591,7 +588,7 @@ cb_server_timeout(struct logsrvd_config *config, const char *str, size_t offset)
     const char *errstr;
     debug_decl(cb_server_timeout, SUDO_DEBUG_UTIL);
 
-    timeout = sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
+    timeout = (time_t)sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
     if (errstr != NULL)
 	debug_return_bool(false);
 
@@ -797,7 +794,7 @@ cb_relay_timeout(struct logsrvd_config *config, const char *str, size_t offset)
     const char *errstr;
     debug_decl(cb_relay_timeout, SUDO_DEBUG_UTIL);
 
-    timeout = sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
+    timeout = (time_t)sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
     if (errstr != NULL)
 	debug_return_bool(false);
 
@@ -813,7 +810,7 @@ cb_relay_connect_timeout(struct logsrvd_config *config, const char *str, size_t 
     const char *errstr;
     debug_decl(cb_relay_connect_timeout, SUDO_DEBUG_UTIL);
 
-    timeout = sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
+    timeout = (time_t)sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
     if (errstr != NULL)
 	debug_return_bool(false);
 
@@ -846,7 +843,7 @@ cb_retry_interval(struct logsrvd_config *config, const char *str, size_t offset)
     const char *errstr;
     debug_decl(cb_retry_interval, SUDO_DEBUG_UTIL);
 
-    interval = sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
+    interval = (time_t)sudo_strtonum(str, 0, TIME_T_MAX, &errstr);
     if (errstr != NULL)
 	debug_return_bool(false);
 
@@ -904,8 +901,13 @@ cb_eventlog_format(struct logsrvd_config *config, const char *str, size_t offset
 {
     debug_decl(cb_eventlog_format, SUDO_DEBUG_UTIL);
 
+    /* FFR - make "json" an alias for EVLOG_JSON_COMPACT instead. */
     if (strcmp(str, "json") == 0)
-	config->eventlog.log_format = EVLOG_JSON;
+	config->eventlog.log_format = EVLOG_JSON_PRETTY;
+    else if (strcmp(str, "json_compact") == 0)
+	config->eventlog.log_format = EVLOG_JSON_COMPACT;
+    else if (strcmp(str, "json_pretty") == 0)
+	config->eventlog.log_format = EVLOG_JSON_PRETTY;
     else if (strcmp(str, "sudo") == 0)
 	config->eventlog.log_format = EVLOG_SUDO;
     else
@@ -935,7 +937,7 @@ cb_syslog_maxlen(struct logsrvd_config *config, const char *str, size_t offset)
     const char *errstr;
     debug_decl(cb_syslog_maxlen, SUDO_DEBUG_UTIL);
 
-    maxlen = sudo_strtonum(str, 1, UINT_MAX, &errstr);
+    maxlen = (unsigned int)sudo_strtonum(str, 1, UINT_MAX, &errstr);
     if (errstr != NULL)
 	debug_return_bool(false);
 
@@ -1295,8 +1297,8 @@ logsrvd_open_eventlog(struct logsrvd_config *config)
     int flags;
     debug_decl(logsrvd_open_eventlog, SUDO_DEBUG_UTIL);
 
-    /* Cannot append to a JSON file. */
-    if (config->eventlog.log_format == EVLOG_JSON) {
+    /* Cannot append to a JSON file that is a single object. */
+    if (config->eventlog.log_format == EVLOG_JSON_PRETTY) {
 	flags = O_RDWR|O_CREAT;
     } else {
 	flags = O_WRONLY|O_APPEND|O_CREAT;
@@ -1854,25 +1856,39 @@ logsrvd_conf_apply(struct logsrvd_config *config)
 
 /*
  * Read .ini style logsrvd.conf file.
+ * If path is NULL, use _PATH_SUDO_LOGSRVD_CONF.
  * Note that we use '#' not ';' for the comment character.
  */
 bool
 logsrvd_conf_read(const char *path)
 {
     struct logsrvd_config *config;
+    char conf_file[PATH_MAX];
     bool ret = false;
     FILE *fp = NULL;
+    int fd = -1;
     debug_decl(logsrvd_conf_read, SUDO_DEBUG_UTIL);
 
     config = logsrvd_conf_alloc();
 
-    if ((fp = fopen(path, "r")) == NULL) {
-	if (errno != ENOENT) {
-	    sudo_warn("%s", path);
+    if (path != NULL) {
+       if (strlcpy(conf_file, path, sizeof(conf_file)) >= sizeof(conf_file))
+            errno = ENAMETOOLONG;
+	else
+	    fd = open(conf_file, O_RDONLY);
+    } else {
+	fd = sudo_open_conf_path(_PATH_SUDO_LOGSRVD_CONF, conf_file,
+	    sizeof(conf_file), NULL);
+    }
+    if (fd != -1)
+	fp = fdopen(fd, "r");
+    if (fp == NULL) {
+	if (path != NULL || errno != ENOENT) {
+	    sudo_warn("%s", conf_file);
 	    goto done;
 	}
     } else {
-	if (!logsrvd_conf_parse(config, fp, path))
+	if (!logsrvd_conf_parse(config, fp, conf_file))
 	    goto done;
     }
 

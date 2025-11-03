@@ -2429,6 +2429,9 @@ mptcp_subflow_sosend(struct socket *so, struct sockaddr *addr, struct uio *uio,
 	}
 
 	error = (*so->so_proto->pr_usrreqs->pru_send)(so, 0, top, NULL, NULL, p);
+	if (error == EJUSTRETURN) {
+		error = 0;
+	}
 	top = NULL;
 
 out:
@@ -3105,6 +3108,9 @@ mptcp_subflow_output(struct mptses *mpte, struct mptsub *mpts, int flags)
 		/* Opting to call pru_send as no mbuf at subflow level */
 		error = (*so->so_proto->pr_usrreqs->pru_send)(so, 0, NULL, NULL,
 		    NULL, current_proc());
+		if (error == EJUSTRETURN) {
+			error = 0;
+		}
 
 		goto done_sending;
 	}

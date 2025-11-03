@@ -88,8 +88,14 @@ public:
     // CSSM-style ACL access operations
 	// (Gets are not const because underlying implementations usually want them writable) 
     void cssmGetAcl(const char *tag, uint32 &count, AclEntryInfo * &acls);
+
+    typedef enum {
+        cssmChangeAcl_xara_partition_tag_disallowed,
+        cssmChangeAcl_only_xara_partition_tag_allowed,
+        cssmChangeAcl_all_tags_allowed,
+    } cssmChangeAcl_xara_partition_tag_allowed;
     void cssmChangeAcl(const AclEdit &edit, const AccessCredentials *cred,
-		AclValidationEnvironment *env = NULL, const char *preserveTag = NULL);
+		AclValidationEnvironment *env, const cssmChangeAcl_xara_partition_tag_allowed);
     void cssmGetOwner(AclOwnerPrototype &owner);
     void cssmChangeOwner(const AclOwnerPrototype &newOwner, const AccessCredentials *cred,
 		AclValidationEnvironment *env = NULL);

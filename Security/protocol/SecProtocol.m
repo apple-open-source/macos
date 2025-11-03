@@ -57,6 +57,17 @@
 @implementation OfferedEPSK : SecOfferedEPSK
 @end
 
+@implementation SecOfferedPAKEIdentity
+- (nonnull instancetype)initWithClientIdentity:(NSData *)client_identity :(NSData *)server_identity :(sec_protocol_pake_scheme_t)pake_scheme {
+    if (self = [super init]) {
+        self.client_identity = client_identity;
+        self.server_identity = server_identity;
+        self.pake_scheme = pake_scheme;
+    }
+    return self;
+}
+@end
+
 SecSessionInfo*
 sec_protocol_metadata_get_sec_session_ticket_info(sec_protocol_metadata_t metadata)
 {
@@ -133,7 +144,7 @@ sec_protocol_options_set_external_pre_shared_key_selection_block(sec_protocol_op
     SEC_PROTOCOL_OPTIONS_VALIDATE(external_psk_selection_block,);
     SEC_PROTOCOL_OPTIONS_VALIDATE(external_psk_selection_queue,);
 
-    sec_protocol_options_set_external_pre_shared_key_selection_queue_helper(options, external_psk_selection_queue);
+    sec_protocol_options_set_queue_helper(options, external_psk_selection_queue, external_pre_shared_key_selection);
 
     (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
@@ -144,6 +155,28 @@ sec_protocol_options_set_external_pre_shared_key_selection_block(sec_protocol_op
         }
 
         content->external_psk_selection_block = CFBridgingRetain(external_psk_selection_block);
+        return true;
+    });
+}
+
+void
+sec_protocol_options_set_pake_challenge_block(sec_protocol_options_t options, sec_protocol_pake_challenge_t pake_challenge_block, dispatch_queue_t pake_challenge_queue)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+    SEC_PROTOCOL_OPTIONS_VALIDATE(pake_challenge_block,);
+    SEC_PROTOCOL_OPTIONS_VALIDATE(pake_challenge_queue,);
+
+    sec_protocol_options_set_queue_helper(options, pake_challenge_queue, pake_challenge);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        if (content->pake_challenge_block != NULL) {
+            CFReleaseNull(content->pake_challenge_block);
+        }
+
+        content->pake_challenge_block = CFBridgingRetain(pake_challenge_block);
         return true;
     });
 }

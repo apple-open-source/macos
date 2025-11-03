@@ -366,7 +366,11 @@ typedef struct {
 	vm_size_t len;
 } ptov_table_entry;
 
+#if HAS_MTE
+#define PTOV_TABLE_SIZE 9
+#else /* HAS_MTE */
 #define PTOV_TABLE_SIZE 8
+#endif /* HAS_MTE */
 
 SECURITY_READ_ONLY_LATE(static ptov_table_entry)        ptov_table[PTOV_TABLE_SIZE];
 SECURITY_READ_ONLY_LATE(static boolean_t)               kva_active = FALSE;
@@ -1604,6 +1608,9 @@ arm_vm_physmap_init(boot_args *args)
 	    real_avail_end - args->topOfKernelData, AP_RWNA, 0);
 
 
+#if HAS_MTE
+	arm_vm_physmap_tag_region_init(temp_ptov_table);
+#endif /* HAS_MTE */
 
 	assert((temp_ptov_table[ptov_index - 1].va + temp_ptov_table[ptov_index - 1].len) <= physmap_end);
 
@@ -1833,6 +1840,18 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	 * in units of the hardware page size and should not need similar treatment.
 	 */
 	gPhysSize = mem_size = ((gPhysBase + args->memSize) & ~PAGE_MASK) - gPhysBase;
+#if HAS_MTE
+	/*
+	 * If MTE is enabled, iBoot pushed us down a contiguous memory region that
+	 * contains both the memory we can freely use along with the memory
+	 * that is reserved for tags. Fixup gPhysSize and mem_size until we enable
+	 * tag page reclaiming.
+	 */
+	if (is_mte_enabled) {
+		arm_vm_mte_init();
+		gPhysSize = mem_size = mte_tag_storage_start - gPhysBase;
+	}
+#endif /* HAS_MTE */
 
 	mem_actual = args->memSizeActual ? args->memSizeActual : mem_size;
 
@@ -1870,6 +1889,9 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 #endif // ARM_LARGE_MEMORY
 	physmap_end = physmap_base + real_phys_size;
 
+#if HAS_MTE
+	physmap_end += gDramSize / MTE_PAGES_PER_TAG_PAGE;
+#endif /* HAS_MTE */
 
 #else
 #if defined(ARM_LARGE_MEMORY)

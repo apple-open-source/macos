@@ -96,9 +96,6 @@ errno_t mach_to_bsd_errno(kern_return_t mach_err);
 extern uint32_t vm_compressor_pool_size(void);
 extern uint32_t vm_compressor_fragmentation_level(void);
 
-pid_t memorystatus_freeze_last_pid_thawed = 0;
-uint64_t memorystatus_freeze_last_pid_thawed_ts = 0;
-
 int block_corpses = 0; /* counter to block new corpses if jetsam purges them */
 
 /* For logging clarity */
@@ -328,8 +325,16 @@ _memstat_write_memlimit_to_ledger_locked(proc_t p, bool is_active, bool drop_loc
 #define MEMORYSTATUS_IDLE_RATIO_DENOM_MEDIUM 4UL
 #define MEMORYSTATUS_PRESSURE_RATIO_NUM_MEDIUM  15UL
 #define MEMORYSTATUS_PRESSURE_RATIO_DENOM_MEDIUM  4UL
-#define MEMORYSTATUS_REAPER_RATIO_NUM_MEDIUM 18UL
+#define MEMORYSTATUS_REAPER_RATIO_NUM_MEDIUM 20UL
 #define MEMORYSTATUS_REAPER_RATIO_DENOM_MEDIUM 4UL
+#define MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT_MEDIUM 240
+#define MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT_MEDIUM 240
+
+/*
+ * For Large config device, set the reaper threhsold to be 19% of the Memsize
+ */
+#define MEMORYSTATUS_REAPER_RATIO_NUM_LARGE 19UL
+#define MEMORYSTATUS_REAPER_RATIO_DENOM_LARGE 4UL
 
 static int32_t memorystatus_get_default_task_active_limit(proc_t p);
 static int32_t memorystatus_get_default_task_inactive_limit(proc_t p);
@@ -1100,9 +1105,9 @@ uint32_t _Atomic memorystatus_kill_counts[JETSAM_PRIORITY_MAX + 1][JETSAM_REASON
 uint32_t _Atomic memorystatus_idle_exit_kill_count = 0;
 
 TUNABLE_DT(int32_t, memorystatus_reaper_minimum_age_seconds, "/defaults",
-    "kern.memstat_reaper_minage_secs", "memorystatus_reaper_minimum_age_seconds", MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT, TUNABLE_DT_NONE);
+    "kern.memstat_reaper_minage_secs", "memorystatus_reaper_minimum_age_seconds", MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT, TUNABLE_DT_NONE);
 TUNABLE_DT(int32_t, memorystatus_reaper_minimum_age_apps_seconds, "/defaults",
-    "kern.memstat_reaper_minapp_secs", "memorystatus_reaper_minimum_age_apps_seconds", MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT, TUNABLE_DT_NONE);
+    "kern.memstat_reaper_minapp_secs", "memorystatus_reaper_minimum_age_apps_seconds", MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT, TUNABLE_DT_NONE);
 TUNABLE_DT(uint32_t, memorystatus_reaper_rescan_delay_seconds, "/defaults",
     "kern.memstat_reaper_rescan_secs", "memorystatus_reaper_rescan_delay_seconds", MEMORYSTATUS_REAPER_RESCAN_SECS_DEFAULT, TUNABLE_DT_NONE);
 TUNABLE_DT(boolean_t, memorystatus_reaper_enabled, "/defaults",
@@ -2095,6 +2100,9 @@ memorystatus_init(void)
 		    (max_mem <= MEMORYSTATUS_MEDIUM_MEMORY_THRESHOLD)) {
 			memstat_reaper_threshold = (MEMORYSTATUS_REAPER_RATIO_NUM_MEDIUM * memstat_critical_threshold) /
 			    MEMORYSTATUS_REAPER_RATIO_DENOM_MEDIUM;
+		} else if (max_mem > MEMORYSTATUS_MEDIUM_MEMORY_THRESHOLD) {
+			memstat_reaper_threshold = (MEMORYSTATUS_REAPER_RATIO_NUM_LARGE * memstat_critical_threshold) /
+			    MEMORYSTATUS_REAPER_RATIO_DENOM_LARGE;
 		} else {
 			memstat_reaper_threshold = (MEMORYSTATUS_REAPER_RATIO_NUM * memstat_critical_threshold) /
 			    MEMORYSTATUS_REAPER_RATIO_DENOM;
@@ -2105,13 +2113,23 @@ memorystatus_init(void)
 	if (memorystatus_reaper_minimum_age_seconds != MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT) {
 		memstat_reaper_min_age_secs = memorystatus_reaper_minimum_age_seconds;
 	} else {
-		memstat_reaper_min_age_secs = MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT;
+		if ((max_mem > MEMORYSTATUS_SMALL_MEMORY_THRESHOLD) &&
+		    (max_mem <= MEMORYSTATUS_MEDIUM_MEMORY_THRESHOLD)) {
+			memstat_reaper_min_age_secs = MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT_MEDIUM;
+		} else {
+			memstat_reaper_min_age_secs = MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT;
+		}
 	}
 
 	if (memorystatus_reaper_minimum_age_apps_seconds != MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT) {
 		memstat_reaper_min_age_apps_secs = memorystatus_reaper_minimum_age_apps_seconds;
 	} else {
-		memstat_reaper_min_age_apps_secs = MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT;
+		if ((max_mem > MEMORYSTATUS_SMALL_MEMORY_THRESHOLD) &&
+		    (max_mem <= MEMORYSTATUS_MEDIUM_MEMORY_THRESHOLD)) {
+			memstat_reaper_min_age_apps_secs = MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT_MEDIUM;
+		} else {
+			memstat_reaper_min_age_apps_secs = MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT;
+		}
 	}
 
 	if (memorystatus_reaper_rescan_delay_seconds != MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT) {
@@ -3865,8 +3883,8 @@ memorystatus_on_resume(proc_t p)
 		p->p_memstat_last_thaw_interval = memorystatus_freeze_current_interval;
 		p->p_memstat_thaw_count++;
 
-		memorystatus_freeze_last_pid_thawed = p->p_pid;
-		memorystatus_freeze_last_pid_thawed_ts = mach_absolute_time();
+		memorystatus_log("memorystatus: resuming/thawing pid %d [%s]\n", p->p_pid, proc_best_name(p));
+		memorystatus_freeze_record_process_thawed(p);
 
 		memorystatus_thaw_count++;
 		memorystatus_thaw_count_since_boot++;
@@ -4491,6 +4509,61 @@ memstat_purge_caches(jetsam_state_t state)
 	zone_gc_trim();
 }
 
+static void
+memstat_no_victim(jetsam_state_t state,
+    memorystatus_kill_cause_t cause)
+{
+	/*
+	 * We tried to kill a process, but failed to find anyone to kill. It's
+	 * possible we chose not to because we reclaimed some purgeable memory or
+	 * hit this thread's priority limit.
+	 */
+	assert3u(state->memory_reclaimed, ==, 0);
+	if (state->limit_to_low_bands) {
+		/*
+		 * This thread isn't allowed to reach the high bands -- no need to overreact.
+		 */
+		return;
+	}
+	/*
+	 * We should have found someone to kill. Either we failed because of a transient
+	 * error or we've run out of candidates and the issue is caused by the kernel.
+	 */
+	memorystatus_log("memorystatus: failed to find a %s victim!\n", memstat_kill_cause_name[cause]);
+	if (state->errors && !state->errors_cleared) {
+		/*
+		 * It's possible that all of the kill candidates had the error bit set
+		 * (e.g. because we caught them in exec()). Clear all the error bits and
+		 * try to kill them one more time in the hopes that they are now killable.
+		 */
+		memorystatus_log("memorystatus: clearing kill errors and retrying\n");
+		memorystatus_clear_errors();
+		state->errors_cleared = true;
+	} else {
+		/* The memory may be held by a corpse or zalloc. */
+		memstat_purge_caches(state);
+		struct memorystatus_system_health_s health_status;
+		bool is_system_healthy = memstat_check_system_health(&health_status);
+		if (!is_system_healthy) {
+			memorystatus_log("memorystatus: system still unhealthy after cache purge!\n");
+			/*
+			 * We trimmed the zones above but it's possible there is a bug with
+			 * working set estimation and we needed a full drain.
+			 */
+			memorystatus_log_fault("memorystatus: fully draining kernel zone allocator\n");
+			zone_gc_drain();
+			is_system_healthy = memstat_check_system_health(&health_status);
+			if (!is_system_healthy) {
+				/*
+				 * We've killed everything and purged all xnu caches. There is nothing
+				 * left to do but panic.
+				 */
+				panic("memorystatus: all %s victims exhausted", memstat_kill_cause_name[cause]);
+			}
+		}
+	}
+}
+
 /*
  * Called before jetsamming in the foreground band in the hope that we'll
  * avoid a jetsam.
@@ -4701,9 +4774,12 @@ memstat_do_priority_kill(jetsam_state_t state,
 			}
 		}
 
-		if (priority >= JETSAM_PRIORITY_FREEZER) {
+		if (priority >= JETSAM_PRIORITY_FREEZER && !state->fg_approached) {
+			state->fg_approached = true;
 			memstat_approaching_fg_band(state);
-		} else if (priority >= JETSAM_PRIORITY_BACKGROUND) {
+		}
+		if (priority >= JETSAM_PRIORITY_BACKGROUND && !state->bg_approached) {
+			state->bg_approached = true;
 			memorystatus_broadcast_jetsam_pressure(kVMPressureBackgroundJetsam);
 		}
 	}
@@ -4872,6 +4948,8 @@ memorystatus_thread_internal(jetsam_state_t state)
 	state->hwm_kills = 0;
 	state->sort_flag = true;
 	state->corpse_list_purged = false;
+	state->bg_approached = false;
+	state->fg_approached = false;
 	state->post_snapshot = false;
 	state->memory_reclaimed = 0;
 
@@ -4928,60 +5006,24 @@ memorystatus_thread_internal(jetsam_state_t state)
 		killed = memorystatus_do_action(state, action, cause);
 		total_memory_reclaimed += state->memory_reclaimed;
 
-		if (!killed) {
-			if (action == MEMORYSTATUS_KILL_HIWATER) {
+		if (!killed && !state->memory_reclaimed) {
+			switch (action) {
+			case MEMORYSTATUS_KILL_HIWATER:
 				highwater_remaining = false;
-			} else if (action == MEMORYSTATUS_KILL_SWAPPABLE) {
+				break;
+			case MEMORYSTATUS_KILL_SWAPPABLE:
 				swappable_apps_remaining = false;
 				suspended_swappable_apps_remaining = false;
-			} else if (action == MEMORYSTATUS_KILL_SUSPENDED_SWAPPABLE) {
+				break;
+			case MEMORYSTATUS_KILL_SUSPENDED_SWAPPABLE:
 				suspended_swappable_apps_remaining = false;
-			} else if (action == MEMORYSTATUS_KILL_TOP_PROCESS ||
-			    action == MEMORYSTATUS_KILL_AGGRESSIVE) {
-				/*
-				 * We tried to kill a process, but failed to find anyone to kill. It's
-				 * possible we chose not to because we reclaimed some purgeable memory or
-				 * hit this thread's priority limit.
-				 */
-				if (state->memory_reclaimed == 0 && !state->limit_to_low_bands) {
-					/*
-					 * We should have found someone to kill. Either we failed because of a transient
-					 * error or we've run out of candidates and the issue is caused by the kernel.
-					 */
-					memorystatus_log("memorystatus: failed to find a process to kill!\n");
-					if (state->errors && !state->errors_cleared) {
-						/*
-						 * It's possible that all of the kill candidates had the error bit set
-						 * (e.g. because we caught them in exec()). Clear all the error bits and
-						 * try to kill them one more time in the hopes that they are now killable.
-						 */
-						memorystatus_log("memorystatus: clearing kill errors and retrying\n");
-						memorystatus_clear_errors();
-						state->errors_cleared = true;
-					} else {
-						/* The memory may be held by a corpse or zalloc. */
-						memstat_purge_caches(state);
-						struct memorystatus_system_health_s health_status;
-						bool is_system_healthy = memstat_check_system_health(&health_status);
-						if (!is_system_healthy) {
-							memorystatus_log("memorystatus: system still unhealthy after cache purge!\n");
-							/*
-							 * We trimmed the zones above but it's possible there is a bug with
-							 * working set estimation and we needed a full drain.
-							 */
-							memorystatus_log_fault("memorystatus: fully draining kernel zone allocator\n");
-							zone_gc_drain();
-							is_system_healthy = memstat_check_system_health(&health_status);
-							if (!is_system_healthy) {
-								/*
-								 * We've killed everything and purged all xnu caches. There is nothing
-								 * left to do but panic.
-								 */
-								panic("memorystatus: all victims exhausted");
-							}
-						}
-					}
-				}
+				break;
+			case MEMORYSTATUS_KILL_TOP_PROCESS:
+				memstat_no_victim(state, cause);
+				break;
+			default:
+				memorystatus_log("memorystatus: no victim found (action: %d)\n", action);
+				break;
 			}
 		} else {
 			/* We successfully killed a process */

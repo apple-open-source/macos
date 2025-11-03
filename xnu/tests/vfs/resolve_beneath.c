@@ -37,6 +37,10 @@
 #include <sys/param.h>
 #include <sys/xattr.h>
 #include <sys/clonefile.h>
+#include <pthread.h>
+#include <time.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #include <darwintest.h>
 #include <darwintest/utils.h>
@@ -150,9 +154,7 @@ cleanup(void)
 		unlinkat(testdir_fd, OUTSIDE_FILE, 0);
 
 		close(testdir_fd);
-		if (rmdir(testdir)) {
-			T_FAIL("Unable to remove the test directory (%s)", testdir);
-		}
+		rmdir(testdir);
 	}
 }
 
@@ -1184,4 +1186,85 @@ T_DECL(resolve_beneath_setattrlist,
 	T_EXPECT_POSIX_FAILURE(setattrlistat(test_fd, "symlink_absolute/test_dir/inside_file.txt", &attrlist, &flags, sizeof(flags), FSOPT_RESOLVE_BENEATH), ENOTCAPABLE, "Test Case 21: File using a symlink pointing to absolute path");
 
 	T_EXPECT_POSIX_SUCCESS(close(fd), "Closing %s", INSIDE_FILE);
+}
+
+static volatile int stop_race = 0;
+static char race_mount_path[MAXPATHLEN];
+
+static void *
+mounter_thread(void *arg)
+{
+	while (!stop_race) {
+		/* Try to mount devfs over the directory */
+		if (mount("devfs", race_mount_path, 0, NULL) == 0) {
+			/* Immediately unmount it */
+			unmount(race_mount_path, MNT_FORCE);
+		}
+		/* Small delay to avoid overwhelming the system */
+		usleep(1000);
+	}
+
+	unmount(race_mount_path, MNT_FORCE);
+	return NULL;
+}
+
+T_DECL(resolve_beneath_mount_race,
+    "test O_RESOLVE_BENEATH with concurrent mount operations")
+{
+	int underfd;
+	char underlying_dir[MAXPATHLEN];
+	pthread_t mounter;
+	time_t start_time, current_time;
+	int race_won = 0;
+
+	T_SETUPBEGIN;
+
+	T_ATEND(cleanup);
+	setup("resolve_beneath_mount_race");
+
+	/* Create the mount point and underlying directory structure */
+	snprintf(race_mount_path, sizeof(race_mount_path), "%s/beneath", testdir);
+	snprintf(underlying_dir, sizeof(underlying_dir), "%s/beneath/underlying_dir", testdir);
+
+	T_ASSERT_POSIX_SUCCESS(mkdir(race_mount_path, 0777), "Creating mount point %s", race_mount_path);
+	T_ASSERT_POSIX_SUCCESS(mkdir(underlying_dir, 0777), "Creating underlying directory %s", underlying_dir);
+
+	T_ASSERT_POSIX_SUCCESS((underfd = open(race_mount_path, O_SEARCH, 0777)), "Opening mount point %s", race_mount_path);
+
+	T_SETUPEND;
+
+	T_LOG("Testing O_RESOLVE_BENEATH with mount race condition for 5 seconds");
+
+	/* Start the mounter thread and immediately begin the race */
+	stop_race = 0;
+	start_time = time(NULL);
+	T_ASSERT_POSIX_ZERO(pthread_create(&mounter, NULL, mounter_thread, NULL), "Creating mounter thread");
+
+	/* Try to win the race for 5 seconds while the mounter thread is running */
+	while ((time(NULL) - start_time) < 5) {
+		int dotdot_fd = openat(underfd, "underlying_dir/../../../../../..", O_RESOLVE_BENEATH);
+		if (dotdot_fd != -1) {
+			char path[1024];
+			if (fcntl(dotdot_fd, F_GETPATH, path) == 0) {
+				T_LOG("Race condition exploit attempt succeeded, got path: %s", path);
+				/* If we got here, the old vulnerable code would have allowed this */
+				race_won = 1;
+				close(dotdot_fd);
+				break;
+			}
+			close(dotdot_fd);
+		}
+	}
+
+	/* Stop the mounter thread */
+	stop_race = 1;
+	T_ASSERT_POSIX_ZERO(pthread_join(mounter, NULL), "Joining mounter thread");
+
+	/* With the fix, we should never win the race */
+	T_EXPECT_EQ(race_won, 0, "Race condition should not succeed with the fix in place");
+
+	/* Clean up - only after the helper thread has finished */
+	close(underfd);
+	rmdir(underlying_dir);
+	rmdir(race_mount_path);
 }

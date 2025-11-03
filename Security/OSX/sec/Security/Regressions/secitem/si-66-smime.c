@@ -2739,13 +2739,16 @@ static void tests(void)
     CFRelease(items);
     CFRelease(dict);
 
-    // parse signed-receipt
+    // parse CMS for (unsupported) ct-receipt content type (RFC 5035)
     msg = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, signed_receipt_bin, signed_receipt_bin_len, kCFAllocatorNull);
     policy = SecPolicyCreateBasicX509();
-    is(errSecAuthFailed, SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
+    CFDataRef signedData = NULL;
+    is(errSecSuccess, SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, &signedData, NULL), "decode signed receipt w/ unknown content type");
+    isnt(signedData, NULL);
     CFReleaseNull(trust);
     CFReleaseNull(policy);
     CFReleaseNull(msg);
+    CFReleaseNull(signedData);
 }
 
 #if TARGET_OS_OSX
@@ -2932,7 +2935,7 @@ out:
 
 int si_66_smime(int argc, char *const *argv)
 {
-	plan_tests(33+3+9);
+	plan_tests(34+3+9);
 
 	tests();
     test_smime_attrs();

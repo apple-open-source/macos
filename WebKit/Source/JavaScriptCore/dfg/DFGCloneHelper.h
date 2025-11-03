@@ -173,7 +173,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(Call, Common) \
     CLONE_STATUS(CallCustomAccessorGetter, Common) \
     CLONE_STATUS(CallDirectEval, Common) \
-    CLONE_STATUS(CallVarargs, Common) \
+    CLONE_STATUS(CallVarargs, Special) \
     CLONE_STATUS(Check, Common) \
     CLONE_STATUS(CheckArray, Common) \
     CLONE_STATUS(CheckBadValue, Common) \
@@ -194,7 +194,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(CompareStrictEq, Common) \
     CLONE_STATUS(ConstantStoragePointer, Common) \
     CLONE_STATUS(Construct, Common) \
-    CLONE_STATUS(ConstructVarargs, Common) \
+    CLONE_STATUS(ConstructVarargs, Special) \
     CLONE_STATUS(CreateActivation, Common) \
     CLONE_STATUS(CreateDirectArguments, Common) \
     CLONE_STATUS(CreateRest, Common) \
@@ -271,7 +271,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(JSConstant, Common) \
     CLONE_STATUS(Jump, Common) \
     CLONE_STATUS(LoadMapValue, Common) \
-    CLONE_STATUS(LoadVarargs, Common) \
+    CLONE_STATUS(LoadVarargs, Special) \
     CLONE_STATUS(LogicalNot, Common) \
     CLONE_STATUS(LoopHint, Common) \
     CLONE_STATUS(MakeAtomString, Common) \
@@ -284,11 +284,11 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(MapSet, Common) \
     CLONE_STATUS(MatchStructure, Common) \
     CLONE_STATUS(MovHint, Common) \
-    CLONE_STATUS(MultiGetByOffset, Common) \
-    CLONE_STATUS(MultiPutByOffset, Common) \
+    CLONE_STATUS(MultiGetByOffset, Special) \
+    CLONE_STATUS(MultiPutByOffset, Special) \
     CLONE_STATUS(NewArray, Common) \
     CLONE_STATUS(NewArrayBuffer, Common) \
-    CLONE_STATUS(NewArrayWithConstantSize, Common) \
+    CLONE_STATUS(NewArrayWithButterfly, Common) \
     CLONE_STATUS(NewArrayWithSize, Common) \
     CLONE_STATUS(NewArrayWithSpread, Common) \
     CLONE_STATUS(NewFunction, Common) \
@@ -346,9 +346,9 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(StringSubstring, Common) \
     CLONE_STATUS(StrCat, Common) \
     CLONE_STATUS(Switch, Special) \
-    CLONE_STATUS(TailCallForwardVarargsInlinedCaller, Common) \
+    CLONE_STATUS(TailCallForwardVarargsInlinedCaller, Special) \
     CLONE_STATUS(TailCallInlinedCaller, Common) \
-    CLONE_STATUS(TailCallVarargsInlinedCaller, Common) \
+    CLONE_STATUS(TailCallVarargsInlinedCaller, Special) \
     CLONE_STATUS(ToLength, Common) \
     CLONE_STATUS(ToLowerCase, Common) \
     CLONE_STATUS(ToPrimitive, Common) \
@@ -370,7 +370,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(ValueRep, Common) \
     CLONE_STATUS(ValueSub, Common) \
     CLONE_STATUS(ValueToInt32, Common) \
-    CLONE_STATUS(VarargsLength, Common) \
+    CLONE_STATUS(VarargsLength, Special) \
     CLONE_STATUS(ZombieHint, Common)
 
 } } // namespace JSC::DFG

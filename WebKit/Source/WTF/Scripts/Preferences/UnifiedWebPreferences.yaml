@@ -2609,6 +2609,20 @@ EnableInheritURIQueryComponent:
     WebCore:
       default: false
 
+EnableOpaqueLoadingForMedia:
+  type: bool
+  status: internal
+  category: media
+  humanReadableName: "Opaque loading for media"
+  humanReadableDescription: "Enable opaque loading for media"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: false
+
 EncryptedMediaAPIEnabled:
   type: bool
   status: embedder
@@ -4996,7 +5010,7 @@ MediaSourcePrefersDecompressionSession:
     WebKitLegacy:
       default: false
     WebKit:
-      default: true
+      default: WebKit::defaultMediaSourcePrefersDecompressionSession()
     WebCore:
       default: true
   sharedPreferenceForWebProcess: true
@@ -5254,6 +5268,20 @@ NavigationAPIEnabled:
   category: dom
   humanReadableName: "Navigation API"
   humanReadableDescription: "Enable Navigation API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+NavigatorUserAgentDataJavaScriptAPIEnabled:
+  type: bool
+  status: internal
+  category: dom
+  humanReadableName: "Navigator userAgentData JavaScript API"
+  humanReadableDescription: "Enable the navigator.userAgentData JavaScript API"
   defaultValue:
     WebKitLegacy:
       default: false

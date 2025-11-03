@@ -95,6 +95,19 @@ L_s1aligned:
 //	from this point on without worrying about spurious page faults; none of our
 //	loads will ever cross a page boundary, because they are all aligned.
 
+#if HAS_MTE
+//	Ensure that at least one comparison happened with MTE enabled, as we will
+//	run with TCO (Tag Check Override) enabled for the majority of the comparison.
+	ldrb      w4,      [x0]
+	ldrb      w5,      [x1]
+#if DEVELOPMENT || DEBUG
+//	We do not support TCO nesting, ensure that we got here with the expected
+//	TCO state.
+	bl        EXT(mte_validate_tco_state)
+#endif /* DEVELOPMENT || DEBUG */
+//	We'll run the rest of the comparison with TCO enabled.
+	msr       TCO,     #1
+#endif /* HAS_MTE */
 
 	tst       x1,      #(kVectorSize-1)
 	b.eq      L_naiveVector
@@ -141,9 +154,17 @@ L_s1aligned:
 	ldrb      w5,     [x1],#1  // load byte from src2
 	subs      x3,      x4, x5  // if the are not equal
 	ccmp      w4,  #0, #4, eq  //    or we find an EOS
+#if HAS_MTE
+	b.eq      L_TCOscalarDone
+#else
 	b.eq      L_scalarDone     // return the difference
+#endif
 	subs      x2,      x2, #1  // decrement length
+#if HAS_MTE
+	b.eq      L_TCOscalarDone
+#else
 	b.eq      L_scalarDone     // exit loop if zero.
+#endif
 	tst       x0,      #(kVectorSize-1)
 	b.ne      2b
 //	Having compared one vector's worth of bytes using a scalar comparison, we
@@ -152,6 +173,15 @@ L_s1aligned:
 	mov       x7,      #(PAGE_MIN_SIZE-kVectorSize)
 	b         0b
 
+#if HAS_MTE
+L_TCOscalarDone:
+//	Reset TCO state.
+	msr       TCO,     #0          // Disable TCO, tag checking is enabled
+	ldrb      w4,      [x0, #-1]
+	ldrb      w5,      [x1, #-1]
+	sub       x0,      x4, x5
+	ClearFrameAndReturn	
+#endif
 
 
 /*****************************************************************************
@@ -188,10 +218,18 @@ L_naiveVector:
   cbz       w3,      L_vectorDone
 
 L_readNBytes:
+#if HAS_MTE
+	msr       TCO,     #0          // Disable TCO, tag checking is enabled
+	ldrb      w4,      [x0, #-1]
+	ldrb      w5,      [x1, #-1]
+#endif
 	eor       x0,      x0, x0
 	ClearFrameAndReturn
 
 L_vectorDone:
+#if HAS_MTE
+	msr       TCO,     #0       // Disable TCO, tag checking is enabled
+#endif
 //	Load the bytes corresponding to the first mismatch or EOS and return
 //  their difference.
 	eor.16b   v1,      v1, v1
@@ -207,6 +245,9 @@ L_vectorDone:
 	ClearFrameAndReturn
 
 L_scalar:
+#if HAS_MTE
+	msr       TCO,     #0      // Disable TCO, tag checking is enabled
+#endif
 0:
   ldrb      w4,     [x0],#1  // load byte from src1
   ldrb      w5,     [x1],#1  // load byte from src2

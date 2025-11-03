@@ -197,6 +197,8 @@ editing/cocoa/FontAttributeChangesCocoa.mm
 editing/cocoa/FontAttributesCocoa.mm
 editing/cocoa/FontShadowCocoa.mm
 editing/cocoa/HTMLConverter.mm @no-unify
+editing/cocoa/NodeHTMLConverter.mm @no-unify
+editing/cocoa/EditingHTMLConverter.mm @no-unify
 editing/cocoa/WebArchiveResourceFromNSAttributedString.mm
 editing/cocoa/WebArchiveResourceWebResourceHandler.mm
 editing/cocoa/WebContentReaderCocoa.mm

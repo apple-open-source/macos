@@ -27,22 +27,22 @@ struct TestData data;
 
 /*
  * Starting with Python 3.11, backtraces may contain a line with
- * '^' characters to bring attention to the important part of the
- * line.
+ * '~' and '^' characters to bring attention to the important part
+ * of the line.
  */
 static void
 remove_underline(char *output)
 {
     char *cp, *ep;
 
-    // Remove lines that only consist of '^' and white space.
+    // Remove lines that only consist of '~', '^' and white space.
     cp = output;
     ep = output + strlen(output);
     for (;;) {
-	size_t len = strspn(cp, "^ \t");
+	size_t len = strspn(cp, "~^ \t");
 	if (len > 0 && cp[len] == '\n') {
 	    /* Prune out lines that are "underlining". */
-	    memmove(cp, cp + len + 1, ep - cp);
+	    memmove(cp, cp + len + 1, (size_t)(ep - cp));
 	    if (*cp == '\0')
 		break;
 	} else {
@@ -193,7 +193,7 @@ fake_conversation_with_suspend(int num_msgs, const struct sudo_conv_message msgs
 }
 
 int
-fake_printf(int msg_type, const char *fmt, ...)
+fake_printf(int msg_type, const char * restrict fmt, ...)
 {
     int rc = -1;
     va_list args;
@@ -238,8 +238,10 @@ verify_log_lines(const char *reference_path)
         line_data += 2;
 
         char *line_end = strstr(line_data, " object at "); // this skips checking the pointer hex
-        if (line_end)
-            snprintf(line_end, sizeof(line) - (line_end - line), " object>\n");
+        if (line_end) {
+            snprintf(line_end, sizeof(line) - (size_t)(line_end - line),
+		" object>\n");
+	}
 
 	if (strncmp(line_data, "handle @ /", sizeof("handle @ /") - 1) == 0) {
             char *start = line_data + sizeof("handle @ ") - 1;
@@ -268,7 +270,15 @@ verify_log_lines(const char *reference_path)
 		// Convert ": REJECT" to ": 0" + rest of line
 		memcpy(cp, ": 0", 3);
 		memmove(cp + 3, cp + 8, strlen(cp + 8) + 1);
+	    } else {
+		// Python 3.12 may use <RC.REJECT: 0> instead of 0
+		cp = strstr(line_data, "<RC.REJECT: 0>");
+		if (cp != NULL) {
+		    *cp = '0';
+		    memmove(cp + 1, cp + 14, strlen(cp + 14) + 1);
+		}
 	    }
+
 	}
 
         VERIFY_TRUE(strlcat(stored_str, line_data, sizeof(stored_str)) < sizeof(stored_str));  // we have enough space in buffer

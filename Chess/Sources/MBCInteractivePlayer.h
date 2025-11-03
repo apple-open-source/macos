@@ -44,7 +44,6 @@
 */
 
 #import <Cocoa/Cocoa.h>
-#import <Carbon/Carbon.h>
 
 #import "MBCPlayer.h"
 #import "MBCMoveGenerator.h"
@@ -57,7 +56,6 @@
 
 
 @class MBCBoardWin;
-@class MBCLanguageModel;
 
 //
 // MBCInteractivePlayer represents humans playing locally
@@ -65,17 +63,11 @@
 @interface MBCInteractivePlayer : MBCPlayer 
 {
 	IBOutlet MBCBoardWin *	fController;
-	MBCLanguageModel *		fLanguageModel;
 	MBCSide					fLastSide;
 	MBCSide					fSide;
 	MBCVariant				fVariant;
 	MBCSquare				fFromSquare;
-	bool					fStartingSR;
     bool                    fAnnounceCheck;
-    SRRecognitionSystem     fRecSystem;
-	SRRecognizer			fRecognizer;
-	SRLanguageModel			fModel;
-	NSData *				fSpeechHelp;
     BOOL                    fHasObservers;
     BOOL                    fPendingMouseUpdate;
 }
@@ -83,7 +75,6 @@
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay;
 - (void) updateNeedMouse:(id)arg;
 - (void) doUpdateNeedMouse;
-- (void) allowedToListen:(BOOL)allowed;
 
 //
 // The board view translates coordinates into board squares and handles
@@ -93,11 +84,6 @@
 - (void) startSelectionWithoutShare:(MBCSquare)square;
 - (void) endSelection:(MBCSquare)square animate:(BOOL)animate;
 - (void) endSelectionWithoutShare:(MBCSquare)square animate:(BOOL)animate;
-
-//
-// If we recognize a move, we have to broadcast it
-//
-- (void) recognized:(SRRecognitionResult)result;
 
 //
 // Announce hint / last move

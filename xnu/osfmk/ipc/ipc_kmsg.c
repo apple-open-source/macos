@@ -1883,9 +1883,6 @@ ipc_kmsg_copyin_header_rights(
 	mach_msg_type_name_t dest_type;
 	ipc_object_copyin_flags_t dest_xtra;
 	kern_return_t kr = KERN_SUCCESS;
-	/* for service port immovability violation */
-	ipc_port_t violation_port = MACH_PORT_NULL;
-	mach_port_name_t violation_name = 0;
 
 	is_write_lock(space);
 	if (__improbable(!is_active(space))) {
@@ -1970,8 +1967,7 @@ ipc_kmsg_copyin_header_rights(
 		assert(!IP_VALID(st->dest_cleanup.icc_release_port));
 	} else {
 		ipc_space_unlock(space);
-		kr = MACH_SEND_INVALID_DEST;
-		goto send_telemetry;
+		return MACH_SEND_INVALID_DEST;
 	}
 
 	/*
@@ -2018,31 +2014,6 @@ ipc_kmsg_copyin_header_rights(
 	st->dest_request = dest_entry->ie_request;
 
 	is_write_unlock(space);
-
-send_telemetry:
-	if (IP_VALID(st->dest_port) &&
-	    ip_type(st->dest_port) == IOT_SERVICE_PORT &&
-	    st->dest_type == MACH_MSG_TYPE_MOVE_RECEIVE) {
-		violation_port = st->dest_port;
-		violation_name = st->dest_name;
-	} else if (IP_VALID(st->voucher_port) &&
-	    ip_type(st->voucher_port) == IOT_SERVICE_PORT &&
-	    st->voucher_type == MACH_MSG_TYPE_MOVE_RECEIVE) {
-		violation_port = st->voucher_port;
-		violation_name = st->voucher_name;
-	} else if (IP_VALID(st->reply_port) &&
-	    ip_type(st->reply_port) == IOT_SERVICE_PORT &&
-	    st->reply_type == MACH_MSG_TYPE_MOVE_RECEIVE) {
-		violation_port = st->reply_port;
-		violation_name = st->reply_name;
-	}
-
-	if (violation_port &&
-	    !task_is_initproc(space->is_task) &&
-	    !ipc_space_has_telemetry_type(space, IS_HAS_SERVICE_PORT_TELEMETRY)) {
-		ipc_stash_policy_violations_telemetry(IPCPV_MOVE_SERVICE_PORT,
-		    violation_port, violation_name);
-	}
 
 	return kr;
 }
@@ -2461,6 +2432,9 @@ ipc_kmsg_copyin_ool_ports_descriptor(
 
 	if (count) {
 		array = mach_port_array_alloc(count, Z_WAITOK | Z_SPRAYQTN);
+		if (array == NULL) {
+			return MACH_SEND_NO_BUFFER;
+		}
 
 		/* use the end of the array to store names we will copy in */
 		names = (mach_port_name_t *)(array + count) - count;
@@ -3868,6 +3842,9 @@ ipc_kmsg_copyout_ool_descriptor(
 				rcv_addr = rounded_addr;
 
 				kr = vm_map_copy_overwrite(map, rcv_addr, copy, size,
+#if HAS_MTE
+				    FALSE,
+#endif
 				    FALSE);
 			}
 		} else {

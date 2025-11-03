@@ -5715,14 +5715,9 @@ ifnet_detach_final(struct ifnet *ifp)
 
 	/* Detach (permanent) link address from if_addrhead */
 	ifa = TAILQ_FIRST(&ifp->if_addrhead);
-	VERIFY(ifnet_addrs[ifp->if_index - 1] == ifa);
 	IFA_LOCK(ifa);
 	if_detach_link_ifa(ifp, ifa);
 	IFA_UNLOCK(ifa);
-
-	/* Remove (permanent) link address from ifnet_addrs[] */
-	ifa_remref(ifa);
-	ifnet_addrs[ifp->if_index - 1] = NULL;
 
 	/* This interface should not be on {ifnet_head,detaching} */
 	VERIFY(ifp->if_link.tqe_next == NULL);
@@ -5989,6 +5984,13 @@ ifnet_detach_final(struct ifnet *ifp)
 	}
 
 	ifclassq_release(&ifp->if_snd);
+
+	/* Remove (permanent) link address from ifnet_addrs[] */
+	ifnet_head_lock_exclusive();
+	VERIFY(ifnet_addrs[ifp->if_index - 1] == ifa);
+	ifa_remref(ifa);
+	ifnet_addrs[ifp->if_index - 1] = NULL;
+	ifnet_head_done();
 
 	/* we're fully detached, clear the "in use" bit */
 	dlifp = (struct dlil_ifnet *)ifp;

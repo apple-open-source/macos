@@ -238,12 +238,12 @@ struct ipc_object {
 	os_ref_atomic_t                         io_references;
 	union {
 		/* these are dPACed when on a port header */
-		const void                     *iol_pointer;
-		unsigned long                   iol_value;
-		struct ipc_service_port_label  *iol_service;
-		struct ipc_conn_port_label     *iol_connection;
-		struct ipc_kobject_label       *iol_kobject;
-		struct mk_timer                *iol_mktimer;
+		const void                      *iol_pointer;
+		unsigned long                    iol_value;
+		struct ipc_service_port_label   *iol_service;
+		struct ipc_conn_port_label      *iol_connection;
+		struct ipc_kobject_label        *iol_kobject;
+		struct mk_timer                 *iol_mktimer;
 	};
 };
 

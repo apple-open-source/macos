@@ -77,6 +77,8 @@ typedef NS_OPTIONS(NSUInteger, NSWindowShadowOptions) {
     NSWindowShadowSecondaryWindow = 0x2,
 };
 
+static const NSWindowStyleMask NSWindowStyleMaskAlertWindow = (NSWindowStyleMask)(1ull << 33ull);
+
 @interface NSWindow ()
 - (NSInspectorBar *)inspectorBar;
 - (void)setInspectorBar:(NSInspectorBar *)bar;

@@ -79,7 +79,7 @@ public:
 	virtual void getOwner(AclOwnerPrototype &owner);
 	virtual void getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls);
     virtual void changeAcl(const AclEdit &edit, const AccessCredentials *cred,
-		Database *relatedDatabase);
+		Database *relatedDatabase, const char* const client_path);
 	virtual void changeOwner(const AclOwnerPrototype &newOwner, const AccessCredentials *cred,
 		Database *relatedDatabase);
 	
@@ -161,8 +161,8 @@ public:
 	{ return acl().getOwner(owner); }
 	virtual void getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 	{ return acl().getAcl(tag, count, acls); }
-	virtual void changeAcl(const AclEdit &edit, const AccessCredentials *cred)
-	{ return acl().changeAcl(edit, cred, relatedDatabase()); }
+	virtual void changeAcl(const AclEdit &edit, const AccessCredentials *cred, const char* const client_path)
+	{ return acl().changeAcl(edit, cred, relatedDatabase(), client_path); }
 	virtual void changeOwner(const AclOwnerPrototype &newOwner, const AccessCredentials *cred)
 	{ return acl().changeOwner(newOwner, cred, relatedDatabase()); }
 	virtual void validate(AclAuthorization auth, const AccessCredentials *cred, Database* relatedDb = NULL)

@@ -4,7 +4,7 @@ vim9script
 
 # Author: Bram Moolenaar
 # Copyright: Vim license applies, see ":help license"
-# Last Change: 2024 Jul 04
+# Last Change: 2025 Sep 02
 # Converted to Vim9: Ubaldo Tiberi <ubaldo.tiberi@gmail.com>
 
 # WORK IN PROGRESS - The basics works stable, more to come
@@ -38,6 +38,11 @@ vim9script
 # The communication with gdb uses GDB/MI.  See:
 # https://sourceware.org/gdb/current/onlinedocs/gdb/GDB_002fMI.html
 
+var DEBUG = false
+if exists('g:termdebug_config')
+  DEBUG = get(g:termdebug_config, 'debug', false)
+endif
+
 def Echoerr(msg: string)
   echohl ErrorMsg | echom $'[termdebug] {msg}' | echohl None
 enddef
@@ -47,12 +52,6 @@ def Echowarn(msg: string)
 enddef
 
 # Variables to keep their status among multiple instances of Termdebug
-# Avoid to source the script twice.
-if exists('g:termdebug_loaded')
-  Echoerr('Termdebug already loaded.')
-  finish
-endif
-g:termdebug_loaded = true
 g:termdebug_is_running = false
 
 
@@ -121,7 +120,9 @@ var breakpoint_locations: dict<any>
 var BreakpointSigns: list<string>
 
 var evalFromBalloonExpr: bool
-var evalFromBalloonExprResult: string
+var evalInPopup: bool
+var evalPopupId: number
+var evalExprResult: string
 var ignoreEvalError: bool
 var evalexpr: string
 # Remember the old value of 'signcolumn' for each buffer that it's set in, so
@@ -138,6 +139,7 @@ var winbar_winids: list<number>
 var saved_mousemodel: string
 
 var saved_K_map: dict<any>
+var saved_visual_K_map: dict<any>
 var saved_plus_map: dict<any>
 var saved_minus_map: dict<any>
 
@@ -202,7 +204,9 @@ def InitScriptVariables()
   BreakpointSigns = []
 
   evalFromBalloonExpr = false
-  evalFromBalloonExprResult = ''
+  evalInPopup = false
+  evalPopupId = -1
+  evalExprResult = ''
   ignoreEvalError = false
   evalexpr = ''
   # Remember the old value of 'signcolumn' for each buffer that it's set in, so
@@ -215,6 +219,7 @@ def InitScriptVariables()
   saved_K_map = maparg('K', 'n', false, true)
   saved_plus_map = maparg('+', 'n', false, true)
   saved_minus_map = maparg('-', 'n', false, true)
+  saved_visual_K_map = maparg('K', 'x', false, true)
 
   if has('menu')
     saved_mousemodel = &mousemodel
@@ -1201,6 +1206,9 @@ def InstallCommands()
     if !empty(saved_K_map) && !saved_K_map.buffer || empty(saved_K_map)
       nnoremap K :Evaluate<CR>
     endif
+    if !empty(saved_visual_K_map) && !saved_visual_K_map.buffer || empty(saved_visual_K_map)
+      xnoremap K :Evaluate<CR>
+    endif
   endif
 
   map = true
@@ -1294,6 +1302,12 @@ def DeleteCommands()
     mapset(saved_K_map)
   elseif empty(saved_K_map)
     silent! nunmap K
+  endif
+
+  if !empty(saved_visual_K_map) && !saved_visual_K_map.buffer
+    mapset(saved_visual_K_map)
+  elseif empty(saved_visual_K_map)
+    silent! xunmap K
   endif
 
   if !empty(saved_plus_map) && !saved_plus_map.buffer
@@ -1478,10 +1492,23 @@ def SendEval(expr: string)
   evalexpr = exprLHS
 enddef
 
+# Returns whether to evaluate in a popup or not, defaults to false.
+def EvaluateInPopup(): bool
+  if exists('g:termdebug_config')
+    return get(g:termdebug_config, 'evaluate_in_popup', false)
+  endif
+  return false
+enddef
+
 # :Evaluate - evaluate what is specified / under the cursor
 def Evaluate(range: number, arg: string)
   var expr = GetEvaluationExpression(range, arg)
-  echom $"expr: {expr}"
+  if EvaluateInPopup()
+    evalInPopup = true
+    evalExprResult = ''
+  else
+    echomsg $'expr: {expr}'
+  endif
   ignoreEvalError = false
   SendEval(expr)
 enddef
@@ -1541,6 +1568,37 @@ def Balloon_show(expr: string)
   endif
 enddef
 
+def Popup_format(expr: string): list<string>
+  var lines = expr
+    ->substitute('{', '{\n', 'g')
+    ->substitute('}', '\n}', 'g')
+    ->substitute(',', ',\n', 'g')
+    ->split('\n')
+  var indentation = 0
+  var formatted_lines = []
+  for line in lines
+    var stripped = line->substitute('^\s\+', '', '')
+    if stripped =~ '^}'
+      indentation -= 2
+    endif
+    formatted_lines->add(repeat(' ', indentation) .. stripped)
+    if stripped =~ '{$'
+      indentation += 2
+    endif
+  endfor
+  return formatted_lines
+enddef
+
+def Popup_show(expr: string)
+  var formatted = Popup_format(expr)
+  if evalPopupId != -1
+    popup_close(evalPopupId)
+  endif
+  # Specifying the line is necessary, as the winbar seems to cause issues
+  # otherwise. I.e., the popup would be shown one line too high.
+  evalPopupId = popup_atcursor(formatted, {'line': 'cursor-1'})
+enddef
+
 def HandleEvaluate(msg: string)
   var value = msg
     ->substitute('.*value="\(.*\)"', '\1', '')
@@ -1555,13 +1613,12 @@ def HandleEvaluate(msg: string)
     #\ ->substitute('\\0x00', NullRep, 'g')
     #\ ->substitute('\\0x\(\x\x\)', {-> eval('"\x' .. submatch(1) .. '"')}, 'g')
     ->substitute(NullRepl, '\\000', 'g')
-  if evalFromBalloonExpr
-    if empty(evalFromBalloonExprResult)
-      evalFromBalloonExprResult = $'{evalexpr}: {value}'
+  if evalFromBalloonExpr || evalInPopup
+    if empty(evalExprResult)
+      evalExprResult = $'{evalexpr}: {value}'
     else
-      evalFromBalloonExprResult ..= $' = {value}'
+      evalExprResult ..= $' = {value}'
     endif
-    Balloon_show(evalFromBalloonExprResult)
   else
     echomsg $'"{evalexpr}": {value}'
   endif
@@ -1570,8 +1627,12 @@ def HandleEvaluate(msg: string)
     # Looks like a pointer, also display what it points to.
     ignoreEvalError = true
     SendEval($'*{evalexpr}')
-  else
+  elseif evalFromBalloonExpr
+    Balloon_show(evalExprResult)
     evalFromBalloonExpr = false
+  elseif evalInPopup
+    Popup_show(evalExprResult)
+    evalInPopup = false
   endif
 enddef
 
@@ -1588,7 +1649,7 @@ def TermDebugBalloonExpr(): string
     return ''
   endif
   evalFromBalloonExpr = true
-  evalFromBalloonExprResult = ''
+  evalExprResult = ''
   ignoreEvalError = true
   var expr = CleanupExpr(v:beval_text)
   SendEval(expr)
@@ -1859,9 +1920,21 @@ def CreateBreakpoint(id: number, subid: number, enabled: string)
       hiName = "debugBreakpoint"
     endif
     var label = ''
-    if exists('g:termdebug_config') && has_key(g:termdebug_config, 'sign')
-      label = g:termdebug_config['sign']
-    else
+    if exists('g:termdebug_config')
+      if has_key(g:termdebug_config, 'signs')
+        label = get(g:termdebug_config.signs, id - 1, '')
+      endif
+      if label == '' && has_key(g:termdebug_config, 'sign')
+        label = g:termdebug_config['sign']
+      endif
+      if label == '' && has_key(g:termdebug_config, 'sign_decimal')
+        label = printf('%02d', id)
+        if id > 99
+          label = '9+'
+        endif
+      endif
+    endif
+    if label == ''
       label = printf('%02X', id)
       if id > 255
         label = 'F+'

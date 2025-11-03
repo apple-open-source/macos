@@ -292,7 +292,7 @@ void IOFreePageable(void * address, vm_size_t size);
 #define IOMallocZeroData(size) __IOMalloc_internal(GET_KEXT_KHEAP_DATA(), size, Z_ZERO)
 
 #define IOMallocDataSharable(size) __IOMalloc_internal(KHEAP_DATA_SHARED, size, Z_WAITOK)
-#define IOMallocZeroDataSharable() __IOMalloc_internal(KHEAP_DATA_SHARED, size, Z_ZERO)
+#define IOMallocZeroDataSharable(size) __IOMalloc_internal(KHEAP_DATA_SHARED, size, Z_ZERO)
 
 #else /* XNU_KERNEL_PRIVATE */
 

@@ -4745,6 +4745,18 @@ srpl_send_candidates_send_action(srpl_connection_t *srpl_connection, srpl_event_
     return srpl_state_send_candidates_wait;
 }
 
+void srpl_primary_resident_updated(srp_server_t *server_state, bool is_primary)
+{
+    if (is_primary) {
+        srpl_domain_t *domain = srpl_current_domain(server_state);
+        if (domain != NULL && domain->primary_has_waited) {
+            if (srpl_can_be_routine_state(domain)) {
+                srpl_transition_to_routine_state(domain);
+            }
+        }
+    }
+}
+
 
 static bool
 srpl_can_be_routine_state(srpl_domain_t *domain)
@@ -6390,6 +6402,9 @@ srpl_transition_to_startup_state(srpl_domain_t *domain)
         return;
     }
     domain->partner_discovery_pending = true;
+    domain->have_dataset_id = false;
+    domain->dataset_id_committed = false;
+    domain->primary_has_waited = false;
 }
 
 void

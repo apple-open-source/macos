@@ -64,7 +64,10 @@
     require_action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
     
     require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
-    SecPolicySetOptionsValue_internal(policy, CFSTR("not-a-policy-check"), kCFBooleanTrue);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SecPolicySetOptionsValue(policy, CFSTR("not-a-policy-check"), kCFBooleanTrue);
+#pragma clang diagnostic pop
     
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
     require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
@@ -94,7 +97,7 @@ errOut:
 #endif
     SecTrustRef trust = NULL;
     CFArrayRef certs = NULL;
-    SecCertificateRef cert0 = NULL, cert1 = NULL, framework_cert1 = NULL;
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
     SecPolicyRef policy = NULL;
     CFDateRef date = NULL;
     CFDictionaryRef query = NULL;
@@ -117,11 +120,9 @@ errOut:
     ok_status(SecTrustSetNetworkFetchAllowed(trust, false), "set no network fetch allowed");
     
     // Add cert1 to the keychain
-    isnt(framework_cert1 = SecFrameworkCertificateCreate(_eval_c1, sizeof(_eval_c1)),
-         NULL, "create framework cert1");
     query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                          kSecClass, kSecClassCertificate,
-                                         kSecValueRef, framework_cert1,
+                                         kSecValueRef, cert1,
                                          kSecAttrAccessGroup, CFSTR("com.apple.trusttests"),
                                          kSecUseDataProtectionKeychain, kCFBooleanTrue,
                                          NULL);
@@ -132,7 +133,6 @@ errOut:
     // Cleanup added cert1.
     ok_status(SecItemDelete(query), "remove cert1 from keychain");
     CFReleaseNull(query);
-    CFReleaseNull(framework_cert1);
     
 errOut:
     CFReleaseNull(cert0);
@@ -149,7 +149,7 @@ errOut:
 #endif
     SecTrustRef trust = NULL;
     CFArrayRef certs = NULL;
-    SecCertificateRef cert0 = NULL, cert1 = NULL, framework_cert1 = NULL;
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
     SecPolicyRef policy = NULL;
     CFDateRef date = NULL;
     CFDictionaryRef query = NULL;
@@ -172,11 +172,9 @@ errOut:
     ok_status(SecTrustSetNetworkFetchAllowed(trust, false), "set no network fetch allowed");
 
     // Add cert1 to the keychain
-    isnt(framework_cert1 = SecFrameworkCertificateCreate(_eval_c1, sizeof(_eval_c1)),
-         NULL, "create framework cert1");
     query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                          kSecClass, kSecClassCertificate,
-                                         kSecValueRef, framework_cert1,
+                                         kSecValueRef, cert1,
                                          kSecAttrAccessGroup, CFSTR("com.apple.trusttests"),
                                          kSecAttrSynchronizable, kCFBooleanTrue,
                                          kSecUseDataProtectionKeychain, kCFBooleanTrue,
@@ -188,7 +186,6 @@ errOut:
     // Cleanup added cert1.
     ok_status(SecItemDelete(query), "remove cert1 from keychain");
     CFReleaseNull(query);
-    CFReleaseNull(framework_cert1);
 
 errOut:
     CFReleaseNull(cert0);

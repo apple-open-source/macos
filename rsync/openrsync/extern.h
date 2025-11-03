@@ -414,7 +414,7 @@ struct	flist {
 	int		 pdfd; /* dirfd for partial */
 	const char	*wpath; /* "working" path for receiver */
 	struct flstat	 st; /* file information */
-	char		*link; /* symlink target, hlink name, or NULL */
+	char		*link; /* symlink target, hlink name, topdir, or NULL */
 	unsigned char    md[MD4_DIGEST_LENGTH]; /* MD4 hash for --checksum */
 	int32_t		 iflags; /* Itemize flags */
 	enum name_basis	 basis; /* name basis */
@@ -950,6 +950,7 @@ int	 cfg_param_str(struct daemon_cfg *, const char *, const char *,
 int	 cfg_has_param(struct daemon_cfg *, const char *, const char *);
 
 void	fl_init(struct sess *, struct fl *);
+int	flist_cmp29(const void *, const void *);
 int	flist_dir_cmp(const void *, const void *);
 int	flist_fts_check(struct sess *, FTSENT *, enum fmode);
 int	flist_del(struct sess *, int, const struct flist *, size_t);
@@ -973,6 +974,7 @@ extern volatile struct fmap	*fmap_trapped, *fmap_trapped_prev;
 extern sigjmp_buf		 fmap_signal_env;
 
 struct fmap	*fmap_open(const char *, int, size_t);
+bool		 fmap_access_valid(struct fmap *, off_t, size_t);
 void		*fmap_data(struct fmap *, off_t, size_t);
 size_t		 fmap_size(struct fmap *);
 enum fmap_type	 fmap_type(struct fmap *);

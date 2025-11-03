@@ -48,6 +48,8 @@
 #import "keychain/ot/OTFollowup.h"
 #import "keychain/ot/ObjCImprovements.h"
 
+#import "keychain/ot/OTLAContextAdapter.h"
+
 #pragma clang diagnostic push
 #pragma clang diagnostic warning "-Wdeprecated-declarations"
 
@@ -55,6 +57,7 @@
 @property OTOperationDependencies* deps;
 @property OTFollowup* followupHandler;
 @property NSOperation* finishedOp;
+@property AppleKeyStorePasscodeCacheReason contextType;
 @end
 
 @implementation OTEscrowRepairOperation
@@ -65,14 +68,45 @@
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState
                      followupHandler:(OTFollowup*)followupHandler
+                         contextType:(AppleKeyStorePasscodeCacheReason)contextType
 {
     if ((self = [super init])) {
         _deps = dependencies;
         _followupHandler = followupHandler;
         _intendedState = intendedState;
         _nextState = errorState;
+        _contextType = contextType;
     }
     return self;
+}
+
+- (BOOL)shouldIgnoreError:(NSError*)error
+{
+    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorNetworkUnavailable) {
+        NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
+
+        if (underlyingError && [underlyingError.domain isEqualToString:NSURLErrorDomain] &&
+            (underlyingError.code == NSURLErrorNotConnectedToInternet || underlyingError.code == NSURLErrorUnknown ||
+             underlyingError.code == NSURLErrorCannotFindHost || underlyingError.code == NSURLErrorCannotConnectToHost ||
+             underlyingError.code == NSURLErrorDNSLookupFailed || underlyingError.code == NSURLErrorInternationalRoamingOff ||
+             underlyingError.code == NSURLErrorDataNotAllowed || underlyingError.code == NSURLErrorCannotLoadFromNetwork)) {
+            return YES;
+        }
+    }
+
+    if ([error.domain isEqualToString:kCloudServicesErrorDomain] && error.code == kCloudServicesBadParametersError) {
+        return YES;
+    }
+
+    if ([error.domain isEqualToString:TrustedPeersHelperErrorDomain] && error.code == TrustedPeersHelperErrorCodeFailedToLoadSecret) {
+        NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
+
+        if([underlyingError.domain isEqualToString:@"securityd"] && underlyingError.code == errSecInteractionNotAllowed) {
+            return YES;
+        }
+    }
+
+    return NO;
 }
 
 - (void)groupStart
@@ -92,13 +126,41 @@
                                                                                         testsAreEnabled:SecCKKSTestsEnabled()
                                                                                          canSendMetrics:YES
                                                                                                category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    NSString* eventName = nil;
+    AAFAnalyticsEventSecurity *contextSpecificEvent = nil;
+
+    if (self.contextType == AppleKeyStorePasscodeCacheReasonPasscodeChanged) {
+        eventName = kSecurityRTCEventNameEscrowRepairOperationPasscodeChanged;
+    } else if (self.contextType == AppleKeyStorePasscodeCacheReasonPasscodeUnlocked) {
+        eventName = kSecurityRTCEventNameEscrowRepairOperationPasscodeUnlocked;
+    } else {
+        secerror("octagon-escrow-repair: unsupported context type: %ld", (long)self.contextType);
+        return;
+    }
+
+    if (eventName) {
+        contextSpecificEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                        altDSID:self.deps.activeAccount.altDSID
+                                                                                         flowID:self.deps.flowID
+                                                                                deviceSessionID:self.deps.deviceSessionID
+                                                                                      eventName:eventName
+                                                                                testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                 canSendMetrics:YES
+                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    }
 
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
         STRONGIFY(self);
         if (self.error) {
             [event sendMetricWithResult:NO error:self.error];
+            if (contextSpecificEvent) {
+                [contextSpecificEvent sendMetricWithResult:NO error:self.error];
+            }
         } else {
             [event sendMetricWithResult:YES error:nil];
+            if (contextSpecificEvent) {
+                [contextSpecificEvent sendMetricWithResult:YES error:nil];
+            }
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
@@ -112,13 +174,16 @@
         return;
     }
 
-    NSError* accountError = nil;
-    ACAccount* account = [[ACAccountStore defaultStore] accountWithIdentifier:self.deps.activeAccount.appleAccountID error:&accountError];
-    if (!account) {
-        secnotice("octagon-escrow-repair", "failed to get account");
-        self.error = accountError;
-        [self runBeforeGroupFinished:self.finishedOp];
-        return;
+    ACAccount* account = nil;
+    if (!SecCKKSTestsEnabled()) {
+        NSError* accountError = nil;
+        account = [[ACAccountStore defaultStore] accountWithIdentifier:self.deps.activeAccount.appleAccountID error:&accountError];
+        if (!account) {
+            secnotice("octagon-escrow-repair", "failed to get account");
+            self.error = accountError;
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
+        }
     }
 
     /*
@@ -127,9 +192,8 @@
      */
 
     NSError* laError = nil;
-    LAContext* laContext = [[LAContext alloc] init];
-    BOOL laSuccess = [laContext setCredential:[NSData data] type:LACredentialTypePasscodeStashSecret error:&laError];
-
+    LAContext* laContext = nil;
+    BOOL laSuccess = [self.deps.laContextAdapter setCredential:[NSData data] type:LACredentialTypePasscodeStashSecret laContext:&laContext error:&laError];
     if (laSuccess) {
         bool lockSuccess = false;
         CFErrorRef lockError = NULL;
@@ -142,7 +206,21 @@
             }
 
             [self deleteRecord:octagonPeerID];
-            [self enableWithPasscodeStashSecret:laContext.externalizedContext account:account];
+            NSError* enableError = nil;
+            BOOL enableResult = [self enableWithPasscodeStashSecret:laContext.externalizedContext account:account error:&enableError];
+            if (enableError && [self shouldIgnoreError:enableError] == YES) {
+                secnotice("octagon-escrow-repair", "resetting last escrow repair attempt, ignored error: %@", enableError);
+                NSError* clearError = nil;
+                BOOL result = [self.deps.stateHolder clearLastEscrowRepairAttempt:&clearError];
+                if (result == NO || clearError) {
+                    secerror("octagon-escrow-repair: failed to clear last escrow repair attempt: %@", clearError);
+                }
+                NSError* genericError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorEscrowRepairIgnoredError userInfo:@{NSUnderlyingErrorKey : enableError}];
+                self.error = genericError;
+            } else if (enableResult == NO || enableError) {
+                secerror("octagon-escrow-repair: failed to enable with passcode stash secret: %@", enableError);
+                self.error = enableError;
+            }
         });
 
         if (!lockSuccess) {
@@ -175,7 +253,7 @@
     }
 }
 
-- (void)enableWithPasscodeStashSecret:(NSData*)passcodeStashSecret account:(ACAccount*)account
+- (BOOL)enableWithPasscodeStashSecret:(NSData*)passcodeStashSecret account:(ACAccount*)account error:(NSError**)error
 {
     SecureBackup* sb = [[SecureBackup alloc] initWithUserActivityLabel:@"escrow-repair-enable"];
 
@@ -202,7 +280,7 @@
     sb.generateClientMetadata = YES;
 
     NSError* enableError = nil;
-    bool success = [sb enableWithError:&enableError];
+    bool success = [self.deps.secureBackupAdapter enableWithSecureBackup:sb error:&enableError];
     if (success) {
         secnotice("octagon-escrow-repair", "successfully enrolled escrow record");
 
@@ -212,8 +290,12 @@
         }
     } else {
         secnotice("octagon-escrow-repair", "failed to enroll escrow record: %@", enableError);
-        self.error = enableError;
+        if (error) {
+            *error = enableError;
+        }
+        return NO;
     }
+    return YES;
 }
 
 - (NSString*)fetchPETForUsername:(NSString*)username

@@ -1041,8 +1041,10 @@ LocaleTest::TestGetLangsAndCountries()
 // rdar://104877633 #381 Add new locales to CLDR: mid, mic, ber, nqo, nnp, rej, hmn, pqm
 // rdar://123393073	added lut and mus (some, but not all, data for mus was already present)
 // rdar://117588343 added sjd, sje, sju
-    if (testCount != 615)
-        errln("Expected getISOLanguages() to return 615 languages; it returned %d", testCount);
+// rdar://153902727 added cst, hch, isc, shp
+// rdar://160427611 added nez
+    if (testCount != 620)
+        errln("Expected getISOLanguages() to return 620 languages; it returned %d", testCount);
 #else
     if (testCount != 601)
         errln("Expected getISOLanguages() to return 596 languages; it returned %d", testCount);

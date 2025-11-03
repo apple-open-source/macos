@@ -1197,7 +1197,7 @@ public:
     inline void setBlendMode(BlendMode);
     inline bool isInSubtreeWithBlendMode() const;
 
-    inline void setIsForceHidden();
+    inline void setIsForceHidden(bool = true);
     inline bool isForceHidden() const;
 
     inline void setIsolation(Isolation);
@@ -2379,6 +2379,9 @@ public:
     static FixedVector<Style::PositionTryFallback> initialPositionTryFallbacks();
     const FixedVector<Style::PositionTryFallback>& positionTryFallbacks() const;
     void setPositionTryFallbacks(FixedVector<Style::PositionTryFallback>&&);
+
+    std::optional<size_t> lastSuccessfulPositionTryFallbackIndex() const;
+    void setLastSuccessfulPositionTryFallbackIndex(std::optional<size_t>);
 
     static constexpr OptionSet<PositionVisibility> initialPositionVisibility();
     inline OptionSet<PositionVisibility> positionVisibility() const;

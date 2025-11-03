@@ -1,7 +1,6 @@
 " Tests for window cmd (:wincmd, :split, :vsplit, :resize and etc...)
 
-source check.vim
-source screendump.vim
+source util/screendump.vim
 
 func Test_window_cmd_ls0_with_split()
   set ls=0
@@ -68,7 +67,7 @@ func Test_cmdheight_not_changed()
 
   tabonly!
   only
-  set winminwidth& cmdheight&
+  set winminheight& cmdheight&
   augroup Maximize
     au!
   augroup END
@@ -557,7 +556,7 @@ func Test_equalalways_on_close()
   1wincmd w
   split
   4wincmd w
-  resize + 5
+  resize +5
   " left column has three windows, equalized heights.
   " right column has two windows, top one a bit higher
   let height_1 = winheight(1)
@@ -1258,6 +1257,7 @@ func Run_noroom_for_newwindow_test(dir_arg)
 
     " Preview window
     call assert_fails(dir .. 'pedit Xnorfile2', 'E36:')
+    call assert_fails(dir .. 'pbuffer', 'E36:')
     call setline(1, 'abc')
     call assert_fails(dir .. 'psearch abc', 'E36:')
   endif
@@ -1978,6 +1978,18 @@ func Test_splitkeep_misc()
   set splitkeep&
 endfunc
 
+func Test_splitkeep_screen_cursor_pos()
+  new
+  set splitkeep=screen
+  call setline(1, ["longer than the last", "shorter"])
+  norm! $
+  wincmd s
+  close
+  call assert_equal([0, 1, 20, 0], getpos('.'))
+  %bwipeout!
+  set splitkeep&
+endfunc
+
 func Test_splitkeep_cursor()
   CheckScreendump
   let lines =<< trim END
@@ -2105,6 +2117,24 @@ func Test_splitkeep_skipcol()
   let buf = RunVimInTerminal('-S XTestSplitkeepSkipcol', #{rows: 12, cols: 40})
 
   call VerifyScreenDump(buf, 'Test_splitkeep_skipcol_1', {})
+endfunc
+
+func Test_splitkeep_line()
+  CheckScreendump
+
+  let lines =<< trim END
+    set splitkeep=screen nosplitbelow
+    autocmd WinResized * call line('w0', 1000)
+    call setline(1, range(1000))
+  END
+
+  call writefile(lines, 'XTestSplitkeepSkipcol', 'D')
+  let buf = RunVimInTerminal('-S XTestSplitkeepSkipcol', #{rows: 6, cols: 40})
+
+  call VerifyScreenDump(buf, 'Test_splitkeep_line_1', {})
+
+  call term_sendkeys(buf, ":wincmd s\<CR>")
+  call VerifyScreenDump(buf, 'Test_splitkeep_line_2', {})
 endfunc
 
 func Test_new_help_window_on_error()

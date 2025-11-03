@@ -132,6 +132,7 @@ typedef struct memory_object {
 #endif /* __LP64__ */
 	const struct memory_object_pager_ops    *mo_pager_ops;
 	memory_object_control_t                 mo_control;
+	uint32_t                                mo_last_unmap_ctid;
 } *memory_object_t;
 
 typedef const struct memory_object_pager_ops {

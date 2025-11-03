@@ -33,6 +33,7 @@
 #include <mach/mk_timer.h>
 #include <sys/sysctl.h>
 #include <sys/code_signing.h>
+#include "ipc_utils.h"
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.ipc"),
@@ -44,9 +45,9 @@ T_GLOBAL_META(
 
 /* in xpc/launch_private.h */
 #define XPC_DOMAIN_SYSTEM 1
+#define XPC_DOMAIN_PORT 7
 
 #define countof(arr) (sizeof(arr) / sizeof((arr)[0]))
-
 
 static void
 expect_sigkill(
@@ -337,6 +338,28 @@ create_service_port(void)
 	return port;
 }
 
+static mach_port_t
+create_bootstrap_port(void)
+{
+	kern_return_t kr;
+	mach_port_t port;
+
+	struct mach_service_port_info sp_info = {
+		.mspi_string_name = "com.apple.testservice",
+		.mspi_domain_type = XPC_DOMAIN_PORT,
+	};
+
+	mach_port_options_t opts = {
+		.flags = MPO_STRICT_SERVICE_PORT,
+		.service_port_info = &sp_info,
+	};
+
+	kr = mach_port_construct(mach_task_self(), &opts, 0x0, &port);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_port_construct");
+
+	return port;
+}
+
 static void
 destruct_generic_port(mach_port_t port)
 {
@@ -445,6 +468,11 @@ const port_type_desc SERVICE_PORT_DESC = {
 	.port_type_name = "IOT_SERVICE_PORT",
 	.is_reply_port = false,
 };
+const port_type_desc BOOTSTRAP_PORT_DESC = {
+	.port_ctor = create_bootstrap_port,
+	.port_type_name = "IOT_BOOTSTRAP_PORT",
+	.is_reply_port = false,
+};
 
 const port_type_desc PORT_TYPE_DESC_ARRAY[] = {
 	IOT_PORT_DESC,
@@ -455,7 +483,8 @@ const port_type_desc PORT_TYPE_DESC_ARRAY[] = {
 	CONNECTION_PORT_WITH_PORT_ARRAY_DESC,
 	TIMER_PORT_DESC,
 	SPECIAL_REPLY_PORT_DESC,
-	SERVICE_PORT_DESC
+	SERVICE_PORT_DESC,
+	BOOTSTRAP_PORT_DESC
 };
 
 /*
@@ -689,6 +718,8 @@ T_DECL(immovable_receive_port_types,
 #if !TARGET_OS_BRIDGE
 	test_receive_immovability(&SERVICE_PORT_DESC);
 #endif /* !TARGET_OS_BRIDGE */
+
+	test_receive_immovability(&BOOTSTRAP_PORT_DESC);
 }
 
 T_DECL(immovable_receive_move_once_port_types,
@@ -721,26 +752,14 @@ T_DECL(ool_port_array_policies,
 	 * Attempt sending MACH_MSG_OOL_PORTS_DESCRIPTOR to any other port type
 	 * result in a fatal Guard exception.
 	 */
-	test_ool_port_array(&IOT_PORT_DESC,
-	    MACH_MSG_TYPE_COPY_SEND);
+	for (uint32_t i = 0; i < countof(PORT_TYPE_DESC_ARRAY); ++i) {
+		if (PORT_TYPE_DESC_ARRAY[i].port_ctor == create_conn_with_port_array_port) {
+			continue;
+		}
 
-	test_ool_port_array(&REPLY_PORT_DESC,
-	    MACH_MSG_TYPE_COPY_SEND);
-
-	test_ool_port_array(&SPECIAL_REPLY_PORT_DESC,
-	    MACH_MSG_TYPE_COPY_SEND);
-
-	test_ool_port_array(&CONNECTION_PORT_DESC,
-	    MACH_MSG_TYPE_COPY_SEND);
-
-	test_ool_port_array(&EXCEPTION_PORT_DESC,
-	    MACH_MSG_TYPE_COPY_SEND);
-
-	test_ool_port_array(&PROVISIONAL_REPLY_PORT_DESC,
-	    MACH_MSG_TYPE_COPY_SEND);
-
-	test_ool_port_array(&TIMER_PORT_DESC,
-	    MACH_MSG_TYPE_COPY_SEND);
+		test_ool_port_array((PORT_TYPE_DESC_ARRAY + i),
+		    MACH_MSG_TYPE_COPY_SEND);
+	}
 
 	/*
 	 * Now try to send to IOT_CONNECTION_PORT_WITH_PORT_ARRAY ports,
@@ -811,12 +830,10 @@ T_DECL(provisional_reply_port,
 	/* drop only the send right of the provisional reply port */
 	kr = mach_port_mod_refs(mach_task_self(), prp, MACH_PORT_RIGHT_SEND, -1);
 
-	/* send a receive right to the provisional reply port */
-	kr = send_port_descriptor(remote_port, prp, MACH_MSG_TYPE_MOVE_RECEIVE);
-	T_ASSERT_MACH_SUCCESS(kr, "send_port_descriptor");
-
-	recv_port = recv_port_descriptor(remote_port);
-	T_ASSERT_NE(recv_port, MACH_PORT_NULL, "recv_port_descriptor receive");
+	/*
+	 * Do not move receive right of a provisional reply port as
+	 * that triggers a non-fatal guard exception
+	 */
 
 	/* cleanup, destruct the ports we used */
 	kr = mach_port_destruct(mach_task_self(), recv_port, 0, 0);

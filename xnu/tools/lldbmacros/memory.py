@@ -2740,7 +2740,11 @@ def getThreadFromCtidInternal(ctid):
 
     index = clz64(CTID_BASE_TABLE) - clz64(ctid | (CTID_BASE_TABLE - 1)) + 1
     table = kern.globals.ctid_table
-    return cast(table.cidt_array[index][ctid], 'struct thread *')
+
+    try:
+        return cast(table.cidt_array[index][ctid], 'struct thread *')
+    except AttributeError:
+        return kern.GetValueFromAddress(0, 'struct thread *')
 
 def getLockGroupFromCgidInternal(cgid):
     CGID_BASE_TABLE = 1 << 10

@@ -589,6 +589,9 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
     if (RefPtr frameLoader = resourceLoader.frameLoader())
         loadParameters.requiredCookiesVersion = frameLoader->requiredCookiesVersion();
 
+    if (CachedResourceHandle handle = resourceLoader.cachedResource())
+        loadParameters.isInitiatorPrefetch = handle->type() == CachedResource::Type::LinkPrefetch;
+
     std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume;
     if (loadParameters.isMainFrameNavigation)
         existingNetworkResourceLoadIdentifierToResume = std::exchange(m_existingNetworkResourceLoadIdentifierToResume, std::nullopt);

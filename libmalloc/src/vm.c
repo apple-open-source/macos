@@ -198,6 +198,9 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 	const _liblibc_map_type_t type = LIBLIBC_MAP_TYPE_PRIVATE |
 			((flags & VM_FLAGS_ANYWHERE) ? LIBLIBC_MAP_TYPE_NONE : LIBLIBC_MAP_TYPE_FIXED) |
 			((debug_flags & MALLOC_CAN_FAULT) ? LIBLIBC_MAP_TYPE_FAULTABLE : LIBLIBC_MAP_TYPE_NONE) |
+#if CONFIG_MTE
+			((debug_flags & MALLOC_MTE_TAGGABLE) ? LIBLIBC_MAP_TYPE_MEMTAG : LIBLIBC_MAP_TYPE_NONE) |
+#endif // CONFIG_MTE
 			((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : LIBLIBC_MAP_TYPE_NONE) |
 			((debug_flags & DISABLE_ASLR) ? LIBLIBC_MAP_TYPE_NORAND : LIBLIBC_MAP_TYPE_NONE);
 	const _liblibc_map_perm_t perm = LIBLIBC_MAP_PERM_READ |
@@ -232,6 +235,11 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 		addr = (uintptr_t)malloc_guarded_range_config.base_address;
 	}
 
+#if CONFIG_MTE
+	if (debug_flags & MALLOC_MTE_TAGGABLE) {
+		flags |= VM_FLAGS_MTE;
+	}
+#endif
 
 	mach_vm_address_t vm_addr = addr;
 	mach_vm_offset_t allocation_mask = ((mach_vm_offset_t)1 << align) - 1;
@@ -288,6 +296,11 @@ mvm_allocate_pages_plat(size_t size, uint8_t align, uint32_t debug_flags,
 		alloc_flags |= VM_FLAGS_PURGABLE;
 	}
 
+#if CONFIG_MTE
+	if (debug_flags & MALLOC_MTE_TAGGABLE) {
+		alloc_flags |= VM_FLAGS_MTE;
+	}
+#endif
 
 	if (allocation_size < size) { // size_t arithmetic wrapped!
 		return NULL;

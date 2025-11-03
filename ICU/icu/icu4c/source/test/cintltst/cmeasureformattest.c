@@ -318,6 +318,15 @@ static const SingleUnitFormat zh_Hant_HK_singFmt[] = {
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+#if APPLE_ICU_CHANGES // rdar://135257320
+static const SingleUnitFormat mr_singFmt[] = {
+//    unit                                 value   wide_2                       wide_0                    shrt_X              shrt_1            narr_0         numr_0       wide_0  narr_0
+    { UAMEASUNIT_DURATION_SECOND,          1.0,   "1.00 \\u0938\\u0947\\u0915\\u0902\\u0926",              "1 \\u0938\\u0947\\u0915\\u0902\\u0926",               "1 \\u0938\\u0947.",            "1.0 \\u0938\\u0947.",        "1\\u0938\\u0947.",          "1\\u0938\\u0947.",        0,1,    0,1   },
+    { UAMEASUNIT_DURATION_SECOND,          5.25,  "5.25 \\u0938\\u0947\\u0915\\u0902\\u0926",              "5 \\u0938\\u0947\\u0915\\u0902\\u0926",               "5.25 \\u0938\\u0947.",         "5.2 \\u0938\\u0947.",        "5\\u0938\\u0947.",          "5\\u0938\\u0947.",        0,1,    0,1   },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+#endif
+
 static const SingleUnitFormat ta_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                    shrt_X              shrt_1            narr_0         numr_0       wide_0  narr_0
     { UAMEASUNIT_DURATION_HOUR,            0.0,   "0.00 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd",              "0 \\u0bae\\u0ba3\\u0bbf\\u0ba8\\u0bc7\\u0bb0\\u0bae\\u0bcd",              "0 \\u0bae.",            "0.0 \\u0bae.",        "0 \\u0bae.",          "0 \\u0bae.",        0,1,    0,1   },
@@ -614,6 +623,9 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "zh_Hant_HK", zh_Hant_HK_singFmt, zh_Hant_HK_singNam, NULL,      NULL            },
     
     // ============= India Tentpole locales
+#if APPLE_ICU_CHANGES // rdar://135257320
+    { "mr",         mr_singFmt,      NULL,            NULL,            NULL            }, // mr: try plural cases for 1, other (Marathi)
+#endif
     { "ta",         ta_singFmt,      NULL,            NULL,            NULL            },
     { "ur",         ur_singFmt,      NULL,            NULL,            NULL            },
 

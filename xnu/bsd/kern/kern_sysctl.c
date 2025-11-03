@@ -175,6 +175,9 @@
 #if CONFIG_FREEZE
 #include <sys/kern_memorystatus.h>
 #endif
+#if HAS_UPSI_FAILURE_INJECTION
+#include <kern/upsi.h>
+#endif
 
 #if KPERF
 #include <kperf/kperf.h>
@@ -1518,6 +1521,9 @@ sysctl_procargsx(int *name, u_int namelen, user_addr_t where,
 	if (vm_map_copy_overwrite(kernel_map,
 	    (vm_map_address_t)copy_start,
 	    tmp, (vm_map_size_t) arg_size,
+#if HAS_MTE
+	    FALSE,
+#endif
 	    FALSE) != KERN_SUCCESS) {
 		error = EIO;
 		goto finish;
@@ -4647,15 +4653,12 @@ SYSCTL_QUAD(_vm, OID_AUTO, compressor_input_bytes, CTLFLAG_RD | CTLFLAG_LOCKED, 
 SYSCTL_QUAD(_vm, OID_AUTO, compressor_compressed_bytes, CTLFLAG_RD | CTLFLAG_LOCKED, ((uint64_t *)&c_segment_compressed_bytes), "");
 SYSCTL_QUAD(_vm, OID_AUTO, compressor_bytes_used, CTLFLAG_RD | CTLFLAG_LOCKED, ((uint64_t *)&compressor_bytes_used), "");
 
-SYSCTL_INT(_vm, OID_AUTO, compressor_mode, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_compressor_mode, 0, "");
-SYSCTL_INT(_vm, OID_AUTO, compressor_is_active, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_compressor_is_active, 0, "");
 SYSCTL_INT(_vm, OID_AUTO, compressor_swapout_target_age, CTLFLAG_RD | CTLFLAG_LOCKED, &swapout_target_age, 0, "");
 SYSCTL_INT(_vm, OID_AUTO, compressor_available, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_compressor_available, 0, "");
 SYSCTL_INT(_vm, OID_AUTO, compressor_segment_buffer_size, CTLFLAG_RD | CTLFLAG_LOCKED, &c_seg_bufsize, 0, "");
 SYSCTL_QUAD(_vm, OID_AUTO, compressor_pool_size, CTLFLAG_RD | CTLFLAG_LOCKED, &compressor_pool_size, "");
 SYSCTL_UINT(_vm, OID_AUTO, compressor_pool_multiplier, CTLFLAG_RD | CTLFLAG_LOCKED, &compressor_pool_multiplier, 0, "");
 SYSCTL_INT(_vm, OID_AUTO, compressor_segment_slots_fixed_array_len, CTLFLAG_RD | CTLFLAG_LOCKED, &c_seg_fixed_array_len, 0, "");
-SYSCTL_UINT(_vm, OID_AUTO, compressor_segment_limit, CTLFLAG_RD | CTLFLAG_LOCKED, &c_segments_limit, 0, "");
 SYSCTL_UINT(_vm, OID_AUTO, compressor_segment_pages_compressed_limit, CTLFLAG_RD | CTLFLAG_LOCKED, &c_segment_pages_compressed_limit, 0, "");
 SYSCTL_UINT(_vm, OID_AUTO, compressor_segment_alloc_size, CTLFLAG_RD | CTLFLAG_LOCKED, &c_seg_allocsize, 0, "");
 SYSCTL_UINT(_vm, OID_AUTO, compressor_segment_pages_compressed, CTLFLAG_RD | CTLFLAG_LOCKED, &c_segment_pages_compressed, 0, "");
@@ -5586,6 +5589,14 @@ SYSCTL_INT(_debug, OID_AUTO, xnu_panic_test_case, CTLFLAG_RW | CTLFLAG_LOCKED | 
 SYSCTL_PROC(_debug, OID_AUTO, xnu_spinlock_panic_test, CTLTYPE_STRING | CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_MASKED, 0, 0, sysctl_spinlock_panic_test, "A", "spinlock panic test");
 SYSCTL_PROC(_debug, OID_AUTO, xnu_simultaneous_panic_test, CTLTYPE_STRING | CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_MASKED, 0, 0, sysctl_simultaneous_panic_test, "A", "simultaneous panic test");
 
+#if HAS_UPSI_FAILURE_INJECTION
+extern uint64_t xnu_upsi_injection_stage;
+SYSCTL_QUAD(_debug, OID_AUTO, xnu_upsi_injection_stage, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_KERN, &xnu_upsi_injection_stage, "UPSI failure injection stage");
+
+extern uint64_t xnu_upsi_injection_action;
+SYSCTL_QUAD(_debug, OID_AUTO, xnu_upsi_injection_action, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_KERN, &xnu_upsi_injection_action, "UPSI failure injection action");
+#endif /* HAS_UPSI_FAILURE_INJECTION */
+
 extern int exc_resource_threads_enabled;
 SYSCTL_INT(_kern, OID_AUTO, exc_resource_threads_enabled, CTLFLAG_RW | CTLFLAG_LOCKED, &exc_resource_threads_enabled, 0, "exc_resource thread limit enabled");
 
@@ -6501,6 +6512,51 @@ sysctl_sptm_pmap_io_ranges_count SYSCTL_HANDLER_ARGS
 }
 SYSCTL_PROC(_kern, OID_AUTO, sptm_pmap_io_ranges_count, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
     0, 0, sysctl_sptm_pmap_io_ranges_count, "I", "SPTM pmap I/O ranges count");
+
+/* Establish the `kern.sptm` sysctl namespace. */
+SYSCTL_NODE(_kern, OID_AUTO, sptm, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "SPTM (Secure Page Table Monitor)");
+
+/* Establish the `kern.sptm.event_counters` sysctl namespace. */
+SYSCTL_NODE(_kern_sptm, OID_AUTO, event_counters, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "SPTM event counters");
+
+/**
+ * The single sysctl handler function shared by all of the SPTM event counter sysctls.
+ *
+ * @param arg2 The `sptm_info_t` enum value corresponding to the SPTM event counter.
+ *             This value is bound at sysctl registration time.
+ */
+static int
+sysctl_handle_sptm_event_counter SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1)
+	/* Overall count across all CPUs. */
+	uint64_t total_count = 0;
+
+	/* Loop over all CPUs and accumulate counts. */
+	const int ncpus = ml_early_cpu_max_number() + 1;
+	for (int cpu = 0; cpu < ncpus; cpu++) {
+		/* Get count for this CPU. */
+		uint64_t count = 0;
+		libsptm_error_t ret = sptm_get_info((sptm_info_t)arg2, cpu, &count);
+		if (__improbable(ret != LIBSPTM_SUCCESS)) {
+			return EINVAL;
+		}
+
+		/* Accumulate the count. */
+		total_count += count;
+	}
+
+	return SYSCTL_OUT(req, &total_count, sizeof(total_count));
+}
+
+#define GENERATE_SPTM_EVNT_CNTR_SYSCTL_REGISTRATION(event_counter, description) \
+	SYSCTL_PROC(_kern_sptm_event_counters, OID_AUTO, event_counter, \
+	        CTLTYPE_QUAD | CTLFLAG_RD | CTLFLAG_LOCKED | CTLFLAG_KERN, \
+	        NULL, SPTM_EVENT_COUNTER_TO_ENUM(event_counter), \
+	        sysctl_handle_sptm_event_counter, "Q", description);
+
+/* Generate sysctl accessors for every SPTM event counter. */
+FOREACH_SPTM_EVENT_COUNTER(GENERATE_SPTM_EVNT_CNTR_SYSCTL_REGISTRATION)
 
 static int
 sysctl_sptm_io_ranges SYSCTL_HANDLER_ARGS

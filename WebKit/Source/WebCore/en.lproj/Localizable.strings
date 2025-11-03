@@ -292,6 +292,9 @@
 /* Cancel displaying QuickLook Preview of 3D model */
 "Cancel (usdz QuickLook Preview)" = "Cancel";
 
+/* Cancel displaying QuickLook Preview of 3D object */
+"Cancel (QuickLook Preview)" = "Cancel";
+
 /* Title for Cancel button label in button bar */
 "Cancel button label in button bar" = "Cancel";
 
@@ -1728,6 +1731,15 @@
 
 /* View in AR? description */
 "You can view this object in 3D and place it in your surroundings using augmented reality." = "You can view this object in 3D and place it in your surroundings using augmented reality.";
+
+/* Allow displaying QuickLook Preview of 3D object */
+"View 3D Object (QuickLook Preview)" = "View 3D Object";
+
+/* View 3D Object? */
+"View 3D Object?" = "View 3D Object?";
+
+/* View 3D Object description */
+"You can see a preview of this object before viewing in 3D." = "You can see a preview of this object before viewing in 3D.";
 
 /* Title for View Spatial Photo action button */
 "View Spatial Photo" = "View Spatial Photo";

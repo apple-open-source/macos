@@ -29,12 +29,82 @@
 #ifndef _VM_VM_COMPRESSOR_INTERNAL_H_
 #define _VM_VM_COMPRESSOR_INTERNAL_H_
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <kern/locks.h>
+#include <kern/thread.h>
+#include <mach/boolean.h>
 #include <sys/cdefs.h>
 #include <vm/vm_compressor_xnu.h>
 
 __BEGIN_DECLS
 #ifdef XNU_KERNEL_PRIVATE
 
+#pragma mark Compressor Globals
+
+extern int              vm_compressor_mode;
+extern boolean_t        vm_compressor_is_active;
+extern boolean_t        vm_compressor_available;
+
+extern boolean_t        fastwake_recording_in_progress;
+extern int              compaction_swapper_inited;
+extern int              compaction_swapper_running;
+extern uint64_t         vm_swap_put_failures;
+
+extern int              c_overage_swapped_count;
+extern int              c_overage_swapped_limit;
+
+extern queue_head_t     c_minor_list_head;
+extern queue_head_t     c_age_list_head;
+extern queue_head_t     c_major_list_head;
+extern queue_head_t     c_early_swapout_list_head;
+extern queue_head_t     c_regular_swapout_list_head;
+extern queue_head_t     c_late_swapout_list_head;
+extern queue_head_t     c_swappedout_list_head;
+extern queue_head_t     c_swappedout_sparse_list_head;
+
+extern uint64_t         first_c_segment_to_warm_generation_id;
+extern uint64_t         last_c_segment_to_warm_generation_id;
+extern boolean_t        hibernate_flushing;
+extern boolean_t        hibernate_no_swapspace;
+extern boolean_t        hibernate_in_progress_with_pinned_swap;
+extern boolean_t        hibernate_flush_timed_out;
+
+extern uint32_t        c_age_count;
+extern uint32_t        c_early_swappedin_count, c_regular_swappedin_count, c_late_swappedin_count;
+extern uint32_t        c_early_swapout_count, c_regular_swapout_count, c_late_swapout_count;
+extern uint32_t        c_swappedout_count;
+extern uint32_t        c_swappedout_sparse_count;
+extern uint32_t        c_swapio_count;
+extern uint32_t        c_minor_count;
+extern uint32_t        c_major_count;
+extern uint32_t        c_bad_count;
+extern uint32_t        c_empty_count;
+extern uint32_t        c_filling_count;
+extern uint32_t        c_segment_count;
+extern uint32_t        c_segments_nearing_limit;
+extern uint32_t        c_segments_limit;
+
+extern uint32_t        c_segment_pages_compressed;
+extern uint32_t        c_segment_pages_compressed_nearing_limit;
+extern uint32_t        c_segment_pages_compressed_limit;
+#if CONFIG_FREEZE
+extern bool            freezer_incore_cseg_acct;
+extern int32_t         c_segment_pages_compressed_incore;
+extern int32_t         c_segment_pages_compressed_incore_late_swapout;
+#endif
+
+extern uint32_t        c_segment_svp_in_hash;
+extern uint32_t        c_segment_svp_hash_succeeded;
+extern uint32_t        c_segment_svp_hash_failed;
+extern uint32_t        c_segment_svp_zero_compressions;
+extern uint32_t        c_segment_svp_nonzero_compressions;
+extern uint32_t        c_segment_svp_zero_decompressions;
+extern uint32_t        c_segment_svp_nonzero_decompressions;
+
+#if MACH_KERNEL_PRIVATE
+
+#pragma mark Internal Compressor Functions
 
 void vm_consider_waking_compactor_swapper(void);
 void vm_consider_swapping(void);
@@ -67,31 +137,6 @@ extern void             c_seg_wait_on_busy(c_segment_t);
 extern void             c_seg_trim_tail(c_segment_t);
 extern void             c_seg_switch_state(c_segment_t, int, boolean_t);
 
-
-extern boolean_t        fastwake_recording_in_progress;
-extern int              compaction_swapper_inited;
-extern int              compaction_swapper_running;
-extern uint64_t         vm_swap_put_failures;
-
-extern int              c_overage_swapped_count;
-extern int              c_overage_swapped_limit;
-
-extern queue_head_t     c_minor_list_head;
-extern queue_head_t     c_age_list_head;
-extern queue_head_t     c_major_list_head;
-extern queue_head_t     c_early_swapout_list_head;
-extern queue_head_t     c_regular_swapout_list_head;
-extern queue_head_t     c_late_swapout_list_head;
-extern queue_head_t     c_swappedout_list_head;
-extern queue_head_t     c_swappedout_sparse_list_head;
-
-extern uint64_t         first_c_segment_to_warm_generation_id;
-extern uint64_t         last_c_segment_to_warm_generation_id;
-extern boolean_t        hibernate_flushing;
-extern boolean_t        hibernate_no_swapspace;
-extern boolean_t        hibernate_in_progress_with_pinned_swap;
-extern boolean_t        hibernate_flush_timed_out;
-
 extern void c_seg_insert_into_q(queue_head_t *, c_segment_t);
 
 extern uint64_t vm_compressor_compute_elapsed_msecs(clock_sec_t, clock_nsec_t, clock_sec_t, clock_nsec_t);
@@ -104,6 +149,7 @@ extern void      c_compressed_record_init(void);
 extern void      c_compressed_record_write(char *, int);
 #endif
 
+#endif /* MACH_KERNEL_PRIVATE */
 #endif /* XNU_KERNEL_PRIVATE */
 __END_DECLS
 #endif /* _VM_VM_COMPRESSOR_INTERNAL_H_ */

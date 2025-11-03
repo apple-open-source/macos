@@ -401,6 +401,7 @@ id{
         nds{"Jerman Rendah"}
         ne{"Nepali"}
         new{"Newari"}
+        nez{"Nez Perce"}
         ng{"Ndonga"}
         nia{"Nias"}
         niu{"Niuea"}

@@ -145,6 +145,7 @@ private:
     void waitForDidUpdateActivityState(ActivityStateChangeID) final;
     void hideContentUntilPendingUpdate() final;
     void hideContentUntilAnyUpdate() final;
+    void hideContentUntilDidUpdateActivityState(ActivityStateChangeID) final;
     bool hasVisibleContent() const final;
 
     void prepareForAppSuspension() final;
@@ -197,6 +198,8 @@ private:
     RetainPtr<CALayer> m_exposedRectIndicatorLayer;
 
     Markable<IPC::AsyncReplyID> m_replyForUnhidingContent;
+    std::optional<ActivityStateChangeID> m_activityStateChangeForUnhidingContent;
+    bool m_hasDetachedRootLayer { false };
 
 #if ASSERT_ENABLED
     TransactionID m_lastVisibleTransactionID;

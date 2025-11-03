@@ -39,6 +39,9 @@
 
 extern unsigned int not_in_kdp;
 extern void bcopy_phys(addr64_t, addr64_t, vm_size_t);
+#if HAS_MTE
+extern void bcopy_phys_with_options(addr64_t from, addr64_t to, vm_size_t nbytes, int options);
+#endif /* HAS_MTE */
 extern pmap_paddr_t kdp_vtophys(pmap_t pmap, addr64_t va);
 
 /*
@@ -152,6 +155,14 @@ kdp_find_phys(vm_map_t map, vm_offset_t target_addr, kdp_fault_flags_t fault_fla
 		return 0;
 	}
 
+#if HAS_MTE
+	/*
+	 * The address we want to find could be tagged, so strip it properly here.
+	 */
+	if (map->pmap) {
+		target_addr = vm_memtag_canonicalize(map, target_addr);
+	}
+#endif /* HAS_MTE */
 
 	cur_phys_addr = (vm_offset_t)kdp_vtophys(map->pmap, target_addr);
 	if (!pmap_valid_page((ppnum_t) atop(cur_phys_addr))) {
@@ -198,9 +209,15 @@ kdp_find_phys(vm_map_t map, vm_offset_t target_addr, kdp_fault_flags_t fault_fla
 		 */
 		unsigned int cur_wimg_bits = pmap_cache_attributes((ppnum_t) atop(cur_phys_addr));
 
+#if HAS_MTE
+		if ((cur_wimg_bits & VM_WIMG_MASK) != VM_WIMG_DEFAULT && (cur_wimg_bits & VM_WIMG_MASK) != VM_WIMG_MTE) {
+			return 0;
+		}
+#else /* !HAS_MTE */
 		if ((cur_wimg_bits & VM_WIMG_MASK) != VM_WIMG_DEFAULT) {
 			return 0;
 		}
+#endif /* HAS_MTE */
 	}
 
 	return cur_phys_addr;
@@ -241,11 +258,21 @@ kdp_generic_copyin(vm_map_t map, uint64_t uaddr, void *dest, size_t size, kdp_fa
 			 * unaligned accesses. To prevent these, we copy over bytes individually here.
 			 */
 			if (!not_in_kdp) {
+#if HAS_MTE
+				mte_disable_tag_checking();
+#endif /* HAS_MTE */
 				kdp_memcpy(kvaddr, (const void *)phystokv((pmap_paddr_t)phys_src), cur_size);
+#if HAS_MTE
+				mte_enable_tag_checking();
+#endif /* HAS_MTE */
 			} else
 #endif /* defined(__arm64__) */
 
+#if HAS_MTE
+			bcopy_phys_with_options(phys_src, phys_dest, cur_size, cppvDisableTagCheck);
+#else /* HAS_MTE */
 			bcopy_phys(phys_src, phys_dest, cur_size);
+#endif /* HAS_MTE */
 		} else {
 			break;
 		}
@@ -301,7 +328,11 @@ kdp_generic_copyin_string_slowpath(
 			if (phys_src && phys_dest) {
 				validated = MIN(src_rem, dst_rem);
 				if (validated) {
+#if HAS_MTE
+					bcopy_phys_with_options(phys_src, phys_dest, 1, cppvDisableTagCheck);
+#else /* HAS_MTE */
 					bcopy_phys(phys_src, phys_dest, 1);
+#endif /* HAS_MTE */
 					validated--;
 				} else {
 					return 0;
@@ -310,7 +341,12 @@ kdp_generic_copyin_string_slowpath(
 				return 0;
 			}
 		} else {
+#if HAS_MTE
+			bcopy_phys_with_options(phys_src + (i - valid_from),
+			    phys_dest + (i - valid_from), 1, cppvDisableTagCheck);
+#else /* HAS_MTE */
 			bcopy_phys(phys_src + (i - valid_from), phys_dest + (i - valid_from), 1);
+#endif /* HAS_MTE */
 			validated--;
 		}
 

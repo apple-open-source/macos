@@ -120,6 +120,8 @@ public:
     // Hide the content until any update arrives.
     virtual void hideContentUntilAnyUpdate() { ASSERT_NOT_REACHED(); }
 
+    virtual void hideContentUntilDidUpdateActivityState(ActivityStateChangeID) { hideContentUntilAnyUpdate(); }
+
     virtual bool hasVisibleContent() const { return true; }
 
     virtual void prepareForAppSuspension() { }

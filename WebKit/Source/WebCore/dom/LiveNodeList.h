@@ -48,6 +48,7 @@ public:
 
     NodeListInvalidationType invalidationType() const { return m_invalidationType; }
     ContainerNode& ownerNode() const { return m_ownerNode; }
+    ContainerNode& rootNode() const;
     void invalidateCacheForAttribute(const QualifiedName& attributeName) const;
     virtual void invalidateCacheForDocument(Document&) const = 0;
     void invalidateCache() const { invalidateCacheForDocument(protectedDocument().get()); }
@@ -60,7 +61,6 @@ protected:
 
     Document& document() const { return m_ownerNode->document(); }
     Ref<Document> protectedDocument() const { return document(); }
-    ContainerNode& rootNode() const;
 
 private:
     bool isLiveNodeList() const final { return true; }
@@ -71,7 +71,7 @@ private:
     bool m_isRegisteredForInvalidationAtDocument { false };
 };
 
-template <class NodeListType>
+template <class NodeListType, CollectionTraversalType traversalType = CollectionTraversalType::Descendants>
 class CachedLiveNodeList : public LiveNodeList {
     WTF_MAKE_TZONE_OR_ISO_NON_HEAP_ALLOCATABLE(CachedLiveNodeList);
 public:
@@ -81,7 +81,7 @@ public:
     inline Node* item(unsigned offset) const final;
 
     // For CollectionIndexCache
-    using Traversal = CollectionTraversal<CollectionTraversalType::Descendants>;
+    using Traversal = CollectionTraversal<traversalType>;
     using Iterator = Traversal::Iterator;
     inline Iterator collectionBegin() const;
     inline Iterator collectionLast() const;
@@ -109,14 +109,14 @@ private:
     mutable CollectionIndexCache<NodeListType, Iterator> m_indexCache;
 };
 
-template <class NodeListType>
-CachedLiveNodeList<NodeListType>::CachedLiveNodeList(ContainerNode& ownerNode, NodeListInvalidationType invalidationType)
+template <class NodeListType, CollectionTraversalType traversalType>
+CachedLiveNodeList<NodeListType, traversalType>::CachedLiveNodeList(ContainerNode& ownerNode, NodeListInvalidationType invalidationType)
     : LiveNodeList(ownerNode, invalidationType)
 {
 }
 
-template <class NodeListType>
-CachedLiveNodeList<NodeListType>::~CachedLiveNodeList()
+template <class NodeListType, CollectionTraversalType traversalType>
+CachedLiveNodeList<NodeListType, traversalType>::~CachedLiveNodeList()
 {
     if (m_indexCache.hasValidCache())
         protectedDocument()->unregisterNodeListForInvalidation(*this);

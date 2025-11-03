@@ -56,6 +56,10 @@ DECLARE_SYSTEM_HEADER
 #import <QuartzCore/CADisplayLinkPrivate.h>
 #endif
 
+#if PLATFORM(VISION)
+#import <QuartzCore/CARemoteEffectPrivate.h>
+#endif
+
 #if ENABLE(ARKIT_INLINE_PREVIEW)
 #import <QuartzCore/CAFenceHandle.h>
 #endif
@@ -233,6 +237,11 @@ typedef enum {
 @interface CARemoteEffect: NSObject <NSCopying, NSSecureCoding>
 @end
 
+#if PLATFORM(VISION)
+@interface CARemoteExternalEffect: CARemoteEffect
+@end
+#endif
+
 @interface CARemoteEffectGroup : CARemoteEffect
 + (instancetype)groupWithEffects:(NSArray<CARemoteEffect *> *)effects;
 @property (copy) NSString *groupName;
@@ -347,4 +356,11 @@ extern NSString * const kCAContextPortNumber;
 #if PLATFORM(IOS_FAMILY)
 extern NSString * const kCAContextSecure;
 extern NSString * const kCAContentsFormatRGBA10XR;
+#endif
+
+#if PLATFORM(VISION)
+// FIXME:rdar://160881286 - clean-up once in SDK.
+@interface CARemoteExternalEffect (Radar_160881286)
++ (instancetype)rcp_requiresTwoHandedInteractionProcessorEffect;
+@end
 #endif

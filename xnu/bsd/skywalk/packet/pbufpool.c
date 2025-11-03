@@ -96,6 +96,9 @@ static SKMEM_TAG_DEFINE(skmem_tag_pbufpool_hash, SKMEM_TAG_PBUFPOOL_HASH);
 #define SKMEM_TAG_PBUFPOOL_BFT_HASH  "com.apple.skywalk.pbufpool.bft.hash"
 static SKMEM_TAG_DEFINE(skmem_tag_pbufpool_bft_hash, SKMEM_TAG_PBUFPOOL_BFT_HASH);
 
+#if HAS_MTE
+extern bool is_mte_enabled;
+#endif /* HAS_MTE */
 
 struct kern_pbufpool_u_htbl {
 	struct kern_pbufpool_u_bkt upp_hash[KERN_PBUFPOOL_U_HASH_SIZE];
@@ -601,6 +604,13 @@ pp_metadata_construct(struct __kern_quantum *kqum, struct __user_quantum *uqum,
 				goto fail;
 			}
 
+#if HAS_MTE && CONFIG_KERNEL_TAGGING
+			if (__probable(is_mte_enabled)) {
+				/* Checking to ensure the object address is tagged */
+				ASSERT((vm_offset_t)kbuf !=
+				    vm_memtag_canonicalize_kernel((vm_offset_t)kbuf));
+			}
+#endif /* HAS_MTE && CONFIG_KERNEL_TAGGING */
 
 			blistn = (*blist)->mo_next;
 			(*blist)->mo_next = NULL;
@@ -2016,6 +2026,13 @@ pp_alloc_packet_common(struct kern_pbufpool *pp, uint16_t bufcnt,
 			break;
 		}
 
+#if HAS_MTE && CONFIG_KERNEL_TAGGING
+		if (__probable(is_mte_enabled)) {
+			/* Checking to ensure the object address is tagged */
+			ASSERT((vm_offset_t)kqum !=
+			    vm_memtag_canonicalize_kernel((vm_offset_t)kqum));
+		}
+#endif /* HAS_MTE && CONFIG_KERNEL_TAGGING */
 
 		if (tagged) {
 			*array_cp = SK_PTR_ENCODE(kqum, METADATA_TYPE(kqum),
@@ -2136,6 +2153,13 @@ pp_alloc_pktq(struct kern_pbufpool *pp, uint16_t bufcnt,
 			break;
 		}
 
+#if HAS_MTE && CONFIG_KERNEL_TAGGING
+		if (__probable(is_mte_enabled)) {
+			/* Checking to ensure the object address is tagged */
+			ASSERT((vm_offset_t)kpkt !=
+			    vm_memtag_canonicalize_kernel((vm_offset_t)kpkt));
+		}
+#endif /* HAS_MTE && CONFIG_KERNEL_TAGGING */
 
 		KPKTQ_ENQUEUE(pktq, kpkt);
 
@@ -2558,6 +2582,13 @@ pp_alloc_buflet_common(struct kern_pbufpool *pp,
 		list->mo_next = NULL;
 		kbft = (kern_buflet_t)(void *)list;
 
+#if HAS_MTE && CONFIG_KERNEL_TAGGING
+		if (__probable(is_mte_enabled)) {
+			/* Checking to ensure the object address is tagged */
+			ASSERT((vm_offset_t)kbft !=
+			    vm_memtag_canonicalize_kernel((vm_offset_t)kbft));
+		}
+#endif /* HAS_MTE && CONFIG_KERNEL_TAGGING */
 
 		KBUF_EXT_INIT(kbft, pp);
 		*array_cp = (uint64_t)kbft;

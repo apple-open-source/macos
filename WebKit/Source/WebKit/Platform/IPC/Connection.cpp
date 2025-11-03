@@ -115,10 +115,9 @@ private:
     {
     }
     static Lock syncMessageStateMapLock;
-    // FIXME: Don't use raw pointers.
-    static HashMap<SerialFunctionDispatcher*, SyncMessageState*>& syncMessageStateMap() WTF_REQUIRES_LOCK(syncMessageStateMapLock)
+    static HashMap<RefPtr<SerialFunctionDispatcher>, SyncMessageState*>& syncMessageStateMap() WTF_REQUIRES_LOCK(syncMessageStateMapLock)
     {
-        static NeverDestroyed<HashMap<SerialFunctionDispatcher*, SyncMessageState*>> map;
+        static NeverDestroyed<HashMap<RefPtr<SerialFunctionDispatcher>, SyncMessageState*>> map;
         return map;
     }
 

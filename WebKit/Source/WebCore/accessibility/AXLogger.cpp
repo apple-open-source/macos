@@ -1081,8 +1081,8 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::PreventKeyboardDOMEventDispatch:
         stream << "PreventKeyboardDOMEventDispatch";
         break;
-    case AXProperty::RadioButtonGroup:
-        stream << "RadioButtonGroup";
+    case AXProperty::RadioButtonGroupMembers:
+        stream << "RadioButtonGroupMembers";
         break;
     case AXProperty::RelativeFrame:
         stream << "RelativeFrame";

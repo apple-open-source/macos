@@ -28,15 +28,15 @@
 #include <sys/types.h>
 #include <time.h>
 
-#include "sudo_compat.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_util.h>
 
 /*
  * Fake gmtime_r() that just stores the result.
  * Still has the normal gmtime() side effects.
  */
 struct tm *
-sudo_gmtime_r(const time_t *timer, struct tm *result)
+sudo_gmtime_r(const time_t * restrict timer, struct tm * restrict result)
 {
     struct tm *tm;
 

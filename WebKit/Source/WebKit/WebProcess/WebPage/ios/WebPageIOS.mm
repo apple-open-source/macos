@@ -85,6 +85,7 @@
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DragController.h>
+#import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/EditingInlines.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EditorClient.h>
@@ -102,7 +103,6 @@
 #import <WebCore/HTMLAreaElement.h>
 #import <WebCore/HTMLAttachmentElement.h>
 #import <WebCore/HTMLBodyElement.h>
-#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLElementTypeHelpers.h>
 #import <WebCore/HTMLFormElement.h>
@@ -429,7 +429,8 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
 
     postLayoutData.insideFixedPosition = startNodeIsInsideFixedPosition || endNodeIsInsideFixedPosition;
     if (!selection.isNone()) {
-        if (selection.hasEditableStyle()) {
+        bool selectionIsEditable = selection.hasEditableStyle();
+        if (selectionIsEditable) {
             // FIXME: The caret color style should be computed using the selection caret's container
             // rather than the focused element. This causes caret colors in editable children to be
             // ignored in favor of the editing host's caret color. See: <https://webkit.org/b/229809>.
@@ -444,6 +445,19 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
         computeEditableRootHasContentAndPlainText(selection, postLayoutData);
         postLayoutData.selectionStartIsAtParagraphBoundary = atBoundaryOfGranularity(selection.visibleStart(), TextGranularity::ParagraphGranularity, SelectionDirection::Backward);
         postLayoutData.selectionEndIsAtParagraphBoundary = atBoundaryOfGranularity(selection.visibleEnd(), TextGranularity::ParagraphGranularity, SelectionDirection::Forward);
+
+        bool shouldComputeEnclosingLayerID = [&] {
+            if (!m_page->settings().selectionHonorsOverflowScrolling())
+                return false;
+
+            if (selection.isCaret() && !postLayoutData.hasCaretColorAuto && !postLayoutData.caretColor.isVisible())
+                return false;
+
+            return true;
+        }();
+
+        if (shouldComputeEnclosingLayerID)
+            computeEnclosingLayerID(result, selection);
     }
 }
 
@@ -704,16 +718,6 @@ void WebPage::getSelectionContext(CompletionHandler<void(const String&, const St
     String textAfter = plainTextForDisplay(rangeExpandedByCharactersInDirectionAtWordBoundary(selection.end(), selectionExtendedContextLength, SelectionDirection::Forward));
 
     completionHandler(selectedText, textBefore, textAfter);
-}
-
-NSObject *WebPage::accessibilityObjectForMainFramePlugin()
-{
-#if ENABLE(PDF_PLUGIN)
-    if (RefPtr pluginView = mainFramePlugIn())
-        return pluginView->accessibilityObject();
-#endif
-
-    return nil;
 }
     
 void WebPage::updateRemotePageAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint offset)
@@ -2794,12 +2798,6 @@ std::optional<SimpleRange> WebPage::rangeForGranularityAtPoint(LocalFrame& frame
     return std::nullopt;
 }
 
-static inline bool rectIsTooBigForSelection(const IntRect& blockRect, const LocalFrame& frame)
-{
-    const float factor = 0.97;
-    return blockRect.height() > frame.view()->unobscuredContentRect().height() * factor;
-}
-
 void WebPage::updateFocusBeforeSelectingTextAtLocation(const IntPoint& point)
 {
     static constexpr OptionSet hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
@@ -3683,12 +3681,6 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
         if (RefPtr element = dynamicDowncast<Element>(*hitNode)) {
             if (isAssistableElement(*element))
                 return InteractionInformationAtPosition::Selectability::UnselectableDueToFocusableElement;
-
-            if (rectIsTooBigForSelection(info.bounds, *result.innerNodeFrame())) {
-                // We don't want to select blocks that are larger than 97% of the visible area of the document.
-                // FIXME: Is this heuristic still needed, now that block selection has been removed?
-                return InteractionInformationAtPosition::Selectability::UnselectableDueToLargeElementBounds;
-            }
 
             if (hostVideoElementIgnoringImageOverlay(*hitNode))
                 return InteractionInformationAtPosition::Selectability::UnselectableDueToMediaControls;
@@ -4688,7 +4680,7 @@ void WebPage::resetViewportDefaultConfiguration(WebFrame* frame, bool hasMobileD
         else if (document->isTextDocument())
             m_viewportConfiguration.setDefaultConfiguration(ViewportConfiguration::textDocumentParameters());
 #if ENABLE(PDF_PLUGIN)
-        else if (m_page->settings().unifiedPDFEnabled() && document->isPluginDocument())
+        else if (m_page && m_page->settings().unifiedPDFEnabled() && document->isPluginDocument())
             m_viewportConfiguration.setDefaultConfiguration(UnifiedPDFPlugin::viewportParameters());
 #endif
         else
@@ -4836,12 +4828,16 @@ void WebPage::shrinkToFitContent(ZoomToInitialScale zoomToInitialScale)
 
 bool WebPage::shouldIgnoreMetaViewport() const
 {
+    if (!m_page)
+        return false;
+
     RefPtr localMainFrame = m_page->localMainFrame();
-    if (auto* mainDocument = localMainFrame ? localMainFrame->document() : nullptr) {
-        auto* loader = mainDocument->loader();
+    if (RefPtr mainDocument = localMainFrame ? localMainFrame->document() : nullptr) {
+        RefPtr loader = mainDocument->loader();
         if (loader && loader->metaViewportPolicy() == WebCore::MetaViewportPolicy::Ignore)
             return true;
     }
+
     return m_page->settings().shouldIgnoreMetaViewport();
 }
 

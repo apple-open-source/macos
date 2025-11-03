@@ -184,16 +184,13 @@ void StyleSheetContents::parserAppendRule(Ref<StyleRuleBase>&& rule)
     }
 
     // NOTE: The selector list has to fit into RuleData. <http://webkit.org/b/118369>
-    auto ruleHasTooManySelectors = [](StyleRule& rule) {
-        return rule.selectorList().componentCount() > Style::RuleData::maximumSelectorComponentCount;
-    };
-
-    if (auto* styleRule = dynamicDowncast<StyleRuleWithNesting>(rule.get()); styleRule && ruleHasTooManySelectors(*styleRule)) {
-        // We don't support nested rules with too many selectors
-        return;
+    // We don't support nested rules with too many selectors
+    if (auto* styleRuleWithNesting = dynamicDowncast<StyleRuleWithNesting>(rule.get())) {
+        if (styleRuleWithNesting->originalSelectorList().componentCount() > Style::RuleData::maximumSelectorComponentCount)
+            return;
     }
 
-    if (auto* styleRule = dynamicDowncast<StyleRule>(rule.get()); styleRule && ruleHasTooManySelectors(*styleRule)) {
+    if (auto* styleRule = dynamicDowncast<StyleRule>(rule.get()); styleRule && styleRule->selectorList().componentCount() > Style::RuleData::maximumSelectorComponentCount) {
         // If we're adding a rule with a huge number of selectors, split it up into multiple rules
         m_childRules.appendVector(styleRule->splitIntoMultipleRulesWithMaximumSelectorComponentCount(Style::RuleData::maximumSelectorComponentCount));
         return;
@@ -336,9 +333,14 @@ bool StyleSheetContents::wrapperInsertRule(Ref<StyleRuleBase>&& rule, unsigned i
     childVectorIndex -= m_namespaceRules.size();
 
     // If the number of selectors would overflow RuleData, we drop the operation.
-    auto* styleRule = dynamicDowncast<StyleRule>(rule.get());
-    if (styleRule && styleRule->selectorList().componentCount() > Style::RuleData::maximumSelectorComponentCount)
-        return false;
+    if (auto* styleRuleWithNesting = dynamicDowncast<StyleRuleWithNesting>(rule.get())) {
+        if (styleRuleWithNesting->originalSelectorList().componentCount() > Style::RuleData::maximumSelectorComponentCount)
+            return false;
+    }
+    if (auto* styleRule = dynamicDowncast<StyleRule>(rule.get())) {
+        if (styleRule->selectorList().componentCount() > Style::RuleData::maximumSelectorComponentCount)
+            return false;
+    }
 
     m_childRules.insert(childVectorIndex, WTFMove(rule));
     return true;

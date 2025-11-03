@@ -23,19 +23,19 @@
 
 #include <config.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_util.h>
 
 /*
  * Converts a two-byte hex string to decimal.
  * Returns a value 0-255 on success or -1 for invalid input.
  */
 int
-sudo_hexchar_v1(const char *s)
+sudo_hexchar_v1(const char s[restrict static 2])
 {
     unsigned char result[2];
-    int i;
+    unsigned int i;
     debug_decl(sudo_hexchar, SUDO_DEBUG_UTIL);
 
     for (i = 0; i < 2; i++) {

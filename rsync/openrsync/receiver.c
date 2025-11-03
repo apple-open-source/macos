@@ -908,9 +908,7 @@ rsync_receiver(struct sess *sess, struct cleanup_ctx *cleanup_ctx,
 	 * Begin by conditionally getting all files we have currently
 	 * available in our destination.
 	 */
-	/* XXX --dirs should also do deletion of dirs whose contents are copied. */
-	if (sess->opts->del == DMODE_BEFORE && sess->opts->recursive &&
-	    dfd != -1) {
+	if (sess->opts->del == DMODE_BEFORE) {
 		if (!flist_gen_dels(sess, root, &dfl, &dflsz, fl, flsz)) {
 			ERRX1("flist_gen_dels");
 			goto out;
@@ -1104,12 +1102,10 @@ rsync_receiver(struct sess *sess, struct cleanup_ctx *cleanup_ctx,
 	/*
 	 * Following transfers, we'll take care of --delete-after.
 	 */
-	/* XXX --dirs should also do deletion of dirs whose contents are copied. */
-	if (sess->opts->del == DMODE_AFTER && sess->opts->recursive &&
-	    dfd != -1) {
+	if (sess->opts->del == DMODE_AFTER) {
 		if (!flist_gen_dels(sess, root, &dfl, &dflsz, fl, flsz)) {
-				ERRX1("flist_gen_dels");
-				goto out;
+			ERRX1("flist_gen_dels");
+			goto out;
 		}
 
 		/* If we have a local set, go for the deletion. */

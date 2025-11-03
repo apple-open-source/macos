@@ -10,9 +10,8 @@ import os
 import argparse
 import json
 import base64
-import Foundation
 from datetime import datetime, tzinfo, timedelta
-from PyObjCTools.Conversion import propertyListFromPythonCollection
+import plistlib
 import re
 
 class UTC(tzinfo):
@@ -26,11 +25,6 @@ class UTC(tzinfo):
 
     def dst(self, dt):
         return timedelta(0)
-
-def dataConverter(value):
-    if isinstance(value, Foundation.NSData):
-        return value
-    raise TypeError("Type '%s' encountered in Python collection; don't know how to convert." % type(aPyCollection))
 
 
 def checkValue(value, type, failureString):
@@ -99,11 +93,11 @@ for operator_dict in log_list["operators"]:
 
             checkValue(log_dict["key"], str, "failed to get \'key\' for" + error_string_log_index + "for operator \"" + operator + "\"")
             key_data = base64.b64decode(log_dict["key"])
-            log_entry['key'] = Foundation.NSData.dataWithBytes_length_(key_data, len(key_data))
+            log_entry['key'] = key_data
 
             checkValue(log_dict["log_id"], str, "failed to get \'log_id\' for" + error_string_log_index + "for operator \"" + operator + "\"")
             log_id = base64.b64decode(log_dict["log_id"])
-            log_entry['log_id'] = Foundation.NSData.dataWithBytes_length_(log_id, len(log_id))
+            log_entry['log_id'] = log_id
 
             if "readonly" in state:
                 checkTime(state["readonly"]["timestamp"], "failed to get frozen timestamp for" + error_string_log_index + "for operator \"" + operator + "\"")
@@ -126,10 +120,9 @@ out_dir = os.path.dirname(args.outfile)
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 
-plist = propertyListFromPythonCollection(log_array, conversionHelper=dataConverter)
-checkValue(plist, Foundation.NSArray, "failed to convert python data to NSArray")
-
-success = plist.writeToFile_atomically_(args.outfile, 1)
-if not success:
-    print("trusted logs plist failed to write, error!")
-    sys.exit(1)
+with open(args.outfile, mode='wb') as f:
+    try:
+        plistlib.dump(log_array, f)
+    except Exception as e:
+        print("trusted logs plist failed to write -- " + str(e))
+        sys.exit(1)

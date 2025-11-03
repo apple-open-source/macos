@@ -4070,6 +4070,8 @@ IOUserServer::finalize(IOOptionBits options)
 			}
 			if (!started || !instantiated) {
 			        DKLOG(DKS "::terminate(" DKS ") server exit before start() instantiated %d\n", DKN(this), DKN(nextService), instantiated);
+			        // Override started since we are forcing serviceStop to happen
+			        nextService->reserved->uvars->started = true;
 			        serviceStop(nextService, NULL);
 			}
 			return false;
@@ -6799,9 +6801,9 @@ IOUserServerCheckInToken::copyServerTag() const
 }
 
 IOUserServer *
-IOUserServer::launchUserServer(OSString * bundleID, const OSSymbol * serverName, OSNumber * serverTag, bool reuseIfExists, IOUserServerCheckInToken ** resultToken, OSData *serverDUI)
+IOUserServer::launchUserServer(IOService * provider, OSString * bundleID, const OSSymbol * serverName, OSNumber * serverTag, bool reuseIfExists, IOUserServerCheckInToken ** resultToken, OSData *serverDUI)
 {
-	IOUserServer *me = NULL;
+	IOUserServer *me = NULL, *providerServer = NULL;
 	IOUserServerCheckInToken * token = NULL;
 	OSDictionary * matching = NULL;  // must release
 	OSKext * driverKext = NULL; // must release
@@ -6855,6 +6857,24 @@ IOUserServer::launchUserServer(OSString * bundleID, const OSSymbol * serverName,
 			goto finish;
 		} else {
 			// Check if launch completed
+
+			// Check provider's user server, if exists
+			if (provider->reserved && provider->reserved->uvars && (providerServer = provider->reserved->uvars->userServer) != NULL) {
+				OSString * providerServerName = OSDynamicCast(OSString, providerServer->getProperty(gIOUserServerNameKey));
+				if (providerServerName && providerServerName->isEqualTo(serverName)) {
+					DKLOG("using existing server " DKS " from provider " DKS "\n", DKN(providerServer), DKN(provider));
+
+					// If provider has the user server that we are supposed to reuse, and it has become inactive
+					// start of this service should simply fail
+					// If the user server become inactive after this check, start should fail at a later stage
+					if (!providerServer->isInactive()) {
+						providerServer->retain();
+						me = providerServer;
+					}
+					goto finish;
+				}
+			}
+
 			matching = IOService::serviceMatching(gIOUserServerClassKey);
 			if (!matching) {
 				goto finish;

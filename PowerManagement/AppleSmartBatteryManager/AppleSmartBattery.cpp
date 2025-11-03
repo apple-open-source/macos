@@ -872,6 +872,7 @@ bool AppleSmartBattery::pollBatteryState(int type)
         /* Outstanding transaction in process; flag it to restart polling from
            scratch when this flag is noticed.
          */
+        BM_LOG1("Restart poll type %d\n", _machinePath);
         _rebootPolling = true;
         ret = true;
     }
@@ -881,6 +882,7 @@ unlock:
 
     if (startPoll) {
         transactionCompletion((void *)kTransactionRestart, 0, 0, NULL);
+        BM_LOG1("Transaction triggered Starting poll type %d\n", _machinePath);
     }
 
     return ret;
@@ -1174,9 +1176,18 @@ void AppleSmartBattery::handlePollingFinished(bool visitedEntirePath)
     fWorkLoop->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::handlePollingFinishedGated),
                          this, VOIDPTR(visitedEntirePath), VOIDPTR(machinePath));
 
+    bool restartNewPollCycle = false;
     IORWLockWrite(_pollCtrlLock);
     _pollingNow = false;
+    // if rebootPoll was initiated during the clean up or from a new notification, kick off a new poll cycle
+    restartNewPollCycle = _rebootPolling;
     IORWLockUnlock(_pollCtrlLock);
+
+    // Restart the poll cycle if needed
+    if (restartNewPollCycle) {
+        thread_call_enter1(_SMCCallout, (void *)_machinePath);
+        BM_LOG1("Transaction triggered Starting poll type %d\n", _machinePath);
+    }
 
     acknowledgeSystemSleepWake();
 }

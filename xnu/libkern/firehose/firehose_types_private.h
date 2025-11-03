@@ -140,6 +140,7 @@ OS_OPTIONS(firehose_tracepoint_flags, uint16_t,
         _firehose_tracepoint_flags_pc_style__unused7            = 0x0007 << 1,
         _firehose_tracepoint_flags_base_has_unique_pid          = 0x0010,
         _firehose_tracepoint_flags_base_has_large_offset        = 0x0020,
+        _firehose_tracepoint_flags_base_has_persona             = 0x0040,
     );
 
 /*

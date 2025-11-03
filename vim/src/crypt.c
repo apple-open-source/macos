@@ -23,8 +23,8 @@
  * most countries.  There are a few exceptions, but that still should not be a
  * problem since this code was originally created in Europe and India.
  *
- * Blowfish addition originally made by Mohsin Ahmed,
- * http://www.cs.albany.edu/~mosh 2010-03-14
+ * Blowfish addition originally made by Mohsin Ahmed (2010‑03‑14).
+ * Original link (www.cs.albany.edu/~mosh) is no longer available.
  * Based on blowfish by Bruce Schneier (http://www.schneier.com/blowfish.html)
  * and sha256 by Christophe Devine.
  */
@@ -780,12 +780,17 @@ crypt_decode_inplace(
     void
 crypt_free_key(char_u *key)
 {
-    char_u *p;
-
+    // Create a safe memset which cannot be optimized away by compiler
+    static void *(* volatile vim_memset_safe)(void *s, int c, size_t n) =
+	memset;
     if (key != NULL)
     {
-	for (p = key; *p != NUL; ++p)
-	    *p = 0;
+#ifdef FEAT_SODIUM
+	if (sodium_init() >= 0)
+	    sodium_memzero(key, STRLEN(key));
+	else
+#endif
+	    vim_memset_safe(key, 0, STRLEN(key));
 	vim_free(key);
     }
 }

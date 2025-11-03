@@ -24,11 +24,11 @@
 // SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY: controls whether to initialize dnssd-proxy in srp-mdns-proxy.
 #if defined(BUILD_SRP_MDNS_PROXY) && (BUILD_SRP_MDNS_PROXY == 1)
 
-// SRP_TEST_SERVER always builds a full (simulated) Thread border router
-#  if defined(SRP_TEST_SERVER)
-#    define SRP_TEST_SERVER_OVERRIDE 1
+// SRP_TEST_SERVER and OTNS_BORDER_ROUTER always build a full (simulated) Thread border router
+#  if defined(SRP_TEST_SERVER) || defined(OTNS_BORDER_ROUTER)
+#    define BORDER_ROUTER_OVERRIDE 1
 #  else
-#    define SRP_TEST_SERVER_OVERRIDE 0
+#    define BORDER_ROUTER_OVERRIDE 0
 #  endif
 
 // We can only have combined srp-dnssd-proxy if we are building srp-mdns-proxy

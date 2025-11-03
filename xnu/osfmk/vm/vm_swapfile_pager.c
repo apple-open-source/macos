@@ -694,6 +694,7 @@ swapfile_pager_create(
 	pager->swp_pgr_hdr.mo_ikot = IKOT_MEMORY_OBJECT;
 	pager->swp_pgr_hdr.mo_pager_ops = &swapfile_pager_ops;
 	pager->swp_pgr_hdr.mo_control = MEMORY_OBJECT_CONTROL_NULL;
+	pager->swp_pgr_hdr.mo_last_unmap_ctid = 0;
 
 	pager->is_ready = FALSE;/* not ready until it has a "name" */
 	os_ref_init_raw(&pager->swp_pgr_hdr_ref, NULL);   /* setup reference */

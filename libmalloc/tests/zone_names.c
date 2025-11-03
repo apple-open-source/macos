@@ -36,7 +36,7 @@ check_default_zone_names(const char **names, uint32_t count) {
 
 T_DECL(default_zone, "Zone names: default",
 		T_META_ENVVAR("MallocNanoZone=0"), T_META_ENVVAR("MallocProbGuard=0"),
-		T_META_TAG_XZONE, T_META_TAG_VM_PREFERRED)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	const char *names[] = {"DefaultMallocZone"};
 	check_default_zone_names(names, 1);
@@ -44,7 +44,7 @@ T_DECL(default_zone, "Zone names: default",
 
 T_DECL(default_zone_and_nano, "Zone names: default + nano",
 		T_META_ENVVAR("MallocNanoZone=1"), T_META_ENVVAR("MallocProbGuard=0"),
-	    T_META_TAG_VM_PREFERRED)
+	    T_META_TAG_MAGAZINE_ONLY, T_META_TAG_VM_PREFERRED)
 {
 #if CONFIG_NANOZONE
 	const char *names[] = {"DefaultMallocZone", "MallocHelperZone"};
@@ -56,13 +56,13 @@ T_DECL(default_zone_and_nano, "Zone names: default + nano",
 
 T_DECL(default_zone_and_pgm, "Zone names: default + ProbGuard",
 		T_META_ENVVAR("MallocProbGuard=1"), T_META_ENVVAR("MallocNanoZone=0"),
-		T_META_TAG_XZONE, T_META_TAG_VM_PREFERRED)
+		T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	const char *names[] = {"ProbGuardMallocZone", "DefaultMallocZone"};
 	check_default_zone_names(names, 2);
 }
 
-T_DECL(zone_singletons, "Zone singletons", T_META_TAG_XZONE, T_META_TAG_VM_PREFERRED)
+T_DECL(zone_singletons, "Zone singletons", T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *zones[] = {
 		malloc_default_zone(),
@@ -84,7 +84,8 @@ call_malloc_zone_from_ptr(void)
 	return zone;
 }
 
-T_DECL(virtual_zone0, "Ensure we return the virtual zone in place of zone 0", 	T_META_TAG_VM_PREFERRED)
+T_DECL(virtual_zone0, "Ensure we return the virtual zone in place of zone 0",
+		T_META_TAG_VM_PREFERRED, T_META_TAG_ALL_ALLOCATORS)
 {
 	malloc_zone_t *virtual_zone = malloc_default_zone();
 	T_EXPECT_NE(virtual_zone, malloc_zones[0], NULL);
@@ -92,7 +93,8 @@ T_DECL(virtual_zone0, "Ensure we return the virtual zone in place of zone 0", 	T
 }
 
 T_DECL(zone_creation, "Zone creation",
-		T_META_ENVVAR("MallocProbGuard=0"), T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED)
+		T_META_ENVVAR("MallocProbGuard=0"), T_META_TAG_ALL_ALLOCATORS,
+		T_META_TAG_VM_PREFERRED)
 {
 	T_EXPECT_NULL(malloc_create_zone(0, 0)->zone_name, "No name");
 }
@@ -122,7 +124,7 @@ check_set_zone_name(malloc_zone_t* zone)
 	}
 }
 
-T_DECL(malloc_set_zone_name, "malloc_set_zone_name", T_META_TAG_XZONE, T_META_TAG_VM_PREFERRED)
+T_DECL(malloc_set_zone_name, "malloc_set_zone_name", T_META_TAG_ALL_ALLOCATORS, T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *zones[] = {
 		malloc_default_zone(),
@@ -150,7 +152,7 @@ T_DECL(malloc_set_zone_name_on_wrapper_zone,
 		"Setting name of wrapper zone delegates to wrapped zone",
 		T_META_ENVVAR("MallocProbGuard=1"),
 		T_META_CHECK_LEAKS(false), // rdar://114740269
-		T_META_TAG_XZONE,
+		T_META_TAG_ALL_ALLOCATORS,
 	    T_META_TAG_VM_PREFERRED)
 {
 	malloc_zone_t *zone = malloc_zones[0];

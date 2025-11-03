@@ -18,6 +18,10 @@ EXPINC_SUBDIRS_ARM64 += \
 ARM_HEADER_FILES = \
 	machine_cpuid.h		\
 	machine_machdep.h	\
+	mte.h			\
+
+INSTALL_MD_LIST = \
+	mte.h \
 
 # Headers installed into Kernel.framework/Headers (public and internal SDKs).
 INSTALL_KF_MD_LIST = $(ARM_HEADER_FILES)
@@ -52,8 +56,9 @@ EXPORT_MD_LIST = \
 	speculation.h \
 	static_if.h \
 	tlb.h \
-	pal_hibernate.h
-
+	pal_hibernate.h \
+	mte.h \
+	mte_xnu.h
 
 # These headers will be available with #include <arm64/header_file.h>
 EXPORT_MD_DIR = arm64

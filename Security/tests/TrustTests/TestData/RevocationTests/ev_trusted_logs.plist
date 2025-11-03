@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>end_exclusive</key>
+		<date>2026-01-01T08:00:00Z</date>
+		<key>key</key>
+		<data>MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGoAaFRkZI3m0+qB5jo3VwdzCtZaSfpTgw34UfAoNLUaonRuxQWUMX5jEWhd5gVtKFEHsr6ldDqsSGXHNQ++7lw==</data>
+		<key>log_id</key>
+		<data>zPsPaoVxCWX+lZtTzumyfCLphVwNl422qX5UwP5MDbA=</data>
+		<key>operator</key>
+		<string>Cloudflare</string>
+		<key>start_inclusive</key>
+		<date>2025-01-01T08:00:00Z</date>
+	</dict>
+	<dict>
+		<key>end_exclusive</key>
+		<date>2025-07-01T08:00:00Z</date>
+		<key>key</key>
+		<data>MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIIKh+WdoqOTblJji4WiH5AltIDUzODyvFKrXCBjw/Rab0/98J4LUh7dOJEY7+66+yCNSICuqRAX+VPnV8R1Fmg==</data>
+		<key>log_id</key>
+		<data>TnWjJ1yaEMM4W2zU3z9S6x3w4I4bjWnAsfpksWKaOd8=</data>
+		<key>operator</key>
+		<string>Google</string>
+		<key>start_inclusive</key>
+		<date>2025-01-01T08:00:00Z</date>
+	</dict>
+	<dict>
+		<key>end_exclusive</key>
+		<date>2025-07-01T08:00:00Z</date>
+		<key>key</key>
+		<data>MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfi858egjjrMyBK9NV/bbxXSkem07B1EMWvuAMAXGWgzEdtYGqFdN+9/kgpDCQa5wszGi4/o9XyxdBM20nVWrQQ==</data>
+		<key>log_id</key>
+		<data>4JKz/AwdyOdoNh/eYbmWTQpSeBmKctZyxLBNpW1vVAQ=</data>
+		<key>operator</key>
+		<string>Sectigo</string>
+		<key>start_inclusive</key>
+		<date>2025-01-01T08:00:00Z</date>
+	</dict>
+</array>
+</plist>

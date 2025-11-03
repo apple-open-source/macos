@@ -4,11 +4,17 @@
 #ifndef SUDO_CONFIG_H
 #define SUDO_CONFIG_H
 
+/* Configure script arguments used to build sudo. */
+#define CONFIGURE_ARGS "--with-password-timeout=0 --disable-setreuid --with-env-editor --with-pam --with-libraries=bsm --with-noexec=no --sysconfdir=/private/etc --without-lecture --enable-static-sudoers --with-rundir=/var/db/sudo"
+
+/* Define to 1 if you want sudo to honor '.' and "" in the PATH. */
+/* #undef ALLOW_DOT_PATH */
+
 /* Define to 1 if you want the insults from the "classic" version sudo. */
-/* #undef CLASSIC_INSULTS */
+#define CLASSIC_INSULTS 1
 
 /* Define to 1 if you want insults culled from the twisted minds of CSOps. */
-/* #undef CSOPS_INSULTS */
+#define CSOPS_INSULTS 1
 
 /* Define to 1 if you want sudo to display "command not allowed" instead of
    "command not found" when a command cannot be found. */
@@ -36,8 +42,8 @@
 /* Define to 1 if you want to require fully qualified hosts in sudoers. */
 /* #undef FQDN */
 
-/* Define to the type of elements in the array set by 'getgroups'. Usually
-   this is either 'int' or 'gid_t'. */
+/* Define to the type of elements in the array argument to 'getgroups'.
+   Usually this is either 'int' or 'gid_t'. */
 #define GETGROUPS_T gid_t
 
 /* Define to 1 if you want insults from the "Goon Show". */
@@ -106,6 +112,9 @@
 
 /* Define to 1 if you have the 'close_range' function. */
 /* #undef HAVE_CLOSE_RANGE */
+
+/* Define to 1 if you have the <crt_externs.h> header file. */
+#define HAVE_CRT_EXTERNS_H 1
 
 /* Define to 1 if you have the 'crypt' function. */
 /* #undef HAVE_CRYPT */
@@ -463,18 +472,6 @@
 /* Define to 1 if you have the 'innetgr' function. */
 #define HAVE_INNETGR 1
 
-/* Define to 1 if the system has the type 'int16_t'. */
-/* #undef HAVE_INT16_T */
-
-/* Define to 1 if the system has the type 'int32_t'. */
-/* #undef HAVE_INT32_T */
-
-/* Define to 1 if the system has the type 'int64_t'. */
-/* #undef HAVE_INT64_T */
-
-/* Define to 1 if the system has the type 'int8_t'. */
-/* #undef HAVE_INT8_T */
-
 /* Define to 1 if the system has the type 'intmax_t'. */
 /* #undef HAVE_INTMAX_T */
 
@@ -603,8 +600,11 @@
 /* Define to 1 if you have the <login_cap.h> header file. */
 /* #undef HAVE_LOGIN_CAP_H */
 
+/* Define to 1 if the system has the type 'long long int'. */
+#define HAVE_LONG_LONG_INT 1
+
 /* Define to 1 if you have the <machine/endian.h> header file. */
-#define HAVE_MACHINE_ENDIAN_H 1
+/* #undef HAVE_MACHINE_ENDIAN_H */
 
 /* Define to 1 if you have the 'mach_continuous_time' function. */
 #define HAVE_MACH_CONTINUOUS_TIME 1
@@ -759,6 +759,12 @@
 /* Define to 1 if you have the 'reallocarray' function. */
 /* #undef HAVE_REALLOCARRAY */
 
+/* Define to 1 if you have the 'realpath' function. */
+#define HAVE_REALPATH 1
+
+/* Define to 1 if you have the 'renameat' function. */
+#define HAVE_RENAMEAT 1
+
 /* Define to 1 if you have the 'revoke' function. */
 /* #undef HAVE_REVOKE */
 
@@ -860,6 +866,9 @@
 /* Define to 1 if you have the 'SSL_CTX_set_min_proto_version' function or
    macro. */
 #define HAVE_SSL_CTX_SET_MIN_PROTO_VERSION 1
+
+/* Define to 1 if you have the 'SSL_read_ex' function. */
+/* #undef HAVE_SSL_READ_EX */
 
 /* Define to 1 to enable SSSD support. */
 /* #undef HAVE_SSSD */
@@ -974,7 +983,7 @@
 /* #undef HAVE_SYS_DIR_H */
 
 /* Define to 1 if you have the <sys/endian.h> header file. */
-/* #undef HAVE_SYS_ENDIAN_H */
+#define HAVE_SYS_ENDIAN_H 1
 
 /* Define to 1 if you have the <sys/ndir.h> header file, and it defines 'DIR'.
    */
@@ -1028,18 +1037,6 @@
 /* Define to 1 if you have the 'ttyslot' function. */
 /* #undef HAVE_TTYSLOT */
 
-/* Define to 1 if the system has the type 'uint16_t'. */
-/* #undef HAVE_UINT16_T */
-
-/* Define to 1 if the system has the type 'uint32_t'. */
-/* #undef HAVE_UINT32_T */
-
-/* Define to 1 if the system has the type 'uint64_t'. */
-/* #undef HAVE_UINT64_T */
-
-/* Define to 1 if the system has the type 'uint8_t'. */
-/* #undef HAVE_UINT8_T */
-
 /* Define to 1 if the system has the type 'uintmax_t'. */
 /* #undef HAVE_UINTMAX_T */
 
@@ -1051,6 +1048,9 @@
 
 /* Define to 1 if you have the 'unsetenv' function. */
 #define HAVE_UNSETENV 1
+
+/* Define to 1 if the system has the type 'unsigned long long int'. */
+#define HAVE_UNSIGNED_LONG_LONG_INT 1
 
 /* Define to 1 if you have the <util.h> header file. */
 #define HAVE_UTIL_H 1
@@ -1103,6 +1103,9 @@
 /* Define to 1 if you have the '_innetgr' function. */
 /* #undef HAVE__INNETGR */
 
+/* Define to 1 if you have the '_NSGetEnviron' function. */
+#define HAVE__NSGETENVIRON 1
+
 /* Define to 1 if you have the '_nss_initf_group' function. */
 /* #undef HAVE__NSS_INITF_GROUP */
 
@@ -1111,6 +1114,12 @@
 
 /* Define to 1 if you have the '_ttyname_dev' function. */
 /* #undef HAVE__TTYNAME_DEV */
+
+/* Define to 1 if you have the '__builtin_clz' built-in function */
+#define HAVE___BUILTIN_CLZ 1
+
+/* Define to 1 if you have the '__builtin_clzl' built-in function */
+#define HAVE___BUILTIN_CLZL 1
 
 /* Define to 1 if the compiler supports the C99 __func__ variable. */
 #define HAVE___FUNC__ 1
@@ -1133,11 +1142,12 @@
 /* Define to 1 if you want the hostname to be entered into the log file. */
 /* #undef HOST_IN_LOG */
 
-/* Define to 1 if you want to ignore '.' and empty PATH elements. */
-/* #undef IGNORE_DOT_PATH */
-
 /* The message given when a bad password is entered. */
 #define INCORRECT_PASSWORD "Sorry, try again."
+
+/* Define to (int) if the 'ioctl' function request takes an int request
+   argument. */
+#define IOCTL_REQ_CAST /**/
 
 /* The syslog facility sudo will use. */
 #define LOGFAC "authpriv"
@@ -1168,10 +1178,6 @@
 /* The max number of chars per log file line (for line wrapping). */
 #define MAXLOGFILELEN 80
 
-/* Define to the max length of a uid_t in string context (excluding the NUL).
-   */
-#define MAX_UID_T_LEN 10
-
 /* Define to 1 if resolv.h must be included to get the 'inet_ntop' or
    'inet_pton' function prototypes. */
 /* #undef NEED_RESOLV_H */
@@ -1198,10 +1204,6 @@
 /* Define if your C preprocessor does not support variadic macros. */
 /* #undef NO_VARIADIC_MACROS */
 
-/* Define to 1 to include offensive insults from the classic version of sudo.
-   */
-/* #undef OFFENSIVE_INSULTS */
-
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT "https://bugzilla.sudo.ws/"
 
@@ -1209,7 +1211,7 @@
 #define PACKAGE_NAME "sudo"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "sudo 1.9.13p2"
+#define PACKAGE_STRING "sudo 1.9.17p2"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "sudo"
@@ -1218,7 +1220,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.9.13p2"
+#define PACKAGE_VERSION "1.9.17p2"
 
 /* Define to 1 if your system uses a Solaris-derived PAM and not Linux-PAM or
    OpenPAM. */
@@ -1230,9 +1232,6 @@
 /* The passwd prompt timeout (in minutes). */
 #define PASSWORD_TIMEOUT 0
 
-/* Define to 1 to enable replacement getcwd if system getcwd is broken. */
-/* #undef PREFER_PORTABLE_GETCWD */
-
 /* Enable replacement (v)snprintf if system (v)snprintf is broken. */
 /* #undef PREFER_PORTABLE_SNPRINTF */
 
@@ -1242,7 +1241,7 @@
 /* The syslog priority sudo will use for successful attempts. */
 #define PRI_SUCCESS "notice"
 
-/* Define to const if the 'putenv' takes a const argument. */
+/* Define to const if the 'putenv' function takes a const argument. */
 #define PUTENV_CONST /**/
 
 /* Define to 1 if you want insults from "Monty Python's Flying Circus". */
@@ -1260,6 +1259,14 @@
 
 /* The environment variable that controls preloading of dynamic objects. */
 #define RTLD_PRELOAD_VAR "DYLD_INSERT_LIBRARIES"
+
+/* The environment variable that controls preloading of 32-bit dynamic
+   objects. */
+/* #undef RTLD_PRELOAD_VAR_32 */
+
+/* The environment variable that controls preloading of 64-bit dynamic
+   objects. */
+#define RTLD_PRELOAD_VAR_64 "LD_PRELOAD"
 
 /* The user sudo should run commands as by default. */
 #define RUNAS_DEFAULT "root"
@@ -1290,11 +1297,20 @@
 /* The size of 'id_t', as computed by sizeof. */
 #define SIZEOF_ID_T 4
 
+/* The size of 'long', as computed by sizeof. */
+#define SIZEOF_LONG 8
+
 /* The size of 'long long', as computed by sizeof. */
 #define SIZEOF_LONG_LONG 8
 
+/* The size of 'off_t', as computed by sizeof. */
+#define SIZEOF_OFF_T 8
+
 /* The size of 'time_t', as computed by sizeof. */
 #define SIZEOF_TIME_T 8
+
+/* The size of 'uid_t', as computed by sizeof. */
+#define SIZEOF_UID_T 4
 
 /* Define to 1 to compile the sudoers plugin statically into the sudo binary.
    */
@@ -1448,6 +1464,21 @@
 /* Number of bits in time_t, on hosts where this is settable. */
 /* #undef _TIME_BITS */
 
+/* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
+   <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the
+   #define below would cause a syntax error. */
+/* #undef _UINT32_T */
+
+/* Define for Solaris 2.5.1 so the uint64_t typedef from <sys/synch.h>,
+   <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the
+   #define below would cause a syntax error. */
+/* #undef _UINT64_T */
+
+/* Define for Solaris 2.5.1 so the uint8_t typedef from <sys/synch.h>,
+   <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the
+   #define below would cause a syntax error. */
+/* #undef _UINT8_T */
+
 /* Define to 1 on platforms where this makes time_t a 64-bit type. */
 /* #undef __MINGW_USE_VC2005_COMPAT */
 
@@ -1458,7 +1489,7 @@
 /* Define to empty if 'const' does not conform to ANSI C. */
 /* #undef const */
 
-/* Define to 'int' if <sys/types.h> doesn't define. */
+/* Define as 'int' if <sys/types.h> doesn't define. */
 /* #undef gid_t */
 
 /* Define to '__inline__' or '__inline' if that's what the C compiler
@@ -1467,52 +1498,70 @@
 /* #undef inline */
 #endif
 
+/* Define to the type of a signed integer type of width exactly 16 bits if
+   such a type exists and the standard includes do not define it. */
+/* #undef int16_t */
+
+/* Define to the type of a signed integer type of width exactly 32 bits if
+   such a type exists and the standard includes do not define it. */
+/* #undef int32_t */
+
+/* Define to the type of a signed integer type of width exactly 64 bits if
+   such a type exists and the standard includes do not define it. */
+/* #undef int64_t */
+
+/* Define to the type of a signed integer type of width exactly 8 bits if such
+   a type exists and the standard includes do not define it. */
+/* #undef int8_t */
+
+/* Define to the widest signed integer type if <stdint.h> and <inttypes.h> do
+   not define. */
+/* #undef intmax_t */
+
 /* Define to an OS-specific initialization function or 'os_init_common'. */
 #define os_init os_init_common
 
-/* Define to 'unsigned int' if <sys/types.h> does not define. */
-/* #undef size_t */
+/* Define to the equivalent of the C99 'restrict' keyword, or to
+   nothing if this is not supported.  Do not define if restrict is
+   supported only directly.  */
+#define restrict __restrict__
+/* Work around a bug in older versions of Sun C++, which did not
+   #define __restrict__ or support _Restrict or __restrict__
+   even though the corresponding Sun C compiler ended up with
+   "#define restrict _Restrict" or "#define restrict __restrict__"
+   in the previous line.  This workaround can be removed once
+   we assume Oracle Developer Studio 12.5 (2016) or later.  */
+#if defined __SUNPRO_CC && !defined __RESTRICT && !defined __restrict__
+# define _Restrict
+# define __restrict__
+#endif
 
-/* Define to 'int' if <sys/types.h> doesn't define. */
+/* Define as 'int' if <sys/types.h> doesn't define. */
 /* #undef uid_t */
+
+/* Define to the type of an unsigned integer type of width exactly 16 bits if
+   such a type exists and the standard includes do not define it. */
+/* #undef uint16_t */
+
+/* Define to the type of an unsigned integer type of width exactly 32 bits if
+   such a type exists and the standard includes do not define it. */
+/* #undef uint32_t */
+
+/* Define to the type of an unsigned integer type of width exactly 64 bits if
+   such a type exists and the standard includes do not define it. */
+/* #undef uint64_t */
+
+/* Define to the type of an unsigned integer type of width exactly 8 bits if
+   such a type exists and the standard includes do not define it. */
+/* #undef uint8_t */
+
+/* Define to the widest unsigned integer type if <stdint.h> and <inttypes.h>
+   do not define. */
+/* #undef uintmax_t */
 
 /* Define to empty if the keyword 'volatile' does not work. Warning: valid
    code using 'volatile' can become incorrect without. Disable with care. */
 /* #undef volatile */
-
-/* Define C99 types if stdint.h and inttypes.h are missing. */
-#if !defined(HAVE_STDINT_H) && !defined(HAVE_INTTYPES_H)
-# ifndef HAVE_INT8_T
-typedef char			int8_t;
-# endif
-# ifndef HAVE_UINT8_T
-typedef	unsigned char		uint8_t;
-# endif
-# ifndef HAVE_INT16_T
-typedef short			int16_t;
-# endif
-# ifndef HAVE_UINT16_T
-typedef unsigned short		uint16_t;
-# endif
-# ifndef HAVE_INT32_T
-typedef int			int32_t;
-# endif
-# ifndef HAVE_UINT32_T
-typedef unsigned int		uint32_t;
-# endif
-# ifndef HAVE_INT64_T
-typedef long long		int64_t;
-# endif
-# ifndef HAVE_UINT64_T
-typedef unsigned long long	uint64_t;
-# endif
-# ifndef HAVE_INTMAX_T
-typedef long long		intmax_t;
-# endif
-# ifndef HAVE_UINTMAX_T
-typedef unsigned long long	uintmax_t;
-# endif
-#endif /* !HAVE_STDINT_H && !HAVE_INTTYPES_H */
 
 #ifndef HAVE_SIG_ATOMIC_T
 typedef int			sig_atomic_t;

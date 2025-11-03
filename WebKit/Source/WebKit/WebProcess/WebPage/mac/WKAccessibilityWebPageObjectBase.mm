@@ -89,6 +89,12 @@ namespace ax = WebCore::Accessibility;
     return axPlugin.autorelease();
 }
 
+- (BOOL)shouldFallbackToWebContentAXObjectForMainFramePlugin
+{
+    RefPtr page = m_page.get();
+    return page && page->shouldFallbackToWebContentAXObjectForMainFramePlugin();
+}
+
 // Called directly by Accessibility framework.
 - (id)accessibilityRootObjectWrapper
 {
@@ -111,7 +117,7 @@ namespace ax = WebCore::Accessibility;
         if (!WebCore::AXObjectCache::accessibilityEnabled())
             [protectedSelf enableAccessibilityForAllProcesses];
 
-        if (protectedSelf.get()->m_hasMainFramePlugin) {
+        if (protectedSelf->m_hasMainFramePlugin) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
             // Even though we want to serve the PDF plugin tree for main-frame plugins, we still need to make sure the isolated tree
             // is built, so that when text annotations are created on-the-fly as users focus on text fields,
@@ -120,7 +126,8 @@ namespace ax = WebCore::Accessibility;
             if (auto cache = protectedSelf.get().axObjectCache)
                 cache->buildIsolatedTreeIfNeeded();
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-            return protectedSelf.get().accessibilityPluginObject;
+            if (![protectedSelf shouldFallbackToWebContentAXObjectForMainFramePlugin])
+                return [protectedSelf accessibilityPluginObject];
         }
 
         if (auto cache = protectedSelf.get().axObjectCache) {

@@ -26,6 +26,7 @@
 #pragma once
 
 #include "FontLoadRequest.h"
+#include "TrustedFonts.h"
 #include <JavaScriptCore/ArrayBufferView.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomString.h>
@@ -67,9 +68,9 @@ public:
     };
     Status status() const { return m_status; }
 
-    void opportunisticallyStartFontDataURLLoading();
+    void opportunisticallyStartFontDataURLLoading(DownloadableBinaryFontTrustedTypes);
 
-    void load(Document* = nullptr);
+    void load(DownloadableBinaryFontTrustedTypes, Document* = nullptr);
     RefPtr<Font> font(const FontDescription&, bool syntheticBold, bool syntheticItalic, const FontCreationContext&);
 
     FontLoadRequest* fontLoadRequest() const { return m_fontRequest.get(); }
@@ -85,6 +86,8 @@ private:
     void setStatus(Status);
 
     Ref<CSSFontFace> protectedCSSFontFace() const;
+
+    RefPtr<FontCustomPlatformData> loadCustomFont(SharedBuffer&, DownloadableBinaryFontTrustedTypes);
 
     AtomString m_fontFaceName; // Font name for local fonts
     WeakRef<CSSFontFace> m_owningCSSFontFace; // Our owning font face.

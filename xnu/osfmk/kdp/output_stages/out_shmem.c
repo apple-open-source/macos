@@ -433,8 +433,8 @@ shmem_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 			ret = shmem_dbg_process_buffers(stage);
 			if (KERN_SUCCESS != ret) {
 				kern_coredump_log(NULL, "(%s) shmem_dbg_process_buffers failed with error 0x%x\n", __func__, ret);
+				return ret;
 			}
-			return ret;
 		}
 
 		/*

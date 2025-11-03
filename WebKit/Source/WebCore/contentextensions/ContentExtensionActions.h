@@ -231,6 +231,7 @@ struct WEBCORE_EXPORT RedirectAction {
     static RedirectAction deserialize(std::span<const uint8_t>);
     static size_t serializedLength(std::span<const uint8_t>);
     void applyToRequest(ResourceRequest&, const URL&);
+    void modifyURL(URL& originalURL, const URL& extensionBaseURL);
 };
 
 using ActionData = Variant<

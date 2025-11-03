@@ -183,7 +183,7 @@ This flag is ignored by openrsync, but is accepted for compatibility.
 .It Fl -bwlimit Ar limit
 Limit transfer speed to
 .Ar limit
-bytes/sec.
+kilobytes/sec.
 The
 .Ar limit
 may also contain any of the suffixes described in the
@@ -840,6 +840,11 @@ May not be available on all systems.
 .El
 .It Fl S , -sparse
 Attempt to efficiently handle sparse files.
+Note that attempting to combine
+.Fl S
+and
+.Fl -inplace
+will result in an error.
 .It Fl -specials
 Also transfer fifo and unix domain socket files.
 .It Fl -stats

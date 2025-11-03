@@ -1219,10 +1219,11 @@ dp_query_add_data_to_response(dnssd_query_t *query, const char *fullname, uint16
 
     bool put_raw;
     if (rdlen != 0) {
-        const bool rdata_parsed = dns_rdata_parse_data(&answer, rdata, &offp, rdlen, rdlen, 0);
-        require_action(rdata_parsed, raw,
-                       put_raw = true; ERROR("[Q%d][QU%d] rdata didn't parse!!", SERIAL(query), SERIAL(question)));
-        switch(rrtype) {
+        if (rrtype == dns_rrtype_cname || rrtype == dns_rrtype_ptr || rrtype == dns_rrtype_ns || rrtype == dns_rrtype_srv) {
+            const bool rdata_parsed = dns_rdata_parse_data(&answer, rdata, &offp, rdlen, rdlen, 0);
+            require_action(rdata_parsed, raw,
+                           put_raw = true; ERROR("[Q%d][QU%d] rdata didn't parse!!", SERIAL(query), SERIAL(question)));
+            switch(rrtype) {
             case dns_rrtype_cname:
             case dns_rrtype_ptr:
             case dns_rrtype_ns:
@@ -1237,31 +1238,34 @@ dp_query_add_data_to_response(dnssd_query_t *query, const char *fullname, uint16
                 TOWIRE_CHECK("answer.data.srv.port", towire, dns_u16_to_wire(towire, answer.data.srv.port));
                 break;
             default:
-                INFO("[Q%d][QU%d] record type " PUB_S_SRP " not translated", SERIAL(query), SERIAL(question), dns_rrtype_to_string(rrtype));
+                FAULT("mismatch between rrtypes mapped and rrtypes thought to be mappable for rrtype " PUB_S_SRP, dns_rrtype_to_string(rrtype));
                 dns_rrdata_free(&answer);
                 put_raw = true;
                 goto raw;
-        }
-        dns_name_print(name, rbuf, sizeof rbuf);
+            }
+            dns_name_print(name, rbuf, sizeof rbuf);
 
-        if (translate && is_in_local_domain(name)) {
-            // If the response requires the translation from <served domain> to ".local." and the response ends in
-            // ".local.", truncate it.
-            truncate_local(name);
-            dns_name_print(name, pbuf, sizeof pbuf);
-            TOWIRE_CHECK("concatenate_name_to_wire 2", towire,
-                         dns_concatenate_name_to_wire(towire, name, NULL, question->served_domain->domain));
-            INFO("[Q%d][QU%d] translating " PRI_S_SRP " to " PRI_S_SRP " . " PRI_S_SRP,
-                 SERIAL(query), SERIAL(question), rbuf, pbuf, question->served_domain->domain);
+            if (translate && is_in_local_domain(name)) {
+                // If the response requires the translation from <served domain> to ".local." and the response ends in
+                // ".local.", truncate it.
+                truncate_local(name);
+                dns_name_print(name, pbuf, sizeof pbuf);
+                TOWIRE_CHECK("concatenate_name_to_wire 2", towire,
+                             dns_concatenate_name_to_wire(towire, name, NULL, question->served_domain->domain));
+                INFO("[Q%d][QU%d] translating " PRI_S_SRP " to " PRI_S_SRP " . " PRI_S_SRP,
+                     SERIAL(query), SERIAL(question), rbuf, pbuf, question->served_domain->domain);
+            } else {
+                TOWIRE_CHECK("concatenate_name_to_wire 2", towire,
+                             dns_concatenate_name_to_wire(towire, name, NULL, NULL));
+                INFO("[Q%d][QU%d] compressing " PRI_S_SRP, SERIAL(query), SERIAL(question), rbuf);
+            }
+
+            dns_name_free(name);
+            dns_rdlength_end(towire);
+            put_raw = false;
         } else {
-            TOWIRE_CHECK("concatenate_name_to_wire 2", towire,
-                         dns_concatenate_name_to_wire(towire, name, NULL, NULL));
-            INFO("[Q%d][QU%d] compressing " PRI_S_SRP, SERIAL(query), SERIAL(question), rbuf);
+            put_raw = true;
         }
-
-        dns_name_free(name);
-        dns_rdlength_end(towire);
-        put_raw = false;
     } else {
         // rdlen == 0
         if (query->dso != NULL) {
@@ -4465,7 +4469,7 @@ dnssd_push_setup(void)
 {
 #if !defined(EXCLUDE_TLS)
     tls_listener_index = dnssd_proxy_num_listeners++;
-    dnssd_tls_listener_listen(NULL, true);
+    dnssd_tls_listener_listen(NULL, false);
 #endif // !defined(EXCLUDE_TLS)
 
     // Only set hardwired response when dynamic configuration is enabled.  Dynamic configuration
@@ -4892,7 +4896,7 @@ start_dnssd_proxy_listener(void)
 
     INIT_ADDR_T(dnssd_proxy_udp_port);
     dnssd_proxy_listeners[dnssd_proxy_num_listeners] =
-        ioloop_listener_create(false, false, true, NULL, 0, &addr, NULL, "DNS over UDP", dns_proxy_input,
+        ioloop_listener_create(false, false, false, NULL, 0, &addr, NULL, "DNS over UDP", dns_proxy_input,
                                NULL, NULL, NULL, NULL, NULL, 0, NULL);
     require_action_quiet(dnssd_proxy_listeners[dnssd_proxy_num_listeners] != NULL, exit, succeeded = false;
         ERROR("failed to start UDP listener - listener index: %d", dnssd_proxy_num_listeners));
@@ -4900,7 +4904,7 @@ start_dnssd_proxy_listener(void)
 
     INIT_ADDR_T(dnssd_proxy_tcp_port);
     dnssd_proxy_listeners[dnssd_proxy_num_listeners] =
-        ioloop_listener_create(true, false, true, NULL, 0, &addr, NULL, "DNS over TCP", dns_proxy_input,
+        ioloop_listener_create(true, false, false, NULL, 0, &addr, NULL, "DNS over TCP", dns_proxy_input,
                                NULL, NULL, NULL, NULL, NULL, 0, NULL);
     require_action_quiet(dnssd_proxy_listeners[dnssd_proxy_num_listeners] != NULL, exit, succeeded = false;
         ERROR("failed to start TCP listener - listener index: %d", dnssd_proxy_num_listeners));

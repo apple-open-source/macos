@@ -1082,6 +1082,27 @@ sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
 		size_t size, malloc_zone_malloc_options_t options,
 		malloc_type_id_t type_id)
 {
+#if CONFIG_MTE
+	// rdar://140822174
+	// When dyld interposition or a wrapper zone that does not support
+	// forwarding malloc options is enabled, we need to set a flag in
+	// the TSD to preserve the semantics of canonical tagging.
+	bool use_tsd_fallback =
+			(options & MALLOC_ZONE_MALLOC_OPTION_CANONICAL_TAG) &&
+			(zone->wrapped_zone->version < 15 ||
+			!zone->wrapped_zone->malloc_with_options);
+#if !MALLOC_TARGET_EXCLAVES
+	malloc_thread_options_t opts;
+	if (use_tsd_fallback) {
+		opts = malloc_get_thread_options();
+		malloc_thread_options_t newopts = opts;
+		newopts.ReservedFlag = true;
+		_malloc_set_thread_options(newopts);
+	}
+#else
+	MALLOC_ASSERT(!use_tsd_fallback);
+#endif // MALLOC_TARGET_EXCLAVES
+#endif // CONFIG_MTE
 
 	void *ptr;
 	if (!align) {
@@ -1094,6 +1115,14 @@ sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
 		}
 	}
 
+#if CONFIG_MTE
+#if !MALLOC_TARGET_EXCLAVES
+	// Restore the saved TSD flags
+	if (use_tsd_fallback) {
+		_malloc_set_thread_options(opts);
+	}
+#endif // MALLOC_TARGET_EXCLAVES
+#endif // CONFIG_MTE
 
 	return ptr;
 }

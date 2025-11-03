@@ -91,6 +91,10 @@
 #endif
 
 
+#if HAS_MTE
+static_assert(!XNU_VM_HAS_DELAYED_PAGES, "MTE and delayed pages aren't compatible");
+static_assert(XNU_VM_HAS_LINEAR_PAGES_ARRAY, "MTE requires linear vm_pages[]");
+#endif /* HAS_MTE */
 
 /*
  * in order to make the size of a vm_page_t 64 bytes (cache line size for both arm64 and x86_64)
@@ -123,8 +127,28 @@ typedef vm_page_packed_t                        vm_page_object_t;
  * The relocation is on behalf of the contiguous allocator; it is likely to be
  * wired, so do not consider pages that cannot be wired for any reason.
  */
+#if HAS_MTE
+/*
+ * VM_RELOCATE_REASON_TAG_STORAGE_RECLAIM:
+ * The relocation is to free up a tag storage range page, so that it can be
+ * used for tag storage.
+ *
+ * VM_RELOCATE_REASON_TAG_STORAGE_WIRE:
+ * The relocation is because a codepath is trying or is about to try to wire a
+ * tag storage page.  The relocation code will relax requirements around the
+ * page state needed to be relocatable.
+ *
+ * NOTE: For now, tag storage pages will be considered wireable... but in the
+ * future, tag storage pages will not be considered wireable.
+ * VM_RELOCATE_REASON_TAG_STORAGE_WIRE exists in anticipation of this.
+ */
+#endif /* HAS_MTE */
 __enum_closed_decl(vm_relocate_reason_t, unsigned int, {
 	VM_RELOCATE_REASON_CONTIGUOUS,
+#if HAS_MTE
+	VM_RELOCATE_REASON_TAG_STORAGE_RECLAIM,
+	VM_RELOCATE_REASON_TAG_STORAGE_WIRE,
+#endif /* HAS_MTE */
 
 	VM_RELOCATE_REASON_COUNT,
 });
@@ -147,8 +171,31 @@ __enum_closed_decl(vm_relocate_reason_t, unsigned int, {
  * Denotes memory must be put on the secluded queue,
  * this is not returned by @c vm_page_get_memory_class().
  */
+#if HAS_MTE
+/*
+ * @const VM_MEMORY_CLASS_TAGGED
+ * MTE tagged memory, which should participate in the lifecycle for tagged
+ * pages.  Pages may move between this and the VM_MEMORY_CLASS_REGULAR classes,
+ * dynamically.
+ *
+ * @const VM_MEMORY_CLASS_TAG_STORAGE
+ * MTE tag storage memory, which should participate in the lifecycle for tag
+ * storage pages.  Note that this is NOT the same as being in the tag storage
+ * region; some pages in the tag storage region will be classified as regular
+ * pages, because the system will never use them for tag storage.
+ *
+ * @const VM_MEMORY_CLASS_DEAD_TAG_STORAGE
+ * MTE tag storage that is either recursive or for unmanaged memory
+ * that must always be used as regular memory and can never be taggable.
+ */
+#endif /* HAS_MTE */
 __enum_closed_decl(vm_memory_class_t, uint8_t, {
 	VM_MEMORY_CLASS_REGULAR,
+#if HAS_MTE
+	VM_MEMORY_CLASS_TAGGED,
+	VM_MEMORY_CLASS_TAG_STORAGE,
+	VM_MEMORY_CLASS_DEAD_TAG_STORAGE,
+#endif /* HAS_MTE */
 #if XNU_VM_HAS_LOPAGE
 	VM_MEMORY_CLASS_LOPAGE,
 #endif /* XNU_VM_HAS_LOPAGE */
@@ -286,7 +333,11 @@ struct vm_page {
 #else
 		uint8_t                 __vmp_reserved1:1;
 #endif
+#if HAS_MTE
+		uint8_t                 vmp_ts_wanted:1;    /* This tag storage page is wanted for reclaim (O&P) */
+#else
 		uint8_t                 __vmp_reserved2:1;
+#endif
 	};
 
 	/*
@@ -301,7 +352,30 @@ struct vm_page {
 	    vmp_wanted:1,                     /* someone is waiting for page (O) */
 	    vmp_tabled:1,                     /* page is in VP table (O) */
 	    vmp_hashed:1,                     /* page is in vm_page_buckets[] (O) + the bucket lock */
+#if HAS_MTE
+	/*
+	 * Whether the page is tagged (O)
+	 *
+	 * This bit is modified in 3 cases:
+	 *
+	 * - while the page is on the free queue (vmp_q_state ==
+	 *   VM_PAGE_ON_FREE_Q) with the free queue lock held;
+	 *
+	 * - when the page is in limbo on its way to the free queue
+	 *   (vmp_q_state == VM_PAGE_NOT_ON_Q, vmp_busy == true)
+	 *   by the thread owning exclusive access to this page;
+	 *
+	 * - when the page is on a free local queue (vmp_q_state ==
+	 *   VM_PAGE_ON_FREE_LOCAL_Q), by the CPU owning that queue under
+	 *   preemption disabled.
+	 *
+	 * Observing this bit as a result is always stable
+	 * under the object lock (O).
+	 */
+	    vmp_using_mte : 1,
+#else
 	__vmp_unused : 1,
+#endif /* HAS_MTE */
 	vmp_clustered:1,                      /* page is not the faulted page (O) or (O-shared AND pmap_page) */
 	    vmp_pmapped:1,                    /* page has at some time been entered into a pmap (O) or */
 	                                      /* (O-shared AND pmap_page) */
@@ -385,6 +459,48 @@ vm_page_get(uint32_t i)
 	return VM_FAR_ADD_PTR_UNBOUNDED(vm_pages_array_internal(), i);
 }
 
+#if HAS_MTE
+
+/**
+ * Internal accessor which returns the raw vm_array_tag_storage pointer,
+ * which is a pointer inside the VM pages array pointing to the first tag
+ * storage page.
+ *
+ * This pointer must not be indexed directly. Use vm_tag_storage_page_get()
+ * instead when indexing into the array.
+ *
+ * __pure2 helps explain to the compiler that the value vm_pages is a constant.
+ */
+__pure2
+static inline struct vm_page *
+vm_pages_tag_storage_array_internal(void)
+{
+	extern vm_page_t vm_pages_tag_storage;
+	return vm_pages_tag_storage;
+}
+
+/**
+ * Get a pointer to tag storage page at index i.
+ *
+ * This getter is the only legal way to index into the vm_pages_tag_storage array.
+ */
+__pure2
+static inline vm_page_t
+vm_tag_storage_page_get(uint32_t i)
+{
+	return VM_FAR_ADD_PTR_UNBOUNDED(vm_pages_tag_storage_array_internal(), i);
+}
+
+__pure2
+static inline bool
+vm_page_in_tag_storage_array(const struct vm_page *m)
+{
+	extern vm_page_t vm_pages_tag_storage_end;
+	return vm_pages_tag_storage_array_internal() <= m &&
+	       m < vm_pages_tag_storage_end;
+}
+
+#endif /* HAS_MTE */
 
 __pure2
 static inline bool
@@ -971,10 +1087,29 @@ typedef struct vm_locks_array {
  * @field vmpl_has_realtime
  * At least one page on the list has vmp_realtime set.
  */
+#if HAS_MTE
+/*
+ * @field vmpl_has_untagged
+ * Whether there are pages with the @c vmp_using_mte property unset on it.
+ *
+ * It can be used by callers to know that they need to adjust the tagging
+ * properties of the list with @c pmap_{un,}make_tagged_pages().
+ *
+ * @field vmpl_has_tagged
+ * Whether there are pages with the @c vmp_using_mte property set on it.
+ *
+ * It can be used by callers to know that they need to adjust the tagging
+ * properties of the list with @c pmap_{un,}make_tagged_pages().
+ */
+#endif
 typedef struct {
 	vm_page_t vmpl_head;
 	uint32_t  vmpl_count;
 	bool      vmpl_has_realtime;
+#if HAS_MTE
+	bool      vmpl_has_untagged;
+	bool      vmpl_has_tagged;
+#endif
 } vm_page_list_t;
 
 
@@ -1008,6 +1143,13 @@ vm_page_list_push(vm_page_list_t *list, vm_page_t mem)
 	if (mem->vmp_realtime) {
 		list->vmpl_has_realtime = true;
 	}
+#if HAS_MTE
+	if (mem->vmp_using_mte) {
+		list->vmpl_has_tagged = true;
+	} else {
+		list->vmpl_has_untagged = true;
+	}
+#endif
 }
 
 /*!
@@ -1024,6 +1166,10 @@ vm_page_list_for_page(vm_page_t mem)
 		       .vmpl_head  = mem,
 		       .vmpl_count = 1,
 		       .vmpl_has_realtime = mem->vmp_realtime,
+#if HAS_MTE
+		       .vmpl_has_untagged = !mem->vmp_using_mte,
+		       .vmpl_has_tagged = mem->vmp_using_mte,
+#endif
 	};
 }
 
@@ -1493,6 +1639,20 @@ extern ppnum_t          max_valid_low_ppnum;
  * @const VM_PAGE_GRAB_SECLUDED
  * The caller is eligible to the secluded pool.
  */
+#if HAS_MTE
+/*
+ * @const VM_PAGE_GRAB_MTE
+ * The grabbed page must have MTE tagging enabled.
+ *
+ * @const VM_PAGE_GRAB_ALLOW_TAG_STORAGE
+ * The grabbed page can be a claimed tag storage page.
+ *
+ * @const VM_PAGE_GRAB_WIREABLE
+ * The grabbed page will likely be wired.
+ * This flag makes the caller ineligible to claim tag storage pages.
+ * Currently unused.
+ */
+#endif /* HAS_MTE */
 __enum_decl(vm_grab_options_t, uint32_t, {
 	VM_PAGE_GRAB_OPTIONS_NONE               = 0x00000000,
 	VM_PAGE_GRAB_Q_LOCK_HELD                = 0x00000001,
@@ -1502,6 +1662,11 @@ __enum_decl(vm_grab_options_t, uint32_t, {
 #if CONFIG_SECLUDED_MEMORY
 	VM_PAGE_GRAB_SECLUDED                   = 0x00010000,
 #endif /* CONFIG_SECLUDED_MEMORY */
+#if HAS_MTE
+	VM_PAGE_GRAB_MTE                = 0x00020000,
+	VM_PAGE_GRAB_ALLOW_TAG_STORAGE  = 0x00040000,
+	VM_PAGE_GRAB_WIREABLE           = 0x00080000,
+#endif /* HAS_MTE */
 });
 
 /*

@@ -431,6 +431,7 @@ public:
 #endif
 #if USE(EXTENSIONKIT)
     virtual UIView *createVisibilityPropagationView() { return nullptr; }
+    virtual void removeVisibilityPropagationView(UIView *) { }
 #endif
 #endif // HAVE(VISIBILITY_PROPAGATION_VIEW)
 
@@ -597,6 +598,7 @@ public:
 
     virtual bool isSimulatingCompatibilityPointerTouches() const = 0;
 
+    virtual WebCore::FloatBoxExtent computedObscuredInset() const = 0;
     virtual WebCore::Color contentViewBackgroundColor() = 0;
     virtual WebCore::Color insertionPointColor() = 0;
     virtual bool isScreenBeingCaptured() = 0;

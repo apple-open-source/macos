@@ -895,12 +895,12 @@
 		499B07852ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m in Sources */ = {isa = PBXBuildFile; fileRef = 499B07842ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m */; };
 		499B07872ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m in Sources */ = {isa = PBXBuildFile; fileRef = 499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */; };
 		499CB5332CA4FA6800FAC759 /* TestHIDUnregisteredService.m in Sources */ = {isa = PBXBuildFile; fileRef = 499CB5322CA4FA5B00FAC759 /* TestHIDUnregisteredService.m */; };
-		49A3CE2E2E0DDD7D00B9AA3A /* TestHIDRangeElement_overflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A3CE232E0DCE1C00B9AA3A /* TestHIDRangeElement_overflow.swift */; };
 		49A358AD2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m in Sources */ = {isa = PBXBuildFile; fileRef = 49A358AC2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m */; };
 		49A358AF2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m in Sources */ = {isa = PBXBuildFile; fileRef = 49A358AE2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m */; };
+		49A3CE2E2E0DDD7D00B9AA3A /* TestHIDRangeElement_overflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A3CE232E0DCE1C00B9AA3A /* TestHIDRangeElement_overflow.swift */; };
+		49A3CE392E0DF12F00B9AA3A /* TestHIDRangeElement_malformed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A3CE382E0DF0FF00B9AA3A /* TestHIDRangeElement_malformed.swift */; };
 		49C77DC32DEE3CF100193E3D /* TestHIDRangeElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49C77DC22DEE23F800193E3D /* TestHIDRangeElement.swift */; };
 		49CB816A2A65DD5400E83F18 /* HIDButtonLoggingServiceFilter.m in CopyFiles */ = {isa = PBXBuildFile; fileRef = 49CB81692A65DD5400E83F18 /* HIDButtonLoggingServiceFilter.m */; };
-		49A3CE392E0DF12F00B9AA3A /* TestHIDRangeElement_malformed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A3CE382E0DF0FF00B9AA3A /* TestHIDRangeElement_malformed.swift */; };
 		49CB816D2A65DDBC00E83F18 /* Info.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 49CB816C2A65DDBC00E83F18 /* Info.plist */; };
 		49CB817D2A65ED7E00E83F18 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98AC786B1AB35A3B00F61533 /* IOKit.framework */; };
 		49CB817E2A65ED7E00E83F18 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98B9F0531AB00DBB003B3C24 /* Foundation.framework */; };
@@ -1523,9 +1523,11 @@
 		D0130BE02CEFCA9F002D622E /* IOHIDComplexEventDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D0130BDE2CEFCA9F002D622E /* IOHIDComplexEventDriver.cpp */; };
 		D01C0A992A61C0160013C4D7 /* TestHID_IOHIDEventSystemClient_EventFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = D01C0A982A61C0160013C4D7 /* TestHID_IOHIDEventSystemClient_EventFilter.m */; };
 		D01C0A9B2A61CF500013C4D7 /* TestHID_IOHIDEventSystemClient_Properties.m in Sources */ = {isa = PBXBuildFile; fileRef = D01C0A9A2A61CF500013C4D7 /* TestHID_IOHIDEventSystemClient_Properties.m */; };
+		D060C51C2E55370B0014D1FF /* TestSavannaSpecAnalogButtonsWithPressState.m in Sources */ = {isa = PBXBuildFile; fileRef = D05FC60A2E55364F00B727CC /* TestSavannaSpecAnalogButtonsWithPressState.m */; platformFilters = (ios, macos, xros, ); };
 		D06F2E6D28CA568700F07F1F /* TestHIDElementValueSet.m in Sources */ = {isa = PBXBuildFile; fileRef = D06F2E6C28CA568700F07F1F /* TestHIDElementValueSet.m */; };
 		D06F2E6F28CA56EA00F07F1F /* TestHIDDigitizerSurfaceSwitch.m in Sources */ = {isa = PBXBuildFile; fileRef = D06F2E6E28CA56EA00F07F1F /* TestHIDDigitizerSurfaceSwitch.m */; };
 		D06F2E7128CA570900F07F1F /* TestHIDDigitizerFingerCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = D06F2E7028CA570900F07F1F /* TestHIDDigitizerFingerCollection.m */; };
+		D06F42C82E3D3F2C00FFF7A3 /* TestHID_IOHIDEventSystemClient_ServiceNotifications.m in Sources */ = {isa = PBXBuildFile; fileRef = D06F42C72E3D3F1400FFF7A3 /* TestHID_IOHIDEventSystemClient_ServiceNotifications.m */; };
 		D07499152CDAC76F00368AE6 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D07499142CDAC76F00368AE6 /* CFNetwork.framework */; };
 		D07499162CDAC78A00368AE6 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D07499142CDAC76F00368AE6 /* CFNetwork.framework */; };
 		D07D4E2F2D11130F00D685C9 /* TestSavannaBrinstar.m in Sources */ = {isa = PBXBuildFile; fileRef = D07D4E2E2D1112FC00D685C9 /* TestSavannaBrinstar.m */; platformFilters = (ios, macos, xros, ); };
@@ -1575,6 +1577,7 @@
 		D0C727CD29F1AD5800E878ED /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98AC786B1AB35A3B00F61533 /* IOKit.framework */; };
 		D0C727CE29F1AD5800E878ED /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98B9F0531AB00DBB003B3C24 /* Foundation.framework */; };
 		D0C727DE29F1BFF800E878ED /* TestHIDSensorPowerLoggingFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = D0C727DD29F1BFF800E878ED /* TestHIDSensorPowerLoggingFilter.m */; };
+		D0C851372E5915ED005D9E1E /* TestSavannaP192.m in Sources */ = {isa = PBXBuildFile; fileRef = D01F225B2E5914CB00FFF84C /* TestSavannaP192.m */; platformFilters = (ios, macos, xros, ); };
 		D0DA190D2D6404D300931523 /* TestSavannaStylusClassSpecExample.m in Sources */ = {isa = PBXBuildFile; fileRef = D0711FB72D6401DD001569BB /* TestSavannaStylusClassSpecExample.m */; platformFilters = (ios, macos, xros, ); };
 		D0DEAEDA2D2F4814000D82EE /* TestIOHIDComplexEventDriverProperties.m in Sources */ = {isa = PBXBuildFile; fileRef = D0DEAED92D2F4808000D82EE /* TestIOHIDComplexEventDriverProperties.m */; };
 		D0E201422D4058ED0069CE94 /* TestSavannaSpecLEDConstellation.m in Sources */ = {isa = PBXBuildFile; fileRef = D0E201412D4058E10069CE94 /* TestSavannaSpecLEDConstellation.m */; platformFilters = (ios, macos, xros, ); };
@@ -1626,7 +1629,7 @@
 		D82426E92B68509000622417 /* HID.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D82426E82B68509000622417 /* HID.framework */; };
 		D82426ED2B687F4C00622417 /* TestHIDVirtualService_RequestTerminate.m in Sources */ = {isa = PBXBuildFile; fileRef = D82426EC2B687F4C00622417 /* TestHIDVirtualService_RequestTerminate.m */; };
 		D82E338E1DBEDD1C002A3D61 /* TestHIDVendorMessageAndVendorPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = D82E338D1DBEDD1C002A3D61 /* TestHIDVendorMessageAndVendorPayload.m */; };
-		D83329AB2DA098690054D740 /* TestHIDDM6WithTimesyc.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83329AA2DA098690054D740 /* TestHIDDM6WithTimesyc.swift */; };
+		D83329AB2DA098690054D740 /* TestHIDDM6WithTimesync.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83329AA2DA098690054D740 /* TestHIDDM6WithTimesync.swift */; };
 		D8349BE41CBFF698007BAD11 /* hidutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8349BE21CBFF664007BAD11 /* hidutil.1 */; };
 		D8349BE51CBFF6A1007BAD11 /* hidutil.m in Sources */ = {isa = PBXBuildFile; fileRef = D8349BE31CBFF664007BAD11 /* hidutil.m */; };
 		D8349BE71CBFF991007BAD11 /* utility.m in Sources */ = {isa = PBXBuildFile; fileRef = D8349BE61CBFF991007BAD11 /* utility.m */; };
@@ -4284,14 +4287,14 @@
 		499B07842ADFD1D700A0CCC0 /* TestHIDDeviceAccessEntitlements.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceAccessEntitlements.m; sourceTree = "<group>"; };
 		499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceAccessNoEntitlements.m; sourceTree = "<group>"; };
 		499CB5322CA4FA5B00FAC759 /* TestHIDUnregisteredService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDUnregisteredService.m; sourceTree = "<group>"; };
-		49A3CE232E0DCE1C00B9AA3A /* TestHIDRangeElement_overflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHIDRangeElement_overflow.swift; sourceTree = "<group>"; };
 		49A358AC2ABD8F7D009998EA /* TestHIDRemapAlphaNumericEntitlement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDRemapAlphaNumericEntitlement.m; sourceTree = "<group>"; };
 		49A358AE2ABD918C009998EA /* TestHIDRemapAlphaNumericNoEntitlement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDRemapAlphaNumericNoEntitlement.m; sourceTree = "<group>"; };
+		49A3CE232E0DCE1C00B9AA3A /* TestHIDRangeElement_overflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHIDRangeElement_overflow.swift; sourceTree = "<group>"; };
+		49A3CE382E0DF0FF00B9AA3A /* TestHIDRangeElement_malformed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHIDRangeElement_malformed.swift; sourceTree = "<group>"; };
 		49BEC8662C40936B00547D30 /* IOHIDSensorPowerLoggingFilter.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = IOHIDSensorPowerLoggingFilter.xcconfig; sourceTree = "<group>"; };
 		49C77DC22DEE23F800193E3D /* TestHIDRangeElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHIDRangeElement.swift; sourceTree = "<group>"; };
 		49CB81692A65DD5400E83F18 /* HIDButtonLoggingServiceFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDButtonLoggingServiceFilter.m; sourceTree = "<group>"; };
 		49CB816B2A65DD8800E83F18 /* HIDButtonLoggingServiceFilter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDButtonLoggingServiceFilter.h; sourceTree = "<group>"; };
-		49A3CE382E0DF0FF00B9AA3A /* TestHIDRangeElement_malformed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHIDRangeElement_malformed.swift; sourceTree = "<group>"; };
 		49CB816C2A65DDBC00E83F18 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		49CB816E2A65DE2D00E83F18 /* HIDButtonLoggingServiceFilter.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = HIDButtonLoggingServiceFilter.xcconfig; sourceTree = "<group>"; };
 		49CB81852A65ED7E00E83F18 /* HIDButtonLoggingServiceFilter.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HIDButtonLoggingServiceFilter.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -4642,12 +4645,16 @@
 		D0130BDE2CEFCA9F002D622E /* IOHIDComplexEventDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDComplexEventDriver.cpp; sourceTree = "<group>"; };
 		D01C0A982A61C0160013C4D7 /* TestHID_IOHIDEventSystemClient_EventFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHID_IOHIDEventSystemClient_EventFilter.m; sourceTree = "<group>"; };
 		D01C0A9A2A61CF500013C4D7 /* TestHID_IOHIDEventSystemClient_Properties.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHID_IOHIDEventSystemClient_Properties.m; sourceTree = "<group>"; };
+		D01F225B2E5914CB00FFF84C /* TestSavannaP192.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestSavannaP192.m; sourceTree = "<group>"; };
+		D01F225C2E5914EC00FFF84C /* IOHIDSavannaP192Descriptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDSavannaP192Descriptor.h; sourceTree = "<group>"; };
 		D037F5992DE62E8C00E262A5 /* IOHIDAsyncReportTestDriver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDAsyncReportTestDriver.h; sourceTree = "<group>"; };
 		D037F59C2DE62E9200E262A5 /* IOHIDAsyncReportTestDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDAsyncReportTestDriver.cpp; sourceTree = "<group>"; };
 		D037F59F2DE6338B00E262A5 /* TestHIDAsyncReportsKext.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDAsyncReportsKext.m; sourceTree = "<group>"; };
+		D05FC60A2E55364F00B727CC /* TestSavannaSpecAnalogButtonsWithPressState.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestSavannaSpecAnalogButtonsWithPressState.m; sourceTree = "<group>"; };
 		D06F2E6C28CA568700F07F1F /* TestHIDElementValueSet.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDElementValueSet.m; sourceTree = "<group>"; };
 		D06F2E6E28CA56EA00F07F1F /* TestHIDDigitizerSurfaceSwitch.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDDigitizerSurfaceSwitch.m; sourceTree = "<group>"; };
 		D06F2E7028CA570900F07F1F /* TestHIDDigitizerFingerCollection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDDigitizerFingerCollection.m; sourceTree = "<group>"; };
+		D06F42C72E3D3F1400FFF7A3 /* TestHID_IOHIDEventSystemClient_ServiceNotifications.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHID_IOHIDEventSystemClient_ServiceNotifications.m; sourceTree = "<group>"; };
 		D0711FB72D6401DD001569BB /* TestSavannaStylusClassSpecExample.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestSavannaStylusClassSpecExample.m; sourceTree = "<group>"; };
 		D07498E82CD9976800368AE6 /* InstallUTDPlist */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallUTDPlist; sourceTree = BUILT_PRODUCTS_DIR; };
 		D07499142CDAC76F00368AE6 /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS19.0.Internal.sdk/System/Library/Frameworks/CFNetwork.framework; sourceTree = DEVELOPER_DIR; };
@@ -4738,7 +4745,7 @@
 		D82426E82B68509000622417 /* HID.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HID.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.Internal.sdk/System/Library/PrivateFrameworks/HID.framework; sourceTree = DEVELOPER_DIR; };
 		D82426EC2B687F4C00622417 /* TestHIDVirtualService_RequestTerminate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDVirtualService_RequestTerminate.m; sourceTree = "<group>"; };
 		D82E338D1DBEDD1C002A3D61 /* TestHIDVendorMessageAndVendorPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDVendorMessageAndVendorPayload.m; sourceTree = "<group>"; };
-		D83329AA2DA098690054D740 /* TestHIDDM6WithTimesyc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHIDDM6WithTimesyc.swift; sourceTree = "<group>"; };
+		D83329AA2DA098690054D740 /* TestHIDDM6WithTimesync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHIDDM6WithTimesync.swift; sourceTree = "<group>"; };
 		D8349BE21CBFF664007BAD11 /* hidutil.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = hidutil.1; sourceTree = "<group>"; };
 		D8349BE31CBFF664007BAD11 /* hidutil.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = hidutil.m; sourceTree = "<group>"; };
 		D8349BE61CBFF991007BAD11 /* utility.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = utility.m; sourceTree = "<group>"; };
@@ -6676,6 +6683,7 @@
 		D0EDCC742A5DFD1000966D13 /* IOHIDEventSystemClientRef */ = {
 			isa = PBXGroup;
 			children = (
+				D06F42C72E3D3F1400FFF7A3 /* TestHID_IOHIDEventSystemClient_ServiceNotifications.m */,
 				4905FA7D2BEF010700C343F5 /* TestHID_IOHIDEventSystemClient_NoEntitlements.m */,
 				D0EDCC772A5E005800966D13 /* TestHID_IOHIDEventSystemClient_ServiceClient.m */,
 				D0EDCC792A5E0BEA00966D13 /* TestHID_IOHIDEventSystemClient_EventDispatch.m */,
@@ -6746,6 +6754,7 @@
 		D81A99161DC0484E00B35A3A /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
+				D01F225C2E5914EC00FFF84C /* IOHIDSavannaP192Descriptor.h */,
 				D843185A2DA0A57A001F06FA /* IOHIDDM6.h */,
 				D843185B2DA0A57A001F06FA /* IOHIDDM6.m */,
 				66B0E8B52D668E3E004B7B02 /* HIDTestTimeSync.m */,
@@ -7000,7 +7009,7 @@
 		D8ACE9181DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */ = {
 			isa = PBXGroup;
 			children = (
-				D83329AA2DA098690054D740 /* TestHIDDM6WithTimesyc.swift */,
+				D83329AA2DA098690054D740 /* TestHIDDM6WithTimesync.swift */,
 				498E45702DA4F4FF009D22A1 /* TestHIDInductiveVerification.m */,
 				D037F59F2DE6338B00E262A5 /* TestHIDAsyncReportsKext.m */,
 				D811CC792D8C947100795252 /* HIDSensorTimeFilter.swift */,
@@ -7018,11 +7027,13 @@
 				D09ED5EC2D0CEF4800F38B42 /* TestSavannaSpecOneThumbstick.m */,
 				D09ED5EE2D0CF02700F38B42 /* TestSavannaSpecTwoThumbsticks.m */,
 				D09ED5F02D0CF12700F38B42 /* TestSavannaSpecButtons.m */,
+				D05FC60A2E55364F00B727CC /* TestSavannaSpecAnalogButtonsWithPressState.m */,
 				D09ED5F42D0CF8C600F38B42 /* TestSavannaSpecProximityTouchOnly.m */,
 				D09ED5F22D0CF74000F38B42 /* TestSavannaSpecProximity.m */,
 				D0E201412D4058E10069CE94 /* TestSavannaSpecLEDConstellation.m */,
 				D00473902D56908700ED759B /* TestSavannaTimeSync.m */,
 				D07D4E2E2D1112FC00D685C9 /* TestSavannaBrinstar.m */,
+				D01F225B2E5914CB00FFF84C /* TestSavannaP192.m */,
 				D07FC0FD2D1341E3009A79A6 /* TestSavannaGameController.m */,
 				D0711FB72D6401DD001569BB /* TestSavannaStylusClassSpecExample.m */,
 				D8BF89542D10CDA700DA818B /* TestHIDSensorControlFilter.swift */,
@@ -11037,6 +11048,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0C851372E5915ED005D9E1E /* TestSavannaP192.m in Sources */,
 				7E67850A27163C96005C6C81 /* TestHIDDeviceMultiThreaded.m in Sources */,
 				1C1368392715025A002F2010 /* TestHIDAsyncOutputReports.m in Sources */,
 				D0E201422D4058ED0069CE94 /* TestSavannaSpecLEDConstellation.m in Sources */,
@@ -11102,6 +11114,7 @@
 				72CF07F523A99DBA0011CF24 /* TestHIDDigitizerReportRate.m in Sources */,
 				D83D85BD2CB858D1008BB335 /* IOHIDHeartRate.m in Sources */,
 				D01036092DB7FD9B00873437 /* TestSavannaSpecMultipleIMUSamples.m in Sources */,
+				D06F42C82E3D3F2C00FFF7A3 /* TestHID_IOHIDEventSystemClient_ServiceNotifications.m in Sources */,
 				49938FE528EEC2A500847F67 /* TestHIDVirtualService_NotificationTypeEnumerated.m in Sources */,
 				D808E2982148A6F1001CCFC4 /* TestHIDDeviceSeize.m in Sources */,
 				725078C8200FDFF000D33BAA /* TestHIDFramework.m in Sources */,
@@ -11141,10 +11154,11 @@
 				0F971AF321488B27000E2B5D /* TestHIDBridging.m in Sources */,
 				D8F3855A21250A260096957A /* TestHIDIOHIDEventDriver_Gyro.m in Sources */,
 				66FB5174226905400013C7C2 /* TestHIDProtectedAccessEntitlement.m in Sources */,
-				D83329AB2DA098690054D740 /* TestHIDDM6WithTimesyc.swift in Sources */,
+				D83329AB2DA098690054D740 /* TestHIDDM6WithTimesync.swift in Sources */,
 				D0EDCC7A2A5E0BEA00966D13 /* TestHID_IOHIDEventSystemClient_EventDispatch.m in Sources */,
 				0F6CA3442238CEE000DCE1A1 /* TestHIDEventServiceProperties.m in Sources */,
 				F394236F279F368700B4D2CE /* TestHIDKeyboardStandardType.m in Sources */,
+				D060C51C2E55370B0014D1FF /* TestSavannaSpecAnalogButtonsWithPressState.m in Sources */,
 				D867408D1ED897620099A4F9 /* TestHIDActivity.m in Sources */,
 				D8F1FFA42193FD3800EA10A5 /* TestHIDIOHIDEventDriver_CarPlay.m in Sources */,
 				D85DCFD81E370BD5006D9264 /* TestHIDIOKitVirtualService.m in Sources */,

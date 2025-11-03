@@ -9,7 +9,7 @@
 #include <MallocStackLogging/MallocStackLogging.h>
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
-		T_META_TAG_XZONE);
+		T_META_TAG_ALL_ALLOCATORS);
 
 #include <mach/mach_vm.h>  // mach_vm_map()
 #include <mach/mach.h>  // mach_task_self()
@@ -366,7 +366,8 @@ T_DECL(wrap_malloc_create_zone, "Wrap malloc_create_zone()", T_META_TAG_VM_PREFE
 }
 
 T_DECL(disable_pgm_on_lite_zone,
-		"The lite zone's helper zone shouldn't be wrapped by PGM")
+		"The lite zone's helper zone shouldn't be wrapped by PGM",
+		T_META_TAG_VM_PREFERRED)
 {
 	// Enabling MSL Lite will register the lite zone (via malloc_zone_register)
 	// and a helper zone (via malloc_create_zone). The latter needs to not

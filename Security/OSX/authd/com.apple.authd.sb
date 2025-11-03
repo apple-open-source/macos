@@ -25,6 +25,7 @@
        (literal "/Volumes/Preboot/${ANY_UUID}/var/db/.scnotenforced")
        (regex #"^/private/var/db/auth\.db.*$")
        (literal "/private/var/db/mds/system/mds.lock")
+       (subpath "/Library/Security/SecurityAgentPlugins/StagedPlugins")
        (subpath (param "TMP_DIR")))
 
 (allow network-outbound

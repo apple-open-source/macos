@@ -731,6 +731,25 @@ struct inpcbinfo {
 	(ntohs((lport)) & (mask))
 
 /*
+ * 4-tuple for an IPv4/IPv6 endpoint
+ */
+union in_dependaddr {
+	struct in_addr_4in6     id46_addr;
+	struct in6_addr         id6_addr;
+};
+
+struct in_endpoints {
+	in_port_t               ie_fport;
+	in_port_t               ie_lport;
+	union in_dependaddr     ie_dependfaddr;
+	union in_dependaddr     ie_dependladdr;
+};
+#define ie_faddr        ie_dependfaddr.id46_addr.ia46_addr4
+#define ie_laddr        ie_dependladdr.id46_addr.ia46_addr4
+#define ie6_faddr       ie_dependfaddr.id6_addr
+#define ie6_laddr       ie_dependladdr.id6_addr
+
+/*
  * The following macro need to return a bool value
  */
 #define INP_IS_FLOW_CONTROLLED(_inp_) \

@@ -31,6 +31,7 @@
 
 /* in xpc/launch_private.h */
 #define XPC_DOMAIN_SYSTEM 1
+#define XPC_DOMAIN_PORT 7
 
 static mach_port_t
 alloc_server_port(void)
@@ -101,6 +102,28 @@ alloc_service_port(void)
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "alloc_service_port");
 
 	return service_port;
+}
+
+static mach_port_t
+alloc_bootstrap_port(void)
+{
+	kern_return_t kr;
+	mach_port_t bootstrap_port = MACH_PORT_NULL;
+
+	struct mach_service_port_info sp_info = {
+		.mspi_string_name = "com.apple.testservice",
+		.mspi_domain_type = XPC_DOMAIN_PORT,
+	};
+
+	mach_port_options_t opts = {
+		.flags = MPO_STRICT_SERVICE_PORT | MPO_INSERT_SEND_RIGHT,
+		.service_port_info = &sp_info,
+	};
+
+	kr = mach_port_construct(mach_task_self(), &opts, 0, &bootstrap_port);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "alloc_bootstrap_port");
+
+	return bootstrap_port;
 }
 
 static mach_port_t
@@ -562,8 +585,10 @@ test_service_port_as_exception_port(void)
 {
 	kern_return_t kr;
 	mach_port_t service_port = alloc_service_port();
+	mach_port_t bootstrap_port = alloc_bootstrap_port();
 	mach_port_t weak_service_port = alloc_weak_service_port();
 
+	/* Should succeed */
 	kr = thread_set_exception_ports(
 		mach_thread_self(),
 		EXC_MASK_ALL,
@@ -572,6 +597,7 @@ test_service_port_as_exception_port(void)
 		EXCEPTION_THREAD_STATE);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "test_service_port_as_exception_port IOT_SERVICE_PORT");
 
+	/* Should succeed */
 	kr = thread_set_exception_ports(
 		mach_thread_self(),
 		EXC_MASK_ALL,
@@ -579,6 +605,15 @@ test_service_port_as_exception_port(void)
 		(exception_behavior_t)((unsigned int)EXCEPTION_STATE_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES),
 		EXCEPTION_THREAD_STATE);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "test_service_port_as_exception_port IOT_WEAK_SERVICE_PORT");
+
+	/* Should fail, but no guard exception */
+	kr = thread_set_exception_ports(
+		mach_thread_self(),
+		EXC_MASK_ALL,
+		bootstrap_port,
+		(exception_behavior_t)((unsigned int)EXCEPTION_STATE_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES),
+		EXCEPTION_THREAD_STATE);
+	T_QUIET; T_ASSERT_MACH_ERROR(kr, KERN_INVALID_RIGHT, "test_service_port_as_exception_port IOT_BOOTSTRAP_PORT");
 }
 
 int

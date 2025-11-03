@@ -191,30 +191,25 @@ void
 print_if_link_heuristics_stats(char *name)
 {
 	struct ifreq ifr = { 0 };
-
-	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-
-#ifdef SIOCGLINKHEURISTICS
-	int s;
-
-	s = socket(AF_INET, SOCK_DGRAM, 0);
-
-	if (s < 0) {
-		err(EX_OSERR, "socket");
-	}
-
-	if (ioctl(s, SIOCGLINKHEURISTICS, &ifr) == -1) {
-		warn("ioctl SIOCGLINKHEURISTICS");
-		return;
-	}
-	close(s);
-	s = -1;
-#endif /* SIOCGLINKHEURISTICS */
-
-#ifdef HAS_IF_LINK_HEURISTICS_STATS
+	int s = -1;
 	struct if_linkheuristics if_linkheuristics = { 0 };
 	size_t miblen = sizeof(struct if_linkheuristics);
 	int mib[6];
+
+	s = socket(AF_INET, SOCK_DGRAM, 0);
+	if (s < 0) {
+		warn("socket");
+		goto done;
+	}
+
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	if (ioctl(s, SIOCGLINKHEURISTICS, &ifr) == -1) {
+		if (vflag > 0) {
+			warn("ioctl SIOCGLINKHEURISTICS");
+		}
+		goto done;
+	}
 
 	/* Common OID prefix */
 	mib[0] = CTL_NET;
@@ -224,8 +219,10 @@ print_if_link_heuristics_stats(char *name)
 	mib[4] = if_nametoindex(name);
 	mib[5] = IFDATA_LINKHEURISTICS;
 	if (sysctl(mib, 6, &if_linkheuristics, &miblen, (void *)0, 0) == -1) {
-		warn("sysctl IFDATA_LINKHEURISTICS");
-		return;
+		if (vflag > 0) {
+			warn("sysctl IFDATA_LINKHEURISTICS");
+		}
+		goto done;
 	}
 
 	/*
@@ -237,7 +234,7 @@ print_if_link_heuristics_stats(char *name)
 		if_linkheuristics.iflh_lqm_good_cnt == 0 &&
 		if_linkheuristics.iflh_lqm_poor_cnt == 0 &&
 		if_linkheuristics.iflh_lqm_bad_cnt == 0) {
-		return;
+		goto done;
 	}
 
 	printf("link heuristics on %s\n", name);
@@ -280,5 +277,7 @@ print_if_link_heuristics_stats(char *name)
 
 	p(iflh_udp_linkheur_stealthdrop, "\t%llu stealth UDP packet%s to closed port\n");
 
-#endif /* HAS_IF_LINK_HEURISTICS_STATS */
+
+done:
+	close(s);
 }

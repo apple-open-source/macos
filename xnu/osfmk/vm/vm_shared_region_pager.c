@@ -1176,6 +1176,7 @@ shared_region_pager_create(
 	pager->srp_header.mo_ikot = IKOT_MEMORY_OBJECT;
 	pager->srp_header.mo_pager_ops = &shared_region_pager_ops;
 	pager->srp_header.mo_control = MEMORY_OBJECT_CONTROL_NULL;
+	pager->srp_header.mo_last_unmap_ctid = 0;
 
 	pager->srp_is_ready = FALSE;/* not ready until it has a "name" */
 	/* existence reference (for the cache) + 1 for the caller */

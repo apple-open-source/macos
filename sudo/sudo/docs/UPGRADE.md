@@ -1,8 +1,41 @@
 Notes on upgrading from an older release
 ========================================
 
+ * Upgrading from a version prior to 1.9.15:
+
+    The sudoers plugin now uses a time stamp path name that is based
+    on the user-ID instead of the user name.  For example, a time
+    stamp file that was /var/run/sudo/ts/root in sudo 1.9.14 will
+    now be /var/run/sudo/ts/0.  The lecture flag file name is now
+    also based on the user-ID, which will result in users receiving
+    the sudo lecture again on upgrade to sudo 1.9.15.
+
+ * Upgrading from a version prior to 1.9.14:
+
+   Sudo now runs commands in a new pseudo-terminal by default.  This
+   can prevent a malicious program run via sudo from accessing the
+   user's terminal device after the command completes.
+
+   When sudo runs a command in a new pseudo-terminal, an additional
+   process is created to monitor the command's status and pass
+   terminal control signals between the two terminals.  See the
+   "Process model" subsection in the sudo manual and the description
+   of the "use_pty" option in the sudoers manual for more information.
+
+   A side effect of running the command in a new pseudo-terminal
+   is that sudo must pass input from the user's terminal to the
+   pseudo-terminal, even if the command being run does not require
+   the input.  The "exec_background" option in sudoers can be used
+   to prevent this, but some screen-oriented commands may not operate
+   properly when run as a background process.
+
+   To restore the historic behavior where a command is run in the
+   user's terminal, add the following line to the sudoers file:
+
+       Defaults !use_pty
+
  * Upgrading from a version prior to 1.9.13:
-   
+
    Sudo now builds AIX-style shared libraries and dynamic shared
    objects by default instead of svr4-style.  This means that the
    default sudo plugins are now .a (archive) files that contain a
@@ -166,7 +199,6 @@ Notes on upgrading from an older release
    those names, sudo, and visudo will report a syntax error with a
    message like "syntax error: unexpected TIMEOUT, expecting ALIAS".
 
-   Starting with version 1.9.3, sudoers rules must end in either
    Prior to version 1.8.20, when log_input, log_output, or use_pty
    were enabled, if any of the standard input, output, or error
    were not connected to a terminal, sudo would use a pipe.  The
@@ -262,8 +294,8 @@ Notes on upgrading from an older release
    important that the time stamp files not persist when the system
    reboots.  For this reason, the default location for the time
    stamp files has changed back to a directory located in `/var/run`.
-   Systems that do not have `/var/run` (e.g. AIX) or that do not clear
-   it on boot (e.g. HP-UX) will need to clear the time stamp
+   Systems that do not have `/var/run` (e.g., AIX) or that do not clear
+   it on boot (e.g., HP-UX) will need to clear the time stamp
    directory via a start up script.  Such a script is installed by
    default on AIX and HP-UX systems.
 
@@ -472,7 +504,7 @@ Notes on upgrading from an older release
    When sudo is build with LDAP support the `/etc/nsswitch.conf` file is
    now used to determine the sudoers sea ch order.  sudo will default to
    only using `/etc/sudoers` unless `/etc/nsswitch.conf` says otherwise.
-   This can be changed with an nsswitch.conf line, e.g.:
+   This can be changed with an nsswitch.conf line, for example:
 
        sudoers: ldap files
 
@@ -510,13 +542,13 @@ Notes on upgrading from an older release
 
         Defaults !env_reset
 
-   There have  also been changes to how the "env_keep" and
+   There have also been changes to how the "env_keep" and
    "env_check" options behave.
 
    Prior to sudo 1.6.9, the TERM and PATH environment variables
    would always be preserved even if the env_keep option was
    redefined.  That is no longer the case.  Consequently, if
-   env_keep is set with "=" and not simply appended to (i.e. using
+   env_keep is set with "=" and not simply appended to (i.e., using
    "+="), PATH and TERM must be explicitly included in the list
    of environment variables to keep.  The LOGNAME, SHELL, USER,
    and USERNAME environment variables are still always set.
@@ -561,7 +593,7 @@ Notes on upgrading from an older release
    without a password and `/bin/ls` as root with a password.
 
    As of sudo 1.6, the same line now means that millert is able
-   to run run both `/usr/bin/whoami` and `/bin/ls` as user daemon
+   to run both `/usr/bin/whoami` and `/bin/ls` as user daemon
    without a password.  To expand on this, take the following
    example:
 

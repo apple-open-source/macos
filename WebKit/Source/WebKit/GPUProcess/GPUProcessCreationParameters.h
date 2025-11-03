@@ -70,6 +70,12 @@ struct GPUProcessCreationParameters {
 #if PLATFORM(COCOA)
     bool enableMetalDebugDeviceForTesting { false };
     bool enableMetalShaderValidationForTesting { false };
+#if ENABLE(VP9)
+    std::optional<bool> hasVP9HardwareDecoder;
+#endif
+#if ENABLE(AV1)
+    std::optional<bool> hasAV1HardwareDecoder;
+#endif
 #endif
 };
 

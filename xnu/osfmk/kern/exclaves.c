@@ -37,8 +37,6 @@
 
 #if CONFIG_SPTM
 #include <arm64/sptm/sptm.h>
-#include <arm64/hv/hv_vm.h>
-#include <arm64/hv/hv_vcpu.h>
 #else
 #error Invalid configuration
 #endif /* CONFIG_SPTM */
@@ -2046,6 +2044,11 @@ handle_response_pmm_early_alloc(const XrtHosted_PmmEarlyAlloc_t *pmm_early_alloc
 		return KERN_NO_SPACE;
 	}
 
+#if HAS_MTE
+	if (flags & XNUUPCALLS_PAGEALLOCFLAGS_SEC_TRANSITION) {
+		alloc_flags |= EXCLAVES_MEMORY_PAGE_FLAGS_MTE_TAGGED;
+	}
+#endif /* HAS_MTE */
 
 	/*
 	 * As npages must be relatively small (<= EXCLAVES_MEMORY_MAX_REQUEST),
@@ -2817,6 +2820,23 @@ STARTUP(TUNABLES, STARTUP_RANK_MIDDLE, exclaves_requirement_startup);
 
 #endif /* CONFIG_EXCLAVES */
 
+#if __has_include(<Tightbeam/tightbeam.h>)
+
+#include <Tightbeam/tightbeam.h>
+
+/*
+ * Tightbeam needs to initialize for kernel transports (xnu and AFK).
+ * Only the XNU transport is specific to exclaves - AFK is not.
+ */
+__startup_func
+static void
+tightbeam_startup(void)
+{
+	tb_transport_startup();
+}
+STARTUP(EARLY_BOOT, STARTUP_RANK_MIDDLE, tightbeam_startup);
+
+#endif /* __has_include(<Tightbeam/tightbeam.h> */
 
 #ifndef CONFIG_EXCLAVES
 /* stubs for sensor functions which are not compiled in from exclaves.c when

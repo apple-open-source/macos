@@ -114,6 +114,7 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
+#include <wtf/URLHash.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakListHashSet.h>
 #include <wtf/text/CString.h>
@@ -460,7 +461,7 @@ void WebProcessProxy::initializePreferencesForGPUAndNetworkProcesses(const WebPa
     } else {
 #if ASSERT_ENABLED
         auto sharedPreferencesForWebProcess = m_sharedPreferencesForWebProcess;
-        ASSERT(!WebKit::updateSharedPreferencesForWebProcess(sharedPreferencesForWebProcess, page.preferences().store()));
+        ASSERT(!WebKit::updateSharedPreferencesForWebProcess(sharedPreferencesForWebProcess, page.preferences().store(), lockdownMode() == WebProcessProxy::LockdownMode::Enabled));
 #endif
     }
 
@@ -470,7 +471,7 @@ bool WebProcessProxy::hasSameGPUAndNetworkProcessPreferencesAs(const API::PageCo
 {
     if (m_sharedPreferencesForWebProcess.version) {
         auto sharedPreferencesForWebProcess = m_sharedPreferencesForWebProcess;
-        if (WebKit::updateSharedPreferencesForWebProcess(sharedPreferencesForWebProcess, pageConfiguration.preferences().store()))
+        if (WebKit::updateSharedPreferencesForWebProcess(sharedPreferencesForWebProcess, pageConfiguration.preferences().store(), lockdownMode() == WebProcessProxy::LockdownMode::Enabled))
             return false;
     }
     return true;
@@ -941,7 +942,9 @@ void WebProcessProxy::assumeReadAccessToBaseURL(WebPageProxy& page, const String
 
     // There's a chance that urlString does not point to a directory.
     // Get url's base URL to add to m_localPathsWithAssumedReadAccess.
-    auto path = url.truncatedForUseAsBase().fileSystemPath();
+    auto baseURL = url.truncatedForUseAsBase();
+    auto path = baseURL.fileSystemPath();
+    WEBPROCESSPROXY_RELEASE_LOG(Sandbox, "assumeReadAccessToBaseURL(%u): path = %{private}s", baseURL.isValid() ? WTF::URLHash::hash(baseURL) : 0, path.utf8().data());
     if (path.isNull())
         return completionHandler();
 
@@ -1008,22 +1011,33 @@ void WebProcessProxy::assumeReadAccessToBaseURLs(WebPageProxy& page, const Vecto
 
 bool WebProcessProxy::hasAssumedReadAccessToURL(const URL& url) const
 {
-    if (!url.protocolIsFile())
+    if (!url.protocolIsFile()) {
+        WEBPROCESSPROXY_RELEASE_LOG_ERROR(Sandbox, "hasAssumedReadAccessToURL: URL is not a local file");
         return false;
+    }
+
+    auto urlHash = url.isValid() ? WTF::URLHash::hash(url) : 0;
+    ASSERT_UNUSED(urlHash, urlHash > 0);
 
     String path = url.fileSystemPath();
-    auto startsWithURLPath = [&path](const String& assumedAccessPath) {
+    auto startsWithURLPath = [&path, protectedThis = RefPtr { this }](const String& assumedAccessPath) {
         // There are no ".." components, because URL removes those.
+        WEBPROCESSPROXY_RELEASE_LOG_WITH_THIS(Sandbox, protectedThis, "hasAssumedReadAccessToURL: checking if url is contained in url(%u) with assumed access", WTF::URLHash::hash(URL::fileURLWithFileSystemPath(assumedAccessPath)));
         return path.startsWith(assumedAccessPath);
     };
 
     auto& platformPaths = platformPathsWithAssumedReadAccess();
-    if (std::ranges::find_if(platformPaths, startsWithURLPath) != platformPaths.end())
+    if (std::ranges::find_if(platformPaths, startsWithURLPath) != platformPaths.end()) {
+        WEBPROCESSPROXY_RELEASE_LOG(Sandbox, "hasAssumedReadAccessToURL(%u): has assumed access to platform path", urlHash);
         return true;
+    }
 
-    if (std::ranges::find_if(m_localPathsWithAssumedReadAccess, startsWithURLPath) != m_localPathsWithAssumedReadAccess.end())
+    if (std::ranges::find_if(m_localPathsWithAssumedReadAccess, startsWithURLPath) != m_localPathsWithAssumedReadAccess.end()) {
+        WEBPROCESSPROXY_RELEASE_LOG(Sandbox, "hasAssumedReadAccessToURL(%u): has assumed access to local path", urlHash);
         return true;
+    }
 
+    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Sandbox, "hasAssumedReadAccessToURL(%u): no access", urlHash);
     return false;
 }
 
@@ -2353,7 +2367,7 @@ void WebProcessProxy::sharedPreferencesDidChange()
 
 std::optional<SharedPreferencesForWebProcess> WebProcessProxy::updateSharedPreferences(const WebPreferencesStore& preferencesStore)
 {
-    if (WebKit::updateSharedPreferencesForWebProcess(m_sharedPreferencesForWebProcess, preferencesStore)) {
+    if (WebKit::updateSharedPreferencesForWebProcess(m_sharedPreferencesForWebProcess, preferencesStore, lockdownMode() == WebProcessProxy::LockdownMode::Enabled)) {
         ++m_sharedPreferencesForWebProcess.version;
         sharedPreferencesDidChange();
 

@@ -93,7 +93,6 @@
     [document removeObserver:self forKeyPath:kMBCAlternateVoice];
     [document removeObserver:self forKeyPath:kMBCBoardStyle];
     [document removeObserver:self forKeyPath:kMBCPieceStyle];
-    [document removeObserver:self forKeyPath:kMBCListenForMoves];
     
     [fObservers removeAllObjects];
 }
@@ -213,7 +212,6 @@
     [document addObserver:self forKeyPath:kMBCAlternateVoice options:NSKeyValueObservingOptionNew context:nil];
     [document addObserver:self forKeyPath:kMBCBoardStyle options:NSKeyValueObservingOptionNew context:nil];
     [document addObserver:self forKeyPath:kMBCPieceStyle options:NSKeyValueObservingOptionNew context:nil];
-    [document addObserver:self forKeyPath:kMBCListenForMoves options:NSKeyValueObservingOptionNew context:nil];
     
     if (![MBCBoardWin isRenderingWithMetal]) {
         // If rendering with Metal, the following has already been done in initializeForMetalRendering
@@ -296,17 +294,12 @@
 
 - (void)windowDidBecomeMain:(NSNotification *)notification
 {
-    if ([self listenForMoves]) {
-        [interactive allowedToListen:YES];
-    }
 	[[self renderView] needsUpdate];
 }
 
 - (void)windowDidResignMain:(NSNotification *)notification
 {
-    if ([self listenForMoves]) {
-        [interactive allowedToListen:NO];
-    }
+
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
@@ -317,8 +310,6 @@
     } else if ([keyPath isEqual:kMBCAlternateVoice]) {
         [alternateSynth release];           alternateSynth          = nil;
         [alternateLocalization release];    alternateLocalization   = nil;
-    } else if ([keyPath isEqual:kMBCListenForMoves]) {
-        [interactive allowedToListen:[self listenForMoves]];
     } else {
         [[self renderView] setStyleForBoard:[[self document] objectForKey:kMBCBoardStyle]
                                      pieces:[[self document] objectForKey:kMBCPieceStyle]];
@@ -759,11 +750,6 @@ uint32_t sAttributesForSides[] = {
         NSLog(@"MBCBoardWin CommitMove Rotate Board");
 		fCurAnimation = [MBCBoardAnimation boardAnimation:[self renderView]];
 	}
-}
-
-- (BOOL)listenForMoves
-{
-    return [[self document] boolForKey:kMBCListenForMoves];
 }
 
 - (BOOL)speakMoves

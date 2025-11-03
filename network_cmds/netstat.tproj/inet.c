@@ -746,6 +746,11 @@ printf(m, TCPDIFF(f), TCPDIFF(f) != 1 ? "ies" : "y")
 	p(tcps_sc_sendcookie,"\t%u SYN cookie%s sent\n");
 	p(tcps_sc_recvcookie,"\t%u SYN cookie%s received\n");
 
+#if HAS_TCPSTAT_RST_SUPPRESSION
+	p(tcps_rst_dup_suppressed,"\t%llu duplicate RST packet%s for port unreachable suppressed\n");
+	p(tcps_rst_not_suppressed,"\t%llu RST packet%s for port unreachable not suppressed\n");
+#endif /* HAS_TCPSTAT_RST_SUPPRESSION */
+
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
 		pr_swcsum = r_swcsum;
@@ -965,6 +970,11 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	p2(udps_snd6_swcsum, udps_snd6_swcsum_bytes,
 	   "\t\t\t%u datagram%s (%u byte%s) over IPv6\n");
 #endif /* INET6 */
+
+#if HAS_TCPSTAT_RST_SUPPRESSION
+	p(udps_port_unreach_dup_suppressed,"\t%llu duplicate ICMP packet%s for port unreachable suppressed\n");
+	p(udps_port_unreach_not_suppressed,"\t%llu ICMP packet%s for port unreachable not suppressed\n");
+#endif /* HAS_TCPSTAT_RST_SUPPRESSION */
 
 	if (interval > 0) {
 		bcopy(&udpstat, &pudpstat, len);

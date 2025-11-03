@@ -29,9 +29,10 @@ SUPPORTED_ARM64_MACHINE_CONFIGS = NONE
 else ifneq ($(findstring _host,$(RC_ProjectName)),)
 SUPPORTED_ARM64_MACHINE_CONFIGS = NONE
 else
-SUPPORTED_ARM64_MACHINE_CONFIGS = T6000 T6020 T6030 T6031 T6041 T8101 T8103 T8112 T8122 T8132 VMAPPLE
+SUPPORTED_ARM64_MACHINE_CONFIGS = T6000 T6020 T6030 T6031 T6041 T8101 T8103 T8112 T8122 T8132 T8142 VMAPPLE
 
-SPTM_ENABLED_SOCS_MacOSX = t8112 t6020 t8122 t6030 t6031 t8132 t6041
+SPTM_ENABLED_SOCS_MacOSX = t8112 t6020 t8122 t6030 t6031 t8132 t6041 t8142
+EXCLAVES_ENABLED_SOCS_MacOSX = t8142
 
 
 endif
@@ -65,6 +66,11 @@ else
 	ARM64_EXTRA_BUILD_FLAGS += -fno-branch-target-identification -UXNU_BUILT_WITH_BTI
 endif
 
+MTE_SUPPORTED_SOCS = t8142
+
+ifneq ($(filter $(CURRENT_MACHINE_CONFIG_LC),$(MTE_SUPPORTED_SOCS)),)
+	DOCONF_KERNEL_TAG := -tag
+endif
 
 #
 # Component List
@@ -73,18 +79,19 @@ COMPONENT_LIST	= osfmk bsd libkern iokit pexpert libsa security san
 COMPONENT	= $(if $(word 2,$(subst /, ,$(RELATIVE_SOURCE_PATH))),$(word 2,$(subst /, ,$(RELATIVE_SOURCE_PATH))),$(firstword $(subst /, ,$(RELATIVE_SOURCE_PATH))))
 COMPONENT_IMPORT_LIST = $(filter-out $(COMPONENT),$(COMPONENT_LIST))
 
-MACHINE_FLAGS_ARM64_T8101 = -DARM64_BOARD_CONFIG_T8101			-mcpu=apple-a14
-MACHINE_FLAGS_ARM64_T8103 = -DARM64_BOARD_CONFIG_T8103                  -mcpu=apple-a14
-MACHINE_FLAGS_ARM64_T6000 = -DARM64_BOARD_CONFIG_T6000			-mcpu=apple-a14
-MACHINE_FLAGS_ARM64_T6020 = -DARM64_BOARD_CONFIG_T6020 			-mcpu=apple-a15
-MACHINE_FLAGS_ARM64_T8112 = -DARM64_BOARD_CONFIG_T8112 			-mcpu=apple-a15
-MACHINE_FLAGS_ARM64_T6030 = -DARM64_BOARD_CONFIG_T6030 			-mcpu=apple-m3
-MACHINE_FLAGS_ARM64_T6031 = -DARM64_BOARD_CONFIG_T6031 			-mcpu=apple-m3
-MACHINE_FLAGS_ARM64_T6041 = -DARM64_BOARD_CONFIG_T6041			-mcpu=apple-m4
-MACHINE_FLAGS_ARM64_T8122 = -DARM64_BOARD_CONFIG_T8122_T8130		-mcpu=apple-m3
-MACHINE_FLAGS_ARM64_T8132 = -DARM64_BOARD_CONFIG_T8132			-mcpu=apple-m4
+MACHINE_FLAGS_ARM64_T8101 = -DARM64_BOARD_CONFIG_T8101			-mcpu=apple-a14 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T8103 = -DARM64_BOARD_CONFIG_T8103                  -mcpu=apple-a14 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T6000 = -DARM64_BOARD_CONFIG_T6000			-mcpu=apple-a14 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T6020 = -DARM64_BOARD_CONFIG_T6020 			-mcpu=apple-a15 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T8112 = -DARM64_BOARD_CONFIG_T8112 			-mcpu=apple-a15 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T6030 = -DARM64_BOARD_CONFIG_T6030 			-mcpu=apple-m3 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T6031 = -DARM64_BOARD_CONFIG_T6031 			-mcpu=apple-m3 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T6041 = -DARM64_BOARD_CONFIG_T6041			-mcpu=apple-m4 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T8122 = -DARM64_BOARD_CONFIG_T8122_T8130		-mcpu=apple-m3 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T8132 = -DARM64_BOARD_CONFIG_T8132			-mcpu=apple-m4 -D__ARM_ARCH_8_2__=1
+MACHINE_FLAGS_ARM64_T8142 = -DARM64_BOARD_CONFIG_T8142 			-mcpu=apple-m4+memtag+predres2 -D__ARM_ARCH_8_2__=1
 
-MACHINE_FLAGS_ARM64_VMAPPLE = -DARM64_BOARD_CONFIG_VMAPPLE              -march=armv8.5a+sme2
+MACHINE_FLAGS_ARM64_VMAPPLE = -DARM64_BOARD_CONFIG_VMAPPLE              -march=armv8.5a+sme2 -D__ARM_ARCH_8_2__=1
 
 
 #
@@ -196,24 +203,33 @@ WARNFLAGS_STD := \
 	-Wno-zero-length-array \
 	-Wno-packed \
 	-Wno-cast-function-type-strict \
-	-Wno-incompatible-function-pointer-types-strict
+	-Wno-incompatible-function-pointer-types-strict \
+	-Wno-four-char-constants
+
+# Avoid lock-step changes between compiler submissions and xnu.
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-unknown-warning-option
 
 # When a new clang has new warnings disable them here until the kernel is fixed.
-WARNFLAGS_STD := $(WARNFLAGS_STD) \
-	-Wno-unknown-warning-option \
-	-Wno-anon-enum-enum-conversion \
-	-Wno-error=enum-enum-conversion \
-	-Wno-error=c99-designator \
-	-Wno-error=reorder-init-list \
-	-Wno-error=switch-default \
-	-Wno-error=four-char-constants \
-	-Wno-error=suggest-override \
-	-Wno-error=suggest-destructor-override \
-	-Wno-error=tautological-value-range-compare \
-	-Wno-error=null-pointer-subtraction \
-	-Wno-deprecated-volatile \
-	-Wno-error=incompatible-function-pointer-types-strict \
-	-Wno-cast-function-type-strict
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-anon-enum-enum-conversion
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-enum-enum-conversion
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-c99-designator
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-reorder-init-list
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-switch-default
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-tautological-value-range-compare
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-null-pointer-subtraction
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-deprecated-volatile
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-incompatible-function-pointer-types-strict
+
+WARNFLAGS_STD := $(WARNFLAGS_STD) -Wno-cast-function-type-strict
 
 WARNFLAGS_STD := $(WARNFLAGS_STD) \
 	-Wno-declaration-after-statement
@@ -1095,6 +1111,11 @@ LDFILES_KERNEL_ONLY = $(TARGET)/all-kpi.exp $(TARGET)/all-alias.exp $(TARGET)/sy
 LD_KERNEL_LIBS	   = -lcc_kext
 LD_KERNEL_ARCHIVES = $(LDFLAGS_KERNEL_SDK) -lfirehose_kernel
 
+# Link binary support library
+ifneq ($(CURRENT_MACHINE_CONFIG),NONE)
+        LDFLAGS_KERNEL_ONLY += -rdynamic -Wl,-force_load,$(KDKROOT)/System/Library/KernelSupport/lib$(CURRENT_MACHINE_CONFIG).os.$(CURRENT_KERNEL_CONFIG).a
+endif
+
 #
 # Derive SPTM/TXM and Exclaves enablement from the EDM properties.
 #
@@ -1115,6 +1136,9 @@ endif # SPTM
 ifneq ($(filter $(CURRENT_MACHINE_CONFIG_LC),$(SPTM_ENABLED_SOCS_$(PLATFORM))),)
   SPTM_ENABLED = 1
 endif
+ifneq ($(filter $(CURRENT_MACHINE_CONFIG_LC),$(EXCLAVES_ENABLED_SOCS_$(PLATFORM))),)
+  EXCLAVES_ENABLED := 1
+endif
 
 ifeq ($(SPTM_ENABLED),1)
   LD_KERNEL_ARCHIVES += -lTrustedExecutionMonitor_Kernel
@@ -1126,8 +1150,22 @@ ifeq ($(EXCLAVES_ENABLED),1)
   DOCONF_EXCLAVES := -exclaves
 endif # !EXCLAVES_ENABLED
 
-ifeq ($(CURRENT_ARCH_CONFIG),ARM64)
-TIGHTBEAM_EXPORTS := $(SRCROOT)/config/libTightbeam.exports
+
+ifneq ($(wildcard $(SDKROOT)/usr/local/lib/kernel/platform/libTightbeam.a),)
+XNU_CONFIG_TIGHTBEAM := 1
+TIGHTBEAM_IN_SDK := 1
+else ifneq ($(wildcard $(KDKROOT)/usr/local/lib/kernel/platform/libTightbeam.a),)
+XNU_CONFIG_TIGHTBEAM := 1
+endif
+ifeq ($(XNU_CONFIG_TIGHTBEAM),1)
+  ifeq ($(TIGHTBEAM_IN_SDK),1)
+    # Force-import the Tightbeam static lib so that all of its symbols can be exported to kexts
+    LD_KERNEL_ARCHIVES += -Wl,-force_load,$(SDKROOT)/usr/local/lib/kernel/platform/libTightbeam.a
+    TIGHTBEAM_EXPORTS := $(SDKROOT)/usr/local/lib/kernel/platform/libTightbeam.exports
+  else # !TIGHTBEAM_IN_SDK
+    LD_KERNEL_ARCHIVES += -Wl,-force_load,$(KDKROOT)/usr/local/lib/kernel/platform/libTightbeam.a
+    TIGHTBEAM_EXPORTS := $(KDKROOT)/usr/local/lib/kernel/platform/libTightbeam.exports
+  endif # TIGHTBEAM_IN_SDK
 endif
 
 #
@@ -1154,7 +1192,7 @@ INCFLAGS_KERNEL = -I$(SDKROOT)/usr/local/include/kernel
 INCFLAGS_SDK	= -I$(SDKROOT)/usr/local/include/ -I$(SDKROOT)/$(KPINCDIR)/AppleFeatures
 INCFLAGS_PLATFORM = -I$(SDKROOT)/$(KPINCDIR)/platform
 ifneq ($(KDKROOT),)
-INCFLAGS_SDK   += -I$(KDKROOT)/$(KPINCDIR)
+INCFLAGS_SDK   += -I$(KDKROOT)/$(KPINCDIR) -I$(KDKROOT)/System/Library/KernelSupport
 INCFLAGS_PLATFORM += -I$(KDKROOT)/$(KINCDIR)/platform -I$(KDKROOT)/$(KPINCDIR)/platform
 endif
 

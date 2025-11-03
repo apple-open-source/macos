@@ -415,6 +415,7 @@ ca{
         nds_NL{"baix saxó"}
         ne{"nepalès"}
         new{"newari"}
+        nez{"nez percé"}
         ng{"ndonga"}
         nia{"nias"}
         niu{"niueà"}

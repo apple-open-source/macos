@@ -35,7 +35,7 @@ clientserver.c	| client server functionality
 clipboard.c	| handling the clipboard
 cmdexpand.c	| command-line completion
 cmdhist.c	| command-line history
-debugger.c	| vim script debugger
+debugger.c	| Vim script debugger
 diff.c		| diff mode (vimdiff)
 drawline.c	| drawing a window line
 drawscreen.c	| drawing the windows
@@ -48,6 +48,7 @@ fileio.c	| reading and writing files
 filepath.c	| dealing with file names and paths
 findfile.c	| search for files in 'path'
 fold.c		| folding
+fuzzy.c	    | fuzzy matching
 getchar.c	| getting characters and key mapping
 gc.c	    | garbage collection
 help.c		| vim help related functions
@@ -70,7 +71,7 @@ option.c	| options
 optionstr.c	| handling string options
 popupmenu.c	| popup menu
 popupwin.c	| popup window
-profiler.c	| vim script profiler
+profiler.c	| Vim script profiler
 quickfix.c	| quickfix commands (":make", ":cn")
 regexp.c	| pattern matching
 register.c	| handling registers
@@ -91,7 +92,7 @@ textformat.c	| text formatting
 textobject.c	| text objects
 textprop.c	| text properties
 time.c		| time and timer functions
-typval.c	| vim script type/value functions
+typval.c	| Vim script type/value functions
 undo.c		| undo and redo
 usercmd.c	| user defined commands
 userfunc.c	| user defined functions

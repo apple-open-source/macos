@@ -30,9 +30,9 @@
     SharedPreferencesNeedsConnection
 ]
  messages -> NetworkStorageManager {
-    [EnabledBy=FileSystemEnabled] Persisted(struct WebCore::ClientOrigin origin) -> (bool persisted)
-    [EnabledBy=FileSystemEnabled] Persist(struct WebCore::ClientOrigin origin) -> (bool persisted)
-    [EnabledBy=FileSystemEnabled] Estimate(struct WebCore::ClientOrigin origin) -> (struct std::optional<WebCore::StorageEstimate> result);
+    Persisted(struct WebCore::ClientOrigin origin) -> (bool persisted)
+    Persist(struct WebCore::ClientOrigin origin) -> (bool persisted)
+    Estimate(struct WebCore::ClientOrigin origin) -> (struct std::optional<WebCore::StorageEstimate> result);
     [EnabledBy=FileSystemEnabled] FileSystemGetDirectory(struct WebCore::ClientOrigin origin) -> (Expected<std::optional<WebCore::FileSystemHandleIdentifier>, WebKit::FileSystemStorageError> result)
     [EnabledBy=FileSystemEnabled] CloseHandle(WebCore::FileSystemHandleIdentifier identifier)
     [EnabledBy=FileSystemEnabled] IsSameEntry(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemHandleIdentifier targetIdentifier) -> (bool result)

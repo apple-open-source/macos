@@ -125,6 +125,7 @@ int main(int argc, char** argv)
     int forceFetch = false;
     int repair = false;
     int danglingPeerCleanup = false;
+    int caesarPeerCleanup = false;
     int updateIdMS = false;
 
     char* altDSIDArg = NULL;
@@ -158,10 +159,10 @@ int main(int argc, char** argv)
         {.longname = "forceFetch", .flag = &forceFetch, .flagval = true, .description = "Force fetch from cuttlefish"},
         {.longname = "repair", .flag = &repair, .flagval = true, .description = "Perform repair as part of health check"},
         {.longname = "danglingPeerCleanup", .flag = &danglingPeerCleanup, .flagval = true, .description = "Perform dangling peer cleanup as part of health check"},
+        {.longname = "caesarPeerCleanup", .flag = &caesarPeerCleanup, .flagval = true, .description = "Perform caesar peer cleanup as part of health check"},
         {.longname = "updateIdMS", .flag = &updateIdMS, .flagval = true, .description = "Perform IdMS update as part of health check"},
 
         {.shortname = 'a', .longname = "machineID", .argument = &machineIDArg, .description = "machineID override"},
-
         {.longname = "altDSID", .argument = &altDSIDArg, .description = "altDSID (for sign-in/out)"},
         {.longname = "entropy", .argument = &secretArg, .description = "escrowed entropy in JSON"},
 
@@ -452,6 +453,7 @@ int main(int argc, char** argv)
                         skipRateLimitingCheck:skip
                              repair:repair
                         danglingPeerCleanup:danglingPeerCleanup
+                        caesarPeerCleanup:caesarPeerCleanup
                          updateIdMS:updateIdMS
                                json:json];
         }

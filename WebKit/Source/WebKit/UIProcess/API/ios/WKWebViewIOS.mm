@@ -206,10 +206,12 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
     [_scrollView setBaseScrollViewDelegate:self];
     [_scrollView setBouncesZoom:YES];
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if ([_scrollView respondsToSelector:@selector(_setAvoidsJumpOnInterruptedBounce:)]) {
         [_scrollView setTracksImmediatelyWhileDecelerating:NO];
         [_scrollView _setAvoidsJumpOnInterruptedBounce:YES];
     }
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     _scrollViewDefaultAllowedTouchTypes = [_scrollView panGestureRecognizer].allowedTouchTypes;
 
@@ -224,6 +226,11 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
     [_contentView setFrame:bounds];
     [_scrollView addSubview:_contentView.get()];
     [_scrollView addSubview:[_contentView unscaledView]];
+
+#if PLATFORM(VISION)
+    if ([[CARemoteExternalEffect class] respondsToSelector:@selector(rcp_requiresTwoHandedInteractionProcessorEffect)])
+        [_scrollView _requestRemoteEffects:@[[CARemoteExternalEffect rcp_requiresTwoHandedInteractionProcessorEffect]] forKey:@"input"];
+#endif
 }
 
 - (void)_setObscuredInsetsInternal:(UIEdgeInsets)obscuredInsets
@@ -600,11 +607,9 @@ static CGSize roundScrollViewContentSize(const WebKit::WebPageProxy& page, CGSiz
 - (void)_didFinishLoadingDataForCustomContentProviderWithSuggestedFilename:(const String&)suggestedFilename data:(NSData *)data
 {
     ASSERT(_customContentView);
-    [_customContentView web_setContentProviderData:data suggestedFilename:suggestedFilename.createNSString().get()];
-
-    // FIXME: It may make more sense for custom content providers to invoke this when they're ready,
-    // because there's no guarantee that all custom content providers will lay out synchronously.
-    _page->didLayoutForCustomContentProvider();
+    [_customContentView web_setContentProviderData:data suggestedFilename:suggestedFilename.createNSString().get() completionHandler:^{
+        _page->didLayoutForCustomContentProvider();
+    }];
 }
 
 - (BOOL)_tryToHandleKeyEventInCustomContentView:(UIPressesEvent *)event
@@ -1072,11 +1077,6 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     BOOL shouldUpdateContentOffsetForFittingScale = !shouldUpdateZoomScale && !CGSizeEqualToSize(oldContentSize, newContentSize) && (oldContentSize.height > 0) && self._isDisplayingPDF;
 
     if (shouldUpdateZoomScale || shouldUpdateContentOffsetForFittingScale) {
-        if (shouldUpdateZoomScale) {
-            LOG_WITH_STREAM(VisibleRects, stream << " updating scroll view with pageScaleFactor " << pageScaleFactor);
-            [_scrollView setZoomScale:pageScaleFactor];
-        }
-
         UIEdgeInsets contentInsets = [_scrollView adjustedContentInset];
         CGPoint minimumContentOffset = CGPointMake(-contentInsets.left, -contentInsets.top);
         CGPoint contentOffset = [_scrollView contentOffset];
@@ -1093,6 +1093,11 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
             contentOffsetX = minimumContentOffset.x + ((contentOffsetX - minimumContentOffset.x) * scaleRatio);
 
         CGFloat contentOffsetY = minimumContentOffset.y + ((contentOffset.y - minimumContentOffset.y) * scaleRatio);
+
+        if (shouldUpdateZoomScale) {
+            LOG_WITH_STREAM(VisibleRects, stream << " updating scroll view with pageScaleFactor " << pageScaleFactor);
+            [_scrollView setZoomScale:pageScaleFactor];
+        }
 
         changeContentOffsetBoundedInValidRange(_scrollView.get(), CGPointMake(contentOffsetX, contentOffsetY));
     }
@@ -1175,8 +1180,28 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
 
         if (isFirstTransactionAfterObscuredInsetChange) {
             _perProcessState.firstTransactionIDAfterObscuredInsetChange = std::nullopt;
-            [self _didStopDeferringGeometryUpdates];
-            needUpdateVisibleContentRects = true;
+            bool needsOverrideLayoutSizeUpdate = [&] {
+                if (!_overriddenLayoutParameters)
+                    return false;
+
+                if (!self._shouldDeferGeometryUpdates)
+                    return true;
+
+                // rdar://157669095: SFSafariViewController may misplace content if geometry updates are deferred.
+                // Dispatch updates as long as the scene isn't being interactively resized.
+                if (WTF::IOSApplication::isSafariViewService() && !self.window.windowScene.effectiveGeometry.isInteractivelyResizing)
+                    return true;
+
+                return false;
+            }();
+
+            if (needsOverrideLayoutSizeUpdate) {
+                [self _dispatchSetViewLayoutSize:WebCore::FloatSize(_overriddenLayoutParameters->viewLayoutSize)];
+                _page->setMinimumUnobscuredSize(WebCore::FloatSize(_overriddenLayoutParameters->minimumUnobscuredSize));
+                _page->setDefaultUnobscuredSize(WebCore::FloatSize(_overriddenLayoutParameters->maximumUnobscuredSize));
+                _page->setMaximumUnobscuredSize(WebCore::FloatSize(_overriddenLayoutParameters->maximumUnobscuredSize));
+                needUpdateVisibleContentRects = true;
+            }
         }
 
         if (_perProcessState.dynamicViewportUpdateMode != WebKit::DynamicViewportUpdateMode::NotResizing) {
@@ -1251,10 +1276,9 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     }
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    if (_page && _page->preferences().overlayRegionsEnabled())
-        [self _updateOverlayRegions:layerTreeTransaction.changedLayerProperties() destroyedLayers:layerTreeTransaction.destroyedLayers()];
-    else
-        [self _resetOverlayRegions];
+    [self _updateScrollCoordinatorProxyForOverlayRegions:layerTreeTransaction.destroyedLayers()];
+    if (layerTreeTransaction.changedLayerProperties().size() || layerTreeTransaction.destroyedLayers().size())
+        [self _updateOverlayRegions];
 #endif
 }
 
@@ -1489,36 +1513,21 @@ static void configureScrollViewWithOverlayRegionsIDs(RetainPtr<WKBaseScrollView>
     return overlayRegionScrollView;
 }
 
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-- (void)_resetOverlayRegions
+- (void)_updateOverlayRegions
 {
     if (!_page)
         return;
 
-    CheckedPtr scrollingCoordinatorProxy = downcast<WebKit::RemoteScrollingCoordinatorProxyIOS>(_page->scrollingCoordinatorProxy());
-    if (!scrollingCoordinatorProxy)
+    if (!_page->preferences().overlayRegionsEnabled()) {
+        [self _resetOverlayRegions];
         return;
-
-    [_scrollView _updateOverlayRegionsBehavior:NO];
-
-    auto candidates = scrollingCoordinatorProxy->overlayRegionCandidates();
-    for (auto scrollView : candidates.keys())
-        [scrollView _updateOverlayRegionsBehavior:NO];
-}
-#endif
-
-- (void)_updateOverlayRegions:(const WebKit::LayerPropertiesMap&)changedLayerPropertiesMap destroyedLayers:(const Vector<WebCore::PlatformLayerIdentifier>&)destroyedLayers
-{
-    if (!changedLayerPropertiesMap.size() && !destroyedLayers.size())
-        return;
+    }
 
     auto& layerTreeProxy = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea());
     auto& layerTreeHost = layerTreeProxy.remoteLayerTreeHost();
     auto* scrollingCoordinatorProxy = downcast<WebKit::RemoteScrollingCoordinatorProxyIOS>(_page->scrollingCoordinatorProxy());
     if (!scrollingCoordinatorProxy)
         return;
-
-    scrollingCoordinatorProxy->removeDestroyedLayerIDs(destroyedLayers);
 
     auto candidatesMap = scrollingCoordinatorProxy->overlayRegionCandidates();
 
@@ -1548,6 +1557,36 @@ static void configureScrollViewWithOverlayRegionsIDs(RetainPtr<WKBaseScrollView>
     [_scrollView _updateOverlayRegionsBehavior:YES];
     [_scrollView _updateOverlayRegionRects: { } whileStable:YES];
 }
+
+- (void)_resetOverlayRegions
+{
+    if (!_page)
+        return;
+
+    CheckedPtr scrollingCoordinatorProxy = downcast<WebKit::RemoteScrollingCoordinatorProxyIOS>(_page->scrollingCoordinatorProxy());
+    if (!scrollingCoordinatorProxy)
+        return;
+
+    [_scrollView _updateOverlayRegionsBehavior:NO];
+
+    auto candidates = scrollingCoordinatorProxy->overlayRegionCandidates();
+    for (auto scrollView : candidates.keys())
+        [scrollView _updateOverlayRegionsBehavior:NO];
+}
+
+- (void)_updateScrollCoordinatorProxyForOverlayRegions:(const Vector<WebCore::PlatformLayerIdentifier>&)destroyedLayers
+{
+    if (!_page || !destroyedLayers.size())
+        return;
+
+    CheckedPtr scrollingCoordinatorProxy = downcast<WebKit::RemoteScrollingCoordinatorProxyIOS>(_page->scrollingCoordinatorProxy());
+    if (!scrollingCoordinatorProxy)
+        return;
+
+    // We maintain this layerIDs list regardless of the current preference value.
+    scrollingCoordinatorProxy->removeDestroyedLayerIDs(destroyedLayers);
+}
+
 #endif // ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 
 - (void)_layerTreeCommitComplete
@@ -1914,6 +1953,9 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     CGRect formAssistantFrameInWebViewCoordinates = [window convertRect:_inputViewBoundsInWindow toView:self];
     CGRect intersectionBetweenScrollViewAndFormAssistant = CGRectIntersection(visibleScrollViewBoundsInWebViewCoordinates, formAssistantFrameInWebViewCoordinates);
     CGSize visibleSize = visibleScrollViewBoundsInWebViewCoordinates.size;
+
+    if (CGSizeEqualToSize(visibleSize, CGSizeZero) && CGRectIsEmpty(formAssistantFrameInWebViewCoordinates))
+        return;
 
     CGFloat visibleOffsetFromTop = 0;
     CGFloat minimumDistanceFromKeyboardToTriggerScroll = 0;
@@ -2492,7 +2534,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
         if ([_scrollView _wk_isScrolledBeyondTopExtent])
             return NO;
 
-        if ([_scrollView _wk_usesHardTopScrollEdgeEffect])
+        if ([_scrollView _usesHardTopScrollEdgeEffect])
             return NO;
 
         return [_scrollView contentOffset].y < 0;
@@ -2513,6 +2555,9 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
         return YES;
 
     if (_needsTopScrollPocketDueToVisibleContentInset)
+        return NO;
+
+    if ([_scrollView _usesHardTopScrollEdgeEffect])
         return NO;
 
     return [self _hasVisibleColorExtensionView:WebCore::BoxSide::Top];

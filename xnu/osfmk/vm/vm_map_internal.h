@@ -373,6 +373,13 @@ VME_OBJECT_SET(
 	entry->vme_kernel_object = is_kernel_object(object);
 	entry->vme_resilient_codesign = false;
 	entry->used_for_jit = false;
+#if HAS_MTE
+	if (object == kernel_object_tagged) {
+		entry->vme_is_tagged = TRUE;
+	} else if (object == kernel_object_default) {
+		entry->vme_is_tagged = FALSE;
+	}
+#endif /* HAS_MTE */
 }
 
 
@@ -663,6 +670,96 @@ extern void             vm_map_require(
 extern void             vm_map_copy_require(
 	vm_map_copy_t           copy);
 
+#if HAS_MTE
+__options_closed_decl(vm_mte_operation_flags_t, uint32_t, {
+	/* all operations must have exactly one of these: */
+	VM_MTE_OPERATION_TYPE_COPY = 0x1,
+	VM_MTE_OPERATION_TYPE_SHARE = 0x2,
+	VM_MTE_OPERATION_TYPE_INHERIT_SHARE = 0x4,
+	VM_MTE_OPERATION_TYPE_CREATE_UPL = 0x8,
+	VM_MTE_OPERATION_TYPE_MASK = VM_MTE_OPERATION_TYPE_COPY | VM_MTE_OPERATION_TYPE_SHARE | VM_MTE_OPERATION_TYPE_INHERIT_SHARE | VM_MTE_OPERATION_TYPE_CREATE_UPL,
+
+	/* all operations except CREATE_UPL require exactly one of these: */
+	VM_MTE_OPERATION_DEST_USER = 0x10,
+	VM_MTE_OPERATION_DEST_KERNEL = 0x20,
+	VM_MTE_OPERATION_DEST_UNKNOWN = 0x40,
+	VM_MTE_OPERATION_DEST_INTERNAL = 0x80,
+	VM_MTE_OPERATION_DEST_MASK = VM_MTE_OPERATION_DEST_USER | VM_MTE_OPERATION_DEST_KERNEL | VM_MTE_OPERATION_DEST_UNKNOWN | VM_MTE_OPERATION_DEST_INTERNAL,
+
+	/* these flags can be additionally added to any of the above: */
+	VM_MTE_OPERATION_IOKIT = 0x100, /* don't throw guard exceptions; IOKit will handle errors */
+	VM_MTE_OPERATION_FORK = 0x200, /* apply policies for fork() instead of generic userspace policies */
+	VM_MTE_OPERATION_REMAP_EXTRACT = 0x400, /* apply policies for vm_map_remap_extract() */
+	VM_MTE_OPERATION_MAKE_MEMORY_ENTRY = 0x800 /* apply policies for mach_make_memory_entry() */
+});
+
+__options_closed_decl(option_variant_t, uint8_t, {
+	OPTIONAL_NONE,
+	OPTIONAL_SOME,
+});
+
+#define OPTIONAL_IS_NONE(var) ((var).discriminant == OPTIONAL_NONE)
+#define OPTIONAL_IS_SOME(var) ((var).discriminant == OPTIONAL_SOME)
+
+#define DEFINE_OPTIONAL_TYPE(name, T) \
+	typedef struct option {\
+	        option_variant_t discriminant;\
+	        T payload;\
+	} optional_##name##_t;\
+\
+	static inline optional_##name##_t optional_##name##_none(void) {\
+	return (optional_##name##_t){\
+	                .discriminant = OPTIONAL_NONE,\
+	                .payload = NULL,\
+	        };\
+    }\
+\
+	static inline optional_##name##_t optional_##name##_some(T payload) {\
+	return (optional_##name##_t){\
+	                .discriminant = OPTIONAL_SOME,\
+	                .payload = payload,\
+	        };\
+    }\
+\
+	static inline T optional_##name##_expect(optional_##name##_t optional, const char* message) {\
+	        if (!OPTIONAL_IS_SOME(optional)) {\
+	                panic("EXPECT(##name##) failed: %s", message);\
+	        }\
+	        return optional.payload;\
+	}\
+\
+	static inline T optional_##name##_unwrap(optional_##name##_t optional) {\
+	                return optional_##name##_expect(optional, "Unwrapped a None ##name##");\
+	}
+
+
+DEFINE_OPTIONAL_TYPE(vm_object, vm_object_t);
+
+
+/*
+ * Since these macro are used in expression contexts, it's not easy to
+ * drop in an assertion when an unsupported type is passed in. However, the
+ * default error message is pretty clear.
+ */
+#define OPTIONAL_NONE(var) _Generic((var),\
+    vm_object_t:  optional_vm_object_none((var))\
+)
+
+#define OPTIONAL_SOME(var) _Generic((var),\
+	vm_object_t:  optional_vm_object_some((var))\
+)
+
+#define OPTIONAL_UNWRAP(var) _Generic((var),\
+	optional_vm_object_t:  optional_vm_object_unwrap((var))\
+)
+
+#define OPTIONAL_EXPECT(var, msg) _Generic((var),\
+	optional_vm_object_t:  optional_vm_object_expect((var), (msg))\
+)
+
+bool vm_map_allow_mte_operation(vm_map_t source_map, vm_map_offset_t addr, vm_size_t size, vm_mte_operation_flags_t flags,
+    optional_vm_object_t maybe_source_vm_object);
+#endif /* HAS_MTE */
 
 extern kern_return_t    vm_map_copy_extract(
 	vm_map_t                src_map,
@@ -680,7 +777,15 @@ extern kern_return_t    vm_map_copy_extract(
 #define VM_MAP_COPYIN_ENTRY_LIST         0x00000004
 #define VM_MAP_COPYIN_PRESERVE_PURGEABLE 0x00000008
 #define VM_MAP_COPYIN_FORK               0x00000010
+#if HAS_MTE
+#define VM_MAP_COPYIN_IOKIT                  0x00000020
+#define VM_MAP_COPYIN_DEST_USER              0x00000040
+#define VM_MAP_COPYIN_DEST_KERNEL            0x00000080
+#define VM_MAP_COPYIN_DEST_UNKNOWN           0x00000100
+#define VM_MAP_COPYIN_ALL_FLAGS              0x000001FF
+#else /* !HAS_MTE */
 #define VM_MAP_COPYIN_ALL_FLAGS              0x0000001F
+#endif /* HAS_MTE */
 
 extern kern_return_t    vm_map_copyin_internal(
 	vm_map_t                src_map,

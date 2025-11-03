@@ -260,10 +260,6 @@ public:
     void performWithMediaPlayerOnMainThread(WebCore::MediaPlayerIdentifier, Function<void(WebCore::MediaPlayer&)>&&);
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-    void overridePresentingApplicationPIDIfNeeded();
-#endif
-
 #if ENABLE(EXTENSION_CAPABILITIES)
     String mediaEnvironment(WebCore::PageIdentifier);
     void setMediaEnvironment(WebCore::PageIdentifier, const String&);
@@ -273,6 +269,10 @@ public:
 
 #if USE(AUDIO_SESSION)
     RemoteAudioSessionProxy& audioSessionProxy();
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    void providePresentingApplicationPID(WebCore::PageIdentifier) const;
 #endif
 
 private:

@@ -52,6 +52,7 @@ int coalition_info_set_efficiency(uint64_t cid, uint64_t flags);
 int coalition_ledger_set_logical_writes_limit(uint64_t cid, int64_t limit);
 
 #ifdef PRIVATE
+int coalition_info_pid_list(uint64_t cid, pid_t *pid_list, size_t *size_inout);
 int coalition_info_debug_info(uint64_t cid, struct coalinfo_debuginfo *cru, size_t sz);
 #endif /* PRIVATE */
 
@@ -264,6 +265,10 @@ coalition_get_pid_list(__unused coalition_t coal,
 #endif
 
 #endif /* KERNEL */
+
+#ifdef PRIVATE
+#define COALITION_INFO_PID_LIST_MAX_PIDS 512
+#endif
 
 __END_DECLS
 

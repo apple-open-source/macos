@@ -33,7 +33,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "sudoers.h"
+#include <sudoers.h>
 
 /*
  * Verify that path is a normal file and executable by root.
@@ -49,6 +49,7 @@ sudo_goodpath(const char *path, const char *runchroot, struct stat *sbp)
 	struct stat sb;
 
 	if (runchroot != NULL) {
+	    /* XXX - handle symlinks and '..' in path outside chroot */
 	    const int len =
 		snprintf(pathbuf, sizeof(pathbuf), "%s%s", runchroot, path);
 	    if (len >= ssizeof(pathbuf)) {

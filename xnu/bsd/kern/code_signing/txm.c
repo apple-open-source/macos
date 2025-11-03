@@ -1919,5 +1919,91 @@ TXM_METRIC(trustcaches, bytes_tombstoned, trustCaches.bytesTombstoned);
 
 #endif /* DEVELOPMENT || DEBUG */
 
+#if HAS_MTE && (DEVELOPMENT || DEBUG)
+
+/* Need ARM MTE built-ins */
+#include <arm_acle.h>
+
+static int
+mte_test_gl0(
+	int64_t test_case,
+	__unused int64_t *out)
+{
+	kern_return_t ret = KERN_DENIED;
+	vm_address_t address = 0;
+	uintptr_t phys_addr = 0;
+	uint8_t *untagged_ptr = NULL;
+	uint8_t *tagged_ptr = NULL;
+	uint8_t *txm_ptr = NULL;
+
+	/*
+	 * Test Cases:
+	 * 1. Pass TXM a pointer with a valid tag --> success
+	 * 2. Pass TXM a pointer from the physical aperture --> success
+	 * 3. Pass TXM a pointer with an invalid tag --> panic
+	 */
+	ret = kmem_alloc(
+		kernel_map, &address, PAGE_SIZE,
+		KMA_ZERO | KMA_TAG | KMA_KOBJECT, VM_KERN_MEMORY_DIAG);
+	if ((ret != KERN_SUCCESS) || (address == 0)) {
+		printf("%s: unable to allocate tagged memory: %d | 0x%0lX\n", __FUNCTION__, ret, address);
+		return -1;
+	}
+
+	phys_addr = kvtophys_nofail(address);
+	untagged_ptr = (uint8_t*)address;
+	tagged_ptr = __arm_mte_create_random_tag(untagged_ptr, 0);
+
+	/* Commit the random tag to memory */
+	__arm_mte_set_tag(tagged_ptr);
+
+	/* Ensure we can access the tagged_ptr */
+	*tagged_ptr = 0xF7;
+
+	switch (test_case) {
+	case 0:
+		txm_ptr = tagged_ptr;
+		printf("%s: using valid memory tag\n", __FUNCTION__);
+		break;
+
+	case 1:
+		txm_ptr = (uint8_t*)phystokv(kvtophys_nofail((uintptr_t)tagged_ptr));
+		printf("%s: using physical aperture mapping\n", __FUNCTION__);
+		break;
+
+	case 2:
+		txm_ptr = __arm_mte_increment_tag(tagged_ptr, 1);
+		printf("%s: using invalid memory tag\n", __FUNCTION__);
+		break;
+
+	default:
+		kmem_free_guard(kernel_map, address, PAGE_SIZE, KMF_TAG, KMEM_GUARD_NONE);
+		printf("%s: invalid test case: %lld\n", __FUNCTION__, test_case);
+		return -1;
+	}
+
+#if kTXMKernelAPIVersion >= 8
+	txm_call_t txm_call = {
+		.selector = kTXMKernelSelectorGL0ExceptionTest,
+		.num_input_args = 3
+	};
+	txm_kernel_call(&txm_call, phys_addr, (uintptr_t)txm_ptr, test_case);
+#else
+	printf("%s: required selector not present\n", __FUNCTION__);
+#endif
+
+	/* Free the kernel allocation */
+	kmem_free_guard(kernel_map, address, PAGE_SIZE, KMF_TAG, KMEM_GUARD_NONE);
+
+	return 0;
+}
+
+/*
+ * The test can be invoked on the command line through the "sysctl" tool as
+ * follows: $ sysctl debug.test.mte_gl0=<test-case>
+ */
+SYSCTL_TEST_REGISTER(mte_gl0, mte_test_gl0);
+
+#endif /* HAS_MTE && (DEVELOPMENT || DEBUG) */
 
 #endif /* CONFIG_SPTM */

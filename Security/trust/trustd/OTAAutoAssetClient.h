@@ -35,7 +35,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)new NS_UNAVAILABLE;
 - (nullable instancetype)initWithError:(NSError **)error;
 - (nullable NSString *)startUsingLocalAsset;
-- (void)stopUsingLocalAsset;
 - (void)registerForAssetChangedNotificationsWithBlock:(void (^)(void))assetDidChangeHandler;
 + (BOOL)saveTrustStoreAssetPath:(NSString *)assetPath;
 + (nullable NSString *)validTrustStoreAssetPath:(NSString *)assetPath mustExist:(BOOL)mustExist;

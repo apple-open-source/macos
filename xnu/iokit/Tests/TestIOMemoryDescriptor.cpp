@@ -1225,5 +1225,361 @@ IOMemoryDescriptorTest(int newValue)
 	return 0;
 }
 
+#if HAS_MTE
+
+static void
+alloc_and_populate_user_buffer(
+	bool should_use_mte,
+	mach_vm_size_t size,
+	mach_vm_offset_t* out_addr)
+{
+	vm_map_t user_map = current_map();
+	mach_vm_offset_t buffer;
+	assert(user_map != VM_MAP_NULL);
+	assert(!vm_kernel_map_is_kernel(user_map));
+	kern_return_t kr = mach_vm_allocate_kernel(user_map, &buffer, size,
+	    VM_MAP_KERNEL_FLAGS_ANYWHERE(.vm_tag = VM_MEMORY_MALLOC_SMALL, .vmf_mte = should_use_mte));
+	assert(kr == KERN_SUCCESS);
+
+	// Write some data into the buffer
+	{
+		char* bufData = (char*) IOMallocAligned(size, page_size);
+		assert(bufData);
+		memset(bufData, 'S', size);
+		kr = copyout(bufData, buffer, size);
+		assert(kr == KERN_SUCCESS);
+		IOFreeAligned(bufData, size);
+	}
+
+	if (should_use_mte) {
+		// Set a tag on the buffer
+		// (And switch out of and back into PAN so we can touch the user-mode buffer from kernelspace)
+		__builtin_arm_wsr("pan", 0);
+		buffer = (mach_vm_offset_t)vm_memtag_generate_and_store_tag((caddr_t)buffer, size);
+		__builtin_arm_wsr("pan", 1);
+	}
+
+	*out_addr = buffer;
+}
+
+static int
+IOMDCPUMapMTETest(int newValue)
+{
+	const size_t MTE_TAG_SHIFT = 56;
+	const uint64_t MTE_TAG_MASK = (0xFULL << MTE_TAG_SHIFT);
+
+	const mach_vm_size_t bufSize = PAGE_SIZE;
+	mach_vm_offset_t buffer;
+	alloc_and_populate_user_buffer(true, bufSize, &buffer);
+
+	IOMemoryDescriptor *iomd = IOMemoryDescriptor::withAddressRange(buffer, bufSize, kIODirectionOutIn, current_task());
+	assert(iomd);
+
+	iomd->prepare();
+	IOMemoryMap *map = iomd->map();
+	assert(map);
+
+	/*
+	 * The userspace buffer has an MTE tag set, which will be something other than 0xF.
+	 * However, the pointer we get back here is an untagged kernel pointer,
+	 * so it should be tagged with 0xF (and we assert this).
+	 *
+	 * Despite the mismatch, we expect to be able to access the tagged userspace
+	 * memory without panicking since the kernel's mapping of this memory from
+	 * IOMD::map() should be an untagged one.
+	 */
+	assert((map->getVirtualAddress() & MTE_TAG_MASK) == MTE_TAG_MASK);
+	volatile char *kern_ptr = (volatile char*) map->getVirtualAddress();
+	for (size_t i = 0; i < bufSize; i++) {
+		assert(kern_ptr[i] == 'S');
+		kern_ptr[i]++;
+	}
+	iomd->complete();
+	map->release();
+	iomd->release();
+
+	/* clean up userspace buffer */
+	kern_return_t kr = mach_vm_deallocate(current_map(), vm_memtag_canonicalize_user(buffer), bufSize);
+	assert(kr == KERN_SUCCESS);
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOMemoryDescriptorCpuMapMTETest(int newValue)
+{
+	int result;
+	IOLog("/IOMDMapMTETest %d\n", (int) gIOMemoryReferenceCount);
+
+	result = IOMDCPUMapMTETest(newValue);
+	if (result) {
+		return result;
+	}
+
+	IOLog("IOMDMapMTETest/ %d\n", (int) gIOMemoryReferenceCount);
+	return kIOReturnSuccess;
+}
+
+static void
+do_iomd_read_write_bytes_test(uint8_t flags)
+{
+	// Extract the test configuration from the flags
+	bool do_write = flags & IOMD_MTE_RWB_DO_WRITE;
+	bool enable_mte = flags & IOMD_MTE_RWB_MTE_BUFFER;
+	bool do_tag_mismatch = flags & IOMD_MTE_RWB_DO_TAG_MISMATCH;
+	bool do_allocation_cleanup = false;
+
+	if (do_tag_mismatch && !enable_mte) {
+		panic("Invalid configuration requested: create a tag mismatch without enabling MTE");
+	}
+
+	// Create the necessary user buffer to operate on
+	const mach_vm_size_t bufSize = PAGE_SIZE;
+	mach_vm_offset_t buffer;
+	alloc_and_populate_user_buffer(enable_mte, bufSize, &buffer);
+
+	// And an IOMD pointing to the buffer
+	IOMemoryDescriptor *iomd = IOMemoryDescriptor::withAddressRange(
+		buffer,
+		bufSize,
+		kIODirectionOutIn,
+		current_task()
+		);
+	assert(iomd);
+
+	iomd->prepare();
+
+	// Do we need to test the consequences of a tag mismatch?
+	if (do_tag_mismatch) {
+		// (Let's switch out of and back into PAN so we can touch the user-mode buffer from kernelspace)
+		// Create a tag check fault condition in the middle of the buffer, as read/writeBytes will LDG
+		// the initial tag.
+		__builtin_arm_wsr("pan", 0);
+		buffer = (mach_vm_offset_t)vm_memtag_generate_and_store_tag((caddr_t)buffer + 32, bufSize - 32);
+		__builtin_arm_wsr("pan", 1);
+	}
+
+	if (do_write) {
+		// Write path:
+		char dataToWrite[64];
+		memset(dataToWrite, 'A', sizeof(dataToWrite));
+		iomd->writeBytes(0, dataToWrite, sizeof(dataToWrite));
+
+
+		if (!do_tag_mismatch) {
+			// At this point, we expect the process to have survived because
+			// the fixup routine in bcopy_phys_internal should have given us a correct access.
+			// Ensure that we actually survived correctly.
+			__builtin_arm_wsr("pan", 0);
+			if (memcmp((const void*)buffer, dataToWrite, sizeof(dataToWrite)) != 0) {
+				panic("Data was not successfully written");
+			}
+			__builtin_arm_wsr("pan", 1);
+		}
+
+		// in the do_tag_mismatch case, userspace gets killed, but we get out of here cleanly.
+		do_allocation_cleanup = true;
+		goto out;
+	} else {
+		// Read path:
+		char buf[64];
+		// Fill buf with an arbitrary pattern, 0x41 is popular is security circles.
+		memset(buf, 'A', sizeof(buf));
+		// If successful this should overwrite buf contents
+		iomd->readBytes(0, buf, sizeof(buf));
+
+		if (!do_tag_mismatch) {
+			// At this point, we expect the process to have survived because
+			// the fixup routine in bcopy_phys_internal should have given us a correct access.
+			// Ensure that we have actually read expected data.
+			char correct_data[64] = {0};
+			memset(correct_data, 'S', sizeof(correct_data));
+			if (memcmp(buf, correct_data, sizeof(correct_data)) != 0) {
+				panic("Failed to read data from the IOMD");
+			}
+		}
+
+		// in the do_tag_mismatch case, userspace gets killed, but we get out of here cleanly.
+		do_allocation_cleanup = true;
+		goto out;
+	}
+
+out:
+	// (Cleanup)
+	iomd->complete();
+	iomd->release();
+	if (do_allocation_cleanup) {
+		kern_return_t kr = mach_vm_deallocate(current_map(), vm_memtag_canonicalize_user(buffer), bufSize);
+		assert(kr == KERN_SUCCESS);
+	}
+}
+
+IOReturn
+IOMemoryDescriptorReadWriteBytesMTETest(void)
+{
+	uint8_t flags = IOMD_MTE_RWB_MTE_BUFFER;
+
+	/* Read path */
+	do_iomd_read_write_bytes_test(flags);
+
+	/* Write path */
+	flags |= IOMD_MTE_RWB_DO_WRITE;
+	do_iomd_read_write_bytes_test(flags);
+
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOMemoryDescriptorReadWriteBytesWithoutMTETest(void)
+{
+	uint8_t flags = 0;
+
+	/* Read path */
+	do_iomd_read_write_bytes_test(flags);
+
+	/* Write path */
+	flags |= IOMD_MTE_RWB_DO_WRITE;
+	do_iomd_read_write_bytes_test(flags);
+
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOMemoryDescriptorReadBytesMTEWithTCFTest(void)
+{
+	/* Read + Induce Tag Check Fault */
+	uint8_t flags = IOMD_MTE_RWB_MTE_BUFFER | IOMD_MTE_RWB_DO_TAG_MISMATCH;
+
+	do_iomd_read_write_bytes_test(flags);
+
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOMemoryDescriptorWriteBytesMTEWithTCFTest(void)
+{
+	/* Write + Induce Tag Check Fault */
+	uint8_t flags = IOMD_MTE_RWB_MTE_BUFFER | IOMD_MTE_RWB_DO_WRITE | IOMD_MTE_RWB_DO_TAG_MISMATCH;
+
+	do_iomd_read_write_bytes_test(flags);
+
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOMemoryDescriptorCreateMTEMappingInOtherMapTest(void)
+{
+	// Given a tagged userspace buffer
+	const mach_vm_size_t bufSize = PAGE_SIZE;
+	mach_vm_offset_t buffer;
+	alloc_and_populate_user_buffer(true, bufSize, &buffer);
+
+	// And an IOMD pointing to the buffer
+	IOMemoryDescriptor *iomd = IOMemoryDescriptor::withAddressRange(
+		buffer,
+		bufSize,
+		kIODirectionOutIn,
+		current_task()
+		);
+	assert(iomd);
+
+	iomd->prepare();
+
+	// When I try to enter the mapping into another task
+	// (Use launchd as a guinea pig)
+	proc_t dest_proc = proc_find(1);
+	IOMemoryMap* map = iomd->createMappingInTask(proc_task(dest_proc), 0, kIOMapAnywhere, 0, 0);
+
+	// Then the request is allowed, because aliasing MTE mappings is always allowed
+	assert(map != NULL);
+	// But the aliased mapping should not have MTE enabled (so should be tagged with the user-canonical tag)
+	uint64_t virt_addr = map->getVirtualAddress();
+	assert(vm_memtag_extract_tag(virt_addr) == 0);
+	assert(!pmap_is_tagged_mapping(vm_map_get_pmap(current_map()), virt_addr));
+
+	// (Cleanup)
+	proc_rele(dest_proc);
+	map->release();
+	iomd->complete();
+	iomd->release();
+	kern_return_t kr = mach_vm_deallocate(current_map(), vm_memtag_canonicalize_user(buffer), bufSize);
+	assert(kr == KERN_SUCCESS);
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOMemoryDescriptorCreateMTEMappingInThisMapTest(void)
+{
+	// Given a tagged userspace buffer
+	const mach_vm_size_t bufSize = PAGE_SIZE;
+	mach_vm_offset_t buffer;
+	alloc_and_populate_user_buffer(true, bufSize, &buffer);
+
+	// And an IOMD pointing to the buffer
+	IOMemoryDescriptor *iomd = IOMemoryDescriptor::withAddressRange(
+		buffer,
+		bufSize,
+		kIODirectionOutIn,
+		current_task()
+		);
+	assert(iomd);
+
+	iomd->prepare();
+
+	// When I try to enter the mapping into this task
+	IOMemoryMap* map = iomd->createMappingInTask(current_task(), 0, kIOMapAnywhere, 0, 0);
+
+	// Then the request is allowed, because aliasing MTE mappings within the originating task is allowed
+	assert(map != NULL);
+	// And the aliased mapping also has MTE enabled
+	uint64_t virt_addr = map->getVirtualAddress();
+	assert(vm_memtag_extract_tag(virt_addr) != 0);
+	assert(pmap_is_tagged_mapping(vm_map_get_pmap(current_map()), vm_memtag_canonicalize_user(virt_addr)));
+
+	// (Cleanup)
+	map->release();
+	iomd->complete();
+	iomd->release();
+	kern_return_t kr = mach_vm_deallocate(current_map(), vm_memtag_canonicalize_user(buffer), bufSize);
+	assert(kr == KERN_SUCCESS);
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOMemoryDescriptorCreateMTEMappingInKernelMapTest(void)
+{
+	// Given a tagged userspace buffer
+	const mach_vm_size_t bufSize = PAGE_SIZE;
+	mach_vm_offset_t buffer;
+	alloc_and_populate_user_buffer(true, bufSize, &buffer);
+
+	// And an IOMD pointing to the buffer
+	IOMemoryDescriptor *iomd = IOMemoryDescriptor::withAddressRange(
+		buffer,
+		bufSize,
+		kIODirectionOutIn,
+		current_task()
+		);
+	assert(iomd);
+	iomd->prepare();
+
+	// When I try to enter the mapping into the kernel map
+	IOMemoryMap* map = iomd->createMappingInTask(kernel_task, 0, kIOMapAnywhere, 0, 0);
+
+	// Then the request is allowed, because aliasing MTE mappings is always allowed
+	assert(map != NULL);
+	// But the aliased mapping should not have MTE enabled (so should be tagged with the kernel-canonical tag)
+	uint64_t virt_addr = map->getVirtualAddress();
+	assert(vm_memtag_extract_tag(virt_addr) == 0xf);
+	assert(!pmap_is_tagged_mapping(vm_map_get_pmap(current_map()), virt_addr));
+
+	// (Cleanup)
+	map->release();
+	iomd->complete();
+	iomd->release();
+	kern_return_t kr = mach_vm_deallocate(current_map(), vm_memtag_canonicalize_user(buffer), bufSize);
+	assert(kr == KERN_SUCCESS);
+	return kIOReturnSuccess;
+}
+#endif /* HAS_MTE */
 
 #endif  /* DEVELOPMENT || DEBUG */

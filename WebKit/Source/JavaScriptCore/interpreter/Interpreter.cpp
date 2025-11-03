@@ -660,6 +660,8 @@ public:
             if (JSWebAssemblyException* wasmException = jsDynamicCast<JSWebAssemblyException*>(thrownValue)) {
                 m_catchableFromWasm = true;
                 m_wasmTag = &wasmException->tag();
+                if (m_wasmTag == &Wasm::Tag::jsExceptionTag())
+                    m_exception->tryUnwrapValueForJSTag(m_vm);
             } else if (ErrorInstance* error = jsDynamicCast<ErrorInstance*>(thrownValue))
                 m_catchableFromWasm = error->isCatchableFromWasm();
             else

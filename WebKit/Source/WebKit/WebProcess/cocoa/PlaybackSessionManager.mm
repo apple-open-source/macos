@@ -614,9 +614,14 @@ void PlaybackSessionManager::actionHandlersChanged()
     if (!m_controlsManagerContextId)
         return;
 
-    bool canSkipAd = m_mediaSession->hasActionHandler(MediaSessionAction::Skipad);
-    if (RefPtr page = m_page.get())
-        page->send(Messages::PlaybackSessionManagerProxy::CanSkipAdChanged(processQualify(*m_controlsManagerContextId), canSkipAd));
+    bool skipAdHasHandler = m_mediaSession->hasActionHandler(MediaSessionAction::Skipad);
+
+    bool skipAdIsDisabledQuirk = false;
+    if (RefPtr document = m_mediaSession->document(); document && document->quirks().shouldDisableAdSkippingInPip())
+        skipAdIsDisabledQuirk = true;
+
+    if (RefPtr page = m_page.get(); page && !skipAdIsDisabledQuirk)
+        page->send(Messages::PlaybackSessionManagerProxy::CanSkipAdChanged(processQualify(*m_controlsManagerContextId), skipAdHasHandler));
 }
 
 void PlaybackSessionManager::skipAd(WebCore::HTMLMediaElementIdentifier contextId)

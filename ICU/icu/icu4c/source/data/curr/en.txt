@@ -453,7 +453,7 @@ en{
         }
         GYD{
             "GYD",
-            "Guyanaese Dollar",
+            "Guyanese Dollar",
         }
         HKD{
             "HK$",
@@ -1682,8 +1682,8 @@ en{
             other{"Guinea-Bissau pesos"}
         }
         GYD{
-            one{"Guyanaese dollar"}
-            other{"Guyanaese dollars"}
+            one{"Guyanese dollar"}
+            other{"Guyanese dollars"}
         }
         HKD{
             one{"Hong Kong dollar"}

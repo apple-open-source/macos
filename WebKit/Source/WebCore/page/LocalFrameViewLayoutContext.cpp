@@ -811,6 +811,64 @@ void LocalFrameViewLayoutContext::checkLayoutState()
 }
 #endif
 
+const AnchorScrollAdjuster* LocalFrameViewLayoutContext::anchorScrollAdjusterFor(const RenderBox& anchored) const
+{
+    auto index = m_anchorScrollAdjusters.findIf([&](auto& item) {
+        return item.anchored() == &anchored;
+    });
+    if (index == WTF::notFound)
+        return { };
+    return &m_anchorScrollAdjusters[index];
+}
+
+AnchorScrollAdjuster::Diff LocalFrameViewLayoutContext::registerAnchorScrollAdjuster(AnchorScrollAdjuster&& scrollAdjuster)
+{
+    auto index = m_anchorScrollAdjusters.findIf([&](auto& item) {
+        return item.anchored() == scrollAdjuster.anchored();
+    });
+
+    bool recaptureDiffers = false;
+    if (WTF::notFound == index) {
+        m_anchorScrollAdjusters.append(WTFMove(scrollAdjuster));
+        return AnchorScrollAdjuster::New;
+    }
+
+    recaptureDiffers = m_anchorScrollAdjusters[index].recaptureDiffers(scrollAdjuster);
+    m_anchorScrollAdjusters[index] = WTFMove(scrollAdjuster);
+    return recaptureDiffers ? AnchorScrollAdjuster::SnapshotsDiffer : AnchorScrollAdjuster::SnapshotsMatch;
+}
+
+void LocalFrameViewLayoutContext::unregisterAnchorScrollAdjusterFor(const RenderBox& anchored)
+{
+    m_anchorScrollAdjusters.removeFirstMatching([&](auto& item) {
+        return item.anchored() == &anchored;
+    });
+    ASSERT(!m_anchorScrollAdjusters.containsIf([&](auto& item) {
+        return item.anchored() == &anchored;
+    }));
+
+    if (anchored.layer())
+        anchored.layer()->clearAnchorScrollAdjustment();
+}
+
+void LocalFrameViewLayoutContext::invalidateAnchorDependenciesForScroller(const RenderBox& scroller)
+{
+    for (auto& adjuster : m_anchorScrollAdjusters)
+        adjuster.invalidateForScroller(scroller);
+}
+
+void LocalFrameViewLayoutContext::removeScrollerFromAnchorScrollAdjusters(const RenderBox& scroller)
+{
+    if (!renderView() || renderView()->renderTreeBeingDestroyed())
+        m_anchorScrollAdjusters.clear();
+    else {
+        for (auto& adjuster : m_anchorScrollAdjusters) {
+            if (adjuster.invalidateForScroller(scroller))
+                unregisterAnchorScrollAdjusterFor(*adjuster.anchored());
+        }
+    }
+}
+
 LocalFrame& LocalFrameViewLayoutContext::frame() const
 {
     return view().frame();

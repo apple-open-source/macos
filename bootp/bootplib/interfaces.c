@@ -69,6 +69,9 @@ S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p);
 STATIC link_status_t
 S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p);
 
+STATIC uint64_t
+S_get_generation(int sockfd, const char * name);
+
 STATIC int
 log_level_for_errno(int error)
 {
@@ -85,14 +88,51 @@ log_level_for_errno(int error)
     }
     return (level);
 }
+
 #if !NO_SYSTEMCONFIGURATION
+
 STATIC uint8_t
-S_interface_get_flags(const char * ifname)
+if_type_flags(interface_t * if_p)
 {
-    CFStringRef			ifname_cf;
+    return (if_p->type_flags);
+}
+
+STATIC bool
+interface_copy_existing_flags(interface_list_t * old_interfaces,
+			      const char * ifname, uint64_t generation,
+			      uint8_t * flags_p)
+{
+    interface_t *	if_p;
+    bool		success = false;
+
+    if_p = ifl_find_name(old_interfaces, ifname);
+    if (if_p == NULL) {
+	goto done;
+    }
+    if (if_generation(if_p) != generation) {
+	goto done;
+    }
+    *flags_p = if_type_flags(if_p);
+    my_log(LOG_DEBUG, "%s re-using flags 0x%x (generation %qu)\n",
+	   ifname, *flags_p, generation);
+    success = true;
+ done:
+    return (success);
+}
+
+STATIC uint8_t
+S_interface_get_flags(interface_list_t * old_interfaces, const char * ifname,
+		      uint64_t generation)
+{
+    CFStringRef			ifname_cf = NULL;
     uint8_t			flags = 0;
     SCNetworkInterfaceRef	netif;
 
+    if (old_interfaces != NULL
+	&& interface_copy_existing_flags(old_interfaces, ifname, generation,
+					 &flags)) {
+	goto done;
+    }
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
 					  kCFStringEncodingUTF8);
     netif = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, 0);
@@ -101,8 +141,13 @@ S_interface_get_flags(const char * ifname)
 
 	type = SCNetworkInterfaceGetInterfaceType(netif);
 	if (type != NULL && CFEqual(type, kSCNetworkInterfaceTypeIEEE80211)) {
-	    flags |= kInterfaceTypeFlagIsWireless
-		| kInterfaceTypeFlagIsWiFiInfra;
+	    flags |= kInterfaceTypeFlagIsWireless;
+#define EN_PREFIX		"en"
+#define EN_PREFIX_LENGTH	(sizeof(EN_PREFIX) - 1)
+	    /* XXX need a better way to identify Wi-Fi infra */
+	    if (strncmp(ifname, EN_PREFIX, EN_PREFIX_LENGTH) == 0) {
+		flags |= kInterfaceTypeFlagIsWiFiInfra;
+	    }
 	}
 	if (_SCNetworkInterfaceIsTetheredHotspot(netif)) {
 	    flags |= kInterfaceTypeFlagIsTethered;
@@ -113,15 +158,20 @@ S_interface_get_flags(const char * ifname)
 	CFRelease(netif);
     }
     CFRelease(ifname_cf);
+
+ done:
     return (flags);
 }
 
 #else /* !NO_SYSTEMCONFIGURATION */
 
 STATIC uint8_t
-S_interface_get_flags(const char * ifname)
+S_interface_get_flags(interface_list_t * old_interfaces, const char * ifname,
+		      uint64_t generation)
 {
+#pragma unused(old_interfaces)
 #pragma unused(ifname)
+#pragma unused(generation);
     return (0);
 }
 #endif /* !NO_SYSTEMCONFIGURATION */
@@ -270,7 +320,8 @@ IFNameIndexListAddEntry(const char * name, int index)
 
 
 STATIC boolean_t
-S_build_interface_list(interface_list_t * interfaces)
+S_build_interface_list(interface_list_t * interfaces,
+		       interface_list_t * old_interfaces)
 {
     struct ifaddrs *	addrs = NULL;
     struct ifaddrs *	ifap = NULL;
@@ -403,10 +454,12 @@ S_build_interface_list(interface_list_t * interfaces)
 		      entry->type_flags |= kInterfaceTypeFlagIsWireless;
 		  }
 	      }
+	      entry->generation = S_get_generation(s, name);
 	      if (entry->type == IFT_ETHER) {
 		  uint8_t	flags;
 
-		  flags = S_interface_get_flags(name);
+		  flags = S_interface_get_flags(old_interfaces,
+						name, entry->generation);
 		  if (flags != 0) {
 		      entry->type_flags |= flags;
 		  }
@@ -548,13 +601,14 @@ ifl_find_stable_interface(interface_list_t * list_p)
 }
 
 PRIVATE_EXTERN interface_list_t *
-ifl_init(void)
+ifl_create(interface_list_t * old_list)
 {
     interface_list_t * list_p = (interface_list_t *)malloc(sizeof(*list_p));
     if (list_p == NULL
-	|| S_build_interface_list(list_p) == FALSE) {
-	if (list_p != NULL)
+	|| S_build_interface_list(list_p, old_list) == FALSE) {
+	if (list_p != NULL) {
 	    free(list_p);
+	}
 	return (NULL);
     }
     return (list_p);
@@ -978,11 +1032,18 @@ S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p)
 }
 
 STATIC int
-siocgifeflags(int sockfd, struct ifreq * ifr, const char * name)
+interface_ioctl(int sockfd, struct ifreq * ifr, const char * name,
+		unsigned long request)
 {
     (void)memset(ifr, 0, sizeof(*ifr));
     (void)strlcpy(ifr->ifr_name, name, sizeof(ifr->ifr_name));
-    return (ioctl(sockfd, SIOCGIFEFLAGS, (caddr_t)ifr));
+    return (ioctl(sockfd, request, (caddr_t)ifr));
+}
+
+STATIC int
+siocgifeflags(int sockfd, struct ifreq * ifr, const char * name)
+{
+    return (interface_ioctl(sockfd, ifr, name, SIOCGIFEFLAGS));
 }
 
 STATIC uint64_t
@@ -1002,6 +1063,28 @@ S_get_eflags(int sockfd, const char * name)
     return (eflags);
 }
 
+STATIC int
+siocgifgenerationid(int sockfd, struct ifreq * ifr, const char * name)
+{
+    return (interface_ioctl(sockfd, ifr, name, SIOCGIFGENERATIONID));
+}
+
+STATIC uint64_t
+S_get_generation(int sockfd, const char * name)
+{
+    uint64_t		generation = 0;
+    struct ifreq	ifr;
+
+    if (siocgifgenerationid(sockfd, &ifr, name) == -1) {
+	my_log(log_level_for_errno(errno),
+	       "%s: SIOCGIFGENERATIONID failed status, %s",
+	       name, strerror(errno));
+    }
+    else {
+	generation = ifr.ifr_creation_generation_id;
+    }
+    return (generation);
+}
 
 PRIVATE_EXTERN link_status_t
 if_link_status_update(interface_t * if_p)
@@ -1028,6 +1111,11 @@ if_link_status_update(interface_t * if_p)
     return (if_p->link_status);
 }
 
+PRIVATE_EXTERN uint64_t
+if_generation(interface_t * if_p)
+{
+    return (if_p->generation);
+}
 
 #ifdef TEST_INTERFACES
 
@@ -1277,12 +1365,12 @@ ifl_print(interface_list_t * list_p)
 	if (i > 0)
 	    printf("\n");
 	
-	printf("%s: type %s (%d) ift_type %s (%d)\n",
+	printf("%s: type %s (%d) ift_type %s (%d) gen=%qu\n",
 	       if_name(if_p),
 	       get_ift_type_string(if_link_type(if_p)),
 	       if_link_type(if_p),
 	       get_ift_type_string(if_ift_type(if_p)),
-	       if_ift_type(if_p));
+	       if_ift_type(if_p), if_generation(if_p));
 	
 	for (j = 0; j < if_inet_count(if_p); j++) {
 	    inet_addrinfo_t * 	info = if_inet_addr_at(if_p, j);
@@ -1343,11 +1431,25 @@ ifl_print(interface_list_t * list_p)
 }
 
 int
-main()
+main(int argc, char * argv[])
 {
-    interface_list_t * list_p = ifl_init();
+    interface_list_t * list_p;
+
+    list_p = ifl_create(NULL);
     if (list_p != NULL) {
 	ifl_print(list_p);
+    }
+    if (list_p != NULL) {
+	if (argc > 1) {
+	    interface_list_t * new_list_p;
+
+	    new_list_p = ifl_create(list_p);
+	    if (new_list_p != NULL) {
+		ifl_print(new_list_p);
+		ifl_free(&new_list_p);
+	    }
+	}
+	ifl_free(&list_p);
     }
     exit(0);
 }
@@ -1426,7 +1528,7 @@ ifl_compare(interface_list_t * old_p, interface_list_t * new_p)
 static void
 interface_list_changed(void)
 {
-    interface_list_t * 		new_list_p = ifl_init();
+    interface_list_t * 		new_list_p = ifl_create(S_list_p);
     static interface_list_t * 	S_list_p;
 
     ifl_compare(S_list_p, new_list_p);

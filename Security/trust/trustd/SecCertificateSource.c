@@ -365,6 +365,36 @@ out:
     return result;
 }
 
+static _Nullable CFArrayRef
+CreatePolicyTrustSettingsForAnchorRecord(CFDictionaryRef anchorRecord, CFNumberRef trustResult) {
+    CFMutableArrayRef result = NULL;
+
+    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    /* Add policy constraints if specified (regardless of anchor type) */
+    CFArrayRef policyOids = (CFArrayRef)CFDictionaryGetValue(anchorRecord, CFSTR("oids"));
+    CFIndex numPolicyOids = (isArray(policyOids)) ? CFArrayGetCount(policyOids) : 0;
+    if (numPolicyOids > 0) {
+        for (CFIndex idx = 0; idx < numPolicyOids; idx++) {
+            CFStringRef policyOidStr = (CFStringRef)CFArrayGetValueAtIndex(policyOids, idx);
+            if (!isString(policyOidStr)) { continue; }
+            CFMutableDictionaryRef trustSetting = NULL;
+            require_quiet(trustSetting = CFDictionaryCreateMutable(NULL, 0,
+                                                                   &kCFTypeDictionaryKeyCallBacks,
+                                                                   &kCFTypeDictionaryValueCallBacks),
+                                                                   errOut);
+            CFDictionaryAddValue(trustSetting, kSecTrustSettingsPolicy, policyOidStr);
+            CFDictionaryAddValue(trustSetting, kSecTrustSettingsResult, trustResult);
+            CFArrayAppendValue(result, trustSetting);
+            CFReleaseNull(trustSetting);
+        }
+    }
+
+    // Intentionally returns an empty array for anchor records with no specified OIDs (as both mean un-constrained)
+
+errOut:
+    return result;
+}
+
 // CopyUsageConstraintsForCertificate creates an array of per-policy
 // dictionary constraints if an anchor record is found for the given
 // certificate and it contains them. If the anchor record is found but
@@ -413,23 +443,10 @@ CopyUsageConstraintsForCertificate(SecCertificateRef certificate) {
             }
         }
 
-        /* Add policy constraints if specified (regardless of anchor type) */
-        CFArrayRef policyOids = (CFArrayRef)CFDictionaryGetValue(anchorRecord, CFSTR("oids"));
-        CFIndex numPolicyOids = (isArray(policyOids)) ? CFArrayGetCount(policyOids) : 0;
-        if (numPolicyOids > 0) {
-            for (CFIndex idx = 0; idx < numPolicyOids; idx++) {
-                CFStringRef policyOidStr = (CFStringRef)CFArrayGetValueAtIndex(policyOids, idx);
-                require_quiet(isString(policyOidStr), errOut);
-                CFMutableDictionaryRef trustSetting = NULL;
-                require_quiet(trustSetting = CFDictionaryCreateMutable(NULL, 0,
-                                                                       &kCFTypeDictionaryKeyCallBacks,
-                                                                       &kCFTypeDictionaryValueCallBacks),
-                                                                       errOut);
-                CFDictionaryAddValue(trustSetting, kSecTrustSettingsPolicy, policyOidStr);
-                CFDictionaryAddValue(trustSetting, kSecTrustSettingsResult, trustResult);
-                CFArrayAppendValue(result, trustSetting);
-                CFReleaseNull(trustSetting);
-            }
+        CFArrayRef trustSettings = CreatePolicyTrustSettingsForAnchorRecord(anchorRecord, trustResult);
+        if (trustSettings) {
+            CFArrayAppendAll(result, trustSettings);
+            CFReleaseNull(trustSettings);
         }
     }
 
@@ -639,7 +656,93 @@ struct SecCertificateSource _kSecSystemConstrainedAnchorSource = {
 
 const SecCertificateSourceRef kSecSystemConstrainedAnchorSource = &_kSecSystemConstrainedAnchorSource;
 
+// MARK: -
+// MARK: SecAppleAnchorSource
+/****************************************************************
+ *********** SecAppleAnchorSource object ************
+ ****************************************************************/
+static CFArrayRef SecAppleAnchorSourceCopyUsageConstraints(SecCertificateSourceRef __unused source, SecCertificateRef certificate)
+{
+    CFMutableArrayRef result = NULL;
+    CFNumberRef trustResult = NULL;
+    CFArrayRef anchorRecords = NULL;
 
+    /* Hardcoded Apple Anchors have no usage constraints */
+    if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+        result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+        return result;
+    }
+
+    if (!SecAnchorCacheIsAppleAnchor(certificate)) {
+        return NULL;
+    }
+
+    uint32_t trustResultValue = kSecTrustSettingsResultTrustRoot;
+    require_quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &trustResultValue), errOut);
+
+    require_quiet(anchorRecords = CopyAnchorRecordsForSPKI(certificate), errOut);
+    CFIndex numRecords = CFArrayGetCount(anchorRecords);
+    require_quiet(numRecords > 0, errOut);
+
+    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    for (CFIndex recordIX = 0; recordIX < numRecords; recordIX++) {
+        CFDictionaryRef anchorRecord = CFArrayGetValueAtIndex(anchorRecords, recordIX);
+        if (!isDictionary(anchorRecord)) {
+            continue;
+        }
+
+        // Add any policy constraints specified
+        CFArrayRef trustSettings = CreatePolicyTrustSettingsForAnchorRecord(anchorRecord, trustResult);
+        if (trustSettings) {
+            CFArrayAppendAll(result, trustSettings);
+            CFReleaseNull(trustSettings);
+        }
+    }
+
+errOut:
+    CFReleaseNull(trustResult);
+    CFReleaseNull(anchorRecords);
+    return result;
+}
+
+static bool SecAppleAnchorSourceContains(SecCertificateSourceRef source,
+                                                     SecCertificateRef certificate,
+                                                     SecPVCRef pvc) {
+    /* If this is one of the hard-coded anchors it is trusted for everything */
+    if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+        return true;
+    }
+
+    if (!SecAnchorCacheIsAppleAnchor(certificate)) {
+        return false;
+    }
+
+    bool result = false;
+    CFArrayRef anchorRecords = CopyAnchorRecordsForCertificate(certificate);
+    require_quiet(isArray(anchorRecords), errOut);
+
+    /* Determine whether policy allows this anchor record. If no policy specified use the basic policy. */
+    SecPolicyRef policy = pvc ?  (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, 0) : NULL;
+    CFStringRef policyId = policy ? SecPolicyGetOidString(policy) : kSecPolicyAppleX509Basic;
+    CFArrayRef permittedAnchorRecords = SecAnchorPolicyPermittedAnchorRecords(anchorRecords, policyId);
+    if (permittedAnchorRecords) {
+        CFReleaseNull(permittedAnchorRecords);
+        result = true;
+    }
+
+errOut:
+    CFReleaseSafe(anchorRecords);
+    return result;
+}
+
+struct SecCertificateSource _kSecAppleAnchorSource = {
+    /* We can re-use the Anchor Cache to fetch parents because it contains both Apple anchors and system anchors */
+    SecSystemConstrainedAnchorSourceCopyParents,
+    SecAppleAnchorSourceCopyUsageConstraints,
+    SecAppleAnchorSourceContains
+};
+
+const SecCertificateSourceRef kSecAppleAnchorSource = &_kSecAppleAnchorSource;
 
 // MARK: -
 // MARK: SecSystemAnchorSource

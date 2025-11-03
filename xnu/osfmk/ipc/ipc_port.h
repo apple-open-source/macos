@@ -142,8 +142,7 @@ struct ipc_port {
 		    /* development bits only */
 		    , ip_srp_lost_link:1          /* special reply port turnstile link chain broken */
 		    , ip_srp_msg_sent:1           /* special reply port msg sent */
-		    , ip_bootstrap:1              /* whether it is a bootstrap port */
-		    , __ip_unused:6               /* reserve of bits */
+		    , __ip_unused:7               /* reserve of bits */
 		    );
 		struct waitq            ip_waitq;
 	};
@@ -325,14 +324,25 @@ extern void __ipc_right_delta_overflow_panic(
 #define ip_is_special_reply_port_type(type)     ((type) == IOT_SPECIAL_REPLY_PORT)
 #define ip_is_special_reply_port(port)          (ip_is_special_reply_port_type(ip_type(port)))
 #define ip_is_any_service_port(port)            ip_is_any_service_port_type(ip_type(port))
+#define ip_is_strong_service_port(port)         ip_is_strong_service_port_type(ip_type(port))
+#define ip_is_bootstrap_port(port)              ip_is_bootstrap_port_type(ip_type(port))
 #define ip_is_port_array_allowed(port)          (ip_type(port) == IOT_CONNECTION_PORT_WITH_PORT_ARRAY)
 #define ip_is_timer(port)                       (ip_type(port) == IOT_TIMER_PORT)
-#define ip_is_bootstrap_port(port)              ((port)->ip_bootstrap)
 
 static inline bool
 ip_is_any_service_port_type(ipc_object_type_t type)
 {
 	return type == IOT_SERVICE_PORT || type == IOT_WEAK_SERVICE_PORT;
+}
+static inline bool
+ip_is_strong_service_port_type(ipc_object_type_t type)
+{
+	return type == IOT_SERVICE_PORT;
+}
+static inline bool
+ip_is_bootstrap_port_type(ipc_object_type_t type)
+{
+	return type == IOT_BOOTSTRAP_PORT;
 }
 static inline bool
 ip_is_reply_port_type(ipc_object_type_t type)

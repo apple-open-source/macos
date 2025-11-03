@@ -190,6 +190,9 @@ mach_vm_deallocate_sanitize(
 {
 	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	return vm_sanitize_addr_size(start_u, size_u,
 	           VM_SANITIZE_CALLER_VM_DEALLOCATE, map, flags,
@@ -603,6 +606,9 @@ mach_vm_read_overwrite(
 		    data,
 		    copy,
 		    size,
+#if HAS_MTE
+		    FALSE,
+#endif
 		    FALSE);
 		if (KERN_SUCCESS == error) {
 			*data_size = size;
@@ -639,6 +645,12 @@ vm_read_overwrite(
 /*
  * mach_vm_update_pointers_with_remote_tags -
  */
+#if HAS_MTE
+/*
+ * Iterate a pointer list and rewrite the
+ * pointers to contain the correct MTE tags.
+ */
+#endif /* HAS_MTE */
 
 kern_return_t
 mach_vm_update_pointers_with_remote_tags(
@@ -650,7 +662,7 @@ mach_vm_update_pointers_with_remote_tags(
 {
 	if (!in_pointer_list
 	    || !out_pointer_list
-	    || in_pointer_listCnt >= 512
+	    || in_pointer_listCnt > VM_OFFSET_LIST_MAX
 	    /* The length of the output pointer list must match the input pointer list */
 	    || !out_pointer_listCnt
 	    || *out_pointer_listCnt != in_pointer_listCnt
@@ -662,6 +674,34 @@ mach_vm_update_pointers_with_remote_tags(
 		return KERN_INVALID_ARGUMENT;
 	}
 
+#if HAS_MTE
+	/* This API is intended for debuggers, so ensure the target is debugged */
+	vm_map_lock_read(map);
+	task_t map_task = map->owning_task;
+	bool is_debugged = map_task && is_address_space_debugged(get_bsdtask_info(map_task));
+	vm_map_unlock_read(map);
+	if (!is_debugged) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	vm_map_switch_context_t ctx = vm_map_switch_to(map);
+
+	for (mach_msg_type_number_t i = 0; i < in_pointer_listCnt; i++) {
+		mach_vm_offset_t unsigned_address = (mach_vm_offset_t)in_pointer_list[i];
+		vm_map_address_t signed_address = 0;
+		/* Note that inputs pointing to non-MTE objects safely return canonical tags */
+		int ret = copyin_mte_load_tag(unsigned_address, &signed_address);
+		if (ret != 0) {
+			/* Perhaps an invalid address, just leave the output slot as zero. */
+			continue;
+		}
+		out_pointer_list[i] = signed_address;
+	}
+
+	vm_map_switch_back(ctx);
+
+	return KERN_SUCCESS;
+#endif /* HAS_MTE */
 	return KERN_FAILURE;
 }
 
@@ -691,6 +731,9 @@ mach_vm_write(
 	           address,
 	           data,
 	           size,
+#if HAS_MTE
+	           TRUE, /* sec_override */
+#endif
 	           FALSE /* interruptible XXX */);
 }
 
@@ -745,6 +788,9 @@ mach_vm_copy(
 		    dest_address,
 		    copy,
 		    size,
+#if HAS_MTE
+		    FALSE /* interruptible XXX */,
+#endif
 		    FALSE);
 
 		if (KERN_SUCCESS != kr) {
@@ -1289,6 +1335,9 @@ mach_vm_behavior_set_sanitize(
 
 	vm_sanitize_flags_t     flags = VM_SANITIZE_FLAGS_SIZE_ZERO_SUCCEEDS;
 
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	flags |= VM_SANITIZE_FLAGS_STRIP_ADDR;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 	kr = vm_sanitize_addr_size(start_u, size_u, VM_SANITIZE_CALLER_VM_BEHAVIOR_SET,
 	    align_mask, map, flags, start, end, size);
@@ -2040,6 +2089,9 @@ mach_vm_range_create_v1_sanitize(
 			VM_SANITIZE_CALLER_MACH_VM_RANGE_CREATE,
 			map,
 			VM_SANITIZE_FLAGS_SIZE_ZERO_FAILS
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+			| VM_SANITIZE_FLAGS_DENY_NON_CANONICAL_ADDR
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 			| VM_SANITIZE_FLAGS_CHECK_ALIGNED_START
 			| VM_SANITIZE_FLAGS_CHECK_ALIGNED_SIZE,
 			&start, &end, &size); // Ignore return values

@@ -3187,7 +3187,7 @@ class YarrGenerator final : public YarrJITInfo {
                 termMatchTargets.append(MatchTargets());
 
 #if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS) && ENABLE(YARR_JIT_UNICODE_CAN_INCREMENT_INDEX_FOR_NON_BMP)
-                // Always set to zero.
+                // Initialize before input check to prevent uninitialized data in arithmetic.
                 if (m_useFirstNonBMPCharacterOptimization)
                     m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.firstCharacterAdditionalReadSize);
 #endif
@@ -3199,6 +3199,13 @@ class YarrGenerator final : public YarrJITInfo {
                 // We will reenter after the check, and assume the input position to have been
                 // set as appropriate to this alternative.
                 op.m_reentry = m_jit.label();
+
+#if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS) && ENABLE(YARR_JIT_UNICODE_CAN_INCREMENT_INDEX_FOR_NON_BMP)
+                // Initialize after reentry to ensure fresh register state on backtrack retries,
+                // since character reading operations modify this register during execution.
+                if (m_useFirstNonBMPCharacterOptimization)
+                    m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.firstCharacterAdditionalReadSize);
+#endif
 
                 // Emit fast skip path with stride if we have BoyerMooreInfo.
                 if (op.m_bmInfo) {

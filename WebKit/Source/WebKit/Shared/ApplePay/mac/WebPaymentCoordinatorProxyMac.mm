@@ -28,6 +28,7 @@
 
 #if PLATFORM(MAC) && ENABLE(APPLE_PAY)
 
+#import "AppKitSPI.h"
 #import "PaymentAuthorizationViewController.h"
 #import "WebPageProxy.h"
 #import <pal/cocoa/PassKitSoftLink.h>
@@ -109,7 +110,9 @@ void WebPaymentCoordinatorProxy::platformShowPaymentUI(WebPageProxyIdentifier we
 
             ASSERT(!paymentCoordinatorProxy->m_sheetWindow);
             paymentCoordinatorProxy->m_sheetWindow = [NSWindow windowWithContentViewController:viewController];
-
+#if HAVE(LIQUID_GLASS)
+            [paymentCoordinatorProxy->m_sheetWindow setStyleMask:NSWindowStyleMaskAlertWindow | NSWindowStyleMaskTitled];
+#endif
             paymentCoordinatorProxy->m_sheetWindowWillCloseObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillCloseNotification object:paymentCoordinatorProxy->m_sheetWindow.get() queue:nil usingBlock:[paymentCoordinatorProxy](NSNotification *) {
                 paymentCoordinatorProxy->didReachFinalState();
             }];

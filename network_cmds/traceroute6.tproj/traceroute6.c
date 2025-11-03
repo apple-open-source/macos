@@ -1717,8 +1717,10 @@ get_interface_for_ipv6_address(struct sockaddr_in6 *address, char *ifname, size_
 			continue;
 		}
 		snprintf(ifname, ifname_size, "%s", ifa->ifa_name);
+		freeifaddrs(ifa_list);
 		return ifname;
 	}
+	freeifaddrs(ifa_list);
 	return NULL;
 }
 

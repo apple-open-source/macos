@@ -42,6 +42,7 @@
 #include "LegacyAPICounts.h"
 #include <dlfcn.h>
 #include <libspindump_priv.h>
+#include <os/feature_private.h>
 
 extern "C" {
 #include "ctkloginhelper.h"
@@ -1761,26 +1762,30 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHashAndPassword(CFDataRef pubKeyHash
 		return errSecInternalComponent;
 	}
 
-	CFRef<CFDataRef> masterKey;
-	result = SecKeychainGetMasterKey(userKeychain, masterKey.take(), pwd);
-	if (result != errSecSuccess) {
-		secnotice("SecKeychain", "Failed to get master key: %d", (int) result);
-		return result;
-	}
-
-	CFRef<CFDataRef> scBlob;
-	result = TokenLoginGetScBlob(wrapPubKeyHash, tokenID, pwd, scBlob.take());
-	if (result != errSecSuccess) {
-		secnotice("SecKeychain", "Failed to get stash: %d", (int) result);
-		return result;
-	}
-
-	result = TokenLoginCreateLoginData(tokenID, pubKeyHash, wrapPubKeyHash, masterKey, scBlob);
-	if (result != errSecSuccess) {
-		secnotice("SecKeychain", "Failed to create login data: %d", (int) result);
-		return result;
-	}
-
+    CFRef<CFDataRef> masterKey;
+    if (os_feature_enabled(Security, ProtectLoginKeychainWithDP)) {
+        // everything needed to setup DP was already done
+        // during the authorization which retrieved the user's password
+        secnotice("SecKeychain", "Keychain unlock setup not needed (DP)");
+    } else {
+        result = SecKeychainGetMasterKey(userKeychain, masterKey.take(), pwd);
+        if (result != errSecSuccess) {
+            secnotice("SecKeychain", "Failed to get master key: %d", (int) result);
+            return result;
+        }
+    }
+    CFRef<CFDataRef> scBlob;
+    result = TokenLoginGetScBlob(wrapPubKeyHash, tokenID, pwd, scBlob.take());
+    if (result != errSecSuccess) {
+        secnotice("SecKeychain", "Failed to get stash: %d", (int) result);
+        return result;
+    }
+    
+    result = TokenLoginCreateLoginData(tokenID, pubKeyHash, wrapPubKeyHash, masterKey, scBlob);
+    if (result != errSecSuccess) {
+        secnotice("SecKeychain", "Failed to create login data: %d", (int) result);
+        return result;
+    }
 	secnotice("SecKeychain", "SecKeychainStoreUnlockKeyWithPubKeyHash result %d", (int) result);
     
     // create SC KEK

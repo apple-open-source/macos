@@ -120,27 +120,10 @@ get_default_xzone_zone(void)
 	}
 #endif
 
-	if (zone->introspect->zone_type != MALLOC_ZONE_TYPE_XZONE) {
-		// Maybe it's nano?
-		i++;
-		if (i == malloc_num_zones) {
-			T_ASSERT_FAIL("didn't find xzone xzone");
-		}
-		malloc_zone_t *helper_zone = malloc_zones[i];
-		const char *helper_name = malloc_get_zone_name(helper_zone);
-		if (helper_name && strcmp(helper_name, "MallocHelperZone") != 0) {
-			T_ASSERT_FAIL("unexpected zone %s", helper_name);
-		}
+	T_ASSERT_GE(zone->version, 14, "zone version");
+	T_ASSERT_EQ(zone->introspect->zone_type, MALLOC_ZONE_TYPE_XZONE,
+			"zone is xzone malloc");
 
-		found_nano = true;
-
-		zone = helper_zone;
-		T_ASSERT_GE(zone->version, 14, "helper zone version");
-		T_ASSERT_EQ(zone->introspect->zone_type, MALLOC_ZONE_TYPE_XZONE,
-				"helper zone is xzone malloc");
-	}
-
-	bool nano_on_xzone = false;
 	enum {
 		PGM_NO_EXPECTATION,
 		PGM_EXPECTED_ENABLED,
@@ -148,17 +131,12 @@ get_default_xzone_zone(void)
 	} pgm_expectation = PGM_NO_EXPECTATION;
 
 #if !MALLOC_TARGET_EXCLAVES
-	nano_on_xzone = getenv("MallocNanoOnXzone");
-
 	const char *pgm_env = getenv("MallocProbGuard");
 	if (pgm_env) {
 		pgm_expectation = (*pgm_env == '1' ? PGM_EXPECTED_ENABLED :
 				PGM_EXPECTED_DISABLED);
 	}
 #endif
-
-	T_ASSERT_EQ(nano_on_xzone, found_nano,
-			"Nano state matched expectation (%d)", (int)nano_on_xzone);
 
 	switch (pgm_expectation) {
 	case PGM_NO_EXPECTATION:

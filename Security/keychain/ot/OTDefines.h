@@ -114,6 +114,7 @@ typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
     TrustedPeersHelperErrorCodeUntrustedRecoveryKeys    = 32,
     TrustedPeersHelperErrorCodeNotEnrolled   = 34,
     TrustedPeersHelperErrorCodeUnknownCloudKitError   = 36,
+    TrustedPeersHelperErrorCodeFailedToLoadSecret     = 38,
     TrustedPeersHelperErrorCodeNoPeersPreapprovedBySelf = 47,
     TrustedPeersHelperErrorCodeRecoveryKeyIsNotCorrect = 52,
 };

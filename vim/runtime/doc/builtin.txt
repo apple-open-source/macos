@@ -1,4 +1,4 @@
-*builtin.txt*	For Vim version 9.1.  Last change: 2024 Sep 23
+*builtin.txt*	For Vim version 9.1.  Last change: 2025 Sep 08
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -67,9 +67,12 @@ autocmd_get([{opts}])		List	return a list of autocmds
 balloon_gettext()		String	current text in the balloon
 balloon_show({expr})		none	show {expr} inside the balloon
 balloon_split({msg})		List	split {msg} as used for a balloon
+base64_decode({string})		Blob	base64 decode {string} characters
+base64_encode({blob})		String	base64 encode the bytes in {blob}
 bindtextdomain({package}, {path})
 				Bool	bind text domain to specified path
 blob2list({blob})		List	convert {blob} into a list of numbers
+blob2str({blob} [, {options}])	List	convert {blob} into a list of strings
 browse({save}, {title}, {initdir}, {default})
 				String	put up a file requester
 browsedir({title}, {initdir})	String	put up a directory requester
@@ -126,11 +129,14 @@ charidx({string}, {idx} [, {countcc} [, {utf16}]])
 chdir({dir})			String	change current working directory
 cindent({lnum})			Number	C indent for line {lnum}
 clearmatches([{win}])		none	clear all matches
+cmdcomplete_info()		Dict	get current cmdline completion
+					information
 col({expr} [, {winid}])		Number	column byte index of cursor or mark
 complete({startcol}, {matches}) none	set Insert mode completion
 complete_add({expr})		Number	add completion match
 complete_check()		Number	check for key typed during completion
 complete_info([{what}])		Dict	get current completion information
+complete_match([{lnum}, {col}])	List	get completion column and trigger text
 confirm({msg} [, {choices} [, {default} [, {type}]]])
 				Number	number of choice picked by user
 copy({expr})			any	make a shallow copy of {expr}
@@ -188,9 +194,8 @@ filter({expr1}, {expr2})	List/Dict/Blob/String
 					remove items from {expr1} where
 					{expr2} is 0
 finddir({name} [, {path} [, {count}]])
-				String	find directory {name} in {path}
 findfile({name} [, {path} [, {count}]])
-				String	find file {name} in {path}
+				String/List find dir/file {name} in {path}
 flatten({list} [, {maxdepth}])	List	flatten {list} up to {maxdepth} levels
 flattennew({list} [, {maxdepth}])
 				List	flatten a copy of {list}
@@ -204,7 +209,7 @@ foldclosedend({lnum})		Number	last line of fold at {lnum} if closed
 foldlevel({lnum})		Number	fold level at {lnum}
 foldtext()			String	line displayed for closed fold
 foldtextresult({lnum})		String	text for closed fold at {lnum}
-foreach({expr1}, {expr2})	List/Dict/Blob/String
+foreach({expr1}, {expr2})	List/Tuple/Dict/Blob/String
 					for each item in {expr1} call {expr2}
 foreground()			Number	bring the Vim window to the foreground
 fullcommand({name} [, {vim9}])	String	get full command from {name}
@@ -222,14 +227,17 @@ getbufline({buf}, {lnum} [, {end}])
 getbufoneline({buf}, {lnum})	String	line {lnum} of buffer {buf}
 getbufvar({buf}, {varname} [, {def}])
 				any	variable {varname} in buffer {buf}
+getcellpixels()			List	get character cell pixel size
 getcellwidths()			List	get character cell width overrides
 getchangelist([{buf}])		List	list of change list items
-getchar([{expr}])		Number or String
+getchar([{expr} [, {opts}]])	Number or String
 					get one character from the user
 getcharmod()			Number	modifiers for the last typed character
 getcharpos({expr})		List	position of cursor, mark, etc.
 getcharsearch()			Dict	last character search
-getcharstr([{expr}])		String	get one character from the user
+getcharstr([{expr} [, {opts}]])	String	get one character from the user
+getcmdcomplpat()		String	return the completion pattern of the
+					current command-line completion
 getcmdcompltype()		String	return the type of the current
 					command-line completion
 getcmdline()			String	return the current command-line input
@@ -241,6 +249,8 @@ getcmdtype()			String	return current command-line type
 getcmdwintype()			String	return current command-line window type
 getcompletion({pat}, {type} [, {filtered}])
 				List	list of cmdline completion matches
+getcompletiontype({pat})	String	return the type of the command-line
+					completion using {pat}
 getcurpos([{winnr}])		List	position of the cursor
 getcursorcharpos([{winnr}])	List	character position of the cursor
 getcwd([{winnr} [, {tabnr}]])	String	get the current working directory
@@ -274,6 +284,7 @@ getregionpos({pos1}, {pos2} [, {opts}])
 				List	get a list of positions for a region
 getregtype([{regname}])		String	type of a register
 getscriptinfo([{opts}])		List	list of sourced scripts
+getstacktrace()			List	get current stack trace of Vim scripts
 gettabinfo([{expr}])		List	list of tab pages
 gettabvar({nr}, {varname} [, {def}])
 				any	variable {varname} in tab {nr} or {def}
@@ -333,7 +344,7 @@ isinf({expr})			Number	determine if {expr} is infinity value
 					(positive or negative)
 islocked({expr})		Number	|TRUE| if {expr} is locked
 isnan({expr})			Number	|TRUE| if {expr} is NaN
-items({dict})			List	key-value pairs in {dict}
+items({expr})			List	key/index-value pairs in {expr}
 job_getchannel({job})		Channel	get the channel handle for {job}
 job_info([{job}])		Dict	get information about {job}
 job_setoptions({job}, {options}) none	set options for {job}
@@ -341,7 +352,7 @@ job_start({command} [, {options}])
 				Job	start a job
 job_status({job})		String	get the status of {job}
 job_stop({job} [, {how}])	Number	stop {job}
-join({list} [, {sep}])		String	join {list} items into one String
+join({expr} [, {sep}])		String	join items in {expr} into one String
 js_decode({string})		any	decode JS style JSON
 js_encode({expr})		String	encode JS style JSON
 json_decode({string})		any	decode JSON
@@ -357,6 +368,7 @@ line2byte({lnum})		Number	byte count of line {lnum}
 lispindent({lnum})		Number	Lisp indent for line {lnum}
 list2blob({list})		Blob	turn {list} of numbers into a Blob
 list2str({list} [, {utf8}])	String	turn {list} of numbers into a String
+list2tuple({list})		Tuple	turn {list} of items into a tuple
 listener_add({callback} [, {buf}])
 				Number	add a callback to listen to changes
 listener_flush([{buf}])		none	invoke listener callbacks
@@ -409,6 +421,8 @@ mkdir({name} [, {flags} [, {prot}]])
 mode([{expr}])			String	current editing mode
 mzeval({expr})			any	evaluate |MzScheme| expression
 nextnonblank({lnum})		Number	line nr of non-blank line >= {lnum}
+ngettext({single}, {plural}, {number}[, {domain}])
+				String	translate text based on {number}
 nr2char({expr} [, {utf8}])	String	single char with ASCII/UTF-8 value {expr}
 or({expr}, {expr})		Number	bitwise OR
 pathshorten({expr} [, {len}])	String	shorten directory names in a path
@@ -465,9 +479,9 @@ prop_type_get({name} [, {props}])
 prop_type_list([{props}])	List	get list of property types
 pum_getpos()			Dict	position and size of pum if visible
 pumvisible()			Number	whether popup menu is visible
-py3eval({expr})			any	evaluate |python3| expression
-pyeval({expr})			any	evaluate |Python| expression
-pyxeval({expr})			any	evaluate |python_x| expression
+py3eval({expr} [, {locals}])	any	evaluate |python3| expression
+pyeval({expr} [, {locals}])	any	evaluate |Python| expression
+pyxeval({expr} [, {locals}])	any	evaluate |python_x| expression
 rand([{expr}])			Number	get pseudo-random number
 range({expr} [, {max} [, {stride}]])
 				List	items from {expr} to {max}
@@ -502,10 +516,10 @@ remove({blob}, {idx} [, {end}])	Number/Blob
 					remove bytes {idx}-{end} from {blob}
 remove({dict}, {key})		any	remove entry {key} from {dict}
 rename({from}, {to})		Number	rename (move) file from {from} to {to}
-repeat({expr}, {count})		List/Blob/String
+repeat({expr}, {count})		List/Tuple/Blob/String
 					repeat {expr} {count} times
 resolve({filename})		String	get filename a shortcut points to
-reverse({obj})			List/Blob/String
+reverse({obj})			List/Tuple/Blob/String
 					reverse {obj}
 round({expr})			Float	round off {expr}
 rubyeval({expr})		any	evaluate |Ruby| expression
@@ -603,6 +617,7 @@ split({expr} [, {pat} [, {keepempty}]])
 sqrt({expr})			Float	square root of {expr}
 srand([{expr}])			List	get seed for |rand()|
 state([{what}])			String	current state of Vim
+str2blob({list} [, {options}])	Blob	convert list of strings into a Blob
 str2float({expr} [, {quoted}])	Float	convert String to Float
 str2list({expr} [, {utf8}])	List	convert each character of {expr} to
 					ASCII/UTF-8 value
@@ -703,6 +718,7 @@ test_null_job()			Job	null value for testing
 test_null_list()		List	null value for testing
 test_null_partial()		Funcref	null value for testing
 test_null_string()		String	null value for testing
+test_null_tuple()		Tuple	null value for testing
 test_option_not_set({name})	none	reset flag indicating option was set
 test_override({expr}, {val})	none	test with Vim internal overrides
 test_refcount({expr})		Number	get the reference count of {expr}
@@ -724,12 +740,15 @@ tr({src}, {fromstr}, {tostr})	String	translate chars of {src} in {fromstr}
 trim({text} [, {mask} [, {dir}]])
 				String	trim characters in {mask} from {text}
 trunc({expr})			Float	truncate Float {expr}
+tuple2list({tuple})		List	turn {tuple} of items into a list
 type({expr})			Number	type of value {expr}
 typename({expr})		String	representation of the type of {expr}
 undofile({name})		String	undo file name for {name}
 undotree([{buf}])		List	undo file tree for buffer {buf}
 uniq({list} [, {func} [, {dict}]])
 				List	remove adjacent duplicates from a list
+uri_decode({string})		String	URI-decode a string
+uri_encode({string})		String	URI-encode a string
 utf16idx({string}, {idx} [, {countcc} [, {charidx}]])
 				Number	UTF-16 index of byte {idx} in {string}
 values({dict})			List	values in {dict}
@@ -740,6 +759,7 @@ virtcol2col({winid}, {lnum}, {col})
 				Number  byte index of a character on screen
 visualmode([{expr}])		String	last visual mode used
 wildmenumode()			Number	whether 'wildmenu' mode is active
+wildtrigger()			Number	start wildcard expansion
 win_execute({id}, {command} [, {silent}])
 				String	execute {command} in window {id}
 win_findbuf({bufnr})		List	find windows containing {bufnr}
@@ -1222,6 +1242,43 @@ balloon_split({msg})					*balloon_split()*
 
 		Return type: list<any> or list<string>
 
+base64_decode({string})					*base64_decode()*
+		Return a Blob containing the bytes decoded from the base64
+		encoded characters in {string}.
+
+		The {string} argument should contain only base64-encoded
+		characters and should have a length that is a multiple of 4.
+
+		Returns an empty blob on error.
+
+		Examples: >
+		    " Write the decoded contents to a binary file
+		    call writefile(base64_decode(s), 'tools.bmp')
+		    " Decode a base64-encoded string
+		    echo blob2str(base64_decode(encodedstr))
+<
+		Can also be used as a |method|: >
+			GetEncodedString()->base64_decode()
+<
+		Return type: |Blob|
+
+
+base64_encode({blob})					*base64_encode()*
+		Return a base64-encoded String representing the bytes in
+		{blob}.  The base64 alphabet defined in RFC 4648 is used.
+
+		Examples: >
+		    " Encode the contents of a binary file
+		    echo base64_encode(readblob('somefile.bin'))
+		    " Encode a string
+		    echo base64_encode(str2blob(somestr->split("\n")))
+<
+		Can also be used as a |method|: >
+			GetBinaryData()->base64_encode()
+<
+		Return type: |String|
+
+
 bindtextdomain({package}, {path})			*bindtextdomain()*
 		Bind a specific {package} to a {path} so that the
 		|gettext()| function can be used to get language-specific
@@ -1245,6 +1302,48 @@ blob2list({blob})					*blob2list()*
 			GetBlob()->blob2list()
 <
 		Return type: list<any> or list<number>
+
+
+blob2str({blob} [, {options}])				*blob2str()*
+		Return a List of Strings in the current 'encoding' by
+		converting the bytes in {blob} into characters.
+
+		Each <NL> byte in the blob is interpreted as the end of a
+		string and a new list item is added.  Each <NUL> byte in the
+		blob is converted into a <NL> character.
+
+		If {options} is not supplied, the current 'encoding' value is
+		used to decode the bytes in {blob}.
+
+		The argument {options} is a |Dict| and supports the following
+		items:
+		    encoding	Decode the bytes in {blob} using this
+				encoding.  The value is a |String|.  See
+				|encoding-names| for the supported values
+				(plus the special value "none").
+							*E1515* *E1516*
+		When current 'encoding' is "utf-8", an error is given and an
+		empty List is returned if an invalid byte sequence is
+		encountered in {blob}.  To suppress this validation and get
+		potentially invalid string, set "encoding" in {options} to
+		"none".
+
+		Returns an empty List if blob is empty.
+
+		See also |str2blob()|
+
+		Examples: >
+		    blob2str(0z6162)		returns ['ab']
+		    blob2str(0zC2ABC2BB)	returns ['«»']
+		    blob2str(0z610A62)		returns ['a', 'b']
+		    blob2str(0z610062)		returns ['a\nb']
+		    blob2str(0zABBB, {'encoding': 'latin1'}) returns ['«»']
+<
+		Can also be used as a |method|: >
+			GetBlob()->blob2str()
+<
+		Return type: list<string>
+
 
 							*browse()*
 browse({save}, {title}, {initdir}, {default})
@@ -1623,7 +1722,7 @@ charclass({string})					*charclass()*
 		The character class is one of:
 			0	blank
 			1	punctuation
-			2	word character
+			2	word character (depends on 'iskeyword')
 			3	emoji
 			other	specific Unicode class
 		The class is used in patterns and word motions.
@@ -1686,16 +1785,23 @@ charidx({string}, {idx} [, {countcc} [, {utf16}]])
 		Return type: |Number|
 
 
-chdir({dir})						*chdir()*
-		Change the current working directory to {dir}.  The scope of
-		the directory change depends on the directory of the current
-		window:
-			- If the current window has a window-local directory
-			  (|:lcd|), then changes the window local directory.
-			- Otherwise, if the current tabpage has a local
-			  directory (|:tcd|) then changes the tabpage local
-			  directory.
-			- Otherwise, changes the global directory.
+chdir({dir} [, {scope}])				*chdir()*
+		Changes the current working directory to {dir}.  The scope of
+		the change is determined as follows:
+		If {scope} is not present, the current working directory is
+		changed to the scope of the current directory:
+		    - If the window local directory (|:lcd|) is set, it
+		      changes the current working directory for that scope.
+		    - Otherwise, if the tab page local directory (|:tcd|) is
+		      set, it changes the current directory for that scope.
+		    - Otherwise, changes the global directory for that scope.
+
+		If {scope} is present, changes the current working directory
+		for the specified scope:
+		    "window"	Changes the window local directory.  |:lcd|
+		    "tabpage"	Changes the tab page local directory.  |:tcd|
+		    "global"	Changes the global directory.  |:cd|
+
 		{dir} must be a String.
 		If successful, returns the previous working directory.  Pass
 		this to another chdir() to restore the directory.
@@ -1738,6 +1844,29 @@ clearmatches([{win}])					*clearmatches()*
 			GetWin()->clearmatches()
 <
 		Return type: |Number|
+
+
+cmdcomplete_info()					*cmdcomplete_info()*
+		Returns a |Dictionary| with information about cmdline
+		completion.  See |cmdline-completion|.
+		The items are:
+		   cmdline_orig	The original command-line string before
+				completion began.
+		   pum_visible	|TRUE| if popup menu is visible.
+				See |pumvisible()|.
+		   matches	List of all completion candidates. Each item
+				is a string.
+		   selected	Selected item index.  First index is zero.
+				Index is -1 if no item is selected (showing
+				typed text only, or the last completion after
+				no item is selected when using the <Up> or
+				<Down> keys)
+
+		Returns an empty |Dictionary| if no completion was attempted,
+		if there was only one candidate and it was fully completed, or
+		if an error occurred.
+
+		Return type: dict<any>
 
 
 col({expr} [, {winid}])					*col()*
@@ -1854,16 +1983,22 @@ complete_info([{what}])				*complete_info()*
 				See |complete_info_mode| for the values.
 		   pum_visible	|TRUE| if popup menu is visible.
 				See |pumvisible()|.
-		   items	List of completion matches.  Each item is a
-				dictionary containing the entries "word",
+		   items	List of all completion candidates. Each item
+				is a dictionary containing the entries "word",
 				"abbr", "menu", "kind", "info" and "user_data".
 				See |complete-items|.
+		   matches	Same as "items", but only returns items that
+				are matching current query. If both "matches"
+				and "items" are in "what", the returned list
+				will still be named "items", but each item
+				will have an additional "match" field.
 		   selected	Selected item index.  First index is zero.
 				Index is -1 if no item is selected (showing
 				typed text only, or the last completion after
 				no item is selected when using the <Up> or
 				<Down> keys)
-		   inserted	Inserted string. [NOT IMPLEMENTED YET]
+		   completed	Return a dictionary containing the entries of
+				the currently selected index item.
 
 							*complete_info_mode*
 		mode values are:
@@ -1884,6 +2019,7 @@ complete_info([{what}])				*complete_info()*
 		   "omni"	     Omni completion |i_CTRL-X_CTRL-O|
 		   "spell"	     Spelling suggestions |i_CTRL-X_s|
 		   "eval"	     |complete()| completion
+		   "register"	     Words from registers |i_CTRL-X_CTRL-R|
 		   "unknown"	     Other internal modes
 
 		If the optional {what} list argument is supplied, then only
@@ -1908,6 +2044,50 @@ complete_info([{what}])				*complete_info()*
 			GetItems()->complete_info()
 <
 		Return type: dict<any>
+
+complete_match([{lnum}, {col}])			*complete_match()*
+		Searches backward from the given position and returns a List
+		of matches according to the 'isexpand' option. When no
+		arguments are provided, uses the current cursor position.
+
+		Each match is represented as a List containing
+		[startcol, trigger_text] where:
+		- startcol: column position where completion should start,
+		  or -1 if no trigger position is found. For multi-character
+		  triggers, returns the column of the first character.
+		- trigger_text: the matching trigger string from 'isexpand',
+		  or empty string if no match was found or when using the
+		  default 'iskeyword' pattern.
+
+		When 'isexpand' is empty, uses the 'iskeyword' pattern "\k\+$"
+		to find the start of the current keyword.
+
+		Examples: >
+	set isexpand=.,->,/,/*,abc
+	func CustomComplete()
+	  let res = complete_match()
+	  if res->len() == 0 | return | endif
+	  let [col, trigger] = res[0]
+	  let items = []
+	  if trigger == '/*'
+	    let items = ['/** */']
+	  elseif trigger == '/'
+	    let items = ['/*! */', '// TODO:', '// fixme:']
+	  elseif trigger == '.'
+	    let items = ['length()']
+	  elseif trigger =~ '^\->'
+	    let items = ['map()', 'reduce()']
+	  elseif trigger =~ '^\abc'
+	    let items = ['def', 'ghk']
+	  endif
+	  if items->len() > 0
+	    let startcol = trigger =~ '^/' ? col : col + len(trigger)
+	    call complete(startcol, items)
+	  endif
+	endfunc
+	inoremap <Tab> <Cmd>call CustomComplete()<CR>
+<
+		Return type: list<list<any>>
 
 						*confirm()*
 confirm({msg} [, {choices} [, {default} [, {type}]]])
@@ -1978,7 +2158,8 @@ copy({expr})							*copy()*
 		that the original |List| can be changed without changing the
 		copy, and vice versa.  But the items are identical, thus
 		changing an item changes the contents of both |Lists|.
-		A |Dictionary| is copied in a similar way as a |List|.
+		A |Tuple| or |Dictionary| is copied in a similar way as a
+		|List|.
 		Also see |deepcopy()|.
 		Can also be used as a |method|: >
 			mylist->copy()
@@ -2021,10 +2202,10 @@ cosh({expr})						*cosh()*
 
 count({comp}, {expr} [, {ic} [, {start}]])		*count()* *E706*
 		Return the number of times an item with value {expr} appears
-		in |String|, |List| or |Dictionary| {comp}.
+		in |String|, |List|, |Tuple| or |Dictionary| {comp}.
 
 		If {start} is given then start with the item with this index.
-		{start} can only be used with a |List|.
+		{start} can only be used with a |List| or a |Tuple|.
 
 		When {ic} is given and it's |TRUE| then case is ignored.
 
@@ -2144,7 +2325,8 @@ deepcopy({expr} [, {noref}])				*deepcopy()* *E698*
 		|Dictionary|, a copy for it is made, recursively.  Thus
 		changing an item in the copy does not change the contents of
 		the original |List|.
-		A |Dictionary| is copied in a similar way as a |List|.
+		A |Tuple| or |Dictionary| is copied in a similar way as a
+		|List|.
 
 		When {noref} is omitted or zero a contained |List| or
 		|Dictionary| is only copied once.  All references point to
@@ -2452,8 +2634,8 @@ echoraw({string})					*echoraw()*
 
 empty({expr})						*empty()*
 		Return the Number 1 if {expr} is empty, zero otherwise.
-		- A |List| or |Dictionary| is empty when it does not have any
-		  items.
+		- A |List|, |Tuple| or |Dictionary| is empty when it does
+		  not have any items.
 		- A |String| is empty when its length is zero.
 		- A |Number| and |Float| are empty when their value is zero.
 		- |v:false|, |v:none| and |v:null| are empty, |v:true| is not.
@@ -2917,7 +3099,8 @@ extend({expr1}, {expr2} [, {expr3}])			*extend()*
 		When {expr3} is omitted then "force" is assumed.
 
 		{expr1} is changed when {expr2} is not empty.  If necessary
-		make a copy of {expr1} first.
+		make a copy of {expr1} first or use |extendnew()| to return a
+		new List/Dictionary.
 		{expr2} remains unchanged.
 		When {expr1} is locked and {expr2} is not empty the operation
 		fails.
@@ -2996,7 +3179,7 @@ feedkeys({string} [, {mode}])				*feedkeys()*
 		Can also be used as a |method|: >
 			GetInput()->feedkeys()
 <
-		Return type: |String| or list<string> depending on {list}
+		Return type: |Number|
 
 
 filecopy({from}, {to})					*filecopy()*
@@ -3134,7 +3317,8 @@ finddir({name} [, {path} [, {count}]])				*finddir()*
 		Can also be used as a |method|: >
 			GetName()->finddir()
 <
-		Return type: |String|
+		Return type: list<string> if {count} is negative, |String|
+		otherwise
 
 
 findfile({name} [, {path} [, {count}]])				*findfile()*
@@ -3148,7 +3332,8 @@ findfile({name} [, {path} [, {count}]])				*findfile()*
 		Can also be used as a |method|: >
 			GetName()->findfile()
 <
-		Return type: |String|
+		Return type: list<string> if {count} is negative, |String|
+		otherwise
 
 
 flatten({list} [, {maxdepth}])					*flatten()*
@@ -3379,8 +3564,9 @@ foldtextresult({lnum})					*foldtextresult()*
 		Return type: |String|
 
 
-foreach({expr1}, {expr2})					*foreach()*
-		{expr1} must be a |List|, |String|, |Blob| or |Dictionary|.
+foreach({expr1}, {expr2})				*foreach()* *E1525*
+		{expr1} must be a |List|, |Tuple|, |String|, |Blob| or
+		|Dictionary|.
 		For each item in {expr1} execute {expr2}. {expr1} is not
 		modified; its values may be, as with |:lockvar| 1. |E741|
 		See |map()| and |filter()| to modify {expr1}.
@@ -3389,10 +3575,10 @@ foreach({expr1}, {expr2})					*foreach()*
 
 		If {expr2} is a |string|, inside {expr2} |v:val| has the value
 		of the current item.  For a |Dictionary| |v:key| has the key
-		of the current item and for a |List| |v:key| has the index of
-		the current item.  For a |Blob| |v:key| has the index of the
-		current byte. For a |String| |v:key| has the index of the
-		current character.
+		of the current item and for a |List| or a |Tuple| |v:key| has
+		the index of the current item.  For a |Blob| |v:key| has the
+		index of the current byte. For a |String| |v:key| has the
+		index of the current character.
 		Examples: >
 			call foreach(mylist, 'used[v:val] = true')
 <		This records the items that are in the {expr1} list.
@@ -3418,8 +3604,8 @@ foreach({expr1}, {expr2})					*foreach()*
 		Can also be used as a |method|: >
 			mylist->foreach(expr2)
 <
-		Return type: |String|, |Blob| list<{type}> or dict<{type}>
-		depending on {expr1}
+		Return type: |String|, |Blob|, list<{type}>, tuple<{type}> or
+		dict<{type}> depending on {expr1}
 
 							*foreground()*
 foreground()	Move the Vim window to the foreground.  Useful when sent from
@@ -3591,6 +3777,15 @@ get({list}, {idx} [, {default}])			*get()* *get()-list*
 			mylist->get(idx)
 <
 		Return type: any, depending on {list}
+
+get({tuple}, {idx} [, {default}])			*get()-tuple*
+		Get item {idx} from |Tuple| {tuple}.  When this item is not
+		available return {default}.  Return zero when {default} is
+		omitted.
+		Preferably used as a |method|: >
+			mytuple->get(idx)
+<
+		Return type: any, depending on {tuple}
 
 get({blob}, {idx} [, {default}])			*get()-blob*
 		Get byte {idx} from |Blob| {blob}.  When this byte is not
@@ -3784,6 +3979,20 @@ getbufvar({buf}, {varname} [, {def}])				*getbufvar()*
 		Return type: any, depending on {varname}
 
 
+getcellpixels()						*getcellpixels()*
+		Returns a |List| of terminal cell pixel size.
+		List format is [xpixel, ypixel].
+
+		Only works on Unix (terminal and gVim) and Windows (gVim only).
+		Returns [] on other systems or on failure.
+		Note that there could be variations across different terminals.
+		On macOS, system Terminal.app returns sizes in points (before
+		Retina scaling), whereas third-party terminals return raw pixel
+		sizes (post Retina scaling).
+
+		Return type: list<any>
+
+
 getcellwidths()						*getcellwidths()*
 		Returns a |List| of cell widths of character ranges overridden
 		by |setcellwidths()|.  The format is equal to the argument of
@@ -3815,14 +4024,16 @@ getchangelist([{buf}])					*getchangelist()*
 		Return type: list<any>
 
 
-getchar([{expr}])					*getchar()*
+getchar([{expr} [, {opts}]])				*getchar()*
 		Get a single character from the user or input stream.
-		If {expr} is omitted, wait until a character is available.
+		If {expr} is omitted or is -1, wait until a character is
+			available.
 		If {expr} is 0, only get a character when one is available.
 			Return zero otherwise.
 		If {expr} is 1, only check if a character is available, it is
 			not consumed.  Return zero if no character available.
-		If you prefer always getting a string use |getcharstr()|.
+		If you prefer always getting a string use |getcharstr()|, or
+		specify |FALSE| as "number" in {opts}.
 
 		Without {expr} and when {expr} is 0 a whole character or
 		special key is returned.  If it is a single character, the
@@ -3832,7 +4043,8 @@ getchar([{expr}])					*getchar()*
 		starting with 0x80 (decimal: 128).  This is the same value as
 		the String "\<Key>", e.g., "\<Left>".  The returned value is
 		also a String when a modifier (shift, control, alt) was used
-		that is not included in the character.
+		that is not included in the character.  |keytrans()| can also
+		be used to convert a returned String into a readable form.
 
 		When {expr} is 0 and Esc is typed, there will be a short delay
 		while Vim waits to see if this is the start of an escape
@@ -3843,6 +4055,31 @@ getchar([{expr}])					*getchar()*
 		Use nr2char() to convert it to a String.
 
 		Use getcharmod() to obtain any additional modifiers.
+
+		The optional argument {opts} is a Dict and supports the
+		following items:
+
+			cursor		A String specifying cursor behavior
+					when waiting for a character.
+					"hide": hide the cursor.
+					"keep": keep current cursor unchanged.
+					"msg": move cursor to message area.
+					(default: "msg")
+
+			number		If |TRUE|, return a Number when getting
+					a single character.
+					If |FALSE|, the return value is always
+					converted to a String, and an empty
+					String (instead of 0) is returned when
+					no character is available.
+					(default: |TRUE|)
+
+			simplify	If |TRUE|, include modifiers in the
+					character if possible.  E.g., return
+					the same value for CTRL-I and <Tab>.
+					If |FALSE|, don't include modifiers in
+					the character.
+					(default: |TRUE|)
 
 		When the user clicks a mouse button, the mouse event will be
 		returned.  The position can then be found in |v:mouse_col|,
@@ -3959,17 +4196,19 @@ getcharsearch()						*getcharsearch()*
 		Return type: dict<any>
 
 
-getcharstr([{expr}])					*getcharstr()*
-		Get a single character from the user or input stream as a
-		string.
-		If {expr} is omitted, wait until a character is available.
-		If {expr} is 0 or false, only get a character when one is
-			available.  Return an empty string otherwise.
-		If {expr} is 1 or true, only check if a character is
-			available, it is not consumed.  Return an empty string
-			if no character is available.
-		Otherwise this works like |getchar()|, except that a number
-		result is converted to a string.
+getcharstr([{expr} [, {opts}]])				*getcharstr()*
+		The same as |getchar()|, except that this always returns a
+		String, and "number" isn't allowed in {opts}.
+
+		Return type: |String|
+
+getcmdcomplpat()					*getcmdcomplpat()*
+		Return completion pattern of the current command-line.
+		Only works when the command line is being edited, thus
+		requires use of |c_CTRL-\_e| or |c_CTRL-R_=|.
+		Also see |getcmdtype()|, |setcmdpos()|, |getcmdline()|,
+		|getcmdprompt()|, |getcmdcompltype()| and |setcmdline()|.
+		Returns an empty string when completion is not defined.
 
 		Return type: |String|
 
@@ -3980,8 +4219,11 @@ getcmdcompltype()					*getcmdcompltype()*
 		requires use of |c_CTRL-\_e| or |c_CTRL-R_=|.
 		See |:command-completion| for the return string.
 		Also see |getcmdtype()|, |setcmdpos()|, |getcmdline()|,
-		|getcmdprompt()| and |setcmdline()|.
+		|getcmdprompt()|, |getcmdcomplpat()| and |setcmdline()|.
 		Returns an empty string when completion is not defined.
+
+		To get the type of the command-line completion for a specified
+		string, use |getcompletiontype()|.
 
 		Return type: |String|
 
@@ -4079,15 +4321,16 @@ getcompletion({pat}, {type} [, {filtered}])		*getcompletion()*
 		cscope		|:cscope| suboptions
 		custom,{func}	custom completion, defined via {func}
 		customlist,{func} custom completion, defined via {func}
-		diff_buffer     |:diffget| and |:diffput| completion
+		diff_buffer	|:diffget| and |:diffput| completion
 		dir		directory names
-		dir_in_path	directory names in |'cdpath'|
+		dir_in_path	directory names in 'cdpath'
 		environment	environment variable names
 		event		autocommand events
 		expression	Vim expression
 		file		file and directory names
-		file_in_path	file and directory names in |'path'|
-		filetype	filetype names |'filetype'|
+		file_in_path	file and directory names in 'path'
+		filetype	filetype names 'filetype'
+		filetypecmd	|:filetype| suboptions
 		function	function name
 		help		help subjects
 		highlight	highlight groups
@@ -4100,11 +4343,13 @@ getcompletion({pat}, {type} [, {filtered}])		*getcompletion()*
 		messages	|:messages| suboptions
 		option		options
 		packadd		optional package |pack-add| names
+		retab		|:retab| suboptions
 		runtime		|:runtime| completion
 		scriptnames	sourced script names |:scriptnames|
 		shellcmd	Shell command
+		shellcmdline	Shell command line with filename arguments
 		sign		|:sign| suboptions
-		syntax		syntax file names |'syntax'|
+		syntax		syntax file names 'syntax'
 		syntime		|:syntime| suboptions
 		tag		tags
 		tag_listfiles	tags, file names
@@ -4138,6 +4383,15 @@ getcompletion({pat}, {type} [, {filtered}])		*getcompletion()*
 			GetPattern()->getcompletion('color')
 <
 		Return type: list<string>
+
+getcompletiontype({pat})				*getcompletiontype()*
+		Return the type of the command-line completion using {pat}.
+		When no corresponding completion type is found, an empty
+		string is returned.
+		To get the current command-line completion type, use
+		|getcmdcompltype()|.
+
+		Return type: |String|
 
 							*getcurpos()*
 getcurpos([{winid}])
@@ -4499,8 +4753,9 @@ getmousepos()						*getmousepos()*
 					start of the clicked char
 		All numbers are 1-based.
 
-		If not over a window, e.g. when in the command line, then only
-		"screenrow" and "screencol" are valid, the others are zero.
+		If not over a window, e.g. when in the command line or within
+		|tabpanel|, then only "screenrow" and "screencol" are valid,
+		the others are zero.
 
 		When on the status line below a window or the vertical
 		separator right of a window, the "line" and "column" values
@@ -4733,7 +4988,7 @@ getreg([{regname} [, 1 [, {list}]]])			*getreg()*
 		Can also be used as a |method|: >
 			GetRegname()->getreg()
 <
-		Return type: |String|
+		Return type: |String| or list<string> depending on {list}
 
 
 getreginfo([{regname}])					*getreginfo()*
@@ -4812,6 +5067,10 @@ getregion({pos1}, {pos2} [, {opts}])			*getregion()*
 		- It is evaluated in current window context, which makes a
 		  difference if the buffer is displayed in a window with
 		  different 'virtualedit' or 'list' values.
+		- When specifying an exclusive selection and {pos1} and {pos2}
+		  are equal, the returned list contains a single character as
+		  if selection is inclusive, to match the behavior of an empty
+		  exclusive selection in Visual mode.
 
 		Examples: >
 			:xnoremap <CR>
@@ -4823,7 +5082,7 @@ getregion({pos1}, {pos2} [, {opts}])			*getregion()*
 <
 		Return type: list<string>
 
-<
+
 getregionpos({pos1}, {pos2} [, {opts}])            *getregionpos()*
 		Same as |getregion()|, but returns a list of positions
 		describing the buffer text segments bound by {pos1} and
@@ -4859,6 +5118,8 @@ getregionpos({pos1}, {pos2} [, {opts}])            *getregionpos()*
 		Can also be used as a |method|: >
 			getpos('.')->getregionpos(getpos("'a"))
 <
+		For an example, see the highlight-yank plugin |52.6|
+
 		Return type: list<list<list<number>>>
 
 
@@ -4879,6 +5140,7 @@ getregtype([{regname}])					*getregtype()*
 			GetRegname()->getregtype()
 <
 		Return type: |String|
+
 
 getscriptinfo([{opts}])					*getscriptinfo()*
 		Returns a |List| with information about all the sourced Vim
@@ -4921,6 +5183,21 @@ getscriptinfo([{opts}])					*getscriptinfo()*
 			:echo getscriptinfo({'name': 'myscript'})
 			:echo getscriptinfo({'sid': 15})[0].variables
 <
+		Return type: list<dict<any>>
+
+
+getstacktrace()						*getstacktrace()*
+		Returns the current stack trace of Vim scripts.
+		Stack trace is a |List|, of which each item is a |Dictionary|
+		with the following items:
+		    funcref	The funcref if the stack is at a function,
+				otherwise this item is omitted.
+		    event	The string of the event description if the
+				stack is at an autocmd event, otherwise this
+				item is omitted.
+		    lnum	The line number in the script on the stack.
+		    filepath	The file path of the script on the stack.
+
 		Return type: list<dict<any>>
 
 
@@ -5057,6 +5334,8 @@ getwininfo([{winid}])					*getwininfo()*
 			botline		last complete displayed buffer line
 			bufnr		number of buffer in the window
 			height		window height (excluding winbar)
+			leftcol		first column displayed; only used when
+					'wrap' is off
 			loclist		1 if showing a location list
 					{only with the +quickfix feature}
 			quickfix	1 if quickfix or location list window
@@ -5189,7 +5468,7 @@ glob({expr} [, {nosuf} [, {list} [, {alllinks}]]])		*glob()*
 		on {list}
 
 
-glob2regpat({string})					 *glob2regpat()*
+glob2regpat({string})					*glob2regpat()*
 		Convert a file pattern, as used by glob(), into a search
 		pattern.  The result can be used to match with a string that
 		is a file name.  E.g. >
@@ -5642,7 +5921,7 @@ iconv({string}, {from}, {to})				*iconv()*
 		Return type: |String|
 
 
-id({item})							    *id()*
+id({item})							*id()*
 		The result is a unique String associated with the {item} and
 		not with the {item}'s contents. It is only valid while the
 		{item} exists and is referenced. It is valid only in the
@@ -5660,8 +5939,8 @@ id({item})							    *id()*
 <		prevents {item} from being garbage collected and provides a
 		way to get the {item} from the `id`.
 
-		{item} may be a List, Dictionary, Object, Job, Channel or
-		Blob. If the item is not a permitted type, or it is a null
+		{item} may be a List, Tuple, Dictionary, Object, Job, Channel
+		or Blob. If the item is not a permitted type, or it is a null
 		value, then an empty String is returned.
 
 		Can also be used as a |method|: >
@@ -5688,12 +5967,12 @@ index({object}, {expr} [, {start} [, {ic}]])			*index()*
 		Find {expr} in {object} and return its index.  See
 		|indexof()| for using a lambda to select the item.
 
-		If {object} is a |List| return the lowest index where the item
-		has a value equal to {expr}.  There is no automatic
-		conversion, so the String "4" is different from the Number 4.
-		And the number 4 is different from the Float 4.0.  The value
-		of 'ignorecase' is not used here, case matters as indicated by
-		the {ic} argument.
+		If {object} is a |List| or a |Tuple| return the lowest index
+		where the item has a value equal to {expr}.  There is no
+		automatic conversion, so the String "4" is different from the
+		Number 4.  And the number 4 is different from the Float 4.0.
+		The value of 'ignorecase' is not used here, case matters as
+		indicated by the {ic} argument.
 
 		If {object} is |Blob| return the lowest index where the byte
 		value is equal to {expr}.
@@ -5717,11 +5996,11 @@ index({object}, {expr} [, {start} [, {ic}]])			*index()*
 
 indexof({object}, {expr} [, {opts}])			*indexof()*
 		Returns the index of an item in {object} where {expr} is
-		v:true.  {object} must be a |List| or a |Blob|.
+		v:true.  {object} must be a |List|, a |Tuple| or a |Blob|.
 
-		If {object} is a |List|, evaluate {expr} for each item in the
-		List until the expression is v:true and return the index of
-		this item.
+		If {object} is a |List| or a |Tuple|, evaluate {expr} for each
+		item in the List or Tuple until the expression is v:true
+		and return the index of this item.
 
 		If {object} is a |Blob| evaluate {expr} for each byte in the
 		Blob until the expression is v:true and return the index of
@@ -5729,11 +6008,11 @@ indexof({object}, {expr} [, {opts}])			*indexof()*
 
 		{expr} must be a |string| or |Funcref|.
 
-		If {expr} is a |string|: If {object} is a |List|, inside
-		{expr} |v:key| has the index of the current List item and
-		|v:val| has the value of the item.  If {object} is a |Blob|,
-		inside {expr} |v:key| has the index of the current byte and
-		|v:val| has the byte value.
+		If {expr} is a |string|: If {object} is a |List| or a |Tuple|,
+		inside {expr} |v:key| has the index of the current List or
+		Tuple item and |v:val| has the value of the item.  If {object}
+		is a |Blob|, inside {expr} |v:key| has the index of the
+		current byte and |v:val| has the byte value.
 
 		If {expr} is a |Funcref| it must take two arguments:
 			1. the key or the index of the current item.
@@ -6033,20 +6312,27 @@ isnan({expr})						*isnan()*
 		Return type: |Number|
 
 
-items({dict})						*items()*
-		Return a |List| with all the key-value pairs of {dict}.  Each
-		|List| item is a list with two items: the key of a {dict}
-		entry and the value of this entry.  The |List| is in arbitrary
-		order.  Also see |keys()| and |values()|.
-		Example: >
-			for [key, value] in items(mydict)
-			   echo key .. ': ' .. value
-			endfor
-<
-		A List or a String argument is also supported.  In these
-		cases, items() returns a List with the index and the value at
-		the index.
+items({expr})						*items()*
+		Return a |List| with all key/index and value pairs of {expr}.
+		Each |List| item is a list with two items:
+		- for a |Dict|: the key and the value
+		- for a |List|, |Tuple|, |Blob| or |String|: the index and the
+		  value
+		The returned |List| is in arbitrary order for a |Dict|,
+		otherwise it's in ascending order of the index.
 
+		Also see |keys()| and |values()|.
+
+		Examples: >
+			let mydict = #{a: 'red', b: 'blue'}
+			for [key, value] in items(mydict)
+			   echo $"{key} = {value}"
+			endfor
+			echo items([1, 2, 3])
+			echo items(('a', 'b', 'c'))
+			echo items("foobar")
+			echo items(0z0102)
+<
 		Can also be used as a |method|: >
 			mydict->items()
 <
@@ -6056,16 +6342,17 @@ items({dict})						*items()*
 job_ functions are documented here: |job-functions-details|
 
 
-join({list} [, {sep}])					*join()*
-		Join the items in {list} together into one String.
+join({expr} [, {sep}])					*join()*
+		Join the items in {expr} together into one String.  {expr} can
+		be a |List| or a |Tuple|.
 		When {sep} is specified it is put in between the items.  If
 		{sep} is omitted a single space is used.
 		Note that {sep} is not added at the end.  You might want to
 		add it there too: >
 			let lines = join(mylist, "\n") .. "\n"
-<		String items are used as-is.  |Lists| and |Dictionaries| are
-		converted into a string like with |string()|.
-		The opposite function is |split()|.
+<		String items are used as-is.  |Lists|, |Tuples| and
+		|Dictionaries| are converted into a string like with
+		|string()|.  The opposite function is |split()|.
 
 		Can also be used as a |method|: >
 			mylist->join()
@@ -6159,6 +6446,8 @@ json_encode({expr})					*json_encode()*
 		   |Funcref|		not possible, error
 		   |List|		as an array (possibly null); when
 					used recursively: []
+		   |Tuple|		as an array (possibly null); when
+					used recursively: []
 		   |Dict|		as an object (possibly null); when
 					used recursively: {}
 		   |Blob|		as an array of the individual bytes
@@ -6206,6 +6495,8 @@ len({expr})						*len()* *E701*
 		When {expr} is a String or a Number the length in bytes is
 		used, as with |strlen()|.
 		When {expr} is a |List| the number of items in the |List| is
+		returned.
+		When {expr} is a |Tuple| the number of items in the |Tuple| is
 		returned.
 		When {expr} is a |Blob| the number of bytes is returned.
 		When {expr} is a |Dictionary| the number of entries in the
@@ -6274,7 +6565,7 @@ libcall({libname}, {funcname}, {argument})
 libcallnr({libname}, {funcname}, {argument})
 		Just like |libcall()|, but used for a function that returns an
 		int instead of a string.
-		{only in Win32 on some Unix versions, when the |+libcall|
+		{only in Win32 and some Unix versions, when the |+libcall|
 		feature is present}
 		Examples: >
 			:echo libcallnr("/usr/lib/libc.so", "getpid", "")
@@ -6386,6 +6677,25 @@ list2str({list} [, {utf8}])				*list2str()*
 			GetList()->list2str()
 <
 		Return type: |String|
+
+
+list2tuple({list})					*list2tuple()*
+		Create a Tuple from a shallow copy of the list items.
+		Examples: >
+			list2tuple([1, 2, 3])		returns (1, 2, 3)
+<		|tuple2list()| does the opposite.
+
+		This function doesn't recursively convert all the List items
+		in {list} to a Tuple.  Note that the items are identical
+		between the list and the tuple, changing an item changes the
+		contents of both the tuple and the list.
+
+		Returns an empty tuple on error.
+
+		Can also be used as a |method|: >
+			GetList()->list2tuple()
+<
+		Return type: tuple<{type}> (depending on the given |List|)
 
 
 listener_add({callback} [, {buf}])			*listener_add()*
@@ -7049,14 +7359,16 @@ matchbufline({buf}, {pat}, {lnum}, {end}, [, {dict}])
 		    [{'lnum': 3, 'byteidx': 0, 'text': 'a'}]
 		    " Assuming line 4 in buffer 10 contains "tik tok"
 		    :echo matchbufline(10, '\<\k\+\>', 1, 4)
-		    [{'lnum': 4, 'byteidx': 0, 'text': 'tik'}, {'lnum': 4, 'byteidx': 4, 'text': 'tok'}]
+		    [{'lnum': 4, 'byteidx': 0, 'text': 'tik'},
+		     {'lnum': 4, 'byteidx': 4, 'text': 'tok'}]
 <
 		If {submatch} is present and is v:true, then submatches like
 		"\1", "\2", etc. are also returned.  Example: >
 		    " Assuming line 2 in buffer 2 contains "acd"
 		    :echo matchbufline(2, '\(a\)\?\(b\)\?\(c\)\?\(.*\)', 2, 2
 						\ {'submatches': v:true})
-		    [{'lnum': 2, 'byteidx': 0, 'text': 'acd', 'submatches': ['a', '', 'c', 'd', '', '', '', '', '']}]
+		    [{'lnum': 2, 'byteidx': 0, 'text': 'acd', 'submatches':
+		    ['a', '', 'c', 'd', '', '', '', '', '']}]
 <		The "submatches" List always contains 9 items.  If a submatch
 		is not found, then an empty string is returned for that
 		submatch.
@@ -7067,7 +7379,7 @@ matchbufline({buf}, {pat}, {lnum}, {end}, [, {dict}])
 		Return type: list<dict<any>> or list<any>
 
 
-matchdelete({id} [, {win})		       *matchdelete()* *E802* *E803*
+matchdelete({id} [, {win})			*matchdelete()* *E802* *E803*
 		Deletes a match with ID {id} previously defined by |matchadd()|
 		or one of the |:match| commands.  Returns 0 if successful,
 		otherwise -1.  See example for |matchadd()|.  All matches can
@@ -7190,7 +7502,8 @@ matchfuzzypos({list}, {str} [, {dict}])			*matchfuzzypos()*
 <		results in [['testing'], [[0, 2, 6]], [99]] >
 			:echo matchfuzzypos(['clay', 'lacy'], 'la')
 <		results in [['lacy', 'clay'], [[0, 1], [1, 2]], [153, 133]] >
-			:echo [{'text': 'hello', 'id' : 10}]->matchfuzzypos('ll', {'key' : 'text'})
+			:echo [{'text': 'hello', 'id' : 10}]
+			  \ ->matchfuzzypos('ll', {'key' : 'text'})
 <		results in [[{'id': 10, 'text': 'hello'}], [[2, 3]], [127]]
 
 		Return type: list<list<any>>
@@ -7234,15 +7547,18 @@ matchstrlist({list}, {pat} [, {dict}])
 
 		Example: >
 		    :echo matchstrlist(['tik tok'], '\<\k\+\>')
-		    [{'idx': 0, 'byteidx': 0, 'text': 'tik'}, {'idx': 0, 'byteidx': 4, 'text': 'tok'}]
+		    [{'idx': 0, 'byteidx': 0, 'text': 'tik'},
+		     {'idx': 0, 'byteidx': 4, 'text': 'tok'}]
 		    :echo matchstrlist(['a', 'b'], '\<\k\+\>')
-		    [{'idx': 0, 'byteidx': 0, 'text': 'a'}, {'idx': 1, 'byteidx': 0, 'text': 'b'}]
+		    [{'idx': 0, 'byteidx': 0, 'text': 'a'},
+		     {'idx': 1, 'byteidx': 0, 'text': 'b'}]
 <
 		If "submatches" is present and is v:true, then submatches like
 		"\1", "\2", etc. are also returned.  Example: >
 		    :echo matchstrlist(['acd'], '\(a\)\?\(b\)\?\(c\)\?\(.*\)',
 						\ #{submatches: v:true})
-		    [{'idx': 0, 'byteidx': 0, 'text': 'acd', 'submatches': ['a', '', 'c', 'd', '', '', '', '', '']}]
+		    [{'idx': 0, 'byteidx': 0, 'text': 'acd',
+		      'submatches': ['a', '', 'c', 'd', '', '', '', '', '']}]
 <		The "submatches" List always contains 9 items.  If a submatch
 		is not found, then an empty string is returned for that
 		submatch.
@@ -7300,16 +7616,17 @@ max({expr})							*max()*
 		Return the maximum value of all items in {expr}. Example: >
 			echo max([apples, pears, oranges])
 
-<		{expr} can be a |List| or a |Dictionary|.  For a Dictionary,
-		it returns the maximum of all values in the Dictionary.
-		If {expr} is neither a List nor a Dictionary, or one of the
-		items in {expr} cannot be used as a Number this results in
-		an error.  An empty |List| or |Dictionary| results in zero.
+<		{expr} can be a |List|, a |Tuple| or a |Dictionary|.  For a
+		Dictionary, it returns the maximum of all values in the
+		Dictionary.  If {expr} is neither a List nor a Tuple nor a
+		Dictionary, or one of the items in {expr} cannot be used as a
+		Number this results in an error.  An empty |List|, |Tuple|
+		or |Dictionary| results in zero.
 
 		Can also be used as a |method|: >
 			mylist->max()
 <
-		Return type: |Number|
+		Return type: any, depending on {expr}
 
 
 menu_info({name} [, {mode}])				*menu_info()*
@@ -7391,16 +7708,17 @@ min({expr})							*min()*
 		Return the minimum value of all items in {expr}. Example:  >
 			echo min([apples, pears, oranges])
 
-<		{expr} can be a |List| or a |Dictionary|.  For a Dictionary,
-		it returns the minimum of all values in the Dictionary.
-		If {expr} is neither a List nor a Dictionary, or one of the
-		items in {expr} cannot be used as a Number this results in
-		an error.  An empty |List| or |Dictionary| results in zero.
+<		{expr} can be a |List|, a |Tuple| or a |Dictionary|.  For a
+		Dictionary, it returns the minimum of all values in the
+		Dictionary.  If {expr} is neither a List nor a Tuple nor a
+		Dictionary, or one of the items in {expr} cannot be used as a
+		Number this results in an error.  An empty |List|, |Tuple| or
+		|Dictionary| results in zero.
 
 		Can also be used as a |method|: >
 			mylist->min()
 <
-		Return type: |Number|
+		Return type: any, depending on {expr}
 
 
 mkdir({name} [, {flags} [, {prot}]])			*mkdir()* *E739*
@@ -7430,9 +7748,8 @@ mkdir({name} [, {flags} [, {prot}]])			*mkdir()* *E739*
 		If {prot} is given it is used to set the protection bits of
 		the new directory.  The default is 0o755 (rwxr-xr-x: r/w for
 		the user, readable for others).  Use 0o700 to make it
-		unreadable for others.  This is only used for the last part of
-		{name}.  Thus if you create /tmp/foo/bar then /tmp/foo will be
-		created with 0o755.
+		unreadable for others.  This is used for the newly created
+		directories.  Note: umask is applied to {prot} (on Unix).
 		Example: >
 			:call mkdir($HOME .. "/tmp/foo/bar", "p", 0o700)
 
@@ -7555,6 +7872,20 @@ nextnonblank({lnum})					*nextnonblank()*
 			GetLnum()->nextnonblank()
 <
 		Return type: |Number|
+
+
+ngettext({single}, {plural}, {number}[, {domain})	*ngettext()*
+		Return a string that contains the correct value for a
+		message based on the rules for plural form(s) in
+		a language. Examples: >
+			ngettext("File", "Files", 2)  # returns "Files"
+<
+		Can be used as a |method|: >
+			1->ngettext("File", "Files")  # returns "File"
+<
+		See |gettext()| for information on the domain parameter.
+
+		Return type: |String|
 
 
 nr2char({expr} [, {utf8}])				*nr2char()*
@@ -7940,7 +8271,8 @@ printf({fmt}, {expr1} ...)				*printf()*
 <		      1.41
 
 		You will get an overflow error |E1510|, when the field-width
-		or precision will result in a string longer than 6400 chars.
+		or precision will result in a string longer than 1 MiB
+		(1024*1024 = 1048576) chars.
 
 							*E1500*
 		You cannot mix positional and non-positional arguments: >
@@ -8113,13 +8445,19 @@ pumvisible()						*pumvisible()*
 		Return type: |Number|
 
 
-py3eval({expr})						*py3eval()*
+py3eval({expr} [, {locals}])				*py3eval()*
 		Evaluate Python expression {expr} and return its result
 		converted to Vim data structures.
+		If a {locals} |Dictionary| is given, it defines set of local
+		variables available in the expression. The keys are variable
+		names and the values are the variable values. |Dictionary|,
+		|List| and |Tuple| values are referenced, and may be updated
+		by the expression (as if |python-bindeval| was used).
 		Numbers and strings are returned as they are (strings are
 		copied though, Unicode strings are additionally converted to
 		'encoding').
 		Lists are represented as Vim |List| type.
+		Tuples are represented as Vim |Tuple| type.
 		Dictionaries are represented as Vim |Dictionary| type with
 		keys converted to strings.
 		Note that in a `:def` function local variables are not visible
@@ -8127,18 +8465,21 @@ py3eval({expr})						*py3eval()*
 
 		Can also be used as a |method|: >
 			GetExpr()->py3eval()
+			'b",".join(l)'->py3eval({'l': ['a', 'b', 'c']})
 <
 		Return type: any, depending on {expr}
 
 		{only available when compiled with the |+python3| feature}
 
 							*E858* *E859*
-pyeval({expr})						*pyeval()*
+pyeval({expr} [, {locals}])				*pyeval()*
 		Evaluate Python expression {expr} and return its result
 		converted to Vim data structures.
+		For {locals} see |py3eval()|.
 		Numbers and strings are returned as they are (strings are
 		copied though).
 		Lists are represented as Vim |List| type.
+		Tuples are represented as Vim |Tuple| type.
 		Dictionaries are represented as Vim |Dictionary| type,
 		non-string keys result in error.
 		Note that in a `:def` function local variables are not visible
@@ -8151,9 +8492,10 @@ pyeval({expr})						*pyeval()*
 
 		{only available when compiled with the |+python| feature}
 
-pyxeval({expr})						*pyxeval()*
+pyxeval({expr} [, {locals}])				*pyxeval()*
 		Evaluate Python expression {expr} and return its result
 		converted to Vim data structures.
+		For {locals} see |py3eval()|.
 		Uses Python 2 or 3, see |python_x| and 'pyxversion'.
 		See also: |pyeval()|, |py3eval()|
 
@@ -8397,8 +8739,8 @@ readfile({fname} [, {type} [, {max}]])
 
 reduce({object}, {func} [, {initial}])			*reduce()* *E998*
 		{func} is called for every item in {object}, which can be a
-		|String|, |List| or a |Blob|.  {func} is called with two
-		arguments: the result so far and current item.  After
+		|String|, |List|, |Tuple| or a |Blob|.  {func} is called with
+		two arguments: the result so far and current item.  After
 		processing all items the result is returned. *E1132*
 
 		{initial} is the initial result.  When omitted, the first item
@@ -8516,10 +8858,10 @@ remote_expr({server}, {string} [, {idvar} [, {timeout}]])
 		string, also see |{server}|.
 
 		The string is sent as an expression and the result is returned
-		after evaluation.  The result must be a String or a |List|.  A
-		|List| is turned into a String by joining the items with a
-		line break in between (not at the end), like with join(expr,
-		"\n").
+		after evaluation.  The result must be a String or a |List|
+		other types will be converted to String.  A |List| is turned
+		into a String by joining the items with a line break in
+		between (not at the end), like with join(expr, "\n").
 
 		If {idvar} is present and not empty, it is taken as the name
 		of a variable and a {serverid} for later use with
@@ -8626,8 +8968,8 @@ remote_send({server}, {string} [, {idvar}])		*remote_send()* *E241*
 		Note: Any errors will be reported in the server and may mess
 		up the display.
 		Examples: >
-		:echo remote_send("gvim", ":DropAndReply " .. file, "serverid") ..
-		 \ remote_read(serverid)
+		:echo remote_send("gvim", ":DropAndReply " .. file,
+		 \ "serverid") .. remote_read(serverid)
 
 		:autocmd NONE RemoteReply *
 		 \ echo remote_read(expand("<amatch>"))
@@ -8719,16 +9061,16 @@ repeat({expr}, {count})					*repeat()*
 		result.  Example: >
 			:let separator = repeat('-', 80)
 <		When {count} is zero or negative the result is empty.
-		When {expr} is a |List| or a |Blob| the result is {expr}
-		concatenated {count} times.  Example: >
+		When {expr} is a |List|, a |Tuple| or a |Blob| the result is
+		{expr} concatenated {count} times.  Example: >
 			:let longlist = repeat(['a', 'b'], 3)
 <		Results in ['a', 'b', 'a', 'b', 'a', 'b'].
 
 		Can also be used as a |method|: >
 			mylist->repeat(count)
 <
-		Return type: |String|, |Blob| or list<{type}> depending on
-		{expr}
+		Return type: |String|, |Blob|, list<{type}> or tuple<{type}>
+		depending on {expr}
 
 
 resolve({filename})					*resolve()* *E655*
@@ -8755,18 +9097,19 @@ resolve({filename})					*resolve()* *E655*
 
 reverse({object})					*reverse()*
 		Reverse the order of items in {object}.  {object} can be a
-		|List|, a |Blob| or a |String|.  For a List and a Blob the
-		items are reversed in-place and {object} is returned.
+		|List|, a |Tuple|, a |Blob| or a |String|.  For a List and a
+		Blob the items are reversed in-place and {object} is returned.
+		For a Tuple, a new Tuple is returned.
 		For a String a new String is returned.
-		Returns zero if {object} is not a List, Blob or a String.
-		If you want a List or Blob to remain unmodified make a copy
-		first: >
+		Returns zero if {object} is not a List, Tuple, Blob or a
+		String.  If you want a List or Blob to remain unmodified make
+		a copy first: >
 			:let revlist = reverse(copy(mylist))
 <		Can also be used as a |method|: >
 			mylist->reverse()
 <
-		Return type: |String|, |Blob| or list<{type}> depending on
-		{object}
+		Return type: |String|, |Blob|, list<{type}> or tuple<{type}>
+		depending on {object}
 
 
 round({expr})							*round()*
@@ -8939,7 +9282,7 @@ search({pattern} [, {flags} [, {stopline} [, {timeout} [, {skip}]]]])
 		's'	Set the ' mark at the previous location of the cursor
 		'w'	Wrap around the end of the file
 		'W'	don't Wrap around the end of the file
-		'z'	start searching at the cursor column instead of zero
+		'z'	start searching at the cursor column instead of Zero
 		If neither 'w' or 'W' is given, the 'wrapscan' option applies.
 
 		If the 's' flag is supplied, the ' mark is set, only if the
@@ -9056,11 +9399,12 @@ searchcount([{options}])					*searchcount()*
 
 		To get the last search count when |n| or |N| was pressed, call
 		this function with `recompute: 0` . This sometimes returns
-		wrong information because |n| and |N|'s maximum count is 99.
-		If it exceeded 99 the result must be max count + 1 (100). If
-		you want to get correct information, specify `recompute: 1`: >
+		wrong information because of 'maxsearchcount'.
+		If the count exceeded 'maxsearchcount', the result must be
+		'maxsearchcount' + 1. If you want to get correct information,
+		specify `recompute: 1`: >
 
-			" result == maxcount + 1 (100) when many matches
+			" result == 'maxsearchcount' + 1 when many matches
 			let result = searchcount(#{recompute: 0})
 
 			" Below returns correct result (recompute defaults
@@ -9147,7 +9491,7 @@ searchcount([{options}])					*searchcount()*
 						result.  if search exceeded
 						total count, "total" value
 						becomes `maxcount + 1`
-						(default: 99)
+						(default: 'maxsearchcount')
 		  pos		|List|		`[lnum, col, off]` value
 						when recomputing the result.
 						this changes "current" result
@@ -9525,6 +9869,7 @@ setcursorcharpos({list})
 		Can also be used as a |method|: >
 			GetCursorPos()->setcursorcharpos()
 <
+		Returns 0 when the position could be set, -1 otherwise.
 		Return type: |Number|
 
 
@@ -9753,6 +10098,8 @@ setqflist({list} [, {action} [, {what}]])		*setqflist()*
 			clear the list: >
 				:call setqflist([], 'r')
 <
+		'u'	Like 'r', but tries to preserve the current selection
+			in the quickfix list.
 		'f'	All the quickfix lists in the quickfix stack are
 			freed.
 
@@ -10117,7 +10464,7 @@ slice({expr}, {start} [, {end}])			*slice()*
 		Can also be used as a |method|: >
 			GetList()->slice(offset)
 <
-		Return type: list<{type}>
+		Return type: list<{type}> or tuple<{type}>
 
 
 sort({list} [, {how} [, {dict}]])			*sort()* *E702*
@@ -10455,6 +10802,44 @@ state([{what}])						*state()*
 		Return type: |String|
 
 
+str2blob({list} [, {options}])					*str2blob()*
+		Return a Blob by converting the characters in the List of
+		strings in {list} into bytes.
+
+		A <NL> byte is added to the blob after each list item.  A
+		newline character in the string is translated into a <NUL>
+		byte in the blob.
+
+		If {options} is not supplied, the current 'encoding' value is
+		used to convert the characters into bytes.
+
+		The argument {options} is a |Dict| and supports the following
+		items:
+		    encoding	Convert the characters using this encoding
+				before making the Blob.
+				The value is a |String|.  See |encoding-names|
+				for the supported values.
+
+		An error is given and an empty blob is returned if the
+		character encoding fails.
+
+		Returns an empty Blob if {list} is empty.
+
+		See also |blob2str()|
+
+		Examples: >
+		    str2blob(["ab"])		returns 0z6162
+		    str2blob(["«»"])		returns 0zC2ABC2BB
+		    str2blob(["a\nb"])		returns 0z610062
+		    str2blob(["a","b"])		returns 0z610A62
+		    str2blob(["«»"], {'encoding': 'latin1'}) returns 0zABBB
+		    str2blob(readfile('myfile.txt'))
+<
+		Can also be used as a |method|: >
+			GetListOfStrings()->str2blob()
+<
+		Return type: |Blob|
+
 str2float({string} [, {quoted}])				*str2float()*
 		Convert String {string} to a Float.  This mostly works the
 		same as when using a floating point number in an expression,
@@ -10691,15 +11076,16 @@ string({expr})							*string()*
 			Funcref		function('name')
 			Blob		0z00112233.44556677.8899
 			List		[item, item]
+			Tuple		(item, item)
 			Dictionary	{key: value, key: value}
 			Class		class SomeName
 			Object		object of SomeName {lnum: 1, col: 3}
 			Enum		enum EnumName
 			EnumValue	enum name.value {name: str, ordinal: nr}
 
-		When a |List| or |Dictionary| has a recursive reference it is
-		replaced by "[...]" or "{...}".  Using eval() on the result
-		will then fail.
+		When a |List|, |Tuple| or |Dictionary| has a recursive
+		reference it is replaced by "[...]" or "(...)" or "{...}".
+		Using eval() on the result will then fail.
 
 		For an object, invokes the string() method to get a textual
 		representation of the object.  If the method is not present,
@@ -10818,7 +11204,7 @@ strridx({haystack}, {needle} [, {start}])			*strridx()*
 
 strtrans({string})					*strtrans()*
 		The result is a String, which is {string} with all unprintable
-		characters translated into printable characters |'isprint'|.
+		characters translated into printable characters 'isprint'.
 		Like they are shown in a window.  Example: >
 			echo strtrans(@a)
 <		This displays a newline in register a as "^@" instead of
@@ -11336,7 +11722,7 @@ taglist({expr} [, {filename}])				*taglist()*
 		Refer to |tag-regexp| for more information about the tag
 		search regular expression pattern.
 
-		Refer to |'tags'| for information about how the tags file is
+		Refer to 'tags' for information about how the tags file is
 		located by Vim. Refer to |tags-file-format| for the format of
 		the tags file generated by the different ctags tools.
 
@@ -11653,6 +12039,25 @@ trunc({expr})							*trunc()*
 		Return type: |Float|
 
 
+tuple2list({tuple})					*tuple2list()*
+		Create a List from a shallow copy of the tuple items.
+		Examples: >
+			tuple2list((1, 2, 3))		returns [1, 2, 3]
+<		|list2tuple()| does the opposite.
+
+		This function doesn't recursively convert all the Tuple items
+		in {tuple} to a List.  Note that the items are identical
+		between the list and the tuple, changing an item changes the
+		contents of both the tuple and the list.
+
+		Returns an empty list on error.
+
+		Can also be used as a |method|: >
+			GetTuple()->tuple2list()
+<
+		Return type: list<{type}> (depending on the given |Tuple|)
+
+
 							*type()*
 type({expr})	The result is a Number representing the type of {expr}.
 		Instead of using the number directly, it is better to use the
@@ -11673,6 +12078,7 @@ type({expr})	The result is a Number representing the type of {expr}.
 			Typealias: 14  |v:t_typealias|
 			Enum:	   15  |v:t_enum|
 			EnumValue: 16  |v:t_enumvalue|
+			Tuple:	   17  |v:t_tuple|
 		For backward compatibility, this method can be used: >
 			:if type(myvar) == type(0)
 			:if type(myvar) == type("")
@@ -11773,6 +12179,7 @@ uniq({list} [, {func} [, {dict}]])			*uniq()* *E882*
 			:let newlist = uniq(copy(mylist))
 <		The default compare function uses the string representation of
 		each item.  For the use of {func} and {dict} see |sort()|.
+		For deduplicating text in the current buffer see |:uniq|.
 
 		Returns zero if {list} is not a |List|.
 
@@ -11781,6 +12188,59 @@ uniq({list} [, {func} [, {dict}]])			*uniq()* *E882*
 <
 		Return type: list<{type}>
 
+
+uri_decode({string})					*uri_decode()*
+		Returns the URI-decoded form of {string}, reversing
+		percent-encoding (converting sequences like "%3D" back to
+		the corresponding character).
+
+		The decoding follows standard percent-decoding rules:
+		    - "%HH" is replaced with the character for the hex value
+		      HH.
+		    - If the decoded bytes form valid UTF-8, they are combined
+		      into the corresponding character(s).  Otherwise, the
+		      bytes are kept as-is.
+		    - Invalid or incomplete encodings (e.g. "%GZ", "%3", or a
+		      trailing "%") are left unchanged.
+
+		Returns an empty String if {string} is empty.
+
+		Example: >
+			:echo uri_decode('c%3A%5Cmy%5Cdir%5Cfoo%20bar')
+			c:\my\dir\foo bar
+			:echo uri_decode('%CE%B1%CE%B2%CE%B3')
+			αβγ
+<
+		Can also be used as a |method|: >
+			mystr->uri_decode()
+<
+		Return type: |String|
+
+uri_encode({string})					*uri_encode()*
+		Returns the URI-encoded form of {string}.  URI encoding
+		replaces unsafe or reserved characters with percent-encoded
+		sequences.
+
+		The encoding follows standard percent-encoding rules:
+                    - Alphanumeric characters [0-9A-Za-z] remain unchanged.
+                    - The characters "-", "_", ".", and "~" also remain
+                      unchanged.
+                    - All other characters are replaced with "%HH", where HH
+                      is the two-digit uppercase hexadecimal value.
+                    - Existing percent-encoded sequences are not modified.
+
+		Returns an empty String if {string} is empty.
+
+		Example: >
+			:echo uri_encode('c:\my\dir\foo bar')
+			c%3A%5Cmy%5Cdir%5Cfoo%20bar
+			:echo uri_encode('key=value&name=αβγ')
+			key%3Dvalue%26name%3D%CE%B1%CE%B2%CE%B3
+<
+		Can also be used as a |method|: >
+			mystr->uri_encode()
+<
+		Return type: |String|
 
 							*utf16idx()*
 utf16idx({string}, {idx} [, {countcc} [, {charidx}]])
@@ -11847,7 +12307,7 @@ virtcol({expr} [, {list} [, {winid}]])			*virtcol()*
 		last character.  When "off" is omitted zero is used.  When
 		Virtual editing is active in the current mode, a position
 		beyond the end of the line can be returned.  Also see
-		|'virtualedit'|
+		'virtualedit'
 
 		If {list} is present and non-zero then virtcol() returns a
 		List with the first and last screen position occupied by the
@@ -11939,7 +12399,31 @@ wildmenumode()					*wildmenumode()*
 		For example to make <c-j> work like <down> in wildmode, use: >
     :cnoremap <expr> <C-j> wildmenumode() ? "\<Down>\<Tab>" : "\<c-j>"
 <
-		(Note, this needs the 'wildcharm' option set appropriately).
+		(Note: this needs the 'wildcharm' option set appropriately).
+
+		Return type: |Number|
+
+
+wildtrigger()						*wildtrigger()*
+		Start wildcard expansion in the command-line, using the
+		behavior defined by the 'wildmode' and 'wildoptions' settings.
+
+		This function also enables completion in search patterns such
+		as |/|, |?|, |:s|, |:g|, |:v| and |:vimgrep|.
+
+		Unlike pressing 'wildchar' manually, this function does not
+		produce a beep when no matches are found and generally
+		operates more quietly.  This makes it suitable for triggering
+		completion automatically.
+
+		Note: After navigating command-line history, the first call to
+		wildtrigger() is a no-op; a second call is needed to start
+		expansion.  This is to support history navigation in
+		command-line autocompletion.
+
+		See |cmdline-autocompletion|.
+
+		Return value is always 0.
 
 		Return type: |Number|
 
@@ -12486,12 +12970,12 @@ clipboard_working	Compiled with 'clipboard' support and it can be used.
 cmdline_compl		Compiled with |cmdline-completion| support.
 cmdline_hist		Compiled with |cmdline-history| support.
 cmdline_info		Compiled with 'showcmd' and 'ruler' support.
-comments		Compiled with |'comments'| support.
+comments		Compiled with 'comments' support.
 compatible		Compiled to be very Vi compatible.
 conpty			Platform where |ConPTY| can be used.
 cryptv			Compiled with encryption support |encryption|.
 cscope			Compiled with |cscope| support.
-cursorbind		Compiled with |'cursorbind'| (always true)
+cursorbind		Compiled with 'cursorbind' (always true)
 debug			Compiled with "DEBUG" defined.
 dialog_con		Compiled with console dialog support.
 dialog_con_gui		Compiled with console and GUI dialog support.
@@ -12506,8 +12990,7 @@ emacs_tags		Compiled with support for Emacs tags.
 eval			Compiled with expression evaluation support.  Always
 			true, of course!
 ex_extra		|+ex_extra| (always true)
-extra_search		Compiled with support for |'incsearch'| and
-			|'hlsearch'|
+extra_search		Compiled with support for 'incsearch' and 'hlsearch'
 farsi			Support for Farsi was removed |farsi|.
 file_in_path		Compiled with support for |gf| and |<cfile>| (always
 			true)
@@ -12538,6 +13021,7 @@ gui_win32s		idem, and Win32s system being used (Windows 3.1)
 haiku			Haiku version of Vim.
 hangul_input		Compiled with Hangul input support. |hangul|
 hpux			HP-UX version of Vim.
+hurd			GNU/Hurd version of Vim
 iconv			Can use iconv() for conversion.
 insert_expand		Compiled with support for CTRL-X expansion commands in
 			Insert mode. (always true)
@@ -12600,7 +13084,8 @@ python_dynamic		Python 2.x interface is dynamically loaded. |has-python|
 python3			Python 3.x interface available. |has-python|
 python3_compiled	Compiled with Python 3.x interface. |has-python|
 python3_dynamic		Python 3.x interface is dynamically loaded. |has-python|
-python3_stable		Python 3.x interface is using Python Stable ABI. |has-python|
+python3_stable		Python 3.x interface is using Python Stable ABI.
+			|has-python|
 pythonx			Python 2.x and/or 3.x interface available. |python_x|
 qnx			QNX version of Vim.
 quickfix		Compiled with |quickfix| support.
@@ -12611,6 +13096,7 @@ scrollbind		Compiled with 'scrollbind' support. (always true)
 showcmd			Compiled with 'showcmd' support.
 signs			Compiled with |:sign| support.
 smartindent		Compiled with 'smartindent' support. (always true)
+socketserver		Compiled with socket server functionality. (Unix only)
 sodium			Compiled with libsodium for better crypt support
 sound			Compiled with sound support, e.g. `sound_playevent()`
 spell			Compiled with spell checking support |spell|.
@@ -12637,7 +13123,7 @@ textprop		Compiled with support for |text-properties|.
 tgetent			Compiled with tgetent support, able to use a termcap
 			or terminfo file.
 timers			Compiled with |timer_start()| support.
-title			Compiled with window title support |'title'|.
+title			Compiled with window title support 'title'.
 			(always true)
 toolbar			Compiled with support for |gui-toolbar|.
 ttyin			input is a terminal (tty)
@@ -12645,7 +13131,7 @@ ttyout			output is a terminal (tty)
 unix			Unix version of Vim. *+unix*
 unnamedplus		Compiled with support for "unnamedplus" in 'clipboard'
 user_commands		User-defined commands. (always true)
-vartabs			Compiled with variable tabstop support |'vartabstop'|.
+vartabs			Compiled with variable tabstop support 'vartabstop'.
 vcon			Win32: Virtual console support is working, can use
 			'termguicolors'. Also see |+vtp|.
 vertsplit		Compiled with vertically split windows |:vsplit|.
@@ -12666,6 +13152,8 @@ vms			VMS version of Vim.
 vreplace		Compiled with |gR| and |gr| commands. (always true)
 vtp			Compiled for vcon support |+vtp| (check vcon to find
 			out if it works in the current console).
+wayland			Compiled with Wayland protocol support.
+wayland_clipboard	Compiled with support for Wayland selections/clipboard
 wildignore		Compiled with 'wildignore' option.
 wildmenu		Compiled with 'wildmenu' option.
 win16			old version for MS-Windows 3.1 (always false)

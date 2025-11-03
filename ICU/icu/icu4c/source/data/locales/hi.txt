@@ -258,6 +258,14 @@ hi{
     }
     calendar{
         bangla{
+            eras{
+                abbreviated{
+                    "बंग",
+                }
+                wide{
+                    "बंगाब्द",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -944,12 +952,20 @@ hi{
                     "MMM, d",
                     "d=tithihia",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "वि सं",
+                }
+                wide{
+                    "विक्रम संवत्",
+                }
             }
             monthNames{
                 format{
@@ -1429,12 +1445,20 @@ hi{
                     "MMM, d",
                     "d=tithihia",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "शके",
+                }
+                wide{
+                    "शालिवाहन शके",
+                }
             }
             monthNames{
                 format{
@@ -1544,6 +1568,16 @@ hi{
                 }
             }
         }
+        malayalam{
+            eras{
+                abbreviated{
+                    "को. व.",
+                }
+                wide{
+                    "कोल्लवर्षम",
+                }
+            }
+        }
         marathi{
             DateTimePatterns{
                 "a h:mm:ss zzzz",
@@ -1562,12 +1596,110 @@ hi{
                     "MMM, d",
                     "d=tithihia",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "शक",
+                }
+                wide{
+                    "शक संवत्",
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "चैत्र",
+                        "वैशाख",
+                        "ज्येष्ठ",
+                        "आषाढ़",
+                        "श्रावण",
+                        "भाद्र॰",
+                        "आश्विन",
+                        "कार्तिक",
+                        "मार्ग॰",
+                        "पौष",
+                        "माघ",
+                        "फाल्गुन",
+                    }
+                    narrow{
+                        "चै",
+                        "वै",
+                        "ज्ये",
+                        "आ",
+                        "श्रा",
+                        "भा",
+                        "आ",
+                        "का",
+                        "मार्ग",
+                        "पौ",
+                        "मा",
+                        "फा",
+                    }
+                    wide{
+                        "चैत्र",
+                        "वैशाख",
+                        "ज्येष्ठ",
+                        "आषाढ़",
+                        "श्रावण",
+                        "भाद्रपद",
+                        "आश्विन",
+                        "कार्तिक",
+                        "मार्गशीर्ष",
+                        "पौष",
+                        "माघ",
+                        "फाल्गुन",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "चैत्र",
+                        "वैशाख",
+                        "ज्येष्ठ",
+                        "आषाढ़",
+                        "श्रावण",
+                        "भाद्र॰",
+                        "आश्विन",
+                        "कार्तिक",
+                        "मार्ग॰",
+                        "पौष",
+                        "माघ",
+                        "फाल्गुन",
+                    }
+                    narrow{
+                        "चै",
+                        "वै",
+                        "ज्ये",
+                        "आ",
+                        "श्रा",
+                        "भा",
+                        "आ",
+                        "का",
+                        "मार्ग",
+                        "पौ",
+                        "मा",
+                        "फा",
+                    }
+                    wide{
+                        "चैत्र",
+                        "वैशाख",
+                        "ज्येष्ठ",
+                        "आषाढ़",
+                        "श्रावण",
+                        "भाद्रपद",
+                        "आश्विन",
+                        "कार्तिक",
+                        "मार्गशीर्ष",
+                        "पौष",
+                        "माघ",
+                        "फाल्गुन",
+                    }
+                }
             }
             monthPatterns{
                 format{
@@ -1700,6 +1832,14 @@ hi{
             }
         }
         tamil{
+            eras{
+                abbreviated{
+                    "श. व.",
+                }
+                wide{
+                    "शक वरुडम्",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -1809,12 +1949,20 @@ hi{
                     "MMM, d",
                     "d=tithihia",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            eras{
+                abbreviated{
+                    "शकम्",
+                }
+                wide{
+                    "शालिवाहन शकम्",
+                }
             }
             monthNames{
                 format{
@@ -1931,32 +2079,31 @@ hi{
                 "a h:mm:ss",
                 "a h:mm",
                 {
-                    "EEEE, d MMMM y",
+                    "EEEE, G y, MMMM d",
                     "d=tithihip",
                 }
                 {
-                    "MMMM, d",
+                    "MMMM d",
                     "d=tithihip",
                 }
                 {
-                    "MMM, d",
+                    "MMM d",
                     "d=tithihip",
                 }
-                "M/d/yy",
+                "MMM d",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
             }
-            availableFormats{
-                GyMMMEd{"E, MMM d G"}
-                GyMMMd{"MMM d G"}
-                MEd{"E, M/d"}
-                MMMEEEd{"EEE, MMM d"}
-                MMMEd{"E, MMM d"}
-                MMMMEEEEd{"EEEE, MMMM d"}
-                Md{"M/d"}
+            eras{
+                abbreviated{
+                    "वि सं",
+                }
+                wide{
+                    "विक्रम संवत्",
+                }
             }
             monthNames{
                 format{

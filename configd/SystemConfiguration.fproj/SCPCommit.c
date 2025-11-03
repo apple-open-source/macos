@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2013, 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -130,6 +130,54 @@ writen(int ref, const void *data, size_t len)
 	return len;
 }
 
+static Boolean
+protectionClassFromString(CFStringRef protectionClassString, int * ret_class)
+{
+	char		ch;
+	Boolean		ok = FALSE;
+	int		protectionClass = 0;
+	const char *	str;
+
+	if (isA_CFString(protectionClassString) == NULL
+	    || CFStringGetLength(protectionClassString) != 1) {
+		goto done;
+	}
+	str = CFStringGetCStringPtr(protectionClassString,
+				    kCFStringEncodingASCII);
+	if (str == NULL) {
+		goto done;
+	}
+	ch = str[0];
+	if (ch < 'A' || ch > 'F') {
+		goto done;
+	}
+	ok = TRUE;
+	protectionClass = ch - 'A' + 1;	// PROTECTION_CLASS_[ABCDEF]
+ done:
+	*ret_class = protectionClass;
+	return ok;
+}
+
+
+static Boolean
+getProtectionClass(CFDictionaryRef options, int * ret_class)
+{
+	Boolean		ok = TRUE;
+	CFStringRef	protectionClassString = NULL;
+
+	*ret_class = 0;
+	if (options == NULL) {
+		goto done;
+	}
+	protectionClassString
+		= CFDictionaryGetValue(options,
+				       kSCPreferencesOptionProtectionClass);
+	if (protectionClassString != NULL) {
+		ok = protectionClassFromString(protectionClassString, ret_class);
+	}
+ done:
+	return ok;
+}
 
 Boolean
 SCPreferencesCommitChanges(SCPreferencesRef prefs)
@@ -197,8 +245,9 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		int		fd;
 		CFDataRef	newPrefs;
 		CFIndex		pathLen;
-		CFStringRef	protectionClass;
+		int		protectionClass = 0;
 		char *		thePath;
+
 
 		if (stat(prefsPrivate->path, &statBuf) == -1) {
 			if (errno == ENOENT) {
@@ -217,32 +266,15 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		pathLen = strlen(path) + sizeof("-new");
 		thePath = CFAllocatorAllocate(NULL, pathLen, 0);
 		snprintf(thePath, pathLen, "%s-new", path);
-
-		if ((prefsPrivate->options != NULL) &&
-		    CFDictionaryGetValueIfPresent(prefsPrivate->options,
-						  kSCPreferencesOptionProtectionClass,
-						  (const void **)&protectionClass)) {
-			int		pc;
-			const char	*str;
-
-			if (!isA_CFString(protectionClass) ||
-			    (CFStringGetLength(protectionClass) != 1) ||
-			    ((str = CFStringGetCStringPtr(protectionClass, kCFStringEncodingASCII)) == NULL) ||
-			    (str[0] < 'A') || (str[0] > 'F')
-			    ) {
-				_SCErrorSet(kSCStatusInvalidArgument);
-				goto done;
-			}
-
-			pc = str[0] - 'A' + 1;	// PROTECTION_CLASS_[ABCDEF]
-			fd = open_dprotected_np(thePath, O_WRONLY|O_CREAT, pc, 0, statBuf.st_mode);
-		} else {
-			fd = open(thePath, O_WRONLY|O_CREAT, statBuf.st_mode);
+		if (!getProtectionClass(prefsPrivate->options,
+					&protectionClass)) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			goto done;
 		}
-
+		fd = SC_create_file_safely(thePath,
+					   protectionClass,
+					   statBuf.st_mode);
 		if (fd == -1) {
-			_SCErrorSet(errno);
-			SC_log(LOG_NOTICE, "open() failed: %s", strerror(errno));
 			CFAllocatorDeallocate(NULL, thePath);
 			goto done;
 		}
