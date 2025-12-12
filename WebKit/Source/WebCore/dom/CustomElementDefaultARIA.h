@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "QualifiedName.h"
+#include <WebCore/QualifiedName.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>

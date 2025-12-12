@@ -58,7 +58,8 @@ JITData::JITData(unsigned stubInfoSize, unsigned poolSize, const JITCode& jitCod
         case LinkerIR::Type::ArraySpeciesWatchpointSet:
         case LinkerIR::Type::ArrayPrototypeChainIsSaneWatchpointSet:
         case LinkerIR::Type::StringPrototypeChainIsSaneWatchpointSet:
-        case LinkerIR::Type::ObjectPrototypeChainIsSaneWatchpointSet: {
+        case LinkerIR::Type::ObjectPrototypeChainIsSaneWatchpointSet:
+        case LinkerIR::Type::PromiseSpeciesWatchpointSet: {
             ++numberOfWatchpoints;
             break;
         }
@@ -198,6 +199,11 @@ bool JITData::tryInitialize(VM& vm, CodeBlock* codeBlock, const JITCode& jitCode
         case LinkerIR::Type::ObjectPrototypeChainIsSaneWatchpointSet: {
             auto& watchpoint = m_watchpoints[indexOfWatchpoints++];
             success &= attemptToWatch(codeBlock, m_globalObject->objectPrototypeChainIsSaneWatchpointSet(), watchpoint);
+            break;
+        }
+        case LinkerIR::Type::PromiseSpeciesWatchpointSet: {
+            auto& watchpoint = m_watchpoints[indexOfWatchpoints++];
+            success &= attemptToWatch(codeBlock, m_globalObject->promiseSpeciesWatchpointSet(), watchpoint);
             break;
         }
         }

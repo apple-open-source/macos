@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "CertificateSummary.h"
-#include "NotImplemented.h"
+#include <WebCore/CertificateSummary.h>
+#include <WebCore/NotImplemented.h>
 #include <libsoup/soup.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GRefPtr.h>

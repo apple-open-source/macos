@@ -67,7 +67,7 @@ GPUProcessConnection& RemoteRemoteCommandListener::ensureGPUProcessConnection()
         gpuProcessConnection->messageReceiverMap().addMessageReceiver(Messages::RemoteRemoteCommandListener::messageReceiverName(), identifier().toUInt64(), *this);
         gpuProcessConnection->connection().send(Messages::GPUConnectionToWebProcess::CreateRemoteCommandListener(identifier()), { });
     }
-    return *gpuProcessConnection;
+    return *gpuProcessConnection.unsafeGet();
 }
 
 void RemoteRemoteCommandListener::gpuProcessConnectionDidClose(GPUProcessConnection& gpuProcessConnection)

@@ -79,7 +79,7 @@ std::optional<WebPushMessage> WebPushMessage::fromDictionary(NSDictionary *dicti
     return message;
 }
 
-NSDictionary *WebPushMessage::toDictionary() const
+RetainPtr<NSDictionary> WebPushMessage::toDictionary() const
 {
     RetainPtr<NSData> nsData;
     if (pushData)

@@ -30,6 +30,7 @@
 #import "ModelIdentifier.h"
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
+#import "WebProcess.h"
 #import <WebCore/ModelPlayer.h>
 #import <WebCore/ModelPlayerAnimationState.h>
 #import <WebCore/ModelPlayerClient.h>
@@ -56,11 +57,15 @@ public:
 
     void disableUnloadDelayForTesting();
 
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return WebProcess::singleton().sharedPreferencesForWebProcess(); }
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcessValue() const { return WebProcess::singleton().sharedPreferencesForWebProcessValue(); }
+
 private:
     explicit ModelProcessModelPlayer(WebCore::ModelPlayerIdentifier, WebPage&, WebCore::ModelPlayerClient&);
 
     WebPage* page() { return m_page.get(); }
     WebCore::ModelPlayerClient* client() { return m_client.get(); }
+    RefPtr<WebCore::ModelPlayerClient> protectedClient() { return m_client.get(); }
 
     template<typename T> void send(T&& message);
     template<typename T, typename C> void sendWithAsyncReply(T&& message, C&& completionHandler);
@@ -105,7 +110,7 @@ private:
     void hasAudio(CompletionHandler<void(std::optional<bool>&&)>&&) final;
     void isMuted(CompletionHandler<void(std::optional<bool>&&)>&&) final;
     void setIsMuted(bool, CompletionHandler<void(bool success)>&&) final;
-    Vector<RetainPtr<id>> accessibilityChildren() final;
+    WebCore::ModelPlayerAccessibilityChildren accessibilityChildren() final;
     void setAutoplay(bool) final;
     void setLoop(bool) final;
     void setPlaybackRate(double, CompletionHandler<void(double effectivePlaybackRate)>&&) final;
@@ -138,6 +143,7 @@ private:
     std::optional<Seconds> m_pendingCurrentTime;
     std::optional<MonotonicTime> m_clockTimestampOfLastCurrentTimeSet;
     WebCore::ModelPlayerAnimationState m_animationState;
+    SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
 };
 
 }

@@ -12,6 +12,7 @@
 #define MODULES_AUDIO_PROCESSING_AEC3_REVERB_MODEL_ESTIMATOR_H_
 
 #include <array>
+#include <cstddef>
 #if defined(WEBRTC_WEBKIT_BUILD)
 #include <memory>
 #endif

@@ -26,6 +26,7 @@
 #include "CSSCalcTree+Parser.h"
 
 #include "AnchorPositionEvaluator.h"
+#include "CSSCalcOperator.h"
 #include "CSSCalcSymbolTable.h"
 #include "CSSCalcTree+Serialization.h"
 #include "CSSCalcTree+Simplification.h"
@@ -34,6 +35,7 @@
 #include "CSSParserIdioms.h"
 #include "CSSParserTokenRange.h"
 #include "CSSParserTokenRangeGuard.h"
+#include "CSSPrimitiveNumericCategory.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSPropertyParserConsumer+MetaConsumer.h"
 #include "CSSPropertyParserConsumer+NumberDefinitions.h"
@@ -42,8 +44,6 @@
 #include "CSSPropertyParsing.h"
 #include "CSSSerializationContext.h"
 #include "CSSUnits.h"
-#include "CalculationCategory.h"
-#include "CalculationOperator.h"
 #include "Logging.h"
 #include <numbers>
 #include <wtf/SortedArrayMap.h>
@@ -741,7 +741,7 @@ static std::optional<TypedChild> consumeRandom(CSSParserTokenRange& tokens, int 
     if (!state.propertyParserState.context.cssRandomFunctionEnabled)
         return { };
 
-    if (state.propertyParserState.currentRule != StyleRuleType::Style)
+    if (state.propertyParserState.currentRule != StyleRuleType::Style && state.propertyParserState.currentRule != StyleRuleType::Keyframe)
         return { };
     if (state.propertyParserState.currentProperty == CSSPropertyInvalid)
         return { };
@@ -1016,7 +1016,7 @@ static std::optional<TypedChild> consumeAnchor(CSSParserTokenRange& tokens, int 
             return AnchorSide { *sideIdent };
 
         auto percentageOptions = ParserOptions {
-            .category = Calculation::Category::Percentage,
+            .category = CSS::Category::Percentage,
             .range = CSS::All,
             .allowedSymbols = { },
             .propertyOptions = { },
@@ -1032,7 +1032,7 @@ static std::optional<TypedChild> consumeAnchor(CSSParserTokenRange& tokens, int 
             return { };
 
         auto category = percentage->type.calculationCategory();
-        if (!category || category != Calculation::Category::Percentage)
+        if (!category || category != CSS::Category::Percentage)
             return { };
 
         return AnchorSide { WTFMove(percentage->child) };
@@ -1055,7 +1055,7 @@ static std::optional<TypedChild> consumeAnchor(CSSParserTokenRange& tokens, int 
         auto category = typedFallback->type.calculationCategory();
         if (!category)
             return { };
-        if (*category != Calculation::Category::Length && *category != Calculation::Category::LengthPercentage)
+        if (*category != CSS::Category::Length && *category != CSS::Category::LengthPercentage)
             return { };
 
         fallback = WTFMove(typedFallback->child);
@@ -1144,7 +1144,7 @@ static std::optional<TypedChild> consumeAnchorSize(CSSParserTokenRange& tokens, 
         auto category = fallback->type.calculationCategory();
         if (!category)
             return { };
-        if (*category != Calculation::Category::Length && *category != Calculation::Category::LengthPercentage)
+        if (*category != CSS::Category::Length && *category != CSS::Category::LengthPercentage)
             return { };
 
         type.percentHint = Type::determinePercentHint(*category);
@@ -1313,7 +1313,9 @@ std::optional<TypedChild> parseCalcFunction(CSSParserTokenRange& tokens, CSSValu
         //     - OUTPUT: <integer>
         if (!state.propertyParserState.context.cssTreeCountingFunctionsEnabled)
             return { };
-        if (state.propertyParserState.currentRule != StyleRuleType::Style || state.propertyParserState.currentProperty == CSSPropertyInvalid)
+        if (state.propertyParserState.currentRule != StyleRuleType::Style && state.propertyParserState.currentRule != StyleRuleType::Keyframe)
+            return { };
+        if (state.propertyParserState.currentProperty == CSSPropertyInvalid)
             return { };
         return consumeZeroArguments<SiblingCount>(tokens, depth, state);
 
@@ -1323,7 +1325,9 @@ std::optional<TypedChild> parseCalcFunction(CSSParserTokenRange& tokens, CSSValu
         //     - OUTPUT: <integer>
         if (!state.propertyParserState.context.cssTreeCountingFunctionsEnabled)
             return { };
-        if (state.propertyParserState.currentRule != StyleRuleType::Style || state.propertyParserState.currentProperty == CSSPropertyInvalid)
+        if (state.propertyParserState.currentRule != StyleRuleType::Style && state.propertyParserState.currentRule != StyleRuleType::Keyframe)
+            return { };
+        if (state.propertyParserState.currentProperty == CSSPropertyInvalid)
             return { };
         return consumeZeroArguments<SiblingIndex>(tokens, depth, state);
 
@@ -1359,7 +1363,7 @@ std::optional<TypedChild> parseCalcSum(CSSParserTokenRange& tokens, int depth, P
     while (!tokens.atEnd()) {
         auto& token = tokens.peek();
         char operatorCharacter = token.type() == DelimiterToken ? token.delimiter() : 0;
-        if (operatorCharacter != static_cast<char>(Calculation::Operator::Sum) && operatorCharacter != static_cast<char>(Calculation::Operator::Negate))
+        if (operatorCharacter != static_cast<char>(Operator::Sum) && operatorCharacter != static_cast<char>(Operator::Negate))
             break;
 
         auto previousToken = originalTokens[tokens.begin() - originalTokens.data() - 1];
@@ -1376,7 +1380,7 @@ std::optional<TypedChild> parseCalcSum(CSSParserTokenRange& tokens, int depth, P
         if (!nextValue)
             return std::nullopt;
 
-        if (operatorCharacter == static_cast<char>(Calculation::Operator::Negate)) {
+        if (operatorCharacter == static_cast<char>(Operator::Negate)) {
             auto negate = [](TypedChild& next, ParserState& state) -> std::optional<TypedChild> {
                 Negate negate { WTFMove(next.child) };
                 auto negateType = next.type;
@@ -1434,7 +1438,7 @@ std::optional<TypedChild> parseCalcProduct(CSSParserTokenRange& tokens, int dept
     while (!tokens.atEnd()) {
         auto& token = tokens.peek();
         char operatorCharacter = token.type() == DelimiterToken ? token.delimiter() : 0;
-        if (operatorCharacter != static_cast<char>(Calculation::Operator::Product) && operatorCharacter != static_cast<char>(Calculation::Operator::Invert))
+        if (operatorCharacter != static_cast<char>(Operator::Product) && operatorCharacter != static_cast<char>(Operator::Invert))
             break;
         tokens.consumeIncludingWhitespace();
 
@@ -1442,7 +1446,7 @@ std::optional<TypedChild> parseCalcProduct(CSSParserTokenRange& tokens, int dept
         if (!nextValue)
             return std::nullopt;
 
-        if (operatorCharacter == static_cast<char>(Calculation::Operator::Invert)) {
+        if (operatorCharacter == static_cast<char>(Operator::Invert)) {
             auto invert = [](TypedChild& next, ParserState& state) -> std::optional<TypedChild> {
                 Invert invert { WTFMove(next.child) };
                 auto invertType = Type::invert(next.type);

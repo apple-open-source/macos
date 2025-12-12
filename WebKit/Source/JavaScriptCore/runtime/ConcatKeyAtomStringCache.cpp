@@ -26,7 +26,7 @@
 #include "config.h"
 #include "ConcatKeyAtomStringCache.h"
 
-#include "AbstractSlotVisitor.h"
+#include "SlotVisitorInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace JSC {

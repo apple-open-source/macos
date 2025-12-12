@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "StyleDynamicRangeLimitMix.h"
-#include "StyleValueTypes.h"
+#include <WebCore/StyleDynamicRangeLimitMix.h>
+#include <WebCore/StyleValueTypes.h>
 #include <wtf/CompactVariant.h>
 #include <wtf/UniqueRef.h>
 
@@ -153,4 +153,4 @@ template<> struct Blending<DynamicRangeLimit> {
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::DynamicRangeLimit> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::DynamicRangeLimit)

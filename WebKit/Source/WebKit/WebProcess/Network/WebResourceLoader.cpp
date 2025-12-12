@@ -44,9 +44,11 @@
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/FrameInlines.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/InspectorInstrumentationWebKit.h>
 #include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameLoaderClient.h>
 #include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/Page.h>
@@ -81,9 +83,7 @@ WebResourceLoader::WebResourceLoader(Ref<WebCore::ResourceLoader>&& coreLoader, 
     WEBRESOURCELOADER_RELEASE_LOG(WEBRESOURCELOADER_CONSTRUCTOR);
 }
 
-WebResourceLoader::~WebResourceLoader()
-{
-}
+WebResourceLoader::~WebResourceLoader() = default;
 
 IPC::Connection* WebResourceLoader::messageSenderConnection() const
 {
@@ -389,7 +389,7 @@ void WebResourceLoader::didReceiveResource(ShareableResource::Handle&& handle)
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
-void WebResourceLoader::contentFilterDidBlockLoad(const WebCore::ContentFilterUnblockHandler& unblockHandler, String&& unblockRequestDeniedScript, const ResourceError& error, const URL& blockedPageURL,  WebCore::SubstituteData&& substituteData)
+void WebResourceLoader::contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler&& unblockHandler, String&& unblockRequestDeniedScript, const ResourceError& error, const URL& blockedPageURL,  WebCore::SubstituteData&& substituteData)
 {
     RefPtr coreLoader = m_coreLoader;
     if (!m_coreLoader || !coreLoader->documentLoader())
@@ -397,7 +397,7 @@ void WebResourceLoader::contentFilterDidBlockLoad(const WebCore::ContentFilterUn
     RefPtr documentLoader = coreLoader->documentLoader();
     documentLoader->setBlockedPageURL(blockedPageURL);
     documentLoader->setSubstituteDataFromContentFilter(WTFMove(substituteData));
-    documentLoader->handleContentFilterDidBlock(unblockHandler, WTFMove(unblockRequestDeniedScript));
+    documentLoader->handleContentFilterDidBlock(WTFMove(unblockHandler), WTFMove(unblockRequestDeniedScript));
     documentLoader->cancelMainResourceLoad(error);
 }
 #endif // ENABLE(CONTENT_FILTERING)

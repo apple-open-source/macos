@@ -33,12 +33,14 @@
 #include "FloatRoundedRect.h"
 #include "GeometryUtilities.h"
 #include "GraphicsContext.h"
-#include "NinePieceImage.h"
+#include "NinePieceImagePainter.h"
 #include "PaintInfo.h"
 #include "PathUtilities.h"
 #include "RenderBox.h"
+#include "RenderObjectDocument.h"
 #include "RenderStyleInlines.h"
 #include "RenderTheme.h"
+#include "StylePrimitiveNumericTypes+Evaluation.h"
 #include <numeric>
 
 namespace WebCore {
@@ -206,24 +208,24 @@ static bool decorationHasAllSolidEdges(const RectEdges<BorderEdge>& edges)
 
 void BorderPainter::paintBorder(const LayoutRect& rect, const RenderStyle& style, BleedAvoidance bleedAvoidance, RectEdges<bool> closedEdges) const
 {
-    GraphicsContext& graphicsContext = m_paintInfo.context();
+    auto& graphicsContext = m_paintInfo.context();
 
     if (graphicsContext.paintingDisabled())
         return;
 
-    auto paintsBorderImage = [&](LayoutRect rect, const NinePieceImage& ninePieceImage) {
-        auto* styleImage = ninePieceImage.image();
-        if (!styleImage)
+    auto paintsBorderImage = [&](LayoutRect rect, const Style::BorderImage& borderImage) {
+        auto image = borderImage.source().tryImage();
+        if (!image)
             return false;
 
-        if (!styleImage->isLoaded(m_renderer.ptr()))
+        if (!image->value->isLoaded(m_renderer.ptr()))
             return false;
 
-        if (!styleImage->canRender(m_renderer.ptr(), style.usedZoom()))
+        if (!image->value->canRender(m_renderer.ptr(), style.usedZoom()))
             return false;
 
         auto rectWithOutsets = rect;
-        rectWithOutsets.expand(style.imageOutsets(ninePieceImage));
+        rectWithOutsets.expand(style.imageOutsets(borderImage));
         return !rectWithOutsets.isEmpty();
     };
 
@@ -307,8 +309,8 @@ void BorderPainter::paintOutline(const LayoutRect& paintRect) const
     if (!borderStyle || *borderStyle == BorderStyle::None)
         return;
 
-    auto outlineWidth = LayoutUnit { styleToUse.outlineWidth() };
-    auto outlineOffset = LayoutUnit { styleToUse.outlineOffset() };
+    auto outlineWidth = Style::evaluate<LayoutUnit>(styleToUse.outlineWidth(), Style::ZoomNeeded { });
+    auto outlineOffset = Style::evaluate<LayoutUnit>(styleToUse.outlineOffset(), Style::ZoomNeeded { });
 
     auto outerRect = paintRect;
     outerRect.inflate(outlineOffset + outlineWidth);
@@ -349,8 +351,8 @@ void BorderPainter::paintOutline(const LayoutPoint& paintOffset, const Vector<La
     }
 
     auto& styleToUse = m_renderer->style();
-    auto outlineOffset = styleToUse.outlineOffset();
-    auto outlineWidth = styleToUse.outlineWidth();
+    auto outlineOffset = Style::evaluate<float>(styleToUse.outlineOffset(), Style::ZoomNeeded { });
+    auto outlineWidth = Style::evaluate<float>(styleToUse.outlineWidth(), Style::ZoomNeeded { });
     auto deviceScaleFactor = document().deviceScaleFactor();
 
     Vector<FloatRect> pixelSnappedRects;
@@ -410,7 +412,7 @@ void BorderPainter::paintSides(const BorderShape& borderShape, const Sides& side
         auto& currEdge = sides.edges.at(boxSide);
 
         if (currEdge.shouldRender())
-            edgesToDraw.add(edgeFlagForSide(boxSide));
+            edgesToDraw.add(boxSide);
 
         if (currEdge.presentButInvisible()) {
             --numEdgesVisible;
@@ -527,21 +529,29 @@ void BorderPainter::paintSides(const BorderShape& borderShape, const Sides& side
         paintBorderSides(borderShape, sides, edgesToDraw, antialias);
 }
 
-bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const RenderStyle& style, const NinePieceImage& ninePieceImage, CompositeOperator op) const
+template<typename T>
+bool BorderPainter::paintNinePieceImageImpl(const LayoutRect& rect, const RenderStyle& style, const T& ninePieceImage, CompositeOperator op) const
 {
-    StyleImage* styleImage = ninePieceImage.image();
-    if (!styleImage)
+    auto image = ninePieceImage.source().tryStyleImage();
+    if (!image)
         return false;
 
-    if (!styleImage->isLoaded(m_renderer.ptr()))
+    if (!image->isLoaded(m_renderer.ptr()))
         return true; // Never paint a nine-piece image incrementally, but don't paint the fallback borders either.
 
-    if (!styleImage->canRender(m_renderer.ptr(), style.usedZoom()))
+    if (!image->canRender(m_renderer.ptr(), style.usedZoom()))
         return false;
 
     CheckedPtr modelObject = dynamicDowncast<RenderBoxModelObject>(m_renderer.get());
     if (!modelObject)
         return false;
+
+    ImagePaintingOptions options = {
+        op,
+        ImageOrientation::Orientation::FromImage,
+        m_paintInfo.paintBehavior.contains(PaintBehavior::DrawsHDRContent) ? DrawsHDRContent::Yes : DrawsHDRContent::No,
+        style.dynamicRangeLimit().toPlatformDynamicRangeLimit()
+    };
 
     // FIXME: border-image is broken with full page zooming when tiling has to happen, since the tiling function
     // doesn't have any understanding of the zoom that is in effect on the tile.
@@ -551,13 +561,23 @@ bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const RenderStyl
     rectWithOutsets.expand(style.imageOutsets(ninePieceImage));
     LayoutRect destination = LayoutRect(snapRectToDevicePixels(rectWithOutsets, deviceScaleFactor));
 
-    auto source = modelObject->calculateImageIntrinsicDimensions(styleImage, destination.size(), RenderBoxModelObject::ScaleByUsedZoom::No);
+    auto source = modelObject->calculateImageIntrinsicDimensions(image.get(), destination.size(), RenderBoxModelObject::ScaleByUsedZoom::No);
 
     // If both values are ‘auto’ then the intrinsic width and/or height of the image should be used, if any.
-    styleImage->setContainerContextForRenderer(m_renderer, source, style.usedZoom());
+    image->setContainerContextForRenderer(m_renderer, source, style.usedZoom());
 
-    ninePieceImage.paint(m_paintInfo.context(), m_renderer.ptr(), style, destination, source, deviceScaleFactor, op);
+    NinePieceImagePainter::paint(ninePieceImage, m_paintInfo.context(), m_renderer.ptr(), style, destination, source, deviceScaleFactor, options);
     return true;
+}
+
+bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const RenderStyle& style, const Style::BorderImage& borderImage, CompositeOperator op) const
+{
+    return paintNinePieceImageImpl(rect, style, borderImage, op);
+}
+
+bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const RenderStyle& style, const Style::MaskBorder& maskBorder, CompositeOperator op) const
+{
+    return paintNinePieceImageImpl(rect, style, maskBorder, op);
 }
 
 void BorderPainter::paintTranslucentBorderSides(const BorderShape& borderShape, const Sides& sides, BoxSideSet edgesToDraw, bool antialias) const
@@ -572,7 +592,7 @@ void BorderPainter::paintTranslucentBorderSides(const BorderShape& borderShape, 
 
         BoxSideSet commonColorEdgeSet;
         for (auto side : paintOrderSides) {
-            if (!edgesToDraw.contains(edgeFlagForSide(side)))
+            if (!edgesToDraw.contains(side))
                 continue;
 
             auto& edge = sides.edges.at(side);
@@ -584,7 +604,7 @@ void BorderPainter::paintTranslucentBorderSides(const BorderShape& borderShape, 
                 includeEdge = equalIgnoringSemanticColor(edge.color(), commonColor);
 
             if (includeEdge)
-                commonColorEdgeSet.add(edgeFlagForSide(side));
+                commonColorEdgeSet.add(side);
         }
 
         bool useTransparencyLayer = includesAdjacentEdges(commonColorEdgeSet) && !commonColor.isOpaque();
@@ -608,10 +628,10 @@ static inline bool borderStyleHasUnmatchedColorsAtCorner(BorderStyle style, BoxS
 {
     // These styles match at the top/left and bottom/right.
     if (style == BorderStyle::Inset || style == BorderStyle::Groove || style == BorderStyle::Ridge || style == BorderStyle::Outset) {
-        BoxSideSet topRightSides = { BoxSideFlag::Top, BoxSideFlag::Right };
-        BoxSideSet bottomLeftSides = { BoxSideFlag::Bottom, BoxSideFlag::Left };
+        BoxSideSet topRightSides = { BoxSide::Top, BoxSide::Right };
+        BoxSideSet bottomLeftSides = { BoxSide::Bottom, BoxSide::Left };
 
-        BoxSideSet usedSides { edgeFlagForSide(side), edgeFlagForSide(adjacentSide) };
+        BoxSideSet usedSides { side, adjacentSide };
         return usedSides == topRightSides || usedSides == bottomLeftSides;
     }
     return false;
@@ -728,7 +748,7 @@ void BorderPainter::paintBorderSides(const BorderShape& borderShape, const Sides
 
     auto paintOneSide = [&](BoxSide side, BoxSide adjacentSide1, BoxSide adjacentSide2) {
         auto& edge = sides.edges.at(side);
-        if (!edge.shouldRender() || !edgeSet.contains(edgeFlagForSide(side)))
+        if (!edge.shouldRender() || !edgeSet.contains(side))
             return;
 
         LayoutRect sideRect = borderShape.borderRect();

@@ -27,7 +27,7 @@
 
 #if HAVE(AVKIT_CONTENT_SOURCE)
 
-#include "VideoPresentationInterfaceIOS.h"
+#include <WebCore/VideoPresentationInterfaceIOS.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {

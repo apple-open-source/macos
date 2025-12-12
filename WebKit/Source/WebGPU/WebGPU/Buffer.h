@@ -31,6 +31,7 @@
 #import "WebGPUExt.h"
 #import <Metal/Metal.h>
 #import <utility>
+#import <wtf/Compiler.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/HashMap.h>
@@ -43,7 +44,11 @@
 #import <wtf/TZoneMalloc.h>
 #import <wtf/WeakPtr.h>
 
-struct WGPUBufferImpl {
+IGNORE_CLANG_WARNINGS_BEGIN("nullability-completeness")
+
+// FIXME(rdar://155970441): this annotation should be in WebGPU.h, move it once we support
+// annotating incomplete types
+struct SWIFT_SHARED_REFERENCE(wgpuBufferReference, wgpuBufferRelease) WGPUBufferImpl {
 };
 
 namespace WebGPU {
@@ -136,12 +141,8 @@ private:
     Buffer(id<MTLBuffer>, uint64_t initialSize, WGPUBufferUsageFlags, State initialState, MappingRange initialMappingRange, Device&);
     Buffer(Device&);
 
-
-private PUBLIC_IN_WEBGPU_SWIFT:
     bool validateGetMappedRange(size_t offset, size_t rangeSize) const;
-
-private:
-    NSString* errorValidatingMapAsync(WGPUMapModeFlags, size_t offset, size_t rangeSize) const;
+    NSString * _Nullable errorValidatingMapAsync(WGPUMapModeFlags, size_t offset, size_t rangeSize) const;
     bool validateUnmap() const;
     void setState(State);
     void incrementBufferMapCount();
@@ -149,11 +150,9 @@ private:
     void takeSlowIndirectIndexValidationPath(CommandBuffer&, Buffer&, MTLIndexType, uint32_t indexBufferOffsetInBytes, uint32_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, MTLPrimitiveType);
     void takeSlowIndirectValidationPath(CommandBuffer&, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount);
 
-private PUBLIC_IN_WEBGPU_SWIFT:
     id<MTLBuffer> m_buffer { nil };
-private:
-    id<MTLBuffer> m_indirectBuffer { nil };
-    id<MTLBuffer> m_indirectIndexedBuffer { nil };
+    id<MTLBuffer> _Nullable m_indirectBuffer { nil };
+    id<MTLBuffer> _Nullable m_indirectIndexedBuffer { nil };
 
     // https://gpuweb.github.io/gpuweb/#buffer-interface
 
@@ -163,9 +162,7 @@ private:
     // [[mapping]] is unnecessary; we can just use m_device.contents.
     MappingRange m_mappingRange { 0, 0 };
     using MappedRanges = RangeSet<Range<size_t>>;
-private PUBLIC_IN_WEBGPU_SWIFT:
     MappedRanges m_mappedRanges;
-private:
     WGPUMapModeFlags m_mapMode { WGPUMapMode_None };
     uint32_t m_maxUnsignedIndex { 0 };
     uint16_t m_maxUshortIndex { 0 };
@@ -190,11 +187,11 @@ private:
     mutable HashMap<uint64_t, uint32_t, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_gpuResourceMap;
     HashSet<uint64_t, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_skippedValidationCommandEncoders;
     bool m_mustTakeSlowIndexValidationPath { false };
-#if CPU(X86_64)
+#if CPU(X86_64) && (PLATFORM(MAC) || PLATFORM(MACCATALYST))
     bool m_mappedAtCreation { false };
 #endif
     HashMap<uint64_t, bool, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_didReadOOB;
-} SWIFT_SHARED_REFERENCE(refBuffer, derefBuffer);
+} SWIFT_SHARED_REFERENCE(refBuffer, derefBuffer) SWIFT_PRIVATE_FILEID("WebGPU/Buffer.swift");
 
 } // namespace WebGPU
 
@@ -207,3 +204,5 @@ inline void derefBuffer(WebGPU::Buffer* obj)
 {
     WTF::deref(obj);
 }
+
+IGNORE_CLANG_WARNINGS_END

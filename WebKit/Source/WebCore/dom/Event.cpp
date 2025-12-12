@@ -23,13 +23,17 @@
 #include "config.h"
 #include "Event.h"
 
+#include "DOMWrapperWorld.h"
 #include "Document.h"
 #include "EventNames.h"
 #include "EventPath.h"
 #include "EventTarget.h"
+#include "EventTargetInlines.h"
 #include "InspectorInstrumentation.h"
+#include "JSDOMGlobalObject.h"
 #include "LocalDOMWindow.h"
 #include "Performance.h"
+#include "ScriptWrappableInlines.h"
 #include "UserGestureIndicator.h"
 #include "WorkerGlobalScope.h"
 #include <wtf/HexNumber.h>
@@ -56,6 +60,7 @@ ALWAYS_INLINE Event::Event(MonotonicTime createTime, enum EventInterfaceType eve
     , m_isExecutingPassiveEventListener { false }
     , m_currentTargetIsInShadowTree { false }
     , m_isAutofillEvent { false }
+    , m_isShadowRootAttachedEvent { false }
     , m_eventPhase { NONE }
     , m_eventInterface(enumToUnderlyingType(eventInterface))
     , m_type { type }

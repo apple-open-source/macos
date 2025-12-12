@@ -178,4 +178,13 @@ RefPtr<WebSocketTask> NetworkSocketChannel::protectedSocket()
     return m_socket.get();
 }
 
+std::optional<SharedPreferencesForWebProcess> NetworkSocketChannel::sharedPreferencesForWebProcess() const
+{
+    RefPtr connectionToWebProcess = m_connectionToWebProcess.get();
+    if (!connectionToWebProcess)
+        return std::nullopt;
+
+    return connectionToWebProcess->sharedPreferencesForWebProcess();
+}
+
 } // namespace WebKit

@@ -28,6 +28,7 @@
 #include "CSSFunctionValue.h"
 #include "CSSMarkup.h"
 #include "CSSPrimitiveValue.h"
+#include "CSSQuadValue.h"
 #include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSValuePool.h"
@@ -75,9 +76,14 @@ Ref<CSSValue> makeFunctionCSSValue(CSSValueID name, Ref<CSSValue>&& value)
     return CSSFunctionValue::create(name, WTFMove(value));
 }
 
-Ref<CSSValue> makeSpaceSeparatedCoalescingPairCSSValue(Ref<CSSValue>&& first, Ref<CSSValue>&& second)
+template<> Ref<CSSValue> makeCoalescingPairCSSValue<SerializationSeparatorType::Space>(Ref<CSSValue>&& first, Ref<CSSValue>&& second)
 {
     return CSSValuePair::create(WTFMove(first), WTFMove(second));
+}
+
+template<> Ref<CSSValue> makeCoalescingQuadCSSValue<SerializationSeparatorType::Space>(Ref<CSSValue>&& first, Ref<CSSValue>&& second, Ref<CSSValue>&& third, Ref<CSSValue>&& fourth)
+{
+    return CSSQuadValue::create(WTFMove(first), WTFMove(second), WTFMove(third), WTFMove(fourth));
 }
 
 template<> Ref<CSSValue> makeListCSSValue<SerializationSeparatorType::Space>(CSSValueListBuilder&& builder)

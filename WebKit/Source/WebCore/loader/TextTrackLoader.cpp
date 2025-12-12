@@ -30,11 +30,10 @@
 
 #include "TextTrackLoader.h"
 
-#include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
 #include "CachedTextTrack.h"
 #include "CrossOriginAccessControl.h"
-#include "DocumentInlines.h"
+#include "DocumentResourceLoader.h"
 #include "HTMLMediaElement.h"
 #include "HTMLTrackElement.h"
 #include "InspectorInstrumentation.h"

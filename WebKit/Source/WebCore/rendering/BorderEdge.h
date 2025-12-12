@@ -75,14 +75,12 @@ BorderEdges borderEdges(const RenderStyle&, float deviceScaleFactor, RectEdges<b
 BorderEdges borderEdgesForOutline(const RenderStyle&, BorderStyle, float deviceScaleFactor);
 
 inline bool edgesShareColor(const BorderEdge& firstEdge, const BorderEdge& secondEdge) { return equalIgnoringSemanticColor(firstEdge.color(), secondEdge.color()); }
-inline BoxSideFlag edgeFlagForSide(BoxSide side) { return static_cast<BoxSideFlag>(1 << static_cast<unsigned>(side)); }
-inline bool includesEdge(OptionSet<BoxSideFlag> flags, BoxSide side) { return flags.contains(edgeFlagForSide(side)); }
 
-inline bool includesAdjacentEdges(OptionSet<BoxSideFlag> flags)
+inline bool includesAdjacentEdges(EnumSet<BoxSide> sides)
 {
     // The set includes adjacent edges if and only if it contains at least one horizontal and one vertical edge.
-    return flags.containsAny({ BoxSideFlag::Top, BoxSideFlag::Bottom })
-        && flags.containsAny({ BoxSideFlag::Left, BoxSideFlag::Right });
+    return sides.containsAny({ BoxSide::Top, BoxSide::Bottom })
+        && sides.containsAny({ BoxSide::Left, BoxSide::Right });
 }
 
 } // namespace WebCore

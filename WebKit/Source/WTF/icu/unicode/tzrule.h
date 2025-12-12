@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 * Copyright (C) 2007-2008, International Business Machines Corporation and    *
-* others. All rights reserved.                                                *
+* others. All Rights Reserved.                                                *
 *******************************************************************************
 */
 #ifndef TZRULE_H
@@ -257,20 +257,6 @@ public:
      * @stable ICU 3.8
      */
     virtual bool operator!=(const TimeZoneRule& that) const override;
-
-    /**
-     * Gets the time when this rule takes effect in the given year.
-     * @param year              The Gregorian year, with 0 == 1 BCE, -1 == 2 BCE, etc.
-     * @param prevRawOffset     The standard time offset from UTC before this rule
-     *                          takes effect in milliseconds.
-     * @param prevDSTSavings    The amount of daylight saving offset from the
-     *                          standard time.
-     * @param result            Receives the start time in the year.
-     * @return  true if this rule takes effect in the year and the result is set to
-     *          "result".
-     * @stable ICU 3.8
-     */
-    UBool getStartInYear(int32_t year, int32_t prevRawOffset, int32_t prevDSTSavings, UDate& result) const;
 
     /**
      * Returns if this rule represents the same rule and offsets as another.

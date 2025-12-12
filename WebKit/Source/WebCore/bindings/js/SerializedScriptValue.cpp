@@ -2031,7 +2031,7 @@ private:
                 code = SerializationReturnCode::ValidationError;
                 return true;
             }
-            if (auto* arrayBuffer = toPossiblySharedArrayBuffer(vm, obj)) {
+            if (RefPtr arrayBuffer = toPossiblySharedArrayBuffer(vm, obj)) {
                 if (arrayBuffer->isDetached()) {
                     code = SerializationReturnCode::ValidationError;
                     return true;
@@ -2357,7 +2357,7 @@ private:
         unsigned length = str.length();
 
         // Guard against overflow
-        if (length > (std::numeric_limits<uint32_t>::max() - sizeof(uint32_t)) / sizeof(UChar)) {
+        if (length > (std::numeric_limits<uint32_t>::max() - sizeof(uint32_t)) / sizeof(char16_t)) {
             fail();
             return;
         }
@@ -2461,10 +2461,10 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
-        auto colorSpace = destinationColorSpace.platformColorSpace();
+        RetainPtr colorSpace = destinationColorSpace.platformColorSpace();
 
-        if (auto name = CGColorSpaceGetName(colorSpace)) {
-            auto data = adoptCF(CFStringCreateExternalRepresentation(nullptr, name, kCFStringEncodingUTF8, 0));
+        if (RetainPtr name = CGColorSpaceGetName(colorSpace.get())) {
+            auto data = adoptCF(CFStringCreateExternalRepresentation(nullptr, name.get(), kCFStringEncodingUTF8, 0));
             if (!data) {
                 write(DestinationColorSpaceSRGBTag);
                 return;
@@ -2475,7 +2475,7 @@ private:
             return;
         }
 
-        if (auto propertyList = adoptCF(CGColorSpaceCopyPropertyList(colorSpace))) {
+        if (auto propertyList = adoptCF(CGColorSpaceCopyPropertyList(colorSpace.get()))) {
             auto data = adoptCF(CFPropertyListCreateData(nullptr, propertyList.get(), kCFPropertyListBinaryFormat_v1_0, 0, nullptr));
             if (!data) {
                 write(DestinationColorSpaceSRGBTag);
@@ -3591,31 +3591,31 @@ private:
 
     static bool readString(std::span<const uint8_t>& span, String& str, unsigned length, bool is8Bit, ShouldAtomize shouldAtomize)
     {
-        if (length >= std::numeric_limits<int32_t>::max() / sizeof(UChar))
+        if (length >= std::numeric_limits<int32_t>::max() / sizeof(char16_t))
             return false;
 
         if (is8Bit) {
             if (span.size() < length)
                 return false;
             if (shouldAtomize == ShouldAtomize::Yes)
-                str = AtomString(consumeSpan(span, length));
+                str = AtomString(byteCast<Latin1Character>(consumeSpan(span, length)));
             else
-                str = String(consumeSpan(span, length));
+                str = String(byteCast<Latin1Character>(consumeSpan(span, length)));
             return true;
         }
 
-        size_t size = length * sizeof(UChar);
+        size_t size = length * sizeof(char16_t);
         if (span.size() < size)
             return false;
 
 #if ASSUME_LITTLE_ENDIAN
         auto stringSpan = consumeSpan(span, size);
         if (shouldAtomize == ShouldAtomize::Yes)
-            str = AtomString(spanReinterpretCast<const UChar>(stringSpan));
+            str = AtomString(spanReinterpretCast<const char16_t>(stringSpan));
         else
-            str = String(spanReinterpretCast<const UChar>(stringSpan));
+            str = String(spanReinterpretCast<const char16_t>(stringSpan));
 #else
-        std::span<UChar> characters;
+        std::span<char16_t> characters;
         str = String::createUninitialized(length, characters);
         for (unsigned i = 0; i < length; ++i) {
             uint16_t c;
@@ -6127,7 +6127,7 @@ static ExceptionOr<std::unique_ptr<ArrayBufferContentsArray>> transferArrayBuffe
             continue;
         visited.add(arrayBuffers[arrayBufferIndex].get());
 
-        bool result = arrayBuffers[arrayBufferIndex]->transferTo(vm, contents->at(arrayBufferIndex));
+        bool result = Ref { *arrayBuffers[arrayBufferIndex] }->transferTo(vm, contents->at(arrayBufferIndex));
         if (!result)
             return Exception { ExceptionCode::TypeError };
     }
@@ -6294,12 +6294,12 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
         if (!uniqueTransferables.add(transferable.get()).isNewEntry)
             return Exception { ExceptionCode::DataCloneError, "Duplicate transferable for structured clone"_s };
 
-        if (auto arrayBuffer = toPossiblySharedArrayBuffer(vm, transferable.get())) {
+        if (RefPtr arrayBuffer = toPossiblySharedArrayBuffer(vm, transferable.get())) {
             if (arrayBuffer->isDetached() || arrayBuffer->isShared())
                 return Exception { ExceptionCode::DataCloneError };
             if (!arrayBuffer->isDetachable()) {
                 auto scope = DECLARE_THROW_SCOPE(vm);
-                throwVMTypeError(&lexicalGlobalObject, scope, errorMessageForTransfer(arrayBuffer));
+                throwVMTypeError(&lexicalGlobalObject, scope, errorMessageForTransfer(arrayBuffer.get()));
                 return Exception { ExceptionCode::ExistingExceptionError };
             }
             arrayBuffers.append(WTFMove(arrayBuffer));
@@ -6675,7 +6675,7 @@ void SerializedScriptValue::writeBlobsToDiskForIndexedDB(bool isEphemeral, Compl
     if (isEphemeral)
         return completionHandler({ });
 
-    blobRegistry().writeBlobsToTemporaryFilesForIndexedDB(blobURLs(), [completionHandler = WTFMove(completionHandler), this, protectedThis = Ref { *this }] (auto&& blobFilePaths) mutable {
+    blobRegistry()->writeBlobsToTemporaryFilesForIndexedDB(blobURLs(), [completionHandler = WTFMove(completionHandler), this, protectedThis = Ref { *this }] (auto&& blobFilePaths) mutable {
         ASSERT(isMainThread());
 
         if (blobFilePaths.isEmpty()) {
@@ -6770,6 +6770,74 @@ std::optional<ErrorInformation> extractErrorInformationFromErrorInstance(JSC::JS
     RETURN_IF_EXCEPTION(scope, std::nullopt);
 
     return { ErrorInformation { errorTypeString, message, line, column, sourceURL, stack, cause } };
+}
+
+auto SerializedScriptValue::deserializationBehavior(JSC::JSObject& object) -> DeserializationBehavior
+{
+    // These correspond to legacy use of m_canCreateDOMObject and m_isDOMGlobalObject.
+    if (object.inherits<JSBlob>()
+        || object.inherits<JSFile>()
+        || object.inherits<JSFileList>()
+        || object.inherits<JSImageData>())
+        return DeserializationBehavior::LegacyMapToNull;
+
+    if (object.inherits<JSDOMPoint>()
+        || object.inherits<JSDOMPointReadOnly>()
+        || object.inherits<JSDOMRect>()
+        || object.inherits<JSDOMRectReadOnly>()
+        || object.inherits<JSDOMMatrix>()
+        || object.inherits<JSDOMMatrixReadOnly>()
+        || object.inherits<JSDOMQuad>()
+        || object.inherits<JSDOMException>())
+        return DeserializationBehavior::LegacyMapToUndefined;
+
+#if ENABLE(WEB_RTC)
+    if (object.inherits<JSRTCCertificate>())
+        return DeserializationBehavior::LegacyMapToEmptyObject;
+#endif
+
+    if (object.inherits<DateInstance>()
+        || object.inherits<BooleanObject>()
+        || object.inherits<StringObject>()
+        || object.inherits<NumberObject>()
+        || object.inherits<BigIntObject>()
+        || object.inherits<RegExpObject>()
+        || object.inherits<ErrorInstance>()
+        || object.inherits<JSMessagePort>()
+        || object.inherits<JSArrayBuffer>()
+        || object.inherits<JSArrayBufferView>()
+        || object.inherits<JSCryptoKey>()
+#if ENABLE(WEBASSEMBLY)
+        || object.inherits<JSWebAssemblyModule>()
+        || object.inherits<JSWebAssemblyMemory>()
+#endif
+        || object.inherits<JSImageBitmap>()
+#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
+        || object.inherits<JSOffscreenCanvas>()
+#endif
+#if ENABLE(WEB_RTC)
+        || object.inherits<JSRTCDataChannel>()
+        || object.inherits<JSRTCEncodedAudioFrame>()
+        || object.inherits<JSRTCEncodedVideoFrame>()
+#endif
+#if ENABLE(WEB_CODECS)
+        || object.inherits<JSWebCodecsEncodedVideoChunk>()
+        || object.inherits<JSWebCodecsVideoFrame>()
+        || object.inherits<JSWebCodecsEncodedAudioChunk>()
+        || object.inherits<JSWebCodecsAudioData>()
+#endif
+#if ENABLE(MEDIA_STREAM)
+        || object.inherits<JSMediaStreamTrack>()
+#endif
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
+        || object.inherits<JSMediaSourceHandle>()
+#endif
+        || object.inherits<JSMap>()
+        || object.inherits<JSSet>()
+        || object.classInfo() == JSFinalObject::info())
+        return DeserializationBehavior::Succeed;
+
+    return DeserializationBehavior::Fail;
 }
 
 } // namespace WebCore

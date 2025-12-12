@@ -27,6 +27,7 @@
 #include <sys/sysctl.h>
 #include <sys/fileport.h>
 #include <sys/vnode.h>
+#include <sys/fileport.h>
 #include <unistd.h>
 #undef PRIVATE
 

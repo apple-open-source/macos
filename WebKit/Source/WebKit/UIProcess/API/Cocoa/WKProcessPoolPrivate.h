@@ -124,11 +124,14 @@ WK_CLASS_AVAILABLE(macos(14.5), ios(17.5), visionos(1.2))
 
 + (void)_setLinkedOnOrAfterEverything WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
+- (void)_setPLTResourceDelayIntervalForTesting:(NSTimeInterval)interval;
+
 // Test only. Should be called only while no web content processes are running.
 - (void)_terminateServiceWorkers WK_API_AVAILABLE(macos(10.14), ios(12.0));
 
 // Test only.
-- (pid_t)_prewarmedProcessIdentifier WK_API_AVAILABLE(macos(10.15), ios(13.0));
+- (NSSet<NSNumber *> *)_prewarmedProcessIdentifiersForTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_countWebPagesInAllProcessesForTesting:(void(^)(unsigned))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 - (void)_terminateAllWebContentProcesses;
 
@@ -145,6 +148,7 @@ WK_CLASS_AVAILABLE(macos(14.5), ios(17.5), visionos(1.2))
 - (NSUInteger)_processCacheCapacity WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 - (NSUInteger)_processCacheSize WK_API_AVAILABLE(macos(10.15), ios(13.0));
 - (void)_clearWebProcessCache WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
+- (void)_setCachedProcessLifetimeForTesting:(NSTimeInterval)lifetime WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 - (void)_setUseSeparateServiceWorkerProcess:(BOOL)forceServiceWorkerProcess WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
 - (pid_t)_gpuProcessIdentifier WK_API_AVAILABLE(macos(12.0), ios(15.0));
 - (BOOL)_hasAudibleMediaActivity WK_API_AVAILABLE(macos(13.0), ios(16.0));
@@ -194,6 +198,6 @@ WK_CLASS_AVAILABLE(macos(14.5), ios(17.5), visionos(1.2))
 
 @interface WKProcessPool (WKPrivateMac)
 
-- (void)_registerAdditionalFonts:(NSArray<NSString *> *)fontNames WK_API_AVAILABLE(macos(WK_MAC_TBA));
+- (void)_registerAdditionalFonts:(NSArray<NSString *> *)fontNames WK_API_AVAILABLE(macos(26.0));
 
 @end

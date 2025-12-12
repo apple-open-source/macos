@@ -27,11 +27,11 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "JSObject.h"
-#include "WasmGlobal.h"
-#include "WasmLimits.h"
-#include "WebAssemblyFunction.h"
-#include "WebAssemblyWrapperFunction.h"
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/WasmGlobal.h>
+#include <JavaScriptCore/WasmLimits.h>
+#include <JavaScriptCore/WebAssemblyFunction.h>
+#include <JavaScriptCore/WebAssemblyWrapperFunction.h>
 #include <wtf/Ref.h>
 
 namespace JSC {
@@ -53,13 +53,14 @@ public:
 
     DECLARE_INFO;
 
+    DECLARE_VISIT_CHILDREN;
+
     Wasm::Global* global() { return m_global.ptr(); }
     JSObject* type(JSGlobalObject*);
 
 private:
     JSWebAssemblyGlobal(VM&, Structure*, Ref<Wasm::Global>&&);
     DECLARE_DEFAULT_FINISH_CREATION;
-    DECLARE_VISIT_CHILDREN;
 
     const Ref<Wasm::Global> m_global;
 };

@@ -26,8 +26,10 @@
 #include "config.h"
 #include "Permissions.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "DedicatedWorkerGlobalScope.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
 #include "Exception.h"
 #include "Geolocation.h"
 #include "JSDOMPromiseDeferred.h"
@@ -85,6 +87,8 @@ static bool isAllowedByPermissionsPolicy(const Document& document, PermissionNam
         return PermissionsPolicy::isFeatureEnabled(PermissionsPolicy::Feature::Geolocation, document, PermissionsPolicy::ShouldReportViolation::No);
     case PermissionName::Microphone:
         return PermissionsPolicy::isFeatureEnabled(PermissionsPolicy::Feature::Microphone, document, PermissionsPolicy::ShouldReportViolation::No);
+    case PermissionName::StorageAccess:
+        return PermissionsPolicy::isFeatureEnabled(PermissionsPolicy::Feature::StorageAccess, document, PermissionsPolicy::ShouldReportViolation::No);
     default:
         return true;
     }
@@ -116,6 +120,8 @@ std::optional<PermissionName> Permissions::toPermissionName(const String& name)
         return PermissionName::Notifications;
     if (name == "push"_s)
         return PermissionName::Push;
+    if (name == "storage-access"_s)
+        return PermissionName::StorageAccess;
     return std::nullopt;
 }
 
@@ -165,7 +171,7 @@ void Permissions::query(JSC::Strong<JSC::JSObject> permissionDescriptorValue, DO
             return;
         }
 
-        PermissionController::protectedShared()->query(ClientOrigin { document->topOrigin().data(), WTFMove(originData) }, permissionDescriptor, *page, *source, [document = Ref { *document }, page, permissionDescriptor, promise = WTFMove(promise)](auto permissionState) mutable {
+        PermissionController::singleton().query(ClientOrigin { document->topOrigin().data(), WTFMove(originData) }, permissionDescriptor, *page, *source, [document = Ref { *document }, page, permissionDescriptor, promise = WTFMove(promise)](auto permissionState) mutable {
             if (!permissionState) {
                 promise.reject(Exception { ExceptionCode::NotSupportedError, "Permissions::query does not support this API"_s });
                 return;
@@ -182,6 +188,10 @@ void Permissions::query(JSC::Strong<JSC::JSObject> permissionDescriptorValue, DO
             }
 #endif
 
+#if ENABLE(MEDIA_STREAM)
+            if (document->quirks().shouldEnableCameraAndMicrophonePermissionStateQuirk() && (permissionDescriptor.name == PermissionName::Camera || permissionDescriptor.name == PermissionName::Microphone) && *permissionState == PermissionState::Prompt)
+                permissionState = PermissionState::Granted;
+#endif
             promise.resolve(PermissionStatus::create(document, *permissionState, permissionDescriptor, PermissionQuerySource::Window, WTFMove(page)));
         });
         return;
@@ -201,7 +211,7 @@ void Permissions::query(JSC::Strong<JSC::JSObject> permissionDescriptorValue, DO
 
         auto page = source == PermissionQuerySource::DedicatedWorker ? WeakPtr { *document->page() } : nullptr;
 
-        PermissionController::protectedShared()->query(ClientOrigin { document->topOrigin().data(), WTFMove(originData) }, permissionDescriptor, page, source, [contextIdentifier, permissionDescriptor, promise = WTFMove(promise), source, page, document](auto permissionState) mutable {
+        PermissionController::singleton().query(ClientOrigin { document->topOrigin().data(), WTFMove(originData) }, permissionDescriptor, page, source, [contextIdentifier, permissionDescriptor, promise = WTFMove(promise), source, page, document](auto permissionState) mutable {
             ASSERT(isMainThread());
 
             if (!permissionState) {
@@ -232,7 +242,7 @@ void Permissions::query(JSC::Strong<JSC::JSObject> permissionDescriptorValue, DO
         });
     };
 
-    if (CheckedPtr workerLoaderProxy = workerGlobalScope->thread().workerLoaderProxy())
+    if (CheckedPtr workerLoaderProxy = workerGlobalScope->thread()->workerLoaderProxy())
         workerLoaderProxy->postTaskToLoader(WTFMove(completionHandler));
 }
 

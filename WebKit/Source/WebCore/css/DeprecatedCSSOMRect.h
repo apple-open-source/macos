@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "DeprecatedCSSOMPrimitiveValue.h"
-#include "Rect.h"
+#include <WebCore/DeprecatedCSSOMPrimitiveValue.h>
+#include <WebCore/Rect.h>
 
 namespace WebCore {
 

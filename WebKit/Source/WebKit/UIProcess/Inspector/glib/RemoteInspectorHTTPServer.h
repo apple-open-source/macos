@@ -36,7 +36,6 @@ namespace WebKit {
 class RemoteInspectorHTTPServer final : public RemoteInspectorObserver {
 public:
     static RemoteInspectorHTTPServer& singleton();
-    ~RemoteInspectorHTTPServer() = default;
 
     bool start(GRefPtr<GSocketAddress>&&, unsigned inspectorPort);
     bool isRunning() const { return !!m_server; }

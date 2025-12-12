@@ -28,7 +28,7 @@
 
 #if HAVE(PEPPER_UI_CORE)
 
-asm(".linker_option \"-framework\", \"PepperUICore\"");
+__asm__(".linker_option \"-framework\", \"PepperUICore\"");
 
 #import "PepperUICoreSPI.h"
 #import <WebCore/LocalizedStrings.h>
@@ -176,7 +176,7 @@ static UIBezierPath *pathWithRoundedRectInFrame(CGRect rect, CGFloat borderRadiu
 
 - (id <WKFocusedFormControlViewDelegate>)delegate
 {
-    return _delegate.get().get();
+    return _delegate.get().unsafeGet();
 }
 
 - (void)setDelegate:(id <WKFocusedFormControlViewDelegate>)delegate

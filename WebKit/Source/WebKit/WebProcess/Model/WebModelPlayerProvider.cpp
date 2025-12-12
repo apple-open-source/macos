@@ -28,6 +28,7 @@
 
 #include "WebPage.h"
 #include "WebProcess.h"
+#include <WebCore/DDModelPlayer.h>
 #include <WebCore/ModelPlayer.h>
 #include <WebCore/Page.h>
 #include <WebCore/Settings.h>
@@ -76,6 +77,11 @@ RefPtr<WebCore::ModelPlayer> WebModelPlayerProvider::createModelPlayer(WebCore::
     if (page->corePage() && page->corePage()->settings().modelProcessEnabled())
         return WebProcess::singleton().modelProcessModelPlayerManager().createModelProcessModelPlayer(page, client);
 #endif
+#if ENABLE(GPU_PROCESS_MODEL)
+    if (page->corePage() && page->corePage()->settings().modelElementEnabled())
+        return WebCore::DDModelPlayer::create(*page->corePage(), client);
+#endif
+
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     if (page->useARKitForModel())
         return ARKitInlinePreviewModelPlayerMac::create(page, client);

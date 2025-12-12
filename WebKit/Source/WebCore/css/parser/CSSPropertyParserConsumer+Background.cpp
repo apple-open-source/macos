@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2024 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -355,10 +355,10 @@ static std::optional<CSS::BoxShadow> consumeSingleUnresolvedBoxShadow(CSSParserT
     auto rangeCopy = range;
 
     std::optional<CSS::Color> color;
-    std::optional<CSS::Length<>> x;
-    std::optional<CSS::Length<>> y;
-    std::optional<CSS::Length<CSS::Nonnegative>> blur;
-    std::optional<CSS::Length<>> spread;
+    std::optional<CSS::Length<CSS::AllUnzoomed>> x;
+    std::optional<CSS::Length<CSS::AllUnzoomed>> y;
+    std::optional<CSS::Length<CSS::NonnegativeUnzoomed>> blur;
+    std::optional<CSS::Length<CSS::AllUnzoomed>> spread;
     std::optional<CSS::Keyword::Inset> inset;
 
     for (size_t i = 0; i < 3; i++) {
@@ -397,10 +397,10 @@ static std::optional<CSS::BoxShadow> consumeSingleUnresolvedBoxShadow(CSSParserT
             return { };
         }
 
-        x = MetaConsumer<CSS::Length<>>::consume(rangeCopy, state);
+        x = MetaConsumer<CSS::Length<CSS::AllUnzoomed>>::consume(rangeCopy, state);
         if (!x)
             return { };
-        y = MetaConsumer<CSS::Length<>>::consume(rangeCopy, state);
+        y = MetaConsumer<CSS::Length<CSS::AllUnzoomed>>::consume(rangeCopy, state);
         if (!y)
             return { };
 
@@ -409,13 +409,13 @@ static std::optional<CSS::BoxShadow> consumeSingleUnresolvedBoxShadow(CSSParserT
         // The explicit check for calc() is unfortunate. This is ensuring that we only fail
         // parsing if there is a length, but it fails the range check.
         if (token.type() == DimensionToken || token.type() == NumberToken || (token.type() == FunctionToken && CSSCalc::isCalcFunction(token.functionId()))) {
-            blur = MetaConsumer<CSS::Length<CSS::Nonnegative>>::consume(rangeCopy, state);
+            blur = MetaConsumer<CSS::Length<CSS::NonnegativeUnzoomed>>::consume(rangeCopy, state);
             if (!blur)
                 return { };
         }
 
         if (blur)
-            spread = MetaConsumer<CSS::Length<>>::consume(rangeCopy, state);
+            spread = MetaConsumer<CSS::Length<CSS::AllUnzoomed>>::consume(rangeCopy, state);
     }
 
     if (!y)

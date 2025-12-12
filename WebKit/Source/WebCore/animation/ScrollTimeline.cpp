@@ -28,13 +28,14 @@
 
 #include "AnimationTimelinesController.h"
 #include "ContainerNodeInlines.h"
-#include "DocumentInlines.h"
 #include "Element.h"
 #include "KeyframeEffect.h"
 #include "RenderElementInlines.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
+#include "StylableInlines.h"
+#include "StyleSingleAnimationRange.h"
 #include "WebAnimation.h"
 
 namespace WebCore {
@@ -128,12 +129,12 @@ Element* ScrollTimeline::source() const
                     Ref document = nearestSource->document();
                     RefPtr documentElement = document->documentElement();
                     if (nearestSource != documentElement)
-                        return nearestSource.get();
+                        return nearestSource.unsafeGet();
                     // RenderObject::enclosingScrollableContainer() will return the document element even in
                     // quirks mode, but the scrolling element in that case is the <body> element, so we must
                     // make sure to return Document::scrollingElement() in case the document element is
                     // returned by enclosingScrollableContainer() but it was not explicitly set as the source.
-                    return &source->element == documentElement ? nearestSource.get() : document->scrollingElement();
+                    return &source->element == documentElement ? nearestSource.unsafeGet() : document->scrollingElement();
                 }
             }
         }
@@ -290,7 +291,7 @@ void ScrollTimeline::updateCurrentTimeIfStale()
 
     bool needsStyleUpdate = false;
     for (auto& animation : m_animations) {
-        if (RefPtr effect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+        if (RefPtr effect = animation->keyframeEffect()) {
             effect->invalidate();
             needsStyleUpdate = true;
         }
@@ -317,16 +318,9 @@ ScrollableArea* ScrollTimeline::scrollableAreaForSourceRenderer(const RenderElem
     return renderBox->hasLayer() ? renderBox->layer()->scrollableArea() : nullptr;
 }
 
-float ScrollTimeline::floatValueForOffset(const Length& offset, float maxValue)
+Style::SingleAnimationRange ScrollTimeline::defaultRange() const
 {
-    if (offset.isNormal() || offset.isAuto())
-        return 0.f;
-    return floatValueForLength(offset, maxValue);
-}
-
-TimelineRange ScrollTimeline::defaultRange() const
-{
-    return TimelineRange::defaultForScrollTimeline();
+    return Style::SingleAnimationRange::defaultForScrollTimeline();
 }
 
 ScrollTimeline::Data ScrollTimeline::computeTimelineData() const
@@ -340,7 +334,7 @@ ScrollTimeline::Data ScrollTimeline::computeTimelineData() const
     };
 }
 
-std::pair<WebAnimationTime, WebAnimationTime> ScrollTimeline::intervalForAttachmentRange(const TimelineRange& attachmentRange) const
+std::pair<WebAnimationTime, WebAnimationTime> ScrollTimeline::intervalForAttachmentRange(const Style::SingleAnimationRange& attachmentRange) const
 {
     auto maxScrollOffset = m_cachedCurrentTimeData.maxScrollOffset;
     if (!maxScrollOffset)
@@ -348,15 +342,15 @@ std::pair<WebAnimationTime, WebAnimationTime> ScrollTimeline::intervalForAttachm
 
     auto attachmentRangeOrDefault = attachmentRange.isDefault() ? defaultRange() : attachmentRange;
 
-    auto computedPercentageIfNecessary = [&](const Length& length) {
-        if (length.isPercent())
-            return length.value();
-        return floatValueForOffset(length, maxScrollOffset) / maxScrollOffset * 100;
+    auto computedPercentageIfNecessary = [&](const auto& rangeOffset) {
+        if (auto percentage = rangeOffset.tryPercentage())
+            return percentage->value;
+        return Style::evaluate<float>(rangeOffset, maxScrollOffset, Style::ZoomNeeded { }) / maxScrollOffset * 100;
     };
 
     return {
-        WebAnimationTime::fromPercentage(computedPercentageIfNecessary(attachmentRangeOrDefault.start.offset)),
-        WebAnimationTime::fromPercentage(computedPercentageIfNecessary(attachmentRangeOrDefault.end.offset))
+        WebAnimationTime::fromPercentage(computedPercentageIfNecessary(attachmentRangeOrDefault.start.offset())),
+        WebAnimationTime::fromPercentage(computedPercentageIfNecessary(attachmentRangeOrDefault.end.offset()))
     };
 }
 

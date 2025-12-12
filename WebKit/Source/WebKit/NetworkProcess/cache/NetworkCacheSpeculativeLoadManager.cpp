@@ -32,6 +32,7 @@
 #include "NetworkCacheSubresourcesEntry.h"
 #include "NetworkLoadParameters.h"
 #include "NetworkProcess.h"
+#include "NetworkSession.h"
 #include "PreconnectTask.h"
 #include <WebCore/DiagnosticLoggingKeys.h>
 #include <pal/HysteresisActivity.h>

@@ -96,9 +96,6 @@ messages -> RemoteMediaPlayerProxy {
     [EnabledBy=LegacyEncryptedMediaAPIEnabled] SetShouldContinueAfterKeyNeeded(bool should)
 #endif
 
-    BeginSimulatedHDCPError()
-    EndSimulatedHDCPError()
-
     NotifyActiveSourceBuffersChanged()
 
     ApplicationWillResignActive()

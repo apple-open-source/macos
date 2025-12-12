@@ -143,7 +143,7 @@ public:
     LayoutUnit columnGap() const;
 
 private:
-    void addOverflowFromChildren() override;
+    void addOverflowFromInFlowChildren(OptionSet<ComputeOverflowOptions> = { }) override;
 
     void layout() override;
 
@@ -167,7 +167,7 @@ private:
     Vector<LayoutRect> fragmentRectsForFlowContentRect(const LayoutRect&) const final;
     bool contentRectSpansFragments(const LayoutRect&) const final;
 
-    VisiblePosition positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
+    PositionWithAffinity positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
 
     ASCIILiteral renderName() const override;
 

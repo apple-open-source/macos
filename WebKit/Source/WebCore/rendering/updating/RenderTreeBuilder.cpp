@@ -28,8 +28,9 @@
 #include "RenderTreeBuilder.h"
 
 #include "AXObjectCache.h"
-#include "DocumentInlines.h"
+#include "DocumentView.h"
 #include "FrameSelection.h"
+#include "HTMLMarqueeElement.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyRenderSVGContainer.h"
 #include "LegacyRenderSVGRoot.h"
@@ -86,6 +87,24 @@ namespace WebCore {
 
 RenderTreeBuilder* RenderTreeBuilder::s_current;
 
+static bool isRenderMarquee(const RenderObject& renderer)
+{
+    if (auto* renderElement = dynamicDowncast<RenderElement>(renderer)) {
+        if (RefPtr marquee = dynamicDowncast<HTMLMarqueeElement>(renderElement->element()))
+            return marquee->hasRenderMarquee();
+    }
+    return false;
+}
+
+static bool isWithinNeverLaidOutRenderMarqueeSubtree(const RenderObject& renderer)
+{
+    for (CheckedPtr renderObject = &renderer; renderObject && !renderObject->everHadLayout(); renderObject = renderObject->parent()) {
+        if (isRenderMarquee(*renderObject))
+            return true;
+    }
+    return false;
+}
+
 enum class IsRemoval : bool { No, Yes };
 static void invalidateLineLayout(RenderObject& renderer, IsRemoval isRemoval)
 {
@@ -93,23 +112,25 @@ static void invalidateLineLayout(RenderObject& renderer, IsRemoval isRemoval)
     if (!container)
         return;
 
-    if (isRemoval == IsRemoval::Yes && !renderer.everHadLayout()) {
+    if (isRemoval == IsRemoval::Yes && !renderer.everHadLayout()
+        && !isWithinNeverLaidOutRenderMarqueeSubtree(renderer)) {
         // Certain mutations can make renderer to be removed before running layout. In such cases we don't have to try to
         // run invalidation only remove it from layout tree.
+        // One exception is for RenderMarquee, which may have run preferred width computation without performing layout.
         if (auto* inlineLayout = container->inlineLayout())
             inlineLayout->removedFromTree(*renderer.parent(), renderer);
         return;
     }
 
-    auto shouldInvalidateLineLayoutPath = [&](auto& inlineLayout) {
-        if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterTreeMutation(*container, renderer, inlineLayout, isRemoval == IsRemoval::Yes))
+    auto shouldInvalidateLineLayout = [&](auto& inlineLayout) {
+        if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutAfterTreeMutation(*container, renderer, inlineLayout, isRemoval == IsRemoval::Yes))
             return true;
         if (isRemoval == IsRemoval::Yes)
             return !inlineLayout.removedFromTree(*renderer.parent(), renderer);
         return !inlineLayout.insertedIntoTree(*renderer.parent(), renderer);
     };
-    if (auto* inlineLayout = container->inlineLayout(); inlineLayout && shouldInvalidateLineLayoutPath(*inlineLayout))
-        container->invalidateLineLayoutPath(RenderBlockFlow::InvalidationReason::InsertionOrRemoval);
+    if (auto* inlineLayout = container->inlineLayout(); inlineLayout && shouldInvalidateLineLayout(*inlineLayout))
+        container->invalidateLineLayout(RenderBlockFlow::InvalidationReason::InsertionOrRemoval);
 }
 
 static void getInlineRun(RenderObject* start, RenderObject* boundary, RenderObject*& inlineRunStart, RenderObject*& inlineRunEnd)
@@ -563,7 +584,7 @@ void RenderTreeBuilder::move(RenderBoxModelObject& from, RenderBoxModelObject& t
         for (CheckedPtr containingBlock = &from; containingBlock; containingBlock = containingBlock->containingBlock()) {
             containingBlock->setNeedsLayout();
             if (auto* blockFlow = dynamicDowncast<RenderBlockFlow>(*containingBlock)) {
-                blockFlow->deleteLines();
+                blockFlow->invalidateLineLayout(RenderBlockFlow::InvalidationReason::InternalMove);
                 break;
             }
         }
@@ -758,7 +779,8 @@ void RenderTreeBuilder::createAnonymousWrappersForInlineContent(RenderBlock& par
     if (!child)
         return;
 
-    parent.deleteLines();
+    if (CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(parent))
+        blockFlow->invalidateLineLayout(RenderBlockFlow::InvalidationReason::InternalMove);
 
     while (child) {
         RenderObject* inlineRunStart = nullptr;
@@ -1106,7 +1128,7 @@ void RenderTreeBuilder::reportVisuallyNonEmptyContent(const RenderElement& paren
             auto fixedHeight = style.height().tryFixed();
             if (!fixedWidth || !fixedHeight)
                 return { };
-            return std::make_optional(IntSize { static_cast<int>(fixedWidth->value), static_cast<int>(fixedHeight->value) });
+            return std::make_optional(IntSize { static_cast<int>(fixedWidth->resolveZoom(Style::ZoomNeeded { })), static_cast<int>(fixedHeight->resolveZoom(Style::ZoomNeeded { })) });
         };
         // SVG content tends to have a fixed size construct. However this is known to be inaccurate in certain cases (box-sizing: border-box) or especially when the parent box is oversized.
         auto candidateSize = IntSize { };
@@ -1151,8 +1173,11 @@ void RenderTreeBuilder::removeFloatingObjects(RenderBlock& renderer)
     auto copyOfFloatingObjects = WTF::map(*floatingObjects, [](auto& floatingObject) {
         return floatingObject.get();
     });
-    for (auto* floatingObject : copyOfFloatingObjects)
-        floatingObject->renderer().removeFloatingOrOutOfFlowChildFromBlockLists();
+    for (auto* floatingObject : copyOfFloatingObjects) {
+        if (!floatingObject->renderer())
+            continue;
+        floatingObject->renderer()->removeFloatingOrOutOfFlowChildFromBlockLists();
+    }
 }
 
 RenderPtr<RenderBox> RenderTreeBuilder::createAnonymousBoxWithSameTypeAndWithStyle(const RenderBox& renderer, const RenderStyle& style)

@@ -264,7 +264,10 @@ main(int  argc,				/* I - Number of command-line args */
 	      break;
 
           case 's' : /* Set cups-files.conf location */
-              i ++;
+            i ++;
+#if CUPS_FILES_LOCKDOWN
+            fputs("cupsd: -s ignored.\n", stderr);
+#else
 	      if (i >= argc)
 	      {
 	        _cupsLangPuts(stderr, _("cupsd: Expected cups-files.conf "
@@ -284,6 +287,7 @@ main(int  argc,				/* I - Number of command-line args */
               }
 
 	      cupsdSetString(&CupsFilesFile, argv[i]);
+#endif
 	      break;
 
 #ifdef __APPLE__

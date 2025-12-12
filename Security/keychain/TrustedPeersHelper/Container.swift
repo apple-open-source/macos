@@ -5877,11 +5877,12 @@ class Container: NSObject, ConfiguredCloudKit {
                      isBackgroundCheck: Bool,
                      flowID: String?,
                      deviceSessionID: String?,
+                     rateLimit: Int,
                      reply: @escaping (OTEscrowCheckCallResult?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let ret = OTEscrowCheckCallResult()
         ret.needsReenroll = false // default case
-        ret.octagonTrusted = false // default case
+        ret.octagonTrusted = OctagonTrustStatus.unknown.rawValue // default case
         ret.secureTermsNeeded = false // default case
         ret.repairReason = 0 // default case
         ret.repairDisabled = false // default case
@@ -5898,7 +5899,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 // No identity, nothing to do
                 logger.info("escrow check: No identity.")
                 ret.needsReenroll = false
-                ret.octagonTrusted = false
+                ret.octagonTrusted = OctagonTrustStatus.notTrustedLocally.rawValue
                 reply(ret, ContainerError.noPreparedIdentity)
                 return
             }
@@ -5921,6 +5922,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     $0.disableRepair = true
                 }
                 $0.requiresEscrowCheck = requiresEscrowCheck
+                $0.rateLimited = UInt64(rateLimit)
             }
 
             self.cuttlefish.getEscrowCheck(request) { response in
@@ -5932,13 +5934,19 @@ class Container: NSObject, ConfiguredCloudKit {
                     switch netResult {
                     case .escrowCheckNa, .escrowCheckUnknown, .UNRECOGNIZED:
                         ret.needsReenroll = false
-                        ret.octagonTrusted = false
+                        ret.octagonTrusted = OctagonTrustStatus.unknown.rawValue
                     case .escrowCheckOk:
                         ret.needsReenroll = false
-                        ret.octagonTrusted = true
+                        ret.octagonTrusted = OctagonTrustStatus.trusted.rawValue
                     case .escrowCheckRepairNeeded:
                         ret.needsReenroll = true
-                        ret.octagonTrusted = true
+                        ret.octagonTrusted = OctagonTrustStatus.trusted.rawValue
+                    case .escrowCheckNotTrusted:
+                        ret.needsReenroll = true
+                        ret.octagonTrusted = OctagonTrustStatus.notTrustedCuttlefish.rawValue
+                    case .escrowCheckGraphNeedsRepair:
+                        ret.needsReenroll = true
+                        ret.octagonTrusted = OctagonTrustStatus.graphNeedsRepair.rawValue
                     }
 
                     var moveRequest: OTEscrowMoveRequestContext?

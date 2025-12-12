@@ -87,6 +87,11 @@ CGColorSpaceRef extendedITUR_2020ColorSpaceSingleton()
     return namedColorSpace<kCGColorSpaceExtendedITUR_2020>();
 }
 
+CGColorSpaceRef extendedLinearDisplayP3ColorSpaceSingleton()
+{
+    return namedColorSpace<kCGColorSpaceExtendedLinearDisplayP3>();
+}
+
 CGColorSpaceRef extendedLinearSRGBColorSpaceSingleton()
 {
     return namedColorSpace<kCGColorSpaceExtendedLinearSRGB>();
@@ -105,6 +110,11 @@ CGColorSpaceRef extendedSRGBColorSpaceSingleton()
 CGColorSpaceRef ITUR_2020ColorSpaceSingleton()
 {
     return namedColorSpace<kCGColorSpaceITUR_2020>();
+}
+
+CGColorSpaceRef linearDisplayP3ColorSpaceSingleton()
+{
+    return namedColorSpace<kCGColorSpaceLinearDisplayP3>();
 }
 
 CGColorSpaceRef linearSRGBColorSpaceSingleton()
@@ -151,6 +161,9 @@ std::optional<ColorSpace> colorSpaceForCGColorSpace(CGColorSpaceRef colorSpace)
     if (CGColorSpaceEqualToColorSpace(colorSpace, extendedDisplayP3ColorSpaceSingleton()))
         return ColorSpace::ExtendedDisplayP3;
 
+    if (CGColorSpaceEqualToColorSpace(colorSpace, extendedLinearDisplayP3ColorSpaceSingleton()))
+        return ColorSpace::ExtendedLinearDisplayP3;
+
     if (CGColorSpaceEqualToColorSpace(colorSpace, extendedLinearSRGBColorSpaceSingleton()))
         return ColorSpace::ExtendedLinearSRGB;
 
@@ -162,6 +175,9 @@ std::optional<ColorSpace> colorSpaceForCGColorSpace(CGColorSpaceRef colorSpace)
 
     if (CGColorSpaceEqualToColorSpace(colorSpace, ITUR_2020ColorSpaceSingleton()))
         return ColorSpace::Rec2020;
+
+    if (CGColorSpaceEqualToColorSpace(colorSpace, linearDisplayP3ColorSpaceSingleton()))
+        return ColorSpace::LinearDisplayP3;
 
     if (CGColorSpaceEqualToColorSpace(colorSpace, ROMMRGBColorSpaceSingleton()))
         return ColorSpace::ProPhotoRGB;

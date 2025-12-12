@@ -3312,6 +3312,7 @@ findpcb:
 				/* Either ACK was sent to listener after connection was closed or cookie validation failed or we could not allocate a socket */
 				tcpstat.tcps_listendrop++;
 				TCP_LOG_DROP_PCB(TCP_LOG_HDR, th, tp, false, " listener dropped ACK while SYN cookies were enabled");
+				tp = NULL; /* This is mandatory due to how RST is send from tcp_respond */
 				drop_reason = DROP_REASON_TCP_LISTENER_DROP;
 				goto dropwithreset;
 			}

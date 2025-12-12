@@ -29,6 +29,19 @@
 
 - (NSString*)description
 {
+    NSString* octagonTrustStateDescription = nil;
+    if (self.octagonTrusted == OctagonTrustStatusTrusted) {
+        octagonTrustStateDescription = @"trusted";
+    } else if (self.octagonTrusted == OctagonTrustStatusUnknown) {
+        octagonTrustStateDescription = @"unknown trust status";
+    } else if (self.octagonTrusted == OctagonTrustStatusGraphNeedsRepair) {
+        octagonTrustStateDescription = @"graph needs repair";
+    } else if (self.octagonTrusted == OctagonTrustStatusNotTrustedLocally) {
+        octagonTrustStateDescription = @"not trusted on device";
+    } else if (self.octagonTrusted == OctagonTrustStatusNotTrustedCuttlefish) {
+        octagonTrustStateDescription = @"not trusted in cuttlefish";
+    }
+    
     return [NSString stringWithFormat:@"<OTEscrowCheckCallResult:"
             " needsReenroll: %@,"
             " octagonTrusted: %@,"
@@ -37,7 +50,7 @@
             " repairReason: %ld,"
             " repairDisabled: %@>",
             self.needsReenroll ? @"YES" : @"NO",
-            self.octagonTrusted ? @"YES" : @"NO",
+            octagonTrustStateDescription,
             self.secureTermsNeeded ? @"YES" : @"NO",
             self.moveRequest,
             self.repairReason,
@@ -53,7 +66,7 @@
     if ((self = [super init])) {
         _moveRequest = [coder decodeObjectOfClass:[OTEscrowMoveRequestContext class] forKey:@"moveRequest"];
         _needsReenroll = [coder decodeBoolForKey:@"needsReenroll"];
-        _octagonTrusted = [coder decodeBoolForKey:@"octagonTrusted"];
+        _octagonTrusted = [coder decodeIntegerForKey:@"octagonTrusted"];
         _secureTermsNeeded = [coder decodeBoolForKey:@"secureTermsNeeded"];
         _repairReason = [coder decodeIntegerForKey:@"repairReason"];
         _repairDisabled = [coder decodeBoolForKey:@"repairDisabled"];
@@ -63,7 +76,7 @@
 
 - (void)encodeWithCoder:(NSCoder *)coder {
     [coder encodeBool:self.needsReenroll forKey:@"needsReenroll"];
-    [coder encodeBool:self.octagonTrusted forKey:@"octagonTrusted"];
+    [coder encodeInteger:self.octagonTrusted forKey:@"octagonTrusted"];
     [coder encodeBool:self.secureTermsNeeded forKey:@"secureTermsNeeded"];
     [coder encodeObject:self.moveRequest forKey:@"moveRequest"];
     [coder encodeInteger:self.repairReason forKey:@"repairReason"];

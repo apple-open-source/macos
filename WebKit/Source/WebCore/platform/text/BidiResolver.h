@@ -21,9 +21,9 @@
 
 #pragma once
 
-#include "BidiContext.h"
-#include "BidiRunList.h"
-#include "WritingMode.h"
+#include <WebCore/BidiContext.h>
+#include <WebCore/BidiRunList.h>
+#include <WebCore/WritingMode.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMallocInlines.h>

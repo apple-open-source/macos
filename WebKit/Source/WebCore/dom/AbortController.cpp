@@ -28,6 +28,7 @@
 
 #include "AbortSignal.h"
 #include "JSAbortController.h"
+#include "ScriptWrappableInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {

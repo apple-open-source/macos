@@ -27,9 +27,9 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
-#include "DoubleGeometry.h"
 #include "WebExtensionTabIdentifier.h"
 #include "WebExtensionWindowIdentifier.h"
+#include <WebCore/DoubleSize.h>
 #include <wtf/Forward.h>
 
 namespace WebKit {
@@ -43,7 +43,7 @@ struct WebExtensionTabParameters {
     std::optional<WebExtensionWindowIdentifier> windowIdentifier;
     std::optional<uint64_t> index;
 #if PLATFORM(COCOA)
-    std::optional<DoubleSize> size;
+    std::optional<WebCore::DoubleSize> size;
 #endif
 
     std::optional<WebExtensionTabIdentifier> parentTabIdentifier;

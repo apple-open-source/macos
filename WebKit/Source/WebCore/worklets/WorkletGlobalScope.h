@@ -54,6 +54,7 @@ using WorkletGlobalScopeIdentifier = ObjectIdentifier<WorkletGlobalScopeIdentifi
 
 class WorkletGlobalScope : public WorkerOrWorkletGlobalScope {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WorkletGlobalScope);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WorkletGlobalScope);
 public:
     virtual ~WorkletGlobalScope();
 
@@ -120,7 +121,7 @@ private:
     JSC::RuntimeFlags m_jsRuntimeFlags;
     std::optional<ScriptSourceCode> m_code;
 
-    std::unique_ptr<WorkerMessagePortChannelProvider> m_messagePortChannelProvider;
+    const RefPtr<WorkerMessagePortChannelProvider> m_messagePortChannelProvider;
 
     SettingsValues m_settingsValues;
 };

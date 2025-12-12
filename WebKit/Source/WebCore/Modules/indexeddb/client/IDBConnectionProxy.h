@@ -25,13 +25,14 @@
 
 #pragma once
 
-#include "IDBConnectionToServer.h"
-#include "IDBDatabaseNameAndVersionRequest.h"
-#include "IDBIndexIdentifier.h"
-#include "IDBObjectStoreIdentifier.h"
-#include "IDBResourceIdentifier.h"
-#include "IndexKey.h"
-#include "TransactionOperation.h"
+#include <WebCore/IDBConnectionToServer.h>
+#include <WebCore/IDBDatabaseNameAndVersionRequest.h>
+#include <WebCore/IDBIndexIdentifier.h>
+#include <WebCore/IDBObjectStoreIdentifier.h>
+#include <WebCore/IDBResourceIdentifier.h>
+#include <WebCore/IndexKey.h>
+#include <WebCore/ScriptExecutionContext.h>
+#include <WebCore/TransactionOperation.h>
 #include <pal/SessionID.h>
 #include <wtf/CrossThreadQueue.h>
 #include <wtf/CrossThreadTask.h>
@@ -186,7 +187,7 @@ private:
     HashMap<IDBResourceIdentifier, Ref<IDBDatabaseNameAndVersionRequest>> m_databaseInfoCallbacks WTF_GUARDED_BY_LOCK(m_databaseInfoMapLock);
 
     CrossThreadQueue<CrossThreadTask> m_mainThreadQueue;
-    RefPtr<IDBConnectionToServer> m_mainThreadProtector WTF_GUARDED_BY_LOCK(m_mainThreadTaskLock);
+    bool m_hasScheduledMainThreadTasks WTF_GUARDED_BY_LOCK(m_mainThreadTaskLock) { false };
     PAL::SessionID m_sessionID;
 };
 

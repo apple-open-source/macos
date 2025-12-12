@@ -91,13 +91,13 @@ String WebCookieCache::cookiesForDOM(const URL& firstParty, const SameSiteInfo& 
         for (auto& cookie : cookies)
             inMemoryStorageSession->setCookie(cookie);
     }
-    return checkedInMemoryStorageSession()->cookiesForDOM(firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies, ApplyTrackingPrevention::No, ShouldRelaxThirdPartyCookieBlocking::No).first;
+    return checkedInMemoryStorageSession()->cookiesForDOM(firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies, ApplyTrackingPrevention::No, ShouldRelaxThirdPartyCookieBlocking::No, IsKnownCrossSiteTracker::No).first;
 }
 
 void WebCookieCache::setCookiesFromDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, FrameIdentifier frameID, PageIdentifier pageID, const String& cookieString, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking)
 {
     if (m_hostsWithInMemoryStorage.contains<StringViewHashTranslator>(url.host()))
-        checkedInMemoryStorageSession()->setCookiesFromDOM(firstParty, sameSiteInfo, url, frameID, pageID, ApplyTrackingPrevention::No, RequiresScriptTrackingPrivacy::No, cookieString, shouldRelaxThirdPartyCookieBlocking);
+        checkedInMemoryStorageSession()->setCookiesFromDOM(firstParty, sameSiteInfo, url, frameID, pageID, ApplyTrackingPrevention::No, RequiresScriptTrackingPrivacy::No, cookieString, shouldRelaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker::No);
 }
 
 PendingCookieUpdateCounter::Token WebCookieCache::willSetCookieFromDOM()
@@ -108,7 +108,7 @@ PendingCookieUpdateCounter::Token WebCookieCache::willSetCookieFromDOM()
 void WebCookieCache::didSetCookieFromDOM(PendingCookieUpdateCounter::Token, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, FrameIdentifier frameID, PageIdentifier pageID, const WebCore::Cookie& cookie, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking)
 {
     if (m_hostsWithInMemoryStorage.contains<StringViewHashTranslator>(url.host()))
-        checkedInMemoryStorageSession()->setCookieFromDOM(firstParty, sameSiteInfo, url, frameID, pageID, ApplyTrackingPrevention::No, RequiresScriptTrackingPrivacy::No, cookie, shouldRelaxThirdPartyCookieBlocking);
+        checkedInMemoryStorageSession()->setCookieFromDOM(firstParty, sameSiteInfo, url, frameID, pageID, ApplyTrackingPrevention::No, RequiresScriptTrackingPrivacy::No, cookie, shouldRelaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker::No);
 }
 
 void WebCookieCache::cookiesAdded(const String& host, const Vector<WebCore::Cookie>& cookies)
@@ -174,12 +174,12 @@ NetworkStorageSession& WebCookieCache::inMemoryStorageSession()
     return *m_inMemoryStorageSession;
 }
 
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
 void WebCookieCache::setOptInCookiePartitioningEnabled(bool)
 {
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     ASSERT_NOT_IMPLEMENTED_YET();
-}
 #endif
+}
 #endif
 
 bool WebCookieCache::cacheMayBeOutOfSync() const

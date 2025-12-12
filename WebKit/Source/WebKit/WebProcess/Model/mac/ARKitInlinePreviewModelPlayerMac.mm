@@ -136,7 +136,7 @@ void ARKitInlinePreviewModelPlayerMac::load(WebCore::Model& modelSource, WebCore
 {
     m_size = size;
 
-    auto* client = this->client();
+    RefPtr client = this->client();
     if (!client)
         return;
 
@@ -154,9 +154,9 @@ void ARKitInlinePreviewModelPlayerMac::createPreviewsForModelWithURL(const URL& 
 {
     // First, create the WebProcess preview.
     m_inlinePreview = adoptNS([allocASVInlinePreviewInstance() initWithFrame:CGRectMake(0, 0, m_size.width(), m_size.height())]);
-    LOG(ModelElement, "ARKitInlinePreviewModelPlayerMac::createPreviewsForModelWithURL() created preview with UUID %s and size %f x %f.", ((String)[m_inlinePreview uuid].UUIDString).utf8().data(), m_size.width(), m_size.height());
+    LOG(ModelElement, "ARKitInlinePreviewModelPlayerMac::createPreviewsForModelWithURL() created preview with UUID %s and size %f x %f.", ((String)[m_inlinePreview uuid].UUIDString).utf8().data(), m_size.width().toDouble(), m_size.height().toDouble());
 
-    auto* client = this->client();
+    RefPtr client = this->client();
     if (!client)
         return;
 
@@ -171,7 +171,7 @@ void ARKitInlinePreviewModelPlayerMac::createPreviewsForModelWithURL(const URL& 
         if (!strongSelf)
             return;
 
-        auto* client = strongSelf->client();
+        RefPtr client = strongSelf->client();
         if (!client)
             return;
 
@@ -202,7 +202,7 @@ void ARKitInlinePreviewModelPlayerMac::createPreviewsForModelWithURL(const URL& 
 
 void ARKitInlinePreviewModelPlayerMac::didCreateRemotePreviewForModelWithURL(const URL& url)
 {
-    auto* client = this->client();
+    RefPtr client = this->client();
     if (!client)
         return;
 
@@ -217,7 +217,7 @@ void ARKitInlinePreviewModelPlayerMac::didCreateRemotePreviewForModelWithURL(con
         if (!strongSelf)
             return;
 
-        auto* client = strongSelf->client();
+        RefPtr client = strongSelf->client();
         if (!client)
             return;
 
@@ -227,7 +227,7 @@ void ARKitInlinePreviewModelPlayerMac::didCreateRemotePreviewForModelWithURL(con
             return;
         }
 
-        LOG(ModelElement, "ARKitInlinePreviewModelPlayer::didCreateRemotePreviewForModelWithURL() successfully completed load for UUID %s.", [strongSelf->m_inlinePreview uuid]);
+        LOG(ModelElement, "ARKitInlinePreviewModelPlayer::didCreateRemotePreviewForModelWithURL() successfully completed load for UUID %@.", [strongSelf->m_inlinePreview uuid]);
 
         client->didFinishLoading(*strongSelf);
     };

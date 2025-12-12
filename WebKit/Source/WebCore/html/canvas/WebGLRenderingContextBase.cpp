@@ -32,6 +32,7 @@
 #include "BitmapImage.h"
 #include "CachedImage.h"
 #include "Chrome.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ContainerNodeInlines.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
@@ -409,11 +410,14 @@ static constexpr GCGLErrorCode glEnumToErrorCode(GCGLenum error)
     return GCGLErrorCode::InvalidOperation;
 }
 
-static String ensureNotNull(const String& text)
+// Conversion function converting GraphicsContextGL member function results that are directly
+// CStrings. The returned values might be null on implementation error or context loss during
+// that function.
+static String ensureNotNull(const CString& text)
 {
     if (text.isNull())
         return emptyString();
-    return text;
+    return String::fromUTF8(text.span());
 }
 
 static GraphicsContextGL::SurfaceBuffer toGCGLSurfaceBuffer(CanvasRenderingContext::SurfaceBuffer buffer)
@@ -939,7 +943,7 @@ void WebGLRenderingContextBase::attachShader(WebGLProgram& program, WebGLShader&
     Locker locker { objectGraphLock() };
     if (!validateWebGLObject("attachShader"_s, program) || !validateWebGLObject("attachShader"_s, shader))
         return;
-    if (!program.attachShader(locker, &shader)) {
+    if (!program.attachShader(locker, shader)) {
         synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "attachShader"_s, "shader attachment already has shader"_s);
         return;
     }
@@ -965,7 +969,7 @@ void WebGLRenderingContextBase::bindAttribLocation(WebGLProgram& program, GCGLui
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "bindAttribLocation"_s, "index out of range"_s);
         return;
     }
-    protectedGraphicsContextGL()->bindAttribLocation(program.object(), index, name);
+    protectedGraphicsContextGL()->bindAttribLocation(program.object(), index, name.utf8());
 }
 
 bool WebGLRenderingContextBase::validateBufferTarget(ASCIILiteral functionName, GCGLenum target)
@@ -1525,7 +1529,7 @@ void WebGLRenderingContextBase::detachShader(WebGLProgram& program, WebGLShader&
     Locker locker { objectGraphLock() };
     if (!validateWebGLObject("detachShader"_s, program) || !validateWebGLObject("detachShader"_s, shader))
         return;
-    if (!program.detachShader(locker, &shader)) {
+    if (!program.detachShader(locker, shader)) {
         synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "detachShader"_s, "shader not attached"_s);
         return;
     }
@@ -1726,10 +1730,10 @@ RefPtr<WebGLActiveInfo> WebGLRenderingContextBase::getActiveAttrib(WebGLProgram&
         return nullptr;
     if (!validateWebGLObject("getActiveAttrib"_s, program))
         return nullptr;
-    GraphicsContextGLActiveInfo info;
-    if (!protectedGraphicsContextGL()->getActiveAttrib(program.object(), index, info))
+    auto info = protectedGraphicsContextGL()->getActiveAttrib(program.object(), index);
+    if (!info)
         return nullptr;
-    return WebGLActiveInfo::create(info.name, info.type, info.size);
+    return WebGLActiveInfo::create(String::fromUTF8(info->name.span()), info->type, info->size);
 }
 
 RefPtr<WebGLActiveInfo> WebGLRenderingContextBase::getActiveUniform(WebGLProgram& program, GCGLuint index)
@@ -1738,15 +1742,16 @@ RefPtr<WebGLActiveInfo> WebGLRenderingContextBase::getActiveUniform(WebGLProgram
         return nullptr;
     if (!validateWebGLObject("getActiveUniform"_s, program))
         return nullptr;
-    GraphicsContextGLActiveInfo info;
-    if (!protectedGraphicsContextGL()->getActiveUniform(program.object(), index, info))
+    auto info = protectedGraphicsContextGL()->getActiveUniform(program.object(), index);
+    if (!info)
         return nullptr;
+    auto name = String::fromUTF8(info->name.span());
     // FIXME: Do we still need this for the ANGLE backend?
     if (!isWebGL2()) {
-        if (info.size > 1 && !info.name.endsWith("[0]"_s))
-            info.name = makeString(info.name, "[0]"_s);
+        if (info->size > 1 && !name.endsWith("[0]"_s))
+            name = makeString(name, "[0]"_s);
     }
-    return WebGLActiveInfo::create(info.name, info.type, info.size);
+    return WebGLActiveInfo::create(name, info->type, info->size);
 }
 
 std::optional<Vector<Ref<WebGLShader>>> WebGLRenderingContextBase::getAttachedShaders(WebGLProgram& program)
@@ -1755,18 +1760,12 @@ std::optional<Vector<Ref<WebGLShader>>> WebGLRenderingContextBase::getAttachedSh
         return std::nullopt;
     if (!validateWebGLObject("getAttachedShaders"_s, program))
         return std::nullopt;
-
-    const GCGLenum shaderTypes[] = {
-        GraphicsContextGL::VERTEX_SHADER,
-        GraphicsContextGL::FRAGMENT_SHADER
-    };
-
-    Vector<Ref<WebGLShader>> shaderObjects;
-    for (auto shaderType : shaderTypes) {
-        if (RefPtr shader = program.getAttachedShader(shaderType))
-            shaderObjects.append(shader.releaseNonNull());
-    }
-    return shaderObjects;
+    Vector<Ref<WebGLShader>> result;
+    if (RefPtr vertexShader = program.vertexShader())
+        result.append(vertexShader.releaseNonNull());
+    if (RefPtr fragmentShader = program.fragmentShader())
+        result.append(fragmentShader.releaseNonNull());
+    return result;
 }
 
 GCGLint WebGLRenderingContextBase::getAttribLocation(WebGLProgram& program, const String& name)
@@ -1785,7 +1784,7 @@ GCGLint WebGLRenderingContextBase::getAttribLocation(WebGLProgram& program, cons
         synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "getAttribLocation"_s, "program not linked"_s);
         return -1;
     }
-    return protectedGraphicsContextGL()->getAttribLocation(program.object(), name);
+    return protectedGraphicsContextGL()->getAttribLocation(program.object(), name.utf8());
 }
 
 WebGLAny WebGLRenderingContextBase::getBufferParameter(GCGLenum target, GCGLenum pname)
@@ -2198,9 +2197,9 @@ WebGLAny WebGLRenderingContextBase::getProgramParameter(WebGLProgram& program, G
 String WebGLRenderingContextBase::getProgramInfoLog(WebGLProgram& program)
 {
     if (isContextLost())
-        return String { };
+        return { };
     if (!validateWebGLObject("getProgramInfoLog"_s, program))
-        return String();
+        return { };
     return ensureNotNull(protectedGraphicsContextGL()->getProgramInfoLog(program.object()));
 }
 
@@ -2306,9 +2305,9 @@ WebGLAny WebGLRenderingContextBase::getShaderParameter(WebGLShader& shader, GCGL
 String WebGLRenderingContextBase::getShaderInfoLog(WebGLShader& shader)
 {
     if (isContextLost())
-        return String { };
+        return { };
     if (!validateWebGLObject("getShaderInfoLog"_s, shader))
-        return String();
+        return { };
     return ensureNotNull(protectedGraphicsContextGL()->getShaderInfoLog(shader.object()));
 }
 
@@ -2346,10 +2345,10 @@ RefPtr<WebGLShaderPrecisionFormat> WebGLRenderingContextBase::getShaderPrecision
 String WebGLRenderingContextBase::getShaderSource(WebGLShader& shader)
 {
     if (isContextLost())
-        return String { };
+        return { };
     if (!validateWebGLObject("getShaderSource"_s, shader))
-        return String();
-    return ensureNotNull(shader.getSource());
+        return { };
+    return shader.getSource();
 }
 
 WebGLAny WebGLRenderingContextBase::getTexParameter(GCGLenum target, GCGLenum pname)
@@ -2377,7 +2376,7 @@ WebGLAny WebGLRenderingContextBase::getTexParameter(GCGLenum target, GCGLenum pn
     }
 }
 
-WebGLAny WebGLRenderingContextBase::getUniform(WebGLProgram& program, const WebGLUniformLocation& uniformLocation)
+WebGLAny WebGLRenderingContextBase::getUniform(WebGLProgram& program, WebGLUniformLocation& uniformLocation)
 {
     if (isContextLost())
         return nullptr;
@@ -2389,9 +2388,40 @@ WebGLAny WebGLRenderingContextBase::getUniform(WebGLProgram& program, const WebG
     }
     GCGLint location = uniformLocation.location();
 
+    auto type = uniformLocation.type();
+    RefPtr context = m_context;
+
+    if (!type) {
+        GCGLint activeUniforms = context->getProgrami(program.object(), GraphicsContextGL::ACTIVE_UNIFORMS);
+        for (GCGLint i = 0; i < activeUniforms; i++) {
+            auto info = context->getActiveUniform(program.object(), i);
+            if (!info)
+                break;
+            auto baseName = String::fromUTF8(info->name.data());
+            // Strip "[0]" from the name if it's an array. FIXME: Is this still needed with ANGLE?
+            if (baseName.endsWith("[0]"_s))
+                baseName = baseName.left(baseName.length() - 3);
+            // If it's an array, we need to iterate through each element, appending "[index]" to the name.
+            for (GCGLint index = 0; index < info->size; ++index) {
+                auto currentName = !index ? baseName : makeString(baseName, '[', index, ']');
+                auto currentLocation = context->getUniformLocation(program.object(), currentName.utf8());
+                if (location == currentLocation) {
+                    type = info->type;
+                    break;
+                }
+            }
+            if (type)
+                break;
+        }
+        if (!type) {
+            synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "getUniform"_s, "unknown error"_s);
+            return nullptr;
+        }
+        uniformLocation.setType(*type);
+    }
     GCGLenum baseType;
     unsigned length;
-    switch (uniformLocation.type()) {
+    switch (*type) {
     case GraphicsContextGL::BOOL:
         baseType = GraphicsContextGL::BOOL;
         length = 1;
@@ -2463,7 +2493,7 @@ WebGLAny WebGLRenderingContextBase::getUniform(WebGLProgram& program, const WebG
             synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "getUniform"_s, "unhandled type"_s);
             return nullptr;
         }
-        switch (uniformLocation.type()) {
+        switch (*type) {
         case GraphicsContextGL::UNSIGNED_INT:
             baseType = GraphicsContextGL::UNSIGNED_INT;
             length = 1;
@@ -2586,27 +2616,11 @@ RefPtr<WebGLUniformLocation> WebGLRenderingContextBase::getUniformLocation(WebGL
     }
 
     RefPtr context = m_context;
-    auto uniformLocation = context->getUniformLocation(program.object(), name);
+    auto uniformLocation = context->getUniformLocation(program.object(), name.utf8());
     if (uniformLocation == -1)
         return nullptr;
 
-    GCGLint activeUniforms = context->getProgrami(program.object(), GraphicsContextGL::ACTIVE_UNIFORMS);
-    for (GCGLint i = 0; i < activeUniforms; i++) {
-        GraphicsContextGLActiveInfo info;
-        if (!context->getActiveUniform(program.object(), i, info))
-            return nullptr;
-        // Strip "[0]" from the name if it's an array.
-        if (info.name.endsWith("[0]"_s))
-            info.name = info.name.left(info.name.length() - 3);
-        // If it's an array, we need to iterate through each element, appending "[index]" to the name.
-        for (GCGLint index = 0; index < info.size; ++index) {
-            auto uniformName = makeString(info.name, '[', index, ']');
-
-            if (name == uniformName || name == info.name)
-                return WebGLUniformLocation::create(&program, uniformLocation, info.type);
-        }
-    }
-    return nullptr;
+    return WebGLUniformLocation::create(program, uniformLocation);
 }
 
 WebGLAny WebGLRenderingContextBase::getVertexAttrib(GCGLuint index, GCGLenum pname)
@@ -3071,7 +3085,7 @@ void WebGLRenderingContextBase::shaderSource(WebGLShader& shader, const String& 
         return;
     if (!validateWebGLObject("shaderSource"_s, shader))
         return;
-    protectedGraphicsContextGL()->shaderSource(shader.object(), string);
+    protectedGraphicsContextGL()->shaderSource(shader.object(), string.utf8());
     shader.setSource(string);
 }
 
@@ -3231,7 +3245,7 @@ ExceptionOr<void> WebGLRenderingContextBase::texImageSource(TexImageFunctionID f
             // The UNSIGNED_INT_10F_11F_11F_REV type pack/unpack isn't implemented.
             type = GraphicsContextGL::FLOAT;
         }
-        if (!context->extractPixelBuffer(source.pixelBuffer(), GraphicsContextGL::DataFormat::RGBA8, adjustedSourceImageRect, depth, unpackImageHeight, format, type, m_unpackFlipY, m_unpackPremultiplyAlpha, data)) {
+        if (!context->extractPixelBuffer(source.byteArrayPixelBuffer(), GraphicsContextGL::DataFormat::RGBA8, adjustedSourceImageRect, depth, unpackImageHeight, format, type, m_unpackFlipY, m_unpackPremultiplyAlpha, data)) {
             synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "texImage2D"_s, "bad image data"_s);
             return { };
         }
@@ -5283,7 +5297,7 @@ RefPtr<ImageBuffer> WebGLRenderingContextBase::LRUImageBufferCache::imageBuffer(
     }
 
     // FIXME (149423): Should this ImageBuffer be unconditionally unaccelerated?
-    auto temp = ImageBuffer::create(size, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, colorSpace, ImageBufferPixelFormat::BGRA8);
+    auto temp = ImageBuffer::create(size, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, colorSpace, PixelFormat::BGRA8);
     if (!temp)
         return nullptr;
     ASSERT(m_buffers.size() > 0);
@@ -5429,7 +5443,7 @@ void WebGLRenderingContextBase::vertexAttribDivisor(GCGLuint index, GCGLuint div
 bool WebGLRenderingContextBase::enableSupportedExtension(ASCIILiteral extensionNameLiteral)
 {
     ASSERT(m_context);
-    String extensionName { extensionNameLiteral };
+    CString extensionName { extensionNameLiteral };
     RefPtr context = m_context;
     if (!context->supportsExtension(extensionName))
         return false;
@@ -5549,7 +5563,7 @@ static ASCIILiteral debugMessageSeverityToString(GCGLenum severity)
     }
 }
 
-void WebGLRenderingContextBase::addDebugMessage(GCGLenum type, GCGLenum id, GCGLenum severity, const String& message)
+void WebGLRenderingContextBase::addDebugMessage(GCGLenum type, GCGLenum id, GCGLenum severity, const CString& message)
 {
     if (!shouldPrintToConsole())
         return;
@@ -5563,9 +5577,9 @@ void WebGLRenderingContextBase::addDebugMessage(GCGLenum type, GCGLenum id, GCGL
 
     if (type == GraphicsContextGL::DEBUG_TYPE_ERROR) {
         level = MessageLevel::Error;
-        formattedMessage = makeString("WebGL: "_s, errorCodeToString(glEnumToErrorCode(id)), ": "_s, message);
+        formattedMessage = makeString("WebGL: "_s, errorCodeToString(glEnumToErrorCode(id)), ": "_s, String::fromUTF8(message.span()));
     } else
-        formattedMessage = makeString("WebGL debug message: type:"_s, debugMessageTypeToString(type), ", id:"_s, id, " severity: "_s, debugMessageSeverityToString(severity), ": "_s, message);
+        formattedMessage = makeString("WebGL debug message: type:"_s, debugMessageTypeToString(type), ", id:"_s, id, " severity: "_s, debugMessageSeverityToString(severity), ": "_s, String::fromUTF8(message.span()));
 
     auto consoleMessage = makeUnique<Inspector::ConsoleMessage>(MessageSource::Rendering, MessageType::Log, level, WTFMove(formattedMessage));
     scriptExecutionContext->addConsoleMessage(WTFMove(consoleMessage));

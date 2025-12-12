@@ -31,25 +31,26 @@
 
 #pragma once
 
-#include "FrameIdentifier.h"
-#include "FrameLoaderStateMachine.h"
-#include "FrameLoaderTypes.h"
-#include "LayoutMilestone.h"
-#include "LoaderMalloc.h"
-#include "PageIdentifier.h"
-#include "PrivateClickMeasurement.h"
-#include "ReferrerPolicy.h"
-#include "ResourceLoadNotifier.h"
-#include "ResourceLoaderOptions.h"
-#include "ResourceRequestBase.h"
-#include "SecurityContext.h"
-#include "StoredCredentialsPolicy.h"
-#include "Timer.h"
+#include <WebCore/FrameIdentifier.h>
+#include <WebCore/FrameLoaderStateMachine.h>
+#include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/LayoutMilestone.h>
+#include <WebCore/LoaderMalloc.h>
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/PrivateClickMeasurement.h>
+#include <WebCore/ReferrerPolicy.h>
+#include <WebCore/ResourceLoadNotifier.h>
+#include <WebCore/ResourceLoaderOptions.h>
+#include <WebCore/ResourceRequestBase.h>
+#include <WebCore/SecurityContext.h>
+#include <WebCore/StoredCredentialsPolicy.h>
+#include <WebCore/Timer.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/OptionSet.h>
+#include <wtf/Platform.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WallTime.h>
 #include <wtf/WeakHashSet.h>
@@ -66,6 +67,7 @@ class SharedBuffer;
 class DOMWrapperWorld;
 class Document;
 class DocumentLoader;
+class Element;
 class Event;
 class Frame;
 class FormState;
@@ -86,6 +88,7 @@ class ResourceRequest;
 class ResourceResponse;
 class SerializedScriptValue;
 class SubstituteData;
+class DocumentPrefetcher;
 
 enum class CachePolicy : uint8_t;
 enum class NewLoadInProgress : bool;
@@ -105,7 +108,7 @@ using ContentPolicyDecisionFunction = CompletionHandler<void(PolicyAction)>;
 
 class FrameLoader final : public CanMakeWeakPtr<FrameLoader> {
     WTF_MAKE_NONCOPYABLE(FrameLoader);
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FrameLoader, Loader);
     friend class PolicyChecker;
 public:
     FrameLoader(LocalFrame&, CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&, FrameLoader&)>&& clientCreator);
@@ -130,7 +133,7 @@ public:
     SubframeLoader& subframeLoader() { return m_subframeLoader; }
     const SubframeLoader& subframeLoader() const { return m_subframeLoader; }
 
-    void setupForReplace();
+    void setupForMultipartReplace();
 
     // FIXME: These are all functions which start loads. We have too many.
     WEBCORE_EXPORT void loadFrameRequest(FrameLoadRequest&&, Event*, RefPtr<FormState>&&, std::optional<PrivateClickMeasurement>&& = std::nullopt); // Called by submitForm, calls loadPostRequest and loadURL.
@@ -142,7 +145,7 @@ public:
 #endif
     ResourceLoaderIdentifier loadResourceSynchronously(const ResourceRequest&, ClientCredentialPolicy, const FetchOptions&, const HTTPHeaderMap&, ResourceError&, ResourceResponse&, RefPtr<SharedBuffer>& data);
 
-    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), std::optional<PrivateClickMeasurement>&& = std::nullopt, NavigationHistoryBehavior = NavigationHistoryBehavior::Push);
+    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), std::optional<PrivateClickMeasurement>&& = std::nullopt, NavigationHistoryBehavior = NavigationHistoryBehavior::Push, Element* sourceElement = nullptr);
     void changeLocation(FrameLoadRequest&&, Event* = nullptr, std::optional<PrivateClickMeasurement>&& = std::nullopt);
     void submitForm(Ref<FormSubmission>&&);
 
@@ -172,7 +175,6 @@ public:
 
     WEBCORE_EXPORT int numPendingOrLoadingRequests(bool recurse) const;
 
-    ReferrerPolicy effectiveReferrerPolicy() const;
     String referrer() const;
     WEBCORE_EXPORT String outgoingReferrer() const;
     WEBCORE_EXPORT URL outgoingReferrerURL();
@@ -206,8 +208,8 @@ public:
     static ResourceError blockedByContentFilterError(const ResourceRequest&);
 #endif
 
-    bool isReplacing() const;
-    void setReplacing();
+    bool isMultipartReplacing() const;
+    void setMultipartReplacing();
     bool subframeIsLoading() const;
     void willChangeTitle(DocumentLoader*);
     void didChangeTitle(DocumentLoader*);
@@ -362,6 +364,9 @@ public:
 
     WEBCORE_EXPORT void prefetchDNSIfNeeded(const URL&);
 
+    void prefetch(const URL&, const Vector<String>&, std::optional<ReferrerPolicy>, bool lowPriority = false);
+    DocumentPrefetcher& documentPrefetcher() { return m_documentPrefetcher.get(); }
+
 private:
     enum FormSubmissionCacheLoadPolicy {
         MayAttemptCacheOnlyLoadForFormSubmissionItem,
@@ -431,7 +436,7 @@ private:
 
     bool shouldReload(const URL& currentURL, const URL& destinationURL);
 
-    ResourceLoaderIdentifier requestFromDelegate(ResourceRequest&, IsMainResourceLoad, ResourceError&);
+    ResourceLoaderIdentifier requestFromDelegate(ResourceRequest&, ResourceError&);
 
     WEBCORE_EXPORT void detachChildren();
     void closeAndRemoveChild(LocalFrame&);
@@ -467,7 +472,8 @@ private:
 
     void updateRequestAndAddExtraFields(Frame&, ResourceRequest&, IsMainResource, FrameLoadType, ShouldUpdateAppInitiatedValue, IsServiceWorkerNavigationLoad, WillOpenInNewWindow, Document*);
 
-    bool dispatchNavigateEvent(const URL& newURL, FrameLoadType, const AtomString&, NavigationHistoryBehavior, bool isSameDocument, FormState* = nullptr, SerializedScriptValue* classicHistoryAPIState = nullptr);
+    bool dispatchNavigateEvent(FrameLoadType, const FrameLoadRequest&, bool isSameDocument, FormState* = nullptr, Event* = nullptr, SerializedScriptValue* classicHistoryAPIState = nullptr);
+    bool shouldDispatchNavigateEventForHistoryTraversal(const HistoryItem&, const HistoryItem* fromItem);
 
     WeakRef<LocalFrame> m_frame;
     const UniqueRef<LocalFrameLoaderClient> m_client;
@@ -547,7 +553,12 @@ private:
 
     bool m_errorOccurredInLoading { false };
     bool m_doNotAbortNavigationAPI { false };
+    RefPtr<HistoryItem> m_pendingNavigationAPIItem;
     uint64_t m_requiredCookiesVersion { 0 };
+
+    const Ref<DocumentPrefetcher> m_documentPrefetcher;
+
+    Function<bool()> m_pendingDispatchNavigateEvent;
 };
 
 // This function is called by createWindow() in JSDOMWindowBase.cpp, for example, for

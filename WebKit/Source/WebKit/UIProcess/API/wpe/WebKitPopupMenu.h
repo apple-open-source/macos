@@ -33,7 +33,6 @@ namespace WebKit {
 class WebKitPopupMenu final : public WebPopupMenuProxy {
 public:
     static Ref<WebKitPopupMenu> create(WKWPE::View&, WebPopupMenuProxy::Client&);
-    ~WebKitPopupMenu() = default;
 
     void selectItem(unsigned itemIndex);
     void activateItem(std::optional<unsigned> itemIndex);

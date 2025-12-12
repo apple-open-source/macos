@@ -26,21 +26,21 @@
 
 #pragma once
 
-#include "ControlPart.h"
-#include "DashArray.h"
-#include "DestinationColorSpace.h"
-#include "FloatRect.h"
-#include "FloatSegment.h"
-#include "FontCascade.h"
-#include "GraphicsContextState.h"
-#include "Image.h"
-#include "ImageBufferFormat.h"
-#include "ImageOrientation.h"
-#include "ImagePaintingOptions.h"
-#include "IntRect.h"
-#include "Pattern.h"
-#include "PlatformGraphicsContext.h"
-#include "RenderingMode.h"
+#include <WebCore/ControlPart.h>
+#include <WebCore/DashArray.h>
+#include <WebCore/DestinationColorSpace.h>
+#include <WebCore/FloatRect.h>
+#include <WebCore/FloatSegment.h>
+#include <WebCore/FontCascade.h>
+#include <WebCore/GraphicsContextState.h>
+#include <WebCore/Image.h>
+#include <WebCore/ImageBufferFormat.h>
+#include <WebCore/ImageOrientation.h>
+#include <WebCore/ImagePaintingOptions.h>
+#include <WebCore/IntRect.h>
+#include <WebCore/Pattern.h>
+#include <WebCore/PlatformGraphicsContext.h>
+#include <WebCore/RenderingMode.h>
 #include <wtf/Function.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OptionSet.h>
@@ -49,7 +49,6 @@
 namespace WebCore {
 
 class AffineTransform;
-class DecomposedGlyphs;
 class Filter;
 class FilterResults;
 class FloatRoundedRect;
@@ -63,17 +62,13 @@ class VideoFrame;
 enum class RequiresClipToRect : bool { No, Yes };
 
 namespace DisplayList {
-class DrawNativeImage;
 class DisplayList;
 }
 
 class GraphicsContext {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(GraphicsContext, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(GraphicsContext);
-    friend class BifurcatedGraphicsContext;
-    friend class DisplayList::DrawNativeImage;
-    friend class NativeImage;
-    friend class ImageBuffer;
+
 public:
     // Indicates if draw operations read the sources such as NativeImage backing stores immediately
     // during draw operations.
@@ -87,6 +82,12 @@ public:
 
     virtual bool hasPlatformContext() const { return false; }
     virtual PlatformGraphicsContext* platformContext() const { return nullptr; }
+#if USE(CG)
+    RetainPtr<CGContextRef> protectedPlatformContext() const { return platformContext(); }
+#else
+    // On other platforms, the PlatformGraphicsContext type is not refcounted.
+    PlatformGraphicsContext* protectedPlatformContext() const { return platformContext(); }
+#endif
 
     virtual const DestinationColorSpace& colorSpace() const { return DestinationColorSpace::SRGB(); }
 
@@ -195,12 +196,10 @@ public:
     virtual bool isCALayerContext() const = 0;
 #endif
 
+    virtual bool knownToHaveFloatBasedBacking() const { return false; }
+
     virtual RenderingMode renderingMode() const { return RenderingMode::Unaccelerated; }
     WEBCORE_EXPORT RenderingMode renderingModeForCompatibleBuffer() const;
-
-    // Pixel Snapping
-
-    WEBCORE_EXPORT static void adjustLineToPixelBoundaries(FloatPoint& p1, FloatPoint& p2, float strokeWidth, StrokeStyle);
 
     // Shapes
 
@@ -251,7 +250,7 @@ public:
 
     IntSize compatibleImageBufferSize(const FloatSize&) const;
 
-    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, float resolutionScale = 1, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt, ImageBufferFormat = { ImageBufferPixelFormat::BGRA8 }) const;
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, float resolutionScale = 1, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt, ImageBufferFormat = { PixelFormat::BGRA8 }) const;
 
     WEBCORE_EXPORT RefPtr<ImageBuffer> createScaledImageBuffer(const FloatSize&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt) const;
     WEBCORE_EXPORT RefPtr<ImageBuffer> createScaledImageBuffer(const FloatRect&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt) const;
@@ -259,7 +258,7 @@ public:
     WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createAlignedImageBuffer(const FloatSize&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMethod> = std::nullopt) const;
     WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createAlignedImageBuffer(const FloatRect&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMethod> = std::nullopt) const;
 
-    WEBCORE_EXPORT void drawNativeImage(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { });
+    WEBCORE_EXPORT virtual void drawNativeImage(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { }) = 0;
 
     WEBCORE_EXPORT virtual void drawSystemImage(SystemImage&, const FloatRect&);
 
@@ -313,8 +312,6 @@ public:
     WEBCORE_EXPORT virtual void drawBidiText(const FontCascade&, const TextRun&, const FloatPoint&, FontCascade::CustomFontNotReadyAction = FontCascade::CustomFontNotReadyAction::DoNotPaintIfFontNotReady);
 
     WEBCORE_EXPORT virtual void drawGlyphs(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode);
-    WEBCORE_EXPORT virtual void drawDecomposedGlyphs(const Font&, const DecomposedGlyphs&);
-
     WEBCORE_EXPORT void drawDisplayList(const DisplayList::DisplayList&);
     WEBCORE_EXPORT virtual void drawDisplayList(const DisplayList::DisplayList&, ControlFactory&);
     WEBCORE_EXPORT FloatRect computeUnderlineBoundsForText(const FloatRect&, bool printing);
@@ -358,7 +355,7 @@ public:
     WEBCORE_EXPORT FloatSize scaleFactorForDrawing(const FloatRect& destRect, const FloatRect& srcRect) const;
 
     // PDF, printing and snapshotting
-    virtual void beginPage(const IntSize&) { }
+    virtual void beginPage(const FloatRect&) { }
     virtual void endPage() { }
 
     // Links
@@ -380,9 +377,6 @@ public:
     HDC getWindowsContext(const IntRect&, bool supportAlphaBlend); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
     void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend); // The passed in HDC should be the one handed back by getWindowsContext.
 #endif
-
-private:
-    virtual void drawNativeImageInternal(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { }) = 0;
 
 protected:
     WEBCORE_EXPORT RefPtr<NativeImage> nativeImageForDrawing(ImageBuffer&);
@@ -420,4 +414,4 @@ private:
 
 } // namespace WebCore
 
-#include "GraphicsContextStateSaver.h"
+#include <WebCore/GraphicsContextStateSaver.h>

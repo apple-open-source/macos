@@ -28,7 +28,7 @@
 #include "config.h"
 #include "WebProcessPool.h"
 
-#include "DRMDevice.h"
+#include "DRMMainDevice.h"
 #include "LegacyGlobalSettings.h"
 #include "MemoryPressureMonitor.h"
 #include "WebMemoryPressureHandler.h"
@@ -62,7 +62,7 @@
 #endif
 
 #if PLATFORM(GTK)
-#include "AcceleratedBackingStoreDMABuf.h"
+#include "AcceleratedBackingStore.h"
 #include "Display.h"
 #include <gtk/gtk.h>
 #endif
@@ -141,10 +141,9 @@ static void seatDevicesChangedCallback(GdkSeat* seat, GdkDevice*, WebProcessPool
 }
 #endif
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
 void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization)
 {
-    m_alwaysUsesComplexTextCodePath = true;
-
     if (const char* forceComplexText = getenv("WEBKIT_FORCE_COMPLEX_TEXT"))
         m_alwaysUsesComplexTextCodePath = !strcmp(forceComplexText, "1");
 
@@ -176,6 +175,7 @@ void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization)
     }
 #endif
 }
+IGNORE_CLANG_WARNINGS_END
 
 void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process, WebProcessCreationParameters& parameters)
 {
@@ -191,15 +191,15 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #endif
 
 #if USE(GBM)
-    parameters.renderDeviceFile = drmRenderNodeDevice();
+    parameters.drmDevice = drmMainDevice();
 #endif
 
 #if PLATFORM(GTK)
-    parameters.rendererBufferTransportMode = AcceleratedBackingStoreDMABuf::rendererBufferTransportMode();
+    parameters.rendererBufferTransportMode = AcceleratedBackingStore::rendererBufferTransportMode();
 #elif ENABLE(WPE_PLATFORM)
     if (usingWPEPlatformAPI) {
 #if USE(GBM)
-        if (!parameters.renderDeviceFile.isEmpty())
+        if (!parameters.drmDevice.isNull())
             parameters.rendererBufferTransportMode.add(RendererBufferTransportMode::Hardware);
 #endif
         parameters.rendererBufferTransportMode.add(RendererBufferTransportMode::SharedMemory);
@@ -313,10 +313,12 @@ void WebProcessPool::setSandboxEnabled(bool enabled)
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
     if (const char* disableSandbox = getenv("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS")) {
         if (strcmp(disableSandbox, "0"))
             return;
     }
+IGNORE_CLANG_WARNINGS_END
 
     m_sandboxEnabled = true;
 #if USE(ATSPI)

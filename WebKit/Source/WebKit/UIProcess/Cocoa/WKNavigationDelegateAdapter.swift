@@ -53,7 +53,7 @@ final class WKNavigationDelegateAdapter: NSObject, WKNavigationDelegate {
             addEvent()
         }
     }
-    
+
     private func failNavigationProgress(kind: some Error, cocoaNavigation: WKNavigation?) {
         owner?.addNavigationEvent(.failure(kind), for: cocoaNavigation)
     }

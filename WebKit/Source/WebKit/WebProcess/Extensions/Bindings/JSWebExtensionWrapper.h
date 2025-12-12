@@ -35,8 +35,6 @@
 #endif
 #include <wtf/WeakPtr.h>
 
-OBJC_CLASS NSString;
-
 #if JSC_OBJC_API_ENABLED && defined(__OBJC__)
 
 @interface JSValue (WebKitExtras)
@@ -81,11 +79,11 @@ public:
 
     ~WebExtensionCallbackHandler();
 
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) && defined(__OBJC__)
     JSGlobalContextRef globalContext() const { return m_globalContext.get(); }
     JSValue *callbackFunction() const;
 
-    void reportError(NSString *);
+    void reportError(const String&);
 
     id call();
     id call(id argument);
@@ -94,7 +92,9 @@ public:
 #endif
 
 private:
+#ifdef __OBJC__
     WebExtensionCallbackHandler(JSValue *callbackFunction);
+#endif
     WebExtensionCallbackHandler(JSContextRef, JSObjectRef resolveFunction, JSObjectRef rejectFunction);
     WebExtensionCallbackHandler(JSContextRef, JSObjectRef callbackFunction, WebExtensionAPIRuntimeBase&);
     WebExtensionCallbackHandler(JSContextRef, WebExtensionAPIRuntimeBase&);
@@ -160,10 +160,20 @@ inline Ref<WebExtensionCallbackHandler> toJSErrorCallbackHandler(JSContextRef co
 
 RefPtr<WebExtensionCallbackHandler> toJSCallbackHandler(JSContextRef, JSValueRef callback, WebExtensionAPIRuntimeBase&);
 
+String toString(JSContextRef, JSValueRef, NullStringPolicy = NullStringPolicy::NullAndUndefinedAsNullString);
+
+String toString(JSStringRef);
+
+JSObjectRef toJSError(JSContextRef, const String&);
+
+JSRetainPtr<JSStringRef> toJSString(const String&);
+
+JSValueRef deserializeJSONString(JSContextRef, const String& jsonString);
+String serializeJSObject(JSContextRef, JSValueRef, JSValueRef* exception);
+
 #ifdef __OBJC__
 
 id toNSObject(JSContextRef, JSValueRef, Class containingObjectsOfClass = Nil, NullValuePolicy = NullValuePolicy::NotAllowed, ValuePolicy = ValuePolicy::Recursive);
-NSString *toNSString(JSContextRef, JSValueRef, NullStringPolicy = NullStringPolicy::NullAndUndefinedAsNullString);
 NSDictionary *toNSDictionary(JSContextRef, JSValueRef, NullValuePolicy = NullValuePolicy::NotAllowed, ValuePolicy = ValuePolicy::Recursive);
 
 JSContext *toJSContext(JSContextRef);
@@ -176,19 +186,10 @@ JSValue *toWindowObject(JSContextRef, WebPage&);
 
 JSValueRef toJSValueRef(JSContextRef, id);
 
-JSValueRef toJSValueRef(JSContextRef, NSString *, NullOrEmptyString = NullOrEmptyString::NullStringAsEmptyString);
+JSValueRef toJSValueRef(JSContextRef, const String&, NullOrEmptyString = NullOrEmptyString::NullStringAsEmptyString);
 JSValueRef toJSValueRef(JSContextRef, NSURL *, NullOrEmptyString = NullOrEmptyString::NullStringAsEmptyString);
 
 JSValueRef toJSValueRefOrJSNull(JSContextRef, id);
-
-NSString *toNSString(JSStringRef);
-
-JSObjectRef toJSError(JSContextRef, NSString *);
-
-JSRetainPtr<JSStringRef> toJSString(NSString *);
-
-JSValueRef deserializeJSONString(JSContextRef, NSString *jsonString);
-NSString *serializeJSObject(JSContextRef, JSValueRef, JSValueRef* exception);
 
 inline bool isDictionary(JSContextRef context, JSValueRef value) { return toJSValue(context, value)._isDictionary; }
 

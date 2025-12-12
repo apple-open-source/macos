@@ -31,6 +31,8 @@
 #include "config.h"
 #include "InspectorLayerTreeAgent.h"
 
+#include "EventTargetInlines.h"
+#include "GraphicsLayer.h"
 #include "InspectorDOMAgent.h"
 #include "InstrumentingAgents.h"
 #include "IntRect.h"
@@ -79,14 +81,14 @@ void InspectorLayerTreeAgent::reset()
 
 Inspector::Protocol::ErrorStringOr<void> InspectorLayerTreeAgent::enable()
 {
-    m_instrumentingAgents.setEnabledLayerTreeAgent(this);
+    Ref { m_instrumentingAgents.get() }->setEnabledLayerTreeAgent(this);
 
     return { };
 }
 
 Inspector::Protocol::ErrorStringOr<void> InspectorLayerTreeAgent::disable()
 {
-    m_instrumentingAgents.setEnabledLayerTreeAgent(nullptr);
+    Ref { m_instrumentingAgents.get() }->setEnabledLayerTreeAgent(nullptr);
 
     reset();
 
@@ -115,7 +117,7 @@ void InspectorLayerTreeAgent::pseudoElementDestroyed(PseudoElement& pseudoElemen
 
 Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::LayerTree::Layer>>> InspectorLayerTreeAgent::layersForNode(Inspector::Protocol::DOM::NodeId nodeId)
 {
-    auto* node = m_instrumentingAgents.persistentDOMAgent()->nodeForId(nodeId);
+    auto* node = Ref { m_instrumentingAgents.get() }->persistentDOMAgent()->nodeForId(nodeId);
     if (!node)
         return makeUnexpected("Missing node for given nodeId"_s);
 
@@ -205,9 +207,9 @@ Ref<Inspector::Protocol::LayerTree::Layer> InspectorLayerTreeAgent::buildObjectF
     if (isAnonymous && !renderer->isRenderView()) {
         layerObject->setIsAnonymous(true);
         auto& style = renderer->style();
-        if (style.pseudoElementType() == PseudoId::FirstLetter)
+        if (style.pseudoElementType() == PseudoElementType::FirstLetter)
             layerObject->setPseudoElement("first-letter"_s);
-        else if (style.pseudoElementType() == PseudoId::FirstLine)
+        else if (style.pseudoElementType() == PseudoElementType::FirstLine)
             layerObject->setPseudoElement("first-line"_s);
     }
 
@@ -219,7 +221,8 @@ Inspector::Protocol::DOM::NodeId InspectorLayerTreeAgent::idForNode(Node* node)
     if (!node)
         return 0;
 
-    InspectorDOMAgent* domAgent = m_instrumentingAgents.persistentDOMAgent();
+    Ref agents = m_instrumentingAgents.get();
+    InspectorDOMAgent* domAgent = agents->persistentDOMAgent();
     
     auto nodeId = domAgent->boundNodeId(node);
     if (!nodeId) {

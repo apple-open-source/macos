@@ -39,8 +39,6 @@ class MathMLTokenElement : public MathMLPresentationElement {
 public:
     static Ref<MathMLTokenElement> create(const QualifiedName& tagName, Document&);
 
-    static std::optional<char32_t> convertToSingleCodePoint(StringView);
-
 protected:
     MathMLTokenElement(const QualifiedName& tagName, Document&);
     void childrenChanged(const ChildChange&) override;

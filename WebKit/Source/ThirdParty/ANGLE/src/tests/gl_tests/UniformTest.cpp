@@ -4,6 +4,10 @@
 // found in the LICENSE file.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "test_utils/ANGLETest.h"
 
 #include "test_utils/angle_test_configs.h"
@@ -691,6 +695,44 @@ void main() {
     glDeleteProgram(program);
 }
 
+// Tests that inactive uniforms do not cause buffer offsets to be incorrectly calculated.
+TEST_P(SimpleUniformUsageTest, MiddleInactiveUniform)
+{
+    constexpr char kFragShader[] = R"(
+precision mediump float;
+
+uniform vec4 one;
+uniform vec4 two;
+uniform vec4 three;
+
+void main() {
+    gl_FragColor = vec4(0.0);
+    gl_FragColor += one;
+    gl_FragColor += three;
+})";
+
+    GLuint program = CompileProgram(essl1_shaders::vs::Simple(), kFragShader);
+    ASSERT_NE(program, 0u);
+    glUseProgram(program);
+
+    GLint uniformOneLocation = glGetUniformLocation(program, "one");
+    ASSERT_NE(uniformOneLocation, -1);
+    GLint uniformTwoLocation = glGetUniformLocation(program, "two");
+    ASSERT_EQ(uniformTwoLocation, -1);
+    GLint uniformThreeLocation = glGetUniformLocation(program, "three");
+    ASSERT_NE(uniformThreeLocation, -1);
+
+    // Set to magenta.
+    glUniform4f(uniformOneLocation, 1.0f, 0.0f, 0.0f, 1.0f);
+    glUniform4f(uniformThreeLocation, 0.0f, 0.0f, 1.0f, 1.0f);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::magenta);
+
+    glDeleteProgram(program);
+}
+
 using SimpleUniformUsageTestES3 = SimpleUniformUsageTest;
 
 // Tests that making a copy of a struct of uniforms functions correctly.
@@ -936,6 +978,133 @@ void main() {
     drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+
+    glDeleteProgram(program);
+}
+
+// Tests that bools function correctly in a uniform. WGSL does not allow booleans in the uniform
+// address space.
+TEST_P(SimpleUniformUsageTestES3, Bool)
+{
+    constexpr char kFragShader[] = R"(#version 300 es
+precision mediump float;
+struct Uniforms {
+    bool a;
+
+    bool[2] aArr;
+};
+uniform Uniforms unis;
+out vec4 fragColor;
+void main() {
+  bool a = unis.a;
+
+  fragColor = vec4(a, 0.0, 0.0, 1.0);
+})";
+
+    GLuint program = CompileProgram(essl3_shaders::vs::Simple(), kFragShader);
+    ASSERT_NE(program, 0u);
+    glUseProgram(program);
+
+    GLint uniformALocation = glGetUniformLocation(program, "unis.a");
+    ASSERT_NE(uniformALocation, -1);
+
+    GLuint a = 1;
+
+    glUniform1ui(uniformALocation, a);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    glDeleteProgram(program);
+}
+
+// Tests that bool in an array in a uniform can be used in a shader.
+TEST_P(SimpleUniformUsageTestES3, BoolInArray)
+{
+    constexpr char kFragShader[] = R"(#version 300 es
+precision mediump float;
+struct Uniforms {
+    bool a;
+
+    bool[2] aArr;
+};
+uniform Uniforms unis;
+out vec4 fragColor;
+void main() {
+  bool[2] a = unis.aArr;
+
+  fragColor = vec4(a[0], a[1], 0.0, 1.0);
+})";
+
+    GLuint program = CompileProgram(essl3_shaders::vs::Simple(), kFragShader);
+    ASSERT_NE(program, 0u);
+    glUseProgram(program);
+
+    GLint uniformALocation = glGetUniformLocation(program, "unis.aArr");
+    ASSERT_NE(uniformALocation, -1);
+
+    GLuint aArr[] = {1, 0};
+
+    glUniform1uiv(uniformALocation, 2, aArr);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    GLuint aArrFlipped[] = {0, 1};
+
+    glUniform1uiv(uniformALocation, 2, aArrFlipped);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    glDeleteProgram(program);
+}
+
+// Tests that a uniform array containing bool can be indexed into correctly.
+// The WGSL translator includes some optimizations around this case.
+TEST_P(SimpleUniformUsageTestES3, BoolInArrayWithOptimization)
+{
+    constexpr char kFragShader[] = R"(#version 300 es
+precision mediump float;
+struct Uniforms {
+    bool a;
+
+    bool[2] aArr;
+};
+uniform Uniforms unis;
+out vec4 fragColor;
+void main() {
+  bool a0 = unis.aArr[0];
+  bool a1 = unis.aArr[1];
+
+  fragColor = vec4(a0, a1, 0.0, 1.0);
+})";
+
+    GLuint program = CompileProgram(essl3_shaders::vs::Simple(), kFragShader);
+    ASSERT_NE(program, 0u);
+    glUseProgram(program);
+
+    GLint uniformALocation = glGetUniformLocation(program, "unis.aArr");
+    ASSERT_NE(uniformALocation, -1);
+
+    GLuint aArr[] = {1, 0};
+
+    glUniform1uiv(uniformALocation, 2, aArr);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    GLuint aArrFlipped[] = {0, 1};
+
+    glUniform1uiv(uniformALocation, 2, aArrFlipped);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 
     glDeleteProgram(program);
 }
@@ -2641,8 +2810,8 @@ void main()
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
-// Regression test for D3D11 packing of 3x3 matrices followed by a single float. The setting of the
-// matrix would overwrite the float which is packed right after. http://anglebug.com/42266878,
+// Regression test for D3D11 packing of 3x3 matrices followed by three floats. The setting of the
+// matrix would overwrite the floats which is packed right after. http://anglebug.com/42266878,
 // http://crbug.com/345525082
 TEST_P(UniformTestES3, ExpandedFloatMatrix3Packing)
 {
@@ -2657,11 +2826,13 @@ void main()
 struct s
 {
     mat3 umat3;
-    float ufloat;
+    float ufloat1;
+    float ufloat2;
+    float ufloat3;
 };
 uniform s u;
 void main() {
-    gl_FragColor = vec4(u.umat3[0][0], u.ufloat, 1.0, 1.0);
+    gl_FragColor = vec4(u.umat3[0][0], u.ufloat1, u.ufloat2, u.ufloat3);
 })";
 
     ANGLE_GL_PROGRAM(program, vs, fs);
@@ -2670,16 +2841,25 @@ void main() {
     GLint umat3Location = glGetUniformLocation(program, "u.umat3");
     ASSERT_NE(umat3Location, -1);
 
-    GLint ufloatLocation = glGetUniformLocation(program, "u.ufloat");
-    ASSERT_NE(ufloatLocation, -1);
+    GLint ufloat1Location = glGetUniformLocation(program, "u.ufloat1");
+    ASSERT_NE(ufloat1Location, -1);
+
+    GLint ufloat2Location = glGetUniformLocation(program, "u.ufloat2");
+    ASSERT_NE(ufloat2Location, -1);
+
+    GLint ufloat3Location = glGetUniformLocation(program, "u.ufloat3");
+    ASSERT_NE(ufloat3Location, -1);
 
     constexpr GLfloat mat3[9] = {
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     };
 
-    glUniform1f(ufloatLocation, 1.0f);
+    glUniform1f(ufloat1Location, 1.0f);
+    glUniform1f(ufloat2Location, 1.0f);
+    glUniform1f(ufloat3Location, 1.0f);
     glUniformMatrix3fv(umat3Location, 1, GL_FALSE, mat3);
     drawQuad(program, "position", 0.5f);
+
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor(0, 255, 255, 255));
 }
 

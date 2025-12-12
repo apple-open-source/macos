@@ -57,6 +57,7 @@
 #import <wtf/URL.h>
 #import <wtf/WorkQueue.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/darwin/XPCExtras.h>
 #import <wtf/text/MakeString.h>
 
@@ -109,6 +110,8 @@ using WebCore::SecurityOriginData;
 
 namespace WebPushD {
 
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(WebPushDaemon);
+
 static unsigned s_protocolVersion = protocolVersionValue;
 
 static constexpr Seconds s_incomingPushTransactionTimeout { 10_s };
@@ -160,7 +163,7 @@ WebPushDaemon::WebPushDaemon()
 {
 #if PLATFORM(IOS)
     int token;
-    notify_register_dispatch("com.apple.webclip.uninstalled", &token, dispatch_get_main_queue(), ^(int) {
+    notify_register_dispatch("com.apple.webclip.uninstalled", &token, mainDispatchQueueSingleton(), ^(int) {
         updateSubscriptionSetState();
     });
 #endif
@@ -521,7 +524,7 @@ void WebPushDaemon::handleIncomingPush(const PushSubscriptionSetIdentifier& iden
     // FIXME(rdar://134509619): Move APNS topics to appropriate enabled/ignored list so that we
     // don't get push events for web clips without the appropriate permissions.
     RetainPtr notificationCenterBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass.get() alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
     auto blockPtr = makeBlockPtr([identifier = crossThreadCopy(identifier), message = WTFMove(message)](UNNotificationSettings *settings) mutable {
         auto status = settings.authorizationStatus;
         if (status != UNAuthorizationStatusAuthorized) {
@@ -641,9 +644,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     NSDictionary *settingsInfo = @{
-        pushActionVersionKey(): currentPushActionVersion(),
-        pushActionPartitionKey(): subscriptionSetIdentifier.pushPartition.createNSString().get(),
-        pushActionTypeKey(): _WKWebPushActionTypePushEvent
+        pushActionVersionKeySingleton(): currentPushActionVersionSingleton(),
+        pushActionPartitionKeySingleton(): subscriptionSetIdentifier.pushPartition.createNSString().get(),
+        pushActionTypeKeySingleton(): _WKWebPushActionTypePushEvent
     };
     RetainPtr<BSMutableSettings> bsSettings = adoptNS([[BSMutableSettings alloc] init]);
     [bsSettings setObject:settingsInfo forSetting:WebKit::WebPushD::pushActionSetting];
@@ -846,7 +849,7 @@ void WebPushDaemon::subscribeToPushService(PushClientConnection& connection, con
 
 #if PLATFORM(IOS) && HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
     RetainPtr notificationCenterBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass.get() alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
     UNNotificationSettings *settings = [center notificationSettings];
     if (settings.authorizationStatus != UNAuthorizationStatusAuthorized) {
         WEBPUSHDAEMON_RELEASE_LOG(Push, "Cannot subscribe because web clip origin %{sensitive}s does not have correct permissions", origin.toString().utf8().data());
@@ -1033,10 +1036,10 @@ ALLOW_NONLITERAL_FORMAT_BEGIN
     content.get().subtitle = adoptNS([[NSString alloc] initWithFormat:WEB_UI_STRING("from %@", "Web Push Notification string to indicate the name of the Web App/Web Site a notification was sent from, such as 'from Wikipedia'").createNSString().get(), notificationSourceForDisplay]).get();
 ALLOW_NONLITERAL_FORMAT_END
 
-    content.get().userInfo = notificationData.dictionaryRepresentation();
+    content.get().userInfo = retainPtr(notificationData.dictionaryRepresentation()).get();
 
     RetainPtr request = [UNNotificationRequest requestWithIdentifier:notificationData.notificationID.toString().createNSString().get() content:content.get() trigger:nil];
-    RetainPtr<UNUserNotificationCenter> center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
+    RetainPtr<UNUserNotificationCenter> center = adoptNS([[m_userNotificationCenterClass.get() alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
     if (!center)
         RELEASE_LOG_ERROR(Push, "Failed to instantiate UNUserNotificationCenter center");
 
@@ -1067,7 +1070,7 @@ void WebPushDaemon::getNotifications(PushClientConnection& connection, const URL
     auto identifier = WTFMove(*maybeIdentifier);
 
     auto placeholderBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:placeholderBundleIdentifier.get()]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass.get() alloc] initWithBundleIdentifier:placeholderBundleIdentifier.get()]);
 
     auto blockPtr = makeBlockPtr([identifier = crossThreadCopy(identifier), registrationURL = crossThreadCopy(registrationURL), tag = crossThreadCopy(tag), completionHandler = WTFMove(completionHandler)](NSArray<UNNotification *> *notifications) mutable {
         ensureOnMainRunLoop([identifier = crossThreadCopy(identifier), notifications = RetainPtr { notifications }, registrationURL = crossThreadCopy(WTFMove(registrationURL)), tag = crossThreadCopy(WTFMove(tag)), completionHandler = WTFMove(completionHandler)] mutable {
@@ -1102,7 +1105,7 @@ void WebPushDaemon::cancelNotification(PushClientConnection& connection, WebCore
     auto identifier = WTFMove(*maybeIdentifier);
 
     auto placeholderBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:placeholderBundleIdentifier.get()]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass.get() alloc] initWithBundleIdentifier:placeholderBundleIdentifier.get()]);
 
     RetainPtr identifiers = @[ notificationID.toString().createNSString().get() ];
     [center removePendingNotificationRequestsWithIdentifiers:identifiers.get()];
@@ -1135,7 +1138,7 @@ void WebPushDaemon::getPushPermissionState(PushClientConnection& connection, con
 #endif
 
     RetainPtr notificationCenterBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass.get() alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
 
     auto blockPtr = makeBlockPtr([originString = crossThreadCopy(origin.toString()), replySender = WTFMove(replySender)](UNNotificationSettings *settings) mutable {
         auto permissionState = [](UNAuthorizationStatus status) {
@@ -1182,7 +1185,7 @@ void WebPushDaemon::requestPushPermission(PushClientConnection& connection, cons
 #endif
 
     RetainPtr notificationCenterBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass.get() alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
     UNAuthorizationOptions options = UNAuthorizationOptionBadge | UNAuthorizationOptionAlert | UNAuthorizationOptionSound;
 
     auto blockPtr = makeBlockPtr([originString = crossThreadCopy(origin.toString()), replySender = WTFMove(replySender)](BOOL granted, NSError *error) mutable {
@@ -1230,13 +1233,13 @@ void WebPushDaemon::setAppBadge(PushClientConnection& connection, WebCore::Secur
     state.get().badgeValue = appBadge ? [NSNumber numberWithUnsignedLongLong:*appBadge] : nil;
 #elif PLATFORM(MAC)
     String bundleIdentifier = identifier.pushPartition.isEmpty() ? connection.hostAppCodeSigningIdentifier() : identifier.pushPartition;
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc]  initWithBundleIdentifier:bundleIdentifier.createNSString().get()]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass.get() alloc]  initWithBundleIdentifier:bundleIdentifier.createNSString().get()]);
     if (!center)
         return;
 
-    UNMutableNotificationContent *content = [UNMutableNotificationContent new];
-    content.badge = appBadge ? [NSNumber numberWithLongLong:*appBadge] : nil;
-    RetainPtr request = [UNNotificationRequest requestWithIdentifier:NSUUID.UUID.UUIDString content:content trigger:nil];
+    RetainPtr content = adoptNS([UNMutableNotificationContent new]);
+    content.get().badge = appBadge ? [NSNumber numberWithLongLong:*appBadge] : nil;
+    RetainPtr request = [UNNotificationRequest requestWithIdentifier:NSUUID.UUID.UUIDString content:content.get() trigger:nil];
     RetainPtr debugDescription = identifier.debugDescription().createNSString().get();
     [center addNotificationRequest:request.get() withCompletionHandler:^(NSError *error) {
         if (error) {
@@ -1255,7 +1258,7 @@ void WebPushDaemon::getAppBadgeForTesting(PushClientConnection& connection, Comp
     UNUSED_PARAM(connection);
     completionHandler(std::nullopt);
 #else
-    RELEASE_ASSERT(m_userNotificationCenterClass == _WKMockUserNotificationCenter.class);
+    RELEASE_ASSERT(m_userNotificationCenterClass.get() == _WKMockUserNotificationCenter.class);
 
     String bundleIdentifier = connection.pushPartitionIfExists().isEmpty() ? connection.hostAppCodeSigningIdentifier() : connection.pushPartitionIfExists();
     RetainPtr center = adoptNS([[_WKMockUserNotificationCenter alloc] initWithBundleIdentifier:bundleIdentifier.createNSString().get()]);

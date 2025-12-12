@@ -33,15 +33,12 @@
 #include "GraphicsContext.h"
 #include "PlatformMouseEvent.h"
 #include "ScrollableArea.h"
+#include "ScrollbarInlines.h"
 #include "Scrollbar.h"
 #include "ThemeAdwaita.h"
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 #include "SystemSettings.h"
-#endif
-
-#if PLATFORM(GTK)
-#include "GtkUtilities.h"
 #endif
 
 namespace WebCore {

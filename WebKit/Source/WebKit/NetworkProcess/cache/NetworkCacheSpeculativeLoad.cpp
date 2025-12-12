@@ -53,7 +53,7 @@ SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& globalFrameI
     : m_cache(cache)
     , m_completionHandler(WTFMove(completionHandler))
     , m_originalRequest(request)
-    , m_bufferedDataForCache(FragmentedSharedBuffer::create())
+    , m_bufferedDataForCache(SharedBuffer::create())
     , m_cacheEntry(WTFMove(cacheEntryForValidation))
 {
     ASSERT(!m_cacheEntry || m_cacheEntry->needsValidation());
@@ -101,7 +101,7 @@ void SpeculativeLoad::willSendRedirectedRequest(ResourceRequest&& request, Resou
 
     std::optional<Seconds> maxAgeCap;
     if (CheckedPtr networkStorageSession = m_cache->networkProcess().storageSession(m_cache->sessionID()))
-        maxAgeCap = networkStorageSession->maxAgeCacheCap(request);
+        maxAgeCap = networkStorageSession->maxAgeCacheCap(request, NetworkSession::isRequestToKnownCrossSiteTracker(request));
     m_cacheEntry = m_cache->storeRedirect(request, redirectResponse, redirectRequest, maxAgeCap);
     // Create a synthetic cache entry if we can't store.
     if (!m_cacheEntry)

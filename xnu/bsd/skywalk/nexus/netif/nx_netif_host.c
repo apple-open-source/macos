@@ -27,6 +27,7 @@
  */
 #define _IP_VHL
 #include <skywalk/os_skywalk_private.h>
+#include <skywalk/os_packet_private.h>
 #include <skywalk/nexus/netif/nx_netif.h>
 #include <skywalk/nexus/flowswitch/nx_flowswitch.h>
 #include <net/ethernet.h>
@@ -545,6 +546,20 @@ nx_netif_host_output(struct ifnet *ifp, struct mbuf *m_chain)
 
 		if (qset != NULL) {
 			kpkt->pkt_qset_idx = qset->nqs_idx;
+		}
+
+		/*
+		 * If the upper layers have set an expiry
+		 * deadline for the mbuf, propagate it to
+		 * the kernel packet.
+		 */
+		if (m->m_pkthdr.pkt_deadline) {
+			/*
+			 * Upper layers have set expiration deadline,
+			 * propagate the value to the packet.
+			 */
+			kpkt->pkt_com_opt->__po_expire_ts = m->m_pkthdr.pkt_deadline;
+			kpkt->pkt_pflags |= (PKT_F_OPT_EXPIRE_TS | PKT_F_OPT_EXP_ACTION);
 		}
 
 		if (!netif_chain_enqueue_enabled(ifp)) {

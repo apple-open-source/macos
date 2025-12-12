@@ -300,7 +300,7 @@ WK_SWIFT_UI_ACTOR
  @param webView The web view where the input suggestion should be inserted.
  @param inputSuggestion The input suggestion that the user or system selected.
  */
-- (void)webView:(WKWebView *)webView insertInputSuggestion:(UIInputSuggestion *)inputSuggestion WK_API_AVAILABLE(ios(WK_IOS_TBA)) WK_API_UNAVAILABLE(tvos, watchos, visionos, macCatalyst) NS_SWIFT_NAME(webView(_:insertInputSuggestion:));
+- (void)webView:(WKWebView *)webView insertInputSuggestion:(UIInputSuggestion *)inputSuggestion WK_API_AVAILABLE(ios(26.0)) WK_API_UNAVAILABLE(tvos, watchos, visionos, macCatalyst) NS_SWIFT_NAME(webView(_:insertInputSuggestion:));
 
 #endif // TARGET_OS_IOS && !TARGET_OS_MACCATALYST && __IPHONE_OS_VERSION_MIN_REQUIRED >= 180400
 

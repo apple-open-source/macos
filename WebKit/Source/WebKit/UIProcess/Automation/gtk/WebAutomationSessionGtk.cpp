@@ -26,12 +26,12 @@
 #include "config.h"
 #include "WebAutomationSession.h"
 
+#include "GtkUtilities.h"
+#include "GtkVersioning.h"
 #include "ViewSnapshotStore.h"
 #include "WebAutomationSessionMacros.h"
 #include "WebKitWebViewBaseInternal.h"
 #include "WebPageProxy.h"
-#include <WebCore/GtkUtilities.h>
-#include <WebCore/GtkVersioning.h>
 #include <WebCore/Scrollbar.h>
 #include <wtf/glib/GSpanExtras.h>
 #include <wtf/text/Base64.h>

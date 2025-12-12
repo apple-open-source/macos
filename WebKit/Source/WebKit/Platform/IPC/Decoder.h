@@ -30,6 +30,7 @@
 #include "ReceiverMatcher.h"
 #include "SyncRequestID.h"
 #include <memory>
+#include <span>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
@@ -42,6 +43,11 @@
 
 #if PLATFORM(MAC)
 #include "ImportanceAssertion.h"
+#endif
+
+#if !USE(SYSTEM_MALLOC)
+#include <bmalloc/TZoneHeap.h>
+#include <bmalloc/bmalloc.h>
 #endif
 
 #ifdef __OBJC__
@@ -101,6 +107,7 @@ public:
     bool shouldUseFullySynchronousModeForTesting() const;
     bool shouldMaintainOrderingWithAsyncMessages() const;
     void setIsAllowedWhenWaitingForSyncReplyOverride(bool value) { m_isAllowedWhenWaitingForSyncReplyOverride = value; }
+    bool isAsyncReplyMessage() const { return isAsyncReply(messageName()); }
 
 #if PLATFORM(MAC)
     void setImportanceAssertion(ImportanceAssertion&&);

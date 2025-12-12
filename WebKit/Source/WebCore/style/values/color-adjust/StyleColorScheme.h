@@ -27,9 +27,9 @@
 
 #pragma once
 
-#include "CSSColorScheme.h"
-#include "RenderStyleConstants.h"
-#include "StyleValueTypes.h"
+#include <WebCore/CSSColorScheme.h>
+#include <WebCore/RenderStyleConstants.h>
+#include <WebCore/StyleValueTypes.h>
 #include <wtf/OptionSet.h>
 
 #if ENABLE(DARK_MODE_CSS)

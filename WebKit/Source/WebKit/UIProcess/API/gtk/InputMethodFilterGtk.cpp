@@ -20,10 +20,10 @@
 #include "config.h"
 #include "InputMethodFilter.h"
 
+#include "GUniquePtrGtk.h"
 #include "WebKitInputMethodContextImplGtk.h"
 #include "WebKitInputMethodContextPrivate.h"
 #include "WebKitWebViewBaseInternal.h"
-#include <WebCore/GUniquePtrGtk.h>
 #include <WebCore/IntRect.h>
 #include <gdk/gdk.h>
 #include <wtf/SetForScope.h>

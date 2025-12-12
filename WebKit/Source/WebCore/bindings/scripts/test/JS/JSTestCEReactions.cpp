@@ -180,7 +180,7 @@ JSValue JSTestCEReactions::getConstructor(VM& vm, const JSGlobalObject* globalOb
 
 void JSTestCEReactions::destroy(JSC::JSCell* cell)
 {
-    JSTestCEReactions* thisObject = static_cast<JSTestCEReactions*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestCEReactions* thisObject = static_cast<JSTestCEReactions*>(cell);
     thisObject->JSTestCEReactions::~JSTestCEReactions();
 }
 
@@ -465,7 +465,7 @@ bool JSTestCEReactionsOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown
 
 void JSTestCEReactionsOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestCEReactions = static_cast<JSTestCEReactions*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestCEReactions = static_cast<JSTestCEReactions*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestCEReactions->protectedWrapped().ptr(), jsTestCEReactions);
 }
@@ -479,7 +479,7 @@ extern "C" { extern void (*const __identifier("??_7TestCEReactions@WebCore@@6B@"
 extern "C" { extern void* _ZTVN7WebCore15TestCEReactionsE[]; }
 #endif
 template<std::same_as<TestCEReactions> T>
-static inline void verifyVTable(TestCEReactions* ptr) 
+static inline void verifyVTable(TestCEReactions* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -499,8 +499,9 @@ static inline void verifyVTable(TestCEReactions* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestCEReactions>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestCEReactions>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestCEReactions>(impl.ptr());
 #endif

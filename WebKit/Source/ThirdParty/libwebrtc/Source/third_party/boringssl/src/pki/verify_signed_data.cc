@@ -20,7 +20,7 @@
 #include <openssl/evp.h>
 #include <openssl/pki/signature_verify_cache.h>
 #include <openssl/rsa.h>
-#include <openssl/sha.h>
+#include <openssl/sha2.h>
 
 #include "cert_errors.h"
 #include "input.h"
@@ -151,15 +151,17 @@ bool ParsePublicKey(der::Input public_key_spki,
                     bssl::UniquePtr<EVP_PKEY> *public_key) {
   // Parse the SPKI to an EVP_PKEY.
   OpenSSLErrStackTracer err_tracer;
-
-  CBS cbs;
-  CBS_init(&cbs, public_key_spki.data(), public_key_spki.size());
-  public_key->reset(EVP_parse_public_key(&cbs));
-  if (!*public_key || CBS_len(&cbs) != 0) {
-    public_key->reset();
-    return false;
-  }
-  return true;
+  const EVP_PKEY_ALG *const algs[] = {
+      EVP_pkey_rsa(),
+      EVP_pkey_ec_p256(),
+      EVP_pkey_ec_p384(),
+      // TODO(davidben): Remove P-521 from here, or let callers configure this.
+      // We don't advertise it in TLS.
+      EVP_pkey_ec_p521(),
+  };
+  public_key->reset(EVP_PKEY_from_subject_public_key_info(
+      public_key_spki.data(), public_key_spki.size(), algs, std::size(algs)));
+  return *public_key != nullptr;
 }
 
 bool VerifySignedData(SignatureAlgorithm algorithm, der::Input signed_data,
@@ -273,7 +275,7 @@ bool VerifySignedData(SignatureAlgorithm algorithm, der::Input signed_data,
     // also use the digest length as the salt length, which is specified with -1
     // in OpenSSL's API.
     if (!EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) ||
-        !EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, -1)) {
+        !EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST)) {
       return false;
     }
   }

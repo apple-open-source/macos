@@ -37,6 +37,8 @@
 namespace WebKit {
 using namespace WebCore;
 
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(BlobRegistryProxy);
+
 void BlobRegistryProxy::registerInternalFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& file, const String& path, const String& contentType)
 {
     SandboxExtension::Handle extensionHandle;

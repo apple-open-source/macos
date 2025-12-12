@@ -27,16 +27,10 @@
 #if USE(LIBWEBRTC)
 
 #include "LibWebRTCMacros.h"
+#include "LibWebRTCRefWrappers.h"
 #include "RTCDTMFSenderBackend.h"
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-
-#include <webrtc/api/dtmf_sender_interface.h>
-#include <webrtc/api/scoped_refptr.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebCore {
 class LibWebRTCDTMFSenderBackend;
@@ -53,7 +47,7 @@ namespace WebCore {
 class LibWebRTCDTMFSenderBackend final : public RTCDTMFSenderBackend, private webrtc::DtmfSenderObserverInterface, public CanMakeWeakPtr<LibWebRTCDTMFSenderBackend, WeakPtrFactoryInitialization::Eager> {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCDTMFSenderBackend);
 public:
-    explicit LibWebRTCDTMFSenderBackend(webrtc::scoped_refptr<webrtc::DtmfSenderInterface>&&);
+    explicit LibWebRTCDTMFSenderBackend(Ref<webrtc::DtmfSenderInterface>&&);
     ~LibWebRTCDTMFSenderBackend();
 
 private:
@@ -68,7 +62,7 @@ private:
     // DtmfSenderObserverInterface
     void OnToneChange(const std::string& tone, const std::string&) final;
 
-    webrtc::scoped_refptr<webrtc::DtmfSenderInterface> m_sender;
+    const Ref<webrtc::DtmfSenderInterface> m_sender;
     Function<void()> m_onTonePlayed;
 };
 

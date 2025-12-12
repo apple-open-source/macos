@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include "ScrollAxis.h"
-#include "StyleValueTypes.h"
+#include <WebCore/ScrollAxis.h>
+#include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
 namespace Style {
@@ -64,5 +64,4 @@ struct ProgressTimelineAxes : ListOrDefault<ProgressTimelineAxisList, ProgressTi
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsRangeLike<WebCore::Style::ProgressTimelineAxes> = true;
-template<> inline constexpr auto WebCore::SerializationSeparator<WebCore::Style::ProgressTimelineAxes> = WebCore::SerializationSeparator<typename WebCore::Style::ProgressTimelineAxes::List>;
+DEFINE_RANGE_LIKE_CONFORMANCE_FOR_LIST_OR_DEFAULT_DERIVED_TYPE(WebCore::Style::ProgressTimelineAxes)

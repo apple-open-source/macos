@@ -135,7 +135,7 @@ private:
 
     // EventTarget
     enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::PaymentRequest; }
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
     RefPtr<ScriptExecutionContext> protectedScriptExecutionContext() const;
     bool isPaymentRequest() const final { return true; }
     void refEventTarget() final { ref(); }

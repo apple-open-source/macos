@@ -3941,6 +3941,7 @@ na_drain(struct nexus_adapter *na, boolean_t purge)
 	}
 }
 
+#if SK_LOG
 SK_NO_INLINE_ATTRIBUTE
 char *
 na2str(const struct nexus_adapter *na, char *__counted_by(dsz)dst,
@@ -3951,3 +3952,4 @@ na2str(const struct nexus_adapter *na, char *__counted_by(dsz)dst,
 
 	return dst;
 }
+#endif

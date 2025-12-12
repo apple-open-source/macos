@@ -24,16 +24,16 @@
 
 #pragma once
 
-#include "CSSValueKeywords.h"
-#include "EventTarget.h"
-#include "LayoutPoint.h"
-#include "LayoutSize.h"
-#include "LayoutUnit.h"
-#include "PositionTryOrder.h"
-#include "PseudoElementIdentifier.h"
-#include "ResolvedScopedName.h"
-#include "ScopedName.h"
-#include "WritingMode.h"
+#include <WebCore/CSSValueKeywords.h>
+#include <WebCore/EventTarget.h>
+#include <WebCore/LayoutPoint.h>
+#include <WebCore/LayoutSize.h>
+#include <WebCore/LayoutUnit.h>
+#include <WebCore/PositionTryOrder.h>
+#include <WebCore/PseudoElementIdentifier.h>
+#include <WebCore/ResolvedScopedName.h>
+#include <WebCore/ScopedName.h>
+#include <WebCore/WritingMode.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
@@ -71,13 +71,17 @@ public:
     AnchorScrollAdjuster(RenderBox& anchored, const RenderBoxModelObject& defaultAnchor);
     RenderBox* anchored() const;
 
-    bool mayNeedAdjustment() const { return m_needsXAdjustment | m_needsYAdjustment; }
     inline bool isEmpty() const;
+    bool mayNeedAdjustment() const { return m_needsXAdjustment | m_needsYAdjustment; }
+    bool mayNeedXAdjustment() const { return m_needsXAdjustment; }
+    bool mayNeedYAdjustment() const { return m_needsYAdjustment; }
+
     bool isHidden() const { return m_isHidden; }
     void setHidden(bool hide) { m_isHidden = hide; }
 
     inline void addSnapshot(const RenderBox& scroller);
     inline void addViewportSnapshot(const RenderView&);
+    bool hasViewportSnapshot() const { return m_adjustForViewport; }
 
     enum Diff : uint8_t { New, SnapshotsDiffer, SnapshotsMatch };
     bool recaptureDiffers(const AnchorScrollAdjuster&) const; // Snapshot differences can require invalidation.
@@ -148,9 +152,10 @@ struct ResolvedAnchor {
 };
 
 struct AnchorPositionedToAnchorEntry {
-    // This key can be used to access the AnchorPositionedState struct of the current element
-    // in an AnchorPositionedStates map.
-    AnchorPositionedKey key;
+    // The pseudo-element identifier can be used to access the AnchorPositionedState struct
+    // of the current element in an AnchorPositionedStates map, in combination with the relevant
+    // Element object.
+    std::optional<PseudoElementIdentifier> pseudoElementIdentifier;
 
     Vector<ResolvedAnchor> anchors;
 
@@ -171,7 +176,7 @@ public:
 
     static void updateAnchorPositioningStatesAfterInterleavedLayout(Document&, AnchorPositionedStates&);
     static void updateScrollAdjustments(RenderView&);
-    static void updateAnchorPositionedStateForDefaultAnchor(Element&, const RenderStyle&, AnchorPositionedStates&);
+    static void updateAnchorPositionedStateForDefaultAnchorAndPositionVisibility(Element&, const RenderStyle&, AnchorPositionedStates&);
 
     static LayoutRect computeAnchorRectRelativeToContainingBlock(CheckedRef<const RenderBoxModelObject> anchorBox, const RenderElement& containingBlock, const RenderBox& anchoredBox);
     static void captureScrollSnapshots(RenderBox& anchored, bool invalidateStyleForScrollPositionChanges = true);
@@ -192,6 +197,8 @@ public:
     static bool isImplicitAnchor(const RenderStyle&);
 
     static CheckedPtr<RenderBoxModelObject> defaultAnchorForBox(const RenderBox&);
+
+    static HashMap<AnchorPositionedKey, size_t> recordLastSuccessfulPositionOptions(const SingleThreadWeakHashSet<const RenderBox>& positionTryBoxes);
 
 private:
     static CheckedPtr<RenderBoxModelObject> findAnchorForAnchorFunctionAndAttemptResolution(BuilderState&, std::optional<ScopedName> elementName);

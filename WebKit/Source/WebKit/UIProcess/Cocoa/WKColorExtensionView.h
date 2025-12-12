@@ -34,6 +34,8 @@
 #import <AppKit/AppKit.h>
 #endif
 
+@class WKColorExtensionView;
+
 @protocol WKColorExtensionViewDelegate <NSObject>
 - (void)colorExtensionViewWillDisappear:(WKColorExtensionView *)view;
 - (void)colorExtensionViewDidAppear:(WKColorExtensionView *)view;

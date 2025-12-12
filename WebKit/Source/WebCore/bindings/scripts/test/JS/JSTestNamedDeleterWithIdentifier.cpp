@@ -23,8 +23,7 @@
 
 #include "ActiveDOMObject.h"
 #include "ContextDestructionObserverInlines.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
@@ -37,7 +36,6 @@
 #include "JSDOMGlobalObjectInlines.h"
 #include "JSDOMOperation.h"
 #include "JSDOMWrapperCache.h"
-#include "Quirks.h"
 #include "ScriptExecutionContext.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
@@ -157,7 +155,7 @@ JSValue JSTestNamedDeleterWithIdentifier::getConstructor(VM& vm, const JSGlobalO
 
 void JSTestNamedDeleterWithIdentifier::destroy(JSC::JSCell* cell)
 {
-    JSTestNamedDeleterWithIdentifier* thisObject = static_cast<JSTestNamedDeleterWithIdentifier*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestNamedDeleterWithIdentifier* thisObject = static_cast<JSTestNamedDeleterWithIdentifier*>(cell);
     thisObject->JSTestNamedDeleterWithIdentifier::~JSTestNamedDeleterWithIdentifier();
 }
 
@@ -377,7 +375,7 @@ bool JSTestNamedDeleterWithIdentifierOwner::isReachableFromOpaqueRoots(JSC::Hand
 
 void JSTestNamedDeleterWithIdentifierOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestNamedDeleterWithIdentifier = static_cast<JSTestNamedDeleterWithIdentifier*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestNamedDeleterWithIdentifier = static_cast<JSTestNamedDeleterWithIdentifier*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestNamedDeleterWithIdentifier->protectedWrapped().ptr(), jsTestNamedDeleterWithIdentifier);
 }
@@ -391,7 +389,7 @@ extern "C" { extern void (*const __identifier("??_7TestNamedDeleterWithIdentifie
 extern "C" { extern void* _ZTVN7WebCore30TestNamedDeleterWithIdentifierE[]; }
 #endif
 template<std::same_as<TestNamedDeleterWithIdentifier> T>
-static inline void verifyVTable(TestNamedDeleterWithIdentifier* ptr) 
+static inline void verifyVTable(TestNamedDeleterWithIdentifier* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -411,8 +409,9 @@ static inline void verifyVTable(TestNamedDeleterWithIdentifier* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestNamedDeleterWithIdentifier>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestNamedDeleterWithIdentifier>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestNamedDeleterWithIdentifier>(impl.ptr());
 #endif

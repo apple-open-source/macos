@@ -26,6 +26,7 @@
 #include "config.h"
 #include "GPUCanvasContext.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {

@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "ReportBody.h"
-#include "SecurityPolicyViolationEvent.h"
-#include "ViolationReportType.h"
+#include <WebCore/ReportBody.h>
+#include <WebCore/SecurityPolicyViolationEvent.h>
+#include <WebCore/ViolationReportType.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {

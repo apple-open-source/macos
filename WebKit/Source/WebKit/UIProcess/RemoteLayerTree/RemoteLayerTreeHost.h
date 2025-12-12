@@ -35,7 +35,7 @@
 #include <wtf/TZoneMalloc.h>
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(MODEL_PROCESS)
-#include <WebCore/ElementIdentifier.h>
+#include <WebCore/NodeIdentifier.h>
 #endif
 
 OBJC_CLASS CAAnimation;
@@ -50,6 +50,10 @@ namespace WebKit {
 class RemoteLayerTreeDrawingAreaProxy;
 class WebPageProxy;
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+class RemoteAnimationTimeline;
+#endif
+
 class RemoteLayerTreeHost {
     WTF_MAKE_TZONE_ALLOCATED(RemoteLayerTreeHost);
 public:
@@ -61,7 +65,9 @@ public:
     RefPtr<RemoteLayerTreeNode> protectedRootNode() const { return m_rootNode.get(); }
 
     CALayer *layerForID(std::optional<WebCore::PlatformLayerIdentifier>) const;
+    RetainPtr<CALayer> protectedLayerForID(std::optional<WebCore::PlatformLayerIdentifier>) const;
     CALayer *rootLayer() const;
+    RetainPtr<CALayer> protectedRootLayer() const;
 
     RemoteLayerTreeDrawingAreaProxy& drawingArea() const;
 
@@ -81,6 +87,7 @@ public:
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     void animationsWereAddedToNode(RemoteLayerTreeNode&);
     void animationsWereRemovedFromNode(RemoteLayerTreeNode&);
+    const RemoteAnimationTimeline* timeline(WebCore::ProcessIdentifier) const;
 #endif
 
     void detachFromDrawingArea();
@@ -89,21 +96,12 @@ public:
     // Detach the root layer; it will be reattached upon the next incoming commit.
     void detachRootLayer();
 
-    // Turn all CAMachPort objects in layer contents into actual IOSurfaces.
-    // This avoids keeping an outstanding InUse reference when suspended.
-    void mapAllIOSurfaceBackingStore();
-
     CALayer *layerWithIDForTesting(WebCore::PlatformLayerIdentifier) const;
 
     bool replayDynamicContentScalingDisplayListsIntoBackingStore() const;
     bool threadedAnimationResolutionEnabled() const;
 
     bool cssUnprefixedBackdropFilterEnabled() const;
-
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    Seconds acceleratedTimelineTimeOrigin(WebCore::ProcessIdentifier) const;
-    MonotonicTime animationCurrentTime(WebCore::ProcessIdentifier) const;
-#endif
 
     void remotePageProcessDidTerminate(WebCore::ProcessIdentifier);
 
@@ -116,8 +114,6 @@ private:
     bool updateBannerLayers(const RemoteLayerTreeTransaction&);
 
     void layerWillBeRemoved(WebCore::ProcessIdentifier, WebCore::PlatformLayerIdentifier);
-
-    LayerContentsType layerContentsType() const;
 
     WeakPtr<RemoteLayerTreeDrawingAreaProxy> m_drawingArea;
     WeakPtr<RemoteLayerTreeNode> m_rootNode;

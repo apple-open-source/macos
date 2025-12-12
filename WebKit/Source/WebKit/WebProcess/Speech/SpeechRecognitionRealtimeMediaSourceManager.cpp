@@ -88,12 +88,13 @@ public:
         m_source->stop();
     }
 
-private:
     // CheckedPtr interface
     uint32_t checkedPtrCount() const final { return CanMakeCheckedPtr::checkedPtrCount(); }
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+
+private:
 
     void sourceStopped() final
     {
@@ -133,10 +134,11 @@ private:
     void audioUnitWillStart() final
     {
 #if USE(AUDIO_SESSION)
-        auto bufferSize = AudioSession::sharedSession().sampleRate() / 50;
-        if (AudioSession::sharedSession().preferredBufferSize() > bufferSize)
-            AudioSession::sharedSession().setPreferredBufferSize(bufferSize);
-        AudioSession::sharedSession().setCategory(AudioSession::CategoryType::PlayAndRecord, AudioSession::Mode::Default, RouteSharingPolicy::Default);
+        auto& audioSessionSingleton = AudioSession::singleton();
+        auto bufferSize = audioSessionSingleton.sampleRate() / 50;
+        if (audioSessionSingleton.preferredBufferSize() > bufferSize)
+            audioSessionSingleton.setPreferredBufferSize(bufferSize);
+        audioSessionSingleton.setCategory(AudioSession::CategoryType::PlayAndRecord, AudioSession::Mode::Default, RouteSharingPolicy::Default);
 #endif
     }
 
@@ -160,7 +162,7 @@ SpeechRecognitionRealtimeMediaSourceManager::SpeechRecognitionRealtimeMediaSourc
 
 SpeechRecognitionRealtimeMediaSourceManager::~SpeechRecognitionRealtimeMediaSourceManager()
 {
-    m_process->removeMessageReceiver(*this);
+    CheckedRef { m_process.get() }->removeMessageReceiver(*this);
 }
 
 IPC::Connection& SpeechRecognitionRealtimeMediaSourceManager::connection() const
@@ -203,13 +205,13 @@ void SpeechRecognitionRealtimeMediaSourceManager::deleteSource(RealtimeMediaSour
 
 void SpeechRecognitionRealtimeMediaSourceManager::start(RealtimeMediaSourceIdentifier identifier)
 {
-    if (auto source = m_sources.get(identifier))
+    if (CheckedPtr source = m_sources.get(identifier))
         source->start();
 }
 
 void SpeechRecognitionRealtimeMediaSourceManager::stop(RealtimeMediaSourceIdentifier identifier)
 {
-    if (auto source = m_sources.get(identifier))
+    if (CheckedPtr source = m_sources.get(identifier))
         source->stop();
 }
 

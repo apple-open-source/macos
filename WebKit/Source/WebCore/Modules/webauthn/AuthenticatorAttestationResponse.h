@@ -27,9 +27,9 @@
 
 #if ENABLE(WEB_AUTHN)
 
-#include "AuthenticatorResponse.h"
-#include "AuthenticatorTransport.h"
-#include "RegistrationResponseJSON.h"
+#include <WebCore/AuthenticatorResponse.h>
+#include <WebCore/AuthenticatorTransport.h>
+#include <WebCore/RegistrationResponseJSON.h>
 
 namespace WebCore {
 

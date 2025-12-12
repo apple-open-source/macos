@@ -259,26 +259,30 @@
 (define-once (mach-bootstrap-message-numbers-post-launch)
     (message-number 206 207 711 712 800 804 904))
 
-(define (syscall-unix-only-in-use-during-launch)
-    (syscall-number
-        SYS_bsdthread_register
-        SYS_chdir
-        SYS_dup2
-        SYS_fsgetpath
-        SYS_getpid
-        SYS_kdebug_trace_string
-        SYS_kdebug_typefilter
-        SYS_objc_bp_assist_cfg_np
-        SYS_persona
-        SYS_shared_region_check_np
-        SYS_sigaction
-        SYS_workq_open))
+(define (allow-syscall-unix-kdebug)
+    (allow syscall-unix
+        (syscall-number
+            SYS_kdebug_trace_string
+            SYS_kdebug_trace64
+            SYS_kdebug_typefilter)))
 
-(define (syscall-unix-developer-mode)
-    (syscall-number
-        SYS_kdebug_trace_string
-        SYS_kdebug_trace64
-        SYS_kdebug_typefilter))
+(define (allow-syscall-unix-only-in-use-during-launch)
+    (allow-syscall-unix-kdebug)
+    (allow syscall-unix
+        (syscall-number
+            SYS_bsdthread_register
+            SYS_chdir
+            SYS_dup2
+            SYS_fsgetpath
+            SYS_getpid
+            SYS_objc_bp_assist_cfg_np
+            SYS_persona
+            SYS_shared_region_check_np
+            SYS_sigaction
+            SYS_workq_open)))
+
+(define (allow-syscall-unix-developer-mode)
+    (allow-syscall-unix-kdebug))
 
 (define (syscall-unix-in-use-after-launch)
     (syscall-number
@@ -391,7 +395,6 @@
     (syscall-number
         SYS_fgetxattr
         SYS_getxattr
-        SYS_iopolicysys
         SYS_psynch_rw_wrlock
 #if ASAN_ENABLED
         SYS_sigaltstack
@@ -508,7 +511,6 @@
         mach_port_set_attributes
         mach_vm_copy
         mach_vm_map_external
-        mach_vm_remap_external
         mach_voucher_attr_command
         semaphore_create
         semaphore_destroy

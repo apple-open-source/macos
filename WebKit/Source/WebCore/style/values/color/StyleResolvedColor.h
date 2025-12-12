@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "CSSResolvedColor.h"
-#include "Color.h"
+#include <WebCore/CSSResolvedColor.h>
+#include <WebCore/Color.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -37,7 +37,7 @@ struct Color;
 struct ColorResolutionState;
 
 struct ResolvedColor {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ResolvedColor);
 
     WebCore::Color color;
 

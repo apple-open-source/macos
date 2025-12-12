@@ -135,7 +135,7 @@ namespace JSC {
 
     DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ParserArenaRoot);
     class ParserArenaRoot {
-        WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ParserArenaRoot);
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ParserArenaRoot, ParserArenaRoot);
     protected:
         ParserArenaRoot(ParserArena&);
 
@@ -1184,9 +1184,9 @@ namespace JSC {
         ExpressionNode* m_expr;
     };
 
-    class TypeOfResolveNode final : public ExpressionNode {
+    class TypeOfResolveNode final : public ExpressionNode, public ThrowableExpressionData {
     public:
-        TypeOfResolveNode(const JSTokenLocation&, const Identifier&);
+        TypeOfResolveNode(const JSTokenLocation&, const Identifier&, const JSTextPosition&, const JSTextPosition&, const JSTextPosition&);
 
         const Identifier& identifier() const { return m_ident; }
 

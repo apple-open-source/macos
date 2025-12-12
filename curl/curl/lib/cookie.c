@@ -316,7 +316,7 @@ static char *sanitize_cookie_path(const char *cookie_path)
   }
 
   /* convert /hoge/ to /hoge */
-  if(len && new_path[len - 1] == '/') {
+  if(len > 1 && new_path[len - 1] == '/') {
     new_path[len - 1] = 0x0;
   }
 
@@ -1074,7 +1074,7 @@ Curl_cookie_add(struct Curl_easy *data,
          clist->spath && co->spath && /* both have paths */
          clist->secure && !co->secure && !secure) {
         size_t cllen;
-        const char *sep;
+        const char *sep = NULL;
 
         /*
          * A non-secure cookie may not overlay an existing secure cookie.
@@ -1083,8 +1083,9 @@ Curl_cookie_add(struct Curl_easy *data,
          * "/loginhelper" is ok.
          */
 
-        sep = strchr(clist->spath + 1, '/');
-
+        DEBUGASSERT(clist->spath[0]);
+        if (clist->spath[0])
+          sep = strchr(clist->spath + 1, '/');
         if(sep)
           cllen = sep - clist->spath;
         else

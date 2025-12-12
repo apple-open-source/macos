@@ -61,7 +61,7 @@ void link(State& state)
     graph.registerFrozenValues();
 
     {
-        bool dumpDisassembly = shouldDumpDisassembly() || Options::asyncDisassembly();
+        bool dumpDisassembly = shouldDumpDisassembly();
 
         MacroAssemblerCodeRef<JSEntryPtrTag> b3CodeRef =
             FINALIZE_CODE_IF(dumpDisassembly, *state.b3CodeLinkBuffer, JSEntryPtrTag, nullptr,

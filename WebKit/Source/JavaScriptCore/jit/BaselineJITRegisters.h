@@ -27,8 +27,8 @@
 
 #if ENABLE(JIT)
 
-#include "GPRInfo.h"
-#include "JITOperations.h"
+#include <JavaScriptCore/GPRInfo.h>
+#include <JavaScriptCore/JITOperations.h>
 
 namespace JSC {
 

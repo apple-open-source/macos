@@ -25,20 +25,21 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(VIDEO)
 
-#include "HostingContext.h"
-#include "MediaPlayer.h"
-#include "MediaPlayerIdentifier.h"
-#include "NativeImage.h"
-#include "PlatformTimeRanges.h"
-#include "ProcessIdentity.h"
+#include <WebCore/HostingContext.h>
+#include <WebCore/MediaPlayer.h>
+#include <WebCore/MediaPlayerIdentifier.h>
+#include <WebCore/NativeImage.h>
+#include <WebCore/PlatformTimeRanges.h>
+#include <WebCore/ProcessIdentity.h>
 #include <optional>
 #include <wtf/AbstractRefCounted.h>
 #include <wtf/CompletionHandler.h>
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-#include "LegacyCDMSession.h"
+#include <WebCore/LegacyCDMSession.h>
 #endif
 
 namespace WebCore {
@@ -86,7 +87,7 @@ public:
     virtual RetainPtr<PlatformLayer> createVideoFullscreenLayer() { return nullptr; }
     virtual void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler) { completionHandler(); }
     virtual void updateVideoFullscreenInlineImage() { }
-    virtual void setVideoFullscreenFrame(FloatRect) { }
+    virtual void setVideoFullscreenFrame(const FloatRect&) { }
     virtual void setVideoFullscreenGravity(MediaPlayer::VideoGravity) { }
     virtual void setVideoFullscreenMode(MediaPlayer::VideoFullscreenMode) { }
     virtual void videoFullscreenStandbyChanged() { }
@@ -283,9 +284,6 @@ public:
     virtual void simulateAudioInterruption() { }
 #endif
 
-    virtual void beginSimulatedHDCPError() { }
-    virtual void endSimulatedHDCPError() { }
-
     virtual String languageOfPrimaryAudioTrack() const { return emptyString(); }
 
     virtual size_t extraMemoryCost() const
@@ -319,7 +317,7 @@ public:
     virtual AVPlayer *objCAVFoundationAVPlayer() const { return nullptr; }
 #endif
 
-    virtual bool performTaskAtTime(Function<void()>&&, const MediaTime&) { return false; }
+    virtual bool performTaskAtTime(Function<void(const MediaTime&)>&&, const MediaTime&) { return false; }
 
     virtual bool shouldIgnoreIntrinsicSize() { return false; }
 
@@ -380,6 +378,8 @@ public:
     virtual void soundStageSizeDidChange() { }
 
     virtual void setMessageClientForTesting(WeakPtr<MessageClientForTesting>) { }
+
+    virtual void elementIdChanged(const String&) const { }
 
 protected:
     mutable PlatformTimeRanges m_seekable;

@@ -87,6 +87,7 @@ OBJC_CLASS UIView;
 OBJC_CLASS UIViewController;
 OBJC_CLASS WKBaseScrollView;
 OBJC_CLASS WKBEScrollViewScrollUpdate;
+OBJC_CLASS WKFullScreenWindowController;
 OBJC_CLASS _WKRemoteObjectRegistry;
 
 #if USE(APPKIT)
@@ -118,7 +119,7 @@ class WebMediaSessionManager;
 class SelectionData;
 #endif
 
-struct ElementIdentifierType;
+struct NodeIdentifierType;
 enum class MouseEventPolicy : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 enum class ScrollbarStyle : uint8_t;
@@ -151,7 +152,7 @@ struct PromisedAttachmentInfo;
 struct TranslationContextMenuInfo;
 #endif
 
-using ElementIdentifier = ObjectIdentifier<ElementIdentifierType>;
+using NodeIdentifier = ObjectIdentifier<NodeIdentifierType>;
 
 #if ENABLE(WRITING_TOOLS)
 namespace WritingTools {
@@ -347,7 +348,7 @@ public:
 #if PLATFORM(GTK)
     virtual void startDrag(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, RefPtr<WebCore::ShareableBitmap>&& dragImage, WebCore::IntPoint&& dragImageHotspot) = 0;
 #else
-    virtual void startDrag(const WebCore::DragItem&, WebCore::ShareableBitmap::Handle&&, const std::optional<WebCore::ElementIdentifier>&) { }
+    virtual void startDrag(const WebCore::DragItem&, WebCore::ShareableBitmap::Handle&&, const std::optional<WebCore::NodeIdentifier>&) { }
 #endif
     virtual void didPerformDragOperation(bool) { }
     virtual void didPerformDragControllerAction() { }
@@ -521,6 +522,7 @@ public:
     virtual bool useFormSemanticContext() const = 0;
     
     virtual NSView *viewForPresentingRevealPopover() const = 0;
+    RetainPtr<NSView> protectedViewForPresentingRevealPopover() const;
 
     virtual void showPlatformContextMenu(NSMenu *, WebCore::IntPoint) = 0;
 
@@ -723,11 +725,11 @@ public:
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
     virtual void willReceiveEditDragSnapshot() = 0;
-    virtual void didReceiveEditDragSnapshot(std::optional<WebCore::TextIndicatorData>) = 0;
+    virtual void didReceiveEditDragSnapshot(RefPtr<WebCore::TextIndicator>&&) = 0;
 #endif
 
 #if ENABLE(MODEL_PROCESS)
-    virtual void didReceiveInteractiveModelElement(std::optional<WebCore::ElementIdentifier>) = 0;
+    virtual void didReceiveInteractiveModelElement(std::optional<WebCore::NodeIdentifier>) = 0;
 #endif
 
     virtual void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;
@@ -833,6 +835,11 @@ public:
     virtual void didChangeScreenTimeWebpageControllerURL() { };
     virtual void setURLIsPictureInPictureForScreenTime(bool) { };
     virtual void setURLIsPlayingVideoForScreenTime(bool) { };
+#endif
+
+#if ENABLE(POINTER_LOCK)
+    virtual void beginPointerLockMouseTracking() { }
+    virtual void endPointerLockMouseTracking() { }
 #endif
 };
 

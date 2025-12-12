@@ -53,10 +53,6 @@
 #define kBHSvcFlagsVersion3     3
 #define kBatteryHealthCurrentVersion        kBHSvcFlagsVersion3
 
-#endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
-
-#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
-
 // kNCCMinCycleCountChange - Change in battery cycle count required before triggering change in NCCP.
 #define kNCCMinCycleCountChange             5
 
@@ -71,7 +67,7 @@
 
 #define kSmcKeyBatteryFeatureSet                'BFS0'
 
-#endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+#endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
 
 #if TARGET_OS_OSX || BHUI_XCTEST
 

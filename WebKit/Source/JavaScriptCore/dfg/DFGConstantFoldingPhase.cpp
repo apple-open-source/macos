@@ -1093,7 +1093,7 @@ private:
                         Edge use = m_graph.varArgChild(node, 0);
                         if (use->op() == PhantomSpread) {
                             if (use->child1()->op() == PhantomNewArrayBuffer) {
-                                auto* immutableButterfly = use->child1()->castOperand<JSImmutableButterfly*>();
+                                auto* immutableButterfly = use->child1()->castOperand<JSCellButterfly*>();
                                 if (hasContiguous(immutableButterfly->indexingType())) {
                                     node->convertToNewArrayBuffer(m_graph.freeze(immutableButterfly));
                                     changed = true;
@@ -1661,6 +1661,89 @@ private:
                 }
                 default:
                     break;
+                }
+                break;
+            }
+
+            case ResolvePromiseFirstResolving: {
+                AbstractValue& argument = m_state.forNode(node->child2());
+                if (argument.isType(~SpecObject)) {
+                    node->setOpAndDefaultFlags(FulfillPromiseFirstResolving);
+                    changed = true;
+                    break;
+                }
+
+                // SpecObject | something.
+                // Only for types having structures, we check "then" existence.
+                auto& structureSet = argument.m_structure;
+                if (structureSet.isFinite() && structureSet.size() == 1) {
+                    JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+                    auto conditionSet = m_graph.tryEnsureAbsence(globalObject, structureSet.toStructureSet(), CacheableIdentifier::createFromImmortalIdentifier(m_graph.m_vm.propertyNames->then.impl()));
+                    if (conditionSet.isValid()) {
+                        if (m_graph.watchConditions(conditionSet)) {
+                            node->setOpAndDefaultFlags(FulfillPromiseFirstResolving);
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+
+                break;
+            }
+
+            case PromiseResolve: {
+                JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+                if (JSValue constructor = m_state.forNode(node->child1()).m_value) {
+                    if (constructor == globalObject->promiseConstructor()) {
+                        auto convertToFulfilledPromise = [&](Node* node) {
+                            auto* promise = m_insertionSet.insertNode(indexInBlock, SpecPromiseObject, NewInternalFieldObject, node->origin, OpInfo(m_graph.registerStructure(globalObject->promiseStructure())));
+                            m_insertionSet.insertNode(indexInBlock, SpecNone, ExitOK, node->origin);
+                            m_insertionSet.insertNode(indexInBlock, SpecNone, PutInternalField, node->origin, OpInfo(static_cast<uint32_t>(JSPromise::Field::Flags)), Edge(promise, KnownCellUse), Edge(m_insertionSet.insertConstant(indexInBlock, node->origin, jsNumber(JSPromise::isFirstResolvingFunctionCalledFlag | static_cast<uint32_t>(JSPromise::Status::Fulfilled)))));
+                            m_insertionSet.insertNode(indexInBlock, SpecNone, ExitOK, node->origin);
+                            m_insertionSet.insertNode(indexInBlock, SpecNone, PutInternalField, node->origin, OpInfo(static_cast<uint32_t>(JSPromise::Field::ReactionsOrResult)), Edge(promise, KnownCellUse), node->child2());
+                            m_insertionSet.insertNode(indexInBlock, SpecNone, ExitOK, node->origin);
+                            node->convertToIdentityOn(promise);
+                        };
+
+                        auto& argument = m_state.forNode(node->child2());
+                        if (argument.isType(~SpecObject)) {
+                            m_interpreter.execute(indexInBlock); // Push CFA over this node after we get the state before.
+                            alreadyHandled = true; // Don't allow the default constant folder to do things to this.
+                            convertToFulfilledPromise(node);
+                            changed = true;
+                            break;
+                        }
+
+                        if (argument.isType(SpecPromiseObject)) {
+                            if (m_graph.isWatchingPromiseSpeciesWatchpoint(node)) {
+                                m_interpreter.execute(indexInBlock); // Push CFA over this node after we get the state before.
+                                alreadyHandled = true; // Don't allow the default constant folder to do things to this.
+                                node->convertToIdentityOn(node->child2().node());
+                                changed = true;
+                                break;
+                            }
+                        }
+
+                        // SpecObject | something.
+                        // Only for types having structures, we check "then" existence.
+                        if (argument.isType(~SpecPromiseObject)) {
+                            auto& structureSet = argument.m_structure;
+                            if (structureSet.isFinite() && structureSet.size() == 1) {
+                                JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+                                auto conditionSet = m_graph.tryEnsureAbsence(globalObject, structureSet.toStructureSet(), CacheableIdentifier::createFromImmortalIdentifier(m_graph.m_vm.propertyNames->then.impl()));
+                                if (conditionSet.isValid()) {
+                                    if (m_graph.watchConditions(conditionSet)) {
+                                        m_interpreter.execute(indexInBlock); // Push CFA over this node after we get the state before.
+                                        alreadyHandled = true; // Don't allow the default constant folder to do things to this.
+                                        convertToFulfilledPromise(node);
+                                        changed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
                 }
                 break;
             }

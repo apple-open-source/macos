@@ -35,8 +35,10 @@
 #include "CachedImage.h"
 #include "CanvasRenderingContext2DBase.h"
 #include "Chrome.h"
+#include "ContainerNodeInlines.h"
 #include "DebugOverlayRegions.h"
 #include "DebugPageOverlays.h"
+#include "DocumentPage.h"
 #include "DropShadowFilterOperationWithStyleColor.h"
 #include "EventRegion.h"
 #include "GraphicsContext.h"
@@ -115,7 +117,7 @@
 #include <wtf/WeakListHashSet.h>
 #endif
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_CONTEXT)
 #include "ModelContext.h"
 #endif
 
@@ -154,13 +156,15 @@ public:
     PaintedContentsInfo(RenderLayerBacking& inBacking)
         : m_backing(inBacking)
     {
-#if HAVE(SUPPORT_HDR_DISPLAY)
-        if (m_backing.renderer().document().drawsHDRContent()) {
-            m_hasHDRContent = RequestState::Unknown;
-            m_rendererHasHDRContent = RequestState::Unknown;
-        }
-#endif
     }
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    void setDetectsHDRContent()
+    {
+        m_hdrContent = RequestState::Unknown;
+        m_rendererHDRContent = RequestState::Unknown;
+    }
+#endif
 
     void determinePaintsBoxDecorations();
     bool paintsBoxDecorations()
@@ -173,7 +177,7 @@ public:
     bool isPaintsContentSatisfied() const
     {
 #if HAVE(SUPPORT_HDR_DISPLAY)
-        if (m_hasHDRContent == RequestState::Unknown)
+        if (m_hdrContent == RequestState::Unknown)
             return false;
 #endif
         return m_content != RequestState::Unknown;
@@ -190,14 +194,14 @@ public:
     bool paintsHDRContent()
     {
         determinePaintsContent();
-        return m_hasHDRContent == RequestState::True;
+        return m_hdrContent == RequestState::True;
     }
 #endif
 
     bool isContentsTypeSatisfied() const
     {
 #if HAVE(SUPPORT_HDR_DISPLAY)
-        if (m_rendererHasHDRContent == RequestState::Unknown)
+        if (m_rendererHDRContent == RequestState::Unknown)
             return false;
 #endif
         return m_contentsType != ContentsType::Unknown;
@@ -223,10 +227,10 @@ public:
     }
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    bool rendererHasHDRContent()
+    bool rendererHasHDRContent() // FIXME: Why do we need this?
     {
         determineContentsType();
-        return m_rendererHasHDRContent == RequestState::True;
+        return m_rendererHDRContent == RequestState::True;
     }
 #endif
 
@@ -234,8 +238,8 @@ public:
     RequestState m_boxDecorations { RequestState::Unknown };
     RequestState m_content { RequestState::Unknown };
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    RequestState m_hasHDRContent { RequestState::DontCare };
-    RequestState m_rendererHasHDRContent { RequestState::DontCare };
+    RequestState m_hdrContent { RequestState::DontCare };
+    RequestState m_rendererHDRContent { RequestState::DontCare };
 #endif
 
     ContentsType m_contentsType { ContentsType::Unknown };
@@ -254,12 +258,15 @@ void PaintedContentsInfo::determinePaintsContent()
     if (isPaintsContentSatisfied())
         return;
 
-    RenderLayer::PaintedContentRequest contentRequest(m_backing.owningLayer());
+    auto contentRequest = RenderLayer::PaintedContentRequest { };
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    contentRequest.setHDRRequestState(m_hdrContent);
+#endif
 
     m_backing.determinePaintsContent(contentRequest);
     m_content = contentRequest.hasPaintedContent;
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    m_hasHDRContent = contentRequest.hasHDRContent;
+    m_hdrContent = contentRequest.hasHDRContent;
 #endif
 }
 
@@ -278,8 +285,8 @@ void PaintedContentsInfo::determineContentsType()
         m_contentsType = ContentsType::Painted;
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    if (m_rendererHasHDRContent == RequestState::Unknown)
-        m_rendererHasHDRContent = m_backing.rendererHasHDRContent() ? RequestState::True : RequestState::False;
+    if (m_rendererHDRContent == RequestState::Unknown)
+        m_rendererHDRContent = m_backing.rendererHasHDRContent() ? RequestState::True : RequestState::False;
 #endif
 }
 
@@ -297,7 +304,7 @@ RenderLayerBacking::RenderLayerBacking(RenderLayer& layer)
 #if ENABLE(FULLSCREEN_API)
     auto isFullsizeBackdrop = [](const RenderElement& renderer) -> bool {
         auto& style = renderer.style();
-        if (style.pseudoElementType() != PseudoId::Backdrop || style.position() != PositionType::Fixed)
+        if (style.pseudoElementType() != PseudoElementType::Backdrop || style.position() != PositionType::Fixed)
             return false;
 
         if (style.hasTransform() || style.hasClip() || style.hasMask())
@@ -709,7 +716,7 @@ static LayoutRect overflowControlsHostLayerRect(const RenderBox& renderBox)
 
 void RenderLayerBacking::updateOpacity(const RenderStyle& style)
 {
-    m_graphicsLayer->setOpacity(compositingOpacity(style.opacity()));
+    m_graphicsLayer->setOpacity(compositingOpacity(style.opacity().value.value));
 }
 
 void RenderLayerBacking::updateTransform(const RenderStyle& style)
@@ -826,19 +833,14 @@ void RenderLayerBacking::updateChildrenTransformAndAnchorPoint(const LayoutRect&
     removeChildrenTransformFromLayers(layerForPerspective);
 }
 
-static FilterOperations resolveFilters(const FilterOperations& filterOperations, const RenderStyle& style)
+static FilterOperations resolveFilters(const Style::Filter& filter, const RenderStyle& style)
 {
-    Vector<Ref<FilterOperation>> resolvedOperations;
-    resolvedOperations.reserveInitialCapacity(filterOperations.size());
-
-    for (auto& filter : filterOperations) {
-        if (auto dropShadow = dynamicDowncast<Style::DropShadowFilterOperationWithStyleColor>(filter))
-            resolvedOperations.append(dropShadow->createEquivalentWithResolvedColor(style));
-        else
-            resolvedOperations.append(filter);
-    }
-
-    return FilterOperations { WTFMove(resolvedOperations) };
+    return FilterOperations { WTF::map(filter, [&](const auto& value) -> Ref<FilterOperation> {
+        Ref operation = value.value;
+        if (auto dropShadow = dynamicDowncast<Style::DropShadowFilterOperationWithStyleColor>(operation))
+            return dropShadow->createEquivalentWithResolvedColor(style);
+        return operation;
+    }) };
 }
 
 void RenderLayerBacking::updateFilters(const RenderStyle& style)
@@ -1003,7 +1005,7 @@ bool RenderLayerBacking::shouldClipCompositedBounds() const
 
     if (renderer().effectiveCapturedInViewTransition())
         return false;
-    if (renderer().style().pseudoElementType() == PseudoId::ViewTransitionNew)
+    if (renderer().style().pseudoElementType() == PseudoElementType::ViewTransitionNew)
         return false;
 
     if (m_isFrameLayerWithTiledBacking)
@@ -1017,9 +1019,11 @@ bool RenderLayerBacking::shouldClipCompositedBounds() const
 
 static bool hasNonZeroTransformOrigin(const RenderLayerModelObject& renderer)
 {
-    const RenderStyle& style = renderer.style();
-    return (style.transformOriginX().isFixed() && style.transformOriginX().value())
-        || (style.transformOriginY().isFixed() && style.transformOriginY().value());
+    auto& style = renderer.style();
+    auto fixedTransformOriginX = style.transformOriginX().tryFixed();
+    auto fixedTransformOriginY = style.transformOriginY().tryFixed();
+    return (fixedTransformOriginX && !fixedTransformOriginX->isZero())
+        || (fixedTransformOriginY && !fixedTransformOriginY->isZero());
 }
 
 bool RenderLayerBacking::updateCompositedBounds()
@@ -1089,7 +1093,7 @@ void RenderLayerBacking::updateAllowsBackingStoreDetaching(bool allowDetachingFo
             m_scrolledContentsLayer->setAllowsBackingStoreDetaching(allowDetaching);
     };
 
-    if (!m_owningLayer.behavesAsFixed() && !m_owningLayer.behavesAsSticky()) {
+    if (!m_owningLayer.behavesAsFixed()) {
         setAllowsBackingStoreDetaching(true);
         return;
     }
@@ -1322,14 +1326,19 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
         // but this is a runtime decision.
         if (element->usesPlatformLayer())
             m_graphicsLayer->setContentsToPlatformLayer(element->platformLayer(), GraphicsLayer::ContentsLayerPurpose::Model);
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_CONTEXT) && !ENABLE(GPU_PROCESS_MODEL)
         else if (auto modelContext = element->modelContext(); modelContext && element->document().settings().modelProcessEnabled()) {
             modelContext->setBackgroundColor(rendererBackgroundColor());
             m_graphicsLayer->setContentsToModelContext(*modelContext, GraphicsLayer::ContentsLayerPurpose::HostedModel);
         }
 #endif
-        else if (auto model = element->model())
+        else if (auto model = element->model()) {
+#if ENABLE(GPU_PROCESS_MODEL)
+            m_graphicsLayer->setContentsDisplayDelegate(element->contentsDisplayDelegate(), GraphicsLayer::ContentsLayerPurpose::Canvas);
+#else
             m_graphicsLayer->setContentsToModel(WTFMove(model), element->isInteractive() ? GraphicsLayer::ModelInteraction::Enabled : GraphicsLayer::ModelInteraction::Disabled);
+#endif
+        }
 
         element->sizeMayHaveChanged();
 
@@ -1699,8 +1708,8 @@ void RenderLayerBacking::updateGeometry(const RenderLayer* compositedAncestor)
             m_scrolledContentsLayer->setNeedsDisplay();
 
         m_scrolledContentsLayer->setSize(scrollSize);
-        m_scrolledContentsLayer->setScrollOffset(scrollOffset, GraphicsLayer::DontSetNeedsDisplay);
-        m_scrolledContentsLayer->setOffsetFromRenderer(toLayoutSize(scrollContainerBox.location()), GraphicsLayer::DontSetNeedsDisplay);
+        m_scrolledContentsLayer->setScrollOffset(scrollOffset, GraphicsLayer::ShouldSetNeedsDisplay::DoNotSet);
+        m_scrolledContentsLayer->setOffsetFromRenderer(toLayoutSize(scrollContainerBox.location()), GraphicsLayer::ShouldSetNeedsDisplay::DoNotSet);
         
         adjustTiledBackingCoverage();
     }
@@ -1718,11 +1727,11 @@ void RenderLayerBacking::updateGeometry(const RenderLayer* compositedAncestor)
     if (m_foregroundLayer) {
         FloatSize foregroundSize;
         FloatSize foregroundOffset;
-        GraphicsLayer::ShouldSetNeedsDisplay needsDisplayOnOffsetChange = GraphicsLayer::SetNeedsDisplay;
+        auto needsDisplayOnOffsetChange = GraphicsLayer::ShouldSetNeedsDisplay::Set;
         if (m_scrolledContentsLayer) {
             foregroundSize = m_scrolledContentsLayer->size();
             foregroundOffset = m_scrolledContentsLayer->offsetFromRenderer() - toLayoutSize(m_scrolledContentsLayer->scrollOffset());
-            needsDisplayOnOffsetChange = GraphicsLayer::DontSetNeedsDisplay;
+            needsDisplayOnOffsetChange = GraphicsLayer::ShouldSetNeedsDisplay::DoNotSet;
         } else if (hasClippingLayer()) {
             // If we have a clipping layer (which clips descendants), then the foreground layer is a child of it,
             // so that it gets correctly sorted with children. In that case, position relative to the clipping layer.
@@ -2043,6 +2052,11 @@ void RenderLayerBacking::updateDrawsContent(PaintedContentsInfo& contentsInfo)
         m_scrolledContentsLayer->setDrawsContent(hasScrollingPaintedContent);
         return;
     }
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    if (renderer().document().drawsHDRContent())
+        contentsInfo.setDetectsHDRContent();
+#endif
 
     bool hasPaintedContent = containsPaintedContent(contentsInfo);
 
@@ -2442,7 +2456,7 @@ bool RenderLayerBacking::needsRepaintOnCompositedScroll() const
     if (!hasScrollingLayer())
         return false;
 
-    if (renderer().style().hasAnyLocalBackground())
+    if (renderer().style().backgroundLayers().hasImageWithAttachment(FillAttachment::LocalBackground))
         return true;
 
     if (auto scrollingCoordinator = m_owningLayer.page().scrollingCoordinator())
@@ -2934,14 +2948,16 @@ static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderElement& r
     if (!GraphicsLayer::supportsContentsTiling())
         return false;
 
-    auto& fillLayer = style.backgroundLayers();
-    if (fillLayer.next())
+    auto& backgroundLayers = style.backgroundLayers();
+    if (backgroundLayers.size() > 1)
         return false;
 
-    if (!fillLayer.imagesAreLoaded(&renderer))
+    if (!backgroundLayers.imagesAreLoaded(&renderer))
         return false;
 
-    if (fillLayer.attachment() != FillAttachment::ScrollBackground)
+    auto& layer = backgroundLayers.first();
+
+    if (layer.attachment() != FillAttachment::ScrollBackground)
         return false;
 
     // FIXME: Allow color+image compositing when it makes sense.
@@ -2950,11 +2966,11 @@ static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderElement& r
         return false;
 
     // FIXME: support gradients with isGeneratedImage.
-    auto* styleImage = fillLayer.image();
+    RefPtr styleImage = layer.image().tryStyleImage();
     if (!styleImage->hasCachedImage())
         return false;
 
-    auto* image = styleImage->cachedImage()->image();
+    RefPtr image = styleImage->cachedImage()->image();
     if (!image->isBitmapImage())
         return false;
 
@@ -3035,15 +3051,16 @@ void RenderLayerBacking::updateDirectlyCompositedBackgroundImage(PaintedContents
         return;
     }
 
+    auto& backgroundLayer = style.backgroundLayers().first();
     auto backgroundBox = LayoutRect { backgroundBoxForSimpleContainerPainting() };
     // FIXME: Absolute paint location is required here.
-    auto geometry = BackgroundPainter::calculateBackgroundImageGeometry(*renderBox(), renderBox(), style.backgroundLayers(), { }, backgroundBox);
+    auto geometry = BackgroundPainter::calculateFillLayerImageGeometry(*renderBox(), renderBox(), backgroundLayer, { }, backgroundBox);
 
     m_graphicsLayer->setContentsTileSize(geometry.tileSize);
     m_graphicsLayer->setContentsTilePhase(geometry.phase);
     m_graphicsLayer->setContentsRect(geometry.destinationRect);
     m_graphicsLayer->setContentsClippingRect(FloatRoundedRect(geometry.destinationRect));
-    m_graphicsLayer->setContentsToImage(style.backgroundLayers().image()->cachedImage()->image());
+    m_graphicsLayer->setContentsToImage(backgroundLayer.image().tryStyleImage()->cachedImage()->image());
 
     didUpdateContentsRect = true;
 }
@@ -3194,7 +3211,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer(PaintedContentsInfo& 
     if (contentsInfo.paintsBoxDecorations() || contentsInfo.paintsContent())
         return false;
 
-    if (renderer().style().backgroundClip() == FillBox::Text)
+    if (renderer().style().backgroundLayers().first().clip() == FillBox::Text)
         return false;
     
     if (renderer().isDocumentElementRenderer() && m_owningLayer.isolatesCompositedBlending())
@@ -3266,12 +3283,14 @@ static std::optional<bool> intersectsWithAncestor(const RenderLayer& child, cons
     return overlap.intersects(ancestorCompositedBounds);
 }
 
-// Conservative test for having no rendered children.
 void RenderLayerBacking::determineNonCompositedLayerDescendantsPaintedContent(RenderLayer::PaintedContentRequest& request) const
 {
     bool hasPaintingDescendant = false;
     traverseVisibleNonCompositedDescendantLayers(m_owningLayer, [&hasPaintingDescendant, &request, this](const RenderLayer& layer) {
-        RenderLayer::PaintedContentRequest localRequest(m_owningLayer);
+        auto localRequest = RenderLayer::PaintedContentRequest { };
+#if HAVE(SUPPORT_HDR_DISPLAY)
+        localRequest.setHDRRequestState(request.hasHDRContent);
+#endif
         if (layer.isVisuallyNonEmpty(&localRequest)) {
             bool mayIntersect = intersectsWithAncestor(layer, m_owningLayer, compositedBounds()).value_or(true);
             if (mayIntersect) {
@@ -3280,8 +3299,8 @@ void RenderLayerBacking::determineNonCompositedLayerDescendantsPaintedContent(Re
             }
         }
 #if HAVE(SUPPORT_HDR_DISPLAY)
-        if (localRequest.probablyHasPaintedContent())
-            request.hasHDRContent = localRequest.hasHDRContent;
+        if (localRequest.probablyHasPaintedContent() && localRequest.hasHDRContent == RequestState::True)
+            request.hasHDRContent = RequestState::True;
 #endif
         return (hasPaintingDescendant && request.isSatisfied()) ? LayerTraversal::Stop : LayerTraversal::Continue;
     });
@@ -3439,7 +3458,7 @@ bool RenderLayerBacking::rendererHasHDRContent() const
 }
 #endif
 
-void RenderLayerBacking::contentChanged(ContentChangeType changeType)
+void RenderLayerBacking::contentChanged(ContentChangeType changeType, const std::optional<FloatRect>& dirtyRect)
 {
     PaintedContentsInfo contentsInfo(*this);
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
@@ -3464,12 +3483,16 @@ void RenderLayerBacking::contentChanged(ContentChangeType changeType)
 
 #if ENABLE(MODEL_ELEMENT)
     if (changeType == ContentChangeType::Model) {
+#if ENABLE(GPU_PROCESS_MODEL)
+        if (m_graphicsLayer && m_graphicsLayer->drawsContent())
+            m_graphicsLayer->setNeedsDisplay();
+#endif
         compositor().scheduleCompositingLayerUpdate();
         return;
     }
 #endif
 
-    if ((changeType == ContentChangeType::BackgroundIImage) && canDirectlyCompositeBackgroundBackgroundImage(renderer()))
+    if ((changeType == ContentChangeType::BackgroundImage) && canDirectlyCompositeBackgroundBackgroundImage(renderer()))
         m_owningLayer.setNeedsCompositingConfigurationUpdate();
 
     if ((changeType == ContentChangeType::MaskImage) && m_maskLayer)
@@ -3480,9 +3503,14 @@ void RenderLayerBacking::contentChanged(ContentChangeType changeType)
         if (changeType == ContentChangeType::Canvas)
             compositor().scheduleCompositingLayerUpdate();
 
-        m_graphicsLayer->setContentsNeedsDisplay();
+        if (dirtyRect)
+            m_graphicsLayer->setContentsNeedsDisplayInRect(*dirtyRect);
+        else
+            m_graphicsLayer->setContentsNeedsDisplay();
         return;
     }
+#else
+    UNUSED_PARAM(dirtyRect);
 #endif
 }
 
@@ -3551,7 +3579,7 @@ LayoutRect RenderLayerBacking::contentsBox() const
 
 static LayoutRect backgroundRectForBox(const RenderBox& box)
 {
-    switch (box.style().backgroundClip()) {
+    switch (box.style().backgroundLayers().first().clip()) {
     case FillBox::BorderBox:
         return box.borderBoxRect();
     case FillBox::PaddingBox:
@@ -3607,7 +3635,7 @@ GraphicsLayer* RenderLayerBacking::childForSuperlayersExcludingViewTransitions()
         return m_ancestorClippingStack->firstLayer();
 
     if (RefPtr viewportConstrainedLayer = viewportClippingOrAnchorLayer())
-        return viewportConstrainedLayer.get();
+        return viewportConstrainedLayer.unsafeGet();
 
     if (m_contentsContainmentLayer)
         return m_contentsContainmentLayer.get();
@@ -4144,7 +4172,7 @@ void RenderLayerBacking::paintContents(const GraphicsLayer* graphicsLayer, Graph
         paintIntoLayer(graphicsLayer, context, dirtyRect, behavior);
 
         auto visibleDebugOverlayRegions = OptionSet<DebugOverlayRegions>::fromRaw(renderer().settings().visibleDebugOverlayRegions());
-        if (visibleDebugOverlayRegions.containsAny({ DebugOverlayRegions::TouchActionRegion, DebugOverlayRegions::EditableElementRegion, DebugOverlayRegions::WheelEventHandlerRegion, DebugOverlayRegions::InteractionRegion, DebugOverlayRegions::SiteIsolationRegion }))
+        if (visibleDebugOverlayRegions.containsAny({ DebugOverlayRegions::TouchActionRegion, DebugOverlayRegions::EditableElementRegion, DebugOverlayRegions::WheelEventHandlerRegion, DebugOverlayRegions::InteractionRegion }))
             paintDebugOverlays(graphicsLayer, context);
 
     } else if (graphicsLayer == layerForHorizontalScrollbar()) {
@@ -4317,7 +4345,7 @@ void RenderLayerBacking::verifyNotPainting()
 }
 #endif
 
-bool RenderLayerBacking::startAnimation(double timeOffset, const Animation& animation, const BlendingKeyframes& keyframes)
+bool RenderLayerBacking::startAnimation(double timeOffset, const GraphicsLayerAnimation& animation, const BlendingKeyframes& keyframes)
 {
     if (renderer().capturedInViewTransition())
         return false;
@@ -4337,6 +4365,10 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation& anim
     if (!hasOpacity && !hasRotate && !hasScale && !hasTranslate && !hasTransform && !hasFilter && !hasBackdropFilter)
         return false;
 
+    auto referenceBoxRect = renderer().transformReferenceBoxRect(renderer().style());
+    if (!renderer().isSVGLayerAwareRenderer())
+        referenceBoxRect = snappedIntRect(LayoutRect(referenceBoxRect));
+
     KeyframeValueList rotateVector(AnimatedProperty::Rotate);
     KeyframeValueList scaleVector(AnimatedProperty::Scale);
     KeyframeValueList translateVector(AnimatedProperty::Translate);
@@ -4355,52 +4387,48 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation& anim
         auto* tf = currentKeyframe.timingFunction();
 
         if (currentKeyframe.animatesProperty(CSSPropertyRotate))
-            rotateVector.insert(makeUnique<TransformAnimationValue>(offset, Style::toPlatform(keyframeStyle->rotate()).get(), tf));
+            rotateVector.insert(makeUnique<TransformAnimationValue>(offset, Style::toPlatform(keyframeStyle->rotate(), referenceBoxRect.size()).get(), tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyScale))
-            scaleVector.insert(makeUnique<TransformAnimationValue>(offset, Style::toPlatform(keyframeStyle->scale()).get(), tf));
+            scaleVector.insert(makeUnique<TransformAnimationValue>(offset, Style::toPlatform(keyframeStyle->scale(), referenceBoxRect.size()).get(), tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyTranslate))
-            translateVector.insert(makeUnique<TransformAnimationValue>(offset, Style::toPlatform(keyframeStyle->translate()).get(), tf));
+            translateVector.insert(makeUnique<TransformAnimationValue>(offset, Style::toPlatform(keyframeStyle->translate(), referenceBoxRect.size()).get(), tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyTransform))
-            transformVector.insert(makeUnique<TransformAnimationValue>(offset, keyframeStyle->transform(), tf));
+            transformVector.insert(makeUnique<TransformAnimationValue>(offset, Style::toPlatform(keyframeStyle->transform(), referenceBoxRect.size()), tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyOpacity))
-            opacityVector.insert(makeUnique<FloatAnimationValue>(offset, keyframeStyle->opacity(), tf));
+            opacityVector.insert(makeUnique<FloatAnimationValue>(offset, keyframeStyle->opacity().value.value, tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyFilter))
-            filterVector.insert(makeUnique<FilterAnimationValue>(offset, keyframeStyle->filter(), tf));
+            filterVector.insert(makeUnique<FilterAnimationValue>(offset, Style::toPlatform(keyframeStyle->filter()), tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyWebkitBackdropFilter) || currentKeyframe.animatesProperty(CSSPropertyBackdropFilter))
-            backdropFilterVector.insert(makeUnique<FilterAnimationValue>(offset, keyframeStyle->backdropFilter(), tf));
+            backdropFilterVector.insert(makeUnique<FilterAnimationValue>(offset, Style::toPlatform(keyframeStyle->backdropFilter()), tf));
     }
 
     bool didAnimate = false;
 
-    auto referenceBoxRect = renderer().transformReferenceBoxRect(renderer().style());
-    if (!renderer().isSVGLayerAwareRenderer())
-        referenceBoxRect = snappedIntRect(LayoutRect(referenceBoxRect));
-
-    if (hasRotate && m_graphicsLayer->addAnimation(rotateVector, referenceBoxRect.size(), &animation, keyframes.acceleratedAnimationName(), timeOffset))
+    if (hasRotate && m_graphicsLayer->addAnimation(rotateVector, &animation, keyframes.acceleratedAnimationName(), timeOffset))
         didAnimate = true;
 
-    if (hasScale && m_graphicsLayer->addAnimation(scaleVector, referenceBoxRect.size(), &animation, keyframes.acceleratedAnimationName(), timeOffset))
+    if (hasScale && m_graphicsLayer->addAnimation(scaleVector, &animation, keyframes.acceleratedAnimationName(), timeOffset))
         didAnimate = true;
 
-    if (hasTranslate && m_graphicsLayer->addAnimation(translateVector, referenceBoxRect.size(), &animation, keyframes.acceleratedAnimationName(), timeOffset))
+    if (hasTranslate && m_graphicsLayer->addAnimation(translateVector, &animation, keyframes.acceleratedAnimationName(), timeOffset))
         didAnimate = true;
 
-    if (hasTransform && m_graphicsLayer->addAnimation(transformVector, referenceBoxRect.size(), &animation, keyframes.acceleratedAnimationName(), timeOffset))
+    if (hasTransform && m_graphicsLayer->addAnimation(transformVector, &animation, keyframes.acceleratedAnimationName(), timeOffset))
         didAnimate = true;
 
-    if (hasOpacity && m_graphicsLayer->addAnimation(opacityVector, IntSize { }, &animation, keyframes.acceleratedAnimationName(), timeOffset))
+    if (hasOpacity && m_graphicsLayer->addAnimation(opacityVector, &animation, keyframes.acceleratedAnimationName(), timeOffset))
         didAnimate = true;
 
-    if (hasFilter && m_graphicsLayer->addAnimation(filterVector, IntSize { }, &animation, keyframes.acceleratedAnimationName(), timeOffset))
+    if (hasFilter && m_graphicsLayer->addAnimation(filterVector, &animation, keyframes.acceleratedAnimationName(), timeOffset))
         didAnimate = true;
 
-    if (hasBackdropFilter && m_graphicsLayer->addAnimation(backdropFilterVector, IntSize { }, &animation, keyframes.acceleratedAnimationName(), timeOffset))
+    if (hasBackdropFilter && m_graphicsLayer->addAnimation(backdropFilterVector, &animation, keyframes.acceleratedAnimationName(), timeOffset))
         didAnimate = true;
 
     if (didAnimate) {

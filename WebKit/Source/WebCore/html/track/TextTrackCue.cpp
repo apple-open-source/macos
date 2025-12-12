@@ -36,7 +36,9 @@
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DOMRect.h"
+#include "DocumentPage.h"
 #include "ElementInlines.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -45,7 +47,6 @@
 #include "Logging.h"
 #include "NodeInlines.h"
 #include "NodeTraversal.h"
-#include "Page.h"
 #include "ScriptDisallowedScope.h"
 #include "Text.h"
 #include "TextTrack.h"

@@ -35,6 +35,7 @@ struct WebExtensionBookmarksParameters {
     uint64_t index;
     String title;
     std::optional<String> url;
+    WallTime dateAdded;
     std::optional<Vector<WebExtensionBookmarksParameters>> children;
 };
 

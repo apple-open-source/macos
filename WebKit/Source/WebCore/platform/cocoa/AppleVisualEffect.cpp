@@ -44,6 +44,7 @@ bool appleVisualEffectNeedsBackdrop(AppleVisualEffect effect)
     case AppleVisualEffect::None:
 #if HAVE(MATERIAL_HOSTING)
     case AppleVisualEffect::GlassMaterial:
+    case AppleVisualEffect::GlassClearMaterial:
     case AppleVisualEffect::GlassSubduedMaterial:
     case AppleVisualEffect::GlassMediaControlsMaterial:
     case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
@@ -74,6 +75,7 @@ bool appleVisualEffectAppliesFilter(AppleVisualEffect effect)
     case AppleVisualEffect::BlurChromeMaterial:
 #if HAVE(MATERIAL_HOSTING)
     case AppleVisualEffect::GlassMaterial:
+    case AppleVisualEffect::GlassClearMaterial:
     case AppleVisualEffect::GlassSubduedMaterial:
     case AppleVisualEffect::GlassMediaControlsMaterial:
     case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
@@ -99,6 +101,7 @@ bool appleVisualEffectIsHostedMaterial(AppleVisualEffect effect)
 {
     switch (effect) {
     case AppleVisualEffect::GlassMaterial:
+    case AppleVisualEffect::GlassClearMaterial:
     case AppleVisualEffect::GlassSubduedMaterial:
     case AppleVisualEffect::GlassMediaControlsMaterial:
     case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
@@ -149,6 +152,9 @@ TextStream& operator<<(TextStream& ts, AppleVisualEffect effect)
 #if HAVE(MATERIAL_HOSTING)
     case AppleVisualEffect::GlassMaterial:
         ts << "glass-material"_s;
+        break;
+    case AppleVisualEffect::GlassClearMaterial:
+        ts << "glass-material-clear"_s;
         break;
     case AppleVisualEffect::GlassSubduedMaterial:
         ts << "glass-material-subdued"_s;

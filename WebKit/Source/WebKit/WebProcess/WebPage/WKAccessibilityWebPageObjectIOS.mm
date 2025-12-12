@@ -30,6 +30,7 @@
 
 #import "WebFrame.h"
 #import "WebPage.h"
+#import <WebCore/DocumentView.h>
 #import <WebCore/IntPoint.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>
@@ -56,7 +57,7 @@
 - (void)dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [_remoteTokenData release];
+    [_remoteTokenDictionary release];
     [super dealloc];
 }
 

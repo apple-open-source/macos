@@ -34,7 +34,11 @@
 #include "CSSStyleSheetObservableArray.h"
 #include "ContainerNodeInlines.h"
 #include "CustomElementRegistry.h"
+#include "DocumentPage.h"
+#include "DocumentView.h"
 #include "FocusController.h"
+#include "FrameDestructionObserverInlines.h"
+#include "FrameInlines.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLImageElement.h"
@@ -77,7 +81,7 @@ using namespace HTMLNames;
 using WeakSVGElementSet = WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>;
 struct SVGResourcesMap {
     WTF_MAKE_NONCOPYABLE(SVGResourcesMap);
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(SVGResourcesMap);
     SVGResourcesMap() = default;
 
     MemoryCompactRobinHoodHashMap<AtomString, WeakSVGElementSet> pendingResources;

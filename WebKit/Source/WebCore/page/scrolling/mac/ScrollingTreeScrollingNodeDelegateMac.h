@@ -25,11 +25,12 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
 
-#include "ScrollerPairMac.h"
-#include "ScrollingEffectsController.h"
-#include "ThreadedScrollingTreeScrollingNodeDelegate.h"
+#include <WebCore/ScrollerPairMac.h>
+#include <WebCore/ScrollingEffectsController.h>
+#include <WebCore/ThreadedScrollingTreeScrollingNodeDelegate.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMalloc.h>
 

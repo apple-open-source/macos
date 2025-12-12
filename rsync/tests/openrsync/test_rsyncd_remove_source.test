@@ -1,0 +1,132 @@
+#! /bin/sh
+
+. ${tstdir-.}/daemon.sh
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+dest="$PWD/repo"
+cfgfile="$PWD/rsyncd.conf"
+scratch="$PWD/scratch"
+ref="$PWD/ref"
+
+rm -rf "$dest" "$scratch" "$ref"
+
+mkdir "$dest"
+
+(cd "$dest" && generate_tree_1)
+cp -a "$dest" "$ref"
+
+cat <<EOF > "$cfgfile"
+use chroot = no
+read only = no
+
+[repo]
+	path = $dest
+EOF
+
+rsyncd "$cfgfile"
+dport=$(daemon_port)
+
+mkdir -p "$scratch"
+
+echo
+echo "Test 1: Check that daemon does not remove files in implied list mode"
+
+command $RSYNC_CLIENT -aixSH --remove-source-files \
+        rsync://localhost:$dport/repo/ > out
+
+echo "Test 1.1: Compare ref to dest"
+compare_trees "$ref" "$dest"
+
+echo "Test 1.2: Compare count of files in ref to rsync list output"
+nref=$(find "${ref}" | wc -l)
+
+# list-mode supercedes itemization mode:
+#
+nout=$(grep -c '^[bcdlps-]rw[x-]' out)
+
+if [ "${nref}" -ne "${nout}" ] ; then
+	1>&2 echo "implicit list mode failed to list all files (${nref} ${nout})"
+	1>&2 cat out
+	exit 1
+fi
+
+
+echo
+echo "Test 2: Pull dest/ to scratch/ and check that daemon removed dest/"
+
+command $RSYNC_CLIENT -aixSH --remove-source-files \
+        rsync://localhost:$dport/repo/ "$scratch"/ > out
+
+echo "Test 2.1: Compare ref/ to scratch/"
+compare_trees "$ref" "$scratch"
+
+echo "Test 2.2: Check that all files appear in rsync itemized output"
+nref=$(find "${ref}" ! -type d | wc -l)
+nout=$(grep -c '^.[fLS][+.]' out)
+
+# find(1) always counts the top-level directory, but rsync seems to emit
+# an itemized line for it itermittantly...
+#
+if [ "${nref}" -ne "${nout}" ] ; then
+	1>&2 echo "implicit list mode failed to list all files (${nref} ${nout})"
+	1>&2 command $RSYNC_CLIENT --version
+        1>&2 find "${ref}"
+	exit 1
+fi
+
+echo "Test 2.3: Check that dest/ is empty (except for directories)"
+# --remove-source-files does not delete directories
+ndest=$(find "${dest}" ! -type d | wc -l)
+
+if [ "${ndest}" -ne 0 ] ; then
+	1>&2 echo "daemon failed to delete all files in dest/ (${ndest})"
+	1>&2 ls -Rl "${dest}"
+	exit 1
+fi
+
+
+echo
+echo "Test 3: Push scratch/ to dest/ and check that client removed scratch/"
+
+command $RSYNC_CLIENT -aixSH --remove-source-files \
+        "$scratch"/ rsync://localhost:$dport/repo/ > out
+
+# We cannot call "compare_trees ref dest" because rsync daemoon munges symlinks
+# pushed to from scratch/ to dest/.  Instead we'll just verify that the file
+# count are the same:
+#
+echo "Test 3.1: Compare count of files in ref/ to dest/"
+nref=$(find "${ref}" | wc -l)
+ndest=$(find "${dest}" | wc -l)
+
+if [ "${ndest}" -ne "${nref}" ] ; then
+	1>&2 echo "not all files from scratch/ were copied to dest/ (${nref} ${ndest})"
+	1>&2 ls -Rl "${dest}"
+	exit 1
+fi
+
+echo "Test 3.2: Check that all files appear in rsync itemized output"
+nref=$(find "${ref}" ! -type d | wc -l)
+nout=$(grep -c '^.[fLS][+.]' out)
+
+# find(1) always counts the top-level directory, but rsync seems to emit
+# an itemized line for it itermittantly...
+#
+if [ "${nref}" -ne "${nout}" -a $((nref - nout)) -gt 1 ] ; then
+	1>&2 echo "implicit list mode failed to list all files (${nref} ${nout})"
+	1>&2 cat out
+        1>&2 find "${ref}"
+	exit 1
+fi
+
+echo "Test 3.3: Check that scratch/ is empty (except for directories)"
+# --remove-source-files does not delete directories
+nscratch=$(find "${scratch}" ! -type d | wc -l)
+
+if [ "${nscratch}" -ne 0 ] ; then
+	1>&2 echo "client failed to delete all files in scratch/ (${nscratch})"
+	1>&2 ls -Rl "${scratch}"
+	exit 1
+fi
+

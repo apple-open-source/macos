@@ -3016,6 +3016,48 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 	if(path[0] == '\0')
 	    return (ARCHIVE_OK);
 
+#ifdef __APPLE__
+# ifdef HAVE_OPENAT
+	if ((flags & ARCHIVE_EXTRACT_SECURE_SYMLINKS) != 0) {
+		/* Extract and open the directory part of 'path'. */
+		head = path;
+		tail = path + strlen(path);
+		while (tail > head && *tail != '/')
+			--tail;
+		if (tail != head)
+			*tail = '\0';
+		fd = openat(AT_FDCWD, head, O_DIRECTORY | O_SEARCH |
+		    O_NOFOLLOW_ANY);
+		if (tail != head)
+			*tail = '/';
+		if (fd < 0) {
+
+			/*
+			 * Mimic the behavior of the path validation loop below by
+			 * returning ARCHIVE_OK if the path does not exist.
+			 */
+			if (errno == ENOENT)
+				return (ARCHIVE_OK);
+			if (errno != ELOOP && errno != ENAMETOOLONG &&
+			    errno != ENOTDIR) {
+				fsobj_error(a_eno, a_estr, errno,
+				    "Could not open ", path);
+				return (ARCHIVE_FAILED);
+			}
+
+			/*
+			 * Fall back to the path validation loop in the following cases:
+			 *  - We've hit a symlink in the path (ELOOP)
+			 *  - The name was too long for openat (ENAMETOOLONG)
+			 *  - The last pathname component was a file (ENOTDIR)
+			 */
+		} else {
+			close(fd);
+			return (ARCHIVE_OK);
+		}
+	}
+# endif /* HAVE_OPENAT */
+#endif /* __APPLE__ */
 	/*
 	 * Guard against symlink tricks.  Reject any archive entry whose
 	 * destination would be altered by a symlink.

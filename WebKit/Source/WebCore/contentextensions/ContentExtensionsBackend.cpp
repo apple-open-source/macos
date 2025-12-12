@@ -33,24 +33,26 @@
 #include "CompiledContentExtension.h"
 #include "ContentExtension.h"
 #include "ContentExtensionsDebugging.h"
+#include "ContentRuleListMatchedRule.h"
 #include "ContentRuleListResults.h"
 #include "DFABytecodeInterpreter.h"
-#include "Document.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentPage.h"
 #include "ExtensionStyleSheets.h"
-#include "LocalFrame.h"
+#include "FrameDestructionObserverInlines.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameLoaderClient.h"
-#include "Page.h"
+#include "RegistrableDomain.h"
 #include "ResourceLoadInfo.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "Settings.h"
-#include <wtf/URL.h>
 #include "UserContentController.h"
 #include <ranges>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/URL.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 
@@ -197,7 +199,7 @@ auto ContentExtensionsBackend::actionsForResourceLoad(const ResourceLoadInfo& re
     return actionsVector;
 }
 
-void ContentExtensionsBackend::forEach(NOESCAPE const Function<void(const String&, ContentExtension&)>& apply)
+void ContentExtensionsBackend::forEach(NOESCAPE const Function<void(const String&, ContentExtension&)>& apply) const
 {
     for (auto& pair : m_contentExtensions)
         apply(pair.key, pair.value);
@@ -238,17 +240,22 @@ std::optional<String> customTrackerBlockingMessageForConsole(const ContentRuleLi
 #endif
 }
 
-ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(Page& page, const URL& url, OptionSet<ResourceType> resourceType, DocumentLoader& initiatingDocumentLoader, const URL& redirectFrom, const RuleListFilter& ruleListFilter)
+ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(Page& page, const URL& url, OptionSet<ResourceType> resourceType, DocumentLoader& initiatingDocumentLoader, const URL& redirectFrom, const RuleListFilter& ruleListFilter) const
 {
     Document* currentDocument = nullptr;
     URL mainDocumentURL;
     URL frameURL;
     bool mainFrameContext = false;
     RequestMethod requestMethod = readRequestMethod(initiatingDocumentLoader.request().httpMethod()).value_or(RequestMethod::None);
+    auto requestId = WTF::UUID::createVersion4Weak().toString();
+    double frameId;
+    double parentFrameId;
 
     if (auto* frame = initiatingDocumentLoader.frame()) {
         mainFrameContext = frame->isMainFrame();
         currentDocument = frame->document();
+        frameId = mainFrameContext ? 0 : static_cast<double>(frame->frameID().toUInt64());
+        parentFrameId = !mainFrameContext && frame->tree().parent() ? static_cast<double>(frame->tree().parent()->frameID().toUInt64()) : -1;
 
         if (initiatingDocumentLoader.isLoadingMainResource()
             && frame->isMainFrame()
@@ -315,6 +322,31 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
                     results.summary.redirected = true;
                     results.summary.redirectActions.append({ redirectAction, m_contentExtensions.get(contentRuleListIdentifier)->extensionBaseURL() });
                 }
+            }, [&] (const ReportIdentifierAction& reportIdentifierAction) {
+                std::optional<String> initiator;
+                std::optional<String> documentId;
+                std::optional<String> frameType;
+
+                // FIXME: <rdar://159289161> Include the parentDocumentId parameter once we can make it work with site isolation
+                if (currentDocument && resourceType.containsAny({ ResourceType::TopDocument, ResourceType::ChildDocument }))
+                    documentId = currentDocument->identifier().toString();
+
+                if (resourceType == ResourceType::TopDocument)
+                    frameType = "outermost_frame"_s;
+                else if (resourceType == ResourceType::ChildDocument)
+                    frameType = "sub_frame"_s;
+
+                if (currentDocument && currentDocument->url().isValid()) {
+                    auto domain = RegistrableDomain { frameURL };
+
+                    if (!domain.isEmpty())
+                        initiator = domain.string();
+                }
+
+                // We set the tabId to -1 because it will be filled in by the web extension context.
+                // We create a requestId here since ResourceRequest objects don't have one, and it's a non-optional parameter.
+                // We set documentLifecycle to null because that will require Safari API to be implemented.
+                page.chrome().client().contentRuleListMatchedRule({ { reportIdentifierAction.identifier, reportIdentifierAction.string, contentRuleListIdentifier }, { frameId, parentFrameId, initiatingDocumentLoader.request().httpMethod(), requestId, -1, resourceTypeToStringForMatchedRule(resourceType), url.string(), initiator, documentId, std::nullopt, frameType, std::nullopt } });
             }), action.data());
         }
 
@@ -387,6 +419,8 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForPingL
                 // We currently have not implemented active actions from the network process (CORS preflight).
             }, [&] (const RedirectAction&) {
                 // We currently have not implemented active actions from the network process (CORS preflight).
+            }, [&] (const ReportIdentifierAction&) {
+                // We currently have not implemented notifications from the NetworkProcess to the UIProcess.
             }), action.data());
         }
     }
@@ -414,6 +448,7 @@ bool ContentExtensionsBackend::processContentRuleListsForResourceMonitoring(cons
                 RELEASE_ASSERT_NOT_REACHED();
             }, [&] (const ModifyHeadersAction&) {
             }, [&] (const RedirectAction&) {
+            }, [&] (const ReportIdentifierAction&) {
             }), action.data());
         }
     }

@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "BoundaryPoint.h"
-#include "CharacterData.h"
+#include <WebCore/BoundaryPoint.h>
+#include <WebCore/CharacterData.h>
 
 namespace WebCore {
 

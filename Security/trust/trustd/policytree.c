@@ -256,8 +256,13 @@ void policy_tree_prune_childless(policy_tree_t *root, int depth) {
 }
 
 /* Add a new child to the tree. */
-static void policy_tree_add_child_explicit(policy_tree_t parent,
+static bool policy_tree_add_child_explicit(policy_tree_t root, policy_tree_t parent,
     const oid_t *p_oid, policy_qualifier_t p_q, policy_set_t p_expected) {
+    if (root->tree_size > POLICY_TREE_MAX_NODES) {
+        secerror("policy: too many nodes");
+        return false;
+    }
+
     policy_tree_t child = malloc(sizeof(*child));
     memset(child, 0, sizeof(*child));
     child->valid_policy = *p_oid;
@@ -276,24 +281,26 @@ static void policy_tree_add_child_explicit(policy_tree_t parent,
     child->siblings = parent->children;
     /* New child becomes parent's first child. */
     parent->children = child;
+    root->tree_size++;
 
     secdebug("policy-node", "%p siblngs: %p", child, child->siblings);
+    return true;
 }
 
 /* Add a new child to the tree parent setting valid_policy to p_oid,
    qualifier_set to p_q and expected_policy_set to a set containing
    just p_oid. */
-void policy_tree_add_child(policy_tree_t parent,
-    const oid_t *p_oid, policy_qualifier_t p_q) {
+bool policy_tree_add_child(policy_tree_t root, policy_tree_t parent,
+                           const oid_t *p_oid, policy_qualifier_t p_q) {
     policy_set_t policy_set = policy_set_create(p_oid);
-    policy_tree_add_child_explicit(parent, p_oid, p_q, policy_set);
+    return policy_tree_add_child_explicit(root, parent, p_oid, p_q, policy_set);
 }
 
 /* Add a new sibling to the tree setting valid_policy to p_oid,
    qualifier set to p_q and expected_policy_set to p_expected */
-void policy_tree_add_sibling(policy_tree_t sibling, const oid_t *p_oid,
+bool policy_tree_add_sibling(policy_tree_t root, policy_tree_t sibling, const oid_t *p_oid,
                              policy_qualifier_t p_q, policy_set_t p_expected) {
-    policy_tree_add_child_explicit(sibling->parent, p_oid, p_q, p_expected);
+    return policy_tree_add_child_explicit(root, sibling->parent, p_oid, p_q, p_expected);
 }
 
 void policy_tree_set_expected_policy(policy_tree_t node,

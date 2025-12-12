@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "JSDOMPromiseDeferred.h"
-#include "ModuleFetchParameters.h"
 #include <JavaScriptCore/ScriptFetcher.h>
+#include <WebCore/JSDOMPromiseDeferred.h>
+#include <WebCore/ModuleFetchParameters.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {

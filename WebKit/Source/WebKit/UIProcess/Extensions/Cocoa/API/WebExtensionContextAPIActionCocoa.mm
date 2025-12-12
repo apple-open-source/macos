@@ -125,7 +125,7 @@ void WebExtensionContext::actionSetIcon(std::optional<WebExtensionWindowIdentifi
         return;
     }
 
-    RefPtr parsedIcons = JSON::Value::parseJSON(iconsJSON);
+    RefPtr parsedIcons = JSON::Value::parseJSON(iconsJSON) ?: JSON::Value::null();
     Ref webExtensionAction = action.value();
 
     if (RefPtr object = parsedIcons->asObject())

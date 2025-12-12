@@ -41,7 +41,8 @@
 #include "ContainerNodeInlines.h"
 #include "DateComponents.h"
 #include "DateTimeChooser.h"
-#include "DocumentInlines.h"
+#include "DocumentSecurityOrigin.h"
+#include "DocumentView.h"
 #include "Editor.h"
 #include "ElementInlines.h"
 #include "EventLoop.h"
@@ -131,7 +132,7 @@ Ref<HTMLInputElement> HTMLInputElement::create(const QualifiedName& tagName, Doc
     return adoptRef(*new HTMLInputElement(tagName, document, form, createdByParser ? CreationType::ByParser : CreationType::Normal));
 }
 
-Ref<Element> HTMLInputElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*)
+Ref<Element> HTMLInputElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*) const
 {
     return adoptRef(*new HTMLInputElement(tagQName(), document, nullptr, CreationType::ByCloning));
 }
@@ -952,7 +953,7 @@ RenderPtr<RenderElement> HTMLInputElement::createElementRenderer(RenderStyle&& s
     return m_inputType->createInputRenderer(WTFMove(style));
 }
 
-bool HTMLInputElement::isReplaced(const RenderStyle&) const
+bool HTMLInputElement::isReplaced(const RenderStyle*) const
 {
     return m_inputType && m_inputType->isImageButton();
 }
@@ -1154,7 +1155,7 @@ void HTMLInputElement::copyNonAttributePropertiesFromElement(const Element& sour
 
 ValueOrReference<String> HTMLInputElement::value() const
 {
-    if (protectedDocument()->requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory::FormControls))
+    if (shouldApplyScriptTrackingPrivacyProtection())
         return m_inputType->defaultValue();
     if (auto* fileInput = dynamicDowncast<FileInputType>(*m_inputType))
         return fileInput->firstElementPathForInputValue();
@@ -1451,7 +1452,7 @@ ExceptionOr<void> HTMLInputElement::showPicker()
     return { };
 }
 
-static inline bool isRFC2616TokenCharacter(UChar ch)
+static inline bool isRFC2616TokenCharacter(char16_t ch)
 {
     return isASCII(ch) && ch > ' ' && ch != '"' && ch != '(' && ch != ')' && ch != ',' && ch != '/' && (ch < ':' || ch > '@') && (ch < '[' || ch > ']') && ch != '{' && ch != '}' && ch != 0x7f;
 }
@@ -1482,7 +1483,7 @@ static Vector<String> parseAcceptAttribute(StringView acceptString, bool (*predi
         return types;
 
     for (auto splitType : acceptString.split(',')) {
-        auto trimmedType = splitType.trim(isASCIIWhitespace<UChar>);
+        auto trimmedType = splitType.trim(isASCIIWhitespace<char16_t>);
         if (trimmedType.isEmpty())
             continue;
         if (!predicate(trimmedType))
@@ -1527,7 +1528,7 @@ void HTMLInputElement::logUserInteraction()
     if (!document().frame() || !document().frame()->localMainFrame())
         return;
     if (RefPtr mainFrameDocument = document().frame()->localMainFrame()->document())
-        ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(*mainFrameDocument);
+        ResourceLoadObserver::singleton().logUserInteractionWithReducedTimeResolution(*mainFrameDocument);
 }
 
 void HTMLInputElement::setAutofilled(bool autoFilled)
@@ -2370,9 +2371,9 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
         textBlockStyle.setLogicalMaxWidth(100_css_percentage);
         textBlockStyle.setColor(Color::black.colorWithAlphaByte(153));
         textBlockStyle.setTextOverflow(TextOverflow::Clip);
-        textBlockStyle.setMaskImage(autoFillStrongPasswordMaskImage());
+        textBlockStyle.setMaskLayers(Style::MaskLayer { autoFillStrongPasswordMaskImage() });
         // A stacking context is needed for the mask.
-        if (textBlockStyle.hasAutoUsedZIndex())
+        if (textBlockStyle.usedZIndex().isAuto())
             textBlockStyle.setUsedZIndex(0);
     }
 
@@ -2406,7 +2407,7 @@ String HTMLInputElement::placeholder() const
     if (!containsHTMLLineBreak(attributeValue)) [[likely]]
         return attributeValue;
 
-    return attributeValue.removeCharacters([](UChar character) {
+    return attributeValue.removeCharacters([](char16_t character) {
         return isHTMLLineBreak(character);
     });
 }

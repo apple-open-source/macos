@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "CSSCalcType.h"
-#include "CSSPrimitiveNumeric.h"
-#include "CSSPrimitiveNumericRange.h"
-#include "CSSUnits.h"
-#include "CSSValueKeywords.h"
+#include <WebCore/CSSCalcType.h>
+#include <WebCore/CSSPrimitiveNumeric.h>
+#include <WebCore/CSSPrimitiveNumericRange.h>
+#include <WebCore/CSSUnits.h>
+#include <WebCore/CSSValueKeywords.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>

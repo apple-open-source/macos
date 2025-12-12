@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014, 2020 Igalia S.L.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,7 +39,7 @@
 #include "Page.h"
 #include "PaintInfo.h"
 #include "RenderBox.h"
-#include "RenderObject.h"
+#include "RenderObjectInlines.h"
 #include "RenderProgress.h"
 #include "RenderStyleSetters.h"
 #include "StylePadding.h"
@@ -73,7 +74,7 @@ RenderTheme& RenderTheme::singleton()
 
 RenderThemeAdwaita::~RenderThemeAdwaita() = default;
 
-bool RenderThemeAdwaita::canCreateControlPartForRenderer(const RenderObject& renderer) const
+bool RenderThemeAdwaita::canCreateControlPartForRenderer(const RenderElement& renderer) const
 {
     switch (renderer.style().usedAppearance()) {
     case StyleAppearance::Button:
@@ -98,7 +99,7 @@ bool RenderThemeAdwaita::canCreateControlPartForRenderer(const RenderObject& ren
     return false;
 }
 
-bool RenderThemeAdwaita::canCreateControlPartForBorderOnly(const RenderObject& renderer) const
+bool RenderThemeAdwaita::canCreateControlPartForBorderOnly(const RenderElement& renderer) const
 {
     switch (renderer.style().usedAppearance()) {
     case StyleAppearance::Listbox:
@@ -111,12 +112,12 @@ bool RenderThemeAdwaita::canCreateControlPartForBorderOnly(const RenderObject& r
     return false;
 }
 
-bool RenderThemeAdwaita::canCreateControlPartForDecorations(const RenderObject& renderer) const
+bool RenderThemeAdwaita::canCreateControlPartForDecorations(const RenderElement& renderer) const
 {
     return renderer.style().usedAppearance() == StyleAppearance::MenulistButton;
 }
 
-bool RenderThemeAdwaita::supportsFocusRing(const RenderObject&, const RenderStyle& style) const
+bool RenderThemeAdwaita::supportsFocusRing(const RenderElement&, const RenderStyle& style) const
 {
     switch (style.usedAppearance()) {
     case StyleAppearance::PushButton:
@@ -213,6 +214,25 @@ Vector<String, 2> RenderThemeAdwaita::mediaControlsStyleSheets(const HTMLMediaEl
     if (m_mediaControlsStyleSheet.isEmpty())
         m_mediaControlsStyleSheet = StringImpl::createWithoutCopying(ModernMediaControlsUserAgentStyleSheet);
     return { m_mediaControlsStyleSheet };
+}
+
+RefPtr<FragmentedSharedBuffer> RenderThemeAdwaita::mediaControlsImageDataForIconNameAndType(const String& iconName, const String& iconType)
+{
+#if USE(GLIB)
+    auto path = makeString("/org/webkit/media-controls/"_s, iconName, '.', iconType);
+    auto data = adoptGRef(g_resources_lookup_data(path.latin1().data(), G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr));
+    if (!data)
+        return nullptr;
+    return SharedBuffer::create(span(data));
+#elif PLATFORM(WIN)
+    auto path = webKitBundlePath(iconName, iconType, "media-controls"_s);
+    auto data = FileSystem::readEntireFile(path);
+    if (!data)
+        return nullptr;
+    return SharedBuffer::create(WTFMove(*data));
+#else
+    return nullptr;
+#endif
 }
 
 String RenderThemeAdwaita::mediaControlsBase64StringForIconNameAndType(const String& iconName, const String& iconType)
@@ -430,7 +450,7 @@ Style::MinimumSizePair RenderThemeAdwaita::minimumControlSize(StyleAppearance, c
     return { WTFMove(resultWidth), WTFMove(resultHeight) };
 }
 
-LengthBox RenderThemeAdwaita::controlBorder(StyleAppearance appearance, const FontCascade& font, const LengthBox& zoomedBox, float zoomFactor, const Element* element) const
+Style::LineWidthBox RenderThemeAdwaita::controlBorder(StyleAppearance appearance, const FontCascade& font, const Style::LineWidthBox& zoomedBox, float zoomFactor, const Element* element) const
 {
     switch (appearance) {
     case StyleAppearance::PushButton:

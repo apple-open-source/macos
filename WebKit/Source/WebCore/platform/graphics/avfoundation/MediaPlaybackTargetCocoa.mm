@@ -97,8 +97,8 @@ MediaPlaybackTargetCocoa::MediaPlaybackTargetCocoa(MediaPlaybackTargetContextCoc
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
 Ref<MediaPlaybackTargetCocoa> MediaPlaybackTargetCocoa::create()
 {
-    auto *routingContextUID = [[PAL::getAVAudioSessionClass() sharedInstance] routingContextUID];
-    return adoptRef(*new MediaPlaybackTargetCocoa(MediaPlaybackTargetContextCocoa([PAL::getAVOutputContextClass() outputContextForID:routingContextUID])));
+    auto *routingContextUID = [[PAL::getAVAudioSessionClassSingleton() sharedInstance] routingContextUID];
+    return adoptRef(*new MediaPlaybackTargetCocoa(MediaPlaybackTargetContextCocoa([PAL::getAVOutputContextClassSingleton() outputContextForID:routingContextUID])));
 }
 #endif
 

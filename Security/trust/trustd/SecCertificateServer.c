@@ -1163,6 +1163,7 @@ void SecCertificatePathVCSetIsAllowlisted(SecCertificatePathVCRef certificatePat
 struct policy_tree_add_ctx {
     oid_t p_oid;
     policy_qualifier_t p_q;
+    policy_tree_t root;
 };
 
 /* For each node of depth i-1 in the valid_policy_tree where P-OID is in the expected_policy_set, create a child node as follows: set the valid_policy to P-OID, set the qualifier_set to P-Q, and set the expected_policy_set to {P-OID}. */
@@ -1173,8 +1174,7 @@ static bool policy_tree_add_if_match(policy_tree_t node, void *ctx) {
          policy_set;
          policy_set = policy_set->oid_next) {
         if (oid_equal(policy_set->oid, info->p_oid)) {
-            policy_tree_add_child(node, &info->p_oid, info->p_q);
-            return true;
+            return policy_tree_add_child(info->root, node, &info->p_oid, info->p_q);
         }
     }
     return false;
@@ -1184,8 +1184,7 @@ static bool policy_tree_add_if_match(policy_tree_t node, void *ctx) {
 static bool policy_tree_add_if_any(policy_tree_t node, void *ctx) {
     struct policy_tree_add_ctx *info = (struct policy_tree_add_ctx *)ctx;
     if (oid_equal(node->valid_policy, oidAnyPolicy)) {
-        policy_tree_add_child(node, &info->p_oid, info->p_q);
-        return true;
+        return policy_tree_add_child(info->root, node, &info->p_oid, info->p_q);
     }
     return false;
 }
@@ -1204,15 +1203,15 @@ static bool policy_tree_has_child_with_oid(policy_tree_t node,
 
 /* For each node in the valid_policy_tree of depth i-1, for each value in the expected_policy_set (including anyPolicy) that does not appear in a child node, create a child node with the following values: set the valid_policy to the value from the expected_policy_set in the parent node, set the qualifier_set to AP-Q, and set the expected_policy_set to the value in the valid_policy from this node. */
 static bool policy_tree_add_expected(policy_tree_t node, void *ctx) {
-    policy_qualifier_t p_q = (policy_qualifier_t)ctx;
+    struct policy_tree_add_ctx *info = (struct policy_tree_add_ctx *)ctx;
+    policy_qualifier_t p_q = info->p_q;
     policy_set_t policy_set;
-    bool added_node = false;
+    bool added_node = true;
     for (policy_set = node->expected_policy_set;
          policy_set;
          policy_set = policy_set->oid_next) {
         if (!policy_tree_has_child_with_oid(node, &policy_set->oid)) {
-            policy_tree_add_child(node, &policy_set->oid, p_q);
-            added_node = true;
+            added_node &= policy_tree_add_child(info->root, node, &policy_set->oid, p_q);
         }
     }
     return added_node;
@@ -1249,6 +1248,11 @@ static bool policy_tree_map_if_match(policy_tree_t node, void *ctx) {
     return false;
 }
 
+struct policy_tree_map_ctx {
+    policy_tree_t root;
+    const SecCEPolicyMappings *mappings;
+};
+
 /* If no node of depth i in the valid_policy_tree has a valid_policy of ID-P but there is a node of depth i with a valid_policy of anyPolicy, then generate a child node of the node of depth i-1 that has a valid_policy of anyPolicy as follows:
  (i)   set the valid_policy to ID-P;
  (ii)  set the qualifier_set to the qualifier set of the policy anyPolicy in the certificate policies extension of certificate i; and
@@ -1258,7 +1262,8 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
         return false;
     }
 
-    const SecCEPolicyMappings *pm = (const SecCEPolicyMappings *)ctx;
+    struct policy_tree_map_ctx *info = (struct policy_tree_map_ctx *)ctx;
+    const SecCEPolicyMappings *pm = info->mappings;
     size_t mapping_ix, mapping_count = pm->numMappings;
     /* limit the number of mappings we'll apply */
     if (mapping_count < 0 || mapping_count >= (int)(POLICY_MAPPINGS_MAX )) {
@@ -1268,6 +1273,7 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
     CFMutableDictionaryRef mappings = NULL;
     CFDataRef idp = NULL;
     CFDataRef sdp = NULL;
+    __block bool node_added = true;
     require_quiet(mappings = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
                                                        &kCFTypeDictionaryValueCallBacks),
                   errOut);
@@ -1323,10 +1329,10 @@ static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
             p_expected = p_node;
         });
 
-        policy_tree_add_sibling(node, &p_oid, p_q, p_expected);
+        node_added &= policy_tree_add_sibling(info->root, node, &p_oid, p_q, p_expected);
     });
     CFReleaseNull(mappings);
-    return true;
+    return node_added;
 
 errOut:
     CFReleaseNull(mappings);
@@ -1426,7 +1432,7 @@ bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anc
                 const SecCEPolicyInformation *policy = &cp->policies[policy_ix];
                 oid_t p_oid = policy->policyIdentifier;
                 policy_qualifier_t p_q = &policy->policyQualifiers;
-                struct policy_tree_add_ctx ctx = { p_oid, p_q };
+                struct policy_tree_add_ctx ctx = { p_oid, p_q, path->policy_tree };
                 if (!oid_equal(p_oid, oidAnyPolicy)) {
                     if (!policy_tree_walk_depth(path->policy_tree, i - 1,
                                                 policy_tree_add_if_match, &ctx)) {
@@ -1444,9 +1450,10 @@ bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anc
                     const SecCEPolicyInformation *policy = &cp->policies[policy_ix];
                     oid_t p_oid = policy->policyIdentifier;
                     policy_qualifier_t p_q = &policy->policyQualifiers;
+                    struct policy_tree_add_ctx ctx = { p_oid, p_q, path->policy_tree };
                     if (oid_equal(p_oid, oidAnyPolicy)) {
                         policy_tree_walk_depth(path->policy_tree, i - 1,
-                                               policy_tree_add_expected, (void *)p_q);
+                                               policy_tree_add_expected, &ctx);
                     }
                 }
             }
@@ -1491,7 +1498,8 @@ bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anc
                 if (!policy_tree_walk_depth(path->policy_tree, i,
                                             policy_tree_map_if_match, (void *)pm)) {
                     /* If no node of depth i in the valid_policy_tree has a valid_policy of ID-P but there is a node of depth i with a valid_policy of anyPolicy, then generate a child node of the node of depth i-1. */
-                    policy_tree_walk_depth(path->policy_tree, i, policy_tree_map_if_any, (void *)pm);
+                    struct policy_tree_map_ctx ctx = { path->policy_tree, pm };
+                    policy_tree_walk_depth(path->policy_tree, i, policy_tree_map_if_any, &ctx);
                 }
             } else if (path->policy_tree) {
                 /* (i)    delete each node of depth i in the valid_policy_tree

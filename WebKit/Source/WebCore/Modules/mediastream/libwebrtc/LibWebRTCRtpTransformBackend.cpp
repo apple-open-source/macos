@@ -42,7 +42,7 @@ void LibWebRTCRtpTransformBackend::clearTransformableFrameCallback()
     setInputCallback({ });
 }
 
-void LibWebRTCRtpTransformBackend::addOutputCallback(webrtc::scoped_refptr<webrtc::TransformedFrameCallback>&& callback, uint32_t ssrc)
+void LibWebRTCRtpTransformBackend::addOutputCallback(Ref<webrtc::TransformedFrameCallback>&& callback, uint32_t ssrc)
 {
     Locker locker { m_outputCallbacksLock };
     m_outputCallbacks.insert_or_assign(ssrc, WTFMove(callback));
@@ -87,12 +87,12 @@ void LibWebRTCRtpTransformBackend::Transform(std::unique_ptr<webrtc::Transformab
 
 void LibWebRTCRtpTransformBackend::RegisterTransformedFrameCallback(webrtc::scoped_refptr<webrtc::TransformedFrameCallback> callback)
 {
-    addOutputCallback(WTFMove(callback), 0);
+    addOutputCallback(toRef(WTFMove(callback)), 0);
 }
 
 void LibWebRTCRtpTransformBackend::RegisterTransformedFrameSinkCallback(webrtc::scoped_refptr<webrtc::TransformedFrameCallback> callback, uint32_t ssrc)
 {
-    addOutputCallback(WTFMove(callback), ssrc);
+    addOutputCallback(toRef(WTFMove(callback)), ssrc);
 }
 
 void LibWebRTCRtpTransformBackend::UnregisterTransformedFrameCallback()

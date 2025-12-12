@@ -393,7 +393,7 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
             let openParenthesis = 0;
             for (let i = 0; i < tokens.length; i++) {
                 let token = tokens[i];
-                if (token.value === "var" && token.type && token.type.includes("atom")) {
+                if (token.value === "var" && token.type && /\bvariable\b/.test(token.type) && /\bcallee\b/.test(token.type)) {
                     if (isNaN(startIndex)) {
                         startIndex = i;
                         openParenthesis = 0;

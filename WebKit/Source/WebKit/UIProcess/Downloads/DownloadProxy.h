@@ -86,7 +86,7 @@ public:
     void processDidClose();
 
     void didReceiveDownloadProxyMessage(IPC::Connection&, IPC::Decoder&);
-    bool didReceiveSyncDownloadProxyMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
+    void didReceiveSyncDownloadProxyMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
     WebPageProxy* originatingPage() const;
 
@@ -110,6 +110,8 @@ public:
     API::FrameInfo& frameInfo() { return m_frameInfo.get(); }
 
     API::DownloadClient& client() { return m_client.get(); }
+    Ref<API::DownloadClient> protectedClient() const;
+
     void setClient(Ref<API::DownloadClient>&&);
     void setDidStartCallback(CompletionHandler<void(DownloadProxy*)>&& callback) { m_didStartCallback = WTFMove(callback); }
     void setSuggestedFilename(const String& suggestedFilename) { m_suggestedFilename = suggestedFilename; }
@@ -133,7 +135,6 @@ public:
 private:
     explicit DownloadProxy(DownloadProxyMap&, WebsiteDataStore&, API::DownloadClient&, const WebCore::ResourceRequest&, const std::optional<FrameInfoData>&, WebPageProxy*);
 
-    Ref<API::DownloadClient> protectedClient() const;
     RefPtr<WebsiteDataStore> protectedDataStore() { return m_dataStore; }
 
     // IPC::MessageReceiver
@@ -158,7 +159,7 @@ private:
     Vector<URL> m_redirectChain;
     bool m_wasUserInitiated { true };
     bool m_downloadIsCancelled { false };
-    Ref<API::FrameInfo> m_frameInfo;
+    const Ref<API::FrameInfo> m_frameInfo;
     CompletionHandler<void(DownloadProxy*)> m_didStartCallback;
 #if PLATFORM(COCOA)
     RetainPtr<NSProgress> m_progress;

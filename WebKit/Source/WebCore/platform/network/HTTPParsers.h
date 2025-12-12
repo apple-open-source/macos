@@ -97,8 +97,12 @@ AtomString extractReasonPhraseFromHTTPStatusLine(const String&);
 WEBCORE_EXPORT XFrameOptionsDisposition parseXFrameOptionsHeader(StringView);
 WEBCORE_EXPORT OptionSet<ClearSiteDataValue> parseClearSiteDataHeader(const ResourceResponse&);
 
-// -1 could be set to one of the return parameters to indicate the value is not specified.
-WEBCORE_EXPORT bool parseRange(StringView, RangeAllowWhitespace, long long& rangeStart, long long& rangeEnd);
+// One of the HTTPRange bounds could be set to std::nullopt but not both of them.
+struct HTTPRange {
+    std::optional<uint64_t> start;
+    std::optional<uint64_t> end;
+};
+WEBCORE_EXPORT std::optional<HTTPRange> parseRange(StringView, RangeAllowWhitespace);
 
 ContentTypeOptionsDisposition parseContentTypeOptionsHeader(StringView header);
 

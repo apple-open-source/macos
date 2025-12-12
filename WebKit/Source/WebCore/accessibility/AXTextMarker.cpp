@@ -29,6 +29,8 @@
 #include "AXLogger.h"
 #include "AXObjectCache.h"
 #include "AXTreeStore.h"
+#include "AXTreeStoreInlines.h"
+#include "AXUtilities.h"
 #include "BoundaryPointInlines.h"
 #include "HTMLInputElement.h"
 #include "Logging.h"
@@ -65,7 +67,7 @@ TextMarkerData::TextMarkerData(AXObjectCache& cache, const VisiblePosition& visi
     zeroBytes(*this);
     treeID = cache.treeID().toUInt64();
     auto position = visiblePosition.deepEquivalent();
-    auto optionalObjectID = nodeID(cache, position.anchorNode());
+    auto optionalObjectID = nodeID(cache, position.protectedAnchorNode().get());
     objectID = optionalObjectID ? optionalObjectID->toUInt64() : 0;
     offset = !visiblePosition.isNull() ? std::max(position.deprecatedEditingOffset(), 0) : 0;
     anchorType = position.anchorType();
@@ -116,7 +118,7 @@ AXTextMarker::AXTextMarker(const VisiblePosition& visiblePosition, TextMarkerOri
     if (!node)
         return;
 
-    CheckedPtr cache = node->document().axObjectCache();
+    CheckedPtr cache = node->protectedDocument()->axObjectCache();
     if (!cache)
         return;
 
@@ -131,7 +133,7 @@ AXTextMarker::AXTextMarker(const CharacterOffset& characterOffset, TextMarkerOri
     if (characterOffset.isNull())
         return;
 
-    if (auto* cache = characterOffset.node->document().axObjectCache())
+    if (CheckedPtr cache = characterOffset.node->protectedDocument()->axObjectCache())
         m_data = cache->textMarkerDataForCharacterOffset(characterOffset, origin);
 }
 
@@ -237,7 +239,7 @@ String AXTextMarker::debugDescription() const
 
     return makeString("{"_s
         , id
-        , object ? makeString(separator, "role "_s, accessibilityRoleToString(object->role())) : ""_s
+        , object ? makeString(separator, "role "_s, roleToString(object->role())) : ""_s
         , isIgnored() ? makeString(separator, "ignored"_s) : ""_s
         // Anchor type and other fields below are not used for text markers processed off the main-thread.
         , isMainThread() ? makeString(separator, "anchor "_s, m_data.anchorType) : ""_s
@@ -280,7 +282,7 @@ AXTextMarkerRange::AXTextMarkerRange(const std::optional<SimpleRange>& range)
     }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
-    if (CheckedPtr cache = range->start.document().axObjectCache()) {
+    if (CheckedPtr cache = range->start.protectedDocument()->axObjectCache()) {
         m_start = AXTextMarker(cache->startOrEndCharacterOffsetForRange(*range, true));
         m_end = AXTextMarker(cache->startOrEndCharacterOffsetForRange(*range, false));
     }
@@ -612,6 +614,7 @@ String AXTextMarkerRange::toString(IncludeListMarkerText includeListMarkerText) 
 
         StringBuilder builder;
         for (; !it.atEnd(); it.advance()) {
+            RefPtr node = it.node();
             // non-zero length means textual node, zero length means replaced node (AKA "attachments" in AX)
             if (it.text().length()) {
                 // If this is in a list item, we need to add the text for the list marker
@@ -619,10 +622,10 @@ String AXTextMarkerRange::toString(IncludeListMarkerText includeListMarkerText) 
                 // when iterating text.
                 // Don't add list marker text for new line character.
                 if (it.text().length() != 1 || !isASCIIWhitespace(it.text()[0]))
-                    builder.append(AccessibilityObject::listMarkerTextForNodeAndPosition(it.node(), makeDeprecatedLegacyPosition(it.range().start)));
+                    builder.append(AccessibilityObject::listMarkerTextForNodeAndPosition(node.get(), makeDeprecatedLegacyPosition(it.range().start)));
                 it.appendTextToStringBuilder(builder);
             } else {
-                if (AccessibilityObject::replacedNodeNeedsCharacter(*it.node()))
+                if (AccessibilityObject::replacedNodeNeedsCharacter(*node))
                     builder.append(objectReplacementCharacter);
             }
         }
@@ -1050,12 +1053,12 @@ const AXTextRuns* AXTextMarker::runs() const
 
 static int previousSentenceStartFromOffset(StringView text, unsigned offset)
 {
-    return ubrk_preceding(sentenceBreakIterator(text), offset);
+    return ubrk_preceding(WTF::NonSharedSentenceBreakIterator(text), offset);
 }
 
 static int nextSentenceEndFromOffset(StringView text, unsigned offset)
 {
-    int endIndex = ubrk_following(sentenceBreakIterator(text), offset);
+    int endIndex = ubrk_following(WTF::NonSharedSentenceBreakIterator(text), offset);
 
     if (!text.substring(offset, endIndex).containsOnly<isASCIIWhitespace>()) {
         // To match AXObjectCache::nextBoundary, don't include a newline character at the end of sentences.
@@ -1164,7 +1167,7 @@ AXTextMarker AXTextMarker::findLine(AXDirection direction, AXTextUnitBoundary bo
                 ASSERT(adjacentRunIndex - runIndex == 2);
                 // This scenario really should only happen with single "entity" runs (where an entity could be an ASCII
                 // character, or a multi-byte emoji that occupies multiple indices but is one atomic entity).
-                ASSERT(!currentRuns->containsOnlyASCII || (currentRuns->runLength(runIndex) == 1 && currentRuns->runLength(adjacentRunIndex) == 1));
+                AX_BROKEN_ASSERT(!currentRuns->containsOnlyASCII || (currentRuns->runLength(runIndex) == 1 && currentRuns->runLength(adjacentRunIndex) == 1));
                 // The next line end is simply the adjacent marker with an upstream affinity (with an ASSERT to verify this).
                 ASSERT(currentRuns->indexForOffset(adjacentMarker.offset(), Affinity::Upstream) == runIndex + 1);
                 adjacentMarker.setAffinity(Affinity::Upstream);
@@ -1487,7 +1490,9 @@ AXTextMarkerRange AXTextMarker::lineRange(LineRangeType type, IncludeTrailingLin
         auto startMarker = atLineStart() ? *this : previousLineStart();
         auto endMarker = atLineEnd() ? *this : nextLineEnd(includeTrailingLineBreak);
         return AXTextMarkerRange(startMarker, endMarker);
-    } else if (type == LineRangeType::Left) {
+    }
+
+    if (type == LineRangeType::Left) {
         // Move backwards off a line start (because this is a "left-line" request).
         auto startMarker = atLineStart() ? findMarker(AXDirection::Previous) : *this;
         if (!startMarker.atLineStart())
@@ -1495,17 +1500,17 @@ AXTextMarkerRange AXTextMarker::lineRange(LineRangeType type, IncludeTrailingLin
 
         auto endMarker = startMarker.nextLineEnd(includeTrailingLineBreak);
         return { WTFMove(startMarker), WTFMove(endMarker) };
-    } else {
-        ASSERT(type == LineRangeType::Right);
-
-        // Move forwards off a line end (because this a "right-line" request).
-        auto startMarker = atLineEnd() ? findMarker(AXDirection::Next) : *this;
-        if (!startMarker.atLineStart())
-            startMarker = startMarker.previousLineStart();
-
-        auto endMarker = startMarker.nextLineEnd(includeTrailingLineBreak);
-        return { WTFMove(startMarker), WTFMove(endMarker) };
     }
+
+    ASSERT(type == LineRangeType::Right);
+
+    // Move forwards off a line end (because this a "right-line" request).
+    auto startMarker = atLineEnd() ? findMarker(AXDirection::Next) : *this;
+    if (!startMarker.atLineStart())
+        startMarker = startMarker.previousLineStart();
+
+    auto endMarker = startMarker.nextLineEnd(includeTrailingLineBreak);
+    return { WTFMove(startMarker), WTFMove(endMarker) };
 
     return { };
 }
@@ -1644,7 +1649,7 @@ AXIsolatedObject* findObjectWithRuns(AXIsolatedObject& start, AXDirection direct
             exitObject(*current);
             current = nextInPreOrder(*current);
         }
-        return current.get();
+        return current.unsafeGet();
     }
     ASSERT(direction == AXDirection::Previous);
 
@@ -1670,7 +1675,7 @@ AXIsolatedObject* findObjectWithRuns(AXIsolatedObject& start, AXDirection direct
         exitObject(*current);
         current = previousInPreOrder(*current);
     }
-    return current.get();
+    return current.unsafeGet();
 }
 
 } // namespace Accessibility

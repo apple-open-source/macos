@@ -126,7 +126,7 @@ Cookie::Cookie(NSHTTPCookie *cookie)
     sameSite = coreSameSitePolicy(cookie.sameSitePolicy);
 }
 
-Cookie::operator NSHTTPCookie * _Nullable () const
+RetainPtr<NSHTTPCookie> Cookie::createNSHTTPCookie() const
 {
     if (isNull())
         return nil;
@@ -189,19 +189,14 @@ bool Cookie::operator==(const Cookie& other) const
     bool otherNull = other.isNull();
     if (thisNull || otherNull)
         return thisNull == otherNull;
-    return [toProtectedNSHTTPCookie() isEqual:other.toProtectedNSHTTPCookie().get()];
+    return [createNSHTTPCookie() isEqual:other.createNSHTTPCookie().get()];
 }
     
 unsigned Cookie::hash() const
 {
     ASSERT(!name.isHashTableDeletedValue());
     ASSERT(!isNull());
-    return toProtectedNSHTTPCookie().get().hash;
-}
-
-RetainPtr<NSHTTPCookie> Cookie::toProtectedNSHTTPCookie() const
-{
-    return static_cast<NSHTTPCookie *>(*this);
+    return createNSHTTPCookie().get().hash;
 }
 
 NS_ASSUME_NONNULL_END

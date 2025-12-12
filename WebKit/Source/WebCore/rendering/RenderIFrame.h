@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "RenderFrameBase.h"
+#include <WebCore/RenderFrameBase.h>
 
 namespace WebCore {
 

@@ -53,17 +53,17 @@
 
 - (NSArray<NSString *> *)_acceptedMIMETypes
 {
-    return wrapper(_openPanelParameters->acceptMIMETypes()).autorelease();
+    return wrapper(Ref { *_openPanelParameters }->acceptMIMETypes()).autorelease();
 }
 
 - (NSArray<NSString *> *)_acceptedFileExtensions
 {
-    return wrapper(_openPanelParameters->acceptFileExtensions()).autorelease();
+    return wrapper(Ref { *_openPanelParameters }->acceptFileExtensions()).autorelease();
 }
 
 - (NSArray<NSString *> *)_allowedFileExtensions
 {
-    return wrapper(_openPanelParameters->allowedFileExtensions()).autorelease();
+    return wrapper(Ref { *_openPanelParameters }->allowedFileExtensions()).autorelease();
 }
 
 @end

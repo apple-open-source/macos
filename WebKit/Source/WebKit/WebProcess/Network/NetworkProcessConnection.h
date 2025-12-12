@@ -38,6 +38,7 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+class RegistrableDomain;
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
@@ -59,7 +60,7 @@ class WebSharedWorkerObjectConnection;
 enum class WebsiteDataType : uint32_t;
 
 class NetworkProcessConnection final : public RefCounted<NetworkProcessConnection>, IPC::Connection::Client {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(NetworkProcessConnection);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NetworkProcessConnection);
 public:
     static Ref<NetworkProcessConnection> create(IPC::Connection::Identifier&& connectionIdentifier, WebCore::HTTPCookieAcceptPolicy httpCookieAcceptPolicy)
@@ -103,7 +104,7 @@ private:
 
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
-    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
     void didClose(IPC::Connection&) override;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>&) override;
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
@@ -125,6 +126,8 @@ private:
 #endif
 
     void broadcastConsoleMessage(MessageSource, MessageLevel, const String& message);
+
+    void storageAccessPermissionChanged(const WebCore::RegistrableDomain& topFrameDomain, const WebCore::RegistrableDomain& subFrameDomain);
 
     // The connection from the web process to the network process.
     const Ref<IPC::Connection> m_connection;

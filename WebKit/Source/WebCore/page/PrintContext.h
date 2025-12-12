@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "FrameDestructionObserver.h"
-#include "LengthBox.h"
+#include <WebCore/BoxExtents.h>
+#include <WebCore/FrameDestructionObserver.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>

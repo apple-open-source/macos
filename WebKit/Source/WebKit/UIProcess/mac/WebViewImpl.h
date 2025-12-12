@@ -190,6 +190,8 @@ struct DragItem;
 struct DigitalCredentialsRequestData;
 #endif
 
+struct FrameIdentifierType;
+using FrameIdentifier = ObjectIdentifier<FrameIdentifierType>;
 }
 
 namespace WebKit {
@@ -227,10 +229,12 @@ public:
     ~WebViewImpl();
 
     NSWindow *window();
+    RetainPtr<NSWindow> protectedWindow();
 
     WebPageProxy& page() { return m_page.get(); }
 
     WKWebView *view() const { return m_view.getAutoreleased(); }
+    RetainPtr<WKWebView> protectedView() const { return m_view.get(); };
 
     void processWillSwap();
     void processDidExit();
@@ -399,6 +403,7 @@ public:
 #if ENABLE(FULLSCREEN_API)
     bool hasFullScreenWindowController() const;
     WKFullScreenWindowController *fullScreenWindowController();
+    RetainPtr<WKFullScreenWindowController> protectedFullScreenWindowController();
     void closeFullScreenWindowController();
 #endif
     NSView *fullScreenPlaceholderView();
@@ -458,6 +463,9 @@ public:
     bool isAutomaticTextReplacementEnabled();
     void setAutomaticTextReplacementEnabled(bool);
     void toggleAutomaticTextReplacement();
+    bool isSmartListsEnabled();
+    void setSmartListsEnabled(bool);
+    void toggleSmartLists();
     void uppercaseWord();
     void lowercaseWord();
     void capitalizeWord();
@@ -499,13 +507,17 @@ public:
     void accessibilityRegisterUIProcessTokens();
     void updateRemoteAccessibilityRegistration(bool registerProcess);
     id accessibilityFocusedUIElement();
-    NSUInteger accessibilityRemoteChildTokenHash();
-    NSUInteger accessibilityUIProcessLocalTokenHash();
     bool accessibilityIsIgnored() const { return false; }
     id accessibilityHitTest(CGPoint);
     void enableAccessibilityIfNecessary(NSString *attribute = nil);
     id accessibilityAttributeValue(NSString *, id parameter = nil);
     RetainPtr<NSAccessibilityRemoteUIElement> remoteAccessibilityChildIfNotSuspended();
+
+    // Accessibility info for debugging
+    NSUInteger accessibilityRemoteChildTokenHash();
+    NSUInteger accessibilityUIProcessLocalTokenHash();
+    NSArray<NSNumber *> *registeredRemoteAccessibilityPids();
+    bool hasRemoteAccessibilityChild();
 
     void updatePrimaryTrackingAreaOptions(NSTrackingAreaOptions);
 
@@ -618,7 +630,7 @@ public:
     CGFloat totalHeightOfBanners() const { return m_totalHeightOfBanners; }
 
     void doneWithKeyEvent(NSEvent *, bool eventWasHandled);
-    NSArray *validAttributesForMarkedText();
+    NSArray *validAttributesForMarkedTextSingleton();
     void doCommandBySelector(SEL);
     void insertText(id string);
     void insertText(id string, NSRange replacementRange);
@@ -898,7 +910,8 @@ private:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    CocoaImageAnalyzer *ensureImageAnalyzer();
+    CocoaImageAnalyzer* ensureImageAnalyzer();
+    RetainPtr<CocoaImageAnalyzer> ensureProtectedImageAnalyzer();
     int32_t processImageAnalyzerRequest(CocoaImageAnalyzerRequest *, CompletionHandler<void(RetainPtr<CocoaImageAnalysis>&&, NSError *)>&&);
 #endif
 
@@ -908,7 +921,9 @@ private:
     const UniqueRef<PageClient> m_pageClient;
     const Ref<WebPageProxy> m_page;
 
+#if ENABLE(TILED_CA_DRAWING_AREA)
     DrawingAreaType m_drawingAreaType { DrawingAreaType::TiledCoreAnimation };
+#endif
 
     bool m_willBecomeFirstResponderAgain { false };
     bool m_inBecomeFirstResponder { false };
@@ -1007,6 +1022,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<NSData> m_remoteAccessibilityChildToken;
     RetainPtr<NSData> m_remoteAccessibilityTokenGeneratedByUIProcess;
     RetainPtr<NSMutableDictionary> m_remoteAccessibilityFrameCache;
+    HashSet<pid_t> m_registeredRemoteAccessibilityPids;
 
     RefPtr<WebCore::Image> m_promisedImage;
     String m_promisedFilename;
@@ -1058,8 +1074,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    RefPtr<WorkQueue> m_imageAnalyzerQueue;
-    RetainPtr<CocoaImageAnalyzer> m_imageAnalyzer;
+    const RefPtr<WorkQueue> m_imageAnalyzerQueue;
+    const RetainPtr<CocoaImageAnalyzer> m_imageAnalyzer;
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)

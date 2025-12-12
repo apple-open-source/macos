@@ -29,7 +29,6 @@
 
 #include "PDFDocumentLayout.h"
 #include <WebCore/DataDetectorHighlight.h>
-#include <WebCore/GraphicsLayer.h>
 #include <WebCore/PageOverlay.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>

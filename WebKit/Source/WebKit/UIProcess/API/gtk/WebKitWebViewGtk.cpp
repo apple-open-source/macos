@@ -21,14 +21,14 @@
 #include "WebKitWebView.h"
 
 #include "Display.h"
+#include "GtkUtilities.h"
+#include "GtkVersioning.h"
 #include "PageLoadState.h"
 #include "WebKitAuthenticationDialog.h"
 #include "WebKitScriptDialogImpl.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include <WebCore/Color.h>
-#include <WebCore/GtkUtilities.h>
-#include <WebCore/GtkVersioning.h>
 #include <WebCore/PlatformScreen.h>
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
@@ -107,7 +107,7 @@ static void fileChooserDialogResponseCallback(GtkFileChooser* dialog, gint respo
 gboolean webkitWebViewRunFileChooser(WebKitWebView* webView, WebKitFileChooserRequest* request)
 {
     GtkWidget* toplevel = gtk_widget_get_toplevel(GTK_WIDGET(webView));
-    if (!WebCore::widgetIsOnscreenToplevelWindow(toplevel))
+    if (!WebKit::widgetIsOnscreenToplevelWindow(toplevel))
         toplevel = 0;
 
     gboolean allowsMultipleSelection = webkit_file_chooser_request_get_select_multiple(request);
@@ -134,7 +134,7 @@ gboolean webkitWebViewRunFileChooser(WebKitWebView* webView, WebKitFileChooserRe
 }
 
 struct WindowStateEvent {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(WindowStateEvent);
 
     enum class Type { Maximize, Minimize, Restore };
 
@@ -447,7 +447,7 @@ void webkit_web_view_set_background_color(WebKitWebView* webView, const GdkRGBA*
     g_return_if_fail(rgba);
 
     auto& page = *webkitWebViewBaseGetPage(reinterpret_cast<WebKitWebViewBase*>(webView));
-    page.setBackgroundColor(WebCore::Color(*rgba));
+    page.setBackgroundColor(WebKit::gdkRGBAToColor(*rgba));
 }
 
 /**
@@ -469,7 +469,7 @@ void webkit_web_view_get_background_color(WebKitWebView* webView, GdkRGBA* rgba)
     g_return_if_fail(rgba);
 
     auto& page = *webkitWebViewBaseGetPage(reinterpret_cast<WebKitWebViewBase*>(webView));
-    *rgba = page.backgroundColor().value_or(WebCore::Color::white);
+    *rgba = WebKit::colorToGdkRGBA(page.backgroundColor().value_or(WebCore::Color::white));
 }
 
 /**
@@ -493,10 +493,10 @@ gboolean webkit_web_view_get_theme_color(WebKitWebView* webView, GdkRGBA* rgba)
     auto& page = webkitWebViewGetPage(webView);
 
     if (!page.themeColor().isValid()) {
-        *rgba = static_cast<WebCore::Color>(WebCore::Color::transparentBlack);
+        *rgba = { 0, 0, 0, 0 };
         return FALSE;
     }
 
-    *rgba = page.themeColor();
+    *rgba = WebKit::colorToGdkRGBA(page.themeColor());
     return TRUE;
 }

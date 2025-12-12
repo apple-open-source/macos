@@ -120,7 +120,7 @@ public:
     bool hasAttributeRules() const { return !m_attributeLocalNameRules.isEmpty(); }
     bool hasUserAgentPartRules() const { return !m_userAgentPartRules.isEmpty(); }
     bool hasHostPseudoClassRulesMatchingInShadowTree() const { return m_hasHostPseudoClassRulesMatchingInShadowTree; }
-    bool hasHostPseudoClassRulesInUniversalBucket() const { return m_hasHostPseudoClassRulesInUniversalBucket; }
+    bool hasHostOrScopePseudoClassRulesInUniversalBucket() const { return m_hasHostOrScopePseudoClassRulesInUniversalBucket; }
 
     static constexpr auto cascadeLayerPriorityForPresentationalHints = std::numeric_limits<CascadeLayerPriority>::min();
     static constexpr auto cascadeLayerPriorityForUnlayered = std::numeric_limits<CascadeLayerPriority>::max();
@@ -135,6 +135,8 @@ public:
     Vector<Ref<const StyleRuleScope>> scopeRulesFor(const RuleData&) const;
 
     const RefPtr<const StyleRulePositionTry> positionTryRuleForName(const AtomString&) const;
+
+    String selectorsForDebugging() const;
 
 private:
     friend class RuleSetBuilder;
@@ -160,6 +162,7 @@ private:
     CollectedMediaQueryChanges evaluateDynamicMediaQueryRules(const MQ::MediaQueryEvaluator&, size_t startIndex);
 
     template<typename Function> void traverseRuleDatas(Function&&);
+    template<typename Function> void traverseRuleDatas(Function&&) const;
 
     struct CascadeLayer {
         CascadeLayerName resolvedName;
@@ -238,7 +241,7 @@ private:
 
     bool m_hasHostPseudoClassRulesMatchingInShadowTree { false };
     bool m_hasViewportDependentMediaQueries { false };
-    bool m_hasHostPseudoClassRulesInUniversalBucket { false };
+    bool m_hasHostOrScopePseudoClassRulesInUniversalBucket { false };
 };
 
 inline const RuleSet::RuleDataVector* RuleSet::attributeRules(const AtomString& key, bool isHTMLName) const

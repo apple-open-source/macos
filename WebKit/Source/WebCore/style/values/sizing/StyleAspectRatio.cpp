@@ -25,11 +25,13 @@
 #include "config.h"
 #include "StyleAspectRatio.h"
 
+#include "AnimationUtilities.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSRatioValue.h"
 #include "CSSValueList.h"
 #include "RenderStyleInlines.h"
 #include "StyleBuilderChecking.h"
+#include "StylePrimitiveNumericTypes+Conversions.h"
 
 namespace WebCore {
 namespace Style {

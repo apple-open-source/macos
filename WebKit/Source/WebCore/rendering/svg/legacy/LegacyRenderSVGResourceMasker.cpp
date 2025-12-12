@@ -28,7 +28,7 @@
 #include "Image.h"
 #include "IntRect.h"
 #include "LegacyRenderSVGResourceMaskerInlines.h"
-#include "SVGRenderStyle.h"
+#include "RenderStyleInlines.h"
 #include "SVGRenderingContext.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -79,7 +79,7 @@ auto LegacyRenderSVGResourceMasker::applyResource(RenderElement& renderer, const
         auto maskColorSpace = DestinationColorSpace::SRGB();
         auto drawColorSpace = DestinationColorSpace::SRGB();
 
-        if (style().svgStyle().colorInterpolation() == ColorInterpolation::LinearRGB) {
+        if (style().colorInterpolation() == ColorInterpolation::LinearRGB) {
 #if USE(CG) || USE(SKIA)
             maskColorSpace = DestinationColorSpace::LinearSRGB();
 #endif
@@ -117,7 +117,7 @@ bool LegacyRenderSVGResourceMasker::drawContentIntoMaskImage(MaskerData* maskerD
 #endif
 
     // Create the luminance mask.
-    if (style().svgStyle().maskType() == MaskType::Luminance)
+    if (style().maskType() == MaskType::Luminance)
         maskImage->convertToLuminanceMask();
 
     return true;
@@ -184,7 +184,7 @@ FloatRect LegacyRenderSVGResourceMasker::resourceBoundingBox(const RenderObject&
 {
     FloatRect objectBoundingBox = object.objectBoundingBox();
     Ref maskElement = this->maskElement();
-    FloatRect maskBoundaries = SVGLengthContext::resolveRectangle<SVGMaskElement>(maskElement.ptr(), maskElement->maskUnits(), objectBoundingBox);
+    FloatRect maskBoundaries = SVGLengthContext::resolveRectangle(maskElement.get(), maskElement->maskUnits(), objectBoundingBox);
 
     // Resource was not layouted yet. Give back clipping rect of the mask.
     if (selfNeedsLayout())

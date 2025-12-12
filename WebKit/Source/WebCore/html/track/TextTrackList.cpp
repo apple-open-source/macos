@@ -131,7 +131,7 @@ TextTrack* TextTrackList::getTrackById(const AtomString& id) const
     for (unsigned i = 0; i < length(); ++i) {
         Ref track = *item(i);
         if (track->id() == id)
-            return track.ptr();
+            return track.unsafePtr();
     }
 
     // When no tracks match the given argument, the method must return null.
@@ -143,7 +143,7 @@ TextTrack* TextTrackList::getTrackById(TrackID id) const
     for (unsigned i = 0; i < length(); ++i) {
         Ref track = *item(i);
         if (track->trackId() == id)
-            return track.ptr();
+            return track.unsafePtr();
     }
     return nullptr;
 }

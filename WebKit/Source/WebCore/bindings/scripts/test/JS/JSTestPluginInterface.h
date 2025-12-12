@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include "JSDOMWrapper.h"
 #include "TestPluginInterface.h"
 #include <JavaScriptCore/CallData.h>
+#include <WebCore/JSDOMWrapper.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {

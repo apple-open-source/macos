@@ -205,6 +205,18 @@ class OTMockSecureBackupAdapter: OTSecureBackupAdapter {
         }
         return true
     }
+
+    func enable(withSecureBackupAndReturnHint sb: Any, error: NSErrorPointer) -> [AnyHashable: Any]? {
+        if self.enableError != nil {
+            error!.pointee = self.enableError
+            return ["SecureBackupNetworkReachedHint": false]
+        }
+        return ["SecureBackupNetworkReachedHint": true]
+    }
+
+    func getAccountInfo(withSecureBackup sb: Any, error: NSErrorPointer) -> [AnyHashable: Any] {
+        return [:]
+    }
 }
 
 class OTMockLAContextAdapter: OTLAContextAdapter {

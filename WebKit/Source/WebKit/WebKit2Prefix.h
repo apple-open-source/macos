@@ -32,8 +32,6 @@
 
 #if PLATFORM(COCOA)
 
-#define _WKImmediateActionType _WKImmediateActionType
-
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
 

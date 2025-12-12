@@ -39,6 +39,7 @@
 typedef NS_ENUM(NSInteger, WKHostedMaterialEffectType) {
     WKHostedMaterialEffectTypeNone,
     WKHostedMaterialEffectTypeGlass,
+    WKHostedMaterialEffectTypeClearGlass,
     WKHostedMaterialEffectTypeSubduedGlass,
     WKHostedMaterialEffectTypeMediaControlsGlass,
     WKHostedMaterialEffectTypeSubduedMediaControlsGlass,

@@ -46,9 +46,7 @@ WebPageGroupProxy::WebPageGroupProxy(WebPageGroupData&& data)
 {
 }
 
-WebPageGroupProxy::~WebPageGroupProxy()
-{
-}
+WebPageGroupProxy::~WebPageGroupProxy() = default;
 
 WebCore::PageGroup* WebPageGroupProxy::corePageGroup() const
 {

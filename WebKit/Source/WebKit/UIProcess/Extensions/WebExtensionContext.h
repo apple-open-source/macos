@@ -39,6 +39,7 @@
 #include "WebExtensionContextIdentifier.h"
 #include "WebExtensionController.h"
 #include "WebExtensionDataType.h"
+#include "WebExtensionDeclarativeNetRequestSQLiteStore.h"
 #include "WebExtensionDynamicScripts.h"
 #include "WebExtensionEventListenerType.h"
 #include "WebExtensionFrameIdentifier.h"
@@ -112,7 +113,6 @@ OBJC_CLASS WKWebExtensionContext;
 OBJC_CLASS WKWebView;
 OBJC_CLASS WKWebViewConfiguration;
 OBJC_CLASS _WKWebExtensionContextDelegate;
-OBJC_CLASS _WKWebExtensionDeclarativeNetRequestSQLiteStore;
 OBJC_CLASS _WKWebExtensionRegisteredScriptsSQLiteStore;
 OBJC_PROTOCOL(WKWebExtensionTab);
 OBJC_PROTOCOL(WKWebExtensionWindow);
@@ -139,6 +139,10 @@ struct WebExtensionCookieParameters;
 struct WebExtensionCookieStoreParameters;
 struct WebExtensionMenuItemContextParameters;
 struct WebExtensionMessageTargetParameters;
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+struct ContentRuleListMatchedRule;
+#endif
 
 enum class WebExtensionContextInstallReason : uint8_t {
     None,
@@ -256,6 +260,28 @@ public:
         BackgroundContentFailedToLoad,
     };
 
+    // Keep in sync with WKWebExtensionContextError values
+    enum class APIError : uint8_t {
+        Unknown = 1,
+        AlreadyLoaded,
+        NotLoaded,
+        BaseURLAlreadyInUse,
+        NoBackgroundContent,
+        BackgroundContentFailedToLoad
+    };
+
+    enum class PermissionNotification : uint8_t {
+        None = 0,
+        PermissionsWereGranted,
+        PermissionsWereDenied,
+        GrantedPermissionsWereRemoved,
+        DeniedPermissionsWereRemoved,
+        PermissionMatchPatternsWereGranted,
+        PermissionMatchPatternsWereDenied,
+        GrantedPermissionMatchPatternsWereRemoved,
+        DeniedPermissionMatchPatternsWereRemoved,
+    };
+
     enum class PermissionState : int8_t {
         DeniedExplicitly    = -3,
         DeniedImplicitly    = -2,
@@ -298,14 +324,17 @@ public:
 
     bool operator==(const WebExtensionContext& other) const { return (this == &other); }
 
-#if PLATFORM(COCOA)
-    NSError *createError(Error, NSString *customLocalizedDescription = nil, NSError *underlyingError = nil);
-    void recordErrorIfNeeded(NSError *error) { if (error) recordError(error); }
-    void recordError(NSError *);
+    Ref<API::Error> createError(Error, const String& customLocalizedDescription = nullString(), RefPtr<API::Error> underlyingError = nullptr);
+    void recordErrorIfNeeded(RefPtr<API::Error> error)
+    {
+        if (error)
+            recordError(*error);
+    }
+
+    void recordError(Ref<API::Error>);
     void clearError(Error);
 
-    NSArray *errors();
-#endif
+    Vector<Ref<API::Error>> errors();
 
     bool storageIsPersistent() const { return !m_storageDirectory.isEmpty(); }
     const String& storageDirectory() const { return m_storageDirectory; }
@@ -314,9 +343,9 @@ public:
 
     Ref<WebExtensionStorageSQLiteStore> storageForType(WebExtensionDataType);
 
-    bool load(WebExtensionController&, String storageDirectory, NSError ** = nullptr);
-    bool unload(NSError ** = nullptr);
-    bool reload(NSError ** = nullptr);
+    Expected<bool, RefPtr<API::Error>> load(WebExtensionController&, String storageDirectory);
+    Expected<bool, RefPtr<API::Error>> unload();
+    Expected<bool, RefPtr<API::Error>> reload();
 
     bool isLoaded() const { return !!m_extensionController; }
 
@@ -535,20 +564,20 @@ public:
     void sendTestFinished(id argument);
 #endif
 
-#if PLATFORM(COCOA)
     URL backgroundContentURL();
+#if PLATFORM(COCOA)
     WKWebView *backgroundWebView() const { return m_backgroundWebView.get(); }
+#endif
     bool safeToLoadBackgroundContent() const { return m_safeToLoadBackgroundContent; }
 
-    NSError *backgroundContentLoadError() const { return m_backgroundContentLoadError.get(); }
-#endif
+    RefPtr<API::Error> backgroundContentLoadError() const { return m_backgroundContentLoadError; }
 
-    NSString *backgroundWebViewInspectionName();
+    const String& backgroundWebViewInspectionName();
     void setBackgroundWebViewInspectionName(const String&);
 
     bool decidePolicyForNavigationAction(WKWebView *, WKNavigationAction *);
     void didFinishDocumentLoad(WKWebView *, WKNavigation *);
-    void didFailNavigation(WKWebView *, WKNavigation *, NSError *);
+    void didFailNavigation(WKWebView *, WKNavigation *, RefPtr<API::Error>);
     void webViewWebContentProcessDidTerminate(WKWebView *);
 
 #if PLATFORM(MAC)
@@ -564,6 +593,10 @@ public:
 
     bool handleContentRuleListNotificationForTab(WebExtensionTab&, const URL&, WebCore::ContentRuleListResults::Result);
     void incrementActionCountForTab(WebExtensionTab&, ssize_t incrementAmount);
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+    void handleContentRuleListMatchedRule(WebExtensionTab&, WebCore::ContentRuleListMatchedRule&);
+#endif
 
     // Returns whether or not there are any matched rules after the purge.
     bool purgeMatchedRulesFromBefore(const WallTime&);
@@ -584,8 +617,8 @@ public:
     void enumerateExtensionPages(NOESCAPE Function<void(WebPageProxy&, bool& stop)>&&);
 
     WKWebView *relatedWebView();
-    NSString *processDisplayName();
-    NSArray *corsDisablingPatterns();
+    String processDisplayName();
+    Vector<String> corsDisablingPatterns();
     void updateCORSDisablingPatternsOnAllExtensionPages();
     WKWebViewConfiguration *webViewConfiguration(WebViewPurpose = WebViewPurpose::Any);
 
@@ -593,7 +626,7 @@ public:
 
     void cookiesDidChange(API::HTTPCookieStore&);
 
-    void loadBackgroundContent(CompletionHandler<void(NSError *)>&&);
+    void loadBackgroundContent(CompletionHandler<void(RefPtr<API::Error>)>&&);
 
     void wakeUpBackgroundContentIfNecessary(Function<void()>&&);
     void wakeUpBackgroundContentIfNecessaryToFireEvents(EventListenerTypeSet&&, Function<void()>&&);
@@ -634,6 +667,8 @@ private:
 
     explicit WebExtensionContext();
 
+    int toAPIError(WebExtensionContext::Error);
+
     String stateFilePath() const;
     NSDictionary *currentState() const;
     NSDictionary *readStateFromStorage();
@@ -642,16 +677,14 @@ private:
     void determineInstallReasonDuringLoad();
     void moveLocalStorageIfNeeded(const URL& previousBaseURL, CompletionHandler<void()>&&);
 
-    void permissionsDidChange(NSString *notificationName, const PermissionsSet&);
-    void permissionsDidChange(NSString *notificationName, const MatchPatternSet&);
+    void permissionsDidChange(PermissionNotification, const PermissionsSet&);
+    void permissionsDidChange(PermissionNotification, const MatchPatternSet&);
 
-    bool removePermissions(PermissionsMap&, PermissionsSet&, WallTime& nextExpirationDate, NSString *notificationName);
-    bool removePermissionMatchPatterns(PermissionMatchPatternsMap&, MatchPatternSet&, EqualityOnly, WallTime& nextExpirationDate, NSString *notificationName);
+    bool removePermissions(PermissionsMap&, PermissionsSet&, WallTime& nextExpirationDate, PermissionNotification = PermissionNotification::None);
+    bool removePermissionMatchPatterns(PermissionMatchPatternsMap&, MatchPatternSet&, EqualityOnly, WallTime& nextExpirationDate, PermissionNotification = PermissionNotification::None);
 
-#if PLATFORM(COCOA)
-    PermissionsMap& removeExpired(PermissionsMap&, WallTime& nextExpirationDate, NSString *notificationName = nil);
-    PermissionMatchPatternsMap& removeExpired(PermissionMatchPatternsMap&, WallTime& nextExpirationDate, NSString *notificationName = nil);
-#endif
+    PermissionsMap& removeExpired(PermissionsMap&, WallTime& nextExpirationDate, PermissionNotification = PermissionNotification::None);
+    PermissionMatchPatternsMap& removeExpired(PermissionMatchPatternsMap&, WallTime& nextExpirationDate, PermissionNotification = PermissionNotification::None);
 
     void populateWindowsAndTabs();
 
@@ -717,7 +750,7 @@ private:
     // DeclarativeNetRequest methods.
     // Loading/unloading static rules
     void loadDeclarativeNetRequestRules(CompletionHandler<void(bool)>&&);
-    void compileDeclarativeNetRequestRules(NSArray *, CompletionHandler<void(bool)>&&);
+    void compileDeclarativeNetRequestRules(NSDictionary *, CompletionHandler<void(bool)>&&);
     void unloadDeclarativeNetRequestState();
     String declarativeNetRequestContentRuleListFilePath();
 
@@ -735,9 +768,9 @@ private:
     void saveShouldDisplayBlockedResourceCountAsBadgeText(bool);
 
     // Session and dynamic rules.
-    _WKWebExtensionDeclarativeNetRequestSQLiteStore *declarativeNetRequestDynamicRulesStore();
-    _WKWebExtensionDeclarativeNetRequestSQLiteStore *declarativeNetRequestSessionRulesStore();
-    void updateDeclarativeNetRequestRulesInStorage(_WKWebExtensionDeclarativeNetRequestSQLiteStore *, NSString *storageType, NSString *apiName, NSArray *rulesToAdd, NSArray *ruleIDsToRemove, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    Ref<WebExtensionDeclarativeNetRequestSQLiteStore> declarativeNetRequestDynamicRulesStore();
+    Ref<WebExtensionDeclarativeNetRequestSQLiteStore> declarativeNetRequestSessionRulesStore();
+    void updateDeclarativeNetRequestRulesInStorage(RefPtr<WebExtensionDeclarativeNetRequestSQLiteStore>, const String& storageType, const String& apiName, Ref<JSON::Array> rulesToAdd, Vector<double> ruleIDsToRemove, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     DeclarativeNetRequestMatchedRuleVector matchedRules() { return m_matchedRules; }
 
@@ -784,7 +817,7 @@ private:
 #if ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS)
     bool isBookmarksMessageAllowed(IPC::Decoder&);
     void bookmarksCreate(const std::optional<String>& parentId, const std::optional<uint64_t>& index, const std::optional<String>& url, const std::optional<String>& title, CompletionHandler<void(Expected<WebExtensionBookmarksParameters, WebExtensionError>&&)>&&);
-    void bookmarksGetTree(CompletionHandler<void(Expected<WebExtensionBookmarksParameters, WebExtensionError>&&)>&&);
+    void bookmarksGetTree(CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
     void bookmarksGetSubTree(const String& bookmarkId, CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
     void bookmarksGet(const Vector<String>& bookmarkId, CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
     void bookmarksGetChildren(const String& bookmarkId, CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
@@ -987,8 +1020,8 @@ private:
 
 #if PLATFORM(COCOA)
     RetainPtr<NSMutableDictionary> m_state;
-    RetainPtr<NSMutableArray> m_errors;
 #endif
+    Vector<Ref<API::Error>> m_errors;
 
     RefPtr<WebExtension> m_extension;
     WeakPtr<WebExtensionController> m_extensionController;
@@ -1036,9 +1069,9 @@ private:
 #if PLATFORM(COCOA)
     RetainPtr<WKWebView> m_backgroundWebView;
     RefPtr<ProcessThrottlerActivity> m_backgroundWebViewActivity;
-    RetainPtr<NSError> m_backgroundContentLoadError;
     RetainPtr<_WKWebExtensionContextDelegate> m_delegate;
 #endif
+    RefPtr<API::Error> m_backgroundContentLoadError;
 
     String m_backgroundWebViewInspectionName;
 
@@ -1056,8 +1089,8 @@ private:
     HashMap<Ref<WebExtensionMatchPattern>, UserScriptVector> m_injectedScriptsPerPatternMap;
     HashMap<Ref<WebExtensionMatchPattern>, UserStyleSheetVector> m_injectedStyleSheetsPerPatternMap;
 
-#if PLATFORM(COCOA)
     HashMap<String, Ref<WebExtensionDynamicScripts::WebExtensionRegisteredScript>> m_registeredScriptsMap;
+#if PLATFORM(COCOA)
     RetainPtr<_WKWebExtensionRegisteredScriptsSQLiteStore> m_registeredContentScriptsStorage;
 #endif
 
@@ -1097,10 +1130,8 @@ private:
 
     String m_declarativeNetRequestContentRuleListFilePath;
     DeclarativeNetRequestMatchedRuleVector m_matchedRules;
-#if PLATFORM(COCOA)
-    RetainPtr<_WKWebExtensionDeclarativeNetRequestSQLiteStore> m_declarativeNetRequestDynamicRulesStore;
-    RetainPtr<_WKWebExtensionDeclarativeNetRequestSQLiteStore> m_declarativeNetRequestSessionRulesStore;
-#endif
+    RefPtr<WebExtensionDeclarativeNetRequestSQLiteStore> m_declarativeNetRequestDynamicRulesStore;
+    RefPtr<WebExtensionDeclarativeNetRequestSQLiteStore> m_declarativeNetRequestSessionRulesStore;
     HashSet<String> m_enabledStaticRulesetIDs;
     HashSet<double> m_sessionRulesIDs;
     HashSet<double> m_dynamicRulesIDs;

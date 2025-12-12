@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "GraphicsStyle.h"
-#include "GraphicsTypes.h"
-#include "SourceBrush.h"
-#include "WindRule.h"
+#include <WebCore/GraphicsStyle.h>
+#include <WebCore/GraphicsTypes.h>
+#include <WebCore/SourceBrush.h>
+#include <WebCore/WindRule.h>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/OptionSet.h>
 

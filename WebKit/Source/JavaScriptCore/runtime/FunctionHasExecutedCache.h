@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "SourceID.h"
+#include <JavaScriptCore/SourceID.h>
 #include <wtf/GenericHashKey.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>

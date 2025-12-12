@@ -106,6 +106,8 @@ NS_SWIFT_UI_ACTOR
 
 @property (nonatomic) BOOL automaticallyDockOnFullScreenPresentation;
 
+@property (nonatomic) BOOL prefersAutoDimming;
+
 @end
 
 NS_HEADER_AUDIT_END(nullability, sendability)

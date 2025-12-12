@@ -6382,6 +6382,12 @@ CallCapture ParseCallCapture(const Token &nameToken,
         ParamBuffer params = ParseParameters<decltype(FenceSync2)>(paramTokens, strings);
         return CallCapture("FenceSync2", std::move(params));
     }
+    if (strcmp(nameToken, "InitializeBinaryDataLoader") == 0)
+    {
+        ParamBuffer params =
+            ParseParameters<decltype(InitializeBinaryDataLoader)>(paramTokens, strings);
+        return CallCapture("InitializeBinaryDataLoader", std::move(params));
+    }
     if (strcmp(nameToken, "InitializeReplay") == 0)
     {
         ParamBuffer params = ParseParameters<decltype(InitializeReplay)>(paramTokens, strings);
@@ -6401,6 +6407,11 @@ CallCapture ParseCallCapture(const Token &nameToken,
     {
         ParamBuffer params = ParseParameters<decltype(InitializeReplay4)>(paramTokens, strings);
         return CallCapture("InitializeReplay4", std::move(params));
+    }
+    if (strcmp(nameToken, "InitializeReplay5") == 0)
+    {
+        ParamBuffer params = ParseParameters<decltype(InitializeReplay5)>(paramTokens, strings);
+        return CallCapture("InitializeReplay5", std::move(params));
     }
     if (strcmp(nameToken, "MapBufferOES") == 0)
     {
@@ -6579,6 +6590,12 @@ CallCapture ParseCallCapture(const Token &nameToken,
     return CallCapture(nameToken, ParamBuffer());
 }
 
+template <typename Fn, EnableIfNArgs<Fn, 0> = 0>
+void DispatchCallCapture(Fn *fn, const Captures &cap)
+{
+    (*fn)();
+}
+
 template <typename Fn, EnableIfNArgs<Fn, 1> = 0>
 void DispatchCallCapture(Fn *fn, const Captures &cap)
 {
@@ -6734,6 +6751,11 @@ void ReplayCustomFunctionCall(const CallCapture &call, const TraceFunctionMap &c
         DispatchCallCapture(FenceSync2, captures);
         return;
     }
+    if (call.customFunctionName == "InitializeBinaryDataLoader")
+    {
+        DispatchCallCapture(InitializeBinaryDataLoader, captures);
+        return;
+    }
     if (call.customFunctionName == "InitializeReplay")
     {
         DispatchCallCapture(InitializeReplay, captures);
@@ -6752,6 +6774,11 @@ void ReplayCustomFunctionCall(const CallCapture &call, const TraceFunctionMap &c
     if (call.customFunctionName == "InitializeReplay4")
     {
         DispatchCallCapture(InitializeReplay4, captures);
+        return;
+    }
+    if (call.customFunctionName == "InitializeReplay5")
+    {
+        DispatchCallCapture(InitializeReplay5, captures);
         return;
     }
     if (call.customFunctionName == "MapBufferOES")

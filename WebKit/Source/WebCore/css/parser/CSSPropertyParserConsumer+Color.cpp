@@ -453,6 +453,8 @@ static auto callWithColorFunction(CSSValueID id, Functor&& functor) -> decltype(
         return functor.template operator()<ColorRGBFunction<ExtendedA98RGB<float>>>();
     case CSSValueDisplayP3:
         return functor.template operator()<ColorRGBFunction<ExtendedDisplayP3<float>>>();
+    case CSSValueDisplayP3Linear:
+        return functor.template operator()<ColorRGBFunction<ExtendedLinearDisplayP3<float>>>();
     case CSSValueProphotoRgb:
         return functor.template operator()<ColorRGBFunction<ExtendedProPhotoRGB<float>>>();
     case CSSValueRec2020:
@@ -580,15 +582,15 @@ static std::optional<CSS::Color> consumeColorMixFunction(CSSParserTokenRange& ra
 
     auto args = consumeFunction(range);
 
-    if (args.peek().id() != CSSValueIn)
-        return std::nullopt;
+    std::optional<ColorInterpolationMethod> colorInterpolationMethod = CSS::defaultInterpolationMethodForColorMix;
+    if (args.peek().id() == CSSValueIn) {
+        colorInterpolationMethod = consumeColorInterpolationMethod(args, state.propertyParserState);
+        if (!colorInterpolationMethod)
+            return std::nullopt;
 
-    auto colorInterpolationMethod = consumeColorInterpolationMethod(args, state.propertyParserState);
-    if (!colorInterpolationMethod)
-        return std::nullopt;
-
-    if (!consumeCommaIncludingWhitespace(args))
-        return std::nullopt;
+        if (!consumeCommaIncludingWhitespace(args))
+            return std::nullopt;
+    }
 
     auto mixComponent1 = consumeColorMixComponent(args, state);
     if (!mixComponent1)

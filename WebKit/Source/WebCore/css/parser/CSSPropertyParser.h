@@ -29,6 +29,7 @@ namespace WebCore {
 
 class CSSProperty;
 class CSSParserTokenRange;
+class CSSValue;
 struct CSSParserContext;
 struct CSSCustomPropertySyntax;
 struct ComputedStyleDependencies;

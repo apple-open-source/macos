@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 *   Copyright (c) 2002-2005, International Business Machines Corporation
-*   and others.  All rights reserved.
+*   and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
 *   01/14/2002  aliu        Creation.

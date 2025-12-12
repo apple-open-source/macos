@@ -44,14 +44,14 @@
 
 - (void)dealloc
 {
-    [_relyingParty release];
-    [_user release];
-    [_publicKeyCredentialParamaters release];
-    [_timeout release];
-    [_excludeCredentials release];
-    [_authenticatorSelection release];
-    [_extensions release];
-    [_extensionsCBOR release];
+    SUPPRESS_UNRETAINED_ARG [_relyingParty release];
+    SUPPRESS_UNRETAINED_ARG [_user release];
+    SUPPRESS_UNRETAINED_ARG [_publicKeyCredentialParamaters release];
+    SUPPRESS_UNRETAINED_ARG [_timeout release];
+    SUPPRESS_UNRETAINED_ARG [_excludeCredentials release];
+    SUPPRESS_UNRETAINED_ARG [_authenticatorSelection release];
+    SUPPRESS_UNRETAINED_ARG [_extensions release];
+    SUPPRESS_UNRETAINED_ARG [_extensionsCBOR release];
     [super dealloc];
 }
 

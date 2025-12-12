@@ -154,6 +154,17 @@ bool defaultIOSurfaceLosslessCompressionEnabled()
 #endif
 }
 
+#if ENABLE(UNIFIED_PDF)
+bool defaultUnifiedPDFEnabled()
+{
+#if ENABLE(UNIFIED_PDF_BY_DEFAULT)
+    return true;
+#else
+    return false;
+#endif
+}
+#endif
+
 } // namespace WebKit
 
 #endif // PLATFORM(COCOA)

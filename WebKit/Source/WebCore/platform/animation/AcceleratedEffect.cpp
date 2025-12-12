@@ -37,13 +37,13 @@
 #include "FloatRect.h"
 #include "KeyframeEffect.h"
 #include "LayoutSize.h"
+#include "Settings.h"
 #include "StyleInterpolation.h"
 #include "StyleOffsetRotate.h"
 #include "StyleOriginatedAnimation.h"
 #include "WebAnimation.h"
 #include "WebAnimationTypes.h"
 #include <wtf/TZoneMallocInlines.h>
-#include "Animation.h"
 
 namespace WebCore {
 
@@ -217,9 +217,9 @@ AcceleratedEffect::AcceleratedEffect(const KeyframeEffect& effect, const IntRect
         ASSERT(animation->holdTime() || animation->startTime());
         m_holdTime = animation->holdTime() ? animation->holdTime()->time() : std::nullopt;
         m_startTime = animation->startTime() ? animation->startTime()->time() : std::nullopt;
-        if (auto* styleAnimation = dynamicDowncast<StyleOriginatedAnimation>(*animation)) {
-            if (auto* defaultKeyframeTimingFunction = styleAnimation->backingAnimation().timingFunction())
-                m_defaultKeyframeTimingFunction = defaultKeyframeTimingFunction;
+        if (RefPtr styleAnimation = dynamicDowncast<StyleOriginatedAnimation>(*animation)) {
+            if (RefPtr defaultKeyframeTimingFunction = styleAnimation->backingAnimationTimingFunction())
+                m_defaultKeyframeTimingFunction = WTFMove(defaultKeyframeTimingFunction);
         }
     }
 
@@ -297,17 +297,15 @@ AcceleratedEffect::AcceleratedEffect(const AcceleratedEffect& source, OptionSet<
     }
 }
 
-static void blend(AcceleratedEffectProperty property, AcceleratedEffectValues& output, const AcceleratedEffectValues& from, const AcceleratedEffectValues& to, BlendingContext& blendingContext, const FloatRect& bounds)
+static void blend(AcceleratedEffectProperty property, AcceleratedEffectValues& output, const AcceleratedEffectValues& from, const AcceleratedEffectValues& to, BlendingContext& blendingContext)
 {
     switch (property) {
     case AcceleratedEffectProperty::Opacity:
-        output.opacity = blend(from.opacity, to.opacity, blendingContext);
+        output.opacity = WebCore::blend(from.opacity, to.opacity, blendingContext);
         break;
-    case AcceleratedEffectProperty::Transform: {
-        LayoutSize boxSize { bounds.size() };
-        output.transform = to.transform.blend(from.transform, blendingContext, boxSize);
+    case AcceleratedEffectProperty::Transform:
+        output.transform = blend(from.transform, to.transform, blendingContext);
         break;
-    }
     case AcceleratedEffectProperty::Translate:
         if (auto& toTranslate = to.translate)
             output.translate = toTranslate->blend(from.translate.get(), blendingContext);
@@ -321,7 +319,7 @@ static void blend(AcceleratedEffectProperty property, AcceleratedEffectValues& o
             output.scale = toScale->blend(from.scale.get(), blendingContext);
         break;
     case AcceleratedEffectProperty::OffsetAnchor:
-        output.offsetDistance = blend(from.offsetDistance, to.offsetDistance, blendingContext);
+        output.offsetAnchor = blend(from.offsetAnchor, to.offsetAnchor, blendingContext);
         break;
     case AcceleratedEffectProperty::OffsetDistance:
         output.offsetDistance = blend(from.offsetDistance, to.offsetDistance, blendingContext);
@@ -334,11 +332,11 @@ static void blend(AcceleratedEffectProperty property, AcceleratedEffectValues& o
         output.offsetPosition = blend(from.offsetPosition, to.offsetPosition, blendingContext);
         break;
     case AcceleratedEffectProperty::OffsetRotate:
-        if (!Style::canBlend(from.offsetRotate, to.offsetRotate)) {
+        if (!canBlend(from.offsetRotate, to.offsetRotate)) {
             blendingContext.isDiscrete = true;
             blendingContext.normalizeProgress();
         }
-        output.offsetRotate = Style::blend(from.offsetRotate, to.offsetRotate, blendingContext);
+        output.offsetRotate = blend(from.offsetRotate, to.offsetRotate, blendingContext);
         break;
     case AcceleratedEffectProperty::Filter:
         output.filter = to.filter.blend(from.filter, blendingContext);
@@ -352,7 +350,7 @@ static void blend(AcceleratedEffectProperty property, AcceleratedEffectValues& o
     }
 }
 
-void AcceleratedEffect::apply(WebAnimationTime currentTime, AcceleratedEffectValues& values, const FloatRect& bounds)
+void AcceleratedEffect::apply(WebAnimationTime currentTime, AcceleratedEffectValues& values) const
 {
     auto localTime = [&]() -> WebAnimationTime {
         ASSERT(m_holdTime || m_startTime);
@@ -361,13 +359,14 @@ void AcceleratedEffect::apply(WebAnimationTime currentTime, AcceleratedEffectVal
         return (currentTime - *m_startTime) * m_playbackRate;
     }();
 
-    // FIXME: when we add threaded animaiton support support for scroll-driven animations,
+    // FIXME: when we add threaded animation support support for scroll-driven animations,
     // pass in the associated timeline's current time and duration.
     auto resolvedTiming = m_timing.resolve({
         std::nullopt,
         std::nullopt,
         { m_holdTime ? *m_holdTime : *m_startTime },
         { localTime },
+        EndpointInclusiveActiveInterval::No,
         m_playbackRate
     });
     if (!resolvedTiming.transformedProgress)
@@ -382,7 +381,7 @@ void AcceleratedEffect::apply(WebAnimationTime currentTime, AcceleratedEffectVal
     if (m_animationType == WebAnimationType::CSSTransition) {
         ASSERT(m_animatedProperties.hasExactlyOneBitSet());
         BlendingContext context { progress, false, m_compositeOperation };
-        blend(*m_animatedProperties.begin(), values, m_keyframes.first().values(), m_keyframes.last().values(), context, bounds);
+        blend(*m_animatedProperties.begin(), values, m_keyframes.first().values(), m_keyframes.last().values(), context);
         return;
     }
 
@@ -402,9 +401,9 @@ void AcceleratedEffect::apply(WebAnimationTime currentTime, AcceleratedEffectVal
             auto& acceleratedKeyframe = downcast<AcceleratedEffect::Keyframe>(keyframe);
             BlendingContext context { 1, false, compositeOperation };
             if (acceleratedKeyframe.offset() == startKeyframe->offset())
-                blend(animatedProperty, startKeyframeValues, propertySpecificKeyframeWithZeroOffset.values(), acceleratedKeyframe.values(), context, bounds);
+                blend(animatedProperty, startKeyframeValues, propertySpecificKeyframeWithZeroOffset.values(), acceleratedKeyframe.values(), context);
             else
-                blend(animatedProperty, endKeyframeValues, propertySpecificKeyframeWithZeroOffset.values(), acceleratedKeyframe.values(), context, bounds);
+                blend(animatedProperty, endKeyframeValues, propertySpecificKeyframeWithZeroOffset.values(), acceleratedKeyframe.values(), context);
         };
 
         KeyframeInterpolation::AccumulationCallback accumulateProperty = [&](const KeyframeInterpolation::Keyframe&) {
@@ -414,7 +413,7 @@ void AcceleratedEffect::apply(WebAnimationTime currentTime, AcceleratedEffectVal
         KeyframeInterpolation::InterpolationCallback interpolateProperty = [&](double intervalProgress, double, IterationCompositeOperation) {
             // FIXME: handle currentIteration and iterationCompositeOperation.
             BlendingContext context { intervalProgress };
-            blend(animatedProperty, values, startKeyframeValues, endKeyframeValues, context, bounds);
+            blend(animatedProperty, values, startKeyframeValues, endKeyframeValues, context);
         };
 
         KeyframeInterpolation::RequiresInterpolationForAccumulativeIterationCallback requiresInterpolationForAccumulativeIterationCallback = [&]() {

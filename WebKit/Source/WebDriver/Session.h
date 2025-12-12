@@ -188,6 +188,7 @@ private:
     Session(Ref<SessionHost>&&, WeakPtr<WebSocketServer>&&);
 #endif
 
+    String uncheckedTopLevelBrowsingContext() const;
     void switchToTopLevelBrowsingContext(const String&);
     void switchToBrowsingContext(const String&, Function<void(CommandResult&&)>&&);
     void switchToBrowsingContext(const String& toplevelBrowsingContext, const String& browsingContext, Function<void(CommandResult&&)>&&);
@@ -207,8 +208,10 @@ private:
     RefPtr<JSON::Object> createElement(RefPtr<JSON::Value>&&);
     Ref<JSON::Object> createElement(const String& elementID);
     RefPtr<JSON::Object> createShadowRoot(RefPtr<JSON::Value>&&);
-    RefPtr<JSON::Object> extractElement(JSON::Value&);
-    String extractElementID(JSON::Value&);
+    RefPtr<JSON::Object> extractElement(const JSON::Value&);
+    String extractElementID(const JSON::Value&);
+    Expected<Ref<JSON::Value>, CommandResult> replaceReferences(Ref<JSON::Value>&&);
+    Expected<Ref<JSON::Value>, CommandResult> replaceReferences(Ref<JSON::Value>&&, HashSet<Ref<JSON::Value>>&);
     Ref<JSON::Value> handleScriptResult(Ref<JSON::Value>&&);
     void elementIsEditable(const String& elementID, Function<void(CommandResult&&)>&&);
 
@@ -241,11 +244,6 @@ private:
     void setInputFileUploadFiles(const String& elementID, const String& text, bool multiple, Function<void(CommandResult&&)>&&);
     void didSetInputFileUploadFiles(bool wasCancelled);
 
-    enum class MouseInteraction { Move,
-        Down,
-        Up,
-        SingleClick,
-        DoubleClick };
     void performMouseInteraction(int x, int y, MouseButton, MouseInteraction, Function<void(CommandResult&&)>&&);
 
     enum class KeyboardInteractionType { KeyPress,
@@ -274,6 +272,7 @@ private:
         Type type;
         String subtype;
         std::optional<MouseButton> pressedButton;
+        std::optional<MouseInteraction> mouseInteraction;
         std::optional<String> pressedKey;
         HashSet<String> pressedVirtualKeys;
     };
@@ -301,7 +300,7 @@ private:
     String toInternalEventName(const String&);
 
     // Actual event handlers
-    void doLogEntryAdded(RefPtr<JSON::Object>&&);
+    RefPtr<JSON::Object> processLogEntryAdded(RefPtr<JSON::Object>&&);
 #endif
 };
 

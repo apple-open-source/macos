@@ -30,6 +30,7 @@
 #include <gst/app/gstappsrc.h>
 #include <numbers>
 #include <wtf/IndexedRange.h>
+#include <wtf/MediaTime.h>
 
 namespace WebCore {
 

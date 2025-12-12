@@ -30,6 +30,7 @@
 #include "MessageReceiver.h"
 #include <WebCore/EventListener.h>
 #include <WebCore/HTMLMediaElementEnums.h>
+#include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/MediaPlayerClientIdentifier.h>
 #if HAVE(PIP_SKIP_PREROLL)
 #include <WebCore/MediaSession.h>
@@ -120,7 +121,7 @@ class PlaybackSessionManager
     , public WebCore::MediaSessionObserver
 #endif
     {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(PlaybackSessionManager);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PlaybackSessionManager);
 public:
     static Ref<PlaybackSessionManager> create(WebPage&);

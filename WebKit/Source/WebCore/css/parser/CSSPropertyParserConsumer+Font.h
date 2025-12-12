@@ -122,10 +122,6 @@ RefPtr<CSSValue> consumeFontSizeAdjust(CSSParserTokenRange&, CSS::PropertyParser
 
 // MARK: - @font-face descriptor consumers
 
-// MARK: @font-face 'font-family'
-// https://drafts.csswg.org/css-fonts-4/#font-family-desc
-RefPtr<CSSValue> parseFontFaceFontFamily(const String&, ScriptExecutionContext&);
-
 // MARK: @font-face 'src'
 // https://drafts.csswg.org/css-fonts-4/#src-desc
 RefPtr<CSSValueList> parseFontFaceSrc(const String&, ScriptExecutionContext&);

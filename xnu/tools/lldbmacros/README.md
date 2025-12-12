@@ -19,6 +19,7 @@ Table of Contents
           i. Reading a exception backtrace
          ii. Loading custom or local lldbmacros and operating_system plugin
         iii. Adding debug related 'printf's
+         iv. Using VSCode's Python debugger with debugpy
 
 A. How to use lldb for kernel debugging
 ========================================
@@ -456,4 +457,45 @@ The xnu debug framework provides a utility function (debuglog) in utils.py. Plea
      - (lldb) xnudebug debug
        Enabled debug logging.
 
+iv. Using VSCode's Python debugger with debugpy
+---------------------------------------------
 
+Install debugpy with:
+
+```sh
+> pip3 install --user debugpy
+```
+
+Add the following to `.vscode/launch.json`:
+```
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach Python debugger to XNU lldb macros",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/tools/lldbmacros",
+                    "remoteRoot": "${workspaceFolder}/tools/lldbmacros"
+                }
+            ],
+            "justMyCode": false
+        }
+    ]
+}
+```
+
+Then, run the scripts:
+```sh
+> export DEBUG_LLDB_PYTHON=1
+> lldb -c <corefile>
+(lldb) command script import <xnu/lldbmacros/xnu.py> # if you don't automatically load the scripts
+```
+
+The debug scripts will pause to give you a chance to "Debug: Start Debugging" in VSCode. Then breakpoints, watchpoints, and the debug console all work.

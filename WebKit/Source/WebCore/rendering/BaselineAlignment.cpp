@@ -28,6 +28,7 @@
 
 #include "BaselineAlignmentInlines.h"
 #include "RenderBox.h"
+#include "RenderBoxModelObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -112,6 +113,31 @@ void BaselineAlignmentState::updateSharedGroup(const RenderBox& alignmentSubject
     group.update(alignmentSubject, ascent);
 }
 
+FontBaseline BaselineAlignmentState::dominantBaseline(WritingMode writingMode)
+{
+    // https://drafts.csswg.org/css-inline-3/#alignment-baseline-property
+    // https://drafts.csswg.org/css-inline-3/#dominant-baseline-property
+    return writingMode.prefersCentralBaseline() ? FontBaseline::Central : FontBaseline::Alphabetic;
+}
+
+LayoutUnit BaselineAlignmentState::synthesizedBaseline(const RenderBox& box, FontBaseline baselineType, WritingMode writingModeForSynthesis, LineDirection lineDirection, BaselineSynthesisEdge edge)
+{
+    auto boxSize = lineDirection == LineDirection::Horizontal ? box.height() : box.width();
+    if (edge == BaselineSynthesisEdge::ContentBox)
+        boxSize -= lineDirection == LineDirection::Horizontal ? box.verticalBorderAndPaddingExtent() : box.horizontalBorderAndPaddingExtent();
+    else if (edge == BaselineSynthesisEdge::MarginBox)
+        boxSize += lineDirection == LineDirection::Horizontal ? box.verticalMarginExtent() : box.horizontalMarginExtent();
+
+    if (baselineType == FontBaseline::Alphabetic) {
+        // When synthesizing the alphabetic baseline for a box we are determining the distance
+        // to the line-under edge. For a box with vertical-lr writing mode the location
+        // of the line-under edge should be the same as the box's block-start edge. For
+        // vertical-rl writing mode we need the box's size since they are on opposiate sides.
+        auto shouldTreatAsHorizontal = lineDirection == LineDirection::Horizontal || writingModeForSynthesis.computedWritingMode() == StyleWritingMode::VerticalRl;
+        return shouldTreatAsHorizontal ? boxSize : LayoutUnit();
+    }
+    return boxSize / 2;
+}
 
 WritingMode BaselineAlignmentState::usedWritingModeForBaselineAlignment(LogicalBoxAxis alignmentContextAxis,
     WritingMode alignmentContainerWritingMode, WritingMode aligmentSubjectWritingMode)

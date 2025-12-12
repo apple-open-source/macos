@@ -45,8 +45,7 @@
 
 #import <pal/cf/CoreMediaSoftLink.h>
 
-SOFTLINK_AVKIT_FRAMEWORK()
-SOFT_LINK_CLASS_OPTIONAL(AVKit, AVValueTiming)
+SOFT_LINK_FRAMEWORK_FOR_SOURCE(AVKit, AVValueTiming)
 
 SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(PIP)
 SOFT_LINK_CLASS_OPTIONAL(PIP, PIPViewController)
@@ -77,14 +76,14 @@ using WebCore::PlaybackSessionModel;
 {
     [super resizeWithOldSuperviewSize:oldBoundsSize];
 
-    [_videoViewContainerDelegate boundsDidChangeForVideoViewContainer:self];
+    [retainPtr(_videoViewContainerDelegate) boundsDidChangeForVideoViewContainer:self];
 }
 
 - (void)viewDidMoveToSuperview
 {
     [super viewDidMoveToSuperview];
 
-    [_videoViewContainerDelegate superviewDidChangeForVideoViewContainer:self];
+    [retainPtr(_videoViewContainerDelegate) superviewDidChangeForVideoViewContainer:self];
 }
 
 @end
@@ -97,7 +96,7 @@ enum class PIPState {
 };
 
 @interface WebVideoPresentationInterfaceMacObjC : NSObject <PIPViewControllerDelegate, WebVideoViewContainerDelegate> {
-    WebCore::VideoPresentationInterfaceMac* _videoPresentationInterfaceMac;
+    CheckedPtr<WebCore::VideoPresentationInterfaceMac> _videoPresentationInterfaceMac;
     NSSize _videoDimensions;
     RetainPtr<PIPViewController> _pipViewController;
     RetainPtr<NSViewController> _videoViewContainerController;
@@ -232,7 +231,7 @@ enum class PIPState {
         if (!_canSkipAd)
             playbackState.prerollAttributes = nil;
         else
-            playbackState.prerollAttributes = [getPIPPrerollAttributesClass() prerollAttributesForAdContentWithRequiredLinearPlaybackEndTime:0 preferredTintColor:nil];
+            playbackState.prerollAttributes = [getPIPPrerollAttributesClassSingleton() prerollAttributesForAdContentWithRequiredLinearPlaybackEndTime:0 preferredTintColor:nil];
     }];
 }
 #endif
@@ -315,7 +314,7 @@ enum class PIPState {
     [_pipViewController setUserCanResize:YES];
     ALLOW_DEPRECATED_DECLARATIONS_END
     [self setVideoDimensions:NSEqualSizes(_videoDimensions, NSZeroSize) ? frame.size : _videoDimensions];
-    auto model = _videoPresentationInterfaceMac ? _videoPresentationInterfaceMac->videoPresentationModel() : nullptr;
+    auto model = _videoPresentationInterfaceMac ? CheckedPtr { _videoPresentationInterfaceMac }->videoPresentationModel() : nullptr;
     if (model)
         model->setVideoLayerGravity(MediaPlayerEnums::VideoGravity::ResizeAspectFill);
 
@@ -363,7 +362,7 @@ enum class PIPState {
     if (_pipState == PIPState::EnteringPIP || _pipState == PIPState::InPIP)
         return;
 
-    [_videoViewContainerController view].layer.backgroundColor = CGColorGetConstantColor(kCGColorBlack);
+    [_videoViewContainerController view].layer.backgroundColor = RetainPtr { CGColorGetConstantColor(kCGColorBlack) }.get();
     [_pipViewController presentViewControllerAsPictureInPicture:_videoViewContainerController.get()];
     _pipState = PIPState::EnteringPIP;
 #if HAVE(PIP_SKIP_PREROLL)
@@ -376,7 +375,7 @@ enum class PIPState {
     if (_pipState != PIPState::InPIP || !_pipViewController || !_videoViewContainerController)
         return;
 
-    [_videoViewContainerController view].layer.backgroundColor = CGColorGetConstantColor(kCGColorClear);
+    [_videoViewContainerController view].layer.backgroundColor = RetainPtr { CGColorGetConstantColor(kCGColorClear) }.get();
     [_pipViewController dismissViewController:_videoViewContainerController.get()];
     _pipState = PIPState::ExitingPIP;
 }
@@ -403,7 +402,8 @@ enum class PIPState {
 
     ASSERT_UNUSED(videoViewContainer, videoViewContainer == _videoViewContainer);
 
-    if (!_videoPresentationInterfaceMac)
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (!videoPresentationInterfaceMac)
         return;
 
     if (_pipState == PIPState::EnteringPIP) {
@@ -413,7 +413,7 @@ enum class PIPState {
         // as an indication that entering picture-in-picture is completed.
         _pipState = PIPState::InPIP;
 
-        if (auto model = _videoPresentationInterfaceMac->videoPresentationModel()) {
+        if (auto model = videoPresentationInterfaceMac->videoPresentationModel()) {
             model->didEnterPictureInPicture();
             model->didEnterFullscreen((WebCore::FloatSize)[_videoViewContainer bounds].size);
         }
@@ -441,13 +441,14 @@ enum class PIPState {
 {
     ASSERT_UNUSED(pip, pip == _pipViewController);
 
-    if (!_videoPresentationInterfaceMac)
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (!videoPresentationInterfaceMac)
         return YES;
     
-    if (auto model = _videoPresentationInterfaceMac->videoPresentationModel())
+    if (auto model = videoPresentationInterfaceMac->videoPresentationModel())
         model->fullscreenMayReturnToInline();
 
-    _videoPresentationInterfaceMac->requestHideAndExitPiP();
+    videoPresentationInterfaceMac->requestHideAndExitPiP();
 
     return NO;
 }
@@ -456,10 +457,11 @@ enum class PIPState {
 {
     ASSERT_UNUSED(pip, pip == _pipViewController);
 
-    if (!_videoPresentationInterfaceMac)
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (!videoPresentationInterfaceMac)
         return;
 
-    _videoPresentationInterfaceMac->skipAd();
+    videoPresentationInterfaceMac->skipAd();
     [self updateCanSkipAd:NO];
 }
 #endif
@@ -468,7 +470,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 {
     ASSERT_UNUSED(pip, pip == _pipViewController);
 
-    if (!_videoPresentationInterfaceMac)
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (!videoPresentationInterfaceMac)
         return;
 
     if (_pipState != PIPState::ExitingPIP) {
@@ -479,7 +482,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
         ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
-    if (auto model = _videoPresentationInterfaceMac->videoPresentationModel()) {
+    if (auto model = videoPresentationInterfaceMac->videoPresentationModel()) {
         if (_videoViewContainer && _returningWindow && !NSEqualRects(_returningRect, NSZeroRect)) {
             [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
                 context.allowsImplicitAnimation = NO;
@@ -497,36 +500,39 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
         model->setRequiresTextTrackRepresentation(false);
     }
 
-    _videoPresentationInterfaceMac->clearMode(HTMLMediaElementEnums::VideoFullscreenModePictureInPicture);
+    videoPresentationInterfaceMac->clearMode(HTMLMediaElementEnums::VideoFullscreenModePictureInPicture, VideoPresentationModel::ShouldNotifyMediaElement::Yes);
 }
 
 - (void)pipActionPlay:(PIPViewController *)pip
 {
     ASSERT_UNUSED(pip, pip == _pipViewController);
 
-    if (_videoPresentationInterfaceMac && _videoPresentationInterfaceMac->playbackSessionModel())
-        _videoPresentationInterfaceMac->playbackSessionModel()->play();
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (videoPresentationInterfaceMac && videoPresentationInterfaceMac->playbackSessionModel())
+        videoPresentationInterfaceMac->checkedPlaybackSessionModel()->play();
 }
 
 - (void)pipActionPause:(PIPViewController *)pip
 {
     ASSERT_UNUSED(pip, pip == _pipViewController);
 
-    if (_videoPresentationInterfaceMac && _videoPresentationInterfaceMac->playbackSessionModel())
-        _videoPresentationInterfaceMac->playbackSessionModel()->pause();
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (videoPresentationInterfaceMac && videoPresentationInterfaceMac->playbackSessionModel())
+        videoPresentationInterfaceMac->checkedPlaybackSessionModel()->pause();
 }
 
 - (void)pipActionStop:(PIPViewController *)pip
 {
     ASSERT_UNUSED(pip, pip == _pipViewController);
 
-    if (!_videoPresentationInterfaceMac)
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (!videoPresentationInterfaceMac)
         return;
 
-    if (PlaybackSessionModel* playbackSessionModel = _videoPresentationInterfaceMac->playbackSessionModel())
+    if (CheckedPtr playbackSessionModel = videoPresentationInterfaceMac->playbackSessionModel())
         playbackSessionModel->pause();
 
-    _videoPresentationInterfaceMac->requestHideAndExitPiP();
+    videoPresentationInterfaceMac->requestHideAndExitPiP();
     _pipState = PIPState::ExitingPIP;
 }
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
@@ -540,10 +546,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     ASSERT_UNUSED(pip, pip == _pipViewController);
 
-    if (!_videoPresentationInterfaceMac)
+    CheckedPtr videoPresentationInterfaceMac = _videoPresentationInterfaceMac;
+    if (!videoPresentationInterfaceMac)
         return;
 
-    if (PlaybackSessionModel* playbackSessionModel = _videoPresentationInterfaceMac->playbackSessionModel())
+    if (CheckedPtr playbackSessionModel = videoPresentationInterfaceMac->playbackSessionModel())
         playbackSessionModel->seekToTime(self.estimatedElapsedTime + interval);
 }
 @end
@@ -556,13 +563,13 @@ VideoPresentationInterfaceMac::VideoPresentationInterfaceMac(PlaybackSessionInte
     : m_playbackSessionInterface(playbackSessionInterface)
 {
     ASSERT(m_playbackSessionInterface->playbackSessionModel());
-    auto model = m_playbackSessionInterface->playbackSessionModel();
+    CheckedPtr model = m_playbackSessionInterface->playbackSessionModel();
     model->addClient(*this);
 }
 
 VideoPresentationInterfaceMac::~VideoPresentationInterfaceMac()
 {
-    if (auto* model = m_playbackSessionInterface->playbackSessionModel())
+    if (CheckedPtr model = m_playbackSessionInterface->playbackSessionModel())
         model->removeClient(*this);
     if (auto model = videoPresentationModel())
         model->removeClient(*this);
@@ -577,7 +584,7 @@ void VideoPresentationInterfaceMac::setVideoPresentationModel(VideoPresentationM
         model->addClient(*this);
 }
 
-void VideoPresentationInterfaceMac::setMode(HTMLMediaElementEnums::VideoFullscreenMode mode, bool)
+void VideoPresentationInterfaceMac::setMode(HTMLMediaElementEnums::VideoFullscreenMode mode, VideoPresentationModel::ShouldNotifyMediaElement)
 {
     HTMLMediaElementEnums::VideoFullscreenMode newMode = m_mode | mode;
     if (m_mode == newMode)
@@ -593,7 +600,7 @@ void VideoPresentationInterfaceMac::setMode(HTMLMediaElementEnums::VideoFullscre
         return;
 
     if (model)
-        model->fullscreenModeChanged(m_mode);
+        model->fullscreenModeChanged(m_mode, VideoPresentationModel::ShouldNotifyMediaElement::Yes);
 }
 #if HAVE(PIP_SKIP_PREROLL)
 void VideoPresentationInterfaceMac::skipAd()
@@ -601,7 +608,7 @@ void VideoPresentationInterfaceMac::skipAd()
     m_playbackSessionInterface->skipAd();
 }
 #endif
-void VideoPresentationInterfaceMac::clearMode(HTMLMediaElementEnums::VideoFullscreenMode mode)
+void VideoPresentationInterfaceMac::clearMode(HTMLMediaElementEnums::VideoFullscreenMode mode, VideoPresentationModel::ShouldNotifyMediaElement)
 {
     HTMLMediaElementEnums::VideoFullscreenMode newMode = m_mode & ~mode;
     if (m_mode == newMode)
@@ -617,17 +624,17 @@ void VideoPresentationInterfaceMac::clearMode(HTMLMediaElementEnums::VideoFullsc
         return;
 
     if (model)
-        model->fullscreenModeChanged(m_mode);
+        model->fullscreenModeChanged(m_mode, VideoPresentationModel::ShouldNotifyMediaElement::Yes);
 }
 
 void VideoPresentationInterfaceMac::durationChanged(double duration)
 {
-    [videoPresentationInterfaceObjC() setDuration:duration];
+    [protectedVideoPresentationInterfaceObjC() setDuration:duration];
 }
 
 void VideoPresentationInterfaceMac::currentTimeChanged(double currentTime, double anchorTime)
 {
-    [videoPresentationInterfaceObjC() updateCurrentTime:currentTime atAnchorTime:anchorTime];
+    [protectedVideoPresentationInterfaceObjC() updateCurrentTime:currentTime atAnchorTime:anchorTime];
 }
 
 void VideoPresentationInterfaceMac::rateChanged(OptionSet<PlaybackSessionModel::PlaybackState> playbackState, double playbackRate, double /* defaultPlaybackRate */)
@@ -639,7 +646,7 @@ void VideoPresentationInterfaceMac::rateChanged(OptionSet<PlaybackSessionModel::
     else if (playbackState.contains(PlaybackSessionModel::PlaybackState::Playing))
         timeControlStatus = AVPlayerTimeControlStatusPlaying;
 
-    [videoPresentationInterfaceObjC() updateRate:playbackRate andTimeControlStatus:timeControlStatus];
+    [protectedVideoPresentationInterfaceObjC() updateRate:playbackRate andTimeControlStatus:timeControlStatus];
 }
 
 void VideoPresentationInterfaceMac::ensureControlsManager()
@@ -661,6 +668,7 @@ void VideoPresentationInterfaceMac::canSkipAdChanged(bool canSkipAd)
     [videoPresentationInterfaceObjC() updateCanSkipAd:canSkipAd];
 }
 #endif
+
 WebVideoPresentationInterfaceMacObjC *VideoPresentationInterfaceMac::videoPresentationInterfaceObjC()
 {
     if (!m_webVideoPresentationInterfaceObjC) {
@@ -671,7 +679,7 @@ WebVideoPresentationInterfaceMacObjC *VideoPresentationInterfaceMac::videoPresen
 #endif
             m_webVideoPresentationInterfaceObjC = adoptNS([[WebVideoPresentationInterfaceMacObjC alloc] initWithVideoPresentationInterfaceMac:this]);
 
-        auto model = m_playbackSessionInterface->playbackSessionModel();
+        CheckedPtr model = m_playbackSessionInterface->playbackSessionModel();
 
         durationChanged(model->duration());
         currentTimeChanged(model->currentTime(), [[NSProcessInfo processInfo] systemUptime]);
@@ -679,6 +687,11 @@ WebVideoPresentationInterfaceMacObjC *VideoPresentationInterfaceMac::videoPresen
     }
 
     return m_webVideoPresentationInterfaceObjC.get();
+}
+
+RetainPtr<WebVideoPresentationInterfaceMacObjC> VideoPresentationInterfaceMac::protectedVideoPresentationInterfaceObjC()
+{
+    return videoPresentationInterfaceObjC();
 }
 
 void VideoPresentationInterfaceMac::setupFullscreen(const IntRect& initialRect, NSWindow *parentWindow, HTMLMediaElementEnums::VideoFullscreenMode mode, bool allowsPictureInPicturePlayback)
@@ -690,7 +703,7 @@ void VideoPresentationInterfaceMac::setupFullscreen(const IntRect& initialRect, 
 
     m_mode |= mode;
 
-    [videoPresentationInterfaceObjC() setUpPIPForVideoView:layerHostView() withFrame:(NSRect)initialRect inWindow:parentWindow];
+    [protectedVideoPresentationInterfaceObjC() setUpPIPForVideoView:protectedLayerHostView().get() withFrame:(NSRect)initialRect inWindow:parentWindow];
 
     RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this] {
         if (RefPtr model = videoPresentationModel()) {
@@ -710,7 +723,7 @@ void VideoPresentationInterfaceMac::enterFullscreen()
         [m_webVideoPresentationInterfaceObjC enterPIP];
 
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
-        [m_playbackSessionInterface->playBackControlsManager() setPictureInPictureActive:YES];
+        [m_playbackSessionInterface->protectedPlayBackControlsManager() setPictureInPictureActive:YES];
 #endif
     }
 }
@@ -720,7 +733,7 @@ bool VideoPresentationInterfaceMac::exitFullscreen(const IntRect& finalRect, NSW
     LOG(Fullscreen, "VideoPresentationInterfaceMac::exitFullscreen(%p), finalRect:{%d, %d, %d, %d}, parentWindow:%p", this, finalRect.x(), finalRect.y(), finalRect.width(), finalRect.height(), parentWindow);
 
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
-    [m_playbackSessionInterface->playBackControlsManager() setPictureInPictureActive:NO];
+    [m_playbackSessionInterface->protectedPlayBackControlsManager() setPictureInPictureActive:NO];
 #endif
 
     if (finalRect.isEmpty())
@@ -736,7 +749,7 @@ void VideoPresentationInterfaceMac::exitFullscreenWithoutAnimationToMode(HTMLMed
     LOG(Fullscreen, "VideoPresentationInterfaceMac::exitFullscreenWithoutAnimationToMode(%p), mode:%d", this, mode);
 
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
-    [m_playbackSessionInterface->playBackControlsManager() setPictureInPictureActive:NO];
+    [m_playbackSessionInterface->protectedPlayBackControlsManager() setPictureInPictureActive:NO];
 #endif
 
     bool isExitingToStandardFullscreen = mode == HTMLMediaElementEnums::VideoFullscreenModeStandard;
@@ -775,7 +788,7 @@ void VideoPresentationInterfaceMac::invalidate()
 
 void VideoPresentationInterfaceMac::requestHideAndExitPiP()
 {
-    auto model = videoPresentationModel();
+    RefPtr model = videoPresentationModel();
     if (!model)
         return;
 
@@ -783,8 +796,8 @@ void VideoPresentationInterfaceMac::requestHideAndExitPiP()
         model->requestFullscreenMode(m_mode & ~HTMLMediaElementEnums::VideoFullscreenModePictureInPicture);
         model->willExitPictureInPicture();
     } else {
-        auto callback = [this, model] () {
-            model->requestFullscreenMode(m_mode & ~HTMLMediaElementEnums::VideoFullscreenModePictureInPicture);
+        auto callback = [model = WTFMove(model), mode = m_mode] () {
+            model->requestFullscreenMode(mode & ~HTMLMediaElementEnums::VideoFullscreenModePictureInPicture);
             model->willExitPictureInPicture();
         };
         setDocumentBecameVisibleCallback(WTFMove(callback));
@@ -866,7 +879,7 @@ WTFLogChannel& VideoPresentationInterfaceMac::logChannel() const
 
 bool supportsPictureInPicture()
 {
-    return PIPLibrary() && getPIPViewControllerClass();
+    return PIPLibrary() && getPIPViewControllerClassSingleton();
 }
 
 }

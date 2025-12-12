@@ -39,6 +39,7 @@
 #include "OriginAccessPatterns.h"
 #include "PixelFormat.h"
 #include "SVGImageElement.h"
+#include "ScriptWrappableInlines.h"
 #include "SecurityOrigin.h"
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -128,14 +129,14 @@ RefPtr<ImageBuffer> CanvasRenderingContext::transferToImageBuffer()
     return nullptr;
 }
 
-ImageBufferPixelFormat CanvasRenderingContext::pixelFormat() const
+PixelFormat CanvasRenderingContext::pixelFormat() const
 {
-    return ImageBufferPixelFormat::BGRA8;
+    return PixelFormat::BGRA8;
 }
 
 bool CanvasRenderingContext::isOpaque() const
 {
-    return imageBufferPixelFormatIsOpaque(pixelFormat());
+    return pixelFormatIsOpaque(pixelFormat());
 }
 
 DestinationColorSpace CanvasRenderingContext::colorSpace() const

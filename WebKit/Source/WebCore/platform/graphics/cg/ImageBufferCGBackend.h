@@ -27,8 +27,8 @@
 
 #if USE(CG)
 
-#include "GraphicsContextCG.h"
-#include "ImageBufferBackend.h"
+#include <WebCore/GraphicsContextCG.h>
+#include <WebCore/ImageBufferBackend.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -36,7 +36,7 @@ namespace WebCore {
 class WEBCORE_EXPORT ImageBufferCGBackend : public ImageBufferBackend {
 public:
     ~ImageBufferCGBackend() override;
-    static unsigned calculateBytesPerRow(const IntSize& backendSize);
+    static unsigned calculateBytesPerRow(const IntSize& backendSize, PixelFormat);
 
 protected:
     ImageBufferCGBackend(const Parameters&, std::unique_ptr<GraphicsContextCG>&& = nullptr);

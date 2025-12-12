@@ -49,19 +49,19 @@ WebDebuggerAgent::~WebDebuggerAgent() = default;
 
 bool WebDebuggerAgent::enabled() const
 {
-    return m_instrumentingAgents.enabledWebDebuggerAgent() == this && InspectorDebuggerAgent::enabled();
+    return Ref { m_instrumentingAgents.get() }->enabledWebDebuggerAgent() == this && InspectorDebuggerAgent::enabled();
 }
 
 void WebDebuggerAgent::internalEnable()
 {
-    m_instrumentingAgents.setEnabledWebDebuggerAgent(this);
+    Ref { m_instrumentingAgents.get() }->setEnabledWebDebuggerAgent(this);
 
     InspectorDebuggerAgent::internalEnable();
 }
 
 void WebDebuggerAgent::internalDisable(bool isBeingDestroyed)
 {
-    m_instrumentingAgents.setEnabledWebDebuggerAgent(nullptr);
+    Ref { m_instrumentingAgents.get() }->setEnabledWebDebuggerAgent(nullptr);
 
     InspectorDebuggerAgent::internalDisable(isBeingDestroyed);
 }
@@ -82,7 +82,7 @@ void WebDebuggerAgent::didAddEventListener(EventTarget& target, const AtomString
     if (m_registeredEventListeners.contains(registeredListener.get()))
         return;
 
-    auto* globalObject = target.scriptExecutionContext()->globalObject();
+    auto* globalObject = target.protectedScriptExecutionContext()->globalObject();
     if (!globalObject)
         return;
 

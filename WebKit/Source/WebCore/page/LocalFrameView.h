@@ -24,24 +24,25 @@
 
 #pragma once
 
-#include "AdjustViewSize.h"
-#include "Color.h"
-#include "FrameView.h"
-#include "LayoutMilestone.h"
-#include "LayoutRect.h"
-#include "LocalFrame.h"
-#include "LocalFrameViewLayoutContext.h"
-#include "Page.h"
-#include "Pagination.h"
-#include "PaintPhase.h"
-#include "RenderPtr.h"
-#include "SimpleRange.h"
+#include <WebCore/AdjustViewSize.h>
+#include <WebCore/Color.h>
+#include <WebCore/FrameView.h>
+#include <WebCore/LayoutMilestone.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameViewLayoutContext.h>
+#include <WebCore/Page.h>
+#include <WebCore/Pagination.h>
+#include <WebCore/PaintPhase.h>
+#include <WebCore/RenderPtr.h>
+#include <WebCore/SimpleRange.h>
 #include <memory>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/OptionSet.h>
+#include <wtf/Platform.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakRef.h>
@@ -533,12 +534,14 @@ public:
 
     WEBCORE_EXPORT FloatRect absoluteToDocumentRect(FloatRect, std::optional<float> usedZoom = std::nullopt) const;
     WEBCORE_EXPORT FloatPoint absoluteToDocumentPoint(FloatPoint, std::optional<float> usedZoom = std::nullopt) const;
+    WEBCORE_EXPORT DoublePoint absoluteToDocumentPoint(DoublePoint, std::optional<float> usedZoom = std::nullopt) const;
 
     FloatRect absoluteToClientRect(FloatRect, std::optional<float> usedZoom = std::nullopt) const;
 
     FloatSize documentToClientOffset() const;
     WEBCORE_EXPORT FloatRect documentToClientRect(FloatRect) const;
     FloatPoint documentToClientPoint(FloatPoint) const;
+    DoublePoint documentToClientPoint(DoublePoint) const;
     WEBCORE_EXPORT FloatRect clientToDocumentRect(FloatRect) const;
     WEBCORE_EXPORT FloatPoint clientToDocumentPoint(FloatPoint) const;
 
@@ -731,8 +734,9 @@ public:
 
     Color scrollbarThumbColorStyle() const final;
     Color scrollbarTrackColorStyle() const final;
-    ScrollbarGutter scrollbarGutterStyle() const final;
+    Style::ScrollbarGutter scrollbarGutterStyle() const final;
     ScrollbarWidth scrollbarWidthStyle() const final;
+    std::optional<ScrollbarColor> scrollbarColorStyle() const final;
 
     void dequeueScrollableAreaForScrollAnchoringUpdate(ScrollableArea&);
     void queueScrollableAreaForScrollAnchoringUpdate(ScrollableArea&);
@@ -784,6 +788,7 @@ public:
         AutoPreventLayerAccess(LocalFrameView*) { }
     };
 #endif
+    void scrollDidEnd() final;
 
 private:
     explicit LocalFrameView(LocalFrame&);
@@ -831,8 +836,6 @@ private:
     void applyOverflowToViewport(const RenderElement&, ScrollbarMode& hMode, ScrollbarMode& vMode);
     void applyPaginationToViewport();
 
-    void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
-
     void forceLayoutParentViewIfNeeded();
     void flushPostLayoutTasksQueue();
     void performPostLayoutTasks();
@@ -864,6 +867,7 @@ private:
 
     void unobscuredContentSizeChanged() final;
     
+    void scrollToTextFragmentRetryTimerFired();
     void textFragmentIndicatorTimerFired();
 
     // ScrollableArea interface
@@ -918,11 +922,13 @@ private:
 
     void updateWidgetPositionsTimerFired();
 
-    bool scrollToFragmentInternal(StringView);
+    enum class IsRetry : bool { No, Yes };
+    bool scrollToTextFragment(IsRetry = IsRetry::No);
+    bool scrollToAnchorFragment(StringView);
     void scheduleScrollToAnchorAndTextFragment();
     void scrollToAnchorAndTextFragmentNowIfNeeded();
     void scrollToAnchor();
-    void scrollToTextFragmentRange();
+    void scrollToPendingTextFragmentRange();
     void scrollPositionChanged(const ScrollPosition& oldPosition, const ScrollPosition& newPosition);
     void scrollableAreaSetChanged();
     void scheduleScrollEvent();
@@ -971,9 +977,10 @@ private:
 
     static MonotonicTime sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
-    void scrollRectToVisibleInChildView(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&, const HTMLFrameOwnerElement*);
-    void scrollRectToVisibleInTopLevelView(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&);
-    LayoutRect getPossiblyFixedRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const;
+    void scrollRectToVisibleInChildView(const LayoutRect& absoluteRect, EnumSet<BoxAxis> isFixed, const ScrollRectToVisibleOptions&, const HTMLFrameOwnerElement*);
+    void scrollRectToVisibleInTopLevelView(const LayoutRect& absoluteRect, EnumSet<BoxAxis> isFixed, const ScrollRectToVisibleOptions&);
+    LayoutRect getPossiblyFixedRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, EnumSet<BoxAxis> isFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const;
+    LayoutRect getPossiblyFixedRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool isFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const;
 
     float deviceScaleFactor() const final;
 
@@ -1003,6 +1010,9 @@ private:
     Timer m_delayedScrollToFocusedElementTimer;
     Timer m_speculativeTilingEnableTimer;
     Timer m_delayedTextFragmentIndicatorTimer;
+
+    Timer m_scrollToTextFragmentRetryTimer;
+    std::optional<MonotonicTime> m_scrollToTextFragmentInitialAttemptTime;
 
     MonotonicTime m_lastPaintTime;
 
@@ -1077,9 +1087,6 @@ private:
     bool m_wasEverScrolledExplicitlyByUser { false };
 
     bool m_shouldUpdateWhileOffscreen { true };
-    bool m_overflowStatusDirty { true };
-    bool m_horizontalOverflow { false };
-    bool m_verticalOverflow { false };
     bool m_canHaveScrollbars { true };
     bool m_cannotBlitToWindow { false };
     bool m_isOverlapped { false };

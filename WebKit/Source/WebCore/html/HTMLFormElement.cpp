@@ -29,7 +29,7 @@
 #include "DOMFormData.h"
 #include "DOMTokenList.h"
 #include "DiagnosticLoggingClient.h"
-#include "Document.h"
+#include "DocumentView.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -114,6 +114,9 @@ HTMLFormElement::~HTMLFormElement()
     document().formController().willDeleteForm(*this);
     if (!shouldAutocomplete())
         document().unregisterForDocumentSuspensionCallbacks(*this);
+
+    // formWillBeDestroyed below will try to update the validity of all radio buttons in a given group.
+    m_radioButtonGroups.clear();
 
     m_defaultButton = nullptr;
     for (auto& weakElement : m_listedElements) {
@@ -468,12 +471,6 @@ void HTMLFormElement::attributeChanged(const QualifiedName& name, const AtomStri
     switch (name.nodeName()) {
     case AttributeNames::actionAttr:
         m_attributes.parseAction(newValue);
-        if (!m_attributes.action().isEmpty()) {
-            if (RefPtr f = document().frame()) {
-                if (auto* topFrame = dynamicDowncast<LocalFrame>(f->tree().top()))
-                    MixedContentChecker::checkFormForMixedContent(*topFrame, document().completeURL(m_attributes.action()));
-            }
-        }
         break;
     case AttributeNames::targetAttr:
         m_attributes.setTarget(newValue);

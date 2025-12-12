@@ -29,6 +29,7 @@
 #include "CompositeEditCommand.h"
 #include "ContainerNodeInlines.h"
 #include "Editing.h"
+#include "NodeDocument.h"
 #include "RenderElement.h"
 #include <wtf/Assertions.h>
 

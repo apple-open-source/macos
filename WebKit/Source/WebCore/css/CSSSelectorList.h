@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "CSSSelector.h"
+#include <WebCore/CSSSelector.h>
 #include <iterator>
 #include <memory>
 #include <wtf/TZoneMalloc.h>
@@ -83,7 +83,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         const_iterator& operator++()
         {
             // Skip subparts of compound selectors.
-            while (!m_ptr->isLastInTagHistory())
+            while (!m_ptr->isFirstInComplexSelector())
                 ++m_ptr;
             m_ptr = m_ptr->isLastInSelectorList() ? nullptr : m_ptr + 1;
             return *this;
@@ -115,7 +115,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     CSSSelectorList& operator=(CSSSelectorList&&) = default;
 
 private:
-    // End of a multipart selector is indicated by m_isLastInTagHistory bit in the last item.
+    // End of a multipart selector is indicated by m_isLastInComplexSelector bit in the last item.
     // End of the array is indicated by m_isLastInSelectorList bit in the last item.
     UniqueArray<CSSSelector> m_selectorArray;
 };

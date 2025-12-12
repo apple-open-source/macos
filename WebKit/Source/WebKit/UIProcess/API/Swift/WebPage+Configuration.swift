@@ -66,7 +66,7 @@ extension WebPage {
         public var deviceSensorAuthorization: WebPage.DeviceSensorAuthorization = WebPage.DeviceSensorAuthorization(decision: .prompt)
 
         /// The app name that appears in the user agent string.
-        public var applicationNameForUserAgent: String? = nil
+        public var applicationNameForUserAgent: Swift.String? = nil
 
         /// Indicates whether the web view limits navigation to pages within the app’s domain.
         ///
@@ -182,7 +182,7 @@ extension WebPage {
 
 extension WebPage.Configuration {
     /// The behavior used when playing HTML video within a page.
-    @available(WK_IOS_TBA, WK_XROS_TBA, *)
+    @available(iOS 26.0, visionOS 26.0, *)
     @available(watchOS, unavailable)
     @available(tvOS, unavailable)
     @available(macOS, unavailable)

@@ -37,6 +37,7 @@
 #import "WebFrame.h"
 #import "WebPage.h"
 #import <JavaScriptCore/JSObjectRef.h>
+#import <JavaScriptCore/OpaqueJSString.h>
 
 #import "JSWebExtensionWrappable.h"
 #import "WebExtensionAPIRuntime.h"
@@ -109,7 +110,7 @@ id callWithArguments(JSObjectRef callbackFunction, JSRetainPtr<JSGlobalContextRe
     return toNSObject(globalContext.get(), JSObjectCallAsFunction(globalContext.get(), callbackFunction, nullptr, ArgumentCount, arguments.data(), nullptr));
 }
 
-void WebExtensionCallbackHandler::reportError(NSString *message)
+void WebExtensionCallbackHandler::reportError(const String& message)
 {
     if (!m_globalContext)
         return;
@@ -122,9 +123,9 @@ void WebExtensionCallbackHandler::reportError(NSString *message)
     if (!m_rejectFunction)
         return;
 
-    RELEASE_LOG_ERROR(Extensions, "Promise rejected: %{public}@", message);
+    RELEASE_LOG_ERROR(Extensions, "Promise rejected: %" PUBLIC_LOG_STRING, message.utf8().data());
 
-    JSValue *error = [JSValue valueWithNewErrorFromMessage:message inContext:[JSContext contextWithJSGlobalContextRef:m_globalContext.get()]];
+    JSValue *error = [JSValue valueWithNewErrorFromMessage:message.createNSString().get() inContext:[JSContext contextWithJSGlobalContextRef:m_globalContext.get()]];
 
     callWithArguments<1>(m_rejectFunction, m_globalContext, {
         toJSValueRef(m_globalContext.get(), error)
@@ -200,7 +201,7 @@ id toNSObject(JSContextRef context, JSValueRef valueRef, Class containingObjects
     return [value toObject];
 }
 
-NSString *toNSString(JSContextRef context, JSValueRef value, NullStringPolicy nullStringPolicy)
+String toString(JSContextRef context, JSValueRef value, NullStringPolicy nullStringPolicy)
 {
     ASSERT(context);
     ASSERT(value);
@@ -208,21 +209,21 @@ NSString *toNSString(JSContextRef context, JSValueRef value, NullStringPolicy nu
     switch (nullStringPolicy) {
     case NullStringPolicy::NullAndUndefinedAsNullString:
         if (JSValueIsUndefined(context, value))
-            return nil;
+            return nullString();
         [[fallthrough]];
 
     case NullStringPolicy::NullAsNullString:
         if (JSValueIsNull(context, value))
-            return nil;
+            return nullString();
         [[fallthrough]];
 
     case NullStringPolicy::NoNullString:
         // Don't try to convert other objects into strings.
         if (!JSValueIsString(context, value))
-            return nil;
+            return nullString();
 
-        JSRetainPtr<JSStringRef> string(Adopt, JSValueToStringCopy(context, value, 0));
-        return CFBridgingRelease(JSStringCopyCFString(nullptr, string.get()));
+        JSRetainPtr string(Adopt, JSValueToStringCopy(context, value, 0));
+        return toString(string.get());
     }
 }
 
@@ -247,14 +248,16 @@ NSDictionary *toNSDictionary(JSContextRef context, JSValueRef valueRef, NullValu
     NSMutableDictionary *result = [NSMutableDictionary dictionaryWithCapacity:propertyNameCount];
 
     for (size_t i = 0; i < propertyNameCount; ++i) {
-        JSRetainPtr<JSStringRef> propertyName = JSPropertyNameArrayGetNameAtIndex(propertyNames, i);
+        JSRetainPtr propertyName = JSPropertyNameArrayGetNameAtIndex(propertyNames, i);
+        if (!propertyName)
+            continue;
         JSValueRef item = JSObjectGetProperty(context, object, propertyName.get(), 0);
 
         // Chrome does not include null values in dictionaries for web extensions.
         if (nullPolicy == NullValuePolicy::NotAllowed && JSValueIsNull(context, item))
             continue;
 
-        auto *key = toNSString(propertyName.get());
+        auto *key = toString(propertyName.get()).createNSString().get();
         auto *itemValue = toJSValue(context, item);
 
         if (valuePolicy == ValuePolicy::StopAtTopLevel) {
@@ -275,18 +278,20 @@ NSDictionary *toNSDictionary(JSContextRef context, JSValueRef valueRef, NullValu
     return [result copy];
 }
 
-JSValueRef toJSValueRef(JSContextRef context, NSString *string, NullOrEmptyString nullOrEmptyString)
+JSValueRef toJSValueRef(JSContextRef context, const String& string, NullOrEmptyString nullOrEmptyString)
 {
     ASSERT(context);
 
     switch (nullOrEmptyString) {
     case NullOrEmptyString::NullStringAsNull:
-        if (!string)
+        if (string.isEmpty())
             return JSValueMakeNull(context);
         [[fallthrough]];
 
     case NullOrEmptyString::NullStringAsEmptyString:
-        return JSValueMakeString(context, toJSString(string).get());
+        if (JSRetainPtr stringRef = toJSString(string))
+            return JSValueMakeString(context, stringRef.get());
+        return JSValueMakeNull(context);
     }
 }
 
@@ -314,49 +319,56 @@ RefPtr<WebExtensionCallbackHandler> toJSCallbackHandler(JSContextRef context, JS
     return WebExtensionCallbackHandler::create(context, callbackFunction, runtime);
 }
 
-NSString *toNSString(JSStringRef string)
+String toString(JSStringRef string)
 {
-    return string ? CFBridgingRelease(JSStringCopyCFString(nullptr, string)) : nil;
+    if (!string)
+        return nullString();
+
+    Vector<char> buffer(JSStringGetMaximumUTF8CStringSize(string));
+    JSStringGetUTF8CString(string, buffer.mutableSpan().data(), buffer.size());
+    return String::fromUTF8(buffer.span().data());
 }
 
-JSValueRef deserializeJSONString(JSContextRef context, NSString *jsonString)
+JSValueRef deserializeJSONString(JSContextRef context, const String& jsonString)
 {
     ASSERT(context);
 
-    if (!jsonString)
+    if (jsonString.isEmpty())
         return JSValueMakeNull(context);
 
-    if (JSValueRef value = JSValueMakeFromJSONString(context, toJSString(jsonString).get()))
-        return value;
+    if (JSRetainPtr string = toJSString(jsonString)) {
+        if (JSValueRef value = JSValueMakeFromJSONString(context, string.get()))
+            return value;
+    }
 
     return JSValueMakeNull(context);
 }
 
-NSString *serializeJSObject(JSContextRef context, JSValueRef value, JSValueRef* exception)
+String serializeJSObject(JSContextRef context, JSValueRef value, JSValueRef* exception)
 {
     ASSERT(context);
 
     if (!value)
-        return nil;
+        return nullString();
 
-    JSRetainPtr<JSStringRef> string(Adopt, JSValueCreateJSONString(context, value, 0, exception));
+    JSRetainPtr string(Adopt, JSValueCreateJSONString(context, value, 0, exception));
 
-    return toNSString(string.get());
+    return toString(string.get());
 }
 
-JSObjectRef toJSError(JSContextRef context, NSString *string)
+JSObjectRef toJSError(JSContextRef context, const String& string)
 {
     ASSERT(context);
 
-    RELEASE_LOG_ERROR(Extensions, "Exception thrown: %{public}@", string);
+    RELEASE_LOG_ERROR(Extensions, "Exception thrown: %" PUBLIC_LOG_STRING, string.utf8().data());
 
     JSValueRef messageArgument = toJSValueRef(context, string, NullOrEmptyString::NullStringAsEmptyString);
     return JSObjectMakeError(context, 1, &messageArgument, nullptr);
 }
 
-JSRetainPtr<JSStringRef> toJSString(NSString *string)
+JSRetainPtr<JSStringRef> toJSString(const String& string)
 {
-    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithCFString(string ? (__bridge CFStringRef)string : CFSTR("")));
+    return JSRetainPtr(Adopt, JSStringCreateWithUTF8CString(!string.isEmpty() ? string.utf8().data() : ""));
 }
 
 JSValueRef toJSValueRefOrJSNull(JSContextRef context, id object)
@@ -428,7 +440,7 @@ using namespace WebKit;
 
 - (NSString *)_toJSONString
 {
-    return serializeJSObject(self.context.JSGlobalContextRef, self.JSValueRef, nullptr);
+    return nsStringNilIfEmpty(serializeJSObject(self.context.JSGlobalContextRef, self.JSValueRef, nullptr));
 }
 
 - (NSString *)_toSortedJSONString

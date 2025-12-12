@@ -390,6 +390,7 @@ namespace JSC { namespace DFG {
     macro(TailCallForwardVarargsInlinedCaller, NodeResultJS | NodeMustGenerate) \
     macro(CallDirectEval, NodeResultJS | NodeMustGenerate | NodeHasVarArgs) \
     macro(CallWasm, NodeResultJS | NodeMustGenerate | NodeHasVarArgs) \
+    macro(TailCallInlinedCallerWasm, NodeResultJS | NodeMustGenerate | NodeHasVarArgs) \
     \
     macro(CallCustomAccessorGetter, NodeResultJS | NodeMustGenerate) \
     macro(CallCustomAccessorSetter, NodeMustGenerate) \
@@ -633,6 +634,13 @@ namespace JSC { namespace DFG {
     macro(DateGetInt32OrNaN, NodeResultJS) \
     macro(DateGetTime, NodeResultDouble) \
     macro(DateSetTime, NodeMustGenerate | NodeResultDouble) \
+    /* Promise */ \
+    macro(ResolvePromiseFirstResolving, NodeMustGenerate) \
+    macro(RejectPromiseFirstResolving, NodeMustGenerate) \
+    macro(FulfillPromiseFirstResolving, NodeMustGenerate) \
+    macro(PromiseResolve, NodeMustGenerate | NodeResultJS) \
+    macro(PromiseReject, NodeMustGenerate | NodeResultJS) \
+    macro(PromiseThen, NodeMustGenerate | NodeResultJS) \
 
 
 // This enum generates a monotonically increasing id for all Node types,

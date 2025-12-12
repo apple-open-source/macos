@@ -797,10 +797,12 @@ in6ctl_llstop(struct ifnet *ifp)
 	pr = nd6_prefix_lookup(&pr0, ND6_PREFIX_EXPIRY_UNSPEC);
 	if (pr) {
 		lck_mtx_lock(nd6_mutex);
+		nd_prefix_busy_wait();
 		NDPR_LOCK(pr);
 		prelist_remove(pr);
 		NDPR_UNLOCK(pr);
 		NDPR_REMREF(pr); /* Drop the reference from lookup */
+		nd_prefix_busy_signal();
 		lck_mtx_unlock(nd6_mutex);
 	}
 
@@ -1159,7 +1161,7 @@ in6ctl_clat46start(struct ifnet *ifp)
 			 * XXX: what if address duplication happens?
 			 */
 			lck_mtx_lock(nd6_mutex);
-			pfxlist_onlink_check();
+			pfxlist_onlink_check(false);
 			lck_mtx_unlock(nd6_mutex);
 		}
 		NDPR_REMREF(pr);
@@ -1860,7 +1862,7 @@ in6ctl_aifaddr(struct ifnet *ifp, struct in6_aliasreq *ifra)
 	 * this address might make other addresses detached.
 	 */
 	lck_mtx_lock(nd6_mutex);
-	pfxlist_onlink_check();
+	pfxlist_onlink_check(false);
 	lck_mtx_unlock(nd6_mutex);
 
 	/* Drop use count held above during lookup/add */
@@ -2869,7 +2871,7 @@ in6_unlink_ifa(struct in6_ifaddr *ia, struct ifnet *ifp)
 
 	if ((ia->ia6_flags & IN6_IFF_AUTOCONF) != 0) {
 		lck_mtx_lock(nd6_mutex);
-		pfxlist_onlink_check();
+		pfxlist_onlink_check(false);
 		lck_mtx_unlock(nd6_mutex);
 	}
 	/*

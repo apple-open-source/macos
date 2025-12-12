@@ -172,9 +172,7 @@ struct vm_object {
 	                                         * shadows this object, for
 	                                         * copy_call.
 	                                         */
-	uint32_t                vo_copy_version;
-	uint32_t                vo_inherit_copy_none:1,
-	    __vo_unused_padding:31;
+	uint64_t                vo_copy_version;
 	struct vm_object        *shadow;        /* My shadow */
 	memory_object_t         pager;          /* Where to get data */
 
@@ -412,6 +410,8 @@ struct vm_object {
 	 */
 	vm_map_serial_t vmo_provenance;
 	uint32_t vmo_pl_req_in_progress; /* page list request in progress */
+	uint32_t                vo_inherit_copy_none:1,
+	    __vo_unused_padding:31;
 };
 
 #define VM_OBJECT_PURGEABLE_FAULT_ERROR(object)                         \

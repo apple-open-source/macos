@@ -24,11 +24,11 @@
 
 #pragma once
 
-#include "CSSProperty.h"
-#include "CSSPropertyNames.h"
-#include "CSSStyleDeclaration.h"
-#include "StyleRuleType.h"
-#include "StyledElement.h"
+#include <WebCore/CSSProperty.h>
+#include <WebCore/CSSPropertyNames.h>
+#include <WebCore/CSSStyleDeclaration.h>
+#include <WebCore/StyleRuleType.h>
+#include <WebCore/StyledElement.h>
 #include <wtf/HashMap.h>
 #include <wtf/OptionalOrReference.h>
 #include <wtf/RefCounted.h>
@@ -146,14 +146,14 @@ private:
 
     CSSStyleSheet* parentStyleSheet() const final;
 
-    CSSRule* parentRule() const final { return m_parentRule; }
+    CSSRule* parentRule() const final;
 
     bool willMutate() final WARN_UNUSED_RETURN;
     void didMutate(MutationType) final;
     OptionalOrReference<CSSParserContext> cssParserContext() const final;
 
     StyleRuleType m_parentRuleType;
-    CSSRule* m_parentRule;
+    WeakPtr<CSSRule> m_parentRule;
 };
 
 class InlineCSSStyleProperties final : public PropertySetCSSStyleProperties {

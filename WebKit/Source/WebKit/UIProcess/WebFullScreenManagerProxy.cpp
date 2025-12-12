@@ -82,8 +82,7 @@ WebFullScreenManagerProxy::~WebFullScreenManagerProxy()
 {
     if (RefPtr page = m_page.get())
         page->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), page->webPageIDInMainFrameProcess());
-    if (CheckedPtr client = m_client)
-        client->closeFullScreenManager();
+    detachFromClient();
     callCloseCompletionHandlers();
 }
 

@@ -28,6 +28,7 @@
 
 #include "EllipsisBoxPainter.h"
 #include "InlineBoxPainter.h"
+#include "InlineDisplayBoxInlines.h"
 #include "PaintInfo.h"
 #include "RenderBox.h"
 #include "RenderInline.h"

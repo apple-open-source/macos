@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "ParserModes.h"
-#include "UnlinkedSourceCode.h"
+#include <JavaScriptCore/ParserModes.h>
+#include <JavaScriptCore/UnlinkedSourceCode.h>
 #include <wtf/HashTraits.h>
 
 namespace JSC {
@@ -65,7 +65,7 @@ private:
 };
 
 class SourceCodeKey {
-    WTF_MAKE_FAST_ALLOCATED(SourceCodeKey);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(SourceCodeKey);
     friend class CachedSourceCodeKey;
 
 public:

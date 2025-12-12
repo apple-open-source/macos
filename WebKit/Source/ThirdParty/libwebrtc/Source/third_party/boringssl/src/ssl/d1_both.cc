@@ -338,6 +338,7 @@ bool dtls1_process_handshake_fragments(SSL *ssl, uint8_t *out_alert,
     // Copy the body into the fragment.
     Span<uint8_t> dest = frag->msg().subspan(frag_off, CBS_len(&body));
     OPENSSL_memcpy(dest.data(), CBS_data(&body), CBS_len(&body));
+    assert(dest.size() == CBS_len(&body));
     frag->reassembly.MarkRange(frag_off, frag_off + frag_len);
   }
 
@@ -920,11 +921,7 @@ static int send_flight(SSL *ssl) {
     }
   }
 
-  if (BIO_flush(ssl->wbio.get()) <= 0) {
-    ssl->s3->rwstate = SSL_ERROR_WANT_WRITE;
-    return -1;
-  }
-
+  ssl->d1->pending_flush = true;
   return 1;
 }
 
@@ -1015,11 +1012,7 @@ static int send_ack(SSL *ssl) {
     return bio_ret;
   }
 
-  if (BIO_flush(ssl->wbio.get()) <= 0) {
-    ssl->s3->rwstate = SSL_ERROR_WANT_WRITE;
-    return -1;
-  }
-
+  ssl->d1->pending_flush = true;
   return 1;
 }
 
@@ -1060,6 +1053,14 @@ int dtls1_flush(SSL *ssl) {
       ssl->d1->retransmit_timer.StartMicroseconds(
           now, uint64_t{ssl->d1->timeout_duration_ms} * 1000);
     }
+  }
+
+  if (ssl->d1->pending_flush) {
+    if (BIO_flush(ssl->wbio.get()) <= 0) {
+      ssl->s3->rwstate = SSL_ERROR_WANT_WRITE;
+      return -1;
+    }
+    ssl->d1->pending_flush = false;
   }
 
   return 1;

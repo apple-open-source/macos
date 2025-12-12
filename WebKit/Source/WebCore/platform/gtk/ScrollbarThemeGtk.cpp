@@ -33,7 +33,7 @@
 #include "PlatformMouseEvent.h"
 #include "RenderThemeScrollbar.h"
 #include "ScrollView.h"
-#include "Scrollbar.h"
+#include "ScrollbarInlines.h"
 #include "SystemSettings.h"
 #include <cstdlib>
 

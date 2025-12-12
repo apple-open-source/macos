@@ -1140,9 +1140,9 @@ static VariantCode parseVariantCode(StringView string)
     ASSERT(string.length() <= 8);
     ASSERT(string.length() >= 1);
     struct Code {
-        LChar characters[8] { };
+        Latin1Character characters[8] { };
     };
-    static_assert(std::is_unsigned_v<LChar>);
+    static_assert(std::is_unsigned_v<Latin1Character>);
     static_assert(sizeof(VariantCode) == sizeof(Code));
     Code code { };
     for (unsigned index = 0; index < string.length(); ++index)
@@ -1625,15 +1625,21 @@ const Vector<String>& intlAvailableCalendars()
             return StringImpl::createStaticStringImpl(string.span16());
         };
 
-        availableCalendars.construct(count, [&](size_t) {
+        availableCalendars.construct();
+        for (int32_t i = 0; i < count; ++i) {
             int32_t length = 0;
             const char* pointer = uenum_next(enumeration.get(), &length, &status);
             ASSERT(U_SUCCESS(status));
             String calendar(unsafeMakeSpan(pointer, static_cast<size_t>(length)));
             if (auto mapped = mapICUCalendarKeywordToBCP47(calendar))
-                return createImmortalThreadSafeString(WTFMove(mapped.value()));
-            return createImmortalThreadSafeString(WTFMove(calendar));
-        });
+                calendar = WTFMove(mapped.value());
+
+            // Skip if the obtained calendar code is not meeting Unicode Locale Identifier's `type` definition
+            // as whole ECMAScript's i18n is relying on Unicode Local Identifiers.
+            if (!isUnicodeLocaleIdentifierType(calendar))
+                continue;
+            availableCalendars->append(createImmortalThreadSafeString(WTFMove(calendar)));
+        }
 
         // The AvailableCalendars abstract operation returns a List, ordered as if an Array of the same
         // values had been sorted using %Array.prototype.sort% using undefined as comparator
@@ -1832,7 +1838,7 @@ static bool isValidTimeZoneNameFromICUTimeZone(StringView timeZoneName)
     if (timeZoneName.startsWith("SystemV/"_s))
         return false;
     if (timeZoneName.startsWith("Etc/"_s))
-        return isUTCEquivalent(timeZoneName);
+        return true;
     // IANA time zone names include '/'. Some of them are not including, but it is in backward links.
     // And ICU already resolved these backward links.
     if (!timeZoneName.contains('/'))
@@ -1848,7 +1854,7 @@ static std::optional<String> canonicalizeTimeZoneNameFromICUTimeZone(String&& ti
     return std::make_optional(WTFMove(timeZoneName));
 }
 
-// https://tc39.es/proposal-intl-enumeration/#sec-availabletimezones
+// https://tc39.es/ecma402/#sup-availablenamedtimezoneidentifiers
 const Vector<String>& intlAvailableTimeZones()
 {
     static LazyNeverDestroyed<Vector<String>> availableTimeZones;
@@ -1907,8 +1913,8 @@ TimeZoneID utcTimeZoneIDSlow()
     return utcTimeZoneIDStorage;
 }
 
-// https://tc39.es/proposal-intl-enumeration/#sec-availabletimezones
-static JSArray* availableTimeZones(JSGlobalObject* globalObject)
+// https://tc39.es/ecma402/#sec-availableprimarytimezoneidentifiers
+static JSArray* availablePrimaryTimeZoneIdentifiers(JSGlobalObject* globalObject)
 {
     return createArrayFromStringVector(globalObject, intlAvailableTimeZones());
 }
@@ -1939,7 +1945,7 @@ static JSArray* availableUnits(JSGlobalObject* globalObject)
     return result;
 }
 
-// https://tc39.es/proposal-intl-enumeration/#sec-intl.supportedvaluesof
+// https://tc39.es/ecma402/#sec-intl.supportedvaluesof
 JSC_DEFINE_HOST_FUNCTION(intlObjectFuncSupportedValuesOf, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
@@ -1961,7 +1967,7 @@ JSC_DEFINE_HOST_FUNCTION(intlObjectFuncSupportedValuesOf, (JSGlobalObject* globa
         RELEASE_AND_RETURN(scope, JSValue::encode(availableNumberingSystems(globalObject)));
 
     if (key == "timeZone"_s)
-        RELEASE_AND_RETURN(scope, JSValue::encode(availableTimeZones(globalObject)));
+        RELEASE_AND_RETURN(scope, JSValue::encode(availablePrimaryTimeZoneIdentifiers(globalObject)));
 
     if (key == "unit"_s)
         RELEASE_AND_RETURN(scope, JSValue::encode(availableUnits(globalObject)));

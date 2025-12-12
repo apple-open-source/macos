@@ -5,7 +5,7 @@
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2003-2025 Apple Inc. All rights reserved.
- * Copyright (C) 2016 Google Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +26,7 @@
 #pragma once
 
 #include "RenderTable.h"
+#include "StylePreferredSize.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -106,10 +107,10 @@ public:
     void appendColumn(unsigned pos);
     void splitColumn(unsigned pos, unsigned first);
 
-    LayoutUnit calcOuterBorderBefore() const;
-    LayoutUnit calcOuterBorderAfter() const;
-    LayoutUnit calcOuterBorderStart() const;
-    LayoutUnit calcOuterBorderEnd() const;
+    enum class BlockBorderSide { BorderBefore, BorderAfter };
+    LayoutUnit calcBlockDirectionOuterBorder(BlockBorderSide) const;
+    enum class InlineBorderSide { BorderStart, BorderEnd };
+    LayoutUnit calcInlineDirectionOuterBorder(InlineBorderSide) const;
     void recalcOuterBorder();
 
     LayoutUnit outerBorderBefore() const { return m_outerBorderBefore; }
@@ -216,6 +217,8 @@ private:
     CellSpan spannedColumns(const LayoutRect& flippedRect, ShouldIncludeAllIntersectingCells) const;
 
     void setLogicalPositionForCell(RenderTableCell*, unsigned effectiveColumn) const;
+
+    LayoutUnit cellLogicalWidthInTableDirectionIncludingColumnSpan(const RenderTableCell&, size_t startColumn, size_t numberOfColumns) const;
 
     void firstChild() const = delete;
     void lastChild() const = delete;

@@ -27,13 +27,14 @@
 
 #include "AXObjectCache.h"
 #include "Autofill.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "ContainerNodeInlines.h"
+#include "DocumentQuirks.h"
 #include "ElementInlines.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "FormAssociatedElement.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLButtonElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
@@ -41,8 +42,8 @@
 #include "LocalFrameView.h"
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
-#include "Quirks.h"
 #include "RenderBox.h"
+#include "RenderStyleInlines.h"
 #include "RenderTheme.h"
 #include "SelectionRestorationMode.h"
 #include "Settings.h"
@@ -65,6 +66,7 @@ HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Doc
     , m_isRequired(false)
     , m_valueMatchesRenderer(false)
     , m_wasChangedSinceLastFormControlChangeEvent(false)
+    , m_wasCreatedByTaintedScript(document.requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory::FormControls, ScriptExecutionContext::IncludeConsoleLog::No))
 {
 }
 

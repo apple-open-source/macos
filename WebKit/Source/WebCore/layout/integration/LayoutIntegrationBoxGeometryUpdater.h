@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "FormattingConstraints.h"
 #include "InlineFormattingConstraints.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutIntegrationBoxTreeUpdater.h"
-#include "LayoutState.h"
+#include <WebCore/FormattingConstraints.h>
+#include <WebCore/LayoutState.h>
 
 namespace WebCore {
 

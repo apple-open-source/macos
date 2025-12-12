@@ -29,19 +29,19 @@
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
-#include "CatchScope.h"
-#include "Error.h"
-#include "ExceptionHelpers.h"
-#include "Identifier.h"
-#include "InternalFunction.h"
-#include "JSBigInt.h"
-#include "JSCJSValue.h"
-#include "JSCellInlines.h"
-#include "JSFunction.h"
-#include "JSGlobalProxy.h"
-#include "JSObject.h"
-#include "JSStringInlines.h"
-#include "MathCommon.h"
+#include <JavaScriptCore/CatchScope.h>
+#include <JavaScriptCore/Error.h>
+#include <JavaScriptCore/ExceptionHelpers.h>
+#include <JavaScriptCore/Identifier.h>
+#include <JavaScriptCore/InternalFunction.h>
+#include <JavaScriptCore/JSBigInt.h>
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/JSCellInlines.h>
+#include <JavaScriptCore/JSFunction.h>
+#include <JavaScriptCore/JSGlobalProxy.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/JSStringInlines.h>
+#include <JavaScriptCore/MathCommon.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringImpl.h>
 
@@ -65,58 +65,34 @@ inline uint32_t JSValue::toUInt32(JSGlobalObject* globalObject) const
     return toInt32(globalObject);
 }
 
-inline uint32_t JSValue::toIndex(JSGlobalObject* globalObject, ASCIILiteral errorName) const
+// https://tc39.es/ecma262/#sec-toindex
+inline uint64_t JSValue::toIndex(JSGlobalObject* globalObject, ASCIILiteral errorName) const
 {
     VM& vm = getVM(globalObject);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    double d = toNumber(globalObject);
+    if (isInt32()) {
+        int32_t integer = asInt32();
+        if (integer < 0) [[unlikely]] {
+            throwException(globalObject, scope, createRangeError(globalObject, makeString(errorName, " cannot be negative"_s)));
+            return 0;
+        }
+        return integer;
+    }
+
+    double d = toIntegerOrInfinity(globalObject);
     RETURN_IF_EXCEPTION(scope, 0);
-    if (d <= -1) {
+    if (d < 0) [[unlikely]] {
         throwException(globalObject, scope, createRangeError(globalObject, makeString(errorName, " cannot be negative"_s)));
         return 0;
     }
 
-    if (isInt32())
-        return asInt32();
-
-    if (d > static_cast<double>(std::numeric_limits<unsigned>::max())) {
-        throwException(globalObject, scope, createRangeError(globalObject, makeString(errorName, " too large"_s)));
+    if (d > maxSafeInteger()) [[unlikely]] {
+        throwException(globalObject, scope, createRangeError(globalObject, makeString(errorName, " larger than (2 ** 53) - 1"_s)));
         return 0;
     }
 
-    RELEASE_AND_RETURN(scope, JSC::toInt32(d));
-}
-
-inline size_t JSValue::toTypedArrayIndex(JSGlobalObject* globalObject, ASCIILiteral errorName) const
-{
-    VM& vm = getVM(globalObject);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    double d = toNumber(globalObject);
-    RETURN_IF_EXCEPTION(scope, 0);
-    if (d <= -1) {
-        throwException(globalObject, scope, createRangeError(globalObject, makeString(errorName, " cannot be negative"_s)));
-        return 0;
-    }
-
-    if (isInt32())
-        return asInt32();
-
-    if (d > static_cast<double>(MAX_ARRAY_BUFFER_SIZE)) {
-        throwException(globalObject, scope, createRangeError(globalObject, makeString(errorName, " too large"_s)));
-        return 0;
-    }
-
-    // All of this monstrosity is just to give the correct result on 1<<32.
-    size_t outputOffset = 0;
-    double inputOffset = 0;
-    size_t int32Max = std::numeric_limits<int32_t>::max();
-    if (d > static_cast<double>(int32Max)) {
-        outputOffset = int32Max;
-        inputOffset = int32Max;
-    }
-    RELEASE_AND_RETURN(scope, outputOffset + static_cast<size_t>(static_cast<uint32_t>(JSC::toInt32(d - inputOffset))));
+    RELEASE_AND_RETURN(scope, d);
 }
 
 // https://tc39.es/proposal-temporal/#sec-tointegerwithtruncation

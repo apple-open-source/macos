@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 *   Copyright (C) 2010-2016, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *   file name:  ucharstriebuilder.h
 *   encoding:   UTF-8
@@ -133,8 +133,8 @@ public:
     }
 
 private:
-    UCharsTrieBuilder(const UCharsTrieBuilder &other);  // no copy constructor
-    UCharsTrieBuilder &operator=(const UCharsTrieBuilder &other);  // no assignment operator
+    UCharsTrieBuilder(const UCharsTrieBuilder &other) = delete;  // no copy constructor
+    UCharsTrieBuilder &operator=(const UCharsTrieBuilder &other) = delete;  // no assignment operator
 
     void buildUChars(UStringTrieBuildOption buildOption, UErrorCode &errorCode);
 

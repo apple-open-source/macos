@@ -26,21 +26,8 @@
 
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
+#include "LibWebRTCRtpSenderBackend.h"
 #include "LibWebRTCRtpTransformBackend.h"
-#include <wtf/Ref.h>
-#include <wtf/TZoneMalloc.h>
-
-ALLOW_UNUSED_PARAMETERS_BEGIN
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-
-#include <webrtc/api/rtp_sender_interface.h>
-
-ALLOW_DEPRECATED_DECLARATIONS_END
-ALLOW_UNUSED_PARAMETERS_END
-
-namespace webrtc {
-class RtpSenderInterface;
-}
 
 namespace WebCore {
 
@@ -49,18 +36,18 @@ class LibWebRTCSenderTransformer;
 class LibWebRTCRtpSenderTransformBackend final : public LibWebRTCRtpTransformBackend {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCRtpSenderTransformBackend);
 public:
-    static Ref<LibWebRTCRtpSenderTransformBackend> create(webrtc::scoped_refptr<webrtc::RtpSenderInterface> sender) { return adoptRef(*new LibWebRTCRtpSenderTransformBackend(WTFMove(sender))); }
+    static Ref<LibWebRTCRtpSenderTransformBackend> create(Ref<webrtc::RtpSenderInterface>&& sender) { return adoptRef(*new LibWebRTCRtpSenderTransformBackend(WTFMove(sender))); }
     ~LibWebRTCRtpSenderTransformBackend();
 
 private:
-    explicit LibWebRTCRtpSenderTransformBackend(webrtc::scoped_refptr<webrtc::RtpSenderInterface>);
+    explicit LibWebRTCRtpSenderTransformBackend(Ref<webrtc::RtpSenderInterface>&&);
 
     // RTCRtpTransformBackend
     void setTransformableFrameCallback(Callback&&) final;
     bool requestKeyFrame(const String&) final;
 
     bool m_isRegistered { false };
-    webrtc::scoped_refptr<webrtc::RtpSenderInterface> m_rtcSender;
+    const Ref<webrtc::RtpSenderInterface> m_rtcSender;
 };
 
 } // namespace WebCore

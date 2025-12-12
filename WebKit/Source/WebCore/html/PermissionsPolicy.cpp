@@ -28,7 +28,6 @@
 
 #include "Allowlist.h"
 #include "Document.h"
-#include "DocumentInlines.h"
 #include "ElementInlines.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
@@ -90,6 +89,8 @@ static ASCIILiteral toFeatureNameForLogging(PermissionsPolicy::Feature feature)
 #endif
     case PermissionsPolicy::Feature::PrivateToken:
         return "PrivateToken"_s;
+    case PermissionsPolicy::Feature::StorageAccess:
+        return "StorageAccess"_s;
     case PermissionsPolicy::Feature::Invalid:
         return "Invalid"_s;
     }
@@ -100,7 +101,7 @@ static ASCIILiteral toFeatureNameForLogging(PermissionsPolicy::Feature feature)
 // https://w3c.github.io/webappsec-permissions-policy/#serialized-policy-directive
 static std::pair<PermissionsPolicy::Feature, StringView> readFeatureIdentifier(StringView value)
 {
-    value = value.trim(isASCIIWhitespace<UChar>);
+    value = value.trim(isASCIIWhitespace<char16_t>);
 
     PermissionsPolicy::Feature feature = PermissionsPolicy::Feature::Invalid;
     StringView remainingValue;
@@ -129,6 +130,7 @@ static std::pair<PermissionsPolicy::Feature, StringView> readFeatureIdentifier(S
     constexpr auto xrSpatialTrackingToken { "xr-spatial-tracking"_s };
 #endif
     constexpr auto privateTokenToken { "private-token"_s };
+    constexpr auto storageAccessToken { "storage-access"_s };
 
     if (value.startsWith(cameraToken)) {
         feature = PermissionsPolicy::Feature::Camera;
@@ -190,6 +192,9 @@ static std::pair<PermissionsPolicy::Feature, StringView> readFeatureIdentifier(S
     } else if (value.startsWith(privateTokenToken)) {
         feature = PermissionsPolicy::Feature::PrivateToken;
         remainingValue = value.substring(privateTokenToken.length());
+    } else if (value.startsWith(storageAccessToken)) {
+        feature = PermissionsPolicy::Feature::StorageAccess;
+        remainingValue = value.substring(storageAccessToken.length());
     }
 
     // FIXME: webkit.org/b/274159.
@@ -206,6 +211,7 @@ static ASCIILiteral defaultAllowlistValue(PermissionsPolicy::Feature feature)
     switch (feature) {
     case PermissionsPolicy::Feature::Gamepad:
     case PermissionsPolicy::Feature::SyncXHR:
+    case PermissionsPolicy::Feature::StorageAccess:
         return "*"_s;
     case PermissionsPolicy::Feature::Camera:
     case PermissionsPolicy::Feature::Microphone:
@@ -268,8 +274,8 @@ static bool checkPermissionsPolicy(const PermissionsPolicy& permissionsPolicy, P
 // Similar to https://infra.spec.whatwg.org/#split-on-ascii-whitespace but only extract one token at a time.
 static std::pair<StringView, StringView> splitOnAsciiWhiteSpace(StringView input)
 {
-    input = input.trim(isASCIIWhitespace<UChar>);
-    auto position = input.find(isASCIIWhitespace<UChar>);
+    input = input.trim(isASCIIWhitespace<char16_t>);
+    auto position = input.find(isASCIIWhitespace<char16_t>);
     if (position == notFound)
         return { input, StringView { } };
 

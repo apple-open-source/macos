@@ -30,6 +30,7 @@
 #include "InlineIteratorLineBox.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderMultiColumnFlow.h"
+#include "RenderObjectDocument.h"
 #include "RenderView.h"
 
 namespace WebCore {
@@ -71,7 +72,7 @@ static inline RenderBlockFlow* firstFormattedLineRoot(const RenderBlockFlow& enc
         if (!blockContainer || blockContainer->createsNewFormattingContext())
             continue;
         if (blockContainer->hasLines())
-            return blockContainer.get();
+            return blockContainer.unsafeGet();
         if (auto* descendantRoot = firstFormattedLineRoot(*blockContainer))
             return descendantRoot;
         if (!shouldIgnoreAsFirstLastFormattedLineContainer(*blockContainer))
@@ -87,7 +88,7 @@ static RenderBlockFlow* lastFormattedLineRoot(const RenderBlockFlow& enclosingBl
         if (!blockContainer || blockContainer->createsNewFormattingContext())
             continue;
         if (blockContainer->hasLines())
-            return blockContainer.get();
+            return blockContainer.unsafeGet();
         if (auto* descendantRoot = lastFormattedLineRoot(*blockContainer))
             return descendantRoot;
         if (!shouldIgnoreAsFirstLastFormattedLineContainer(*blockContainer))

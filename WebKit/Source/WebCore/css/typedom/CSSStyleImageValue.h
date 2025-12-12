@@ -50,7 +50,7 @@ public:
     bool isLoadedFromOpaqueSource() const { return m_cssValue->isLoadedFromOpaqueSource(); }
     Document* document() const;
     
-    CSSStyleValueType getType() const final { return CSSStyleValueType::CSSStyleImageValue; }
+    CSSStyleValueType styleValueType() const final { return CSSStyleValueType::CSSStyleImageValue; }
     
     RefPtr<CSSValue> toCSSValue() const final;
 
@@ -64,5 +64,5 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CSSStyleImageValue)
-    static bool isType(const WebCore::CSSStyleValue& styleValue) { return styleValue.getType() == WebCore::CSSStyleValueType::CSSStyleImageValue; }
+    static bool isType(const WebCore::CSSStyleValue& styleValue) { return styleValue.styleValueType() == WebCore::CSSStyleValueType::CSSStyleImageValue; }
 SPECIALIZE_TYPE_TRAITS_END()

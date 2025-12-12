@@ -100,7 +100,6 @@ void WebFramePolicyListenerProxy::download()
 
 void WebFramePolicyListenerProxy::ignore(WasNavigationIntercepted wasNavigationIntercepted)
 {
-    WTFReportBacktrace();
     if (m_reply)
         m_reply(WebCore::PolicyAction::Ignore, nullptr, ProcessSwapRequestedByClient::No, { }, wasNavigationIntercepted);
 }

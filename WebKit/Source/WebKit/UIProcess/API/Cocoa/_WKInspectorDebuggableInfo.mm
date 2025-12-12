@@ -95,7 +95,7 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKInspectorDebuggableInfo.class, self))
         return;
 
-    _debuggableInfo->~DebuggableInfo();
+    SUPPRESS_UNRETAINED_ARG _debuggableInfo->~DebuggableInfo();
 
     [super dealloc];
 }

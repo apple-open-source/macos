@@ -30,6 +30,7 @@
 #if ENABLE(NOTIFICATIONS)
 
 #include "BitmapImage.h"
+#include "ContextDestructionObserverInlines.h"
 #include "EventTargetInlines.h"
 #include "GraphicsContext.h"
 #include "NotificationResources.h"
@@ -44,6 +45,7 @@ namespace WebCore {
 // https://notifications.spec.whatwg.org/#resources
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(NotificationResourcesLoader);
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ResourceLoader);
 
 NotificationResourcesLoader::NotificationResourcesLoader(Notification& notification)
     : m_notification(notification)

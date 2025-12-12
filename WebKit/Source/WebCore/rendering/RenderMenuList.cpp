@@ -30,7 +30,7 @@
 #include "CSSFontSelector.h"
 #include "Chrome.h"
 #include "ColorBlending.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
 #include "ElementInlines.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
@@ -45,6 +45,7 @@
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderChildIterator.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderObjectInlines.h"
 #include "RenderScrollbar.h"
@@ -225,18 +226,7 @@ void RenderMenuList::updateOptionsWidth()
 
         String text = option->textIndentedToRespectGroupLabel();
         text = applyTextTransform(style(), text);
-        if (theme().popupOptionSupportsTextIndent()) {
-            // Add in the option's text indent.  We can't calculate percentage values for now.
-            float optionWidth = 0;
-            if (auto* optionStyle = option->computedStyleForEditability())
-                optionWidth += Style::evaluate(optionStyle->textIndent().length, 0);
-            if (!text.isEmpty()) {
-                const FontCascade& font = style().fontCascade();
-                TextRun run = RenderBlock::constructTextRun(text, style());
-                optionWidth += font.width(run);
-            }
-            maxOptionWidth = std::max(maxOptionWidth, optionWidth);
-        } else if (!text.isEmpty()) {
+        if (!text.isEmpty()) {
             const FontCascade& font = style().fontCascade();
             TextRun run = RenderBlock::constructTextRun(text, style());
             maxOptionWidth = std::max(maxOptionWidth, font.width(run));
@@ -338,8 +328,6 @@ LayoutRect RenderMenuList::controlClipRect(const LayoutPoint& additionalOffset) 
 
 void RenderMenuList::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
-    // FIXME: Fix field-sizing: content with size containment
-    // https://bugs.webkit.org/show_bug.cgi?id=269169
     if (style().fieldSizing() == FieldSizing::Content)
         return RenderFlexibleBox::computeIntrinsicLogicalWidths(minLogicalWidth, maxLogicalWidth);
 
@@ -351,7 +339,7 @@ void RenderMenuList::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, 
     }
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
-        minLogicalWidth = std::max(0_lu, Style::evaluate(logicalWidth, 0_lu));
+        minLogicalWidth = std::max(0_lu, Style::evaluate<LayoutUnit>(logicalWidth, 0_lu, Style::ZoomNeeded { }));
     else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }
@@ -366,7 +354,7 @@ void RenderMenuList::computePreferredLogicalWidths()
     m_minPreferredLogicalWidth = 0;
     m_maxPreferredLogicalWidth = 0;
     
-    if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->value > 0)
+    if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->isPositive())
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
@@ -452,9 +440,7 @@ void RenderMenuList::didUpdateActiveOption(int optionIndex)
     if (listIndex < 0 || listIndex >= static_cast<int>(selectElement().listItems().size()))
         return;
 
-    auto* axObject = axCache->get(this);
-    if (RefPtr menuList = dynamicDowncast<AccessibilityMenuList>(axObject))
-        menuList->didUpdateActiveOption(optionIndex);
+    axCache->onSelectedOptionChanged(*this, optionIndex);
 }
 
 String RenderMenuList::itemText(unsigned listIndex) const
@@ -551,7 +537,6 @@ PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
         style->visibility() == Visibility::Visible,
         style->display() == DisplayType::None,
         true,
-        Style::toPlatform(style->textIndent().length),
         style->writingMode().bidiDirection(),
         isOverride(style->unicodeBidi()),
         itemHasCustomBackgroundColor ? PopupMenuStyle::CustomBackgroundColor : PopupMenuStyle::DefaultBackgroundColor
@@ -602,7 +587,6 @@ PopupMenuStyle RenderMenuList::menuStyle() const
         styleToUse.usedVisibility() == Visibility::Visible,
         styleToUse.display() == DisplayType::None,
         style().hasUsedAppearance() && style().usedAppearance() == StyleAppearance::Menulist,
-        Style::toPlatform(styleToUse.textIndent().length),
         style().writingMode().bidiDirection(),
         isOverride(style().unicodeBidi()),
         PopupMenuStyle::DefaultBackgroundColor,

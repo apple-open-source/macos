@@ -31,9 +31,9 @@
 #include "MatchedDeclarationsCache.h"
 
 #include "CSSFontSelector.h"
-#include "Document.h"
 #include "DocumentInlines.h"
 #include "FontCascade.h"
+#include "NodeDocument.h"
 #include "RenderStyleInlines.h"
 #include "StyleLengthResolution.h"
 #include "StyleResolver.h"
@@ -71,12 +71,12 @@ bool MatchedDeclarationsCache::isCacheable(const Element& element, const RenderS
     if (&element == element.document().documentElement())
         return false;
     // FIXME: Without the following early return we hit the final assert in
-    // Element::resolvePseudoElementStyle(). Making matchedPseudoElementIds
+    // Element::resolvePseudoElementStyle(). Making matchedPseudoElements
     // PseudoElementIdentifier-aware might be a possible solution.
     if (!style.pseudoElementNameArgument().isNull())
         return false;
     // content:attr() value depends on the element it is being applied to.
-    if (style.hasAttrContent() || (style.pseudoElementType() != PseudoId::None && parentStyle.hasAttrContent()))
+    if (style.hasAttrContent() || (style.pseudoElementType() && parentStyle.hasAttrContent()))
         return false;
     if (style.zoom() != RenderStyle::initialZoom())
         return false;

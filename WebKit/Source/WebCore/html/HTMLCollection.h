@@ -22,10 +22,10 @@
 
 #pragma once
 
-#include "CollectionIndexCache.h"
-#include "Element.h"
-#include "HTMLNames.h"
-#include "LiveNodeList.h"
+#include <WebCore/CollectionIndexCache.h>
+#include <WebCore/Element.h>
+#include <WebCore/HTMLNames.h>
+#include <WebCore/LiveNodeList.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -123,6 +123,11 @@ inline size_t CollectionNamedElementCache::memoryCost() const
 inline ContainerNode& HTMLCollection::ownerNode() const
 {
     return m_ownerNode;
+}
+
+inline CollectionType HTMLCollection::type() const
+{
+    return static_cast<CollectionType>(m_collectionType);
 }
 
 } // namespace WebCore

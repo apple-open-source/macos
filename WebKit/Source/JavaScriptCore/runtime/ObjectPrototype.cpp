@@ -332,7 +332,7 @@ JSC_DEFINE_HOST_FUNCTION(objectProtoFuncToLocaleString, (JSGlobalObject* globalO
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     // If IsCallable(toString) is false, throw a TypeError exception.
-    auto callData = JSC::getCallData(toString);
+    auto callData = JSC::getCallDataInline(toString);
     if (callData.type == CallData::Type::None)
         return throwVMTypeError(globalObject, scope);
 

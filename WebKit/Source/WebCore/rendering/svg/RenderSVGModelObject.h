@@ -31,10 +31,10 @@
 
 #pragma once
 
-#include "RenderBox.h"
-#include "RenderLayerModelObject.h"
-#include "SVGBoundingBoxComputation.h"
-#include "SVGRenderSupport.h"
+#include <WebCore/RenderBox.h>
+#include <WebCore/RenderLayerModelObject.h>
+#include <WebCore/SVGBoundingBoxComputation.h>
+#include <WebCore/SVGRenderSupport.h>
 
 namespace WebCore {
 

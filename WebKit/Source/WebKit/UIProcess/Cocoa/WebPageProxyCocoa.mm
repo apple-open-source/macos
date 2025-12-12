@@ -36,7 +36,9 @@
 #import "Connection.h"
 #import "CoreTelephonyUtilities.h"
 #import "DataDetectionResult.h"
+#import "ExtensionCapabilityGranter.h"
 #import "InsertTextOptions.h"
+#import "LegacyWebArchiveCallbackAggregator.h"
 #import "LoadParameters.h"
 #import "MessageSenderInlines.h"
 #import "NativeWebGestureEvent.h"
@@ -353,10 +355,10 @@ bool WebPageProxy::scrollingUpdatesDisabledForTesting()
 
 #if ENABLE(DRAG_SUPPORT)
 
-void WebPageProxy::startDrag(const DragItem& dragItem, ShareableBitmap::Handle&& dragImageHandle, const std::optional<ElementIdentifier>& elementID)
+void WebPageProxy::startDrag(const DragItem& dragItem, ShareableBitmap::Handle&& dragImageHandle, const std::optional<NodeIdentifier>& nodeID)
 {
     if (RefPtr pageClient = this->pageClient())
-        pageClient->startDrag(dragItem, WTFMove(dragImageHandle), elementID);
+        pageClient->startDrag(dragItem, WTFMove(dragImageHandle), nodeID);
 }
 
 #endif
@@ -372,7 +374,8 @@ void WebPageProxy::platformRegisterAttachment(Ref<API::Attachment>&& attachment,
     if (!pageClient)
         return;
 
-    RetainPtr fileWrapper = adoptNS([pageClient->allocFileWrapperInstance() initRegularFileWithContents:bufferCopy.unsafeBuffer()->createNSData().get()]);
+    // FIXME: This is a safer cpp false positive.
+    SUPPRESS_RETAINPTR_CTOR_ADOPT RetainPtr fileWrapper = adoptNS([pageClient->allocFileWrapperInstance() initRegularFileWithContents:bufferCopy.unsafeBuffer()->createNSData().get()]);
     [fileWrapper setPreferredFilename:preferredFileName.createNSString().get()];
     attachment->setFileWrapper(fileWrapper.get());
 }
@@ -386,7 +389,8 @@ void WebPageProxy::platformRegisterAttachment(Ref<API::Attachment>&& attachment,
     if (!pageClient)
         return;
 
-    RetainPtr fileWrapper = adoptNS([pageClient->allocFileWrapperInstance() initWithURL:adoptNS([[NSURL alloc] initFileURLWithPath:filePath.createNSString().get()]).get() options:0 error:nil]);
+    // FIXME: This is a safer cpp false positive.
+    SUPPRESS_RETAINPTR_CTOR_ADOPT RetainPtr fileWrapper = adoptNS([pageClient->allocFileWrapperInstance() initWithURL:adoptNS([[NSURL alloc] initFileURLWithPath:filePath.createNSString().get()]).get() options:0 error:nil]);
     attachment->setFileWrapper(fileWrapper.get());
 }
 
@@ -930,7 +934,7 @@ void WebPageProxy::startApplePayAMSUISession(URL&& originatingURL, ApplePayAMSUI
     RetainPtr amsRequest = adoptNS([allocAMSEngagementRequestInstance() initWithRequestDictionary:dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:[request.engagementRequest.createNSString() dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil])]);
     [amsRequest setOriginatingURL:originatingURL.createNSURL().get()];
 
-    auto amsBag = retainPtr([getAMSUIEngagementTaskClass() createBagForSubProfile]);
+    auto amsBag = retainPtr([getAMSUIEngagementTaskClassSingleton() createBagForSubProfile]);
 
     m_applePayAMSUISession = adoptNS([allocAMSUIEngagementTaskInstance() initWithRequest:amsRequest.get() bag:amsBag.get() presentingViewController:presentingViewController.get()]);
     [m_applePayAMSUISession setRemotePresentation:YES];
@@ -1187,7 +1191,7 @@ void WebPageProxy::deactivateMediaCapability(MediaCapability& capability)
     WEBPAGEPROXY_RELEASE_LOG(ProcessCapabilities, "deactivateMediaCapability: deactivating (envID=%{public}s) for URL '%{sensitive}s'", capability.environmentIdentifier().utf8().data(), capability.webPageURL().string().utf8().data());
     Ref processPool { protectedLegacyMainFrameProcess()->protectedProcessPool() };
     processPool->extensionCapabilityGranter().setMediaCapabilityActive(capability, false);
-    processPool->extensionCapabilityGranter().revoke(capability);
+    processPool->extensionCapabilityGranter().revoke(capability, *this);
 }
 
 void WebPageProxy::resetMediaCapability()
@@ -1224,7 +1228,7 @@ void WebPageProxy::updateMediaCapability()
         processPool->extensionCapabilityGranter().setMediaCapabilityActive(*mediaCapability, true);
 
     if (mediaCapability->isActivatingOrActive())
-        processPool->extensionCapabilityGranter().grant(*mediaCapability);
+        processPool->extensionCapabilityGranter().grant(*mediaCapability, *this);
 }
 
 bool WebPageProxy::shouldActivateMediaCapability() const
@@ -1232,13 +1236,7 @@ bool WebPageProxy::shouldActivateMediaCapability() const
     if (!isViewVisible())
         return false;
 
-    if (internals().mediaState.contains(MediaProducerMediaState::IsPlayingAudio))
-        return true;
-
-    if (internals().mediaState.contains(MediaProducerMediaState::IsPlayingVideo))
-        return true;
-
-    return MediaProducer::isCapturing(internals().mediaState);
+    return MediaProducer::needsMediaCapability(internals().mediaState);
 }
 
 bool WebPageProxy::shouldDeactivateMediaCapability() const
@@ -1646,6 +1644,9 @@ bool WebPageProxy::tryToSendCommandToActiveControlledVideo(PlatformMediaSession:
 
 void WebPageProxy::getInformationFromImageData(Vector<uint8_t>&& data, CompletionHandler<void(Expected<std::pair<String, Vector<IntSize>>, WebCore::ImageDecodingError>&&)>&& completionHandler)
 {
+    if (isClosed())
+        return completionHandler(makeUnexpected(WebCore::ImageDecodingError::Internal));
+
     ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::GetInformationFromImageData(WTFMove(data)), [preventProcessShutdownScope = protectedLegacyMainFrameProcess()->shutdownPreventingScope(), completionHandler = WTFMove(completionHandler)] (auto result) mutable {
         completionHandler(WTFMove(result));
     }, webPageIDInMainFrameProcess());
@@ -1653,6 +1654,9 @@ void WebPageProxy::getInformationFromImageData(Vector<uint8_t>&& data, Completio
 
 void WebPageProxy::createIconDataFromImageData(Ref<WebCore::SharedBuffer>&& buffer, const Vector<unsigned>& lengths, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
+    if (isClosed())
+        return completionHandler(nullptr);
+
     // Supported ICO image sizes by ImageIO.
     constexpr std::array<unsigned, 5> availableLengths { { 16, 32, 48, 128, 256 } };
     auto targetLengths = lengths.isEmpty() ? std::span { availableLengths } : lengths;
@@ -1667,6 +1671,9 @@ void WebPageProxy::createIconDataFromImageData(Ref<WebCore::SharedBuffer>&& buff
 
 void WebPageProxy::decodeImageData(Ref<WebCore::SharedBuffer>&& buffer, std::optional<WebCore::FloatSize> preferredSize, CompletionHandler<void(RefPtr<WebCore::ShareableBitmap>&&)>&& completionHandler)
 {
+    if (isClosed())
+        return completionHandler(nullptr);
+
     ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::DecodeImageData(WTFMove(buffer), preferredSize), [preventProcessShutdownScope = protectedLegacyMainFrameProcess()->shutdownPreventingScope(), completionHandler = WTFMove(completionHandler)] (auto result) mutable {
         completionHandler(WTFMove(result));
     }, webPageIDInMainFrameProcess());
@@ -1675,56 +1682,32 @@ void WebPageProxy::decodeImageData(Ref<WebCore::SharedBuffer>&& buffer, std::opt
 void WebPageProxy::getWebArchiveData(CompletionHandler<void(API::Data*)>&& completionHandler)
 {
     RefPtr mainFrame = m_mainFrame;
-    if (!mainFrame)
+    if (!mainFrame) {
+        // Return blank page data for backforward compatibility; see rdar://127469660.
+        launchInitialProcessIfNecessary();
+        protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::GetWebArchiveData(), [completionHandler = WTFMove(completionHandler)](auto&& result) mutable {
+            if (!result)
+                return completionHandler(nullptr);
+
+            completionHandler(API::Data::create(result->span()).ptr());
+        }, webPageIDInMainFrameProcess());
+        return;
+    }
+
+    getWebArchiveDataWithFrame(*mainFrame, WTFMove(completionHandler));
+}
+
+void WebPageProxy::getWebArchiveDataWithFrame(WebFrameProxy& frame, CompletionHandler<void(API::Data*)>&& completionHandler)
+{
+    return getWebArchiveDataWithSelectedFrames(frame, std::nullopt, WTFMove(completionHandler));
+}
+
+void WebPageProxy::getWebArchiveDataWithSelectedFrames(WebFrameProxy& rootFrame, const std::optional<HashSet<WebCore::FrameIdentifier>>& selectedFrameIdentifiers, CompletionHandler<void(API::Data*)>&& completionHandler)
+{
+    if (selectedFrameIdentifiers && !selectedFrameIdentifiers->contains(rootFrame.frameID()))
         return completionHandler(nullptr);
 
-    class WebArchvieCallbackAggregator final : public ThreadSafeRefCounted<WebArchvieCallbackAggregator, WTF::DestructionThread::MainRunLoop> {
-    public:
-        using Callback = CompletionHandler<void(RefPtr<LegacyWebArchive>&&)>;
-        static Ref<WebArchvieCallbackAggregator> create(WebCore::FrameIdentifier rootFrameIdentifier, Callback&& callback)
-        {
-            return adoptRef(*new WebArchvieCallbackAggregator(rootFrameIdentifier, WTFMove(callback)));
-        }
-
-        RefPtr<WebCore::LegacyWebArchive> completeFrameArchive(FrameIdentifier identifier)
-        {
-            RefPtr archive = m_frameArchives.take(identifier);
-            if (!archive)
-                return archive;
-
-            for (auto subframeIdentifier : archive->subframeIdentifiers()) {
-                if (auto subframeArchive = completeFrameArchive(subframeIdentifier))
-                    archive->appendSubframeArchive(subframeArchive.releaseNonNull());
-            }
-
-            return archive;
-        }
-
-        ~WebArchvieCallbackAggregator()
-        {
-            if (m_callback)
-                m_callback(completeFrameArchive(m_rootFrameIdentifier));
-        }
-
-        void addResult(HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&& frameArchives)
-        {
-            for (auto&& [frameIdentifier, archive] : frameArchives)
-                m_frameArchives.set(frameIdentifier, WTFMove(archive));
-        }
-
-    private:
-        WebArchvieCallbackAggregator(WebCore::FrameIdentifier rootFrameIdentifier, Callback&& callback)
-            : m_rootFrameIdentifier(rootFrameIdentifier)
-            , m_callback(WTFMove(callback))
-        {
-        }
-
-        WebCore::FrameIdentifier m_rootFrameIdentifier;
-        Callback m_callback;
-        HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>> m_frameArchives;
-    };
-
-    auto callbackAggregator = WebArchvieCallbackAggregator::create(mainFrame->frameID(), [completionHandler = WTFMove(completionHandler)](auto webArchive) mutable {
+    auto callbackAggregator = LegacyWebArchiveCallbackAggregator::create(rootFrame.frameID(), { }, [completionHandler = WTFMove(completionHandler)](auto webArchive) mutable {
         if (!webArchive)
             return completionHandler(nullptr);
 
@@ -1733,11 +1716,26 @@ void WebPageProxy::getWebArchiveData(CompletionHandler<void(API::Data*)>&& compl
             return completionHandler(nullptr);
         completionHandler(API::Data::create(span(data.get())).ptr());
     });
-    forEachWebContentProcess([&](auto& webProcess, auto pageID) {
-        webProcess.sendWithAsyncReply(Messages::WebPage::GetWebArchives(), [callbackAggregator](auto&& result) {
+    HashMap<Ref<WebProcessProxy>, Vector<WebCore::FrameIdentifier>> processFrames;
+    RefPtr currentFrame = &rootFrame;
+    while (currentFrame) {
+        if (!selectedFrameIdentifiers || selectedFrameIdentifiers->contains(currentFrame->frameID())) {
+            processFrames.ensure(currentFrame->protectedProcess(), [&] {
+                return Vector<WebCore::FrameIdentifier> { };
+            }).iterator->value.append(currentFrame->frameID());
+        }
+
+        currentFrame = currentFrame->traverseNext().frame;
+    }
+
+    for (auto& [process, frameIDs] : processFrames) {
+        Ref { process }->sendWithAsyncReply(Messages::WebPage::GetWebArchivesForFrames(frameIDs), [frameIDs, callbackAggregator](auto&& result) {
+            if (result.size() > frameIDs.size())
+                return;
+
             callbackAggregator->addResult(WTFMove(result));
-        }, pageID);
-    });
+        }, webPageIDInProcess(process.get()));
+    }
 }
 
 String WebPageProxy::presentingApplicationBundleIdentifier() const

@@ -20,12 +20,12 @@
 
 #pragma once
 
-#include "ArgList.h"
-#include "ArrayConventions.h"
-#include "Butterfly.h"
-#include "JSCell.h"
-#include "JSObject.h"
-#include "ResourceExhaustion.h"
+#include <JavaScriptCore/ArgList.h>
+#include <JavaScriptCore/ArrayConventions.h>
+#include <JavaScriptCore/Butterfly.h>
+#include <JavaScriptCore/JSCell.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/ResourceExhaustion.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -249,10 +249,7 @@ inline JSArray* JSArray::tryCreate(VM& vm, Structure* structure, unsigned initia
         butterfly = Butterfly::fromBase(temp, 0, outOfLineStorage);
         butterfly->setVectorLength(vectorLength);
         butterfly->setPublicLength(initialLength);
-        if (hasDouble(indexingType))
-            clearArray(butterfly->contiguousDouble().data(), vectorLength);
-        else
-            clearArray(butterfly->contiguous().data(), vectorLength);
+        Butterfly::clearRange(indexingType, butterfly, 0, vectorLength);
     } else {
         ASSERT(
             indexingType == ArrayWithSlowPutArrayStorage

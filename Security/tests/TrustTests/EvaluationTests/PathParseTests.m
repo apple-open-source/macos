@@ -137,6 +137,39 @@ errOut:
 
     XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust));
     XCTAssertEqual(errSecSuccess, SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)[NSArray arrayWithObject:(__bridge id)root]));
+    XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSince1970:1760309705]));
+
+    /* Verify that the trust evaluation fails and also takes less than a second */
+    startTime = CFAbsoluteTimeGetCurrent();
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL));
+    finishTime = CFAbsoluteTimeGetCurrent();
+    XCTAssert(finishTime >= startTime && ((finishTime - startTime) <= 1));
+
+    CFReleaseNull(trust);
+    CFReleaseNull(policy);
+    CFReleaseNull(root);
+}
+
+- (void)test160138097PolicyMappings {
+    SecCertificateRef root = nil;
+    CFAbsoluteTime startTime, finishTime;
+
+    NSURL *rootURL = [[NSBundle bundleForClass:[self class]]URLForResource:@"160138097_root" withExtension:@".cer" subdirectory:@"si-18-certificate-parse"];
+    XCTAssert(root = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)[NSData dataWithContentsOfURL:rootURL]), "Unable to create root cert");
+
+    NSMutableArray *certs = [NSMutableArray array];
+    for(int ix = 15; ix > 2; ix--) {
+        NSString *filename = [NSString stringWithFormat:@"subCA%d", ix];
+        id cert = [self SecCertificateCreateFromResource:filename subdirectory:@"si-18-certificate-parse/160138097_PolicyMappings"];
+        XCTAssertNotNil(cert);
+        [certs addObject:cert];
+    }
+
+    SecTrustRef trust = NULL;
+    SecPolicyRef policy = SecPolicyCreateBasicX509();
+
+    XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust));
+    XCTAssertEqual(errSecSuccess, SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)[NSArray arrayWithObject:(__bridge id)root]));
     XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSince1970:1738034573]));
 
     /* Verify that the trust evaluation fails and also takes less than a second */

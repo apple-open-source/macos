@@ -26,6 +26,7 @@
 #pragma once
 
 #include <iterator>
+#include <memory>
 #include <wtf/MallocCommon.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Nonmovable.h>

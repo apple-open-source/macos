@@ -126,7 +126,7 @@ static const float swipeSnapshotRemovalRenderTreeSizeTargetFraction = 0.5;
     return YES;
 }
 
-static Class interactiveTransitionGestureRecognizerClass()
+static Class interactiveTransitionGestureRecognizerClassSingleton()
 {
 #if HAVE(UI_PARALLAX_TRANSITION_GESTURE_RECOGNIZER)
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
@@ -139,7 +139,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
 - (UIPanGestureRecognizer *)gestureRecognizerForInteractiveTransition:(_UINavigationInteractiveTransitionBase *)transition WithTarget:(id)target action:(SEL)action
 {
-    RetainPtr recognizer = adoptNS([[interactiveTransitionGestureRecognizerClass() alloc] initWithTarget:target action:action]);
+    RetainPtr recognizer = adoptNS([[interactiveTransitionGestureRecognizerClassSingleton() alloc] initWithTarget:target action:action]);
 
     bool isLTR = [UIView userInterfaceLayoutDirectionForSemanticContentAttribute:[_gestureRecognizerView.get() semanticContentAttribute]] == UIUserInterfaceLayoutDirectionLeftToRight;
 
@@ -159,7 +159,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     if (recognizer == [_backTransitionController gestureRecognizer] || recognizer == [_forwardTransitionController gestureRecognizer])
         return YES;
 
-    if ([recognizer isKindOfClass:interactiveTransitionGestureRecognizerClass()])
+    if ([recognizer isKindOfClass:interactiveTransitionGestureRecognizerClassSingleton()])
         return recognizer.delegate == _backTransitionController || recognizer.delegate == _forwardTransitionController;
 
     return NO;

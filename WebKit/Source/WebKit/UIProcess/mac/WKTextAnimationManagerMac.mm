@@ -30,8 +30,10 @@
 #import "WKTextAnimationManagerMac.h"
 
 #import "ImageOptions.h"
+#import "WKWebView.h"
 #import "WebPageProxy.h"
 #import "WebViewImpl.h"
+#import <WebCore/NativeImage.h>
 #import <WebCore/TextAnimationTypes.h>
 #import <pal/cocoa/WritingToolsUISoftLink.h>
 
@@ -81,7 +83,7 @@
 
     _effectView = adoptNS([PAL::alloc_WTTextEffectViewInstance() initWithAsyncSource:self]);
     [_effectView setClipsToBounds:YES];
-    [_effectView setFrame:webView.view().bounds];
+    [_effectView setFrame:webView.protectedView().get().bounds];
 
     return self;
 }
@@ -165,12 +167,19 @@
 
     ASSERT(effect);
 
+    CheckedPtr webView = _webView.get();
+    RetainPtr view = webView->view();
+
     if (data.style == WebCore::TextAnimationType::Initial)
-        [_effectView setFrame:_webView->view().bounds];
+        [_effectView setFrame:[view bounds]];
 
     if (![_effectView superview])
-        [_webView->view() addSubview:_effectView.get()];
+        [view addSubview:_effectView.get()];
 
+    if (![_effectView superview]) {
+        CheckedRef viewImpl = *_webView;
+        [viewImpl->protectedView() addSubview:_effectView.get()];
+    }
     RetainPtr effectID = [_effectView addEffect:effect.get()];
     RetainPtr effectData = adoptNS([[WKTextAnimationTypeEffectData alloc] initWithEffectID:effectID.get() type:data.style]);
     [_chunkToEffect setObject:effectData.get() forKey:uuid];

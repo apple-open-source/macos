@@ -46,6 +46,7 @@ public:
 
     void resolvePromise();
     void rejectPromise(Exception&, JSC::JSValue exceptionObject);
+    void rejectPromise(JSC::JSValue exceptionObject);
 
 private:
     explicit NavigationTransition(NavigationNavigationType, Ref<NavigationHistoryEntry>&& fromEntry, Ref<DeferredPromise>&& finished);

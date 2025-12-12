@@ -40,7 +40,10 @@
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState
                      followupHandler:(OTFollowup*)followupHandler
-                         contextType:(AppleKeyStorePasscodeCacheReason)contextType;
+                         contextType:(AppleKeyStorePasscodeCacheReason)contextType
+                             entropy:(NSData*)entropy
+                            bottleID:(NSString*)bottleID
+                   escrowSigningSPKI:(NSData*)escrowSigningSPKI;
 
 @end
 

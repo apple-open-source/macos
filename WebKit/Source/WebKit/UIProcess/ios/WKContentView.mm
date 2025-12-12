@@ -60,6 +60,8 @@
 #import "_WKFrameHandleInternal.h"
 #import "_WKWebViewPrintFormatterInternal.h"
 #import <CoreGraphics/CoreGraphics.h>
+#import <WebCore/AXObjectCache.h>
+#import <WebCore/AXRemoteTokenIOS.h>
 #import <WebCore/AccessibilityObject.h>
 #import <WebCore/FloatConversion.h>
 #import <WebCore/FloatQuad.h>
@@ -78,15 +80,21 @@
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
 #import <wtf/threads/BinarySemaphore.h>
-#import "AppKitSoftLink.h"
 
 #if USE(EXTENSIONKIT)
 #import <UIKit/UIInteraction.h>
 #import "ExtensionKitSPI.h"
 #endif
+
+#if ENABLE(MODEL_PROCESS)
+#import "ModelPresentationManagerProxy.h"
+#endif
+
+#import "AppKitSoftLink.h"
 
 @interface _WKPrintFormattingAttributes : NSObject
 @property (nonatomic, readonly) size_t pageCount;
@@ -253,7 +261,7 @@ typedef NS_ENUM(NSInteger, _WKPrintRenderingCallbackType) {
 
     _page = processPool.createWebPage(*_pageClient, WTFMove(configuration));
     auto& pageConfiguration = _page->configuration();
-    _page->initializeWebPage(pageConfiguration.openedSite(), pageConfiguration.initialSandboxFlags());
+    _page->initializeWebPage(pageConfiguration.openedSite(), pageConfiguration.initialSandboxFlags(), pageConfiguration.initialReferrerPolicy());
 
     [self _updateRuntimeProtocolConformanceIfNeeded];
 
@@ -524,7 +532,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         }
     });
 
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), deleteTemporaryFiles.get());
+    dispatch_async(globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), deleteTemporaryFiles.get());
 }
 
 - (void)_removeTemporaryDirectoriesWhenDeallocated:(Vector<RetainPtr<NSURL>>&&)urls
@@ -710,6 +718,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         !!_sizeChangedSinceLastVisibleContentRectUpdate,
         !!self.webView._allowsViewportShrinkToFit,
         !!enclosedInScrollableAncestorView,
+        self.webView->_needsScrollend,
         velocityData,
         downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).lastCommittedMainFrameLayerTreeTransactionID());
 
@@ -723,6 +732,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _page->adjustLayersForLayoutViewport(_page->unobscuredContentRect().location(), layoutViewport, _page->displayedContentScale());
 
     _sizeChangedSinceLastVisibleContentRectUpdate = NO;
+    self.webView->_needsScrollend = NO;
 
     drawingArea->updateDebugIndicator();
 
@@ -734,6 +744,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)didFinishScrolling
 {
+    self.webView->_needsScrollend = YES;
     [self _didEndScrollingOrZooming];
 }
 
@@ -826,10 +837,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self _accessibilityRegisterUIProcessTokens];
 }
 
-static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid, NSUUID *uuid)
+static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid, WTF::UUID uuid)
 {
     // The accessibility bundle needs to know the uuid, pid and mach_port that this object will refer to.
-    objc_setAssociatedObject(element, (void*)[@"ax-uuid" hash], uuid, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(element, (void*)[@"ax-uuid" hash], uuid.createNSUUID().get(), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(element, (void*)[@"ax-pid" hash], @(pid), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
@@ -846,25 +857,21 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
         return;
 
     if (registerProcess)
-        [WebKit::getNSAccessibilityRemoteUIElementClass() registerRemoteUIProcessIdentifier:pid];
+        [WebKit::getNSAccessibilityRemoteUIElementClassSingleton() registerRemoteUIProcessIdentifier:pid];
     else
-        [WebKit::getNSAccessibilityRemoteUIElementClass() unregisterRemoteUIProcessIdentifier:pid];
+        [WebKit::getNSAccessibilityRemoteUIElementClassSingleton() unregisterRemoteUIProcessIdentifier:pid];
 #endif
 }
 
 - (void)_accessibilityRegisterUIProcessTokens
 {
-    auto uuid = [NSUUID UUID];
-    if (RetainPtr remoteElementToken = WebCore::Accessibility::newAccessibilityRemoteToken(uuid.UUIDString)) {
         // Store information about the WebProcess that can later be retrieved by the iOS Accessibility runtime.
-        if (_page->legacyMainFrameProcess().state() == WebKit::WebProcessProxy::State::Running) {
-            [self _updateRemoteAccessibilityRegistration:YES];
-            storeAccessibilityRemoteConnectionInformation(self, _page->legacyMainFrameProcess().processID(), uuid);
+    if (_page->legacyMainFrameProcess().state() == WebKit::WebProcessProxy::State::Running) {
+        [self _updateRemoteAccessibilityRegistration:YES];
+        auto elementToken = WebCore::AccessibilityRemoteToken(WTF::UUID::createVersion4(), getpid());
 
-            auto elementToken = makeVector(remoteElementToken.get());
-            _page->registerUIProcessAccessibilityTokens(elementToken, elementToken);
-        }
-
+        storeAccessibilityRemoteConnectionInformation(self, _page->legacyMainFrameProcess().processID(), elementToken.uuid);
+        _page->registerUIProcessAccessibilityTokens(elementToken, elementToken);
     }
 }
 
@@ -1087,6 +1094,14 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     return [_webView _targetContentZoomScaleForRect:targetRect currentScale:currentScale fitEntireRect:fitEntireRect minimumScale:minimumScale maximumScale:maximumScale];
 }
 
+#if ENABLE(MODEL_PROCESS)
+- (void)_setTransform3DForModelViews:(CGFloat)newScale
+{
+    if (RefPtr modelPresentationManager = _page->modelPresentationManagerProxy())
+        modelPresentationManager->pageScaleDidChange(newScale);
+}
+#endif
+
 - (void)_applicationWillResignActive:(NSNotification*)notification
 {
     _page->applicationWillResignActive();
@@ -1112,6 +1127,11 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 - (void)_screenCapturedDidChange:(NSNotification *)notification
 {
     _page->setScreenIsBeingCaptured([self screenIsBeingCaptured]);
+}
+
+- (BOOL)_shouldExposeRollAngleAsTwist
+{
+    return _page->preferences().exposeRollAngleAsTwistEnabled();
 }
 
 @end
@@ -1256,7 +1276,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
                 return;
             }
 
-            auto image = bitmap->makeCGImageCopy();
+            RetainPtr image = bitmap->createPlatformImage();
             [printFormatter _setPrintPreviewImage:image.get()];
         });
 

@@ -25,40 +25,54 @@
 
 #pragma once
 
-#include "HTMLModelElementCamera.h"
-#include "LayerHostingContextIdentifier.h"
-#include "LayoutPoint.h"
-#include "LayoutSize.h"
-#include "PlatformLayer.h"
+#include <WebCore/HTMLModelElementCamera.h>
+#include <WebCore/LayerHostingContextIdentifier.h>
+#include <WebCore/LayoutPoint.h>
+#include <WebCore/LayoutSize.h>
+#include <WebCore/ModelPlayerAccessibilityChildren.h>
+#include <WebCore/ModelPlayerIdentifier.h>
+#include <WebCore/PlatformLayer.h>
 #include <optional>
 #include <wtf/Forward.h>
 #include <wtf/MonotonicTime.h>
+#include <wtf/Platform.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
 
-#if ENABLE(MODEL_PROCESS)
-#include "ModelPlayerIdentifier.h"
+#if ENABLE(GPU_PROCESS_MODEL)
+#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/ThreadSafeWeakPtr.h>
+#endif
+
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
 #include <WebCore/StageModeOperations.h>
 #endif
+
+namespace WTF {
+class MachSendRight;
+}
 
 namespace WebCore {
 
 class Color;
 class FloatPoint3D;
+class GraphicsLayerContentsDisplayDelegate;
 class Model;
 class ModelPlayerAnimationState;
 class ModelPlayerTransformState;
 class SharedBuffer;
 class TransformationMatrix;
 
+#if ENABLE(GPU_PROCESS_MODEL)
+class WEBCORE_EXPORT ModelPlayer : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ModelPlayer> {
+#else
 class WEBCORE_EXPORT ModelPlayer : public RefCounted<ModelPlayer> {
+#endif
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(ModelPlayer, WEBCORE_EXPORT);
 public:
     virtual ~ModelPlayer();
 
-#if ENABLE(MODEL_PROCESS)
     virtual ModelPlayerIdentifier identifier() const = 0;
-#endif
 
     virtual bool isPlaceholder() const;
     virtual std::optional<ModelPlayerAnimationState> currentAnimationState() const;
@@ -71,14 +85,18 @@ public:
     virtual void sizeDidChange(LayoutSize) = 0;
     virtual PlatformLayer* layer() = 0;
     virtual std::optional<LayerHostingContextIdentifier> layerHostingContextIdentifier() = 0;
+#if ENABLE(MODEL_ELEMENT_BOUNDING_BOX)
     virtual std::optional<FloatPoint3D> boundingBoxCenter() const;
     virtual std::optional<FloatPoint3D> boundingBoxExtents() const;
+#endif
+#if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
     virtual std::optional<TransformationMatrix> entityTransform() const;
     virtual void setEntityTransform(TransformationMatrix);
+    virtual bool supportsTransform(TransformationMatrix);
+#endif
     virtual void enterFullscreen() = 0;
     virtual bool supportsMouseInteraction();
     virtual bool supportsDragging();
-    virtual bool supportsTransform(TransformationMatrix);
     virtual void setInteractionEnabled(bool);
     virtual void handleMouseDown(const LayoutPoint&, MonotonicTime) = 0;
     virtual void handleMouseMove(const LayoutPoint&, MonotonicTime) = 0;
@@ -96,10 +114,12 @@ public:
     virtual void isMuted(CompletionHandler<void(std::optional<bool>&&)>&&) = 0;
     virtual void setIsMuted(bool, CompletionHandler<void(bool success)>&&) = 0;
     virtual String inlinePreviewUUIDForTesting() const;
-#if PLATFORM(COCOA)
-    virtual Vector<RetainPtr<id>> accessibilityChildren() = 0;
+
+#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
+    virtual ModelPlayerAccessibilityChildren accessibilityChildren() = 0;
 #endif
-#if ENABLE(MODEL_PROCESS)
+
+#if ENABLE(MODEL_ELEMENT_ANIMATIONS_CONTROL)
     virtual void setAutoplay(bool);
     virtual void setLoop(bool);
     virtual void setPlaybackRate(double, CompletionHandler<void(double effectivePlaybackRate)>&&);
@@ -108,15 +128,33 @@ public:
     virtual void setPaused(bool, CompletionHandler<void(bool succeeded)>&&);
     virtual Seconds currentTime() const;
     virtual void setCurrentTime(Seconds, CompletionHandler<void()>&&);
+#endif
+
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     virtual void setEnvironmentMap(Ref<SharedBuffer>&& data);
+#endif
+
+#if ENABLE(MODEL_ELEMENT_PORTAL)
     virtual void setHasPortal(bool);
+#endif
+
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
     virtual void setStageMode(StageModeOperation);
+#endif
+
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE_INTERACTION)
     virtual void beginStageModeTransform(const TransformationMatrix&);
     virtual void updateStageModeTransform(const TransformationMatrix&);
     virtual void endStageModeInteraction();
     virtual void animateModelToFitPortal(CompletionHandler<void(bool)>&&);
     virtual void resetModelTransformAfterDrag();
 #endif
+
+#if ENABLE(GPU_PROCESS_MODEL)
+    // FIXME: It is a layering violation for WebCore to be concerned with MachSendRights like this. It should not be aware that other processes are being used.
+    virtual const MachSendRight* displayBuffer() const = 0;
+    virtual GraphicsLayerContentsDisplayDelegate* contentsDisplayDelegate() = 0;
+#endif
 };
 
-}
+} // namespace WebCore

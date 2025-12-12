@@ -389,7 +389,7 @@ IOHIDAccelElementProcessor::eventForSample(uint64_t timestamp, unsigned int i) c
     IOHIDEvent * event = IOHIDEvent::accelerometerEvent(timestamp, x, y, z);
     assert(event);
 
-    IOHIDEvent * child = IOHIDEvent::vendorDefinedEvent(timestamp, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_TimeSyncTimestamp, 0, (UInt8 *)ts->getBytesNoCopy(), ts->getLength());
+    IOHIDEvent * child = IOHIDEvent::vendorDefinedEvent(timestamp, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_DeviceTimestamp, 0, (UInt8 *)ts->getBytesNoCopy(), ts->getLength());
     assert(child);
 
     event->appendChild(child);
@@ -578,7 +578,7 @@ IOHIDGyroElementProcessor::eventForSample(uint64_t timestamp, unsigned int i) co
     IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z);
     assert(event);
 
-    IOHIDEvent * child = IOHIDEvent::vendorDefinedEvent(timestamp, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_TimeSyncTimestamp, 0, (UInt8 *)ts->getBytesNoCopy(), ts->getLength());
+    IOHIDEvent * child = IOHIDEvent::vendorDefinedEvent(timestamp, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_DeviceTimestamp, 0, (UInt8 *)ts->getBytesNoCopy(), ts->getLength());
     assert(child);
 
     event->appendChild(child);

@@ -28,6 +28,10 @@
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
 
+#include "DDMesh.h"
+#include "DDMeshDescriptor.h"
+#include "DDMeshImpl.h"
+#include "DDVertexAttributeFormat.h"
 #include "WebGPUAdapterImpl.h"
 #include "WebGPUCompositorIntegrationImpl.h"
 #include "WebGPUDowncastConvertToBackingContext.h"
@@ -44,9 +48,10 @@ namespace WebCore::WebGPU {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(GPUImpl);
 
-GPUImpl::GPUImpl(WebGPUPtr<WGPUInstance>&& instance, ConvertToBackingContext& convertToBackingContext)
+GPUImpl::GPUImpl(WebGPUPtr<WGPUInstance>&& instance, ConvertToBackingContext& convertToBackingContext, DDModel::ConvertToBackingContext& modelConvertToBackingContext)
     : m_backing(WTFMove(instance))
     , m_convertToBackingContext(convertToBackingContext)
+    , m_modelConvertToBackingContext(modelConvertToBackingContext)
 {
 }
 
@@ -64,7 +69,6 @@ void GPUImpl::requestAdapter(const RequestAdapterOptions& options, CompletionHan
     Ref convertToBackingContext = m_convertToBackingContext;
 
     WGPURequestAdapterOptions backingOptions {
-        .nextInChain = nullptr,
         .compatibleSurface = nullptr,
 #if CPU(X86_64)
         .powerPreference = WGPUPowerPreference_HighPerformance,
@@ -85,6 +89,42 @@ void GPUImpl::requestAdapter(const RequestAdapterOptions& options, CompletionHan
     wgpuInstanceRequestAdapter(m_backing.get(), &backingOptions, &requestAdapterCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in requestAdapterCallback().
 }
 
+static Vector<UniqueRef<WebCore::IOSurface>> createIOSurfaces(unsigned width, unsigned height)
+{
+    const auto colorFormat = IOSurface::Format::BGRA;
+    const auto colorSpace = DestinationColorSpace::SRGB();
+
+    Vector<UniqueRef<WebCore::IOSurface>> ioSurfaces;
+
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::WebGPU, colorFormat))
+        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::WebGPU, colorFormat))
+        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::WebGPU, colorFormat))
+        ioSurfaces.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+
+    return ioSurfaces;
+}
+
+RefPtr<DDModel::DDMesh> GPUImpl::createModelBacking(unsigned width, unsigned height, CompletionHandler<void(Vector<MachSendRight>&&)>&& callback)
+{
+    auto ioSurfaceVector = createIOSurfaces(width, height);
+    Vector<RetainPtr<IOSurfaceRef>> ioSurfaces;
+    for (UniqueRef<WebCore::IOSurface>& ioSurface : ioSurfaceVector)
+        ioSurfaces.append(ioSurface->surface());
+
+    WGPUDDCreateMeshDescriptor backingDescriptor {
+        .width = width,
+        .height = height,
+        .ioSurfaces = WTFMove(ioSurfaces)
+    };
+
+    Ref convertToBackingContext = m_modelConvertToBackingContext;
+    auto mesh = DDModel::DDMeshImpl::create(adoptWebGPU(wgpuDDMeshCreate(m_backing.get(), &backingDescriptor)), WTFMove(ioSurfaceVector), convertToBackingContext);
+    callback(mesh->ioSurfaceHandles());
+    return mesh;
+}
+
 static WTF::Function<void(CompletionHandler<void()>&&)> convert(WGPUOnSubmittedWorkScheduledCallback&& onSubmittedWorkScheduledCallback)
 {
     return [onSubmittedWorkScheduledCallback = makeBlockPtr(WTFMove(onSubmittedWorkScheduledCallback))](CompletionHandler<void()>&& completionHandler) {
@@ -100,17 +140,11 @@ RefPtr<PresentationContext> GPUImpl::createPresentationContext(const Presentatio
         compositorIntegration->registerCallbacks(makeBlockPtr(WTFMove(renderBuffersWereRecreatedCallback)), convert(WTFMove(onSubmittedWorkScheduledCallback)));
     });
 
-    WGPUSurfaceDescriptorCocoaCustomSurface cocoaSurface {
-        {
-            nullptr,
-            static_cast<WGPUSType>(WGPUSTypeExtended_SurfaceDescriptorCocoaSurfaceBacking),
-        },
-        registerCallbacksBlock.get(),
-    };
-
     WGPUSurfaceDescriptor surfaceDescriptor {
-        &cocoaSurface.chain,
-        nullptr,
+        .label = nullptr,
+        .cocoaDescriptor = WGPUSurfaceDescriptorCocoaCustomSurface {
+            .compositorIntegrationRegister = registerCallbacksBlock.get(),
+        }
     };
 
     auto result = PresentationContextImpl::create(adoptWebGPU(wgpuInstanceCreateSurface(m_backing.get(), &surfaceDescriptor)), m_convertToBackingContext);

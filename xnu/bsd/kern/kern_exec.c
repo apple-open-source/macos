@@ -1131,6 +1131,10 @@ static struct {
 		"com.apple.security.hardened-process.checked-allocations.soft-mode"
 	},
 #endif /* HAS_MTE */
+	[NO_GUARD_OBJECTS] = {
+		NULL,
+		"com.apple.security.hardened-process.no-guard-objects"
+	}
 };
 
 /*
@@ -1143,12 +1147,6 @@ static struct {
  * for the platform restrictions you are opting into.
  */
 #define SPAWN_ENABLE_PLATFORM_RESTRICTIONS "com.apple.security.hardened-process.platform-restrictions"
-
-/*
- * Version number for enhanced security
- * Currently stored with 3 bits in `hardened_process_version`
- */
-#define HARDENED_PROCESS_VERSION "com.apple.security.hardened-process.enhanced-security-version"
 
 /* See kern_exec_internal.h for the extensive documentation. */
 exec_security_err_t
@@ -1209,7 +1207,7 @@ imgact_setup_hardened_heap(struct image_params *imgp, task_t task)
 /*
  * Configure the platform restrictions security features on the task
  * This must be done before `ipc_task_enable` so that the bits
- * can be propogated to the ipc space.
+ * can be propagated to the ipc space.
  *
  * Requires `exectextresetvp` to be called on `task` previously so
  * that we can use the `IOTaskGetEntitlement` API
@@ -1225,11 +1223,6 @@ exec_setup_platform_restrictions(task_t task)
 	    value > 1) {
 		task_set_platform_restrictions_version(task, value);
 	}
-
-	/* Set hardened process version*/
-	if (IOTaskGetIntegerEntitlement(task, HARDENED_PROCESS_VERSION, &value)) {
-		task_set_hardened_process_version(task, value);
-	}
 }
 
 #if HAS_MTE || HAS_MTE_EMULATION_SHIMS
@@ -1237,7 +1230,8 @@ exec_setup_platform_restrictions(task_t task)
 #if DEVELOPMENT || DEBUG
 static inline void config_sec_inheritance(task_t, task_t);
 #endif /* DEVELOPMENT || DEBUG */
-static inline void config_sec_spawnflags(struct _posix_spawnattr *, task_t);
+static inline void config_sec_spawnflags(load_result_t *load_result,
+    struct _posix_spawnattr *, task_t);
 
 #if HAS_MTE
 
@@ -1248,7 +1242,7 @@ static inline exec_security_err_t
 imgact_setup_has_checked_allocations_entitlement(struct image_params *imgp, load_result_t *load_result,
     __unused task_t new_task, __unused struct cs_blob *cs_blob)
 {
-	/* First-party DriverKit always gets MTE regardless of our normal entilement knobs */
+	/* First-party DriverKit always gets MTE regardless of our normal entitlement knobs */
 	if (load_result->platform_binary && IOVnodeHasEntitlement(imgp->ip_vp,
 	    (int64_t)imgp->ip_arch_offset, kIODriverKitEntitlementKey)) {
 		/* In soft mode, to mitigate risks on the build */
@@ -1257,7 +1251,7 @@ imgact_setup_has_checked_allocations_entitlement(struct image_params *imgp, load
 	}
 
 	/* If not a hardened-process, bail out. */
-	if (!load_result->is_hardened_process) {
+	if (!load_result->hardened_process_version) {
 		return EXEC_SECURITY_NOT_ENTITLED;
 	}
 
@@ -1408,7 +1402,7 @@ imgact_setup_sec(struct image_params *imgp, __unused load_result_t *load_result,
 		if ((px_sa->psa_sec_flags & POSIX_SPAWN_SECFLAG_EXPLICIT_DISABLE) != 0) {
 			EXEC_LOG("Task configured to disable the security feature due to posix_spawn\n");
 			/* For A/B testing, allow DISABLE to propagate through inheritance. */
-			config_sec_spawnflags(px_sa, new_task);
+			config_sec_spawnflags(load_result, px_sa, new_task);
 			/* Clear we were, clear we stay. */
 			return 0;
 		}
@@ -1418,14 +1412,14 @@ imgact_setup_sec(struct image_params *imgp, __unused load_result_t *load_result,
 		if ((px_sa->psa_sec_flags & POSIX_SPAWN_SECFLAG_EXPLICIT_ENABLE) != 0) {
 			EXEC_LOG("Task is explicitly enabled via posix_spawn flags\n");
 			task_set_sec(new_task);
-			config_sec_spawnflags(px_sa, new_task);
+			config_sec_spawnflags(load_result, px_sa, new_task);
 			return 0;
 		}
 
 #if HAS_MTE
 		/* Do we have a request to enforce that the target is properly entitled? */
 		if ((px_sa->psa_sec_flags & POSIX_SPAWN_SECFLAG_EXPLICIT_REQUIRE_ENABLE) != 0) {
-			if (!load_result->is_hardened_process) {
+			if (!load_result->hardened_process_version) {
 				EXEC_LOG("Caller requested the explicit presence of the hardened-process entitlement"
 				    " which the binary doesn't have\n");
 				return EINVAL;
@@ -1520,7 +1514,8 @@ config_sec_inheritance(task_t current, task_t new_task)
 #endif /* DEVELOPMENT || DEBUG */
 
 static inline void
-config_sec_spawnflags(struct _posix_spawnattr *px_sa, task_t new_task)
+config_sec_spawnflags(load_result_t *load_result,
+    struct _posix_spawnattr *px_sa, task_t new_task)
 {
 	/* We cannot be here if there were no posix_spawn attributes */
 	assert(px_sa);
@@ -1532,6 +1527,19 @@ config_sec_spawnflags(struct _posix_spawnattr *px_sa, task_t new_task)
 	if ((px_sa->psa_sec_flags & POSIX_SPAWN_SECFLAG_EXPLICIT_ENABLE_INHERIT) != 0) {
 		EXEC_LOG("Task explicitly enables inheritance via posix_spawn flags\n");
 		task_set_sec_inherit(new_task);
+	}
+
+	/*
+	 * On both RELEASE and DEVELOPMENT, we allow preflighting MTE through
+	 * posix spawn flags: unlike POSIX_SPAWN_SECFLAG_EXPLICIT_CHECK_BYPASS,
+	 * with POSIX_SPAWN_SECFLAG_EXPLICIT_PREFLIGHT we only allow turning
+	 * on soft mode if the process is not a hardened process.
+	 */
+	if ((px_sa->psa_sec_flags & POSIX_SPAWN_SECFLAG_EXPLICIT_PREFLIGHT) != 0) {
+		if (!load_result->hardened_process_version) {
+			EXEC_LOG("Task explicitly enables soft-mode preflight via posix_spawn flags\n");
+			task_set_sec_soft_mode(new_task);
+		}
 	}
 
 #if DEVELOPMENT || DEBUG
@@ -1608,6 +1616,26 @@ config_checked_allocations_entitlements(struct image_params *imgp, load_result_t
 #endif /* HAS_MTE */
 #endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
+static inline errno_t
+imgact_setup_guard_objects(struct image_params *imgp, load_result_t *load_result, task_t task)
+{
+	exec_security_err_t ret = exec_check_security_entitlement(imgp, NO_GUARD_OBJECTS);
+	if (ret == EXEC_SECURITY_NOT_ENTITLED &&
+	    load_result->hardened_process_version >= HARDENED_PROCESS_VERSION_TWO) {
+		/* apply guard objects entitlement if hardened-process and not disabled */
+		task_set_guard_objects(task);
+		return 0;
+	}
+
+	task_clear_guard_objects(task);
+
+	if (ret == EXEC_SECURITY_INVALID_CONFIG) {
+		return EINVAL;
+	}
+
+	return 0;
+}
+
 /*
  * This routine configures the various runtime mitigations we can apply to a process
  * during image activation. This occurs before `imgact_setup_runtime_mitigations`
@@ -1618,6 +1646,9 @@ static inline errno_t
 imgact_setup_runtime_mitigations(struct image_params *imgp, __unused load_result_t *load_result,
     __unused task_t old_task, task_t new_task, __unused vm_map_t map, __unused proc_t proc)
 {
+	/* Set hardened process version */
+	task_set_hardened_process_version(new_task, load_result->hardened_process_version);
+
 	/*
 	 * It's safe to check entitlements anytime after `load_machfile` if you check
 	 * based on the vnode in imgp. We must perform this entitlement check
@@ -1655,7 +1686,13 @@ imgact_setup_runtime_mitigations(struct image_params *imgp, __unused load_result
 	}
 #endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
-
+	/*
+	 * No-guard-objects disables guards for process deallocated allocations or VM.
+	 */
+	if ((retval = imgact_setup_guard_objects(imgp, load_result, new_task)) != 0) {
+		EXEC_LOG("Invalid configuration detected for no-guard-objects");
+		return retval;
+	}
 
 	return retval;
 }

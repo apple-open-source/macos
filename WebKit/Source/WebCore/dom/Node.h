@@ -24,12 +24,19 @@
 
 #pragma once
 
-#include "EventTarget.h"
-#include "RenderStyleConstants.h"
-#include "StyleValidity.h"
+#include <WebCore/EventTarget.h>
+#include <WebCore/NodeIdentifier.h>
+#include <WebCore/PlatformExportMacros.h>
+#include <WebCore/RenderStyleConstants.h>
+#include <WebCore/StyleValidity.h>
+#include <bit>
 #include <compare>
+#include <new>
+#include <wtf/CheckedPtr.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/CompactPointerTuple.h>
 #include <wtf/CompactUniquePtrTuple.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/FixedVector.h>
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
@@ -37,9 +44,12 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/URLHash.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/text/ASCIILiteral.h>
 
 namespace WTF {
 class TextStream;
@@ -76,6 +86,8 @@ class TouchEvent;
 class TreeScope;
 class WebCoreOpaqueRoot;
 
+struct SerializedNode;
+
 enum class TextDirection : bool;
 
 template<typename T> class ExceptionOr;
@@ -90,6 +102,8 @@ WTF_ALLOW_COMPACT_POINTERS_TO_INCOMPLETE_TYPE(WebCore::NodeRareData);
 
 namespace WebCore {
 
+class JSDOMGlobalObject;
+
 enum class MutationObserverOptionType : uint8_t;
 enum class TaskSource : uint8_t;
 using MutationObserverOptions = OptionSet<MutationObserverOptionType>;
@@ -101,7 +115,7 @@ const int initialNodeVectorSize = 11; // Covers 99.5%. See webkit.org/b/80706
 typedef Vector<Ref<Node>, initialNodeVectorSize> NodeVector;
 
 class Node : public EventTarget, public CanMakeCheckedPtr<Node> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Node);
+    WTF_MAKE_PREFERABLY_COMPACT_TZONE_OR_ISO_ALLOCATED(Node);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Node);
 
     friend class Document;
@@ -132,9 +146,6 @@ public:
         DOCUMENT_POSITION_CONTAINED_BY = 0x10,
         DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20,
     };
-
-    WEBCORE_EXPORT static void startIgnoringLeaks();
-    WEBCORE_EXPORT static void stopIgnoringLeaks();
 
     static void dumpStatistics();
 
@@ -191,9 +202,10 @@ public:
         SelfWithTemplateContent,
         Everything,
     };
-    virtual Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) = 0;
-    Ref<Node> cloneNode(bool deep);
-    WEBCORE_EXPORT ExceptionOr<Ref<Node>> cloneNodeForBindings(bool deep);
+    virtual Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) const = 0;
+    virtual SerializedNode serializeNode(CloningOperation) const = 0;
+    Ref<Node> cloneNode(bool deep) const;
+    WEBCORE_EXPORT ExceptionOr<Ref<Node>> cloneNodeForBindings(bool deep) const;
 
     virtual const AtomString& localName() const;
     virtual const AtomString& namespaceURI() const;
@@ -243,7 +255,8 @@ public:
     bool isPseudoElement() const { return isElementNode() && hasTypeFlag(TypeFlag::IsPseudoElementOrSpecialInternalNode); }
     inline bool isBeforePseudoElement() const;
     inline bool isAfterPseudoElement() const;
-    inline PseudoId pseudoId() const;
+    inline std::optional<PseudoElementType> pseudoElementType() const;
+    inline std::optional<Style::PseudoElementIdentifier> pseudoElementIdentifier() const;
 
 #if ENABLE(VIDEO)
     virtual bool isWebVTTElement() const { return false; }
@@ -257,7 +270,7 @@ public:
     bool isTreeScope() const { return isDocumentNode() || isShadowRoot(); }
     bool isDocumentFragment() const { return nodeType() == DOCUMENT_FRAGMENT_NODE; }
     bool isShadowRoot() const { return isDocumentFragment() && hasTypeFlag(TypeFlag::IsShadowRootOrFormControlElement); }
-    bool isUserAgentShadowRoot() const; // Defined in ShadowRoot.h
+    inline bool isUserAgentShadowRoot() const; // Defined in NodeInlines.h
 
     bool hasCustomStyleResolveCallbacks() const { return hasTypeFlag(TypeFlag::HasCustomStyleResolveCallbacks); }
 
@@ -311,8 +324,8 @@ public:
     Node* nonBoundaryShadowTreeRootNode();
 
     // Node's parent or shadow tree host.
-    inline ContainerNode* parentOrShadowHostNode() const; // Defined in ShadowRoot.h
-    inline RefPtr<ContainerNode> protectedParentOrShadowHostNode() const; // Defined in ShadowRoot.h
+    inline ContainerNode* parentOrShadowHostNode() const; // Defined in NodeInlines.h
+    inline RefPtr<ContainerNode> protectedParentOrShadowHostNode() const; // Defined in NodeInlines.h
     ContainerNode* parentInComposedTree() const;
     WEBCORE_EXPORT Element* parentElementInComposedTree() const;
     Element* parentOrShadowHostElement() const;
@@ -417,8 +430,8 @@ public:
     WEBCORE_EXPORT Document* ownerDocument() const;
 
     // Returns the document associated with this node. A document node returns itself.
-    inline Document& document() const; // Defined in NodeInlines.h
-    inline Ref<Document> protectedDocument() const; // Defined in NodeInlines.h
+    inline Document& document() const; // Defined in NodeDocument.h
+    inline Ref<Document> protectedDocument() const; // Defined in NodeDocument.h
 
     TreeScope& treeScope() const
     {
@@ -493,7 +506,7 @@ public:
     inline RenderBoxModelObject* renderBoxModelObject() const; // Defined in NodeInlines.h
 
     // Wrapper for nodes that don't have a renderer, but still cache the style (like HTMLOptionElement).
-    inline const RenderStyle* renderStyle() const;
+    inline const RenderStyle* renderStyle() const; // Defined in NodeRenderStyle.h
 
     WEBCORE_EXPORT const RenderStyle* computedStyle();
     virtual const RenderStyle* computedStyle(const std::optional<Style::PseudoElementIdentifier>&);
@@ -611,6 +624,9 @@ public:
     bool containsSelectionEndPoint() const { return hasStateFlag(StateFlag::ContainsSelectionEndPoint); }
     void setContainsSelectionEndPoint(bool value) { setStateFlag(StateFlag::ContainsSelectionEndPoint, value); }
 
+    WEBCORE_EXPORT NodeIdentifier nodeIdentifier() const;
+    WEBCORE_EXPORT static Node* fromIdentifier(NodeIdentifier);
+
 protected:
     enum class TypeFlag : uint16_t {
         IsCharacterData = 1 << 0,
@@ -645,7 +661,7 @@ protected:
         ContainsOnlyASCIIWhitespaceIsValid = 1 << 8, // Only used on CharacterData.
         HasHeldBackChildrenChanged = 1 << 9,
         ContainsSelectionEndPoint = 1 << 10,
-        HasElementIdentifier = 1 << 11,
+        HasNodeIdentifier = 1 << 11,
         IsUserActionElement = 1 << 12,
         IsInCustomElementReactionQueue = 1 << 13,
         UsesNullCustomElementRegistry = 1 << 14,
@@ -656,7 +672,9 @@ protected:
 #if ENABLE(FULLSCREEN_API)
         IsFullscreen = 1 << 19,
 #endif
-        // 12 bits free.
+        IsShadowRootAttachedEventPending = 1 << 20,
+        InLargestContentfulPaintTextContentSet = 1 << 21,
+        // 11 bits free.
     };
 
     enum class TabIndexState : uint8_t {

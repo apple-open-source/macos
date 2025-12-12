@@ -219,7 +219,7 @@ MediaPlayerPrivateRemote::~MediaPlayerPrivateRemote()
 
     // Shutdown any stale MediaResources.
     // This condition can happen if the MediaPlayer gets reloaded half-way.
-    ensureOnMainThread([resources = WTFMove(m_mediaResources)] {
+    ensureOnMainThread([resources = std::exchange(m_mediaResources, { })] {
         for (auto&& resource : resources)
             resource.value->shutdown();
     });
@@ -1020,7 +1020,7 @@ void MediaPlayerPrivateRemote::remoteVideoTrackConfigurationChanged(TrackID trac
 void MediaPlayerPrivateRemote::load(const URL& url, const LoadOptions& options, MediaSourcePrivateClient& client)
 {
     if (m_remoteEngineIdentifier == MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMSE
-        || (platformStrategies()->mediaStrategy().mockMediaSourceEnabled() && m_remoteEngineIdentifier == MediaPlayerEnums::MediaEngineIdentifier::MockMSE)) {
+        || (platformStrategies()->mediaStrategy()->mockMediaSourceEnabled() && m_remoteEngineIdentifier == MediaPlayerEnums::MediaEngineIdentifier::MockMSE)) {
 
         RefPtr mediaSourcePrivate = downcast<MediaSourcePrivateRemote>(client.mediaSourcePrivate());
         RemoteMediaSourceIdentifier identifier = [&] {
@@ -1047,7 +1047,7 @@ void MediaPlayerPrivateRemote::load(const URL& url, const LoadOptions& options, 
             // MediaSource can only be re-opened after RemoteMediaPlayerProxy::LoadMediaSource has been called.
             client.reOpen();
         } else
-            m_mediaSourcePrivate = MediaSourcePrivateRemote::create(protectedManager()->protectedGPUProcessConnection(), identifier, protectedManager()->typeCache(m_remoteEngineIdentifier), *this, client);
+            m_mediaSourcePrivate = MediaSourcePrivateRemote::create(protectedManager()->protectedGPUProcessConnection(), identifier, protectedManager()->checkedTypeCache(m_remoteEngineIdentifier), *this, client);
         return;
     }
 
@@ -1089,7 +1089,7 @@ PlatformLayer* MediaPlayerPrivateRemote::platformLayer() const
 #if PLATFORM(COCOA)
     if (!m_videoLayer && m_layerHostingContext.contextID) {
         auto expandedVideoLayerSize = expandedIntSize(videoLayerSize());
-        m_videoLayer = createVideoLayerRemote(const_cast<MediaPlayerPrivateRemote*>(this), m_layerHostingContext.contextID, m_videoFullscreenGravity, expandedVideoLayerSize);
+        m_videoLayer = createVideoLayerRemote(const_cast<MediaPlayerPrivateRemote&>(*this), m_layerHostingContext.contextID, m_videoFullscreenGravity, expandedVideoLayerSize);
         m_videoLayerManager->setVideoLayer(m_videoLayer.get(), expandedVideoLayerSize);
     }
     return m_videoLayerManager->videoInlineLayer();
@@ -1112,7 +1112,7 @@ void MediaPlayerPrivateRemote::updateVideoFullscreenInlineImage()
     connection().send(Messages::RemoteMediaPlayerProxy::UpdateVideoFullscreenInlineImage(), m_id);
 }
 
-void MediaPlayerPrivateRemote::setVideoFullscreenFrame(WebCore::FloatRect rect)
+void MediaPlayerPrivateRemote::setVideoFullscreenFrame(const WebCore::FloatRect& rect)
 {
 #if PLATFORM(COCOA)
     ALWAYS_LOG(LOGIDENTIFIER, "width = ", rect.size().width(), ", height = ", rect.size().height());
@@ -1510,16 +1510,6 @@ void MediaPlayerPrivateRemote::tracksChanged()
     connection().send(Messages::RemoteMediaPlayerProxy::TracksChanged(), m_id);
 }
 
-void MediaPlayerPrivateRemote::beginSimulatedHDCPError()
-{
-    connection().send(Messages::RemoteMediaPlayerProxy::BeginSimulatedHDCPError(), m_id);
-}
-
-void MediaPlayerPrivateRemote::endSimulatedHDCPError()
-{
-    connection().send(Messages::RemoteMediaPlayerProxy::EndSimulatedHDCPError(), m_id);
-}
-
 String MediaPlayerPrivateRemote::languageOfPrimaryAudioTrack() const
 {
     return m_cachedState.languageOfPrimaryAudioTrack;
@@ -1570,16 +1560,14 @@ void MediaPlayerPrivateRemote::notifyActiveSourceBuffersChanged()
     connection().send(Messages::RemoteMediaPlayerProxy::NotifyActiveSourceBuffersChanged(), m_id);
 }
 
-#if PLATFORM(COCOA)
 bool MediaPlayerPrivateRemote::inVideoFullscreenOrPictureInPicture() const
 {
-#if ENABLE(VIDEO_PRESENTATION_MODE)
+#if PLATFORM(COCOA) && ENABLE(VIDEO_PRESENTATION_MODE)
     return !!m_videoLayerManager->videoFullscreenLayer();
 #else
     return false;
 #endif
 }
-#endif
 
 void MediaPlayerPrivateRemote::applicationWillResignActive()
 {
@@ -1601,14 +1589,14 @@ void MediaPlayerPrivateRemote::setPlatformDynamicRangeLimit(WebCore::PlatformDyn
     connection().send(Messages::RemoteMediaPlayerProxy::SetPlatformDynamicRangeLimit(platformDynamicRangeLimit), m_id);
 }
 
-bool MediaPlayerPrivateRemote::performTaskAtTime(WTF::Function<void()>&& task, const MediaTime& mediaTime)
+bool MediaPlayerPrivateRemote::performTaskAtTime(WTF::Function<void(const MediaTime&)>&& task, const MediaTime& mediaTime)
 {
     auto asyncReplyHandler = [weakThis = ThreadSafeWeakPtr { *this }, task = WTFMove(task)](std::optional<MediaTime> currentTime) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !currentTime)
             return;
 
-        task();
+        task(*currentTime);
     };
 
     connection().sendWithAsyncReply(Messages::RemoteMediaPlayerProxy::PerformTaskAtTime(mediaTime), WTFMove(asyncReplyHandler), m_id);
@@ -1912,6 +1900,13 @@ void MediaPlayerPrivateRemote::sendInternalMessage(const WebCore::MessageForTest
     connection().send(Messages::RemoteMediaPlayerProxy::SetHasMessageClientForTesting(false), m_id);
 }
 
+void MediaPlayerPrivateRemote::gpuProcessConnectionDidClose()
+{
+    assertIsMainRunLoop();
+
+    for (auto&& resource : std::exchange(m_mediaResources, { }))
+        resource.value->shutdown();
+}
 
 } // namespace WebKit
 

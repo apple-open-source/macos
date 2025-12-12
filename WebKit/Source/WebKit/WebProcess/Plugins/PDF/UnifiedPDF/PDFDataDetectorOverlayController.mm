@@ -183,7 +183,7 @@ bool PDFDataDetectorOverlayController::handleMouseEvent(const WebMouseEvent& eve
     }
 
     if (event.type() == WebEventType::MouseDown && mouseIsOverActiveHighlightButton)
-        return handleDataDetectorAction(mousePositionInWindowSpace, Ref { *m_activeDataDetectorItemWithHighlight.first });
+        return handleDataDetectorAction(flooredIntPoint(mousePositionInWindowSpace), Ref { *m_activeDataDetectorItemWithHighlight.first });
 
     return false;
 }

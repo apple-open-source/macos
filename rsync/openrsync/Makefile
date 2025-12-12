@@ -12,6 +12,7 @@ OBJS	   = batch.o \
 	     downloader.o \
 	     fargs.o \
 	     flist.o \
+	     fmap.o \
 	     hash.o \
 	     ids.o \
 	     io.o \
@@ -50,6 +51,13 @@ AFLS	   = afl/test-blk_recv \
 all: openrsync
 
 afl: $(AFLS)
+
+asan: CFLAGS += -O0 -g3 -fsanitize=address,undefined
+asan: LDFLAGS += -fsanitize=address,undefined
+asan: openrsync
+
+debug: CFLAGS += -O0 -g3
+debug: openrsync
 
 openrsync: $(ALLOBJS)
 	$(CC) $(LDFLAGS) -o $@ $(ALLOBJS) -lm -lutil -lsbuf $(LDADD_LIB_SOCKET) $(LDADD_SCAN_SCALED)

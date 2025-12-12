@@ -37,7 +37,9 @@
 #include "AudioMediaStreamTrackRenderer.h"
 #include "AudioSession.h"
 #include "CaptureDeviceWithCapabilities.h"
-#include "DocumentInlines.h"
+#include "ContextDestructionObserverInlines.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
@@ -50,7 +52,6 @@
 #include "Logging.h"
 #include "MediaTrackSupportedConstraints.h"
 #include "PermissionsPolicy.h"
-#include "Quirks.h"
 #include "RealtimeMediaSourceSettings.h"
 #include "Settings.h"
 #include "UserGestureIndicator.h"
@@ -162,7 +163,7 @@ void MediaDevices::getUserMedia(StreamConstraints&& constraints, Promise&& promi
 
 #if USE(AUDIO_SESSION)
     if (audioConstraints.isValid) {
-        auto categoryOverride = AudioSession::protectedSharedSession()->categoryOverride();
+        auto categoryOverride = AudioSession::singleton().categoryOverride();
         if (categoryOverride != AudioSessionCategory::None && categoryOverride != AudioSessionCategory::PlayAndRecord)  {
             promise.reject(Exception { ExceptionCode::InvalidStateError, "AudioSession category is not compatible with audio capture."_s });
             return;
@@ -473,6 +474,11 @@ void MediaDevices::scheduledEventTimerFired()
 bool MediaDevices::virtualHasPendingActivity() const
 {
     return hasEventListeners(m_eventNames.devicechangeEvent);
+}
+
+ScriptExecutionContext* MediaDevices::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 void MediaDevices::listenForDeviceChanges()

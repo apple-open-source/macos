@@ -42,8 +42,6 @@
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(GTK)
-#include "GRefPtrGtk.h"
-#include "GdkCairoUtilities.h"
 #include <gtk/gtk.h>
 #include <wtf/glib/GUniquePtr.h>
 #endif
@@ -82,7 +80,8 @@ static bool encodeImage(cairo_surface_t* surface, const String& mimeType, std::o
     if (type != "jpeg"_s && type != "png"_s && type != "tiff"_s && type != "ico"_s && type != "bmp"_s)
         return false;
 
-    auto pixbuf = cairoSurfaceToGdkPixbuf(surface);
+    IntSize size = cairoSurfaceSize(surface);
+    GRefPtr<GdkPixbuf> pixbuf = adoptGRef(gdk_pixbuf_get_from_surface(surface, 0, 0, size.width(), size.height()));
     if (!pixbuf)
         return false;
 

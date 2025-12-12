@@ -37,7 +37,7 @@ namespace WebCore {
 class AudioWorkletGlobalScope;
 class AudioWorkletMessagingProxy;
 
-class AudioWorkletThread : public WorkerOrWorkletThread {
+class AudioWorkletThread final : public WorkerOrWorkletThread {
 public:
     static Ref<AudioWorkletThread> create(AudioWorkletMessagingProxy& messagingProxy, WorkletParameters&& parameters)
     {
@@ -57,6 +57,7 @@ public:
 
 private:
     AudioWorkletThread(AudioWorkletMessagingProxy&, WorkletParameters&&);
+    bool isAudioWorkletThread() const final { return true; }
 
     // WorkerOrWorkletThread.
     Ref<Thread> createThread() final;
@@ -67,5 +68,9 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::AudioWorkletThread)
+    static bool isType(const WebCore::WorkerOrWorkletThread& thread) { return thread.isAudioWorkletThread(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(WEB_AUDIO)

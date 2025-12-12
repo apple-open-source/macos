@@ -55,7 +55,7 @@ public:
     std::optional<WebPageProxyIdentifier> owningPageProxyIdentifier() const { return m_owningPageProxyIdentifier; }
     const std::optional<WebExtensionMessageSenderParameters>& senderParameters() const { return m_senderParameters; }
 
-    void postMessage(WebFrame&, NSString *, NSString **outExceptionString);
+    void postMessage(WebFrame&, const String&, NSString **outExceptionString);
     void disconnect();
 
     bool isDisconnected() const { return m_disconnected; }

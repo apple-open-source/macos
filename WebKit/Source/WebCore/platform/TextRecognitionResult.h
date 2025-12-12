@@ -37,7 +37,9 @@ OBJC_CLASS VKCImageAnalysis;
 OBJC_CLASS DDScannerResult;
 #endif
 
-#include "FloatQuad.h"
+#include "AttributedString.h"
+
+#include <WebCore/FloatQuad.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -110,10 +112,8 @@ struct TextRecognitionResult {
     Vector<TextRecognitionBlockData> blocks;
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    RetainPtr<NSData> imageAnalysisData;
-
-    WEBCORE_EXPORT static RetainPtr<NSData> encodeVKCImageAnalysis(RetainPtr<VKCImageAnalysis>);
-    WEBCORE_EXPORT static RetainPtr<VKCImageAnalysis> decodeVKCImageAnalysis(RetainPtr<NSData>);
+    std::optional<WebCore::AttributedString> imageAnalysisData;
+    WEBCORE_EXPORT static std::optional<WebCore::AttributedString> extractAttributedString(VKCImageAnalysis *);
 #endif
 
     bool isEmpty() const

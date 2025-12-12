@@ -33,10 +33,6 @@
 #endif
 #endif
 
-#if USE(MODERN_AVCONTENTKEYSESSION)
-    bool shouldUseModernAVContentKeySession;
-#endif
-
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
     WebKit::SandboxExtensionHandle containerCachesDirectoryExtensionHandle;
     WebKit::SandboxExtensionHandle containerTemporaryDirectoryExtensionHandle;
@@ -52,7 +48,7 @@
     String applicationVisibleName;
 
 #if USE(GBM)
-    String renderDeviceFile;
+    WebCore::DRMDevice drmDevice;
 #endif
 
     Vector<String> overrideLanguages;

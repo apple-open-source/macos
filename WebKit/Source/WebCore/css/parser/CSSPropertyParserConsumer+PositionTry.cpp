@@ -55,11 +55,11 @@ RefPtr<CSSValue> consumePositionTryFallbacks(CSSParserTokenRange& range, CSS::Pr
         range = rangeCopy;
 
         // Try to parse [<dashed-ident> || <try-tactic>]
-        // <try-tactic> = flip-block || flip-inline || flip-start
+        // <try-tactic> = flip-block || flip-inline || flip-start || flip-x || flip-y
         auto tryRuleIdent = consumeDashedIdentRaw(range);
 
-        Vector<CSSValueID, 3> tryTactics;
-        while (auto tactic = consumeIdentRaw<CSSValueFlipBlock, CSSValueFlipInline, CSSValueFlipStart>(range)) {
+        Vector<CSSValueID, 5> tryTactics;
+        while (auto tactic = consumeIdentRaw<CSSValueFlipBlock, CSSValueFlipInline, CSSValueFlipStart, CSSValueFlipX, CSSValueFlipY>(range)) {
             if (tryTactics.contains(*tactic))
                 return nullptr;
             tryTactics.append(*tactic);

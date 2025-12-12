@@ -165,7 +165,7 @@ exclaves_sensor_kpi_test(int64_t in, int64_t *out)
 	for (unsigned i = 0; i < num_sensors; i++) {
 		kr = exclaves_sensor_status(sensors[i], 0, &sensor_status);
 		SENSOR_TEST(kr == KERN_SUCCESS);
-		SENSOR_TEST(sensor_status == EXCLAVES_SENSOR_STATUS_ALLOWED); /* Not enforced */
+		SENSOR_TEST(sensor_status == EXCLAVES_SENSOR_STATUS_DENIED);
 	}
 
 	/* ALLOWED after at least 1 start */
@@ -197,7 +197,7 @@ exclaves_sensor_kpi_test(int64_t in, int64_t *out)
 	for (unsigned i = 0; i < num_sensors; i++) {
 		kr = exclaves_sensor_stop(sensors[i], 0, &sensor_status);
 		SENSOR_TEST(kr == KERN_SUCCESS);
-		SENSOR_TEST(sensor_status == EXCLAVES_SENSOR_STATUS_ALLOWED); /* Not enforced */
+		SENSOR_TEST(sensor_status == EXCLAVES_SENSOR_STATUS_DENIED);
 	}
 
 	/* exclaves_display_healthcheck_rate does something */

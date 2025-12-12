@@ -1102,9 +1102,10 @@ _xzm_xzone_malloc_from_empty_freelist_chunk(xzm_malloc_zone_t zone,
 #endif
 
 	// acquire to make sure the reclaim index is visible
-	// TODO make this load relaxed. the address of the reclaim index is derived
-	// from the chunk pointer that we popped from the list, and stores to the
-	// list are done with a release barrier
+	// TODO This load can be made relaxed - we already performed the necessary
+	// acquire prior to this point when we marked the chunk as used, if we
+	// needed to do that (i.e. if deferred reclaim is enabled and this chunk was
+	// on the empty list => MADVISED)
 	xzm_chunk_atomic_meta_u old_meta = {
 		.xca_value = os_atomic_load_wide(
 				&chunk->xzc_atomic_meta.xca_value, acquire),
@@ -1701,13 +1702,19 @@ _xzm_xzone_find_and_malloc_from_freelist_chunk(xzm_malloc_zone_t zone,
 
 		bool was_reclaimed = true;
 #if CONFIG_XZM_DEFERRED_RECLAIM
-		// This relies on dependency ordering from the pop of the chunk
-		// list to obtain the correct reclaim buffer index
-		if (((main->xzmz_defer_tiny && !small) ||
-				(main->xzmz_defer_small && small)) &&
-				!xzm_chunk_mark_used(zone, chunk, &was_reclaimed)) {
-			// this chunk is busy so we can't use it
-			goto empty_busy;
+		if ((main->xzmz_defer_tiny && !small) ||
+				(main->xzmz_defer_small && small)) {
+			// We need to ensure that the reclaim ID update is visible before
+			// loading it - we are _not_ implicitly guaranteed that by it having
+			// come from the empty list because the thread that placed it on the
+			// empty list may have done so without itself having visibility on
+			// the ID update.  This acquire pairs with the release that stores
+			// the MADVISED state to the chunk.
+			os_atomic_thread_fence(acquire);
+			if (!xzm_chunk_mark_used(zone, chunk, &was_reclaimed)) {
+				// this chunk is busy so we can't use it
+				goto empty_busy;
+			}
 		}
 #endif // CONFIG_XZM_DEFERRED_RECLAIM
 
@@ -2150,8 +2157,6 @@ _xzm_xzone_freelist_chunks_mark_empty(xzm_malloc_zone_t zone, xzm_xzone_t xz,
 				new_meta.xca_on_empty_list = true;
 			}
 			// release to publish the reclaim index if we stored one
-			// TODO make this store relaxed. the reclaim index is no longer
-			// set in this function
 			bool success = os_atomic_cmpxchgv(&chunk->xzc_atomic_meta.xca_value,
 					old_meta.xca_value, new_meta.xca_value, &old_meta.xca_value,
 					release);

@@ -110,22 +110,24 @@ class SerializedType(object):
                     key, value = attribute.split('=')
                     if key == 'AdditionalEncoder':
                         self.encoders.append(value)
-                    if key == 'ConstructSubclass':
+                    elif key == 'ConstructSubclass':
                         self.construct_subclass = value
-                    if key == 'CreateUsing':
+                    elif key == 'CreateUsing':
                         self.create_using = value
-                    if key == 'Alias':
+                    elif key == 'Alias':
                         self.alias = value
-                    if key == 'ToCFMethod':
+                    elif key == 'ToCFMethod':
                         self.to_cf_method = value
-                    if key == 'FromCFMethod':
+                    elif key == 'FromCFMethod':
                         self.from_cf_method = value
-                    if key == 'ForwardDeclaration':
+                    elif key == 'ForwardDeclaration':
                         self.forward_declaration = value
-                    if key == 'WebKitSecureCodingClass':
+                    elif key == 'WebKitSecureCodingClass':
                         self.custom_secure_coding_class = value
-                    if key == 'Wrapper':
+                    elif key == 'Wrapper':
                         self.generic_wrapper = value
+                    else:
+                        raise Exception(f'Invalid attribute ({key}={value}) found on struct: {self.namespace}::{self.name}')
                 else:
                     if attribute == 'Nested':
                         self.nested = True
@@ -145,6 +147,10 @@ class SerializedType(object):
                         self.support_wkkeyedcoder = True
                     elif attribute == 'DebugDecodingFailure':
                         self.debug_decoding_failure = True
+                    elif attribute in ['CustomHeader']:
+                        pass
+                    else:
+                        raise Exception(f'Invalid attribute ({attribute}) found on struct: {self.namespace}::{self.name}')
         self.templates = templates
         if other_metadata:
             if other_metadata == 'subclasses':
@@ -565,7 +571,7 @@ def typenames(alias):
 
 
 def remove_template_parameters(alias):
-    match = re.search(r'(struct|class) (.*)<', alias)
+    match = re.search(r'(struct|class) ([^<]*)<', alias)
     assert match
     return match.groups()[1]
 
@@ -678,6 +684,14 @@ def generate_header(serialized_types, serialized_enums, additional_forward_decla
     result.append('')
     for header in ['<wtf/ArgumentCoder.h>', '<wtf/OptionSet.h>', '<wtf/Ref.h>', '<wtf/RetainPtr.h>']:
         result.append(f'#include {header}')
+
+    result.append('#if USE(CF)')
+    result.append('#ifdef __swift__')
+    result.append('#include <Security/SecTrust.h>')
+    result.append('#else')
+    result.append('typedef struct CF_BRIDGED_TYPE(id) __SecTrust *SecTrustRef;')
+    result.append('#endif')
+    result.append('#endif')
 
     result += generate_forward_declarations(serialized_types, serialized_enums, additional_forward_declarations)
     result.append('')
@@ -1815,7 +1829,8 @@ def generate_webkit_secure_coding_impl(serialized_types, headers):
     result.append('        return { };')
     result.append('    Vector<RetainPtr<T>> result;')
     result.append('    for (id element in array) {')
-    result.append('        if ([element isKindOfClass:IPC::getClass<T>()])')
+    # FIXME: isKindOfClass call can cause a static analysis false positive (https://github.com/llvm/llvm-project/issues/162979).
+    result.append('        SUPPRESS_UNRETAINED_ARG if ([element isKindOfClass:retainPtr(IPC::getClass<T>()).get()])')
     result.append('            result.append((T *)element);')
     result.append('    }')
     result.append('    return result;')
@@ -1866,7 +1881,8 @@ def generate_webkit_secure_coding_impl(serialized_types, headers):
                         result.append(f'    m_{member.type} = vectorFromArray<{member.array_contents()}>(({member.ns_type_pointer()})[dictionary objectForKey:@"{member.type}"]);')
             else:
                 result.append(f'    m_{member.type} = ({member.ns_type_pointer()})[dictionary objectForKey:@"{member.type}"];')
-                result.append(f'    if (!{member.type_check()})')
+                # FIXME: isKindOfClass call from type_check() can cause a static analysis false positive (https://github.com/llvm/llvm-project/issues/162979).
+                result.append(f'    SUPPRESS_UNRETAINED_ARG if (!{member.type_check()})')
                 result.append(f'        m_{member.type} = nullptr;')
                 # FIXME: We ought to be able to ASSERT_NOT_REACHED() here once all the question marks are in the right places.
                 result.append('')

@@ -25,25 +25,17 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(MEDIA_STREAM)
 
-#include "RealtimeMediaSource.h"
-#include "SpeechRecognitionConnectionClientIdentifier.h"
+#include <WebCore/RealtimeMediaSource.h>
+#include <WebCore/SpeechRecognitionConnectionClientIdentifier.h>
 #include <wtf/Lock.h>
 #include <wtf/TZoneMalloc.h>
 
 #if PLATFORM(COCOA)
-#include "AudioSampleDataSource.h"
+#include <WebCore/AudioSampleDataSource.h>
 #endif
-
-namespace WebCore {
-class SpeechRecognitionCaptureSourceImpl;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::SpeechRecognitionCaptureSourceImpl> : std::true_type { };
-}
 
 namespace WTF {
 class MediaTime;

@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "PlatformAudioData.h"
-#include "SpanCoreAudio.h"
 #include <CoreAudio/CoreAudioTypes.h>
+#include <WebCore/PlatformAudioData.h>
+#include <WebCore/SpanCoreAudio.h>
 #include <wtf/IteratorRange.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>

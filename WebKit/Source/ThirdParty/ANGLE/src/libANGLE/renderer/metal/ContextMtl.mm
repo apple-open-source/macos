@@ -7,6 +7,10 @@
 //    Implements the class methods for ContextMtl.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "libANGLE/renderer/metal/ContextMtl.h"
 
 #include <TargetConditionals.h>
@@ -1521,9 +1525,10 @@ BufferImpl *ContextMtl::createBuffer(const gl::BufferState &state)
 }
 
 // Vertex Array creation
-VertexArrayImpl *ContextMtl::createVertexArray(const gl::VertexArrayState &state)
+VertexArrayImpl *ContextMtl::createVertexArray(const gl::VertexArrayState &state,
+                                               const gl::VertexArrayBuffers &vertexArrayBuffers)
 {
-    return new VertexArrayMtl(state, this);
+    return new VertexArrayMtl(state, vertexArrayBuffers, this);
 }
 
 // Query and Fence creation
@@ -1705,7 +1710,7 @@ void ContextMtl::invalidateState(const gl::Context *context)
 {
     mDirtyBits.set();
 
-    invalidateDefaultAttributes(context->getStateCache().getActiveDefaultAttribsMask());
+    invalidateDefaultAttributes(context->getActiveDefaultAttribsMask());
 }
 
 void ContextMtl::invalidateDefaultAttribute(size_t attribIndex)
@@ -2435,7 +2440,7 @@ void ContextMtl::updateProgramExecutable(const gl::Context *context)
     // Need to rebind textures
     invalidateCurrentTextures();
     // Need to re-upload default attributes
-    invalidateDefaultAttributes(context->getStateCache().getActiveDefaultAttribsMask());
+    invalidateDefaultAttributes(context->getActiveDefaultAttribsMask());
     // Render pipeline need to be re-applied
     invalidateRenderPipeline();
 }
@@ -2444,7 +2449,7 @@ void ContextMtl::updateVertexArray(const gl::Context *context)
 {
     const gl::State &glState = getState();
     mVertexArray             = mtl::GetImpl(glState.getVertexArray());
-    invalidateDefaultAttributes(context->getStateCache().getActiveDefaultAttribsMask());
+    invalidateDefaultAttributes(context->getActiveDefaultAttribsMask());
     invalidateRenderPipeline();
 }
 
@@ -2574,7 +2579,7 @@ angle::Result ContextMtl::setupDrawImpl(const gl::Context *context,
     // instances=0 means no instanced draw.
     GLsizei instanceCount = instances ? instances : 1;
 
-    if (context->getStateCache().hasAnyActiveClientAttrib())
+    if (context->hasAnyActiveClientAttrib())
     {
         ANGLE_TRY(mVertexArray->updateClientAttribs(context, firstVertex, vertexOrIndexCount,
                                                     instanceCount, indexTypeOrNone, indices));

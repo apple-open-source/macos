@@ -51,7 +51,7 @@ std::optional<CaptureDevice> SpeechRecognitionCaptureSource::findCaptureDevice()
     std::optional<CaptureDevice> captureDevice;
     auto devices = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().audioCaptureDeviceManager().captureDevices();
     for (auto device : devices) {
-        if (!device.enabled())
+        if (!device.enabled() || device.isSpeakerDevice())
             continue;
 
         if (!captureDevice)

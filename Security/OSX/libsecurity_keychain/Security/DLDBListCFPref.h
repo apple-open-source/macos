@@ -90,6 +90,7 @@ public:
 
     DLDbIdentifier LoginDLDbIdentifier();
     DLDbIdentifier JaguarLoginDLDbIdentifier();
+    void sendTelemetryData();
 
     static string ExpandTildesInPath(const string &inPath);
 	static string StripPathStuff(const string &inPath);
@@ -124,7 +125,9 @@ protected:
 	gid_t	savedEGID;
 	
 	void changeIdentity(ID_Direction);
-	
+
+    static int8_t findInSearchList(CFArrayRef searchList, DLDbIdentifier it);
+    static int8_t findInSearchList(CFArrayRef searchList, bool(^predicate)(const char* const currentDbName));
 
 private:
 	CFAbsoluteTime mPrefsTimeStamp;

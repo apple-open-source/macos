@@ -32,6 +32,6 @@
 
 @interface _WKDownload () <WKObject> {
 @package
-    RetainPtr<WKDownload> _download;
+    const RetainPtr<WKDownload> _download;
 }
 @end

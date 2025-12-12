@@ -159,6 +159,7 @@ snapshot_user_time_usec(pthread_t *threads)
 T_DECL(thread_group_fairness,
     "Ensure that thread groups tagged as higher priority do not starve out "
     "thread groups tagged as lower priority when both behave as CPU spinners",
+    XNU_T_META_REQUIRES_DEVELOPMENT_KERNEL,     /* needed to set workload config */
     T_META_ASROOT(YES))
 {
 	T_SETUPBEGIN;

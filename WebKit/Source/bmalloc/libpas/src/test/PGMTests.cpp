@@ -43,9 +43,9 @@
 #include "pas_report_crash.h"
 #include "pas_root.h"
 
-#if !PAS_PLATFORM(PLAYSTATION)
+#if (PAS_OS(ANDROID) && __ANDROID_API__ >= 33) || PAS_OS(DARWIN) || (PAS_OS(LINUX) && defined(__GLIBC__) && !defined(__UCLIBC__))
 #include <execinfo.h>
-#endif // !PAS_PLATFORM(PLAYSTATION)
+#endif
 
 using namespace std;
 
@@ -383,8 +383,7 @@ void testPGMMetadataVectorManagementFewDeallocations()
     pas_heap_lock_unlock();
 }
 
-/* Backtrace API is currently not supported on PlayStation. */
-#if !PAS_PLATFORM(PLAYSTATION)
+#if (PAS_OS(ANDROID) && __ANDROID_API__ >= 33) || PAS_OS(DARWIN) || (PAS_OS(LINUX) && defined(__GLIBC__) && !defined(__UCLIBC__))
 void testPGMMetadataDoubleFreeBehavior()
 {
     pas_probabilistic_guard_malloc_initialize_pgm_as_enabled(1);
@@ -583,7 +582,7 @@ void testPGMAllocMetadataOnly()
         CHECK(!dealloc_metadata);
     }
 }
-#endif // !PAS_PLATFORM(PLAYSTATION)
+#endif
 
 } // anonymous namespace
 
@@ -598,9 +597,9 @@ void addPGMTests()
     ADD_TEST(testPGMMetadataVectorManagement());
     ADD_TEST(testPGMMetadataVectorManagementFewDeallocations());
     ADD_TEST(testPGMMetadataVectorManagementRehash());
-#if !PAS_PLATFORM(PLAYSTATION)
+#if (PAS_OS(ANDROID) && __ANDROID_API__ >= 33) || PAS_OS(DARWIN) || (PAS_OS(LINUX) && defined(__GLIBC__) && !defined(__UCLIBC__))
     ADD_TEST(testPGMMetadataDoubleFreeBehavior());
     ADD_TEST(testPGMBmallocAllocationBacktrace());
     ADD_TEST(testPGMAllocMetadataOnly());
-#endif // !PAS_PLATFORM(PLAYSTATION)
+#endif
 }

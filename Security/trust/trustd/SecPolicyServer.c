@@ -3775,6 +3775,12 @@ void SecPVCPathCheckRevocationResponsesReceived(SecPVCRef pvc) {
                 SecPVCSetResultForced(pvc, kSecPolicyCheckRevocationResponseRequired,
                                       ix, kCFBooleanFalse, true);
             }
+            
+            /* Do we have a definitive CRLite revocation result for this cert? */
+            if (SecRVCHasDefinitiveCRLiteInfo(rvc) && SecRVCHasRevokedCRLiteInfo(rvc)) {
+                SecRVCSetCRLiteDeterminedErrorResult(rvc);
+            }
+
             /* Do we have a definitive Valid revocation result for this cert? */
             if (SecRVCHasDefinitiveValidInfo(rvc) && SecRVCHasRevokedValidInfo(rvc)) {
                 SecRVCSetValidDeterminedErrorResult(rvc);

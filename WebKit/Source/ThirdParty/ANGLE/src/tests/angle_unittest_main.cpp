@@ -4,6 +4,10 @@
 // found in the LICENSE file.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "GLSLANG/ShaderLang.h"
 #include "gtest/gtest.h"
 #if defined(ANGLE_HAS_RAPIDJSON)

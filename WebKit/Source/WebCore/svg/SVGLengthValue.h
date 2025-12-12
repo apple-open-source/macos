@@ -21,9 +21,9 @@
 
 #pragma once
 
-#include "CSSPrimitiveNumeric.h"
-#include "SVGParsingError.h"
-#include "SVGPropertyTraits.h"
+#include <WebCore/CSSPrimitiveNumeric.h>
+#include <WebCore/SVGParsingError.h>
+#include <WebCore/SVGPropertyTraits.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -69,7 +69,6 @@ public:
 
     static std::optional<SVGLengthValue> construct(SVGLengthMode, StringView);
     static SVGLengthValue construct(SVGLengthMode, StringView, SVGParsingError&, SVGLengthNegativeValuesMode = SVGLengthNegativeValuesMode::Allow);
-    static SVGLengthValue blend(const SVGLengthValue& from, const SVGLengthValue& to, float progress);
 
     SVGLengthType lengthType() const;
     SVGLengthMode lengthMode() const { return m_lengthMode; }
@@ -80,7 +79,7 @@ public:
     float value(const SVGLengthContext&) const;
     float valueAsPercentage() const;
     float valueInSpecifiedUnits() const;
-    
+
     String valueAsString() const;
     AtomString valueAsAtomString() const;
     ExceptionOr<float> valueForBindings(const SVGLengthContext&) const;

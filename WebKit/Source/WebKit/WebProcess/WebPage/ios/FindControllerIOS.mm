@@ -33,6 +33,7 @@
 #import "SmartMagnificationControllerMessages.h"
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
+#import <WebCore/DocumentPage.h>
 #import <WebCore/Editor.h>
 #import <WebCore/FindRevealAlgorithms.h>
 #import <WebCore/FocusController.h>
@@ -180,7 +181,7 @@ void FindController::didFindString()
     // Many sites have overlay headers or footers that may overlap with the highlighted
     // text, so we reveal the text at the center of the viewport.
     // FIXME: Find a better way to estimate the obscured area (https://webkit.org/b/183889).
-    frame->selection().revealSelection(SelectionRevealMode::RevealUpToMainFrame, ScrollAlignment::alignCenterAlways, WebCore::RevealExtentOption::DoNotRevealExtent);
+    frame->selection().revealSelection({ SelectionRevealMode::RevealUpToMainFrame, ScrollAlignment::alignCenterAlways, WebCore::RevealExtentOption::DoNotRevealExtent });
     revealClosedDetailsAndHiddenUntilFoundAncestors(*frame->selection().selection().start().anchorNode());
 }
 

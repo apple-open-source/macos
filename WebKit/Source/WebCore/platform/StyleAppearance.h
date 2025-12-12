@@ -80,6 +80,8 @@ enum class StyleAppearance : uint8_t {
     SwitchTrack
 };
 
+constexpr int appearanceBitWidth = 7;
+
 WTF::TextStream& operator<<(WTF::TextStream&, StyleAppearance);
 
 } // namespace WebCore

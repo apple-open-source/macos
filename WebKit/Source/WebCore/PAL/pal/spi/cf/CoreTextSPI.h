@@ -109,6 +109,10 @@ typedef CF_ENUM(uint32_t, CTFontTextStylePlatform)
     kCTFontTextStylePlatformVision = (CTFontTextStylePlatform)5,
 };
 
+typedef CF_OPTIONS(CFOptionFlags, CTFontDescriptorMatchingOptions) {
+    kCTFontDescriptorMatchingOptionIncludeHiddenFonts = 1 << 16,
+};
+
 #endif
 
 WTF_EXTERN_C_BEGIN
@@ -240,6 +244,7 @@ bool CTFontIsAppleColorEmoji(CTFontRef);
 CTFontRef CTFontCreateForCharacters(CTFontRef currentFont, const UTF16Char *characters, CFIndex length, CFIndex *coveredLength);
 CGFloat CTFontGetSbixImageSizeForGlyphAndContentsScale(CTFontRef, const CGGlyph, CGFloat contentsScale);
 
+CFArrayRef _Nullable CTFontDescriptorCreateMatchingFontDescriptorsWithOptions(CTFontDescriptorRef, CFSetRef _Nullable, CTFontDescriptorMatchingOptions);
 CTFontDescriptorOptions CTFontDescriptorGetOptions(CTFontDescriptorRef);
 
 CFBitVectorRef CTFontCopyColorGlyphCoverage(CTFontRef);

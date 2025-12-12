@@ -44,6 +44,7 @@ public:
     bool emulatedPosition() const;
 
     virtual bool isViewerPose() const { return false; }
+    virtual bool isWebXRJointPose() const { return false; }
 
 protected:
     WebXRPose(Ref<WebXRRigidTransform>&&, bool emulatedPosition);

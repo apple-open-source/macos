@@ -49,7 +49,7 @@
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/ExceptionOr.h>
 #include <WebCore/LoaderStrategy.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/MediaStrategy.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/Page.h>
@@ -72,6 +72,8 @@
 namespace WebKit {
 using namespace WebCore;
 
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(WebPlatformStrategies);
+
 class RemoteAudioDestination;
 
 void WebPlatformStrategies::initialize()
@@ -80,9 +82,7 @@ void WebPlatformStrategies::initialize()
     setPlatformStrategies(&platformStrategies.get());
 }
 
-WebPlatformStrategies::WebPlatformStrategies()
-{
-}
+WebPlatformStrategies::WebPlatformStrategies() = default;
 
 LoaderStrategy* WebPlatformStrategies::createLoaderStrategy()
 {
@@ -249,6 +249,55 @@ int64_t WebPlatformStrategies::setStringForType(const String& string, const Stri
     return newChangeCount;
 }
 
+static void collectFrameWebArchives(WebCore::FrameIdentifier frameIdentifier, HashMap<FrameIdentifier, Ref<WebCore::LegacyWebArchive>>& archives, Vector<WebCore::FrameIdentifier>& remoteFrameIdentifiers)
+{
+    RefPtr webFrame = WebFrame::webFrame(frameIdentifier);
+    if (!webFrame)
+        return;
+
+    RefPtr frame = webFrame->coreFrame();
+    if (!frame)
+        return;
+
+    for (; frame; frame = frame->tree().traverseNext()) {
+        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
+        if (!localFrame) {
+            remoteFrameIdentifiers.append(frame->frameID());
+            continue;
+        }
+
+        RefPtr document = localFrame->document();
+        if (!document)
+            continue;
+
+        WebCore::LegacyWebArchive::ArchiveOptions options {
+            LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::Yes,
+            LegacyWebArchive::ShouldArchiveSubframes::No
+        };
+        if (RefPtr archive = WebCore::LegacyWebArchive::create(*document, WTFMove(options))) {
+            auto result = archives.add(localFrame->frameID(), archive.releaseNonNull());
+            RELEASE_ASSERT(result.isNewEntry);
+        }
+    }
+}
+
+int64_t WebPlatformStrategies::writeWebArchive(WebCore::LegacyWebArchive& webArchive, const String& pasteboardName)
+{
+    auto frameIdentifier = webArchive.frameIdentifier();
+    if (!frameIdentifier)
+        return 0;
+
+    HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>> localFrameWebArchives;
+    Vector<WebCore::FrameIdentifier> remoteFrameIdentifiers;
+    localFrameWebArchives.add(*frameIdentifier, webArchive);
+    for (auto identifier : webArchive.subframeIdentifiers())
+        collectFrameWebArchives(identifier, localFrameWebArchives, remoteFrameIdentifiers);
+
+    auto sendResult = WebProcess::singleton().protectedParentProcessConnection()->sendSync(Messages::WebPasteboardProxy::WriteWebArchiveToPasteBoard(pasteboardName, *frameIdentifier, WTFMove(localFrameWebArchives), WTFMove(remoteFrameIdentifiers)), 0);
+    auto [newChangeCount] = sendResult.takeReplyOr(0);
+    return newChangeCount;
+}
+
 int WebPlatformStrategies::getNumberOfFiles(const String& pasteboardName, const PasteboardContext* context)
 {
     auto sendResult = WebProcess::singleton().protectedParentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetNumberOfFiles(pasteboardName, pageIdentifier(context)), 0);
@@ -280,9 +329,39 @@ void WebPlatformStrategies::writeToPasteboard(const PasteboardURL& url, const St
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebPasteboardProxy::WriteURLToPasteboard(url, pasteboardName, pageIdentifier(context)), 0);
 }
 
+static std::optional<WebCore::PasteboardWebContent> updateContentForWebArchive(const WebCore::PasteboardWebContent& content)
+{
+    RefPtr webArchive = content.webArchive;
+    if (!webArchive)
+        return std::nullopt;
+
+    auto updatedContent = content;
+    auto frameIdentifier = webArchive->frameIdentifier();
+    if (!frameIdentifier) {
+        updatedContent.webArchive = nullptr;
+        return updatedContent;
+    }
+
+    auto subFrameIdentifiers = webArchive->subframeIdentifiers();
+    if (subFrameIdentifiers.isEmpty()) {
+        updatedContent.webArchive = nullptr;
+        return updatedContent;
+    }
+
+    updatedContent.localFrameArchives.add(*frameIdentifier, *webArchive);
+    for (auto identifier : subFrameIdentifiers)
+        collectFrameWebArchives(identifier, updatedContent.localFrameArchives, updatedContent.remoteFrameIdentifiers);
+
+    return updatedContent;
+}
+
 void WebPlatformStrategies::writeToPasteboard(const WebCore::PasteboardWebContent& content, const String& pasteboardName, const PasteboardContext* context)
 {
     WebProcess::singleton().willWriteToPasteboardAsynchronously(pasteboardName);
+    if (auto updatedContent = updateContentForWebArchive(content)) {
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebPasteboardProxy::WriteWebContentToPasteboard(*updatedContent, pasteboardName, pageIdentifier(context)), 0);
+        return;
+    }
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebPasteboardProxy::WriteWebContentToPasteboard(content, pasteboardName, pageIdentifier(context)), 0);
 }
 

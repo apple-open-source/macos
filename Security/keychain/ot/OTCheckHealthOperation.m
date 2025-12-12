@@ -251,7 +251,8 @@
 
 @property NSOperation* finishOp;
 @property BOOL isBackgroundCheck;
-
+@property NSInteger daysLeftOnRateLimit;
+@property NSString* altDSID;
 @property (nullable) OTEscrowCheckCallResult* results;
 @end
 
@@ -266,6 +267,7 @@
         _followupHandler = followupHandler;
         _results = nil;
         _isBackgroundCheck = isBackgroundCheck;
+        _daysLeftOnRateLimit = 0;
     }
     return self;
 }
@@ -288,6 +290,9 @@
     return retPasscodeGeneration;
 }
 
+#define ESCROW_TIME_BETWEEN_SILENT_MOVE (180*24*60*60) /* 180 days*/
+#define secondsInADay (24*60*60) /* seconds in 1 day */
+
 - (void)performEscrowCheck:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error))reply
 {
     secnotice("octagon-escrowcheck", "Beginning cuttlefish escrow check");
@@ -308,6 +313,28 @@
         return;
     }
 
+    // Retrieve account metadata.
+    NSError* accountError = nil;
+    OTAccountMetadataClassC* accountState = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
+    if (!accountState || accountError) {
+        secnotice("octagon-escrow-repair", "failed to get account metadata: %@", accountError);
+        reply(nil, accountError);
+        return;
+    }
+
+    self.altDSID = accountState.altDSID;
+    NSDate* now = [NSDate date];
+    NSDate* lastAttemptDate = [NSDate dateWithTimeIntervalSince1970:((NSTimeInterval)accountState.lastEscrowRepairAttempted) / 1000.0];
+
+    // Within rate limiting window - must post CFU.
+    NSTimeInterval timeSinceLastAttemptDate = [now timeIntervalSinceDate:lastAttemptDate];
+    if (timeSinceLastAttemptDate < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
+        if (accountState.escrowRepairAttemptVersion == ESCROW_REPAIR_CURRENT_VERSION) {
+            self.daysLeftOnRateLimit = ceil((ESCROW_TIME_BETWEEN_SILENT_MOVE - timeSinceLastAttemptDate)/secondsInADay);
+            secnotice("octagon-escrow-repair", "rate limited, days left on rate limit %ld", (long)self.daysLeftOnRateLimit);
+        }
+    }
+
     WEAKIFY(self);
     [self.deps.cuttlefishXPCWrapper requestEscrowCheckWithSpecificUser:self.deps.activeAccount
                                                    requiresEscrowCheck:[OTCheckHealthOperation checkIfPasscodeIsSetForDevice]
@@ -316,6 +343,7 @@
                                                      isBackgroundCheck:self.isBackgroundCheck
                                                                 flowID:self.deps.flowID
                                                        deviceSessionID:self.deps.deviceSessionID
+                                                             rateLimit:self.daysLeftOnRateLimit
                                                                  reply:^(OTEscrowCheckCallResult* result, NSError *error) {
         STRONGIFY(self);
         if (error) {
@@ -332,6 +360,7 @@
 - (void)handleRepairSuggestions:(OTEscrowCheckCallResult*)results
 {
     self.results = results;
+    self.results.rateLimitState = OTEscrowCheckRateLimitStateUnknown;
 
     if (!self.results.octagonTrusted) {
         return;
@@ -369,30 +398,12 @@
     [event sendMetricWithResult:flowSuccess error:flowError];
 }
 
-#define ESCROW_TIME_BETWEEN_SILENT_MOVE (180*24*60*60) /* 180 days*/
-
 - (BOOL)enablePasscodeCacheFlow:(NSError**)error
 {
-    // Retrieve account metadata.
-    NSError* accountError = nil;
-    OTAccountMetadataClassC* accountState = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
-    if (!accountState || accountError) {
-        secnotice("octagon-escrow-repair", "failed to get account metadata: %@", accountError);
-
-        if (error) {
-            *error = accountError;
-        }
-        return NO;
-    }
-
-    // Get relevant information from account metadata.
-    NSString* altDSID = accountState.altDSID;
-    NSDate* lastAttemptDate = [NSDate dateWithTimeIntervalSince1970:((NSTimeInterval)accountState.lastEscrowRepairAttempted) / 1000.0];
-
     // If this is a move request, post a CFU if terms need to be accepted.
     if (self.results.repairReason == OTEscrowCheckRepairReasonRecordNeedsMigration && self.results.moveRequest != nil) {
         NSError* moveError = nil;
-        if (![self.deps.secureBackupAdapter moveToFederationAllowed:self.results.moveRequest.intendedFederation altDSID:altDSID error:&moveError]) {
+        if (![self.deps.secureBackupAdapter moveToFederationAllowed:self.results.moveRequest.intendedFederation altDSID:self.altDSID error:&moveError]) {
             if (moveError == nil || ([moveError.domain isEqualToString:kCloudServicesErrorDomain] && moveError.code == kCloudServicesMissingSecureTerms)) {
                 secnotice("octagon-escrow-repair", "terms acceptance needed, will post follow up");
 
@@ -416,21 +427,21 @@
         }
     }
 
-    NSDate* now = [NSDate date];
+    if (self.daysLeftOnRateLimit > 0) {
+        secnotice("octagon-escrow-repair", "rate limited, will not perform silent repair");
 
-    // Within rate limiting window - must post CFU.
-    if ([now timeIntervalSinceDate:lastAttemptDate] < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
-        if (accountState.escrowRepairAttemptVersion == ESCROW_REPAIR_CURRENT_VERSION) {
-            secnotice("octagon-escrow-repair", "rate limited, will not perform silent repair");
+        self.results.rateLimitState = OTEscrowCheckRateLimitStateRateLimited;
+        self.results.daysLeftOnRateLimit = self.daysLeftOnRateLimit;
 
-            if (error) {
-                *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
-            }
-            return NO;
-        } else {
-            secnotice("octagon-escrow-repair", "rate limit ignored due to version check");
+        if (error) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
         }
+        return NO;
+    } else {
+        secnotice("octagon-escrow-repair", "rate limit ignored due to version check");
     }
+
+    self.results.rateLimitState = OTEscrowCheckRateLimitStateNotRateLimited;
 
     if (self.results.repairDisabled) {
         secnotice("octagon-escrow-repair", "repair disabled, will not perform silent repair");
@@ -442,6 +453,8 @@
     }
 
     secnotice("octagon-escrow-repair", "enabling passcode cache flow");
+
+    NSDate* now = [NSDate date];
 
     // Store current date _before_ enabling cache flow, in case the passcode is acquired very quickly.
     NSError* persistError = nil;

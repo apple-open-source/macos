@@ -97,7 +97,7 @@ RenderingMode Filter::renderingMode() const
 
 void Filter::setFilterRenderingModes(OptionSet<FilterRenderingMode> preferredFilterRenderingModes)
 {
-    m_filterRenderingModes = preferredFilterRenderingModes & supportedFilterRenderingModes();
+    m_filterRenderingModes = supportedFilterRenderingModes(preferredFilterRenderingModes);
     ASSERT(m_filterRenderingModes.contains(FilterRenderingMode::Software));
 }
 

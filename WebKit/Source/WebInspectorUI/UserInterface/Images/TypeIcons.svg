@@ -349,6 +349,8 @@
     <g id="Object-light" class="light yellow"><use href="#box"/><use href="#O"/></g>
     <g id="PausedBreakpoint-dark" class="dark red"><use href="#box"/><use href="#P"/></g>
     <g id="PausedBreakpoint-light" class="light red"><use href="#box"/><use href="#P"/></g>
+    <g id="PerformanceEntry-dark" class="dark teal"><use href="#box"/><use href="#P"/></g>
+    <g id="PerformanceEntry-light" class="light teal"><use href="#box"/><use href="#P"/></g>
     <g id="Program-dark" class="dark purple"><use href="#box"/><use href="#S"/></g>
     <g id="Program-light" class="light purple"><use href="#box"/><use href="#S"/></g>
     <g id="PseudoElement-dark" class="dark red"><use href="#box"/><use href="#P"/></g>

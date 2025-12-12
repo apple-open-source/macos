@@ -177,7 +177,7 @@ std::optional<PlatformLayerIdentifier> GraphicsLayerWC::primaryLayerID() const
 
 void GraphicsLayerWC::setNeedsDisplay()
 {
-    setNeedsDisplayInRect({ { }, m_size }, ClipToLayer);
+    setNeedsDisplayInRect({ { }, m_size }, ShouldClipToLayer::Clip);
 }
 
 void GraphicsLayerWC::setNeedsDisplayInRect(const WebCore::FloatRect& rect, ShouldClipToLayer shouldClip)

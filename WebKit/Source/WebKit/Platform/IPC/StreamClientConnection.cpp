@@ -25,11 +25,17 @@
 
 #include "config.h"
 #include "StreamClientConnection.h"
+#include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/TZoneMallocInlines.h>
+
+#if PLATFORM(COCOA)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
 namespace IPC {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(StreamClientConnection);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(StreamClientConnection::DedicatedConnectionClient);
 
 // FIXME(http://webkit.org/b/238986): Workaround for not being able to deliver messages from the dedicated connection to the work queue the client uses.
 
@@ -45,11 +51,10 @@ void StreamClientConnection::DedicatedConnectionClient::didReceiveMessage(Connec
         receiver->didReceiveMessage(connection, decoder);
 }
 
-bool StreamClientConnection::DedicatedConnectionClient::didReceiveSyncMessage(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder)
+void StreamClientConnection::DedicatedConnectionClient::didReceiveSyncMessage(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder)
 {
     if (RefPtr receiver = m_receiver.get())
-        return receiver->didReceiveSyncMessage(connection, decoder, replyEncoder);
-    return false;
+        receiver->didReceiveSyncMessage(connection, decoder, replyEncoder);
 }
 
 void StreamClientConnection::DedicatedConnectionClient::didClose(Connection& connection)
@@ -169,5 +174,42 @@ void StreamClientConnection::removeWorkQueueMessageReceiver(ReceiverName name, u
 {
     m_connection->removeWorkQueueMessageReceiver(name, destinationID);
 }
+
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+
+static bool streamingIPCSignpostsEnabled = false;
+
+void StreamClientConnection::forceEnableSignposts()
+{
+    streamingIPCSignpostsEnabled = true;
+}
+
+bool StreamClientConnection::signpostsEnabled()
+{
+    static bool hasReadPreferences = false;
+    if (!hasReadPreferences) [[unlikely]] {
+        if (!isInAuxiliaryProcess() && CFPreferencesGetAppBooleanValue(CFSTR("WebKitDebugStreamingIPCSignposts"), kCFPreferencesCurrentApplication, nullptr))
+            streamingIPCSignpostsEnabled = true;
+        hasReadPreferences = true;
+    }
+
+    return streamingIPCSignpostsEnabled;
+}
+
+uintptr_t StreamClientConnection::generateSignpostIdentifier()
+{
+    static std::atomic<uintptr_t> identifier;
+    return ++identifier;
+}
+
+void StreamClientConnection::emitSendSignpost(MessageName messageName)
+{
+    // Signposts can turn in to log message IPCs when emitted from WebContent. Don't emit a signpost
+    // for log messages to avoid an infinite number of signposts.
+    if (signpostsEnabled() && receiverName(messageName) != IPC::ReceiverName::LogStream) [[unlikely]]
+        WTFEmitSignpost(generateSignpostIdentifier(), StreamClientConnection, "send: %" PUBLIC_LOG_STRING, description(messageName).characters());
+}
+
+#endif
 
 }

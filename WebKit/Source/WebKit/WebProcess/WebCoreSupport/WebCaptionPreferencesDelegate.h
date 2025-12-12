@@ -35,7 +35,7 @@ namespace WebKit {
 class WebCaptionPreferencesDelegate final : public WebCore::CaptionPreferencesDelegate {
     WTF_MAKE_TZONE_ALLOCATED(WebCaptionPreferencesDelegate);
 public:
-    virtual ~WebCaptionPreferencesDelegate() { }
+    virtual ~WebCaptionPreferencesDelegate() = default;
 
     void setDisplayMode(WebCore::CaptionUserPreferences::CaptionDisplayMode) final;
     void setPreferredLanguage(const String&) final;

@@ -45,17 +45,17 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaSessionManageriOS);
 
-const std::unique_ptr<PlatformMediaSessionManager> PlatformMediaSessionManager::create()
+RefPtr<PlatformMediaSessionManager> PlatformMediaSessionManager::create(PageIdentifier pageIdentifier)
 {
-    auto manager = std::unique_ptr<MediaSessionManageriOS>(new MediaSessionManageriOS);
+    auto manager = adoptRef(new MediaSessionManageriOS(pageIdentifier));
     MediaSessionHelper::sharedHelper().addClient(*manager);
     return manager;
 }
 
-MediaSessionManageriOS::MediaSessionManageriOS()
-    : MediaSessionManagerCocoa()
+MediaSessionManageriOS::MediaSessionManageriOS(PageIdentifier pageIdentifier)
+    : MediaSessionManagerCocoa(pageIdentifier)
 {
-    AudioSession::sharedSession().addInterruptionObserver(*this);
+    AudioSession::addInterruptionObserver(*this);
 }
 
 MediaSessionManageriOS::~MediaSessionManageriOS()
@@ -63,7 +63,7 @@ MediaSessionManageriOS::~MediaSessionManageriOS()
     if (m_isMonitoringWirelessRoutes)
         MediaSessionHelper::sharedHelper().stopMonitoringWirelessRoutes();
     MediaSessionHelper::sharedHelper().removeClient(*this);
-    AudioSession::sharedSession().removeInterruptionObserver(*this);
+    AudioSession::removeInterruptionObserver(*this);
 }
 
 #if !PLATFORM(MACCATALYST)

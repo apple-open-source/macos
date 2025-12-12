@@ -68,8 +68,7 @@ static std::pair<GstAudioFormat, GstAudioLayout> convertAudioSampleFormatToGStre
 
 Ref<PlatformRawAudioData> PlatformRawAudioData::create(Ref<MediaSample>&& sample)
 {
-    ASSERT(sample->platformSample().type == PlatformSample::GStreamerSampleType);
-    return PlatformRawAudioDataGStreamer::create(GRefPtr { sample->platformSample().sample.gstSample });
+    return PlatformRawAudioDataGStreamer::create(GRefPtr { sample->platformSample().gstSample() });
 }
 
 RefPtr<PlatformRawAudioData> PlatformRawAudioData::create(std::span<const uint8_t> sourceData, AudioSampleFormat format, float sampleRate, int64_t timestamp, size_t numberOfFrames, size_t numberOfChannels)

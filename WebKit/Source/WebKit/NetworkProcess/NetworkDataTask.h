@@ -138,6 +138,8 @@ public:
 
     bool isTopLevelNavigation() const { return m_dataTaskIsForMainFrameNavigation; }
 
+    bool isInitiatedByDedicatedWorker() const { return m_isInitiatedByDedicatedWorker; }
+
     virtual String description() const;
     virtual void setH2PingCallback(const URL&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
 
@@ -163,7 +165,7 @@ public:
     size_t bytesTransferredOverNetwork() const { return m_bytesTransferredOverNetwork; }
 
 protected:
-    NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation);
+    NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation, bool isInitiatedByDedicatedWorker);
 
     enum class FailureType : uint8_t {
         Blocked,
@@ -194,6 +196,7 @@ protected:
     bool m_shouldClearReferrerOnHTTPSToHTTPRedirect { true };
     bool m_dataTaskIsForMainFrameNavigation { false };
     bool m_failureScheduled { false };
+    bool m_isInitiatedByDedicatedWorker { false };
 };
 
 } // namespace WebKit

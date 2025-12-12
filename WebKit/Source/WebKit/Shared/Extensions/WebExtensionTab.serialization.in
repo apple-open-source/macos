@@ -33,7 +33,7 @@ struct WebKit::WebExtensionTabParameters {
     std::optional<WebKit::WebExtensionWindowIdentifier> windowIdentifier;
     std::optional<uint64_t> index;
 #if PLATFORM(COCOA)
-    std::optional<WebKit::DoubleSize> size;
+    std::optional<WebCore::DoubleSize> size;
 #endif
 
     std::optional<WebKit::WebExtensionTabIdentifier> parentTabIdentifier;

@@ -28,8 +28,11 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "AXNotifications.h"
 #import "AccessibilityObject.h"
 #import "Chrome.h"
+#import "DocumentPage.h"
+#import "DocumentView.h"
 #import "RenderObject.h"
 #import "WebAccessibilityObjectWrapperIOS.h"
 #import <wtf/RetainPtr.h>
@@ -176,6 +179,6 @@ void AXObjectCache::platformPerformDeferredCacheUpdate()
 {
 }
 
-}
+} // namespace WebCore
 
 #endif // PLATFORM(IOS_FAMILY)

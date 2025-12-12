@@ -47,7 +47,6 @@ public:
 
     EventContext(Type, Node*, EventTarget* currentTarget, EventTarget* origin, int closedShadowDepth);
     EventContext(Type, Node&, Node* currentTarget, EventTarget* origin, int closedShadowDepth);
-    ~EventContext() = default;
 
     Node* node() const { return m_node.get(); }
     RefPtr<Node> protectedNode() const { return m_node; }

@@ -42,6 +42,8 @@ class History final : public ScriptWrappable, public RefCounted<History>, public
 public:
     static Ref<History> create(LocalDOMWindow& window) { return adoptRef(*new History(window)); }
 
+    ~History();
+
     ExceptionOr<unsigned> length() const;
 
     enum class ScrollRestoration {

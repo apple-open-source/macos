@@ -51,6 +51,7 @@
 
 namespace WebCore {
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage")
 static float cpuPeriod()
 {
     FILE* file = fopen("/proc/stat", "r");
@@ -100,6 +101,7 @@ static float cpuPeriod()
     previousTotalTime = totalTime;
     return static_cast<float>(period) / cpuCount;
 }
+IGNORE_CLANG_WARNINGS_END
 
 void ResourceUsageThread::platformSaveStateBeforeStarting()
 {
@@ -133,6 +135,7 @@ static HashMap<pid_t, ThreadInfo>& threadInfoMap()
     return map;
 }
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
 static bool threadCPUUsage(pid_t id, float period, ThreadInfo& info)
 {
     String path = makeString("/proc/self/task/"_s, id, "/stat"_s);
@@ -200,6 +203,7 @@ static bool threadCPUUsage(pid_t id, float period, ThreadInfo& info)
     info.cpuUsage = clampTo<float>(usage, 0, 100);
     return true;
 }
+IGNORE_CLANG_WARNINGS_END
 
 static void collectCPUUsage(float period)
 {

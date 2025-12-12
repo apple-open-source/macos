@@ -45,8 +45,9 @@
 #include "ApplePayShippingMethodSelectedEvent.h"
 #include "ApplePayShippingMethodUpdate.h"
 #include "ApplePayValidateMerchantEvent.h"
-#include "DocumentInlines.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentPage.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
 #include "JSDOMPromiseDeferred.h"
@@ -55,7 +56,6 @@
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
 #include "Page.h"
-#include "PageConsoleClient.h"
 #include "PaymentContact.h"
 #include "PaymentCoordinator.h"
 #include "PaymentMerchantSession.h"
@@ -495,7 +495,7 @@ ExceptionOr<Ref<ApplePaySession>> ApplePaySession::create(Document& document, un
     if (!document.page())
         return Exception { ExceptionCode::InvalidAccessError, "Frame is detached"_s };
 
-    auto convertedPaymentRequest = convertAndValidate(document, version, WTFMove(paymentRequest), document.page()->protectedPaymentCoordinator().get());
+    auto convertedPaymentRequest = convertAndValidate(document, version, WTFMove(paymentRequest), document.protectedPage()->protectedPaymentCoordinator().get());
     if (convertedPaymentRequest.hasException())
         return convertedPaymentRequest.releaseException();
 
@@ -1216,6 +1216,11 @@ bool ApplePaySession::isFinalState() const
 bool ApplePaySession::virtualHasPendingActivity() const
 {
     return m_state != State::Idle && !isFinalState();
+}
+
+ScriptExecutionContext* ApplePaySession::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 } // namespace WebCore

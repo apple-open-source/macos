@@ -87,6 +87,7 @@ NS_SWIFT_UI_ACTOR
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player seekThumbnailToTime:(NSTimeInterval)time;
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player setVideoReceiverEndpoint:(xpc_object_t)videoReceiverEndpoint;
 - (void)linearMediaPlayerClearVideoReceiverEndpoint:(WKSLinearMediaPlayer *)player;
+- (uint64_t)linearMediaPlayerLogIdentifier:(WKSLinearMediaPlayer *)player;
 @end
 
 NS_SWIFT_UI_ACTOR

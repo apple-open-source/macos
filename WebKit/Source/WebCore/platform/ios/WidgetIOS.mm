@@ -83,7 +83,7 @@ void Widget::show()
     setSelfVisible(true);
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [getOuterView() setHidden:NO];
+    [outerView() setHidden:NO];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -95,7 +95,7 @@ void Widget::hide()
     setSelfVisible(false);
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [getOuterView() setHidden:YES];
+    [outerView() setHidden:YES];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -105,7 +105,7 @@ IntRect Widget::frameRect() const
         return m_frame;
     
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    return enclosingIntRect([getOuterView() frame]);
+    return enclosingIntRect([outerView() frame]);
     END_BLOCK_OBJC_EXCEPTIONS
     
     return m_frame;
@@ -116,7 +116,7 @@ void Widget::setFrameRect(const IntRect &rect)
     m_frame = rect;
     
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    NSView *v = getOuterView();
+    NSView *v = outerView();
     NSRect f = rect;
     if (!NSEqualRects(f, [v frame])) {
         [v setFrame:f];
@@ -125,7 +125,7 @@ void Widget::setFrameRect(const IntRect &rect)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-NSView* Widget::getOuterView() const
+NSView* Widget::outerView() const
 {
     NSView* view = platformWidget();
 
@@ -144,7 +144,7 @@ void Widget::paint(GraphicsContext& p, const IntRect& r, SecurityOriginPaintPoli
     if (p.paintingDisabled())
         return;
     
-    NSView *view = getOuterView();
+    NSView *view = outerView();
 
     CGContextRef cgContext = p.platformContext();
     CGContextSaveGState(cgContext);
@@ -169,7 +169,7 @@ void Widget::addToSuperview(NSView *view)
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     ASSERT(view);
-    NSView *subview = getOuterView();
+    NSView *subview = outerView();
 
     if (!subview)
         return;
@@ -185,7 +185,7 @@ void Widget::addToSuperview(NSView *view)
 void Widget::removeFromSuperview()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    safeRemoveFromSuperview(getOuterView());
+    safeRemoveFromSuperview(outerView());
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -296,6 +296,22 @@ FloatPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, F
     return point;
 }
 
+DoublePoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, DoublePoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    RetainPtr view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
+    if (RetainPtr documentView = [view documentView])
+        return [documentView convertPoint:point fromView:nil];
+    else
+        return [view convertPoint:point fromView:nil];
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
+}
+
 IntRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, const IntRect& rect)
 {
     if (!rootWidget->platformWidget())
@@ -331,6 +347,11 @@ FloatRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, co
 NSView *Widget::platformWidget() const
 {
     return m_widget.get();
+}
+
+RetainPtr<NSView> Widget::protectedPlatformWidget() const
+{
+    return platformWidget();
 }
 
 void Widget::setPlatformWidget(NSView *widget)

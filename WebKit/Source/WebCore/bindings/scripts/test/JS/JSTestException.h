@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include "JSDOMWrapper.h"
 #include "TestException.h"
 #include <JavaScriptCore/ErrorPrototype.h>
+#include <WebCore/JSDOMWrapper.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {

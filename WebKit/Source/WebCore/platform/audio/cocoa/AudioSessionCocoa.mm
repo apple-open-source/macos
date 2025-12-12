@@ -52,14 +52,15 @@ void AudioSessionCocoa::setEligibleForSmartRoutingInternal(bool eligible)
     if (!AudioSession::shouldManageAudioSessionCategory())
         return;
 
-    static bool supportsEligibleForBT = [PAL::getAVAudioSessionClass() instancesRespondToSelector:@selector(setEligibleForBTSmartRoutingConsideration:error:)]
-        && [PAL::getAVAudioSessionClass() instancesRespondToSelector:@selector(eligibleForBTSmartRoutingConsideration)];
+    // FIXME: This is a safer cpp false positive (160259918).
+    SUPPRESS_UNRETAINED_ARG static bool supportsEligibleForBT = [PAL::getAVAudioSessionClassSingleton() instancesRespondToSelector:@selector(setEligibleForBTSmartRoutingConsideration:error:)] && [PAL::getAVAudioSessionClassSingleton() instancesRespondToSelector:@selector(eligibleForBTSmartRoutingConsideration)];
     if (!supportsEligibleForBT)
         return;
 
     RELEASE_LOG(Media, "AudioSession::setEligibleForSmartRouting() %s", eligible ? "true" : "false");
 
-    AVAudioSession *session = [PAL::getAVAudioSessionClass() sharedInstance];
+    // FIXME: This is a safer cpp false positive (160259918).
+    SUPPRESS_UNRETAINED_ARG AVAudioSession *session = [PAL::getAVAudioSessionClassSingleton() sharedInstance];
     if (session.eligibleForBTSmartRoutingConsideration == eligible)
         return;
 
@@ -95,8 +96,10 @@ void AudioSessionCocoa::setEligibleForSmartRouting(bool isEligible, ForceUpdate 
 bool AudioSessionCocoa::tryToSetActiveInternal(bool active)
 {
 #if HAVE(AVAUDIOSESSION)
-    static bool supportsSharedInstance = [PAL::getAVAudioSessionClass() respondsToSelector:@selector(sharedInstance)];
-    static bool supportsSetActive = [PAL::getAVAudioSessionClass() instancesRespondToSelector:@selector(setActive:withOptions:error:)];
+    // FIXME: This is a safer cpp false positive (160259918).
+    SUPPRESS_UNRETAINED_ARG static bool supportsSharedInstance = [PAL::getAVAudioSessionClassSingleton() respondsToSelector:@selector(sharedInstance)];
+    // FIXME: This is a safer cpp false positive (160259918).
+    SUPPRESS_UNRETAINED_ARG static bool supportsSetActive = [PAL::getAVAudioSessionClassSingleton() instancesRespondToSelector:@selector(setActive:withOptions:error:)];
 
     if (!supportsSharedInstance)
         return true;
@@ -113,8 +116,10 @@ bool AudioSessionCocoa::tryToSetActiveInternal(bool active)
         setEligibleForSmartRouting(true);
         m_workQueue->dispatchSync([&success] {
             NSError *error = nil;
-            if (supportsSetActive)
-                [[PAL::getAVAudioSessionClass() sharedInstance] setActive:YES withOptions:0 error:&error];
+            if (supportsSetActive) {
+                // FIXME: This is a safer cpp false positive (160259918).
+                SUPPRESS_UNRETAINED_ARG [[PAL::getAVAudioSessionClassSingleton() sharedInstance] setActive:YES withOptions:0 error:&error];
+            }
             if (error)
                 RELEASE_LOG_ERROR(Media, "failed to activate audio session, error: %@", error.localizedDescription);
             success = !error;
@@ -124,8 +129,10 @@ bool AudioSessionCocoa::tryToSetActiveInternal(bool active)
 
     m_workQueue->dispatch([] {
         NSError *error = nil;
-        if (supportsSetActive)
-            [[PAL::getAVAudioSessionClass() sharedInstance] setActive:NO withOptions:0 error:&error];
+        if (supportsSetActive) {
+            // FIXME: This is a safer cpp false positive (160259918).
+            SUPPRESS_UNRETAINED_ARG [[PAL::getAVAudioSessionClassSingleton() sharedInstance] setActive:NO withOptions:0 error:&error];
+        }
         if (error)
             RELEASE_LOG_ERROR(Media, "failed to deactivate audio session, error: %@", error.localizedDescription);
     });

@@ -26,11 +26,16 @@
 @_weakLinked internal import GameController
 internal import WebKit_Internal
 
-@objc @implementation extension WKMouseDeviceObserver {
+@objc
+@implementation
+extension WKMouseDeviceObserver {
     private static let shared = WKMouseDeviceObserver()
 
-    @nonobjc private var connectionObservationTask: Task<Void, Never>? = nil
-    @nonobjc private var disconnectionObservationTask: Task<Void, Never>? = nil
+    @nonobjc
+    private var connectionObservationTask: Task<Void, Never>? = nil
+
+    @nonobjc
+    private var disconnectionObservationTask: Task<Void, Never>? = nil
 
     private var startCount = 0
     private var connectedDeviceCount = 0 {
@@ -101,6 +106,7 @@ internal import WebKit_Internal
         disconnectionObservationTask?.cancel()
     }
 
+    // swift-format-ignore: NoLeadingUnderscores
     func _setHasMouseDevice(forTesting hasMouseDevice: Bool) {
         connectedDeviceCount = hasMouseDevice ? 1 : 0
     }

@@ -105,16 +105,19 @@ static Vector<unsigned> serializeActions(const Vector<ContentExtensionRule>& rul
         // Anything with condition is just pushed.
         // We could try to merge conditions but that case is not common in practice.
         //
-        // Also, if the rule is an ignore-following-rules rule, we shouldn't try to
-        // combine them so that we maintain the position of the rule when we process
-        // them later.
-        if (!rule.trigger().conditions.isEmpty() || std::holds_alternative<IgnoreFollowingRulesAction>(actionData)) {
+        // FIXME: <rdar://157880650> We can actually combine ignore-following-rules actions, order would still be maintained.
+        // If the rule is an ignore-following-rules rule, we shouldn't try to combine them so that we maintain the position
+        // of the rule when we process them later.
+        //
+        // If we're tracking rule identifiers, we also cannot combine actions since the identifiers are unique.
+        if (!rule.trigger().conditions.isEmpty() || std::holds_alternative<IgnoreFollowingRulesAction>(actionData) || std::holds_alternative<ReportIdentifierAction>(actionData)) {
             actionLocations.append(actions.size());
 
             actions.append(actionData.index());
             WTF::visit(WTF::makeVisitor([&](const auto& member) {
                 member.serialize(actions);
             }), actionData);
+
             continue;
         }
 
@@ -173,6 +176,9 @@ static Vector<unsigned> serializeActions(const Vector<ContentExtensionRule>& rul
             return findOrMakeOtherActionLocation(modifyHeadersActionMap, action);
         }, [&] (const RedirectAction& action) {
             return findOrMakeOtherActionLocation(redirectActionMap, action);
+        }, [&] (const ReportIdentifierAction&) {
+            ASSERT_NOT_REACHED();
+            return static_cast<ActionLocation>(0);
         }), actionData);
         actionLocations.append(actionLocation);
     }
@@ -288,7 +294,7 @@ std::error_code compileRuleList(ContentExtensionCompilationClient& client, Strin
 #if CONTENT_EXTENSIONS_PERFORMANCE_REPORTING
     MonotonicTime patternPartitioningStart = MonotonicTime::now();
 #endif
-    
+
     client.writeSource(std::exchange(ruleJSON, String()));
 
     Vector<SerializedActionByte> actions;

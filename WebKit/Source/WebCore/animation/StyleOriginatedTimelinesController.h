@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "CSSAnimation.h"
-#include "NameScope.h"
-#include "ScrollAxis.h"
-#include "Styleable.h"
+#include <WebCore/CSSAnimation.h>
+#include <WebCore/NameScope.h>
+#include <WebCore/ScrollAxis.h>
+#include <WebCore/Styleable.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/AtomStringHash.h>
@@ -38,7 +38,9 @@ namespace WebCore {
 class ScrollTimeline;
 class WebAnimation;
 
+namespace Style {
 struct ViewTimelineInsetItem;
+}
 
 // A style-originated timeline is a timeline that is assigned to a CSS Animation
 // via the `animation-timeline` property. These timelines may be created directly
@@ -56,14 +58,14 @@ struct ViewTimelineInsetItem;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleOriginatedTimelinesController);
 class StyleOriginatedTimelinesController final : public CanMakeCheckedPtr<StyleOriginatedTimelinesController> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleOriginatedTimelinesController);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleOriginatedTimelinesController, StyleOriginatedTimelinesController);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(StyleOriginatedTimelinesController);
 public:
     explicit StyleOriginatedTimelinesController() = default;
     ~StyleOriginatedTimelinesController() = default;
 
     void registerNamedScrollTimeline(const AtomString&, const Styleable&, ScrollAxis);
-    void registerNamedViewTimeline(const AtomString&, const Styleable&, ScrollAxis, const ViewTimelineInsetItem&);
+    void registerNamedViewTimeline(const AtomString&, const Styleable&, ScrollAxis, const Style::ViewTimelineInsetItem&);
     void unregisterNamedTimeline(const AtomString&, const Styleable&);
     void attachAnimation(CSSAnimation&);
     void updateNamedTimelineMapForTimelineScope(const NameScope&, const Styleable&);

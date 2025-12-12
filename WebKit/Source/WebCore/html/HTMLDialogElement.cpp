@@ -26,8 +26,9 @@
 #include "config.h"
 #include "HTMLDialogElement.h"
 
+#include "ContainerNodeInlines.h"
 #include "CSSSelector.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "FocusOptions.h"
@@ -133,14 +134,16 @@ ExceptionOr<void> HTMLDialogElement::showModal()
 
     setIsModal(true);
 
-    auto containingBlockBeforeStyleResolution = SingleThreadWeakPtr<RenderBlock> { };
-    if (auto* renderer = this->renderer())
-        containingBlockBeforeStyleResolution = renderer->containingBlock();
+    {
+        CheckedPtr<RenderBlock> containingBlockBeforeStyleResolution;
+        if (auto* renderer = this->renderer())
+            containingBlockBeforeStyleResolution = renderer->containingBlock();
 
-    if (!isInTopLayer())
-        addToTopLayer();
+        if (!isInTopLayer())
+            addToTopLayer();
 
-    RenderElement::markRendererDirtyAfterTopLayerChange(this->checkedRenderer().get(), containingBlockBeforeStyleResolution.get());
+        RenderElement::markRendererDirtyAfterTopLayerChange(this->checkedRenderer().get(), containingBlockBeforeStyleResolution.get());
+    }
 
     m_previouslyFocusedElement = document->focusedElement();
 

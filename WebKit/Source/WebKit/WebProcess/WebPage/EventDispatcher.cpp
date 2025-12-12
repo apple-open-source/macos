@@ -37,6 +37,7 @@
 #include "WebTouchEvent.h"
 #include "WebWheelEvent.h"
 #include <WebCore/DisplayUpdate.h>
+#include <WebCore/Frame.h>
 #include <WebCore/HandleUserInputEventResult.h>
 #include <WebCore/KeyboardScrollingAnimator.h>
 #include <WebCore/Page.h>

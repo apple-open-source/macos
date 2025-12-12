@@ -36,12 +36,12 @@ public:
     typedef typename M::value_type value_type;
     bool operator()(const value_type& value, const MediaTime& time)
     {
-        MediaTime presentationEndTime = value.second->presentationTime() + value.second->duration();
+        MediaTime presentationEndTime = Ref { value.second }->presentationTime() + Ref { value.second }->duration();
         return presentationEndTime <= time;
     }
     bool operator()(const MediaTime& time, const value_type& value)
     {
-        MediaTime presentationStartTime = value.second->presentationTime();
+        MediaTime presentationStartTime = Ref { value.second }->presentationTime();
         return time < presentationStartTime;
     }
 };
@@ -52,12 +52,12 @@ public:
     typedef typename M::value_type value_type;
     bool operator()(const value_type& value, const MediaTime& time)
     {
-        MediaTime presentationStartTime = value.second->presentationTime();
+        MediaTime presentationStartTime = Ref { value.second }->presentationTime();
         return presentationStartTime > time;
     }
     bool operator()(const MediaTime& time, const value_type& value)
     {
-        MediaTime presentationEndTime = value.second->presentationTime() + value.second->duration();
+        MediaTime presentationEndTime = Ref { value.second }->presentationTime() + Ref { value.second }->duration();
         return time >= presentationEndTime;
     }
 };
@@ -66,7 +66,7 @@ class SampleIsRandomAccess {
 public:
     bool operator()(DecodeOrderSampleMap::MapType::value_type& value)
     {
-        return value.second->isSync();
+        return Ref { value.second }->isSync();
     }
 };
 
@@ -240,7 +240,7 @@ DecodeOrderSampleMap::reverse_iterator DecodeOrderSampleMap::findSyncSamplePrior
     reverse_iterator foundSample = findSyncSamplePriorToDecodeIterator(reverseCurrentSampleDTS);
     if (foundSample == rend())
         return rend();
-    if (foundSample->second->presentationTime() < time - threshold)
+    if (Ref { foundSample->second }->presentationTime() < time - threshold)
         return rend();
     return foundSample;
 }
@@ -263,9 +263,23 @@ DecodeOrderSampleMap::iterator DecodeOrderSampleMap::findSyncSampleAfterPresenta
     iterator foundSample = std::find_if(currentSampleDTS, end(), SampleIsRandomAccess());
     if (foundSample == end())
         return end();
-    if (foundSample->second->presentationTime() > upperBound)
+    if (Ref { foundSample->second }->presentationTime() > upperBound)
         return end();
     return foundSample;
+}
+
+DecodeOrderSampleMap::iterator DecodeOrderSampleMap::findSyncSamplePriorToDecodeKey(const KeyType& key)
+{
+    reverse_iterator reverseCursor = reverseFindSampleWithDecodeKey(key);
+    if (reverseCursor == rend())
+        return end();
+
+    reverseCursor = findSyncSamplePriorToDecodeIterator(reverseCursor);
+    if (reverseCursor == rend())
+        return end();
+
+    Ref sample = reverseCursor->second;
+    return findSampleWithDecodeKey(KeyType(sample->decodeTime(), sample->presentationTime()));
 }
 
 DecodeOrderSampleMap::iterator DecodeOrderSampleMap::findSyncSampleAfterDecodeIterator(iterator currentSampleDTS)

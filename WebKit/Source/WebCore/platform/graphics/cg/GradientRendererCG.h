@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "ColorComponents.h"
-#include "ColorInterpolationMethod.h"
-#include "DestinationColorSpace.h"
 #include <CoreGraphics/CoreGraphics.h>
+#include <WebCore/ColorComponents.h>
+#include <WebCore/ColorInterpolationMethod.h>
+#include <WebCore/DestinationColorSpace.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>

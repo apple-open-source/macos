@@ -25,11 +25,12 @@
 
 #pragma once
 
-#include "AlphaPremultiplication.h"
+#include <WebCore/AlphaPremultiplication.h>
 
 #include <optional>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
+#include <wtf/Platform.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
@@ -57,7 +58,7 @@ public:
     virtual ~CompositorIntegration() = default;
 
 #if PLATFORM(COCOA)
-    virtual Vector<MachSendRight> recreateRenderBuffers(int width, int height, WebCore::DestinationColorSpace&&, WebCore::AlphaPremultiplication, WebCore::WebGPU::TextureFormat, Device&) = 0;
+    virtual Vector<MachSendRight> recreateRenderBuffers(int width, int height, WebCore::DestinationColorSpace&&, WebCore::AlphaPremultiplication, WebCore::WebGPU::TextureFormat, unsigned bufferCount, Device&) = 0;
 #endif
 
     virtual void prepareForDisplay(uint32_t frameIndex, CompletionHandler<void()>&&) = 0;

@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "JSCast.h"
-#include "ParserModes.h"
-#include "VariableEnvironment.h"
+#include <JavaScriptCore/JSCast.h>
+#include <JavaScriptCore/ParserModes.h>
+#include <JavaScriptCore/VariableEnvironment.h>
 #include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
 

@@ -26,10 +26,10 @@
 #include "config.h"
 #include "Display.h"
 
+#include "GtkVersioning.h"
 #include "SystemSettingsManagerProxy.h"
 #include <WebCore/GLContext.h>
 #include <WebCore/GLDisplay.h>
-#include <WebCore/GtkVersioning.h>
 #include <epoxy/egl.h>
 #include <gtk/gtk.h>
 #include <mutex>

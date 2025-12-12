@@ -31,6 +31,7 @@
 #include "Logging.h"
 #include "OpportunisticTaskScheduler.h"
 #include "Page.h"
+#include "RenderObjectStyle.h"
 #include "RequestAnimationFrameCallback.h"
 #include "Settings.h"
 #include "UserGestureIndicator.h"

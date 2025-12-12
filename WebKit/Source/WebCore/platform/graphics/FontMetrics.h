@@ -20,7 +20,7 @@
 #ifndef FontMetrics_h
 #define FontMetrics_h
 
-#include "FontBaseline.h"
+#include <WebCore/FontBaseline.h>
 #include <wtf/Markable.h>
 #include <wtf/MathExtras.h>
 
@@ -33,24 +33,24 @@ public:
     unsigned unitsPerEm() const { return m_unitsPerEm; }
     void setUnitsPerEm(unsigned unitsPerEm) { m_unitsPerEm = unitsPerEm; }
 
-    float height(FontBaseline baselineType = AlphabeticBaseline) const
+    float height(FontBaseline baselineType = FontBaseline::Alphabetic) const
     {
         return ascent(baselineType) + descent(baselineType);
     }
-    int intHeight(FontBaseline baselineType = AlphabeticBaseline) const
+    int intHeight(FontBaseline baselineType = FontBaseline::Alphabetic) const
     {
         return intAscent(baselineType) + intDescent(baselineType);
     }
 
-    float ascent(FontBaseline baselineType = AlphabeticBaseline) const
+    float ascent(FontBaseline baselineType = FontBaseline::Alphabetic) const
     {
-        if (baselineType == AlphabeticBaseline)
+        if (baselineType == FontBaseline::Alphabetic)
             return m_ascent.value_or(0.f);
         return height() / 2;
     }
-    int intAscent(FontBaseline baselineType = AlphabeticBaseline) const
+    int intAscent(FontBaseline baselineType = FontBaseline::Alphabetic) const
     {
-        if (baselineType == AlphabeticBaseline)
+        if (baselineType == FontBaseline::Alphabetic)
             return m_intAscent;
         return intHeight() - intHeight() / 2;
     }
@@ -60,15 +60,15 @@ public:
         m_intAscent = std::max(static_cast<int>(lroundf(ascent)), 0);
     }
 
-    float descent(FontBaseline baselineType = AlphabeticBaseline) const
+    float descent(FontBaseline baselineType = FontBaseline::Alphabetic) const
     {
-        if (baselineType == AlphabeticBaseline)
+        if (baselineType == FontBaseline::Alphabetic)
             return m_descent.value_or(0.f);
         return height() / 2;
     }
-    int intDescent(FontBaseline baselineType = AlphabeticBaseline) const
+    int intDescent(FontBaseline baselineType = FontBaseline::Alphabetic) const
     {
-        if (baselineType == AlphabeticBaseline)
+        if (baselineType == FontBaseline::Alphabetic)
             return m_intDescent;
         return intHeight() / 2;
     }

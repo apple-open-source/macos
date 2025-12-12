@@ -93,7 +93,7 @@ LayoutUnit FlexFormattingUtils::mainAxisGapValue(const ElementBox& flexContainer
     auto flexDirection = flexContainer.style().flexDirection();
     auto isMainAxisInlineAxis = flexDirection == FlexDirection::Row || flexDirection == FlexDirection::RowReverse;
     auto& gap = isMainAxisInlineAxis ? flexContainer.style().columnGap() : flexContainer.style().rowGap();
-    return Style::evaluateMinimum(gap, flexContainerContentBoxWidth);
+    return Style::evaluateMinimum<LayoutUnit>(gap, flexContainerContentBoxWidth, Style::ZoomNeeded { });
 }
 
 LayoutUnit FlexFormattingUtils::crossAxisGapValue(const ElementBox& flexContainer, LayoutUnit flexContainerContentBoxHeight)
@@ -102,7 +102,7 @@ LayoutUnit FlexFormattingUtils::crossAxisGapValue(const ElementBox& flexContaine
     auto flexDirection = flexContainer.style().flexDirection();
     auto isMainAxisInlineAxis = flexDirection == FlexDirection::Row || flexDirection == FlexDirection::RowReverse;
     auto& gap = isMainAxisInlineAxis ? flexContainer.style().rowGap() : flexContainer.style().columnGap();
-    return Style::evaluateMinimum(gap, flexContainerContentBoxHeight);
+    return Style::evaluateMinimum<LayoutUnit>(gap, flexContainerContentBoxHeight, Style::ZoomNeeded { });
 }
 
 // flex container  direction  flex item    main axis size
@@ -120,8 +120,8 @@ LayoutUnit FlexFormattingUtils::usedMinimumSizeInMainAxis(const LogicalFlexItem&
     if (auto mainAxisMinimumWidth = flexItem.mainAxis().minimumSize)
         return *mainAxisMinimumWidth;
 
-    auto& flexContainer = formattingContext().root();
-    auto& flexItemBox = downcast<ElementBox>(flexItem.layoutBox());
+    CheckedRef flexContainer = formattingContext().root();
+    CheckedRef flexItemBox = downcast<ElementBox>(flexItem.layoutBox());
     auto isMainAxisParallelWithInlineAxis = this->isMainAxisParallelWithInlineAxis(flexContainer);
 
     auto minimumContentSize = LayoutUnit { };
@@ -142,8 +142,8 @@ std::optional<LayoutUnit> FlexFormattingUtils::usedMaximumSizeInMainAxis(const L
 
 LayoutUnit FlexFormattingUtils::usedMaxContentSizeInMainAxis(const LogicalFlexItem& flexItem) const
 {
-    auto& flexContainer = formattingContext().root();
-    auto& flexItemBox = downcast<ElementBox>(flexItem.layoutBox());
+    CheckedRef flexContainer = formattingContext().root();
+    CheckedRef flexItemBox = downcast<ElementBox>(flexItem.layoutBox());
     auto isMainAxisParallelWithInlineAxis = this->isMainAxisParallelWithInlineAxis(flexContainer);
 
     auto contentSize = LayoutUnit { };
@@ -154,7 +154,7 @@ LayoutUnit FlexFormattingUtils::usedMaxContentSizeInMainAxis(const LogicalFlexIt
         contentSize = formattingContext().integrationUtils().maxContentWidth(flexItemBox);
     else {
         formattingContext().integrationUtils().layoutWithFormattingContextForBox(flexItemBox);
-        auto isOrthogonal = flexContainer.writingMode().isOrthogonal(flexItem.writingMode());
+        auto isOrthogonal = flexContainer->writingMode().isOrthogonal(flexItem.writingMode());
         contentSize = !isOrthogonal ? formattingContext().geometryForFlexItem(flexItemBox).contentBoxHeight() : formattingContext().geometryForFlexItem(flexItemBox).contentBoxWidth();
     }
 
@@ -168,8 +168,8 @@ LayoutUnit FlexFormattingUtils::usedSizeInCrossAxis(const LogicalFlexItem& flexI
     if (auto definiteSize = flexItem.crossAxis().definiteSize)
         return *definiteSize;
 
-    auto& flexContainer = formattingContext().root();
-    auto& flexItemBox = flexItem.layoutBox();
+    CheckedRef flexContainer = formattingContext().root();
+    CheckedRef flexItemBox = flexItem.layoutBox();
     auto isMainAxisParallelWithInlineAxis = this->isMainAxisParallelWithInlineAxis(flexContainer);
 
     auto widtConstraintForLayout = isMainAxisParallelWithInlineAxis ? std::make_optional(maxAxisConstraint) : std::nullopt;

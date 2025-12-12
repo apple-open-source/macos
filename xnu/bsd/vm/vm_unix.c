@@ -96,6 +96,8 @@
 #include <bsm/audit_kevents.h>
 
 #include <kern/kalloc.h>
+#include <kern/host_statistics.h>
+
 #include <vm/vm_map_internal.h>
 #include <vm/vm_kern_xnu.h>
 #include <vm/vm_pageout_xnu.h>
@@ -2111,6 +2113,17 @@ done:
 	return kr;
 }
 
+
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_total_success, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_total_success, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_total_fail, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_total_fail, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_overflow, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_overflow, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_bad_offset, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_bad_offset, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_bad_addr, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_bad_addr, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_bad_prot, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_bad_prot, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_bad_file, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_bad_file, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_bad_shadows, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_bad_shadows, "");
+SYSCTL_QUAD(_vm, OID_AUTO, vmwls_bad_cow, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_with_linking_stats.vmwls_bad_cow, "");
+
 /*
  * A syscall for dyld to use to map data pages that need load time relocation fixups.
  * The fixups are performed by a custom pager during page-in, so the pages still appear
@@ -3956,6 +3969,27 @@ out:
 }
 
 SYSCTL_PROC(_vm, OID_AUTO, task_vm_objects_slotmap, CTLTYPE_NODE | CTLFLAG_LOCKED | CTLFLAG_RD, 0, 0, sysctl_task_vm_objects_slotmap, "S", "");
+
+#pragma mark VM Host Statistics
+
+SYSCTL_NODE(_vm, OID_AUTO, stat, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "Host memory statistics");
+
+SYSCTL_SCALABLE_COUNTER(_vm_stat, zero_fills, vm_statistics_zero_fill_count, "Pages zero-filled");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, reactivations, vm_statistics_reactivations, "Pages reactivated");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, pageins, vm_statistics_pageins, "Pages paged-in (including speculation)");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, pageins_requested, vm_statistics_pageins_requested, "Page-ins requested");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, pageins_aborted, vm_statistics_pageins_aborted, "Pages aborted during page-in");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, pageouts, vm_statistics_pageouts, "Pages paged-out");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, faults, vm_statistics_faults, "Pages faulted");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, cow_faults, vm_statistics_cow_faults, "Pages faulted due to copy-on-write");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, obj_cache_lookups, vm_statistics_lookups, "Pages looked up in the object-cache");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, obj_cache_hits, vm_statistics_hits, "Object-cache lookup hits");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, purges, vm_statistics_purges, "Pages purged");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, decompressions, vm_statistics_decompressions, "Pages decompressed");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, compressions, vm_statistics_compressions, "Pages compressed");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, swapins, vm_statistics_swapins, "Pages swapped in");
+SYSCTL_SCALABLE_COUNTER(_vm_stat, swapouts, vm_statistics_swapouts, "Pages swapped out");
+
 static int
 systctl_vm_reset_tag SYSCTL_HANDLER_ARGS
 {

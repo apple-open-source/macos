@@ -28,9 +28,10 @@
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
-#include "AddEventListenerOptions.h"
+#include "AddEventListenerOptionsInlines.h"
 #include "AttachmentAssociatedElement.h"
 #include "AttachmentElementClient.h"
+#include "ContainerNodeInlines.h"
 #include "CSSPropertyNames.h"
 #include "CSSUnits.h"
 #include "DOMRectReadOnly.h"
@@ -53,6 +54,7 @@
 #include "NodeName.h"
 #include "RenderAttachment.h"
 #include "RenderObjectInlines.h"
+#include "Settings.h"
 #include "ShadowRoot.h"
 #include "SharedBuffer.h"
 #include "UserAgentStyleSheets.h"

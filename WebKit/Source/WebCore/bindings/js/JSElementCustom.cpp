@@ -30,7 +30,7 @@
 #include "config.h"
 #include "JSElement.h"
 
-#include "Document.h"
+#include "DocumentQuirks.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
 #include "JSAttr.h"
@@ -44,8 +44,8 @@
 #include "JSSVGElementWrapperFactory.h"
 #include "MathMLElement.h"
 #include "NodeList.h"
-#include "Quirks.h"
 #include "SVGElement.h"
+#include "Settings.h"
 #include "WebCoreJSClientData.h"
 
 

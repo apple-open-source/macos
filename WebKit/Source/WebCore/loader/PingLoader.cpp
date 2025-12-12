@@ -34,12 +34,11 @@
 #include "config.h"
 #include "PingLoader.h"
 
-#include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
 #include "ContentRuleListResults.h"
 #include "ContentSecurityPolicy.h"
-#include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentResourceLoader.h"
 #include "FrameLoader.h"
 #include "HTTPHeaderValues.h"
 #include "InspectorInstrumentation.h"
@@ -76,7 +75,11 @@ static bool processContentRuleListsForLoad(const LocalFrame& frame, ResourceRequ
     if (!page)
         return false;
 
-    auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, request.url(), resourceType, *documentLoader);
+    RefPtr userContentProvider = frame.userContentProvider();
+    if (!userContentProvider)
+        return false;
+
+    auto results = userContentProvider->processContentRuleListsForLoad(*page, request.url(), resourceType, *documentLoader);
     ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), request);
     return results.shouldBlock();
 }

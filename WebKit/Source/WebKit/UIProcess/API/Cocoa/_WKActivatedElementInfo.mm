@@ -250,9 +250,9 @@
         return nil;
 
 #if USE(APPKIT)
-    _cocoaImage = adoptNS([[NSImage alloc] initWithCGImage:image->makeCGImageCopy().get() size:NSSizeFromCGSize(_boundingRect.size)]);
+    _cocoaImage = adoptNS([[NSImage alloc] initWithCGImage:image->createPlatformImage().get() size:NSSizeFromCGSize(_boundingRect.size)]);
 #else
-    _cocoaImage = adoptNS([[UIImage alloc] initWithCGImage:image->makeCGImageCopy().get()]);
+    _cocoaImage = adoptNS([[UIImage alloc] initWithCGImage:image->createPlatformImage().get()]);
 #endif
     _image = nullptr;
 

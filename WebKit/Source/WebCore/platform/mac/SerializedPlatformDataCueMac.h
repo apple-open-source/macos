@@ -27,8 +27,8 @@
 
 #if ENABLE(VIDEO) && ENABLE(DATACUE_VALUE)
 
-#include "SerializedPlatformDataCue.h"
-#include "SerializedPlatformDataCueValue.h"
+#include <WebCore/SerializedPlatformDataCue.h>
+#include <WebCore/SerializedPlatformDataCueValue.h>
 #include <wtf/HashSet.h>
 
 namespace WebCore {
@@ -52,9 +52,10 @@ private:
     SerializedPlatformDataCueValue m_value;
 };
 
-SerializedPlatformDataCueMac* toSerializedPlatformDataCueMac(SerializedPlatformDataCue*);
-const SerializedPlatformDataCueMac* toSerializedPlatformDataCueMac(const SerializedPlatformDataCue*);
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SerializedPlatformDataCueMac)
+    static bool isType(const WebCore::SerializedPlatformDataCue& cue) { return cue.platformType() == WebCore::SerializedPlatformDataCue::PlatformType::ObjC; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif

@@ -397,11 +397,6 @@ WKWebsiteDataStoreRef WKContextGetWebsiteDataStore(WKContextRef)
     return WKWebsiteDataStoreGetDefaultDataStore();
 }
 
-WKApplicationCacheManagerRef WKContextGetApplicationCacheManager(WKContextRef context)
-{
-    return reinterpret_cast<WKApplicationCacheManagerRef>(WKWebsiteDataStoreGetDefaultDataStore());
-}
-
 WKGeolocationManagerRef WKContextGetGeolocationManager(WKContextRef contextRef)
 {
     return WebKit::toAPI(WebKit::toProtectedImpl(contextRef)->protectedSupplement<WebKit::WebGeolocationManagerProxy>().get());

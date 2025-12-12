@@ -36,8 +36,6 @@ namespace WebCore {
 class GamepadEvent final : public Event {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(GamepadEvent);
 public:
-    ~GamepadEvent() = default;
-
     static Ref<GamepadEvent> create(const AtomString& eventType, Gamepad& gamepad)
     {
         return adoptRef(*new GamepadEvent(eventType, gamepad));

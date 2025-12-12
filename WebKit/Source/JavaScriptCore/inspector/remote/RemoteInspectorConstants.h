@@ -121,6 +121,7 @@
 #define WIRAcceptInsecureCertificatesKey               @"org.webkit.webdriver.accept-insecure-certificates"
 #define WIRAlwaysAllowAutoplay                         @"org.webkit.webdriver.always-allow-autoplay"
 #define WIRAllowInsecureMediaCaptureCapabilityKey      @"org.webkit.webdriver.webrtc.allow-insecure-media-capture"
+#define WIRSiteIsolationEnabled                        @"org.webkit.webdriver.site-isolation-enabled"
 #define WIRSuppressICECandidateFilteringCapabilityKey  @"org.webkit.webdriver.webrtc.suppress-ice-candidate-filtering"
 
 // These definitions are shared with a Simulator webinspectord and

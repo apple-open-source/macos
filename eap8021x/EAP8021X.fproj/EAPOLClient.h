@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018, 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
 #include <os/availability.h>
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFDictionary.h>
+#include <dispatch/dispatch.h>
 
 typedef struct EAPOLClient_s EAPOLClient, * EAPOLClientRef;
 
@@ -41,8 +42,14 @@ EAPOLClientEstablishSession(const char * interface_name);
 
 EAPOLClientRef
 EAPOLClientAttach(const char * interface_name, EAPOLClientCallBack callback,
-		  void * context, CFDictionaryRef * config, 
-		  int * result);
+		  void * context, dispatch_queue_t queue,
+		  CFDictionaryRef * config, int * result);
+
+void
+EAPOLClientActivate(EAPOLClientRef client);
+
+void
+EAPOLClientCancel(EAPOLClientRef client);
 
 int
 EAPOLClientDetach(EAPOLClientRef * client);

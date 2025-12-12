@@ -773,6 +773,10 @@ proc_pidbsdinfo(proc_t p, struct proc_bsdinfo * pbsd, int zombie)
 			}
 		}
 #endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
+
+		if (task_has_guard_objects(task)) {
+			pbsd->pbi_flags |= PROC_FLAG_GUARD_OBJECTS_ENABLED;
+		}
 	}
 
 	switch (PROC_CONTROL_STATE(p)) {
@@ -890,6 +894,10 @@ proc_pidshortbsdinfo(proc_t p, struct proc_bsdshortinfo * pbsd_shortp, int zombi
 			}
 		}
 #endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
+
+		if (task_has_guard_objects(task)) {
+			pbsd_shortp->pbsi_flags |= PROC_FLAG_GUARD_OBJECTS_ENABLED;
+		}
 	}
 
 	switch (PROC_CONTROL_STATE(p)) {

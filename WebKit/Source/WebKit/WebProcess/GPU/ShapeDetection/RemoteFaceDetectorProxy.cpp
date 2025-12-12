@@ -41,13 +41,13 @@ namespace WebKit::ShapeDetection {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteFaceDetectorProxy);
 
-Ref<RemoteFaceDetectorProxy> RemoteFaceDetectorProxy::create(Ref<IPC::StreamClientConnection>&& streamClientConnection, RenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::FaceDetectorOptions& faceDetectorOptions)
+Ref<RemoteFaceDetectorProxy> RemoteFaceDetectorProxy::create(Ref<IPC::StreamClientConnection>&& streamClientConnection, RemoteRenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::FaceDetectorOptions& faceDetectorOptions)
 {
     streamClientConnection->send(Messages::RemoteRenderingBackend::CreateRemoteFaceDetector(identifier, faceDetectorOptions), renderingBackendIdentifier);
     return adoptRef(*new RemoteFaceDetectorProxy(WTFMove(streamClientConnection), renderingBackendIdentifier, identifier));
 }
 
-RemoteFaceDetectorProxy::RemoteFaceDetectorProxy(Ref<IPC::StreamClientConnection>&& streamClientConnection, RenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier)
+RemoteFaceDetectorProxy::RemoteFaceDetectorProxy(Ref<IPC::StreamClientConnection>&& streamClientConnection, RemoteRenderingBackendIdentifier renderingBackendIdentifier, ShapeDetectionIdentifier identifier)
     : m_backing(identifier)
     , m_streamClientConnection(WTFMove(streamClientConnection))
     , m_renderingBackendIdentifier(renderingBackendIdentifier)

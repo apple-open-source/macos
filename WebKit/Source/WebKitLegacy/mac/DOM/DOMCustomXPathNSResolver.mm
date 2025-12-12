@@ -33,9 +33,7 @@ DOMCustomXPathNSResolver::DOMCustomXPathNSResolver(id <DOMXPathNSResolver> custo
 {
 }
 
-DOMCustomXPathNSResolver::~DOMCustomXPathNSResolver()
-{
-}
+DOMCustomXPathNSResolver::~DOMCustomXPathNSResolver() = default;
 
 AtomString DOMCustomXPathNSResolver::lookupNamespaceURI(const AtomString& prefix)
 {

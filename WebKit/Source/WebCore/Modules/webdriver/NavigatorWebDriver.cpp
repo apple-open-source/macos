@@ -26,7 +26,7 @@
 #include "config.h"
 #include "NavigatorWebDriver.h"
 
-#include "FrameInlines.h"
+#include "DocumentPage.h"
 #include "LocalFrame.h"
 #include "Navigator.h"
 #include "Page.h"

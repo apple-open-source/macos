@@ -25,12 +25,12 @@
 
 #pragma once
 
-#include "IDBError.h"
-#include "IDBIndexIdentifier.h"
-#include "IDBObjectStoreIdentifier.h"
-#include "IDBResourceIdentifier.h"
-#include "IDBTransactionInfo.h"
-#include "IndexedDB.h"
+#include <WebCore/IDBError.h>
+#include <WebCore/IDBIndexIdentifier.h>
+#include <WebCore/IDBObjectStoreIdentifier.h>
+#include <WebCore/IDBResourceIdentifier.h>
+#include <WebCore/IDBTransactionInfo.h>
+#include <WebCore/IndexedDB.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>

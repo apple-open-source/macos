@@ -26,40 +26,27 @@
 
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
-#include "LibWebRTCMacros.h"
+#include "LibWebRTCDtlsTransportBackend.h"
 #include "RTCSctpTransportBackend.h"
-#include <wtf/TZoneMalloc.h>
-#include <wtf/WeakPtr.h>
-
-ALLOW_UNUSED_PARAMETERS_BEGIN
-
-#include <webrtc/api/scoped_refptr.h>
-
-ALLOW_UNUSED_PARAMETERS_END
-
-namespace webrtc {
-class DtlsTransportInterface;
-class SctpTransportInterface;
-}
 
 namespace WebCore {
 class LibWebRTCSctpTransportBackendObserver;
 class LibWebRTCSctpTransportBackend final : public RTCSctpTransportBackend, public CanMakeWeakPtr<LibWebRTCSctpTransportBackend> {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCSctpTransportBackend);
 public:
-    explicit LibWebRTCSctpTransportBackend(webrtc::scoped_refptr<webrtc::SctpTransportInterface>&&, webrtc::scoped_refptr<webrtc::DtlsTransportInterface>&&);
+    explicit LibWebRTCSctpTransportBackend(Ref<webrtc::SctpTransportInterface>&&, Ref<webrtc::DtlsTransportInterface>&&);
     ~LibWebRTCSctpTransportBackend();
 
 private:
     // RTCSctpTransportBackend
-    const void* backend() const final { return m_backend.get(); }
+    const void* backend() const final { return m_backend.ptr(); }
     UniqueRef<RTCDtlsTransportBackend> dtlsTransportBackend() final;
     void registerClient(RTCSctpTransportBackendClient&) final;
     void unregisterClient() final;
 
-    webrtc::scoped_refptr<webrtc::SctpTransportInterface> m_backend;
-    webrtc::scoped_refptr<webrtc::DtlsTransportInterface> m_dtlsBackend;
-    RefPtr<LibWebRTCSctpTransportBackendObserver> m_observer;
+    const Ref<webrtc::SctpTransportInterface> m_backend;
+    const Ref<webrtc::DtlsTransportInterface> m_dtlsBackend;
+    const RefPtr<LibWebRTCSctpTransportBackendObserver> m_observer;
 };
 
 } // namespace WebCore

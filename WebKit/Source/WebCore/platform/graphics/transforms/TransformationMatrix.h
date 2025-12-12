@@ -25,14 +25,15 @@
 
 #pragma once
 
-#include "CompositeOperation.h"
-#include "FloatPoint.h"
-#include "FloatPoint3D.h"
-#include "IntPoint.h"
-#include "Quaternion.h"
+#include <WebCore/CompositeOperation.h>
+#include <WebCore/FloatPoint.h>
+#include <WebCore/FloatPoint3D.h>
+#include <WebCore/IntPoint.h>
+#include <WebCore/Quaternion.h>
 #include <array>
 #include <string.h> //for memcpy
 #include <wtf/Forward.h>
+#include <wtf/Platform.h>
 #include <wtf/TZoneMalloc.h>
 
 #if USE(CA)

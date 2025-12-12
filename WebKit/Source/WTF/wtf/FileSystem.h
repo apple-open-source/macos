@@ -160,6 +160,7 @@ WTF_EXPORT_PRIVATE CString currentExecutablePath();
 WTF_EXPORT_PRIVATE CString currentExecutableName();
 WTF_EXPORT_PRIVATE String userCacheDirectory();
 WTF_EXPORT_PRIVATE String userDataDirectory();
+WTF_EXPORT_PRIVATE String createTemporaryDirectory(const String& directoryPrefix = nullString());
 #if ENABLE(DEVELOPER_MODE)
 WTF_EXPORT_PRIVATE CString webkitTopLevelDirectory();
 #endif
@@ -182,7 +183,7 @@ WTF_EXPORT_PRIVATE std::optional<bool> allowsMaterializingDatalessFiles(PolicySc
 #endif
 
 // Impl for systems that do not already have createTemporaryDirectory
-#if !OS(WINDOWS) && !PLATFORM(COCOA) && !PLATFORM(PLAYSTATION)
+#if !OS(WINDOWS) && !PLATFORM(COCOA) && !PLATFORM(PLAYSTATION) && !PLATFORM(GLIB)
 WTF_EXPORT_PRIVATE String createTemporaryDirectory();
 #endif
 

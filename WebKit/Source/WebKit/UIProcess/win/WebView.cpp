@@ -243,7 +243,7 @@ WebView::WebView(RECT rect, const API::PageConfiguration& configuration, HWND pa
     m_page = processPool.createWebPage(*m_pageClient, WTFMove(pageConfiguration));
 
     auto& configurationFromPage = m_page->configuration();
-    m_page->initializeWebPage(configurationFromPage.openedSite(), configurationFromPage.initialSandboxFlags());
+    m_page->initializeWebPage(configurationFromPage.openedSite(), configurationFromPage.initialSandboxFlags(), configurationFromPage.initialReferrerPolicy());
 
     m_page->setIntrinsicDeviceScaleFactor(deviceScaleFactorForWindow(m_window));
 
@@ -526,18 +526,11 @@ void WebView::paint(HDC hdc, const IntRect& dirtyRect)
             for (auto& rect : unpaintedRects)
                 drawPageBackground(hdc, m_page.get(), rect);
         };
-        switch (m_page->drawingArea()->type()) {
 #if USE(GRAPHICS_LAYER_WC)
-        case DrawingAreaType::WC:
-            painter(static_cast<DrawingAreaProxyWC*>(m_page->drawingArea()));
-            break;
+        painter(static_cast<DrawingAreaProxyWC*>(m_page->drawingArea()));
+#else
+        painter(static_cast<DrawingAreaProxyCoordinatedGraphics*>(m_page->drawingArea()));
 #endif
-        case DrawingAreaType::CoordinatedGraphics:
-            painter(static_cast<DrawingAreaProxyCoordinatedGraphics*>(m_page->drawingArea()));
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-        }
     } else
         drawPageBackground(hdc, m_page.get(), dirtyRect);
 }

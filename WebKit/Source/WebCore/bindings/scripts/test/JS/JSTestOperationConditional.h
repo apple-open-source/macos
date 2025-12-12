@@ -22,8 +22,8 @@
 
 #if ENABLE(ConditionDerived)
 
-#include "JSDOMWrapper.h"
 #include "TestOperationConditional.h"
+#include <WebCore/JSDOMWrapper.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {

@@ -154,6 +154,18 @@ public:
         return 0;
     }
 
+    // The collapsing border model dissallows paddings on table, which is why we
+    // override those functions.
+    // See http://www.w3.org/TR/CSS2/tables.html#collapsing-borders
+    inline LayoutUnit paddingTop() const override;
+    inline LayoutUnit paddingBottom() const override;
+    inline LayoutUnit paddingLeft() const override;
+    inline LayoutUnit paddingRight() const override;
+    inline LayoutUnit paddingAfter() const override;
+    inline LayoutUnit paddingBefore() const override;
+    inline LayoutUnit paddingStart() const override;
+    inline LayoutUnit paddingEnd() const override;
+
     inline LayoutUnit bordersPaddingAndSpacingInRowDirection() const;
 
     // Return the first column or column-group.
@@ -231,10 +243,8 @@ protected:
     void computePreferredLogicalWidths() override;
     bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;
 
-    LayoutUnit baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
     std::optional<LayoutUnit> firstLineBaseline() const override;
     std::optional<LayoutUnit> lastLineBaseline() const override;
-    std::optional<LayoutUnit> inlineBlockBaseline(LineDirectionMode) const final;
 
     RenderTableCol* slowColElement(unsigned col, bool* startEdge, bool* endEdge) const;
 
@@ -251,7 +261,7 @@ protected:
     LayoutRect overflowClipRect(const LayoutPoint& location, OverlayScrollbarSizeRelevancy = OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize, PaintPhase = PaintPhase::BlockBackground) const final;
     LayoutRect overflowClipRectForChildLayers(const LayoutPoint& location, OverlayScrollbarSizeRelevancy relevancy) const override { return RenderBox::overflowClipRect(location, relevancy); }
 
-    void addOverflowFromChildren() final;
+    void addOverflowFromInFlowChildren(OptionSet<ComputeOverflowOptions> = { }) final;
 
     void adjustBorderBoxRectForPainting(LayoutRect&) override;
 

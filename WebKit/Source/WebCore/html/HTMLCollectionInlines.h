@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "HTMLCollection.h"
-#include "LiveNodeListInlines.h"
-#include "TreeScopeInlines.h"
+#include <WebCore/HTMLCollection.h>
+#include <WebCore/LiveNodeListInlines.h>
+#include <WebCore/TreeScopeInlines.h>
 
 namespace WebCore {
 
@@ -89,11 +89,6 @@ inline bool HTMLCollection::isRootedAtTreeScope() const
 inline NodeListInvalidationType HTMLCollection::invalidationType() const
 {
     return static_cast<NodeListInvalidationType>(m_invalidationType);
-}
-
-inline CollectionType HTMLCollection::type() const
-{
-    return static_cast<CollectionType>(m_collectionType);
 }
 
 inline Document& HTMLCollection::document() const

@@ -36,6 +36,7 @@
 
 namespace WebCore {
 class ScrollingCoordinator;
+class Color;
 }
 
 namespace WebKit {
@@ -44,7 +45,6 @@ class RemoteScrollbarsController final : public WebCore::ScrollbarsController {
     WTF_MAKE_TZONE_ALLOCATED(RemoteScrollbarsController);
 public:
     RemoteScrollbarsController(WebCore::ScrollableArea&, WebCore::ScrollingCoordinator*);
-    ~RemoteScrollbarsController() = default;
     void mouseEnteredContentArea() final;
     void mouseExitedContentArea()  final;
     void mouseMovedInContentArea() final;
@@ -59,6 +59,7 @@ public:
     int minimumThumbLength(WebCore::ScrollbarOrientation) final;
     void updateScrollbarEnabledState(WebCore::Scrollbar&) final;
     void scrollbarLayoutDirectionChanged(WebCore::UserInterfaceLayoutDirection) final;
+    void scrollbarColorChanged(std::optional<WebCore::ScrollbarColor>) final;
 
     void updateScrollbarStyle() final;
 

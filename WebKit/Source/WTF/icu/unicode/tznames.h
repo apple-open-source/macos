@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 * Copyright (C) 2011-2016, International Business Machines Corporation and
-* others. All rights reserved.
+* others. All Rights Reserved.
 *******************************************************************************
 */
 #ifndef __TZNAMES_H
@@ -402,7 +402,7 @@ public:
      * @param types The set of name types represented by bitwise flags of UTimeZoneNameType enums,
      *              or UTZNM_UNKNOWN for all name types.
      * @param status Receives the status.
-     * @return A collection of matches (owned by the caller), or NULL if no matches are found.
+     * @return A collection of matches (owned by the caller), or nullptr if no matches are found.
      * @see UTimeZoneNameType
      * @see MatchInfoCollection
      * @internal

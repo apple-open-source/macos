@@ -33,6 +33,7 @@
 #include "config.h"
 #include "SliderThumbElement.h"
 
+#include "ContainerNodeInlines.h"
 #include "CSSValueKeywords.h"
 #include "Decimal.h"
 #include "Event.h"
@@ -270,7 +271,6 @@ void SliderThumbElement::setPositionFromPoint(const LayoutPoint& absolutePoint)
         position -= !isInlineFlipped ? thumbRenderer->marginLeft() : thumbRenderer->marginRight();
     }
 
-    inputRenderer = nullptr;
     thumbRenderer = nullptr;
     trackRenderer = nullptr;
 
@@ -297,8 +297,17 @@ void SliderThumbElement::setPositionFromPoint(const LayoutPoint& absolutePoint)
 
     // FIXME: This is no longer being set from renderer. Consider updating the method name.
     input->setValueFromRenderer(valueString);
-    if (CheckedPtr renderer = this->renderer())
+    if (CheckedPtr renderer = this->renderer()) {
+        // FIXME: The position of repaint rects is incorrect for non-horizontal
+        // block flipped writing modes during layout. Repaint beforehand to
+        // avoid this. The root cause is suspected to be related to
+        // https://webkit.org/b/70762
+        auto writingMode = renderer->writingMode();
+        if (writingMode.isBlockFlipped() && !writingMode.isHorizontal())
+            inputRenderer->repaint();
+
         renderer->setNeedsLayout();
+    }
 }
 
 void SliderThumbElement::startDragging()
@@ -352,7 +361,7 @@ void SliderThumbElement::defaultEventHandler(Event& event)
         return;
     } else if (eventType == eventNames().mousemoveEvent) {
         if (m_inDragMode)
-            setPositionFromPoint(mouseEvent->absoluteLocation());
+            setPositionFromPoint(LayoutPoint(mouseEvent->absoluteLocation()));
         return;
     }
 
@@ -412,7 +421,7 @@ static Touch* findTouchWithIdentifier(TouchList& list, unsigned identifier)
     for (unsigned i = 0; i < length; ++i) {
         RefPtr<Touch> touch = list.item(i);
         if (touch->identifier() == identifier)
-            return touch.get();
+            return touch.unsafeGet();
     }
     return nullptr;
 }
@@ -587,7 +596,7 @@ std::optional<Style::UnadjustedStyle> SliderThumbElement::resolveCustomStyle(con
     return elementStyle;
 }
 
-Ref<Element> SliderThumbElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*)
+Ref<Element> SliderThumbElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*) const
 {
     return create(document);
 }

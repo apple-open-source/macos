@@ -26,11 +26,11 @@
 #pragma once
 
 #if ENABLE(WEB_AUTHN)
-#include "AuthenticationExtensionsClientInputs.h"
-#include "AuthenticatorAttachment.h"
-#include "BufferSource.h"
-#include "PublicKeyCredentialDescriptor.h"
-#include "UserVerificationRequirement.h"
+#include <WebCore/AuthenticationExtensionsClientInputs.h>
+#include <WebCore/AuthenticatorAttachment.h>
+#include <WebCore/BufferSource.h>
+#include <WebCore/PublicKeyCredentialDescriptor.h>
+#include <WebCore/UserVerificationRequirement.h>
 #include <wtf/Forward.h>
 #endif // ENABLE(WEB_AUTHN)
 
@@ -42,7 +42,8 @@ struct PublicKeyCredentialRequestOptions {
     std::optional<unsigned> timeout;
     mutable String rpId;
     Vector<PublicKeyCredentialDescriptor> allowCredentials;
-    UserVerificationRequirement userVerification { UserVerificationRequirement::Preferred };
+    String userVerificationString { "preferred"_s };
+    WEBCORE_EXPORT UserVerificationRequirement userVerification() const;
     mutable std::optional<AuthenticationExtensionsClientInputs> extensions;
     std::optional<AuthenticatorAttachment> authenticatorAttachment { }; // Not serialized over IPC.
 #endif // ENABLE(WEB_AUTHN)

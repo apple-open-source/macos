@@ -28,6 +28,7 @@
 #include "config.h"
 #include "PageTimelineAgent.h"
 
+#include "DocumentView.h"
 #include "FrameSnapshotting.h"
 #include "ImageBuffer.h"
 #include "InspectorBackendClient.h"
@@ -61,9 +62,9 @@ static CFRunLoopRef currentRunLoop()
     // A race condition during WebView deallocation can lead to a crash if the layer sync run loop
     // observer is added to the main run loop <rdar://problem/9798550>. However, for responsiveness,
     // we still allow this, see <rdar://problem/7403328>. Since the race condition and subsequent
-    // crash are especially troublesome for iBooks, we never allow the observer to be added to the
-    // main run loop in iBooks.
-    if (WTF::CocoaApplication::isIBooks())
+    // crash are especially troublesome for Apple Books, we never allow the observer to be added to the
+    // main run loop in Apple Books.
+    if (WTF::CocoaApplication::isAppleBooks())
         return WebThreadRunLoop();
 #endif
     return CFRunLoopGetCurrent();
@@ -80,19 +81,19 @@ PageTimelineAgent::~PageTimelineAgent() = default;
 
 bool PageTimelineAgent::enabled() const
 {
-    return m_instrumentingAgents.enabledPageTimelineAgent() == this && InspectorTimelineAgent::enabled();
+    return Ref { m_instrumentingAgents.get() }->enabledPageTimelineAgent() == this && InspectorTimelineAgent::enabled();
 }
 
 void PageTimelineAgent::internalEnable()
 {
-    m_instrumentingAgents.setEnabledPageTimelineAgent(this);
+    Ref { m_instrumentingAgents.get() }->setEnabledPageTimelineAgent(this);
 
     InspectorTimelineAgent::internalEnable();
 }
 
 void PageTimelineAgent::internalDisable()
 {
-    m_instrumentingAgents.setEnabledPageTimelineAgent(nullptr);
+    Ref { m_instrumentingAgents.get() }->setEnabledPageTimelineAgent(nullptr);
 
     m_autoCaptureEnabled = false;
 
@@ -101,12 +102,12 @@ void PageTimelineAgent::internalDisable()
 
 bool PageTimelineAgent::tracking() const
 {
-    return m_instrumentingAgents.trackingPageTimelineAgent() == this && InspectorTimelineAgent::tracking();
+    return Ref { m_instrumentingAgents.get() }->trackingPageTimelineAgent() == this && InspectorTimelineAgent::tracking();
 }
 
 void PageTimelineAgent::internalStart(std::optional<int>&& maxCallStackDepth)
 {
-    m_instrumentingAgents.setTrackingPageTimelineAgent(this);
+    Ref { m_instrumentingAgents.get() }->setTrackingPageTimelineAgent(this);
 
     // FIXME: Abstract away platform-specific code once https://bugs.webkit.org/show_bug.cgi?id=142748 is fixed.
 
@@ -128,7 +129,7 @@ void PageTimelineAgent::internalStart(std::optional<int>&& maxCallStackDepth)
 
     m_runLoopNestingLevel = 1;
 #elif USE(GLIB_EVENT_LOOP)
-    m_runLoopObserver = makeUnique<RunLoop::Observer>([this](RunLoop::Event event, const String& name) {
+    m_runLoopObserver = makeUnique<RunLoop::EventObserver>([this](RunLoop::Event event, const String& name) {
         if (!tracking() || m_environment.debugger()->isPaused())
             return;
 
@@ -143,7 +144,7 @@ void PageTimelineAgent::internalStart(std::optional<int>&& maxCallStackDepth)
             break;
         }
     });
-    RunLoop::currentSingleton().observe(*m_runLoopObserver);
+    RunLoop::currentSingleton().observeEvent(*m_runLoopObserver);
 #endif
 
     InspectorTimelineAgent::internalStart(WTFMove(maxCallStackDepth));
@@ -154,7 +155,7 @@ void PageTimelineAgent::internalStart(std::optional<int>&& maxCallStackDepth)
 
 void PageTimelineAgent::internalStop()
 {
-    m_instrumentingAgents.setTrackingPageTimelineAgent(nullptr);
+    Ref { m_instrumentingAgents.get() }->setTrackingPageTimelineAgent(nullptr);
 
     m_autoCapturePhase = AutoCapturePhase::None;
 
@@ -271,7 +272,7 @@ void PageTimelineAgent::mainFrameStartedLoading()
     m_autoCapturePhase = AutoCapturePhase::BeforeLoad;
 
     // Pre-emptively disable breakpoints. The frontend must re-enable them.
-    if (auto* webDebuggerAgent = m_instrumentingAgents.enabledWebDebuggerAgent())
+    if (auto* webDebuggerAgent = Ref { m_instrumentingAgents.get() }->enabledWebDebuggerAgent())
         webDebuggerAgent->setBreakpointsActive(false);
 
     // Inform the frontend we started an auto capture. The frontend must stop capture.
@@ -329,7 +330,7 @@ void PageTimelineAgent::captureScreenshot()
     if (!localMainFrameView)
         return;
 
-    if (auto snapshot = snapshotFrameRect(*localMainFrame, localMainFrameView->unobscuredContentRect(), { { }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() })) {
+    if (auto snapshot = snapshotFrameRect(*localMainFrame, localMainFrameView->unobscuredContentRect(), { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() })) {
         auto snapshotRecord = TimelineRecordFactory::createScreenshotData(snapshot->toDataURL("image/png"_s));
         pushCurrentRecord(WTFMove(snapshotRecord), TimelineRecordType::Screenshot, false, snapshotStartTime);
         didCompleteCurrentRecord(TimelineRecordType::Screenshot);

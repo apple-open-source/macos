@@ -25,9 +25,12 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(CONTENT_EXTENSIONS)
 
-#include "ContentExtensionStringSerialization.h"
+#include <WebCore/ContentExtensionStringSerialization.h>
+#include <system_error>
 #include <wtf/JSONValues.h>
 #include <wtf/Hasher.h>
 
@@ -234,6 +237,47 @@ struct WEBCORE_EXPORT RedirectAction {
     void modifyURL(URL& originalURL, const URL& extensionBaseURL);
 };
 
+struct ReportIdentifierAction : public ActionWithStringMetadata<ReportIdentifierAction> {
+    double identifier;
+
+    ReportIdentifierAction(String string)
+    : ActionWithStringMetadata<ReportIdentifierAction> { { WTFMove(string) } }
+    , identifier(0)
+    {
+    }
+
+    ReportIdentifierAction(String string, double identifier)
+    : ActionWithStringMetadata<ReportIdentifierAction> { { WTFMove(string) } }
+    , identifier(identifier)
+    {
+    }
+
+    ReportIdentifierAction isolatedCopy() const & { return { string.isolatedCopy(), identifier }; }
+    ReportIdentifierAction isolatedCopy() && { return { WTFMove(string).isolatedCopy(), identifier }; }
+    friend bool operator==(const ReportIdentifierAction&, const ReportIdentifierAction&) = default;
+
+    void serialize(Vector<uint8_t>& vector) const
+    {
+        vector.reserveCapacity(vector.size() + sizeof(identifier));
+        vector.append(asByteSpan(identifier));
+
+        ActionWithStringMetadata<ReportIdentifierAction>::serialize(vector);
+    }
+
+    static ReportIdentifierAction deserialize(std::span<const uint8_t> span)
+    {
+        ReportIdentifierAction value = ActionWithStringMetadata<ReportIdentifierAction>::deserialize(span.subspan(sizeof(identifier)));
+        value.identifier = reinterpretCastSpanStartTo<double>(span);
+
+        return value;
+    }
+
+    static size_t serializedLength(std::span<const uint8_t> span)
+    {
+        return ActionWithStringMetadata<ReportIdentifierAction>::serializedLength(span.subspan(sizeof(identifier))) + sizeof(identifier);
+    }
+};
+
 using ActionData = Variant<
     BlockLoadAction,
     BlockCookiesAction,
@@ -243,7 +287,8 @@ using ActionData = Variant<
     IgnoreFollowingRulesAction,
     MakeHTTPSAction,
     ModifyHeadersAction,
-    RedirectAction
+    RedirectAction,
+    ReportIdentifierAction
 >;
 
 inline void add(Hasher& hasher, const ModifyHeadersAction::ModifyHeaderInfo::AppendOperation& operation)

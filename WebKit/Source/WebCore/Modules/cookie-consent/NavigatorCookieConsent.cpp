@@ -31,6 +31,7 @@
 #include "CookieConsentDecisionResult.h"
 #include "ExceptionCode.h"
 #include "JSDOMPromiseDeferred.h"
+#include "LocalFrame.h"
 #include "Navigator.h"
 #include "Page.h"
 #include "RequestCookieConsentOptions.h"

@@ -27,18 +27,18 @@
 
 #pragma once
 
-#include "Color.h"
-#include "DistantLightSource.h"
-#include "FilterEffect.h"
-#include "PointLightSource.h"
-#include "SpotLightSource.h"
+#include <WebCore/Color.h>
+#include <WebCore/DistantLightSource.h>
+#include <WebCore/FilterEffect.h>
+#include <WebCore/PointLightSource.h>
+#include <WebCore/SpotLightSource.h>
 
 namespace WebCore {
 
 struct FELightingPaintingDataForNeon;
 
 class FELighting : public FilterEffect {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FELighting);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FELighting);
 public:
     bool operator==(const FELighting&) const;

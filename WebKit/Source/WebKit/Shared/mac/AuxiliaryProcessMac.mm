@@ -350,7 +350,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (!makeDataVault())
             return false;
     } else {
-        WTFLogAlways("%s: Sandbox directory couldn't be created: ", getprogname(), safeStrerror(errno).data());
+        WTFLogAlways("%s: Sandbox directory couldn't be created: %s", getprogname(), safeStrerror(errno).data());
         return false;
     }
 #else

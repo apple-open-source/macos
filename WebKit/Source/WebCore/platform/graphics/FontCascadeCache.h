@@ -29,9 +29,9 @@
 
 #pragma once
 
-#include "FontCascadeFonts.h"
-#include "FontDescription.h"
-#include "FontTaggedSettings.h"
+#include <WebCore/FontCascadeFonts.h>
+#include <WebCore/FontDescription.h>
+#include <WebCore/FontTaggedSettings.h>
 #include <array>
 #include <wtf/HashMap.h>
 #include <wtf/PointerComparison.h>
@@ -241,7 +241,7 @@ inline void add(Hasher& hasher, const FontCascadeCacheKey& key)
 }
 
 struct FontCascadeCacheEntry {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(FontCascadeCacheEntry);
 
     FontCascadeCacheKey key;
     Ref<FontCascadeFonts> fonts;

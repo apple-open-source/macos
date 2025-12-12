@@ -25,13 +25,14 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
-#include "EventListener.h"
-#include "HTMLMediaElementEnums.h"
-#include "PlaybackSessionModel.h"
-#include "SpatialVideoMetadata.h"
-#include "VideoProjectionMetadata.h"
+#include <WebCore/EventListener.h>
+#include <WebCore/HTMLMediaElementEnums.h>
+#include <WebCore/PlaybackSessionModel.h>
+#include <WebCore/SpatialVideoMetadata.h>
+#include <WebCore/VideoProjectionMetadata.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/HashSet.h>
 #include <wtf/Observer.h>

@@ -71,7 +71,7 @@ void RemoteCaptureSampleManager::deref() const
 void RemoteCaptureSampleManager::stopListeningForIPC()
 {
     if (m_isRegisteredToParentProcessConnection)
-        WebProcess::singleton().parentProcessConnection()->removeWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
+        WebProcess::singleton().protectedParentProcessConnection()->removeWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
     setConnection(nullptr);
 }
 
@@ -88,13 +88,13 @@ void RemoteCaptureSampleManager::setConnection(RefPtr<IPC::Connection>&& connect
         }
         return;
     }
-    if (m_connection)
-        m_connection->removeWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
+    if (RefPtr oldConnection = m_connection)
+        oldConnection->removeWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
 
     m_connection = WTFMove(connection);
 
-    if (m_connection)
-        m_connection->addWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName(), m_queue, *this);
+    if (RefPtr newConnection = m_connection)
+        newConnection->addWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName(), m_queue, *this);
 }
 
 void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeAudioSource>&& source)
@@ -182,7 +182,7 @@ void RemoteCaptureSampleManager::videoFrameAvailable(RealtimeMediaSourceIdentifi
         RELEASE_LOG_ERROR(WebRTC, "Unable to find source %llu for videoFrameAvailable", identifier.toUInt64());
         return;
     }
-    iterator->value->remoteVideoFrameAvailable(WTFMove(videoFrame), metadata);
+    Ref { iterator->value }->remoteVideoFrameAvailable(WTFMove(videoFrame), metadata);
 }
 
 void RemoteCaptureSampleManager::videoFrameAvailableCV(RealtimeMediaSourceIdentifier identifier, RetainPtr<CVPixelBufferRef>&& pixelBuffer, WebCore::VideoFrame::Rotation rotation, bool mirrored, MediaTime presentationTime, WebCore::VideoFrameTimeMetadata metadata)
@@ -195,7 +195,7 @@ void RemoteCaptureSampleManager::videoFrameAvailableCV(RealtimeMediaSourceIdenti
     }
 
     auto videoFrame = VideoFrameCV::create(presentationTime, mirrored, rotation, WTFMove(pixelBuffer));
-    iterator->value->remoteVideoFrameAvailable(videoFrame.get(), metadata);
+    Ref { iterator->value }->remoteVideoFrameAvailable(videoFrame.get(), metadata);
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteCaptureSampleManager::RemoteAudio);
@@ -217,7 +217,7 @@ void RemoteCaptureSampleManager::RemoteAudio::stopThread()
 
     m_shouldStopThread = true;
     m_semaphore.signal();
-    m_thread->waitForCompletion();
+    Ref { *m_thread }->waitForCompletion();
     m_thread = nullptr;
 }
 

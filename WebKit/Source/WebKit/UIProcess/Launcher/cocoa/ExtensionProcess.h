@@ -56,7 +56,11 @@ public:
     PlatformGrant grantCapability(const PlatformCapability&, BlockPtr<void()>&& invalidationHandler = ^{ }) const;
     RetainPtr<UIInteraction> createVisibilityPropagationInteraction() const;
 
+    ExtensionProcess isolatedCopy() &&;
+
 private:
+    explicit ExtensionProcess(ExtensionProcessVariant&&);
+
     ExtensionProcessVariant m_process;
 };
 

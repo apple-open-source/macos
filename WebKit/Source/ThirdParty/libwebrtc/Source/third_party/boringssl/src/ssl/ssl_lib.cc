@@ -17,6 +17,7 @@
 #include <openssl/ssl.h>
 
 #include <algorithm>
+#include <iterator>
 
 #include <assert.h>
 #include <limits.h>
@@ -26,7 +27,9 @@
 #include <openssl/bytestring.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 #include <openssl/mem.h>
+#include <openssl/nid.h>
 #include <openssl/rand.h>
 
 #include "../crypto/internal.h"
@@ -411,7 +414,7 @@ ssl_ctx_st::~ssl_ctx_st() {
   // [openssl.org #212].)
   SSL_CTX_flush_sessions(this, 0);
 
-  CRYPTO_free_ex_data(&g_ex_data_class_ssl_ctx, this, &ex_data);
+  CRYPTO_free_ex_data(&g_ex_data_class_ssl_ctx, &ex_data);
 
   CRYPTO_MUTEX_cleanup(&lock);
   lh_SSL_SESSION_free(sessions);
@@ -483,7 +486,7 @@ ssl_st::ssl_st(SSL_CTX *ctx_arg)
 }
 
 ssl_st::~ssl_st() {
-  CRYPTO_free_ex_data(&g_ex_data_class_ssl, this, &ex_data);
+  CRYPTO_free_ex_data(&g_ex_data_class_ssl, &ex_data);
   // |config| refers to |this|, so we must release it earlier.
   config.reset();
   if (method != NULL) {
@@ -2332,14 +2335,8 @@ int SSL_enable_tls_channel_id(SSL *ssl) {
   return 1;
 }
 
-static int is_p256_key(EVP_PKEY *private_key) {
-  const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(private_key);
-  return ec_key != NULL && EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key)) ==
-                               NID_X9_62_prime256v1;
-}
-
 int SSL_CTX_set1_tls_channel_id(SSL_CTX *ctx, EVP_PKEY *private_key) {
-  if (!is_p256_key(private_key)) {
+  if (EVP_PKEY_get_ec_curve_nid(private_key) != NID_X9_62_prime256v1) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_CHANNEL_ID_NOT_P256);
     return 0;
   }
@@ -2352,7 +2349,7 @@ int SSL_set1_tls_channel_id(SSL *ssl, EVP_PKEY *private_key) {
   if (!ssl->config) {
     return 0;
   }
-  if (!is_p256_key(private_key)) {
+  if (EVP_PKEY_get_ec_curve_nid(private_key) != NID_X9_62_prime256v1) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_CHANNEL_ID_NOT_P256);
     return 0;
   }
@@ -3277,11 +3274,9 @@ static int Configure(SSL_CTX *ctx) {
       // Encrypt-then-MAC extension is required for all CBC cipher suites and so
       // it's easier to drop them.
       SSL_CTX_set_strict_cipher_list(ctx, kTLS12Ciphers) &&
-      SSL_CTX_set1_group_ids(ctx, kGroups, OPENSSL_ARRAY_SIZE(kGroups)) &&
-      SSL_CTX_set_signing_algorithm_prefs(ctx, kSigAlgs,
-                                          OPENSSL_ARRAY_SIZE(kSigAlgs)) &&
-      SSL_CTX_set_verify_algorithm_prefs(ctx, kSigAlgs,
-                                         OPENSSL_ARRAY_SIZE(kSigAlgs));
+      SSL_CTX_set1_group_ids(ctx, kGroups, std::size(kGroups)) &&
+      SSL_CTX_set_signing_algorithm_prefs(ctx, kSigAlgs, std::size(kSigAlgs)) &&
+      SSL_CTX_set_verify_algorithm_prefs(ctx, kSigAlgs, std::size(kSigAlgs));
 }
 
 static int Configure(SSL *ssl) {
@@ -3291,11 +3286,9 @@ static int Configure(SSL *ssl) {
   return SSL_set_min_proto_version(ssl, TLS1_2_VERSION) &&
          SSL_set_max_proto_version(ssl, TLS1_3_VERSION) &&
          SSL_set_strict_cipher_list(ssl, kTLS12Ciphers) &&
-         SSL_set1_group_ids(ssl, kGroups, OPENSSL_ARRAY_SIZE(kGroups)) &&
-         SSL_set_signing_algorithm_prefs(ssl, kSigAlgs,
-                                         OPENSSL_ARRAY_SIZE(kSigAlgs)) &&
-         SSL_set_verify_algorithm_prefs(ssl, kSigAlgs,
-                                        OPENSSL_ARRAY_SIZE(kSigAlgs));
+         SSL_set1_group_ids(ssl, kGroups, std::size(kGroups)) &&
+         SSL_set_signing_algorithm_prefs(ssl, kSigAlgs, std::size(kSigAlgs)) &&
+         SSL_set_verify_algorithm_prefs(ssl, kSigAlgs, std::size(kSigAlgs));
 }
 
 }  // namespace fips202205
@@ -3324,11 +3317,10 @@ static int Configure(SSL_CTX *ctx) {
   return SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) &&
          SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION) &&
          SSL_CTX_set_strict_cipher_list(ctx, kTLS12Ciphers) &&
-         SSL_CTX_set1_group_ids(ctx, kGroups, OPENSSL_ARRAY_SIZE(kGroups)) &&
+         SSL_CTX_set1_group_ids(ctx, kGroups, std::size(kGroups)) &&
          SSL_CTX_set_signing_algorithm_prefs(ctx, kSigAlgs,
-                                             OPENSSL_ARRAY_SIZE(kSigAlgs)) &&
-         SSL_CTX_set_verify_algorithm_prefs(ctx, kSigAlgs,
-                                            OPENSSL_ARRAY_SIZE(kSigAlgs));
+                                             std::size(kSigAlgs)) &&
+         SSL_CTX_set_verify_algorithm_prefs(ctx, kSigAlgs, std::size(kSigAlgs));
 }
 
 static int Configure(SSL *ssl) {
@@ -3337,11 +3329,9 @@ static int Configure(SSL *ssl) {
   return SSL_set_min_proto_version(ssl, TLS1_2_VERSION) &&
          SSL_set_max_proto_version(ssl, TLS1_3_VERSION) &&
          SSL_set_strict_cipher_list(ssl, kTLS12Ciphers) &&
-         SSL_set1_group_ids(ssl, kGroups, OPENSSL_ARRAY_SIZE(kGroups)) &&
-         SSL_set_signing_algorithm_prefs(ssl, kSigAlgs,
-                                         OPENSSL_ARRAY_SIZE(kSigAlgs)) &&
-         SSL_set_verify_algorithm_prefs(ssl, kSigAlgs,
-                                        OPENSSL_ARRAY_SIZE(kSigAlgs));
+         SSL_set1_group_ids(ssl, kGroups, std::size(kGroups)) &&
+         SSL_set_signing_algorithm_prefs(ssl, kSigAlgs, std::size(kSigAlgs)) &&
+         SSL_set_verify_algorithm_prefs(ssl, kSigAlgs, std::size(kSigAlgs));
 }
 
 }  // namespace wpa202304
@@ -3441,3 +3431,5 @@ int SSL_set1_requested_trust_anchors(SSL *ssl, const uint8_t *ids,
   ssl->config->requested_trust_anchors = std::move(copy);
   return 1;
 }
+
+int SSL_CTX_get_security_level(const SSL_CTX *ctx) { return 0; }

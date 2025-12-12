@@ -113,7 +113,6 @@ bool defaultAppleMailPaginationQuirkEnabled()
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-
 bool defaultCaptureAudioInGPUProcessEnabled()
 {
 #if ENABLE(GPU_PROCESS_BY_DEFAULT)
@@ -131,6 +130,19 @@ bool defaultManageCaptureStatusBarInGPUProcessEnabled()
 #else
     return false;
 #endif
+}
+
+double defaultInactiveMediaCaptureStreamRepromptWithoutUserGestureIntervalInMinutes()
+{
+    constexpr double inactiveMediaCaptureStreamRepromptIntervalForDesktop = 10;
+
+#if PLATFORM(IOS_FAMILY)
+    constexpr double inactiveMediaCaptureStreamRepromptIntervalForiOS = 1;
+    if (!PAL::currentUserInterfaceIdiomIsDesktop())
+        return inactiveMediaCaptureStreamRepromptIntervalForiOS;
+#endif
+
+    return inactiveMediaCaptureStreamRepromptIntervalForDesktop;
 }
 
 #endif // ENABLE(MEDIA_STREAM)
@@ -428,5 +440,14 @@ bool defaultIOSurfaceLosslessCompressionEnabled()
     return false;
 }
 #endif
+
+bool defaultScrollbarColorEnabled()
+{
+#if HAVE(APPKIT_SCROLLBAR_COLOR_SPI) || HAVE(UIKIT_SCROLLBAR_COLOR_SPI)
+    return true;
+#else
+    return false;
+#endif
+}
 
 } // namespace WebKit

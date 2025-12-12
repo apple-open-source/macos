@@ -19,7 +19,7 @@
 #include "config.h"
 #include "KeyBindingTranslator.h"
 
-#include <WebCore/GtkVersioning.h>
+#include "GtkVersioning.h"
 #include <gdk/gdkkeysyms.h>
 
 namespace WebKit {

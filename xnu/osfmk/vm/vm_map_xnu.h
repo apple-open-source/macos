@@ -476,7 +476,7 @@ struct _vm_map {
 	/* reserved */ res0:1,
 #endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 	/* reserved  */pad:6;
-	unsigned int            timestamp;          /* Version number */
+	uint64_t timestamp;          /* Version number */
 	/*
 	 * Weak reference to the task that owns this map. This will be NULL if the
 	 * map has terminated, so you must have a task reference to be able to safely
@@ -564,7 +564,7 @@ VML_PREV_SET(struct vm_map_links * links, vm_map_entry_t prev)
  *		Just a timestamp for the main map.
  */
 typedef struct vm_map_version {
-	unsigned int    main_timestamp;
+	uint64_t    main_timestamp;
 } vm_map_version_t;
 
 /*

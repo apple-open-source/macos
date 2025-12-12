@@ -40,7 +40,7 @@
 
 namespace WTF {
 
-inline std::span<const LChar> span(const LChar& character)
+inline std::span<const Latin1Character> span(const Latin1Character& character)
 {
     return unsafeMakeSpan(&character, 1);
 }
@@ -50,17 +50,17 @@ inline std::span<const char16_t> span(const char16_t& character)
     return unsafeMakeSpan(&character, 1);
 }
 
-inline std::span<const LChar> unsafeSpan8(const char* string)
+inline std::span<const Latin1Character> unsafeSpan8(const char* string)
 {
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    return unsafeMakeSpan(byteCast<LChar>(string), string ? strlen(string) : 0);
+    return unsafeMakeSpan(byteCast<Latin1Character>(string), string ? strlen(string) : 0);
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-inline std::span<const LChar> unsafeSpan8IncludingNullTerminator(const char* string)
+inline std::span<const Latin1Character> unsafeSpan8IncludingNullTerminator(const char* string)
 {
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    return unsafeMakeSpan(byteCast<LChar>(string), string ? strlen(string) + 1 : 0);
+    return unsafeMakeSpan(byteCast<Latin1Character>(string), string ? strlen(string) + 1 : 0);
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
@@ -78,7 +78,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-inline std::span<const LChar> unsafeSpan(const LChar* string)
+inline std::span<const Latin1Character> unsafeSpan(const Latin1Character* string)
 {
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return unsafeMakeSpan(string, string ? strlen(byteCast<char>(string)) : 0);
@@ -120,7 +120,7 @@ template<typename CharacterType> inline constexpr bool isLatin1(CharacterType ch
     return unsignedCast(character) <= 0xFFu;
 }
 
-template<> ALWAYS_INLINE constexpr bool isLatin1(LChar)
+template<> ALWAYS_INLINE constexpr bool isLatin1(Latin1Character)
 {
     return true;
 }
@@ -131,7 +131,7 @@ template<typename CharacterTypeA, typename CharacterTypeB> bool equalIgnoringASC
 
 template<typename StringClassA, typename StringClassB> bool equalIgnoringASCIICaseCommon(const StringClassA&, const StringClassB&);
 
-template<typename CharacterType> bool equalLettersIgnoringASCIICase(std::span<const CharacterType>, std::span<const LChar> lowercaseLetters);
+template<typename CharacterType> bool equalLettersIgnoringASCIICase(std::span<const CharacterType>, std::span<const Latin1Character> lowercaseLetters);
 template<typename CharacterType> bool equalLettersIgnoringASCIICase(std::span<const CharacterType>, ASCIILiteral);
 
 template<typename StringClass> bool equalLettersIgnoringASCIICaseCommon(const StringClass&, ASCIILiteral);
@@ -140,52 +140,52 @@ bool equalIgnoringASCIICase(const char*, const char*);
 
 // Do comparisons 8 or 4 bytes-at-a-time on architectures where it's safe.
 #if (CPU(X86_64) || CPU(ARM64)) && !ASAN_ENABLED
-ALWAYS_INLINE bool equal(const LChar* aLChar, std::span<const LChar> bLChar)
+ALWAYS_INLINE bool equal(const Latin1Character* a, std::span<const Latin1Character> b)
 {
-    ASSERT(bLChar.size() <= std::numeric_limits<unsigned>::max());
-    unsigned length = bLChar.size();
+    ASSERT(b.size() <= std::numeric_limits<unsigned>::max());
+    unsigned length = b.size();
 
     // These branches could be combined into one, but it's measurably faster
     // for length 0 or 1 strings to separate them out like this.
     if (!length)
         return true;
     if (length == 1)
-        return *aLChar == bLChar.front();
+        return *a == b.front();
 
     switch (sizeof(unsigned) * CHAR_BIT - clz(length - 1)) { // Works as really fast log2, since length != 0.
     case 0:
         RELEASE_ASSERT_NOT_REACHED();
     case 1: // Length is 2.
-        return unalignedLoad<uint16_t>(aLChar) == unalignedLoad<uint16_t>(bLChar.data());
+        return unalignedLoad<uint16_t>(a) == unalignedLoad<uint16_t>(b.data());
     case 2: // Length is 3 or 4.
-        return unalignedLoad<uint16_t>(aLChar) == unalignedLoad<uint16_t>(bLChar.data())
-            && unalignedLoad<uint16_t>(aLChar + length - 2) == unalignedLoad<uint16_t>(bLChar.data() + length - 2);
+        return unalignedLoad<uint16_t>(a) == unalignedLoad<uint16_t>(b.data())
+            && unalignedLoad<uint16_t>(a + length - 2) == unalignedLoad<uint16_t>(b.data() + length - 2);
     case 3: // Length is between 5 and 8 inclusive.
-        return unalignedLoad<uint32_t>(aLChar) == unalignedLoad<uint32_t>(bLChar.data())
-            && unalignedLoad<uint32_t>(aLChar + length - 4) == unalignedLoad<uint32_t>(bLChar.data() + length - 4);
+        return unalignedLoad<uint32_t>(a) == unalignedLoad<uint32_t>(b.data())
+            && unalignedLoad<uint32_t>(a + length - 4) == unalignedLoad<uint32_t>(b.data() + length - 4);
     case 4: // Length is between 9 and 16 inclusive.
-        return unalignedLoad<uint64_t>(aLChar) == unalignedLoad<uint64_t>(bLChar.data())
-            && unalignedLoad<uint64_t>(aLChar + length - 8) == unalignedLoad<uint64_t>(bLChar.data() + length - 8);
+        return unalignedLoad<uint64_t>(a) == unalignedLoad<uint64_t>(b.data())
+            && unalignedLoad<uint64_t>(a + length - 8) == unalignedLoad<uint64_t>(b.data() + length - 8);
 #if CPU(ARM64)
     case 5: // Length is between 17 and 32 inclusive.
         return vminvq_u8(vandq_u8(
-            vceqq_u8(unalignedLoad<uint8x16_t>(aLChar), unalignedLoad<uint8x16_t>(bLChar.data())),
-            vceqq_u8(unalignedLoad<uint8x16_t>(aLChar + length - 16), unalignedLoad<uint8x16_t>(bLChar.data() + length - 16))
+            vceqq_u8(unalignedLoad<uint8x16_t>(a), unalignedLoad<uint8x16_t>(b.data())),
+            vceqq_u8(unalignedLoad<uint8x16_t>(a + length - 16), unalignedLoad<uint8x16_t>(b.data() + length - 16))
         ));
     default: // Length is longer than 32 bytes.
-        if (!vminvq_u8(vceqq_u8(unalignedLoad<uint8x16_t>(aLChar), unalignedLoad<uint8x16_t>(bLChar.data()))))
+        if (!vminvq_u8(vceqq_u8(unalignedLoad<uint8x16_t>(a), unalignedLoad<uint8x16_t>(b.data()))))
             return false;
         for (unsigned i = length % 16; i < length; i += 16) {
-            if (!vminvq_u8(vceqq_u8(unalignedLoad<uint8x16_t>(aLChar + i), unalignedLoad<uint8x16_t>(bLChar.data() + i))))
+            if (!vminvq_u8(vceqq_u8(unalignedLoad<uint8x16_t>(a + i), unalignedLoad<uint8x16_t>(b.data() + i))))
                 return false;
         }
         return true;
 #else
     default: // Length is longer than 16 bytes.
-        if (unalignedLoad<uint64_t>(aLChar) != unalignedLoad<uint64_t>(bLChar.data()))
+        if (unalignedLoad<uint64_t>(a) != unalignedLoad<uint64_t>(b.data()))
             return false;
         for (unsigned i = length % 8; i < length; i += 8) {
-            if (unalignedLoad<uint64_t>(aLChar + i) != unalignedLoad<uint64_t>(bLChar.data() + i))
+            if (unalignedLoad<uint64_t>(a + i) != unalignedLoad<uint64_t>(b.data() + i))
                 return false;
         }
         return true;
@@ -193,47 +193,47 @@ ALWAYS_INLINE bool equal(const LChar* aLChar, std::span<const LChar> bLChar)
     }
 }
 
-ALWAYS_INLINE bool equal(const char16_t* aUChar, std::span<const char16_t> bUChar)
+ALWAYS_INLINE bool equal(const char16_t* a, std::span<const char16_t> b)
 {
-    ASSERT(bUChar.size() <= std::numeric_limits<unsigned>::max());
-    unsigned length = bUChar.size();
+    ASSERT(b.size() <= std::numeric_limits<unsigned>::max());
+    unsigned length = b.size();
 
     if (!length)
         return true;
     if (length == 1)
-        return *aUChar == bUChar.front();
+        return *a == b.front();
 
     switch (sizeof(unsigned) * CHAR_BIT - clz(length - 1)) { // Works as really fast log2, since length != 0.
     case 0:
         RELEASE_ASSERT_NOT_REACHED();
     case 1: // Length is 2 (4 bytes).
-        return unalignedLoad<uint32_t>(aUChar) == unalignedLoad<uint32_t>(bUChar.data());
+        return unalignedLoad<uint32_t>(a) == unalignedLoad<uint32_t>(b.data());
     case 2: // Length is 3 or 4 (6-8 bytes).
-        return unalignedLoad<uint32_t>(aUChar) == unalignedLoad<uint32_t>(bUChar.data())
-            && unalignedLoad<uint32_t>(aUChar + length - 2) == unalignedLoad<uint32_t>(bUChar.data() + length - 2);
+        return unalignedLoad<uint32_t>(a) == unalignedLoad<uint32_t>(b.data())
+            && unalignedLoad<uint32_t>(a + length - 2) == unalignedLoad<uint32_t>(b.data() + length - 2);
     case 3: // Length is between 5 and 8 inclusive (10-16 bytes).
-        return unalignedLoad<uint64_t>(aUChar) == unalignedLoad<uint64_t>(bUChar.data())
-            && unalignedLoad<uint64_t>(aUChar + length - 4) == unalignedLoad<uint64_t>(bUChar.data() + length - 4);
+        return unalignedLoad<uint64_t>(a) == unalignedLoad<uint64_t>(b.data())
+            && unalignedLoad<uint64_t>(a + length - 4) == unalignedLoad<uint64_t>(b.data() + length - 4);
 #if CPU(ARM64)
     case 4: // Length is between 9 and 16 inclusive (18-32 bytes).
         return vminvq_u16(vandq_u16(
-            vceqq_u16(unalignedLoad<uint16x8_t>(aUChar), unalignedLoad<uint16x8_t>(bUChar.data())),
-            vceqq_u16(unalignedLoad<uint16x8_t>(aUChar + length - 8), unalignedLoad<uint16x8_t>(bUChar.data() + length - 8))
+            vceqq_u16(unalignedLoad<uint16x8_t>(a), unalignedLoad<uint16x8_t>(b.data())),
+            vceqq_u16(unalignedLoad<uint16x8_t>(a + length - 8), unalignedLoad<uint16x8_t>(b.data() + length - 8))
         ));
     default: // Length is longer than 16 (32 bytes).
-        if (!vminvq_u16(vceqq_u16(unalignedLoad<uint16x8_t>(aUChar), unalignedLoad<uint16x8_t>(bUChar.data()))))
+        if (!vminvq_u16(vceqq_u16(unalignedLoad<uint16x8_t>(a), unalignedLoad<uint16x8_t>(b.data()))))
             return false;
         for (unsigned i = length % 8; i < length; i += 8) {
-            if (!vminvq_u16(vceqq_u16(unalignedLoad<uint16x8_t>(aUChar + i), unalignedLoad<uint16x8_t>(bUChar.data() + i))))
+            if (!vminvq_u16(vceqq_u16(unalignedLoad<uint16x8_t>(a + i), unalignedLoad<uint16x8_t>(b.data() + i))))
                 return false;
         }
         return true;
 #else
     default: // Length is longer than 8 (16 bytes).
-        if (unalignedLoad<uint64_t>(aUChar) != unalignedLoad<uint64_t>(bUChar.data()))
+        if (unalignedLoad<uint64_t>(a) != unalignedLoad<uint64_t>(b.data()))
             return false;
         for (unsigned i = length % 4; i < length; i += 4) {
-            if (unalignedLoad<uint64_t>(aUChar + i) != unalignedLoad<uint64_t>(bUChar.data() + i))
+            if (unalignedLoad<uint64_t>(a + i) != unalignedLoad<uint64_t>(b.data() + i))
                 return false;
         }
         return true;
@@ -241,13 +241,13 @@ ALWAYS_INLINE bool equal(const char16_t* aUChar, std::span<const char16_t> bUCha
     }
 }
 #elif CPU(X86) && !ASAN_ENABLED
-ALWAYS_INLINE bool equal(const LChar* aLChar, std::span<const LChar> bLChar)
+ALWAYS_INLINE bool equal(const Latin1Character* a, std::span<const Latin1Character> b)
 {
-    ASSERT(bLChar.size() <= std::numeric_limits<unsigned>::max());
-    unsigned length = bLChar.size();
+    ASSERT(b.size() <= std::numeric_limits<unsigned>::max());
+    unsigned length = b.size();
 
-    const char* a = byteCast<char>(aLChar);
-    const char* b = byteCast<char>(bLChar.data());
+    const char* a = byteCast<char>(a);
+    const char* b = byteCast<char>(b.data());
 
     unsigned wordLength = length >> 2;
     for (unsigned i = 0; i != wordLength; ++i) {
@@ -260,8 +260,8 @@ ALWAYS_INLINE bool equal(const LChar* aLChar, std::span<const LChar> bLChar)
     length &= 3;
 
     if (length) {
-        const LChar* aRemainder = byteCast<LChar>(a);
-        const LChar* bRemainder = byteCast<LChar>(b);
+        const Latin1Character* aRemainder = byteCast<Latin1Character>(a);
+        const Latin1Character* bRemainder = byteCast<Latin1Character>(b);
 
         for (unsigned i = 0; i <  length; ++i) {
             if (aRemainder[i] != bRemainder[i])
@@ -272,13 +272,13 @@ ALWAYS_INLINE bool equal(const LChar* aLChar, std::span<const LChar> bLChar)
     return true;
 }
 
-ALWAYS_INLINE bool equal(const char16_t* aUChar, std::span<const char16_t> bUChar)
+ALWAYS_INLINE bool equal(const char16_t* a, std::span<const char16_t> b)
 {
-    ASSERT(bUChar.size() <= std::numeric_limits<unsigned>::max());
-    unsigned length = bUChar.size();
+    ASSERT(b.size() <= std::numeric_limits<unsigned>::max());
+    unsigned length = b.size();
 
-    const char* a = reinterpret_cast<const char*>(aUChar);
-    const char* b = reinterpret_cast<const char*>(bUChar.data());
+    const char* a = reinterpret_cast<const char*>(a);
+    const char* b = reinterpret_cast<const char*>(b.data());
 
     unsigned wordLength = length >> 1;
     for (unsigned i = 0; i != wordLength; ++i) {
@@ -294,18 +294,18 @@ ALWAYS_INLINE bool equal(const char16_t* aUChar, std::span<const char16_t> bUCha
     return true;
 }
 #else
-ALWAYS_INLINE bool equal(const LChar* a, std::span<const LChar> b) { return !memcmp(a, b.data(), b.size()); }
+ALWAYS_INLINE bool equal(const Latin1Character* a, std::span<const Latin1Character> b) { return !memcmp(a, b.data(), b.size()); }
 ALWAYS_INLINE bool equal(const char16_t* a, std::span<const char16_t> b) { return !memcmp(a, b.data(), b.size_bytes()); }
 #endif
 
-ALWAYS_INLINE bool equal(const LChar* a, std::span<const char16_t> b)
+ALWAYS_INLINE bool equal(const Latin1Character* a, std::span<const char16_t> b)
 {
 #if CPU(ARM64)
     ASSERT(b.size() <= std::numeric_limits<unsigned>::max());
     unsigned length = b.size();
 
     if (length >= 8) {
-        uint16x8_t aHalves = vmovl_u8(unalignedLoad<uint8x8_t>(a)); // Extends 8 LChars into 8 UChars.
+        uint16x8_t aHalves = vmovl_u8(unalignedLoad<uint8x8_t>(a)); // Extends 8 Latin1Characters into 8 UTF-16 code units.
         uint16x8_t bHalves = unalignedLoad<uint16x8_t>(b.data());
         if (!vminvq_u16(vceqq_u16(aHalves, bHalves)))
             return false;
@@ -318,7 +318,7 @@ ALWAYS_INLINE bool equal(const LChar* a, std::span<const char16_t> b)
         return true;
     }
     if (length >= 4) {
-        auto read4 = [](const LChar* p) ALWAYS_INLINE_LAMBDA {
+        auto read4 = [](const Latin1Character* p) ALWAYS_INLINE_LAMBDA {
             // Copy 32 bits and expand to 64 bits.
             uint32_t v32 = unalignedLoad<uint32_t>(p);
             uint64_t v64 = static_cast<uint64_t>(v32);
@@ -329,7 +329,7 @@ ALWAYS_INLINE bool equal(const LChar* a, std::span<const char16_t> b)
         return static_cast<unsigned>(read4(a) == unalignedLoad<uint64_t>(b.data())) & static_cast<unsigned>(read4(a + (length % 4)) == unalignedLoad<uint64_t>(b.data() + (length % 4)));
     }
     if (length >= 2) {
-        auto read2 = [](const LChar* p) ALWAYS_INLINE_LAMBDA {
+        auto read2 = [](const Latin1Character* p) ALWAYS_INLINE_LAMBDA {
             // Copy 16 bits and expand to 32 bits.
             uint16_t v16 = unalignedLoad<uint16_t>(p);
             uint32_t v32 = static_cast<uint32_t>(v16);
@@ -349,7 +349,7 @@ ALWAYS_INLINE bool equal(const LChar* a, std::span<const char16_t> b)
 #endif
 }
 
-ALWAYS_INLINE bool equal(const char16_t* a, std::span<const LChar> b)
+ALWAYS_INLINE bool equal(const char16_t* a, std::span<const Latin1Character> b)
 {
     return equal(b.data(), { a, b.size() });
 }
@@ -642,20 +642,20 @@ ALWAYS_INLINE const double* findDouble(const double* pointer, double target, siz
 }
 #endif
 
-WTF_EXPORT_PRIVATE const LChar* find8NonASCIIAlignedImpl(std::span<const LChar>);
+WTF_EXPORT_PRIVATE const Latin1Character* find8NonASCIIAlignedImpl(std::span<const Latin1Character>);
 WTF_EXPORT_PRIVATE const char16_t* find16NonASCIIAlignedImpl(std::span<const char16_t>);
 
 #if CPU(ARM64)
-ALWAYS_INLINE const LChar* find8NonASCII(std::span<const LChar> data)
+ALWAYS_INLINE const Latin1Character* find8NonASCII(std::span<const Latin1Character> data)
 {
     constexpr size_t thresholdLength = 16;
-    static_assert(!(thresholdLength % (16 / sizeof(LChar))), "length threshold should be 16-byte aligned to make find8NonASCIIAlignedImpl simpler");
+    static_assert(!(thresholdLength % (16 / sizeof(Latin1Character))), "length threshold should be 16-byte aligned to make find8NonASCIIAlignedImpl simpler");
     auto* pointer = data.data();
     auto length = data.size();
     uintptr_t unaligned = reinterpret_cast<uintptr_t>(pointer) & 0xf;
 
     size_t index = 0;
-    size_t runway = std::min(thresholdLength - (unaligned / sizeof(LChar)), length);
+    size_t runway = std::min(thresholdLength - (unaligned / sizeof(Latin1Character)), length);
     for (; index < runway; ++index) {
         if (!isASCII(pointer[index]))
             return pointer + index;
@@ -720,16 +720,16 @@ inline size_t find(std::span<const CharacterType1> characters, CharacterType2 ma
     return notFound;
 }
 
-ALWAYS_INLINE size_t find(std::span<const char16_t> characters, LChar matchCharacter, size_t index = 0)
+ALWAYS_INLINE size_t find(std::span<const char16_t> characters, Latin1Character matchCharacter, size_t index = 0)
 {
     return find(characters, static_cast<char16_t>(matchCharacter), index);
 }
 
-inline size_t find(std::span<const LChar> characters, char16_t matchCharacter, size_t index = 0)
+inline size_t find(std::span<const Latin1Character> characters, char16_t matchCharacter, size_t index = 0)
 {
     if (!isLatin1(matchCharacter))
         return notFound;
-    return find(characters, static_cast<LChar>(matchCharacter), index);
+    return find(characters, static_cast<Latin1Character>(matchCharacter), index);
 }
 
 template<typename CharacterType1, typename CharacterType2, std::enable_if_t<std::is_integral_v<CharacterType1> && std::is_integral_v<CharacterType2>>* = nullptr>
@@ -765,7 +765,7 @@ ALWAYS_INLINE static size_t reverseFindInner(std::span<const SearchCharacterType
     return delta;
 }
 
-template<typename CharacterType> inline bool equalLettersIgnoringASCIICaseWithLength(std::span<const CharacterType> characters, std::span<const LChar> lowercaseLetters, size_t length)
+template<typename CharacterType> inline bool equalLettersIgnoringASCIICaseWithLength(std::span<const CharacterType> characters, std::span<const Latin1Character> lowercaseLetters, size_t length)
 {
     ASSERT(characters.size() >= length);
     ASSERT(lowercaseLetters.size() >= length);
@@ -776,14 +776,14 @@ template<typename CharacterType> inline bool equalLettersIgnoringASCIICaseWithLe
     return true;
 }
 
-template<typename CharacterType> inline bool equalLettersIgnoringASCIICase(std::span<const CharacterType> characters, std::span<const LChar> lowercaseLetters)
+template<typename CharacterType> inline bool equalLettersIgnoringASCIICase(std::span<const CharacterType> characters, std::span<const Latin1Character> lowercaseLetters)
 {
     return characters.size() == lowercaseLetters.size() && equalLettersIgnoringASCIICaseWithLength(characters, lowercaseLetters, lowercaseLetters.size());
 }
 
 template<typename CharacterType> inline bool equalLettersIgnoringASCIICase(std::span<const CharacterType> characters, std::span<const char> lowercaseLetters)
 {
-    return equalLettersIgnoringASCIICase(characters, byteCast<LChar>(lowercaseLetters));
+    return equalLettersIgnoringASCIICase(characters, byteCast<Latin1Character>(lowercaseLetters));
 }
 
 template<typename CharacterType> inline bool equalLettersIgnoringASCIICase(std::span<const CharacterType> characters, ASCIILiteral lowercaseLetters)
@@ -791,7 +791,7 @@ template<typename CharacterType> inline bool equalLettersIgnoringASCIICase(std::
     return equalLettersIgnoringASCIICase(characters, lowercaseLetters.span8());
 }
 
-template<typename StringClass> bool inline hasPrefixWithLettersIgnoringASCIICaseCommon(const StringClass& string, std::span<const LChar> lowercaseLetters)
+template<typename StringClass> bool inline hasPrefixWithLettersIgnoringASCIICaseCommon(const StringClass& string, std::span<const Latin1Character> lowercaseLetters)
 {
 #if ASSERT_ENABLED
     ASSERT(lowercaseLetters.front());
@@ -806,14 +806,14 @@ template<typename StringClass> bool inline hasPrefixWithLettersIgnoringASCIICase
 }
 
 // This is intentionally not marked inline because it's used often and is not speed-critical enough to want it inlined everywhere.
-template<typename StringClass> bool equalLettersIgnoringASCIICaseCommon(const StringClass& string, std::span<const LChar> literal)
+template<typename StringClass> bool equalLettersIgnoringASCIICaseCommon(const StringClass& string, std::span<const Latin1Character> literal)
 {
     if (string.length() != literal.size())
         return false;
     return hasPrefixWithLettersIgnoringASCIICaseCommon(string, literal);
 }
 
-template<typename StringClass> bool startsWithLettersIgnoringASCIICaseCommon(const StringClass& string, std::span<const LChar> prefix)
+template<typename StringClass> bool startsWithLettersIgnoringASCIICaseCommon(const StringClass& string, std::span<const Latin1Character> prefix)
 {
     if (prefix.empty())
         return true;
@@ -922,10 +922,10 @@ inline void copyElements(std::span<uint8_t> destinationSpan, std::span<const uin
         destination[i] = source[i];
 
     const uintptr_t sourceLoadSize = 32; // Process 32 bytes (16 uint16_ts) each iteration
-    const unsigned ucharsPerLoop = sourceLoadSize / sizeof(uint16_t);
-    if (length > ucharsPerLoop) {
-        const unsigned endLength = length - ucharsPerLoop + 1;
-        for (; i < endLength; i += ucharsPerLoop) {
+    const unsigned utf16CodeUnitsPerLoop = sourceLoadSize / sizeof(uint16_t);
+    if (length > utf16CodeUnitsPerLoop) {
+        const unsigned endLength = length - utf16CodeUnitsPerLoop + 1;
+        for (; i < endLength; i += utf16CodeUnitsPerLoop) {
             __m128i first8Uint16s = _mm_load_si128(reinterpret_cast<const __m128i*>(&source[i]));
             __m128i second8Uint16s = _mm_load_si128(reinterpret_cast<const __m128i*>(&source[i+8]));
             __m128i packedChars = _mm_packus_epi16(first8Uint16s, second8Uint16s);
@@ -946,7 +946,8 @@ inline void copyElements(std::span<uint8_t> destinationSpan, std::span<const uin
         const uintptr_t lengthLeft = end - destination;
         const uint8_t* const simdEnd = destination + (lengthLeft & ~memoryAccessMask);
         do {
-            asm("ld2   { v0.16B, v1.16B }, [%[SOURCE]], #32\n\t"
+            __asm__(
+                "ld2   { v0.16B, v1.16B }, [%[SOURCE]], #32\n\t"
                 "st1   { v0.16B }, [%[DESTINATION]], #16\n\t"
                 : [SOURCE]"+r" (source), [DESTINATION]"+r" (destination)
                 :
@@ -970,7 +971,8 @@ inline void copyElements(std::span<uint8_t> destinationSpan, std::span<const uin
         const uintptr_t lengthLeft = end - destination;
         const uint8_t* const simdEnd = end - (lengthLeft % memoryAccessSize);
         do {
-            asm("vld2.8   { d0-d1 }, [%[SOURCE]] !\n\t"
+            __asm__(
+                "vld2.8   { d0-d1 }, [%[SOURCE]] !\n\t"
                 "vst1.8   { d0 }, [%[DESTINATION],:64] !\n\t"
                 : [SOURCE]"+r" (source), [DESTINATION]"+r" (destination)
                 :
@@ -1003,7 +1005,8 @@ inline void copyElements(std::span<uint16_t> destinationSpan, std::span<const ui
         const auto* const simdEnd = destination + (lengthLeft & ~memoryAccessMask);
         // Use ld2 to load lower 16bit of 8 uint32_t.
         do {
-            asm("ld2   { v0.8H, v1.8H }, [%[SOURCE]], #32\n\t"
+            __asm__(
+                "ld2   { v0.8H, v1.8H }, [%[SOURCE]], #32\n\t"
                 "st1   { v0.8H }, [%[DESTINATION]], #16\n\t"
                 : [SOURCE]"+r" (source), [DESTINATION]"+r" (destination)
                 :
@@ -1032,7 +1035,8 @@ inline void copyElements(std::span<uint32_t> destinationSpan, std::span<const ui
         const auto* const simdEnd = destination + (lengthLeft & ~memoryAccessMask);
         // Use ld2 to load lower 32bit of 4 uint64_t.
         do {
-            asm("ld2   { v0.4S, v1.4S }, [%[SOURCE]], #32\n\t"
+            __asm__(
+                "ld2   { v0.4S, v1.4S }, [%[SOURCE]], #32\n\t"
                 "st1   { v0.4S }, [%[DESTINATION]], #16\n\t"
                 : [SOURCE]"+r" (source), [DESTINATION]"+r" (destination)
                 :
@@ -1061,7 +1065,8 @@ inline void copyElements(std::span<uint16_t> destinationSpan, std::span<const ui
         const auto* const simdEnd = destination + (lengthLeft & ~memoryAccessMask);
         // Use ld4 to load lower 16bit of 8 uint64_t.
         do {
-            asm("ld4   { v0.8H, v1.8H, v2.8H, v3.8H }, [%[SOURCE]], #64\n\t"
+            __asm__(
+                "ld4   { v0.8H, v1.8H, v2.8H, v3.8H }, [%[SOURCE]], #64\n\t"
                 "st1   { v0.8H }, [%[DESTINATION]], #16\n\t"
                 : [SOURCE]"+r" (source), [DESTINATION]"+r" (destination)
                 :
@@ -1091,7 +1096,8 @@ inline void copyElements(std::span<uint8_t> destinationSpan, std::span<const uin
         // Since ARM64 does not ld8, we use ld4 to load lower 16bit of 8 uint64_t.
         // And then narrow 8 16bit lanes into 8 8bit lanes and store it to the destination.
         do {
-            asm("ld4   { v0.8H, v1.8H, v2.8H, v3.8H }, [%[SOURCE]], #64\n\t"
+            __asm__(
+                "ld4   { v0.8H, v1.8H, v2.8H, v3.8H }, [%[SOURCE]], #64\n\t"
                 "xtn   v0.8B, v0.8H\n\t"
                 "st1   { v0.8B }, [%[DESTINATION]], #8\n\t"
                 : [SOURCE]"+r" (source), [DESTINATION]"+r" (destination)
@@ -1132,12 +1138,12 @@ inline void copyElements(std::span<float> destinationSpan, std::span<const doubl
 }
 
 #ifndef __swift__ // FIXME: rdar://136156228
-inline void copyElements(std::span<char16_t> destination, std::span<const LChar> source)
+inline void copyElements(std::span<char16_t> destination, std::span<const Latin1Character> source)
 {
     copyElements(spanReinterpretCast<uint16_t>(destination), byteCast<uint8_t>(source));
 }
 
-inline void copyElements(std::span<LChar> destination, std::span<const char16_t> source)
+inline void copyElements(std::span<Latin1Character> destination, std::span<const char16_t> source)
 {
     copyElements(byteCast<uint8_t>(destination), spanReinterpretCast<const uint16_t>(source));
 }
@@ -1146,8 +1152,8 @@ inline void copyElements(std::span<LChar> destination, std::span<const char16_t>
 template<typename CharacterType, CharacterType... characters>
 ALWAYS_INLINE bool compareEach(CharacterType input)
 {
-    // Use | intentionally to reduce branches.
-    return (... | (input == characters));
+    // Use | intentionally to reduce branches. Cast to int to silence "use of bitwise '|' with boolean operands" warning.
+    return (... | static_cast<int>(input == characters));
 }
 
 template<typename CharacterType, CharacterType... characters>
@@ -1158,7 +1164,7 @@ ALWAYS_INLINE bool charactersContain(std::span<const CharacterType> span)
 
 #if CPU(ARM64) || CPU(X86_64)
     constexpr size_t stride = SIMD::stride<CharacterType>;
-    using UnsignedType = std::make_unsigned_t<CharacterType>;
+    using UnsignedType = SameSizeUnsignedInteger<CharacterType>;
     using BulkType = decltype(SIMD::load(static_cast<const UnsignedType*>(nullptr)));
     if (length >= stride) {
         size_t index = 0;
@@ -1183,16 +1189,14 @@ ALWAYS_INLINE bool charactersContain(std::span<const CharacterType> span)
 template<typename CharacterType>
 inline size_t countMatchedCharacters(std::span<const CharacterType> span, CharacterType character)
 {
-    using UnsignedType = std::make_unsigned_t<CharacterType>;
+    using UnsignedType = SameSizeUnsignedInteger<CharacterType>;
     auto mask = SIMD::splat<UnsignedType>(character);
     auto vectorMatch = [&](auto input) ALWAYS_INLINE_LAMBDA {
         return SIMD::equal(input, mask);
     };
-
     auto scalarMatch = [&](auto input) ALWAYS_INLINE_LAMBDA {
         return input == character;
     };
-
     return SIMD::count(span, vectorMatch, scalarMatch);
 }
 

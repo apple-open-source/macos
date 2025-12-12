@@ -24,7 +24,6 @@
 #include <openssl/pem.h>
 #include <openssl/span.h>
 #include <openssl/ssl3.h>
-#include <openssl/thread.h>
 #include <openssl/tls1.h>
 #include <openssl/x509.h>
 
@@ -2529,6 +2528,7 @@ OPENSSL_EXPORT size_t SSL_CTX_get_num_tickets(const SSL_CTX *ctx);
 #define SSL_GROUP_X25519 29
 #define SSL_GROUP_X25519_MLKEM768 0x11ec
 #define SSL_GROUP_X25519_KYBER768_DRAFT00 0x6399
+#define SSL_GROUP_MLKEM1024 0x0202
 
 // SSL_CTX_set1_group_ids sets the preferred groups for |ctx| to |group_ids|.
 // Each element of |group_ids| should be one of the |SSL_GROUP_*| constants. It
@@ -3058,7 +3058,7 @@ OPENSSL_EXPORT int SSL_add_bio_cert_subjects_to_stack(STACK_OF(X509_NAME) *out,
 // issuer of the final certificate in |cred|'s certificate chain.
 //
 // Additionally, |cred| must enable issuer matching (see
-// SSL_CREDENTIAL_set_must_match_issuer|) for this value to take effect.
+// |SSL_CREDENTIAL_set_must_match_issuer|) for this value to take effect.
 //
 // For better extensibility, callers are recommended to configure this
 // information with a CertificatePropertyList instead. See
@@ -4937,7 +4937,7 @@ enum ssl_select_cert_result_t BORINGSSL_ENUM_INT {
   // ClientHelloOuter instead. From there, the handshake will proceed
   // without retry_configs, to signal to the client to disable ECH.
   //
-  // This value may only be returned when |SSL_ech_accepted| returnes one. It
+  // This value may only be returned when |SSL_ech_accepted| returns one. It
   // may be useful if the ClientHelloInner indicated a service which does not
   // support ECH, e.g. if it is a TLS-1.2 only service.
   ssl_select_cert_disable_ech = -2,
@@ -5888,6 +5888,16 @@ OPENSSL_EXPORT int SSL_CTX_check_private_key(const SSL_CTX *ctx);
 //
 // See discussion in |SSL_CTX_check_private_key|.
 OPENSSL_EXPORT int SSL_check_private_key(const SSL *ssl);
+
+// SSL_CTX_get_security_level returns zero.
+//
+// This function is not meaningful in BoringSSL. OpenSSL has an arbitrary
+// mapping from algorithms to "security levels" and offers an API to filter TLS
+// configuration by those levels. In OpenSSL, this function does not return how
+// secure |ctx| is, just what security level the caller previously configured.
+// As BoringSSL does not implement this API, we return zero to report that the
+// security levels mechanism is not used.
+OPENSSL_EXPORT int SSL_CTX_get_security_level(const SSL_CTX *ctx);
 
 
 // Compliance policy configurations

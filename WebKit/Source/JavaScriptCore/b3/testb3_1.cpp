@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -894,6 +894,8 @@ void run(const TestConfig* config)
     RUN(testConstDoubleMove());
     RUN(testConstFloatMove());
 
+    RUN(testLoadImmutable());
+
     RUN_UNARY(testSShrCompare32, int32OperandsMore());
     RUN_UNARY(testSShrCompare64, int64OperandsMore());
 
@@ -947,6 +949,10 @@ void run(const TestConfig* config)
         RUN(testMulHigh64());
         RUN(testUMulHigh32());
         RUN(testUMulHigh64());
+        RUN(testMemoryCopy());
+        RUN(testMemoryFill());
+        RUN(testMemoryCopyConstant());
+        RUN(testMemoryFillConstant());
     }
 
     Lock lock;
@@ -980,8 +986,8 @@ void run(const TestConfig* config)
 bool g_dumpB3AfterGeneration = false;
 
 #if ENABLE(JIT_OPERATION_VALIDATION) || ENABLE(JIT_OPERATION_DISASSEMBLY)
-extern const JSC::JITOperationAnnotation startOfJITOperationsInTestB3 __asm("section$start$__DATA_CONST$__jsc_ops");
-extern const JSC::JITOperationAnnotation endOfJITOperationsInTestB3 __asm("section$end$__DATA_CONST$__jsc_ops");
+extern const JSC::JITOperationAnnotation startOfJITOperationsInTestB3 __asm__("section$start$__DATA_CONST$__jsc_ops");
+extern const JSC::JITOperationAnnotation endOfJITOperationsInTestB3 __asm__("section$end$__DATA_CONST$__jsc_ops");
 #endif
 
 int main(int argc, char** argv)
@@ -1010,7 +1016,9 @@ int main(int argc, char** argv)
     JSC::Config::configureForTesting();
 
     WTF::initializeMainThread();
-    JSC::initialize();
+    JSC::initialize([] {
+        JSC::Options::useJITCage() = false;
+    });
 
 #if ENABLE(JIT_OPERATION_VALIDATION)
     JSC::JITOperationList::populatePointersInEmbedder(&startOfJITOperationsInTestB3, &endOfJITOperationsInTestB3);

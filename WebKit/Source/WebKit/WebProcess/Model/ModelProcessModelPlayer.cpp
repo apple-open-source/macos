@@ -91,7 +91,7 @@ void ModelProcessModelPlayer::didCreateLayer(WebCore::LayerHostingContextIdentif
     RELEASE_ASSERT(modelProcessEnabled());
 
     m_layerHostingContextIdentifier = identifier;
-    m_client->didUpdateLayerHostingContextIdentifier(*this, identifier);
+    protectedClient()->didUpdateLayerHostingContextIdentifier(*this, identifier);
 }
 
 void ModelProcessModelPlayer::didFinishLoading(const WebCore::FloatPoint3D& boundingBoxCenter, const WebCore::FloatPoint3D& boundingBoxExtents)
@@ -101,8 +101,10 @@ void ModelProcessModelPlayer::didFinishLoading(const WebCore::FloatPoint3D& boun
 
     m_boundingBoxCenter = boundingBoxCenter;
     m_boundingBoxExtents = boundingBoxExtents;
-    m_client->didFinishLoading(*this);
-    m_client->didUpdateBoundingBox(*this, boundingBoxCenter, boundingBoxExtents);
+
+    RefPtr client = m_client.get();
+    client->didFinishLoading(*this);
+    client->didUpdateBoundingBox(*this, boundingBoxCenter, boundingBoxExtents);
 }
 
 void ModelProcessModelPlayer::didFailLoading()
@@ -110,7 +112,7 @@ void ModelProcessModelPlayer::didFailLoading()
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer didFailLoading id=%" PRIu64, this, m_id.toUInt64());
     RELEASE_ASSERT(modelProcessEnabled());
 
-    m_client->didFailLoading(*this, WebCore::ResourceError { WebCore::errorDomainWebKitInternal, 0, { }, "Failed to load model data"_s });
+    protectedClient()->didFailLoading(*this, WebCore::ResourceError { WebCore::errorDomainWebKitInternal, 0, { }, "Failed to load model data"_s });
 }
 
 /// This comes from Model Process side, so that Web Process has the most up-to-date knowledge about the transform actually applied to the entity.
@@ -120,7 +122,7 @@ void ModelProcessModelPlayer::didUpdateEntityTransform(const WebCore::Transforma
     RELEASE_ASSERT(modelProcessEnabled());
 
     m_entityTransform = transform;
-    m_client->didUpdateEntityTransform(*this, transform);
+    protectedClient()->didUpdateEntityTransform(*this, transform);
 }
 
 void ModelProcessModelPlayer::didUpdateAnimationPlaybackState(bool isPaused, double playbackRate, Seconds duration, Seconds currentTime, MonotonicTime clockTimestamp)
@@ -137,7 +139,7 @@ void ModelProcessModelPlayer::didFinishEnvironmentMapLoading(bool succeeded)
 {
     RELEASE_ASSERT(modelProcessEnabled());
 
-    m_client->didFinishEnvironmentMapLoading(succeeded);
+    protectedClient()->didFinishEnvironmentMapLoading(*this, succeeded);
 }
 
 // MARK: - WebCore::ModelPlayer
@@ -166,8 +168,8 @@ void ModelProcessModelPlayer::load(WebCore::Model& model, WebCore::LayoutSize si
 
     if (!WebCore::MIMETypeRegistry::isUSDMIMEType(model.mimeType())) {
         RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer::load: Found unexpected model mimetype: %s", this, model.mimeType().utf8().data());
-        if (m_client)
-            m_client->logWarning(*this, makeString("Unexpected USDZ MIME type \""_s, model.mimeType(), "\" in <model> element. Expected \"model/vnd.usdz+zip\". Some features of <model> may not work properly. The model may fail to render in a future release."_s));
+        if (RefPtr client = m_client.get())
+            client->logWarning(*this, makeString("Unexpected USDZ MIME type \""_s, model.mimeType(), "\" in <model> element. Expected \"model/vnd.usdz+zip\". Some features of <model> may not work properly. The model may fail to render in a future release."_s));
     }
 
     send(Messages::ModelProcessModelPlayerProxy::LoadModel(model, size));
@@ -185,8 +187,8 @@ void ModelProcessModelPlayer::didUnload()
 
     RELEASE_ASSERT(modelProcessEnabled());
 
-    if (m_client)
-        m_client->didUnload(*this);
+    if (RefPtr client = m_client.get())
+        client->didUnload(*this);
 }
 
 void ModelProcessModelPlayer::reload(WebCore::Model& model, WebCore::LayoutSize size, WebCore::ModelPlayerAnimationState& animationState, std::unique_ptr<WebCore::ModelPlayerTransformState>&& transformState)
@@ -206,10 +208,8 @@ void ModelProcessModelPlayer::reload(WebCore::Model& model, WebCore::LayoutSize 
 
 void ModelProcessModelPlayer::visibilityStateDidChange()
 {
-    if (!m_client)
-        return;
-
-    send(Messages::ModelProcessModelPlayerProxy::ModelVisibilityDidChange(m_client->isVisible()));
+    if (RefPtr client = m_client.get())
+        send(Messages::ModelProcessModelPlayerProxy::ModelVisibilityDidChange(client->isVisible()));
 }
 
 void ModelProcessModelPlayer::sizeDidChange(WebCore::LayoutSize size)
@@ -326,7 +326,7 @@ void ModelProcessModelPlayer::setIsMuted(bool isMuted, CompletionHandler<void(bo
     completionHandler(false);
 }
 
-Vector<RetainPtr<id>> ModelProcessModelPlayer::accessibilityChildren()
+WebCore::ModelPlayerAccessibilityChildren ModelProcessModelPlayer::accessibilityChildren()
 {
     return { };
 }

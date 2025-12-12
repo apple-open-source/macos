@@ -33,6 +33,7 @@
 
 #include "BidiBrowserAgent.h"
 #include "BidiBrowsingContextAgent.h"
+#include "BidiPermissionsAgent.h"
 #include "BidiScriptAgent.h"
 #include "BidiStorageAgent.h"
 #include "Logging.h"
@@ -54,6 +55,7 @@ WebDriverBidiProcessor::WebDriverBidiProcessor(WebAutomationSession& session)
     , m_backendDispatcher(BackendDispatcher::create(m_frontendRouter.copyRef()))
     , m_browserAgent(makeUniqueRef<BidiBrowserAgent>(session, m_backendDispatcher))
     , m_browsingContextAgent(makeUniqueRef<BidiBrowsingContextAgent>(session, m_backendDispatcher))
+    , m_permissionsAgent(makeUniqueRef<BidiPermissionsAgent>(session, m_backendDispatcher))
     , m_scriptAgent(makeUniqueRef<BidiScriptAgent>(session, m_backendDispatcher))
     , m_storageAgent(makeUniqueRef<BidiStorageAgent>(session, m_backendDispatcher))
     , m_browsingContextDomainNotifier(makeUniqueRef<BidiBrowsingContextFrontendDispatcher>(m_frontendRouter))
@@ -181,8 +183,18 @@ void WebDriverBidiProcessor::sendBidiMessage(const String& message)
             auto bidiErrorObj = JSON::Object::create();
             bidiErrorObj->setString("type"_s, "error"_s);
             auto internalMsg = internalErrorObj->getString("message"_s);
-            bidiErrorObj->setString("message"_s, internalMsg);
-            bidiErrorObj->setString("error"_s, toBidiErrorCode(*codeField, internalMsg));
+            auto divot = internalMsg.find(';');
+            if (divot != notFound) {
+                auto errorName = internalMsg.substring(0, divot);
+                auto errorDetail = internalMsg.substring(divot + 1);
+                if (errorDetail.isEmpty())
+                    errorDetail = "An error occurred."_s;
+                bidiErrorObj->setString("message"_s, errorDetail);
+                bidiErrorObj->setString("error"_s, toBidiErrorCode(*codeField, errorName));
+            } else {
+                bidiErrorObj->setString("message"_s, internalMsg);
+                bidiErrorObj->setString("error"_s, toBidiErrorCode(*codeField, internalMsg));
+            }
             if (auto commandId = msgObj->getInteger("id"_s))
                 bidiErrorObj->setInteger("id"_s, *commandId);
 

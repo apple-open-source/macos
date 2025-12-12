@@ -137,7 +137,7 @@ IntOutsets FEDropShadow::calculateOutsets(const FloatSize& offset, const FloatSi
     return { top, right, bottom, left };
 }
 
-OptionSet<FilterRenderingMode> FEDropShadow::supportedFilterRenderingModes() const
+OptionSet<FilterRenderingMode> FEDropShadow::supportedFilterRenderingModes(OptionSet<FilterRenderingMode> preferredFilterRenderingModes) const
 {
     OptionSet<FilterRenderingMode> modes = FilterRenderingMode::Software;
 #if USE(SKIA)
@@ -147,7 +147,7 @@ OptionSet<FilterRenderingMode> FEDropShadow::supportedFilterRenderingModes() con
     if (m_stdX == m_stdY)
         modes.add(FilterRenderingMode::GraphicsContext);
 #endif
-    return modes;
+    return modes & preferredFilterRenderingModes;
 }
 
 std::optional<GraphicsStyle> FEDropShadow::createGraphicsStyle(GraphicsContext& context, const Filter& filter) const

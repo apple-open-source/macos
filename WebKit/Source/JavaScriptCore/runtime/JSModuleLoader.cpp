@@ -57,6 +57,8 @@ static JSC_DECLARE_HOST_FUNCTION(moduleLoaderModuleDeclarationInstantiation);
 static JSC_DECLARE_HOST_FUNCTION(moduleLoaderResolve);
 static JSC_DECLARE_HOST_FUNCTION(moduleLoaderFetch);
 static JSC_DECLARE_HOST_FUNCTION(moduleLoaderGetModuleNamespaceObject);
+static JSC_DECLARE_HOST_FUNCTION(moduleLoaderTypeFromParameters);
+static JSC_DECLARE_HOST_FUNCTION(moduleLoaderCreateTypeErrorCopy);
 
 }
 
@@ -86,6 +88,8 @@ void JSModuleLoader::finishCreation(JSGlobalObject* globalObject, VM& vm)
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("fetch"_s, moduleLoaderFetch, static_cast<unsigned>(PropertyAttribute::DontEnum), 3, ImplementationVisibility::Private);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("moduleDeclarationInstantiation"_s, moduleLoaderModuleDeclarationInstantiation, static_cast<unsigned>(PropertyAttribute::DontEnum), 2, ImplementationVisibility::Private);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("evaluate"_s, moduleLoaderEvaluate, static_cast<unsigned>(PropertyAttribute::DontEnum), 3, ImplementationVisibility::Private);
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("typeFromParameters"_s, moduleLoaderTypeFromParameters, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Private);
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("createTypeErrorCopy"_s, moduleLoaderCreateTypeErrorCopy, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Private);
 
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().ensureRegisteredPublicName(), moduleLoaderEnsureRegisteredCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().requestFetchPublicName(), moduleLoaderRequestFetchCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
@@ -253,7 +257,7 @@ JSInternalPromise* JSModuleLoader::importModule(JSGlobalObject* globalObject, JS
     RETURN_IF_EXCEPTION(scope, promise->rejectWithCaughtException(globalObject, scope));
 
     scope.release();
-    promise->reject(globalObject, createError(globalObject, makeString("Could not import the module '"_s, moduleNameString.data, "'."_s)));
+    promise->reject(vm, globalObject, createError(globalObject, makeString("Could not import the module '"_s, moduleNameString.data, "'."_s)));
     return promise;
 }
 
@@ -281,7 +285,7 @@ JSInternalPromise* JSModuleLoader::fetch(JSGlobalObject* globalObject, JSValue k
     RETURN_IF_EXCEPTION(scope, promise->rejectWithCaughtException(globalObject, scope));
 
     scope.release();
-    promise->reject(globalObject, createError(globalObject, makeString("Could not open the module '"_s, moduleKey, "'."_s)));
+    promise->reject(vm, globalObject, createError(globalObject, makeString("Could not open the module '"_s, moduleKey, "'."_s)));
     return promise;
 }
 
@@ -334,7 +338,7 @@ JSC_DEFINE_HOST_FUNCTION(moduleLoaderParseModule, (JSGlobalObject* globalObject,
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     auto rejectWithError = [&](JSValue error) {
-        promise->reject(globalObject, error);
+        promise->reject(vm, globalObject, error);
         return promise;
     };
 
@@ -383,6 +387,20 @@ JSC_DEFINE_HOST_FUNCTION(moduleLoaderParseModule, (JSGlobalObject* globalObject,
     return JSValue::encode(promise);
 }
 
+static JSValue stringFromScriptFetchParametersType(VM& vm, ScriptFetchParameters& parameters)
+{
+    switch (parameters.type()) {
+    case ScriptFetchParameters::Type::None:
+        break;
+    case ScriptFetchParameters::Type::JavaScript:
+    case ScriptFetchParameters::Type::WebAssembly:
+        return identifierToJSValue(vm, Identifier::fromString(vm, "js-wasm"_s));
+    case ScriptFetchParameters::Type::JSON:
+        return identifierToJSValue(vm, Identifier::fromString(vm, "json"_s));
+    }
+    return jsUndefined();
+}
+
 JSC_DEFINE_HOST_FUNCTION(moduleLoaderRequestedModules, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
@@ -395,7 +413,14 @@ JSC_DEFINE_HOST_FUNCTION(moduleLoaderRequestedModules, (JSGlobalObject* globalOb
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     size_t i = 0;
     for (auto& request : moduleRecord->requestedModules()) {
-        result->putDirectIndex(globalObject, i++, jsString(vm, String { request.m_specifier.get() }));
+        auto* object = constructEmptyObject(globalObject->vm(), globalObject->nullPrototypeObjectStructure());
+        object->putDirect(vm, Identifier::fromString(vm, "key"_s), jsString(vm, String { request.m_specifier.get() }));
+        if (RefPtr parameters = request.m_attributes) {
+            JSValue value = stringFromScriptFetchParametersType(vm, *parameters);
+            if (!value.isUndefined())
+                object->putDirect(vm, Identifier::fromString(vm, "type"_s), value);
+        }
+        result->putDirectIndex(globalObject, i++, object);
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
     }
     return JSValue::encode(result);
@@ -436,6 +461,30 @@ JSC_DEFINE_HOST_FUNCTION(moduleLoaderModuleDeclarationInstantiation, (JSGlobalOb
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     return JSValue::encode(jsBoolean(sync == Synchronousness::Async));
+}
+
+JSC_DEFINE_HOST_FUNCTION(moduleLoaderTypeFromParameters, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto* parameters = jsDynamicCast<JSScriptFetchParameters*>(callFrame->argument(0));
+    if (!parameters)
+        return JSValue::encode(jsUndefined());
+    return JSValue::encode(stringFromScriptFetchParametersType(vm, parameters->parameters()));
+}
+
+JSC_DEFINE_HOST_FUNCTION(moduleLoaderCreateTypeErrorCopy, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    JSValue original = callFrame->argument(0);
+    JSObject* copy = createTypeErrorCopy(globalObject, original);
+    // moduleFetchFailureKind needs to be copied to trigger failure notifications.
+    // See ScriptController::setupModuleScriptHandlers.
+    if (original.isObject()) {
+        JSObject* originalObject = asObject(original.asCell());
+        if (JSValue failureKindValue = originalObject->getDirect(vm, vm.propertyNames->builtinNames().moduleFetchFailureKindPrivateName()))
+            copy->putDirect(vm, vm.propertyNames->builtinNames().moduleFetchFailureKindPrivateName(), failureKindValue);
+    }
+    return JSValue::encode(copy);
 }
 
 // ------------------------------ Hook Functions ---------------------------

@@ -26,12 +26,13 @@
 
 #include "CSSFontSelector.h"
 #include "CSSValueKeywords.h"
-#include "DocumentInlines.h"
+#include "ContainerNodeInlines.h"
 #include "Font.h"
 #include "FrameSelection.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "InlineIteratorLineBox.h"
+#include "LayoutScope.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "LocalizedStrings.h"
@@ -122,7 +123,10 @@ void RenderTextControlSingleLine::layout()
     if (innerTextRenderer)
         oldInnerTextSize = innerTextRenderer->size();
 
-    RenderBlockFlow::layoutBlock(RelayoutChildren::No);
+    {
+        auto scope = LayoutScope { *this };
+        RenderBlockFlow::layoutBlock(RelayoutChildren::No);
+    }
 
     // Set the text block height
     LayoutUnit inputContentBoxLogicalHeight = logicalHeight() - borderAndPaddingLogicalHeight();
@@ -189,8 +193,10 @@ void RenderTextControlSingleLine::layout()
     }
 
     // If we need another layout pass, we have changed one of children's height so we need to relayout them.
-    if (needsLayout())
+    if (needsLayout()) {
+        auto scope = LayoutScope { *this };
         RenderBlockFlow::layoutBlock(RelayoutChildren::Yes);
+    }
 
     // Fix up the y-position of the container as it may have been flexed when the strong password or strong
     // confirmation password button wraps to the next line.
@@ -260,7 +266,7 @@ void RenderTextControlSingleLine::layout()
         // The placeholder gets layout last, after the parent text control and its other children,
         // so in order to get the correct overflow from the placeholder we need to recompute it now.
         if (neededLayout)
-            computeOverflow(clientLogicalBottom());
+            computeOverflow(flippedContentBoxRect());
     }
 
 #if PLATFORM(IOS_FAMILY)
@@ -353,6 +359,13 @@ LayoutRect RenderTextControlSingleLine::controlClipRect(const LayoutPoint& addit
         clipRect = unionRect(clipRect, containerElementRenderer->frameRect());
     clipRect.moveBy(additionalOffset);
     return clipRect;
+}
+
+bool RenderTextControlSingleLine::innerTextElementHasNonVisibleOverflow() const
+{
+    if (RefPtr innerTextElement = this->innerTextElement(); innerTextElement && innerTextElement->renderer())
+        return innerTextElement->renderer()->hasNonVisibleOverflow();
+    return false;
 }
 
 float RenderTextControlSingleLine::getAverageCharWidth()
@@ -466,6 +479,12 @@ void RenderTextControlSingleLine::setScrollTop(int newTop, const ScrollPositionC
         innerTextElement()->setScrollTop(newTop);
 }
 
+void RenderTextControlSingleLine::setScrollPosition(const ScrollPosition& position, const ScrollPositionChangeOptions& options)
+{
+    if (RefPtr innerTextElement = this->innerTextElement(); innerTextElement && innerTextElement->renderer())
+        innerTextElement->renderer()->setScrollPosition(position, options);
+}
+
 bool RenderTextControlSingleLine::scroll(ScrollDirection direction, ScrollGranularity granularity, unsigned stepCount, Element** stopElement, RenderBox* startBox, const IntPoint& wheelEventAbsolutePoint)
 {
     auto* renderer = innerTextElement()->renderer();
@@ -494,6 +513,11 @@ HTMLInputElement& RenderTextControlSingleLine::inputElement() const
 Ref<HTMLInputElement> RenderTextControlSingleLine::protectedInputElement() const
 {
     return downcast<HTMLInputElement>(RenderTextControl::textFormControlElement());
+}
+
+RenderTextControlInnerBlock* RenderTextControlSingleLine::innerTextRenderer() const
+{
+    return innerTextElement() ? innerTextElement()->renderer() : nullptr;
 }
 
 RenderTextControlInnerBlock::RenderTextControlInnerBlock(Element& element, RenderStyle&& style)

@@ -348,18 +348,18 @@ String createAV1CodecParametersString(const AV1CodecConfigurationRecord& configu
     builder.append("av01"_s);
 
     auto appendOneDigit = [&](uint8_t number) {
-        builder.append(static_cast<LChar>('0' + number % 10));
+        builder.append(static_cast<Latin1Character>('0' + number % 10));
     };
 
     auto appendTwoDigits = [&](uint8_t number) {
-        builder.append(static_cast<LChar>('0' + number / 10 % 10));
-        builder.append(static_cast<LChar>('0' + number % 10));
+        builder.append(static_cast<Latin1Character>('0' + number / 10 % 10));
+        builder.append(static_cast<Latin1Character>('0' + number % 10));
     };
 
     auto appendThreeDigits = [&](uint8_t number) {
-        builder.append(static_cast<LChar>('0' + number / 100 % 10));
-        builder.append(static_cast<LChar>('0' + number / 10 % 10));
-        builder.append(static_cast<LChar>('0' + number % 10));
+        builder.append(static_cast<Latin1Character>('0' + number / 100 % 10));
+        builder.append(static_cast<Latin1Character>('0' + number / 10 % 10));
+        builder.append(static_cast<Latin1Character>('0' + number % 10));
     };
 
     // The parameters sample entry 4CC, profile, level, tier, and bitDepth are

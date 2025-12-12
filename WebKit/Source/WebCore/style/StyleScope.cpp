@@ -33,6 +33,7 @@
 #include "CSSStyleSheet.h"
 #include "ContainerNodeInlines.h"
 #include "DocumentInlines.h"
+#include "DocumentView.h"
 #include "Element.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementChildIteratorInlines.h"
@@ -48,6 +49,7 @@
 #include "MatchResultCache.h"
 #include "ProcessingInstruction.h"
 #include "RenderBoxInlines.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderLayer.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
@@ -146,6 +148,8 @@ void Scope::createOrFindSharedShadowTreeResolver()
     ASSERT(!m_resolver);
     ASSERT(m_shadowRoot);
 
+    RELEASE_ASSERT(!m_isUpdatingStyleResolver);
+
     auto key = makeResolverSharingKey();
 
     auto result = documentScope().m_sharedShadowTreeResolvers.ensure(WTFMove(key), [&] {
@@ -189,6 +193,9 @@ auto Scope::makeResolverSharingKey() -> ResolverSharingKey
 
 void Scope::clearResolver()
 {
+    RELEASE_ASSERT(!m_isUpdatingStyleResolver);
+    RELEASE_ASSERT(!m_document->isResolvingTreeStyle());
+
     m_resolver = nullptr;
     customPropertyRegistry().clearRegisteredFromStylesheets();
     counterStyleRegistry().clearAuthorCounterStyles();
@@ -736,11 +743,8 @@ void Scope::scheduleUpdate(UpdateType update)
             Invalidator::invalidateHostAndSlottedStyleIfNeeded(*m_shadowRoot);
             unshareShadowTreeResolverBeforeMutation();
         }
-        // FIXME: Animation code may trigger resource load in middle of style recalc and that can add a rule to a content extension stylesheet.
-        //        Fix and remove isResolvingTreeStyle() test below, see https://bugs.webkit.org/show_bug.cgi?id=194335
-        // FIXME: The m_isUpdatingStyleResolver test is here because extension stylesheets can get us here from Resolver::appendAuthorStyleSheets.
-        if (!m_isUpdatingStyleResolver && !m_document->isResolvingTreeStyle())
-            clearResolver();
+
+        clearResolver();
 
         m_matchResultCache = { };
     }
@@ -850,6 +854,9 @@ void Scope::didChangeStyleSheetContents()
 
 void Scope::didChangeStyleSheetEnvironment()
 {
+    RELEASE_ASSERT(!m_isUpdatingStyleResolver);
+    RELEASE_ASSERT(!m_document->isResolvingTreeStyle());
+
     if (!m_shadowRoot) {
         m_sharedShadowTreeResolvers.clear();
 
@@ -860,6 +867,19 @@ void Scope::didChangeStyleSheetEnvironment()
     }
 
     scheduleUpdate(UpdateType::ContentsOrInterpretation);
+}
+
+void Scope::didChangeExtensionStyleSheets()
+{
+    ASSERT(!m_shadowRoot);
+
+    // Extension stylesheets may mutate in the middle of a style update when resource loading triggers
+    // content extension processing. In this case we schedule an asyncronous full stylesheet update.
+    // FIXME: We should defer all resource loading after style resolution completes.
+    for (auto& descendantShadowRoot : m_document->inDocumentShadowRoots())
+        const_cast<ShadowRoot&>(descendantShadowRoot).styleScope().scheduleUpdate(UpdateType::FullForExtensionStyleSheets);
+
+    scheduleUpdate(UpdateType::FullForExtensionStyleSheets);
 }
 
 void Scope::didChangeViewportSize()
@@ -936,9 +956,11 @@ bool Scope::isForUserAgentShadowTree() const
 
 bool Scope::invalidateForLayoutDependencies(LayoutDependencyUpdateContext& context)
 {
-    return invalidateForContainerDependencies(context)
-        || invalidateForAnchorDependencies(context)
-        || invalidateForPositionTryFallbacks(context);
+    auto didInvalidate = false;
+    didInvalidate |= invalidateForContainerDependencies(context);
+    didInvalidate |= invalidateForAnchorDependencies(context);
+    didInvalidate |= invalidateForPositionTryFallbacks(context);
+    return didInvalidate;
 }
 
 bool Scope::invalidateForContainerDependencies(LayoutDependencyUpdateContext& context)
@@ -1105,6 +1127,13 @@ Element* hostForScopeOrdinal(const Element& element, ScopeOrdinal scopeOrdinal)
     return host;
 }
 
+CheckedPtr<const Scope> Scope::hostScope() const
+{
+    if (!m_shadowRoot || !m_shadowRoot->host())
+        return nullptr;
+    return &forNode(*m_shadowRoot->host());
+}
+
 void Scope::updateAnchorPositioningStateAfterStyleResolution()
 {
     if (CheckedPtr renderView = m_document->renderView())
@@ -1113,6 +1142,23 @@ void Scope::updateAnchorPositioningStateAfterStyleResolution()
     m_anchorPositionedToAnchorMap.removeIf([](auto& elementAndState) {
         return elementAndState.value.anchors.isEmpty();
     });
+}
+
+std::optional<size_t> Scope::lastSuccessfulPositionOptionIndexFor(const Styleable& styleable)
+{
+    AnchorPositionedKey key { styleable.element, styleable.pseudoElementIdentifier };
+    return m_lastSuccessfulPositionOptionIndexes.getOptional(key);
+}
+
+void Scope::setLastSuccessfulPositionOptionIndexMap(HashMap<AnchorPositionedKey, size_t>&& map)
+{
+    m_lastSuccessfulPositionOptionIndexes = WTFMove(map);
+}
+
+void Scope::forgetLastSuccessfulPositionOptionIndex(const Styleable& styleable)
+{
+    AnchorPositionedKey key { styleable.element, styleable.pseudoElementIdentifier };
+    m_lastSuccessfulPositionOptionIndexes.remove(key);
 }
 
 }

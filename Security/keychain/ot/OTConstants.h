@@ -110,6 +110,8 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorFollowUpRequired                                = 89,
     OctagonErrorNoEscrowCheckOnTV                               = 90,
     OctagonErrorEscrowRepairIgnoredError                        = 91,
+    OctagonErrorFailedToFetchEscrowContent                      = 92,
+    OctagonErrorFailedToEnableWithPasscodeStashSecret           = 93,
 };
 
 /* used for defaults writes */

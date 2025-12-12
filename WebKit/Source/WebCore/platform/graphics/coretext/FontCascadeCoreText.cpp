@@ -277,7 +277,7 @@ static void showGlyphsWithAdvances(const FloatPoint& point, const Font& font, CG
         RetainPtr ctFont = platformData.ctFont();
         CTFontGetVerticalTranslationsForGlyphs(ctFont.get(), glyphs.data(), translations.mutableSpan().data(), glyphs.size());
 
-        auto ascentDelta = font.fontMetrics().ascent(IdeographicBaseline) - font.fontMetrics().ascent();
+        auto ascentDelta = font.fontMetrics().ascent(FontBaseline::Ideographic) - font.fontMetrics().ascent();
         fillVectorWithVerticalGlyphPositions(positions, translations, advances, point, ascentDelta, CGContextGetTextMatrix(context));
         CTFontDrawGlyphs(ctFont.get(), glyphs.data(), positions.span().data(), glyphs.size(), context);
     } else {
@@ -401,7 +401,7 @@ void FontCascade::drawGlyphs(GraphicsContext& context, const Font& font, std::sp
 bool FontCascade::primaryFontIsSystemFont() const
 {
     Ref fontData = primaryFont();
-    return isSystemFont(RetainPtr { fontData->getCTFont() }.get());
+    return isSystemFont(RetainPtr { fontData->ctFont() }.get());
 }
 
 RefPtr<const Font> FontCascade::fontForCombiningCharacterSequence(StringView stringView) const

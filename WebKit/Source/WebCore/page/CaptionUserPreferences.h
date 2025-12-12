@@ -27,9 +27,9 @@
 
 #if ENABLE(VIDEO)
 
-#include "AudioTrack.h"
-#include "TextTrack.h"
-#include "Timer.h"
+#include <WebCore/AudioTrack.h>
+#include <WebCore/TextTrack.h>
+#include <WebCore/Timer.h>
 #include <wtf/EnumTraits.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>

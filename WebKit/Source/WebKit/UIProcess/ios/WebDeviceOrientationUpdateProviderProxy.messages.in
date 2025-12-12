@@ -28,9 +28,9 @@
     EnabledBy=DeviceOrientationEventEnabled
 ]
 messages -> WebDeviceOrientationUpdateProviderProxy {
-    StartUpdatingDeviceOrientation(WebCore::SecurityOriginData origin);
+    StartUpdatingDeviceOrientation();
     StopUpdatingDeviceOrientation();
-    StartUpdatingDeviceMotion(WebCore::SecurityOriginData origin);
+    StartUpdatingDeviceMotion();
     StopUpdatingDeviceMotion();
 }
 #endif

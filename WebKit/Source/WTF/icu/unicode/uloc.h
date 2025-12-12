@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 *   Copyright (C) 1997-2016, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
 * File ULOC.H
@@ -26,9 +26,9 @@
 #include "unicode/utypes.h"
 #include "unicode/uenum.h"
 
-/**    
+/**
  * \file
- * \brief  C API: Locale 
+ * \brief C API: Locale ID functionality similar to C++ class Locale
  *
  * <h2> ULoc C API for Locale </h2>
  * A <code>Locale</code> represents a specific geographical, political,

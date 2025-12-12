@@ -32,6 +32,7 @@
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "SystemPreviewController.h"
 #import "UIKitSPI.h"
+#import "WKColorExtensionView.h"
 #import "WKContentViewInteraction.h"
 #import "WKFullScreenWindowController.h"
 #import "WKWebViewIOS.h"
@@ -329,6 +330,12 @@ static void dumpUIView(TextStream& ts, UIView *view)
         {
             TextStream::GroupScope scope(ts);
             ts << ([_scrollView showsHorizontalScrollIndicator] ? ""_s : "none"_s);
+#if HAVE(UIKIT_SCROLLBAR_COLOR_SPI)
+            if (isVertical)
+                ts << ([_scrollView _verticalScrollIndicatorColor] ? WebCore::colorFromCocoaColor([_scrollView _verticalScrollIndicatorColor]).debugDescription() :  ""_s);
+            else
+                ts << ([_scrollView _horizontalScrollIndicatorColor] ? WebCore::colorFromCocoaColor([_scrollView _horizontalScrollIndicatorColor]).debugDescription() :  ""_s);
+#endif
         }
         return ts.release().createNSString().autorelease();
     }

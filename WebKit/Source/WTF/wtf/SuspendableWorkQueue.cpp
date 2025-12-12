@@ -161,4 +161,12 @@ void SuspendableWorkQueue::suspendIfNeeded()
     RELEASE_LOG_IF(m_shouldLog, SuspendableWorkQueue, "%p - SuspendableWorkQueue::suspendIfNeeded end suspension", this);
 }
 
+bool SuspendableWorkQueue::isSuspended() const
+{
+    ASSERT(isMainThread());
+    Locker suspensionLocker { m_suspensionLock };
+
+    return m_state == State::Suspended;
+}
+
 } // namespace WTF

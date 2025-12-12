@@ -45,9 +45,9 @@ JSStringRef JSStringCreateWithCFString(CFStringRef string)
     if (!length)
         return &OpaqueJSString::create(""_span8).leakRef();
 
-    Vector<LChar, 1024> lcharBuffer(length);
+    Vector<Latin1Character, 1024> lcharBuffer(length);
     CFIndex usedBufferLength;
-    CFIndex convertedSize = CFStringGetBytes(string, CFRangeMake(0, length), kCFStringEncodingISOLatin1, 0, false, lcharBuffer.mutableSpan().data(), length, &usedBufferLength);
+    CFIndex convertedSize = CFStringGetBytes(string, CFRangeMake(0, length), kCFStringEncodingISOLatin1, 0, false, byteCast<UInt8>(lcharBuffer.mutableSpan().data()), length, &usedBufferLength);
     if (static_cast<size_t>(convertedSize) == length && static_cast<size_t>(usedBufferLength) == length)
         return &OpaqueJSString::create(lcharBuffer.span()).leakRef();
 
@@ -64,7 +64,7 @@ CFStringRef JSStringCopyCFString(CFAllocatorRef allocator, JSStringRef string)
 
     if (string->is8Bit()) {
         auto characters = string->span8();
-        return CFStringCreateWithBytes(allocator, characters.data(), characters.size(), kCFStringEncodingISOLatin1, false);
+        return CFStringCreateWithBytes(allocator, byteCast<UInt8>(characters.data()), characters.size(), kCFStringEncodingISOLatin1, false);
     }
     auto characters = string->span16();
     return CFStringCreateWithCharacters(allocator, reinterpret_cast<const UniChar*>(characters.data()), characters.size());

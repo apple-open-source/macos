@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "LocalDOMWindowProperty.h"
-#include "ScriptWrappable.h"
+#include <WebCore/LocalDOMWindowProperty.h>
+#include <WebCore/ScriptWrappable.h>
 
 namespace WebCore {
 

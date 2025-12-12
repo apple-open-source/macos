@@ -39,10 +39,31 @@
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
-static NSArray<NSHTTPCookie *> *coreCookiesToNSCookies(const Vector<WebCore::Cookie>& coreCookies)
+static NSHTTPCookie *clearCookiePartitionPropertyIfNeeded(NSHTTPCookie *cookie, bool isCookiePartitioningEnabled)
 {
-    return createNSArray(coreCookies, [] (auto& cookie) -> NSHTTPCookie * {
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES) && defined(CFN_COOKIE_ACCEPTS_POLICY_PARTITION) && CFN_COOKIE_ACCEPTS_POLICY_PARTITION
+    if (!cookie)
         return cookie;
+
+    if (!isCookiePartitioningEnabled)
+        return cookie;
+
+    if (!cookie._storagePartition)
+        return cookie;
+
+    auto properties = adoptNS([[cookie properties] mutableCopy]);
+    [properties removeObjectForKey:@"StoragePartition"];
+    return [NSHTTPCookie cookieWithProperties:properties.get()];
+#else
+    UNUSED_PARAM(isCookiePartitioningEnabled);
+    return cookie;
+#endif
+}
+
+static NSArray<NSHTTPCookie *> *coreCookiesToNSCookies(const Vector<WebCore::Cookie>& coreCookies, bool isCookiePartitioningEnabled)
+{
+    return createNSArray(coreCookies, [isCookiePartitioningEnabled] (auto& cookie) -> NSHTTPCookie * {
+        return clearCookiePartitionPropertyIfNeeded(cookie.createNSHTTPCookie().autorelease(), isCookiePartitioningEnabled);
     }).autorelease();
 }
 
@@ -96,9 +117,10 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (void)getAllCookies:(void (^)(NSArray<NSHTTPCookie *> *))completionHandler
 {
-    self._protectedCookieStore->cookies([handler = adoptNS([completionHandler copy])](const Vector<WebCore::Cookie>& cookies) {
+    bool isOptInCookiePartitioningEnabled = self._protectedCookieStore->isOptInCookiePartitioningEnabled();
+    self._protectedCookieStore->cookies([isOptInCookiePartitioningEnabled, handler = adoptNS([completionHandler copy])](const Vector<WebCore::Cookie>& cookies) {
         auto rawHandler = (void (^)(NSArray<NSHTTPCookie *> *))handler.get();
-        rawHandler(coreCookiesToNSCookies(cookies));
+        rawHandler(coreCookiesToNSCookies(cookies, isOptInCookiePartitioningEnabled));
     });
 }
 
@@ -207,8 +229,9 @@ static WKCookiePolicy toWKCookiePolicy(WebCore::HTTPCookieAcceptPolicy policy)
 
 - (void)_getCookiesForURL:(NSURL *)url completionHandler:(void (^)(NSArray<NSHTTPCookie *> *))completionHandler
 {
-    self._protectedCookieStore->cookiesForURL(url, [handler = makeBlockPtr(completionHandler)] (const Vector<WebCore::Cookie>& cookies) {
-        handler.get()(coreCookiesToNSCookies(cookies));
+    bool isOptInCookiePartitioningEnabled = self._protectedCookieStore->isOptInCookiePartitioningEnabled();
+    self._protectedCookieStore->cookiesForURL(url, [isOptInCookiePartitioningEnabled, handler = makeBlockPtr(completionHandler)] (const Vector<WebCore::Cookie>& cookies) {
+        handler.get()(coreCookiesToNSCookies(cookies, isOptInCookiePartitioningEnabled));
     });
 }
 

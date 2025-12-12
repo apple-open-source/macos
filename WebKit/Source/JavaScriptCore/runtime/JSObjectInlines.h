@@ -23,23 +23,23 @@
 
 #pragma once
 
-#include "AuxiliaryBarrierInlines.h"
-#include "BrandedStructure.h"
-#include "ButterflyInlines.h"
-#include "Error.h"
-#include "JSArrayInlines.h"
-#include "JSFunction.h"
-#include "JSGenericTypedArrayViewInlines.h"
-#include "JSGlobalProxy.h"
-#include "JSObject.h"
-#include "JSTypedArrays.h"
-#include "Lookup.h"
-#include "MegamorphicCache.h"
-#include "ObjectInitializationScope.h"
-#include "SparseArrayValueMap.h"
-#include "StructureInlines.h"
-#include "TypedArrayType.h"
-#include "VM.h"
+#include <JavaScriptCore/AuxiliaryBarrierInlines.h>
+#include <JavaScriptCore/BrandedStructure.h>
+#include <JavaScriptCore/ButterflyInlines.h>
+#include <JavaScriptCore/Error.h>
+#include <JavaScriptCore/JSArrayInlines.h>
+#include <JavaScriptCore/JSFunction.h>
+#include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
+#include <JavaScriptCore/JSGlobalProxy.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/JSTypedArrays.h>
+#include <JavaScriptCore/Lookup.h>
+#include <JavaScriptCore/MegamorphicCache.h>
+#include <JavaScriptCore/ObjectInitializationScope.h>
+#include <JavaScriptCore/SparseArrayValueMap.h>
+#include <JavaScriptCore/StructureInlines.h>
+#include <JavaScriptCore/TypedArrayType.h>
+#include <JavaScriptCore/VM.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -749,9 +749,25 @@ ALWAYS_INLINE CallData getCallData(JSCell* cell)
 
 inline CallData getCallData(JSValue value)
 {
-    if (!value.isCell()) 
+    if (!value.isCell())
         return { };
     return getCallData(value.asCell());
+}
+
+ALWAYS_INLINE CallData getCallDataInline(JSCell* cell)
+{
+    if (cell->type() == JSFunctionType)
+        return JSFunction::getCallDataInline(cell);
+    CallData result = cell->methodTable()->getCallData(cell);
+    ASSERT(result.type == CallData::Type::None || cell->isValidCallee());
+    return result;
+}
+
+ALWAYS_INLINE CallData getCallDataInline(JSValue value)
+{
+    if (!value.isCell())
+        return { };
+    return getCallDataInline(value.asCell());
 }
 
 inline CallData getConstructData(JSValue value)

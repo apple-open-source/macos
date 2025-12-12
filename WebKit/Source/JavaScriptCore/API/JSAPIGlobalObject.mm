@@ -62,14 +62,14 @@ const GlobalObjectMethodTable* JSAPIGlobalObject::globalObjectMethodTable()
         &supportsRichSourceInfo,
         &shouldInterruptScript,
         &javaScriptRuntimeFlags,
-        nullptr, // queueMicrotaskToEventLoop
+        &queueMicrotaskToEventLoop,
         &shouldInterruptScriptBeforeTimeout,
         &moduleLoaderImportModule, // moduleLoaderImportModule
         &moduleLoaderResolve, // moduleLoaderResolve
         &moduleLoaderFetch, // moduleLoaderFetch
         &moduleLoaderCreateImportMetaProperties, // moduleLoaderCreateImportMetaProperties
         &moduleLoaderEvaluate, // moduleLoaderEvaluate
-        nullptr, // promiseRejectionTracker
+        &promiseRejectionTracker,
         &reportUncaughtExceptionAtEventLoop,
         &currentScriptExecutionOwner,
         &scriptExecutionStatus,
@@ -190,7 +190,7 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalOb
 
     if (![context moduleLoaderDelegate]) [[unlikely]] {
         scope.release();
-        promise->reject(globalObject, createError(globalObject, "No module loader provided."_s));
+        promise->reject(vm, globalObject, createError(globalObject, "No module loader provided."_s));
         return promise;
     }
 
@@ -202,7 +202,7 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalOb
         id script = valueToObject(context, toRef(globalObject, callFrame->argument(0)));
 
         auto rejectPromise = [&] (String message) {
-            strongPromise.get()->reject(globalObject, createTypeError(globalObject, message));
+            strongPromise.get()->reject(vm, globalObject, createTypeError(globalObject, message));
             return encodedJSUndefined();
         };
 
@@ -225,14 +225,14 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalOb
     });
 
     auto* reject = JSNativeStdFunction::create(vm, globalObject, 1, "reject"_s, [=] (JSGlobalObject*, CallFrame* callFrame) {
-        strongPromise.get()->reject(globalObject, callFrame->argument(0));
+        strongPromise.get()->reject(globalObject->vm(), globalObject, callFrame->argument(0));
         return encodedJSUndefined();
     });
 
     [[context moduleLoaderDelegate] context:context fetchModuleForIdentifier:[::JSValue valueWithJSValueRef:toRef(globalObject, key) inContext:context] withResolveHandler:[::JSValue valueWithJSValueRef:toRef(globalObject, resolve) inContext:context] andRejectHandler:[::JSValue valueWithJSValueRef:toRef(globalObject, reject) inContext:context]];
     if (context.exception) {
         scope.release();
-        promise->reject(globalObject, toJS(globalObject, [context.exception JSValueRef]));
+        promise->reject(vm, globalObject, toJS(globalObject, [context.exception JSValueRef]));
         context.exception = nil;
     }
     return promise;
@@ -247,6 +247,9 @@ JSObject* JSAPIGlobalObject::moduleLoaderCreateImportMetaProperties(JSGlobalObje
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     metaProperties->putDirect(vm, Identifier::fromString(vm, "filename"_s), key);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+
+    metaProperties->putDirect(vm, JSC::Identifier::fromString(vm, "url"_s), key);
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     return metaProperties;

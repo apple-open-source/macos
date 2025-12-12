@@ -27,6 +27,7 @@
 #include "GStreamerVideoCommon.h"
 #include "GStreamerVideoFrameLibWebRTC.h"
 #include "LibWebRTCWebKitMacros.h"
+#include "webrtc/api/make_ref_counted.h"
 #include "webrtc/api/video_codecs/vp9_profile.h"
 #include "webrtc/common_video/h264/h264_common.h"
 #include "webrtc/modules/video_coding/codecs/h264/include/h264.h"
@@ -63,9 +64,9 @@ class GStreamerEncodedImageBuffer : public webrtc::EncodedImageBufferInterface {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(x);
 
 public:
-    static rtc::scoped_refptr<GStreamerEncodedImageBuffer> create(GRefPtr<GstSample>&& sample)
+    static webrtc::scoped_refptr<GStreamerEncodedImageBuffer> create(GRefPtr<GstSample>&& sample)
     {
-        return rtc::make_ref_counted<GStreamerEncodedImageBuffer>(WTFMove(sample));
+        return webrtc::make_ref_counted<GStreamerEncodedImageBuffer>(WTFMove(sample));
     }
 
     const uint8_t* data() const final { return m_mappedBuffer->data(); }

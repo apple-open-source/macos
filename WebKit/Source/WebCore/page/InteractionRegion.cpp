@@ -26,8 +26,10 @@
 #include "config.h"
 #include "InteractionRegion.h"
 
+#include "AXObjectCache.h"
 #include "AccessibilityObject.h"
 #include "BorderShape.h"
+#include "ContainerNodeInlines.h"
 #include "Document.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementInlines.h"
@@ -59,8 +61,10 @@
 #include "RenderImage.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
+#include "RenderObjectStyle.h"
 #include "RenderVideo.h"
 #include "SVGSVGElement.h"
+#include "Settings.h"
 #include "SimpleRange.h"
 #include "SliderThumbElement.h"
 #include "StyleResolver.h"
@@ -128,7 +132,7 @@ static bool hasInteractiveCursorType(Element& element)
 {
     auto* renderer = element.renderer();
     auto* style = renderer ? &renderer->style() : nullptr;
-    auto cursorType = style ? style->cursor() : CursorType::Auto;
+    auto cursorType = style ? style->cursorType() : CursorType::Auto;
 
     if (cursorType == CursorType::Auto && element.enclosingLinkEventParentOrSelf())
         cursorType = CursorType::Pointer;
@@ -194,8 +198,7 @@ static bool elementMatchesHoverRules(Element& element)
 
         for (auto& invalidationRuleSet : *invalidationRuleSets) {
             element.document().userActionElements().setHovered(element, invalidationRuleSet.isNegation == Style::IsNegation::No);
-            Style::ElementRuleCollector ruleCollector(element, *invalidationRuleSet.ruleSet, nullptr);
-            ruleCollector.setMode(SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements);
+            Style::ElementRuleCollector ruleCollector(element, *invalidationRuleSet.ruleSet, nullptr, SelectorChecker::Mode::StyleInvalidation);
             if (ruleCollector.matchesAnyAuthorRules()) {
                 foundHoverRules = true;
                 break;
@@ -242,7 +245,7 @@ static bool shouldGetOcclusion(const RenderElement& renderer)
             return false;
     }
 
-    if (renderer.style().specifiedZIndex() > 0)
+    if (auto specifiedZIndexValue = renderer.style().specifiedZIndex().tryValue(); specifiedZIndexValue && *specifiedZIndexValue > 0)
         return true;
 
     if (renderer.isFixedPositioned())
@@ -287,20 +290,8 @@ static bool colorIsChallengingToHighlight(const Color& color)
 
 static bool styleIsChallengingToHighlight(const RenderStyle& style)
 {
-    auto fillPaintType = style.fill().type;
-
-    if (fillPaintType == Style::SVGPaintType::None) {
-        auto strokePaintType = style.stroke().type;
-        if (strokePaintType != Style::SVGPaintType::RGBColor && strokePaintType != Style::SVGPaintType::CurrentColor)
-            return false;
-
-        return colorIsChallengingToHighlight(style.colorResolvingCurrentColor(style.stroke().color));
-    }
-
-    if (fillPaintType != Style::SVGPaintType::RGBColor && fillPaintType != Style::SVGPaintType::CurrentColor)
-        return false;
-
-    return colorIsChallengingToHighlight(style.colorResolvingCurrentColor(style.fill().color));
+    auto color = (style.fill().isNone() ? style.stroke() : style.fill()).tryColor();
+    return color && colorIsChallengingToHighlight(style.colorResolvingCurrentColor(*color));
 }
 
 static bool isGuardContainer(const Element& element)
@@ -391,7 +382,7 @@ static String interactionRegionTextContentForNode(Node& node)
 }
 #endif
 
-std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject& regionRenderer, const FloatRect& bounds, const FloatSize& clipOffset, const std::optional<AffineTransform>& transform)
+std::optional<InteractionRegion> interactionRegionForRenderedRegion(const RenderObject& regionRenderer, const FloatRect& bounds, const FloatSize& clipOffset, const std::optional<AffineTransform>& transform)
 {
     if (bounds.isEmpty())
         return std::nullopt;
@@ -458,16 +449,16 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     bool isTooBigForInteraction = bounds.area() > viewportArea / 3;
     bool isTooBigForOcclusion = bounds.area() > viewportArea * 3;
 
-    auto elementIdentifier = matchedElement->identifier();
+    auto nodeIdentifier = matchedElement->nodeIdentifier();
 
     if (!hasPointer) {
         if (auto* labelElement = dynamicDowncast<HTMLLabelElement>(matchedElement)) {
             // Could be a `<label for="...">` or a label with a descendant.
-            // In cases where both elements get a region we want to group them by the same `elementIdentifier`.
+            // In cases where both elements get a region we want to group them by the same `nodeIdentifier`.
             auto associatedElement = labelElement->control();
             if (associatedElement && !associatedElement->isDisabledFormControl()) {
                 hasPointer = true;
-                elementIdentifier = associatedElement->identifier();
+                nodeIdentifier = associatedElement->nodeIdentifier();
             }
         }
     }
@@ -488,7 +479,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         if (isOriginalMatch && shouldGetOcclusion(renderer) && !isTooBigForOcclusion) {
             return { {
                 InteractionRegion::Type::Occlusion,
-                elementIdentifier,
+                nodeIdentifier,
                 bounds
             } };
         }
@@ -515,7 +506,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
             }();
         } else if (regionRenderer.style().hasBackgroundImage()) {
             isPhoto = [&]() -> bool {
-                auto* backgroundImage = regionRenderer.style().backgroundLayers().image();
+                RefPtr backgroundImage = regionRenderer.style().backgroundLayers().first().image().tryStyleImage();
                 if (!backgroundImage || !backgroundImage->cachedImage())
                     return false;
 
@@ -529,7 +520,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     if (isOriginalMatch && matchedElementIsGuardContainer) {
         return { {
             InteractionRegion::Type::Guard,
-            elementIdentifier,
+            nodeIdentifier,
             bounds
         } };
     }
@@ -688,7 +679,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
             }
 
             // Expand the interaction region by the width of the CSS border, if necessary.
-            const auto rectOffset = RenderThemeCocoa::inflateRectForInteractionRegion(regionRenderer, rect);
+            const auto rectOffset = RenderThemeCocoa::inflateRectForInteractionRegion(*regionRendererBox, rect);
             if (clipPath && !rectOffset.isZero())
                 clipPath->translate(rectOffset);
         } else
@@ -705,7 +696,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
 
     return { {
         InteractionRegion::Type::Interaction,
-        elementIdentifier,
+        nodeIdentifier,
         rect,
         cornerRadius,
         maskedCorners,

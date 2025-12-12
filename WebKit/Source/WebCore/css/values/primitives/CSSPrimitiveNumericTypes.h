@@ -26,8 +26,8 @@
 
 // Umbrella header for family of CSS numeric types.
 
-#include "CSSPrimitiveNumeric.h"
-#include "CSSPrimitiveNumericOrKeyword.h"
+#include <WebCore/CSSPrimitiveNumeric.h>
+#include <WebCore/CSSPrimitiveNumericOrKeyword.h>
 
 namespace WebCore {
 namespace CSS {

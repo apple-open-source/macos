@@ -34,6 +34,7 @@
 #import "SandboxUtilities.h"
 #import "UnifiedOriginStorageLevel.h"
 #import "WebFramePolicyListenerProxy.h"
+#import "WebPageProxy.h"
 #import "WebPreferencesDefaultValues.h"
 #import "WebPreferencesKeys.h"
 #import "WebProcessProxy.h"
@@ -133,6 +134,9 @@ WebCore::ThirdPartyCookieBlockingMode WebsiteDataStore::thirdPartyCookieBlocking
         else
             m_thirdPartyCookieBlockingMode = WebCore::ThirdPartyCookieBlockingMode::All;
     }
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES) && (!defined(CFN_COOKIE_ACCEPTS_POLICY_PARTITION) || !CFN_COOKIE_ACCEPTS_POLICY_PARTITION)
+    RELEASE_ASSERT(m_thirdPartyCookieBlockingMode != WebCore::ThirdPartyCookieBlockingMode::AllExceptPartitioned);
+#endif
     return *m_thirdPartyCookieBlockingMode;
 }
 
@@ -258,6 +262,21 @@ std::optional<bool> WebsiteDataStore::useNetworkLoader()
 #endif // NETWORK_LOADER
 }
 
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
+bool WebsiteDataStore::isOptInCookiePartitioningEnabled() const
+{
+#if defined(CFN_COOKIE_ACCEPTS_POLICY_PARTITION) && CFN_COOKIE_ACCEPTS_POLICY_PARTITION
+    return std::ranges::any_of(m_processes, [](auto& process) {
+        return std::ranges::any_of(process.pages(), [](auto& page) {
+            return page->preferences().optInPartitionedCookiesEnabled();
+        });
+    });
+#else
+    return false;
+#endif
+}
+#endif
+
 void WebsiteDataStore::platformInitialize()
 {
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -373,26 +392,6 @@ String WebsiteDataStore::defaultSearchFieldHistoryDirectory(const String& baseDi
         return FileSystem::pathByAppendingComponent(baseDirectory, "SearchHistory"_s);
 
     return websiteDataDirectoryFileSystemRepresentation("SearchHistory"_s);
-}
-
-String WebsiteDataStore::defaultApplicationCacheDirectory(const String& baseDirectory)
-{
-    if (!baseDirectory.isEmpty())
-        return FileSystem::pathByAppendingComponent(baseDirectory, "ApplicationCache"_s);
-
-#if PLATFORM(IOS_FAMILY)
-    // This quirk used to make these apps share application cache storage, but doesn't accomplish that any more.
-    // Preserving it avoids the need to migrate data when upgrading.
-    // FIXME: Ideally we should just have Safari, WebApp, and webbookmarksd create a data store with
-    // this application cache path.
-    if (WTF::IOSApplication::isMobileSafari() || WTF::IOSApplication::isWebBookmarksD()) {
-        NSString *cachePath = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches/com.apple.WebAppCache"];
-
-        return WebKit::stringByResolvingSymlinksInPath(String { cachePath.stringByStandardizingPath });
-    }
-#endif
-
-    return cacheDirectoryFileSystemRepresentation("OfflineWebApplicationCache"_s, { }, ShouldCreateDirectory::No);
 }
 
 String WebsiteDataStore::defaultCacheStorageDirectory(const String& baseDirectory)
@@ -563,7 +562,7 @@ String WebsiteDataStore::tempDirectoryFileSystemRepresentation(const String& dir
     static NeverDestroyed<RetainPtr<NSURL>> tempURL;
     
     dispatch_once(&onceToken, ^{
-        RetainPtr url = [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES];
+        RetainPtr url = [NSURL fileURLWithPath:RetainPtr { NSTemporaryDirectory() }.get() isDirectory:YES];
         if (!url)
             RELEASE_ASSERT_NOT_REACHED();
         
@@ -803,9 +802,25 @@ static HashSet<WebCore::RegistrableDomain>& managedDomains()
     return managedDomains;
 }
 
-NSString *kManagedSitesIdentifier = @"com.apple.mail-shared";
-NSString *kCrossSiteTrackingPreventionRelaxedDomainsKey = @"CrossSiteTrackingPreventionRelaxedDomains";
-NSString *kCrossSiteTrackingPreventionRelaxedAppsKey = @"CrossSiteTrackingPreventionRelaxedApps";
+#if PLATFORM(MAC)
+static NSString *managedSitesIdentifierSingleton()
+{
+    static NSString *identifier = @"com.apple.mail-shared";
+    return identifier;
+}
+
+static NSString *crossSiteTrackingPreventionRelaxedDomainsKeySingleton()
+{
+    static NSString *key = @"CrossSiteTrackingPreventionRelaxedDomains";
+    return key;
+}
+
+static NSString *crossSiteTrackingPreventionRelaxedAppsKeySingleton()
+{
+    static NSString *key = @"CrossSiteTrackingPreventionRelaxedApps";
+    return key;
+}
+#endif
 
 void WebsiteDataStore::initializeManagedDomains(ForceReinitialization forceReinitialization)
 {
@@ -824,19 +839,19 @@ void WebsiteDataStore::initializeManagedDomains(ForceReinitialization forceReini
         bool isSafari = false;
 #if PLATFORM(MAC)
         isSafari = WTF::MacApplication::isSafari();
-        RetainPtr managedSitesPrefs = adoptNS([[NSDictionary alloc] initWithContentsOfFile:[adoptNS([[NSString alloc] initWithFormat:@"/Library/Managed Preferences/%@/%@.plist", NSUserName(), kManagedSitesIdentifier]) stringByStandardizingPath]]);
-        crossSiteTrackingPreventionRelaxedDomains = [managedSitesPrefs objectForKey:kCrossSiteTrackingPreventionRelaxedDomainsKey];
-        crossSiteTrackingPreventionRelaxedApps = [managedSitesPrefs objectForKey:kCrossSiteTrackingPreventionRelaxedAppsKey];
+        RetainPtr managedSitesPrefs = adoptNS([[NSDictionary alloc] initWithContentsOfFile:[adoptNS([[NSString alloc] initWithFormat:@"/Library/Managed Preferences/%@/%@.plist", RetainPtr { NSUserName() }.get(), managedSitesIdentifierSingleton()]) stringByStandardizingPath]]);
+        crossSiteTrackingPreventionRelaxedDomains = [managedSitesPrefs objectForKey:crossSiteTrackingPreventionRelaxedDomainsKeySingleton()];
+        crossSiteTrackingPreventionRelaxedApps = [managedSitesPrefs objectForKey:crossSiteTrackingPreventionRelaxedAppsKeySingleton()];
 #elif !PLATFORM(MACCATALYST)
         isSafari = WTF::IOSApplication::isMobileSafari();
-        if ([PAL::getMCProfileConnectionClass() instancesRespondToSelector:@selector(crossSiteTrackingPreventionRelaxedDomains)])
-            crossSiteTrackingPreventionRelaxedDomains = [(MCProfileConnection *)[PAL::getMCProfileConnectionClass() sharedConnection] crossSiteTrackingPreventionRelaxedDomains];
+        if ([PAL::getMCProfileConnectionClassSingleton() instancesRespondToSelector:@selector(crossSiteTrackingPreventionRelaxedDomains)])
+            crossSiteTrackingPreventionRelaxedDomains = [(MCProfileConnection *)[PAL::getMCProfileConnectionClassSingleton() sharedConnection] crossSiteTrackingPreventionRelaxedDomains];
         else
             crossSiteTrackingPreventionRelaxedDomains = @[];
 
         auto relaxedAppsSelector = NSSelectorFromString(@"crossSiteTrackingPreventionRelaxedApps");
-        if ([PAL::getMCProfileConnectionClass() instancesRespondToSelector:relaxedAppsSelector])
-            crossSiteTrackingPreventionRelaxedApps = [[PAL::getMCProfileConnectionClass() sharedConnection] performSelector:relaxedAppsSelector];
+        if ([PAL::getMCProfileConnectionClassSingleton() instancesRespondToSelector:relaxedAppsSelector])
+            crossSiteTrackingPreventionRelaxedApps = [[PAL::getMCProfileConnectionClassSingleton() sharedConnection] performSelector:relaxedAppsSelector];
         else
             crossSiteTrackingPreventionRelaxedApps = @[];
 #endif
@@ -927,7 +942,7 @@ void WebsiteDataStore::reinitializeManagedDomains()
 
 bool WebsiteDataStore::networkProcessHasEntitlementForTesting(const String& entitlement)
 {
-    return WTF::hasEntitlement(networkProcess().connection().xpcConnection(), entitlement);
+    return WTF::hasEntitlement(networkProcess().protectedConnection()->protectedXPCConnection().get(), entitlement);
 }
 
 std::optional<double> WebsiteDataStore::defaultOriginQuotaRatio()

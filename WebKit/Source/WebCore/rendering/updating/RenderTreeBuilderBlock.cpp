@@ -363,7 +363,8 @@ RenderPtr<RenderObject> RenderTreeBuilder::Block::detach(RenderBlock& parent, Re
             m_builder.moveAllChildrenIncludingFloats(nextBlock, previousBlock, RenderTreeBuilder::NormalizeAfterInsertion::No);
 
             // Delete the now-empty block's lines and nuke it.
-            nextBlock.deleteLines();
+            if (CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(nextBlock))
+                blockFlow->invalidateLineLayout(RenderBlockFlow::InvalidationReason::InternalMove);
             m_builder.destroy(nextBlock);
             nextSibling = { };
         }
@@ -403,8 +404,8 @@ RenderPtr<RenderObject> RenderTreeBuilder::Block::detach(RenderBlock& parent, Re
 
     if (!parent.firstChild()) {
         // If this was our last child be sure to clear out our line boxes.
-        if (parent.childrenInline())
-            parent.deleteLines();
+        if (CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(parent); blockFlow && blockFlow->childrenInline())
+            blockFlow->invalidateLineLayout(RenderBlockFlow::InvalidationReason::InternalMove);
     }
     return takenChild;
 }
@@ -419,7 +420,8 @@ void RenderTreeBuilder::Block::dropAnonymousBoxChild(RenderBlock& parent, Render
     auto toBeDeleted = m_builder.detachFromRenderElement(parent, child, WillBeDestroyed::Yes);
 
     // Delete the now-empty block's lines and nuke it.
-    child.deleteLines();
+    if (CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(parent))
+        blockFlow->invalidateLineLayout(RenderBlockFlow::InvalidationReason::InternalMove);
 }
 
 RenderPtr<RenderObject> RenderTreeBuilder::Block::detach(RenderBlockFlow& parent, RenderObject& child, RenderTreeBuilder::WillBeDestroyed willBeDestroyed, CanCollapseAnonymousBlock canCollapseAnonymousBlock)

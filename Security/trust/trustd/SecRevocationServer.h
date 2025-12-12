@@ -35,6 +35,8 @@
 #include "trust/trustd/SecOCSPRequest.h"
 #include "trust/trustd/SecOCSPResponse.h"
 
+#include "trust/trustd/SecRevocationCRLite.h"
+
 typedef struct OpaqueSecORVC *SecORVCRef;
 
 /* Revocation verification context. */
@@ -50,6 +52,9 @@ struct OpaqueSecRVC {
 
     /* Valid database info for this revocation check */
     SecValidInfoRef     valid_info;
+
+    /* CRLite info for this revocation check */
+    SecCRLiteInfoRef    crlite_info;
 
     bool                done;
 
@@ -98,7 +103,10 @@ CFAbsoluteTime SecRVCGetLatestThisUpdate(SecRVCRef rvc);
 void SecRVCDelete(SecRVCRef rvc);
 bool SecRVCHasDefinitiveValidInfo(SecRVCRef rvc);
 bool SecRVCHasRevokedValidInfo(SecRVCRef rvc);
+bool SecRVCHasDefinitiveCRLiteInfo(SecRVCRef rvc);
+bool SecRVCHasRevokedCRLiteInfo(SecRVCRef rvc);
 void SecRVCSetValidDeterminedErrorResult(SecRVCRef rvc);
+void SecRVCSetCRLiteDeterminedErrorResult(SecRVCRef rvc);
 bool SecRVCRevocationChecked(SecRVCRef rvc);
 
 /* OCSP verification callbacks */

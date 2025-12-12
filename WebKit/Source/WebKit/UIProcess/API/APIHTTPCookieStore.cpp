@@ -62,7 +62,7 @@ void HTTPCookieStore::filterAppBoundCookies(Vector<WebCore::Cookie>&& cookies, C
 #if ENABLE(APP_BOUND_DOMAINS)
     if (!m_owningDataStore)
         return completionHandler({ });
-    m_owningDataStore->getAppBoundDomains([cookies = WTFMove(cookies), completionHandler = WTFMove(completionHandler)] (auto& domains) mutable {
+    RefPtr { m_owningDataStore.get() }->getAppBoundDomains([cookies = WTFMove(cookies), completionHandler = WTFMove(completionHandler)] (auto& domains) mutable {
         Vector<WebCore::Cookie> appBoundCookies;
         if (!domains.isEmpty() && !isFullWebBrowserOrRunningTest()) {
             for (auto& cookie : WTFMove(cookies)) {
@@ -184,6 +184,15 @@ void HTTPCookieStore::unregisterObserver(HTTPCookieStoreObserver& observer)
 
     if (RefPtr networkProcess = networkProcessIfExists())
         networkProcess->send(Messages::WebCookieManager::StopObservingCookieChanges(m_sessionID), 0);
+}
+
+bool HTTPCookieStore::isOptInCookiePartitioningEnabled() const
+{
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
+    if (RefPtr dataStore = m_owningDataStore.get())
+        return dataStore->isOptInCookiePartitioningEnabled();
+#endif
+    return false;
 }
 
 void HTTPCookieStore::cookiesDidChange()

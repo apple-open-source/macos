@@ -58,7 +58,7 @@
 #include "NodeTraversal.h"
 #include "PlatformMouseEvent.h"
 #include "RenderBoxInlines.h"
-#include "RenderElementInlines.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderImage.h"
 #include "RenderView.h"
 #include "RequestPriority.h"
@@ -258,7 +258,7 @@ static String extractMIMETypeFromTypeAttributeForLookup(const String& typeAttrib
     auto semicolonIndex = typeAttribute.find(';');
     if (semicolonIndex == notFound)
         return typeAttribute.trim(isASCIIWhitespace);
-    return StringView(typeAttribute).left(semicolonIndex).trim(isASCIIWhitespace<UChar>).toStringWithoutCopying();
+    return StringView(typeAttribute).left(semicolonIndex).trim(isASCIIWhitespace<char16_t>).toStringWithoutCopying();
 }
 
 ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
@@ -315,6 +315,11 @@ ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
     }
 
     return candidate;
+}
+
+void HTMLImageElement::setIsUserAgentShadowRootResource()
+{
+    m_imageLoader->setElementIsUserAgentShadowRootResource(true);
 }
 
 void HTMLImageElement::evaluateDynamicMediaQueryDependencies()
@@ -469,9 +474,9 @@ RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(RenderStyle&& s
     return createRenderer<RenderImage>(RenderObject::Type::Image, *this, WTFMove(style), nullptr, m_imageDevicePixelRatio);
 }
 
-bool HTMLImageElement::isReplaced(const RenderStyle& style) const
+bool HTMLImageElement::isReplaced(const RenderStyle* style) const
 {
-    return !style.hasContent();
+    return !style || !style->hasContent();
 }
 
 bool HTMLImageElement::canStartSelection() const
@@ -893,7 +898,7 @@ bool HTMLImageElement::childShouldCreateRenderer(const Node& child) const
 bool HTMLImageElement::willRespondToMouseClickEventsWithEditability(Editability editability, IgnoreTouchCallout ignoreTouchCallout) const
 {
     auto renderer = this->renderer();
-    if (ignoreTouchCallout == IgnoreTouchCallout::No && (!renderer || renderer->style().touchCalloutEnabled()))
+    if (ignoreTouchCallout == IgnoreTouchCallout::No && (!renderer || renderer->style().touchCallout() == Style::WebkitTouchCallout::Default))
         return true;
     return HTMLElement::willRespondToMouseClickEventsWithEditability(editability);
 }
@@ -969,12 +974,6 @@ AtomString HTMLImageElement::srcsetForBindings() const
     return getAttributeForBindings(srcsetAttr);
 }
 
-const AtomString& HTMLImageElement::loadingForBindings() const
-{
-    auto& attributeValue = attributeWithoutSynchronization(HTMLNames::loadingAttr);
-    return hasLazyLoadableAttributeValue(attributeValue) ? lazyAtom() : eagerAtom();
-}
-
 bool HTMLImageElement::isDeferred() const
 {
     return m_imageLoader->isDeferred();
@@ -1016,7 +1015,7 @@ void HTMLImageElement::invalidateAttributeMapping()
     invalidateStyle();
 }
 
-Ref<Element> HTMLImageElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*)
+Ref<Element> HTMLImageElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*) const
 {
     auto clone = create(document);
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -1068,7 +1067,7 @@ IntersectionObserverData& HTMLImageElement::ensureIntersectionObserverData()
     return *m_intersectionObserverData;
 }
 
-IntersectionObserverData* HTMLImageElement::intersectionObserverDataIfExists()
+IntersectionObserverData* HTMLImageElement::intersectionObserverDataIfExists() const
 {
     return m_intersectionObserverData.get();
 }

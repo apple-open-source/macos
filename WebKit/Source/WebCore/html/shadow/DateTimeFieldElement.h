@@ -61,6 +61,8 @@ public:
     virtual bool isFieldOwnerDisabled() const = 0;
     virtual bool isFieldOwnerReadOnly() const = 0;
     virtual bool isFieldOwnerHorizontal() const = 0;
+    virtual bool didFieldOwnerTransferFocusToPicker() = 0;
+    virtual void didSuppressBlurDueToPickerFocusTransfer() = 0;
     virtual AtomString localeIdentifier() const = 0;
     virtual const GregorianDateTime& placeholderDate() const = 0;
 };
@@ -101,6 +103,9 @@ private:
     std::optional<Style::UnadjustedStyle> resolveCustomStyle(const Style::ResolutionContext&, const RenderStyle*) final;
 
     bool supportsFocus() const override;
+
+    bool transferredFocusToPicker() const final;
+    void didSuppressBlurDueToPickerFocusTransfer() final;
 
     void defaultKeyboardEventHandler(KeyboardEvent&);
     bool isFieldOwnerDisabled() const;

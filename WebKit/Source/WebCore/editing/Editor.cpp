@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +38,6 @@
 #include "CSSSerializationContext.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
-#include "CachedResourceLoader.h"
 #include "CaretRectComputation.h"
 #include "ChangeListTypeCommand.h"
 #include "Chrome.h"
@@ -57,6 +57,11 @@
 #include "DocumentFragment.h"
 #include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
+#include "DocumentMarkers.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentView.h"
 #include "Editing.h"
 #include "EditorClient.h"
 #include "ElementAncestorIteratorInlines.h"
@@ -65,6 +70,7 @@
 #include "File.h"
 #include "FocusController.h"
 #include "FontAttributes.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameInlines.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
@@ -89,16 +95,14 @@
 #include "InsertListCommand.h"
 #include "InsertTextCommand.h"
 #include "KeyboardEvent.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "Logging.h"
 #include "ModifySelectionListLevel.h"
 #include "NodeList.h"
 #include "NodeTraversal.h"
-#include "Page.h"
 #include "PagePasteboardContext.h"
 #include "Pasteboard.h"
-#include "Quirks.h"
 #include "Range.h"
 #include "RemoveFormatCommand.h"
 #include "RenderAncestorIterator.h"
@@ -107,6 +111,8 @@
 #include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
+#include "RenderObjectStyle.h"
+#include "RenderStyleInlines.h"
 #include "RenderTextControl.h"
 #include "RenderedDocumentMarker.h"
 #include "RenderedPosition.h"
@@ -122,7 +128,9 @@
 #include "SpellingCorrectionCommand.h"
 #include "StaticPasteboard.h"
 #include "StylePropertiesInlines.h"
+#include "StyleTextShadow.h"
 #include "StyleTreeResolver.h"
+#include "StyleVerticalAlign.h"
 #include "SystemSoundManager.h"
 #include "TelephoneNumberDetector.h"
 #include "Text.h"
@@ -825,9 +833,10 @@ bool Editor::shouldInsertText(const String& text, const std::optional<SimpleRang
 void Editor::respondToChangedContents(const VisibleSelection& endingSelection)
 {
     if (AXObjectCache::accessibilityEnabled()) {
-        RefPtr node = endingSelection.start().deprecatedNode();
-        if (AXObjectCache* cache = document().existingAXObjectCache())
-            cache->postNotification(node.get(), AXNotification::ValueChanged, PostTarget::ObservableParent);
+        if (RefPtr node = endingSelection.start().deprecatedNode()) {
+            if (AXObjectCache* cache = document().existingAXObjectCache())
+                cache->onEditableTextValueChanged(*node.get());
+        }
     }
 
     updateMarkersForWordsAffectedByEditing(true);
@@ -1311,7 +1320,8 @@ void Editor::unappliedEditing(EditCommandComposition& composition)
 
     m_alternativeTextController->respondToUnappliedEditing(&composition);
 #if ENABLE(WRITING_TOOLS)
-    protectedDocument()->page()->respondToUnappliedWritingToolsEditing(&composition);
+    if (RefPtr page = document().page())
+        page->respondToUnappliedWritingToolsEditing(&composition);
 #endif
 
     m_lastEditCommand = nullptr;
@@ -1988,7 +1998,32 @@ void Editor::toggleAutomaticSpellingCorrection()
         client()->toggleAutomaticSpellingCorrection();
 }
 
+void Editor::toggleSmartLists()
+{
+    Ref document = this->document();
+    if (!document->settings().smartListsAvailable())
+        return;
+
+    if (client())
+        client()->toggleSmartLists();
+}
+
+#endif // USE(AUTOMATIC_TEXT_REPLACEMENT)
+
+#if PLATFORM(COCOA)
+bool Editor::isSmartListsEnabled()
+{
+    Ref document = this->document();
+    if (!document->settings().smartListsAvailable())
+        return false;
+
+#if PLATFORM(MAC)
+    return client() && client()->isSmartListsEnabled();
+#else
+    return true;
 #endif
+}
+#endif // PLATFORM(COCOA)
 
 bool Editor::shouldEndEditing(const SimpleRange& range)
 {
@@ -2225,7 +2260,7 @@ Node* Editor::nodeBeforeWritingSuggestions() const
         return nullptr;
 
     if (RefPtr text = dynamicDowncast<Text>(container))
-        return text.get();
+        return text.unsafeGet();
 
     return position.computeNodeBeforePosition();
 }
@@ -3354,7 +3389,7 @@ void Editor::markAndReplaceFor(const SpellCheckRequest& request, const Vector<Te
 
                 if (AXObjectCache* cache = document->existingAXObjectCache()) {
                     if (RefPtr root = document->selection().selection().rootEditableElement())
-                        cache->postNotification(root.get(), AXNotification::AutocorrectionOccured);
+                        cache->onAutocorrectionOccured(*root.get());
                 }
 
                 // Skip all other results for the replaced text.
@@ -3565,7 +3600,7 @@ void Editor::revealSelectionAfterEditingOperation(const ScrollAlignment& alignme
 
     SelectionRevealMode revealMode = SelectionRevealMode::Reveal;
     Ref document = this->document();
-    document->selection().revealSelection(revealMode, alignment, revealExtentOption);
+    document->selection().revealSelection({ revealMode, alignment, revealExtentOption });
 }
 
 void Editor::setIgnoreSelectionChanges(bool ignore, RevealSelection shouldRevealExistingSelection)
@@ -3932,23 +3967,19 @@ void Editor::applyEditingStyleToBodyElement() const
     body->setInlineStyleProperty(CSSPropertyLineBreak, CSSValueAfterWhiteSpace);
 }
 
-bool Editor::findString(const String& target, FindOptions options)
+std::optional<SimpleRange> Editor::findString(const String& target, FindOptions options)
 {
     Ref document = this->document();
     std::optional<SimpleRange> resultRange;
     {
-        OptionSet<LayoutOptions> findInPageLayoutOptions;
-        findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityAutoAsVisible);
-        if (document->settings().detailsAutoExpandEnabled())
-            findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityHiddenAsVisible);
-        document->updateLayoutIgnorePendingStylesheets(findInPageLayoutOptions);
+        document->updateLayoutIgnorePendingStylesheets({ LayoutOptions::TreatContentVisibilityAutoAsVisible, LayoutOptions::TreatRevealedWhenFoundAsVisible });
         Style::PostResolutionCallbackDisabler disabler(document);
         VisibleSelection selection = document->selection().selection();
         resultRange = rangeOfString(target, selection.firstRange(), options);
     }
 
     if (!resultRange)
-        return false;
+        return std::nullopt;
 
     if (!options.contains(FindOption::DoNotSetSelection))
         document->selection().setSelection(VisibleSelection(*resultRange));
@@ -3956,7 +3987,7 @@ bool Editor::findString(const String& target, FindOptions options)
     if (!(options.contains(FindOption::DoNotRevealSelection)))
         document->selection().revealSelection();
 
-    return true;
+    return resultRange;
 }
 
 template<typename T> static auto& start(T& range, FindOptions options)
@@ -4051,11 +4082,7 @@ unsigned Editor::countMatchesForText(const String& target, const std::optional<S
         return 0;
 
     Ref document = this->document();
-    OptionSet<LayoutOptions> findInPageLayoutOptions;
-    findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityAutoAsVisible);
-    if (document->settings().detailsAutoExpandEnabled())
-        findInPageLayoutOptions.add(LayoutOptions::TreatContentVisibilityHiddenAsVisible);
-    document->updateLayoutIgnorePendingStylesheets(findInPageLayoutOptions);
+    document->updateLayoutIgnorePendingStylesheets({ LayoutOptions::TreatContentVisibilityAutoAsVisible, LayoutOptions::TreatRevealedWhenFoundAsVisible });
 
     std::optional<SimpleRange> searchRange;
     if (range) {
@@ -4067,42 +4094,17 @@ unsigned Editor::countMatchesForText(const String& target, const std::optional<S
     if (!searchRange)
         searchRange = makeRangeSelectingNodeContents(document);
 
-    auto originalEnd = searchRange->end;
+    auto allMatches = findAllPlainText(*searchRange, target, options - FindOption::Backwards, limit);
 
-    unsigned matchCount = 0;
-    do {
-        auto resultRange = findPlainText(*searchRange, target, options - FindOption::Backwards);
-        if (resultRange.collapsed()) {
-            if (!resultRange.start.container->isInShadowTree())
-                break;
+    if (matches)
+        matches->appendVector(allMatches);
 
-            searchRange->start = makeBoundaryPointAfterNodeContents(*resultRange.start.container->shadowHost());
-            searchRange->end = originalEnd;
-            continue;
-        }
+    if (markMatches) {
+        for (const auto& match : allMatches)
+            addMarker(match, DocumentMarkerType::TextMatch);
+    }
 
-        ++matchCount;
-        if (matches)
-            matches->append(resultRange);
-
-        if (markMatches)
-            addMarker(resultRange, DocumentMarkerType::TextMatch);
-
-        // Stop looking if we hit the specified limit. A limit of 0 means no limit.
-        if (limit > 0 && matchCount >= limit)
-            break;
-
-        // Set the new start for the search range to be the end of the previous result range.
-        // There is no need to use VisiblePosition here: findPlainText will use TextIterator to go over visible text nodes.
-        searchRange->start = WTFMove(resultRange.end);
-
-        if (searchRange->collapsed()) {
-            if (auto shadowTreeRoot = searchRange->start.container->containingShadowRoot())
-                searchRange->end = makeBoundaryPointAfterNodeContents(*shadowTreeRoot);
-        }
-    } while (true);
-
-    return matchCount;
+    return allMatches.size();
 }
 
 void Editor::setMarkedTextMatchesAreHighlighted(bool flag)
@@ -4599,30 +4601,32 @@ FontAttributes Editor::fontAttributesAtSelectionStart()
     if (foregroundColor.isValid() && !Color::isBlackColor(foregroundColor))
         attributes.foregroundColor = foregroundColor;
 
-    WTF::switchOn(style->textShadow(),
-        [&](const CSS::Keyword::None&) { },
+    attributes.fontShadow = WTF::switchOn(style->textShadow(),
+        [&](const CSS::Keyword::None&) {
+            return FontShadow { };
+        },
         [&](const auto& shadows) {
-            attributes.fontShadow = { style->colorWithColorFilter(shadows[0].color), { shadows[0].location.x().value, shadows[0].location.y().value }, shadows[0].blur.value };
+            const auto& zoomFactor = style->usedZoomForLength();
+            return FontShadow {
+                style->colorWithColorFilter(shadows[0].color),
+                { shadows[0].location.x().resolveZoom(zoomFactor), shadows[0].location.y().resolveZoom(zoomFactor) },
+                shadows[0].blur.resolveZoom(zoomFactor)
+            };
         }
     );
 
-    switch (style->verticalAlign()) {
-    case VerticalAlign::Baseline:
-    case VerticalAlign::Bottom:
-    case VerticalAlign::BaselineMiddle:
-    case VerticalAlign::Length:
-    case VerticalAlign::Middle:
-    case VerticalAlign::TextBottom:
-    case VerticalAlign::TextTop:
-    case VerticalAlign::Top:
-        break;
-    case VerticalAlign::Sub:
-        attributes.subscriptOrSuperscript = FontAttributes::SubscriptOrSuperscript::Subscript;
-        break;
-    case VerticalAlign::Super:
-        attributes.subscriptOrSuperscript = FontAttributes::SubscriptOrSuperscript::Superscript;
-        break;
-    }
+    attributes.subscriptOrSuperscript = WTF::switchOn(style->verticalAlign(),
+        [](const CSS::Keyword::Baseline&) { return FontAttributes::SubscriptOrSuperscript::None; },
+        [](const CSS::Keyword::Sub&) { return FontAttributes::SubscriptOrSuperscript::Subscript; },
+        [](const CSS::Keyword::Super&) { return FontAttributes::SubscriptOrSuperscript::Superscript; },
+        [](const CSS::Keyword::Bottom&) { return FontAttributes::SubscriptOrSuperscript::None; },
+        [](const CSS::Keyword::Middle&) { return FontAttributes::SubscriptOrSuperscript::None; },
+        [](const CSS::Keyword::TextBottom&) { return FontAttributes::SubscriptOrSuperscript::None; },
+        [](const CSS::Keyword::TextTop&) { return FontAttributes::SubscriptOrSuperscript::None; },
+        [](const CSS::Keyword::Top&) { return FontAttributes::SubscriptOrSuperscript::None; },
+        [](const CSS::Keyword::WebkitBaselineMiddle&) { return FontAttributes::SubscriptOrSuperscript::None; },
+        [](const Style::VerticalAlign::Length&) { return FontAttributes::SubscriptOrSuperscript::None; }
+    );
 
     attributes.textLists = editableTextListsAtPositionInDescendingOrder(document().selection().selection().start());
 
@@ -4663,9 +4667,9 @@ FontAttributes Editor::fontAttributesAtSelectionStart()
         }
     } else {
         auto decoration = style->textDecorationLineInEffect();
-        if (decoration & TextDecorationLine::LineThrough)
+        if (decoration.hasLineThrough())
             attributes.hasStrikeThrough = true;
-        if (decoration & TextDecorationLine::Underline)
+        if (decoration.hasUnderline())
             attributes.hasUnderline = true;
     }
 

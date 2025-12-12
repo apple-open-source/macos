@@ -26,14 +26,16 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(VIDEO_PRESENTATION_MODE)
 
-#include "AudioSession.h"
-#include "FloatRect.h"
-#include "HTMLMediaElementEnums.h"
-#include "MediaPlayerEnums.h"
-#include "MediaPlayerIdentifier.h"
-#include "PlaybackSessionModel.h"
+#include <WebCore/AudioSession.h>
+#include <WebCore/FloatRect.h>
+#include <WebCore/HTMLMediaElementEnums.h>
+#include <WebCore/MediaPlayerEnums.h>
+#include <WebCore/MediaPlayerIdentifier.h>
+#include <WebCore/PlaybackSessionModel.h>
+#include <wtf/AbstractCanMakeCheckedPtr.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/WeakPtr.h>
@@ -42,15 +44,6 @@
 OBJC_CLASS AVPlayerViewController;
 OBJC_CLASS UIViewController;
 #endif
-
-namespace WebCore {
-class VideoPresentationModelClient;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::VideoPresentationModelClient> : std::true_type { };
-}
 
 namespace WTF {
 class MachSendRight;
@@ -71,7 +64,8 @@ public:
     virtual void setVideoLayerFrame(FloatRect) = 0;
     virtual void setVideoLayerGravity(MediaPlayerEnums::VideoGravity) = 0;
     virtual void setVideoFullscreenFrame(FloatRect) = 0;
-    virtual void fullscreenModeChanged(HTMLMediaElementEnums::VideoFullscreenMode) = 0;
+    enum class ShouldNotifyMediaElement { No, Yes };
+    virtual void fullscreenModeChanged(HTMLMediaElementEnums::VideoFullscreenMode, ShouldNotifyMediaElement) = 0;
 
     virtual FloatSize videoDimensions() const = 0;
     virtual bool hasVideo() const = 0;
@@ -115,15 +109,9 @@ public:
 #endif
 };
 
-class VideoPresentationModelClient : public CanMakeWeakPtr<VideoPresentationModelClient> {
+class VideoPresentationModelClient : public CanMakeWeakPtr<VideoPresentationModelClient>, public AbstractCanMakeCheckedPtr {
 public:
     virtual ~VideoPresentationModelClient() = default;
-
-    // CheckedPtr interface
-    virtual uint32_t checkedPtrCount() const = 0;
-    virtual uint32_t checkedPtrCountWithoutThreadCheck() const = 0;
-    virtual void incrementCheckedPtrCount() const = 0;
-    virtual void decrementCheckedPtrCount() const = 0;
 
     virtual void hasVideoChanged(bool) { }
     virtual void videoDimensionsChanged(const FloatSize&) { }
@@ -136,7 +124,9 @@ public:
     virtual void documentVisibilityChanged(bool) { }
     virtual void isChildOfElementFullscreenChanged(bool) { }
     virtual void audioSessionCategoryChanged(AudioSessionCategory, AudioSessionMode, RouteSharingPolicy) { }
+    virtual void routingContextUIDChanged(const String&) { }
     virtual void hasBeenInteractedWith() { }
+    virtual void fullscreenModeChanged(HTMLMediaElementEnums::VideoFullscreenMode) { }
 };
 
 } // namespace WebCore

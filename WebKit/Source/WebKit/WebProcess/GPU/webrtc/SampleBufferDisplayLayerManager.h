@@ -40,7 +40,6 @@ class SampleBufferDisplayLayerManager : public CanMakeWeakPtr<SampleBufferDispla
     WTF_MAKE_TZONE_ALLOCATED(SampleBufferDisplayLayerManager);
 public:
     SampleBufferDisplayLayerManager(GPUProcessConnection&);
-    ~SampleBufferDisplayLayerManager() = default;
 
     void ref() const;
     void deref() const;

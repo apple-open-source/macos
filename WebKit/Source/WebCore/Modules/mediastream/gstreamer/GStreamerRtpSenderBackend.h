@@ -54,8 +54,9 @@ public:
     RealtimeOutgoingAudioSourceGStreamer* audioSource()
     {
         return WTF::switchOn(m_source,
-            [] (Ref<RealtimeOutgoingAudioSourceGStreamer>& source) { return source.ptr(); },
-            [] (const auto&) -> RealtimeOutgoingAudioSourceGStreamer* { return nullptr; }
+            [](Ref<RealtimeOutgoingAudioSourceGStreamer>& source) { return source.ptr(); },
+            [](Ref<RealtimeOutgoingVideoSourceGStreamer>&) -> RealtimeOutgoingAudioSourceGStreamer* { return nullptr; },
+            [](std::nullptr_t&) -> RealtimeOutgoingAudioSourceGStreamer* { return nullptr; }
         );
     }
 
@@ -63,24 +64,20 @@ public:
     {
         return WTF::switchOn(m_source,
             [](Ref<RealtimeOutgoingAudioSourceGStreamer>& source) -> ThreadSafeWeakPtr<RealtimeOutgoingAudioSourceGStreamer> { return source.get(); },
-            [](const auto&) -> ThreadSafeWeakPtr<RealtimeOutgoingAudioSourceGStreamer> { return nullptr; });
+            [](Ref<RealtimeOutgoingVideoSourceGStreamer>&) -> ThreadSafeWeakPtr<RealtimeOutgoingAudioSourceGStreamer> { return nullptr; },
+            [](std::nullptr_t&) -> ThreadSafeWeakPtr<RealtimeOutgoingAudioSourceGStreamer> { return nullptr; });
     }
 
     RealtimeOutgoingVideoSourceGStreamer* videoSource()
     {
         return WTF::switchOn(m_source,
-            [] (Ref<RealtimeOutgoingVideoSourceGStreamer>& source) { return source.ptr(); },
-            [] (const auto&) -> RealtimeOutgoingVideoSourceGStreamer* { return nullptr; }
+            [](Ref<RealtimeOutgoingVideoSourceGStreamer>& source) { return source.ptr(); },
+            [](Ref<RealtimeOutgoingAudioSourceGStreamer>&) -> RealtimeOutgoingVideoSourceGStreamer* { return nullptr; },
+            [](std::nullptr_t&) -> RealtimeOutgoingVideoSourceGStreamer* { return nullptr; }
         );
     }
 
-    bool hasSource() const
-    {
-        return WTF::switchOn(m_source,
-            [] (const std::nullptr_t&) { return false; },
-            [] (const auto&) { return true; }
-        );
-    }
+    bool hasSource() const { return !std::holds_alternative<std::nullptr_t>(m_source); }
 
     void setSource(Source&&);
     void takeSource(GStreamerRtpSenderBackend&);

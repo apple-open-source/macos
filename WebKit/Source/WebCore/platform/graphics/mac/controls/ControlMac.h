@@ -27,7 +27,7 @@
 
 #if PLATFORM(MAC)
 
-#import "LengthBox.h"
+#import "BoxExtents.h"
 #import "PlatformControl.h"
 #import <wtf/CheckedRef.h>
 #import <wtf/TZoneMalloc.h>

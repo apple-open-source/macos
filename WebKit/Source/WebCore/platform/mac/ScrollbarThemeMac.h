@@ -25,7 +25,8 @@
 
 #pragma once
 
-#include "ScrollbarThemeComposite.h"
+#include <WebCore/ScrollbarThemeComposite.h>
+#include <wtf/Platform.h>
 
 #if PLATFORM(MAC)
 
@@ -61,6 +62,7 @@ public:
     void unregisterScrollbar(Scrollbar&) override;
 
     static NSScrollerImp *scrollerImpForScrollbar(Scrollbar&);
+    static RetainPtr<NSScrollerImp> protectedScrollerImpForScrollbar(Scrollbar&);
 
     void setPaintCharacteristicsForScrollbar(Scrollbar&);
 

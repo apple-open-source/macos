@@ -58,4 +58,9 @@
     return WebKit::encodeSessionState(_sessionState).autorelease();
 }
 
+- (BOOL)isEqualForTesting:(_WKSessionState *)other
+{
+    return _sessionState.isEqualForTesting(other->_sessionState);
+}
+
 @end

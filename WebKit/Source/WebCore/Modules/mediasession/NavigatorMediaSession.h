@@ -27,7 +27,7 @@
 
 #if ENABLE(MEDIA_SESSION)
 
-#include "Supplementable.h"
+#include <WebCore/Supplementable.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/TZoneMalloc.h>

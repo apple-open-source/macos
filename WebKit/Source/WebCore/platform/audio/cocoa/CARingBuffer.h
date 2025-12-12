@@ -27,8 +27,8 @@
 
 #if ENABLE(WEB_AUDIO) && USE(MEDIATOOLBOX)
 
-#include "AudioStreamDescription.h"
 #include <JavaScriptCore/ArrayBuffer.h>
+#include <WebCore/AudioStreamDescription.h>
 #include <optional>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/Lock.h>

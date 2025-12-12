@@ -38,9 +38,7 @@ WebPasteboardOverrides& WebPasteboardOverrides::sharedPasteboardOverrides()
     return sharedOverrides;
 }
 
-WebPasteboardOverrides::WebPasteboardOverrides()
-{
-}
+WebPasteboardOverrides::WebPasteboardOverrides() = default;
 
 void WebPasteboardOverrides::addOverride(const String& pasteboardName, const String& type, const Vector<uint8_t>& data)
 {

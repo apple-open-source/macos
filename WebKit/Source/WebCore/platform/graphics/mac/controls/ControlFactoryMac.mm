@@ -65,9 +65,9 @@ Ref<ControlFactory> ControlFactory::create()
     return adoptRef(*new ControlFactoryMac());
 }
 
-ControlFactoryMac& ControlFactoryMac::shared()
+ControlFactoryMac& ControlFactoryMac::singleton()
 {
-    return static_cast<ControlFactoryMac&>(ControlFactory::shared());
+    return downcast<ControlFactoryMac>(ControlFactory::singleton());
 }
 
 NSView *ControlFactoryMac::drawingView(const FloatRect& rect, const ControlStyle& style) const

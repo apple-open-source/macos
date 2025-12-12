@@ -160,7 +160,7 @@ JSValue JSTestAsyncKeyValueIterable::getConstructor(VM& vm, const JSGlobalObject
 
 void JSTestAsyncKeyValueIterable::destroy(JSC::JSCell* cell)
 {
-    JSTestAsyncKeyValueIterable* thisObject = static_cast<JSTestAsyncKeyValueIterable*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestAsyncKeyValueIterable* thisObject = static_cast<JSTestAsyncKeyValueIterable*>(cell);
     thisObject->JSTestAsyncKeyValueIterable::~JSTestAsyncKeyValueIterable();
 }
 
@@ -292,7 +292,7 @@ bool JSTestAsyncKeyValueIterableOwner::isReachableFromOpaqueRoots(JSC::Handle<JS
 
 void JSTestAsyncKeyValueIterableOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestAsyncKeyValueIterable = static_cast<JSTestAsyncKeyValueIterable*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestAsyncKeyValueIterable = static_cast<JSTestAsyncKeyValueIterable*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestAsyncKeyValueIterable->protectedWrapped().ptr(), jsTestAsyncKeyValueIterable);
 }
@@ -306,7 +306,7 @@ extern "C" { extern void (*const __identifier("??_7TestAsyncKeyValueIterable@Web
 extern "C" { extern void* _ZTVN7WebCore25TestAsyncKeyValueIterableE[]; }
 #endif
 template<std::same_as<TestAsyncKeyValueIterable> T>
-static inline void verifyVTable(TestAsyncKeyValueIterable* ptr) 
+static inline void verifyVTable(TestAsyncKeyValueIterable* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -326,8 +326,9 @@ static inline void verifyVTable(TestAsyncKeyValueIterable* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestAsyncKeyValueIterable>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestAsyncKeyValueIterable>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestAsyncKeyValueIterable>(impl.ptr());
 #endif

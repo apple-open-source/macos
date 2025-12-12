@@ -55,7 +55,7 @@ class MomentumEventDispatcher {
     WTF_MAKE_TZONE_ALLOCATED(MomentumEventDispatcher);
 public:
     class Client : public CanMakeCheckedPtr<Client> {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(Client);
         WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Client);
     friend class MomentumEventDispatcher;
     public:
@@ -145,7 +145,7 @@ private:
     HistoricalDeltas m_deltaHistoryX;
     HistoricalDeltas m_deltaHistoryY;
 
-    Markable<WallTime> m_lastScrollTimestamp;
+    Markable<MonotonicTime> m_lastScrollTimestamp;
     std::optional<WebWheelEvent> m_lastIncomingEvent;
     WebCore::RectEdges<WebCore::RubberBandingBehavior> m_lastRubberBandableEdges;
     bool m_isInOverriddenPlatformMomentumGesture { false };

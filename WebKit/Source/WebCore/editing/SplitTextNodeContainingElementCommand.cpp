@@ -50,7 +50,11 @@ void SplitTextNodeContainingElementCommand::doApply()
     splitTextNode(m_text, m_offset);
 
     RefPtr parent = m_text->parentElement();
-    if (!parent || !parent->parentElement() || !parent->parentElement()->hasEditableStyle())
+    if (!parent)
+        return;
+
+    RefPtr parentParent = parent->parentElement();
+    if (!parentParent || !parentParent->hasEditableStyle())
         return;
 
     bool parentRendererIsNoneOrNotInline = false;

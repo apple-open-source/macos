@@ -68,9 +68,11 @@ public:
     // Also, we invalidate the cached program info.
     void increaseLinkCount();
 
-    WebGLShader* getAttachedShader(GCGLenum);
-    bool attachShader(const AbstractLocker&, WebGLShader*);
-    bool detachShader(const AbstractLocker&, WebGLShader*);
+    RefPtr<WebGLShader> fragmentShader() const;
+    RefPtr<WebGLShader> vertexShader() const;
+
+    bool attachShader(const AbstractLocker&, WebGLShader&);
+    bool detachShader(const AbstractLocker&, WebGLShader&);
     
     void setRequiredTransformFeedbackBufferCount(int count)
     {

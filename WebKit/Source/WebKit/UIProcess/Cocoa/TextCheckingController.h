@@ -43,7 +43,6 @@ class TextCheckingController final {
     WTF_MAKE_NONCOPYABLE(TextCheckingController);
 public:
     explicit TextCheckingController(WebPageProxy&);
-    ~TextCheckingController() = default;
 
     void replaceRelativeToSelection(NSAttributedString *annotatedString, int64_t selectionOffset, uint64_t length, uint64_t relativeReplacementLocation, uint64_t relativeReplacementLength);
     void removeAnnotationRelativeToSelection(NSString *annotationName, int64_t selectionOffset, uint64_t length);

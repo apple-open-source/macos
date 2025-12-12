@@ -41,10 +41,6 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
-#if !HAVE(DISPLAY_LINK)
-#include "ThreadedDisplayRefreshMonitor.h"
-#endif
-
 namespace WebCore {
 class TextureMapper;
 class TransformationMatrix;
@@ -60,14 +56,11 @@ class ThreadedCompositor : public ThreadSafeRefCounted<ThreadedCompositor>, publ
     WTF_MAKE_NONCOPYABLE(ThreadedCompositor);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ThreadedCompositor);
 public:
-#if HAVE(DISPLAY_LINK)
     static Ref<ThreadedCompositor> create(LayerTreeHost&);
-#else
-    static Ref<ThreadedCompositor> create(LayerTreeHost&, ThreadedDisplayRefreshMonitor::Client&, WebCore::PlatformDisplayID);
-#endif
     virtual ~ThreadedCompositor();
 
     uint64_t surfaceID() const;
+    int maxTextureSize() const { return m_maxTextureSize; }
 
     void backgroundColorDidChange();
 #if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
@@ -80,11 +73,6 @@ public:
     RunLoop* runLoop();
 
     void invalidate();
-
-#if !HAVE(DISPLAY_LINK)
-    WebCore::DisplayRefreshMonitor& displayRefreshMonitor() const;
-#endif
-
     void suspend();
     void resume();
 
@@ -102,23 +90,14 @@ public:
 #endif
 
 private:
-#if HAVE(DISPLAY_LINK)
     explicit ThreadedCompositor(LayerTreeHost&);
-#else
-    ThreadedCompositor(LayerTreeHost&, ThreadedDisplayRefreshMonitor::Client&, WebCore::PlatformDisplayID);
-#endif
 
     void updateSceneState();
     void renderLayerTree();
     void paintToCurrentGLContext(const WebCore::TransformationMatrix&, const WebCore::IntSize&);
     void frameComplete();
 
-#if HAVE(DISPLAY_LINK)
     void didRenderFrameTimerFired();
-#else
-    void displayUpdateFired();
-    void sceneUpdateFinished();
-#endif
 
     void updateSceneAttributes(const WebCore::IntSize&, float deviceScaleFactor);
 
@@ -126,11 +105,12 @@ private:
     void updateFPSCounter();
 
     CheckedPtr<LayerTreeHost> m_layerTreeHost;
-    std::unique_ptr<AcceleratedSurface> m_surface;
+    RefPtr<AcceleratedSurface> m_surface;
     RefPtr<CoordinatedSceneState> m_sceneState;
     std::unique_ptr<WebCore::GLContext> m_context;
 
     bool m_flipY { false };
+    int m_maxTextureSize { 0 };
     std::atomic<unsigned> m_suspendedCount { 0 };
 
     std::unique_ptr<CompositingRunLoop> m_compositingRunLoop;
@@ -139,10 +119,6 @@ private:
         Lock lock;
         WebCore::IntSize viewportSize;
         float deviceScaleFactor { 1 };
-
-#if !HAVE(DISPLAY_LINK)
-        bool clientRendersNextFrame { false };
-#endif
     } m_attributes;
 
     std::unique_ptr<WebCore::TextureMapper> m_textureMapper;
@@ -164,18 +140,8 @@ private:
 #endif
 
     std::atomic<uint32_t> m_compositionRequestID { 0 };
-#if HAVE(DISPLAY_LINK)
     std::atomic<uint32_t> m_compositionResponseID { 0 };
     RunLoop::Timer m_didRenderFrameTimer;
-#else
-    struct {
-        WebCore::PlatformDisplayID displayID;
-        WebCore::DisplayUpdate displayUpdate;
-        std::unique_ptr<RunLoop::Timer> updateTimer;
-    } m_display;
-
-    const Ref<ThreadedDisplayRefreshMonitor> m_displayRefreshMonitor;
-#endif
 };
 
 } // namespace WebKit

@@ -31,7 +31,6 @@
 
 #include "CSSFontSelector.h"
 #include "Document.h"
-#include "DocumentInlines.h"
 #include "FontCascade.h"
 #include "HTMLIFrameElement.h"
 #include "LocalFrame.h"
@@ -60,7 +59,7 @@ RenderStyle resolveForDocument(const Document& document)
     auto documentStyle = RenderStyle::create();
 
     documentStyle.setDisplay(DisplayType::Block);
-    documentStyle.setRTLOrdering(document.visuallyOrdered() ? Order::Visual : Order::Logical);
+    documentStyle.setRTLOrdering(document.visuallyOrdered() ? WebCore::Order::Visual : WebCore::Order::Logical);
     documentStyle.setZoom(!document.printing() ? renderView.frame().pageZoomFactor() : 1);
     documentStyle.setPageScaleTransform(renderView.frame().frameScaleFactor());
 
@@ -68,7 +67,7 @@ RenderStyle resolveForDocument(const Document& document)
     documentStyle.setUserModify(document.inDesignMode() ? UserModify::ReadWrite : UserModify::ReadOnly);
 #if PLATFORM(IOS_FAMILY)
     if (document.inDesignMode())
-        documentStyle.setTextSizeAdjust(TextSizeAdjustment::none());
+        documentStyle.setTextSizeAdjust(CSS::Keyword::None { });
 #endif
 
     Adjuster::adjustEventListenerRegionTypesForRootStyle(documentStyle, document);
@@ -88,12 +87,15 @@ RenderStyle resolveForDocument(const Document& document)
         fontDescription.setSpecifiedLocale(document.contentLanguage());
         fontDescription.setOneFamily(standardFamily);
         fontDescription.setShouldAllowUserInstalledFonts(settings.shouldAllowUserInstalledFonts() ? AllowUserInstalledFonts::Yes : AllowUserInstalledFonts::No);
+        // FIXME: We need enableEvaluationTimeZoom to be accessible from FontDescription, not only from RenderStyle. Would it be weird to move it to FontDescription (which is already accessible from RenderStyle)?
+        fontDescription.setEnableEvaluationTimeZoom(document.settings().evaluationTimeZoomEnabled());
 
         fontDescription.setKeywordSizeFromIdentifier(CSSValueMedium);
         int size = fontSizeForKeyword(CSSValueMedium, false, document);
         fontDescription.setSpecifiedSize(size);
         bool useSVGZoomRules = document.isSVGDocument();
-        fontDescription.setComputedSize(computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), useSVGZoomRules, &documentStyle, document));
+        auto computedFontSize = computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), useSVGZoomRules, &documentStyle, document);
+        fontDescription.setComputedSize(computedFontSize.size, computedFontSize.usedZoomFactor);
 
         auto [fontOrientation, glyphOrientation] = documentStyle.fontAndGlyphOrientation();
         fontDescription.setOrientation(fontOrientation);
@@ -107,6 +109,8 @@ RenderStyle resolveForDocument(const Document& document)
     RefPtr fontSelector = document.protectedFontSelector();
     fontCascade.update(WTFMove(fontSelector));
     documentStyle.setFontCascade(WTFMove(fontCascade));
+
+    documentStyle.setEnableEvaluationTimeZoom(document.settings().evaluationTimeZoomEnabled());
 
     return documentStyle;
 }

@@ -35,8 +35,9 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DocumentFullscreen.h"
-#include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentQuirks.h"
+#include "DocumentView.h"
 #include "ElementInlines.h"
 #include "HTMLAudioElement.h"
 #include "HTMLMediaElement.h"
@@ -51,7 +52,6 @@
 #include "NowPlayingInfo.h"
 #include "Page.h"
 #include "PlatformMediaSessionManager.h"
-#include "Quirks.h"
 #include "RenderMedia.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
@@ -237,6 +237,9 @@ void MediaElementSession::registerWithDocument(Document& document)
 
 void MediaElementSession::unregisterWithDocument(Document& document)
 {
+    if (RefPtr manager = sessionManager())
+        manager->removeSession(*this);
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     document.removePlaybackTargetPickerClient(*this);
 #else
@@ -332,7 +335,8 @@ void MediaElementSession::isVisibleInViewportChanged()
         m_elementIsHiddenUntilVisibleInViewport = false;
 
 #if PLATFORM(COCOA) && !HAVE(CGS_FIX_FOR_RADAR_97530095)
-    PlatformMediaSessionManager::singleton().scheduleSessionStatusUpdate();
+    if (RefPtr manager = sessionManager())
+        manager->scheduleSessionStatusUpdate();
 #endif
 }
 
@@ -362,7 +366,11 @@ void MediaElementSession::clientDataBufferingTimerFired()
     if (state() != PlatformMediaSession::State::Playing || !element->elementIsHidden())
         return;
 
-    auto restrictions = PlatformMediaSessionManager::singleton().restrictions(mediaType());
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return;
+
+    auto restrictions = manager->restrictions(mediaType());
     if ((restrictions & MediaSessionRestriction::BackgroundTabPlaybackRestricted) == MediaSessionRestriction::BackgroundTabPlaybackRestricted)
         pauseSession();
 }
@@ -376,7 +384,8 @@ void MediaElementSession::updateClientDataBuffering()
         element->setBufferingPolicy(preferredBufferingPolicy());
 
 #if PLATFORM(IOS_FAMILY)
-    PlatformMediaSessionManager::singleton().configureWirelessTargetMonitoring();
+    if (RefPtr manager = sessionManager())
+        manager->configureWirelessTargetMonitoring();
 #endif
 }
 
@@ -663,10 +672,12 @@ bool MediaElementSession::canShowControlsManager(PlaybackControlsPurpose purpose
         return true;
     }
 
+    RefPtr manager = sessionManager();
+    bool registeredAsNowPlayingApplication = manager && manager->registeredAsNowPlayingApplication();
     if (client().presentationType() == MediaType::Audio && purpose == PlaybackControlsPurpose::NowPlaying) {
         if (!element->hasSource()
             || element->error()
-            || (!isLongEnoughForMainContent() && !PlatformMediaSessionManager::singleton().registeredAsNowPlayingApplication())) {
+            || (!isLongEnoughForMainContent() && !registeredAsNowPlayingApplication)) {
             INFO_LOG(LOGIDENTIFIER, "returning FALSE: audio too short for NowPlaying");
             return false;
         }
@@ -826,7 +837,7 @@ void MediaElementSession::showPlaybackTargetPicker()
     }
 #endif
 
-    auto& audioSession = AudioSession::sharedSession();
+    auto& audioSession = AudioSession::singleton();
     document->showPlaybackTargetPicker(*this, is<HTMLVideoElement>(m_element), audioSession.routeSharingPolicy(), audioSession.routingContextUID());
 }
 
@@ -905,7 +916,8 @@ void MediaElementSession::setHasPlaybackTargetAvailabilityListeners(bool hasList
 
 #if PLATFORM(IOS_FAMILY)
     m_hasPlaybackTargetAvailabilityListeners = hasListeners;
-    PlatformMediaSessionManager::singleton().configureWirelessTargetMonitoring();
+    if (RefPtr manager = sessionManager())
+        manager->configureWirelessTargetMonitoring();
 #else
     UNUSED_PARAM(hasListeners);
     if (RefPtr element = m_element.get())
@@ -1033,7 +1045,7 @@ bool MediaElementSession::requiresFullscreenForVideoPlayback() const
         return false;
 
 #if PLATFORM(IOS_FAMILY)
-    if (WTF::CocoaApplication::isIBooks())
+    if (WTF::CocoaApplication::isAppleBooks())
         return !element->hasAttributeWithoutSynchronization(HTMLNames::webkit_playsinlineAttr) && !element->hasAttributeWithoutSynchronization(HTMLNames::playsinlineAttr);
     if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::UnprefixedPlaysInlineAttribute))
         return !element->hasAttributeWithoutSynchronization(HTMLNames::webkit_playsinlineAttr);
@@ -1083,11 +1095,13 @@ void MediaElementSession::resetPlaybackSessionState()
 
 void MediaElementSession::suspendBuffering()
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
     updateClientDataBuffering();
 }
 
 void MediaElementSession::resumeBuffering()
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
     updateClientDataBuffering();
 }
 

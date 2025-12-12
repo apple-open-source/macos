@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -27,6 +27,7 @@
  */
 
 #include <darwintest.h>
+#include <darwintest_utils.h>
 #include <TargetConditionals.h>
 
 #include <errno.h>
@@ -40,14 +41,17 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
+#include <mach/mach_init.h>
+#include <mach/mach_vm.h>
 #include <mach/vm_page_size.h>
+
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.vm"),
 	T_META_RADAR_COMPONENT_NAME("xnu"),
 	T_META_RADAR_COMPONENT_VERSION("VM"));
 
-#define FILENAME "/tmp/test-77350114.data"
+#define FILENAME "test-77350114.data"
 #define MAPSIZE (2*1024*1024)
 
 T_DECL(mmap_resilient_media,
@@ -61,6 +65,7 @@ T_DECL(mmap_resilient_media,
 	ssize_t nbytes;
 	unsigned char *addr;
 	int i;
+	char tmpf[PATH_MAX] = "";
 
 	/*
 	 * SETUP
@@ -93,9 +98,12 @@ T_DECL(mmap_resilient_media,
 		T_LOG("sysctlbyname(vm.fault_resilient_media_inject_error3_rate) error %d (%s)",
 		    errno, strerror(errno));
 	}
+
+	strlcpy(tmpf, dt_tmpdir(), PATH_MAX);
+	strlcat(tmpf, FILENAME, PATH_MAX);
 	T_WITH_ERRNO;
-	fd = open(FILENAME, O_RDWR | O_CREAT | O_TRUNC, 0644);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(fd, "open(%s)", FILENAME);
+	fd = open(tmpf, O_RDWR | O_CREAT | O_TRUNC, 0644);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(fd, "open(%s)", tmpf);
 	T_WITH_ERRNO;
 	nbytes = write(fd, "x", 1);
 	T_QUIET; T_ASSERT_EQ(nbytes, (ssize_t)1, "write 1 byte");
@@ -131,8 +139,8 @@ T_DECL(mmap_resilient_media,
 	ret = close(fd);
 	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "close()");
 	T_WITH_ERRNO;
-	ret = unlink(FILENAME);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "unlink(%s)", FILENAME);
+	ret = unlink(tmpf);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "unlink(%s)", tmpf);
 	/* restore old error injection rates */
 	ret = sysctlbyname("vm.fault_resilient_media_inject_error1_rate",
 	    NULL, NULL,
@@ -157,4 +165,62 @@ T_DECL(mmap_resilient_media,
 	}
 
 	T_PASS("mmap(MAP_RESILIENT_MEDIA)");
+}
+
+T_DECL(mmap_resilient_media_cow,
+    "test mmap(MAP_RESILIENT_MEDIA) and CoW",
+    T_META_TAG_VM_PREFERRED)
+{
+	int ret;
+	int fd;
+	unsigned char *addr;
+	mach_vm_address_t remap_addr;
+	vm_prot_t cur_prot, max_prot;
+	kern_return_t kr;
+	char tmpf[PATH_MAX] = "";
+
+	/*
+	 * SETUP
+	 */
+	T_SETUPBEGIN;
+
+	strlcpy(tmpf, dt_tmpdir(), PATH_MAX);
+	strlcat(tmpf, FILENAME, PATH_MAX);
+	T_WITH_ERRNO;
+	fd = open(tmpf, O_RDWR | O_CREAT | O_TRUNC, 0644);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(fd, "open(%s)", tmpf);
+	T_WITH_ERRNO;
+	addr = mmap(NULL,
+	    MAPSIZE,
+	    PROT_READ | PROT_WRITE,
+	    MAP_FILE | MAP_PRIVATE | MAP_RESILIENT_MEDIA,
+	    fd,
+	    0);
+	T_QUIET; T_ASSERT_NE((void *)addr, MAP_FAILED, "mmap()");
+
+	remap_addr = 0;
+	kr = mach_vm_remap(mach_task_self(), &remap_addr, PAGE_SIZE, 0, VM_FLAGS_ANYWHERE,
+	    mach_task_self(), (mach_vm_address_t)(uintptr_t)addr,
+	    TRUE /* copy */, &cur_prot, &max_prot, VM_INHERIT_DEFAULT);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "vm_remap()");
+
+	T_SETUPEND;
+
+	/*
+	 * TEST
+	 */
+	*(uint32_t *)addr = 0x41414141;
+	T_ASSERT_EQ(*(uint32_t *)remap_addr, 0, "writing to RESILIENT_MEDIA mapping should not affect its copy");
+	*(uint32_t *)addr = 0x42424242;
+	T_ASSERT_EQ(*(uint32_t *)remap_addr, 0, "writing to RESILIENT_MEDIA mapping again should still not affect its copy");
+
+	/*
+	 * CLEANUP
+	 */
+	T_WITH_ERRNO;
+	ret = close(fd);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "close()");
+	T_WITH_ERRNO;
+	ret = unlink(tmpf);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "unlink(%s)", tmpf);
 }

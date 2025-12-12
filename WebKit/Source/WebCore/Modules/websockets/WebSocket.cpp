@@ -35,6 +35,7 @@
 #include "Blob.h"
 #include "CloseEvent.h"
 #include "ContentSecurityPolicy.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DNS.h"
 #include "Document.h"
 #include "Event.h"
@@ -85,12 +86,12 @@ Lock WebSocket::s_allActiveWebSocketsLock;
 
 const size_t maxReasonSizeInBytes = 123;
 
-static inline bool isValidProtocolCharacter(UChar character)
+static inline bool isValidProtocolCharacter(char16_t character)
 {
     // Hybi-10 says "(Subprotocol string must consist of) characters in the range U+0021 to U+007E not including
     // separator characters as defined in [RFC2616]."
-    const UChar minimumProtocolCharacter = '!'; // U+0021.
-    const UChar maximumProtocolCharacter = '~'; // U+007E.
+    const char16_t minimumProtocolCharacter = '!'; // U+0021.
+    const char16_t maximumProtocolCharacter = '~'; // U+007E.
     return character >= minimumProtocolCharacter && character <= maximumProtocolCharacter
         && character != '"' && character != '(' && character != ')' && character != ',' && character != '/'
         && !(character >= ':' && character <= '@') // U+003A - U+0040 (':', ';', '<', '=', '>', '?', '@').
@@ -310,14 +311,14 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
     }
 
     RunLoop::mainSingleton().dispatch([targetURL = m_url.isolatedCopy(), mainFrameURL = context->url().isolatedCopy()]() {
-        ResourceLoadObserver::shared().logWebSocketLoading(targetURL, mainFrameURL);
+        ResourceLoadObserver::singleton().logWebSocketLoading(targetURL, mainFrameURL);
     });
 
     if (RefPtr document = dynamicDowncast<Document>(context)) {
         RefPtr frame = document->frame();
         // FIXME: make the mixed content check equivalent to the non-document mixed content check currently in WorkerThreadableWebSocketChannel::Bridge::connect()
         // In particular we need to match the error messaging in the console and the inspector instrumentation. See WebSocketChannel::fail.
-        if (!frame || MixedContentChecker::shouldBlockRequestForRunnableContent(*frame, document->securityOrigin(), m_url)) {
+        if (!frame || MixedContentChecker::shouldBlockRequest(*frame, m_url)) {
             failAsynchronously();
             return { };
         }
@@ -338,7 +339,7 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
     };
     if (is<Document>(context))
         reportRegistrableDomain(context.get());
-    else if (auto* workerLoaderProxy = downcast<WorkerGlobalScope>(context)->thread().workerLoaderProxy())
+    else if (auto* workerLoaderProxy = downcast<WorkerGlobalScope>(context)->thread()->workerLoaderProxy())
         workerLoaderProxy->postTaskToLoader(WTFMove(reportRegistrableDomain));
 
     m_pendingActivity = makePendingActivity(*this);
@@ -429,7 +430,7 @@ ExceptionOr<void> WebSocket::close(std::optional<unsigned short> optionalCode, c
             return Exception { ExceptionCode::InvalidAccessError };
         CString utf8 = reason.utf8(StrictConversionReplacingUnpairedSurrogatesWithFFFD);
         if (utf8.length() > maxReasonSizeInBytes) {
-            scriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "WebSocket close message is too long."_s);
+            protectedScriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "WebSocket close message is too long."_s);
             return Exception { ExceptionCode::SyntaxError };
         }
     }

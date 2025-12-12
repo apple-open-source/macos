@@ -97,7 +97,7 @@ void WorkerThreadableLoader::computeIsDone()
 }
 
 struct LoaderTaskOptions {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(LoaderTaskOptions);
 
     LoaderTaskOptions(const ThreadableLoaderOptions&, const String&, Ref<SecurityOrigin>&&);
     ThreadableLoaderOptions options;
@@ -160,9 +160,9 @@ WorkerThreadableLoader::MainThreadBridge::MainThreadBridge(ThreadableLoaderClien
 
     if (RefPtr serviceWorkerGlobalScope = dynamicDowncast<ServiceWorkerGlobalScope>(globalScope)) {
         InspectorInstrumentation::willSendRequest(*serviceWorkerGlobalScope, m_workerRequestIdentifier, request);
-        optionsCopy->options.workerIdentifier = serviceWorkerGlobalScope->thread().identifier();
+        optionsCopy->options.workerIdentifier = serviceWorkerGlobalScope->thread()->identifier();
     } else if (RefPtr sharedWorkerGlobalScope = dynamicDowncast<SharedWorkerGlobalScope>(globalScope))
-        optionsCopy->options.workerIdentifier = sharedWorkerGlobalScope->thread().identifier();
+        optionsCopy->options.workerIdentifier = sharedWorkerGlobalScope->thread()->identifier();
 
     if (!m_loaderProxy)
         return;

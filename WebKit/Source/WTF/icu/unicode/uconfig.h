@@ -3,7 +3,7 @@
 /*  
 **********************************************************************
 *   Copyright (C) 2002-2016, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  uconfig.h
 *   encoding:   UTF-8
@@ -321,6 +321,16 @@
  */
 #ifndef UCONFIG_NO_NORMALIZATION
 #   define UCONFIG_NO_NORMALIZATION 0
+#endif
+
+/**
+ * \def UCONFIG_USE_ML_PHRASE_BREAKING
+ * This switch turns on BudouX ML phrase-based line breaking, rather than using the dictionary.
+ *
+ * @internal
+ */
+#ifndef UCONFIG_USE_ML_PHRASE_BREAKING
+#   define UCONFIG_USE_ML_PHRASE_BREAKING 0
 #endif
 
 #if UCONFIG_NO_NORMALIZATION

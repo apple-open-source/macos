@@ -49,7 +49,6 @@ CompositingRunLoop::CompositingRunLoop(Function<void ()>&& updateFunction)
 {
 #if USE(GLIB_EVENT_LOOP)
     m_updateTimer.setPriority(RunLoopSourcePriority::CompositingThreadUpdateTimer);
-    m_updateTimer.setName("[WebKit] CompositingRunLoop"_s);
 #endif
 }
 

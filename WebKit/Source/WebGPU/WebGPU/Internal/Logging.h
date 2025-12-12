@@ -33,9 +33,10 @@ namespace WebGPU_Internal {
 
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
 
-#ifndef LOG_CHANNEL_PREFIX
-#define LOG_CHANNEL_PREFIX Log
+#ifdef LOG_CHANNEL_PREFIX
+#undef LOG_CHANNEL_PREFIX
 #endif
+#define LOG_CHANNEL_PREFIX Log
 
 #define WEBGPU_LOG_CHANNELS(M) \
     M(WebGPUSwift)

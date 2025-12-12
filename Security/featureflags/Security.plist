@@ -189,5 +189,15 @@
 		<key>DevelopmentPhase</key>
 		<string>PreviewReady</string>
 	</dict>
+	<key>UseCRLite</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>UseCRLiteEnforcement</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
 </dict>
 </plist>

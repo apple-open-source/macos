@@ -29,13 +29,13 @@
 
 #pragma once
 
-#include "MotionPath.h"
-#include "Path.h"
-#include "RenderStyleConstants.h"
-#include "StyleBasicShape.h"
-#include "StyleRayFunction.h"
-#include "StyleURL.h"
-#include "TransformOperationData.h"
+#include <WebCore/MotionPath.h>
+#include <WebCore/Path.h>
+#include <WebCore/RenderStyleConstants.h>
+#include <WebCore/StyleBasicShape.h>
+#include <WebCore/StyleRayFunction.h>
+#include <WebCore/StyleURL.h>
+#include <WebCore/TransformOperationData.h>
 #include <wtf/RefCounted.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>

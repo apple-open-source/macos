@@ -38,10 +38,10 @@ static inline Wasm::TypeHash typeHash(const Wasm::TypeDefinition& typeDef)
     return Wasm::TypeHash { const_cast<Wasm::TypeDefinition&>(typeDef) };
 }
 
-WebAssemblyGCStructureTypeDependencies::WebAssemblyGCStructureTypeDependencies(const Wasm::TypeDefinition& unexpandedType)
+WebAssemblyGCStructureTypeDependencies::WebAssemblyGCStructureTypeDependencies(Ref<const Wasm::TypeDefinition>&& unexpandedType)
 {
     WorkList work;
-    work.append(unexpandedType.expand());
+    work.append(unexpandedType->expand());
     while (!work.isEmpty())
         process(work.takeLast(), work);
     m_typeDefinitions.add(typeHash(unexpandedType));
@@ -75,14 +75,17 @@ WebAssemblyGCStructure::WebAssemblyGCStructure(VM& vm, JSGlobalObject* globalObj
     : Structure(vm, StructureVariant::WebAssemblyGC, globalObject, typeInfo, classInfo)
     , m_rtt(WTFMove(rtt))
     , m_type(WTFMove(type))
-    , m_typeDependencies(WebAssemblyGCStructureTypeDependencies { unexpandedType.get() })
+    , m_typeDependencies(WebAssemblyGCStructureTypeDependencies { WTFMove(unexpandedType) })
 {
+    for (unsigned i = 0; i < std::min((m_rtt->displaySizeExcludingThis() + 1), inlinedTypeDisplaySize); ++i)
+        m_inlinedTypeDisplay[i] = m_rtt->displayEntry(i);
 }
 
 WebAssemblyGCStructure::WebAssemblyGCStructure(VM& vm, WebAssemblyGCStructure* previous)
     : Structure(vm, StructureVariant::WebAssemblyGC, previous)
     , m_rtt(previous->m_rtt)
     , m_type(previous->m_type)
+    , m_inlinedTypeDisplay(previous->m_inlinedTypeDisplay)
     , m_typeDependencies(previous->m_typeDependencies)
 {
 }

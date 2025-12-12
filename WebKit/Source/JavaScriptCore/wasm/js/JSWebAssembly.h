@@ -27,10 +27,12 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "JSObject.h"
-#include "JSPromise.h"
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/JSPromise.h>
 
 namespace JSC {
+
+class WebAssemblyCompileOptions;
 
 class JSWebAssembly final : public JSNonFinalObject {
 public:
@@ -49,7 +51,7 @@ public:
 
     DECLARE_INFO;
 
-    JS_EXPORT_PRIVATE static void webAssemblyModuleValidateAsync(JSGlobalObject*, JSPromise*, Vector<uint8_t>&&);
+    JS_EXPORT_PRIVATE static void webAssemblyModuleValidateAsync(JSGlobalObject*, JSPromise*, Vector<uint8_t>&&, std::optional<WebAssemblyCompileOptions>&&);
     static JSValue instantiate(JSGlobalObject*, JSPromise*, RefPtr<SourceProvider>&&, const Identifier&, JSValue);
 
     static void instantiateForStreaming(VM&, JSGlobalObject*, JSPromise*, JSWebAssemblyModule*, JSObject*, RefPtr<SourceProvider>&&);

@@ -27,10 +27,10 @@
 
 #if ENABLE(GEOLOCATION)
 
-#include "ActivityStateChangeObserver.h"
-#include "Geolocation.h"
-#include "Page.h"
-#include "RegistrableDomain.h"
+#include <WebCore/ActivityStateChangeObserver.h>
+#include <WebCore/Geolocation.h>
+#include <WebCore/Page.h>
+#include <WebCore/RegistrableDomain.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
@@ -64,13 +64,15 @@ public:
     Ref<GeolocationClient> protectedClient();
 
     WEBCORE_EXPORT static ASCIILiteral supplementName();
-    static GeolocationController* from(Page* page) { return static_cast<GeolocationController*>(Supplement<Page>::from(page, supplementName())); }
+    static GeolocationController* from(Page* page) { return downcast<GeolocationController>(Supplement<Page>::from(page, supplementName())); }
 
     void revokeAuthorizationToken(const String&);
 
     void didNavigatePage();
 
 private:
+    bool isGeolocationController() const final { return true; }
+
     WeakRef<Page> m_page;
     RefPtr<GeolocationClient> m_client; // Only becomes null in the class destructor
 
@@ -96,5 +98,9 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::GeolocationController)
+    static bool isType(const WebCore::SupplementBase& supplement) { return supplement.isGeolocationController(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(GEOLOCATION)

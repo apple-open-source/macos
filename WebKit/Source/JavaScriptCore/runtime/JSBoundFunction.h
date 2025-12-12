@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "JSFunction.h"
-#include "JSImmutableButterfly.h"
+#include <JavaScriptCore/JSCellButterfly.h>
+#include <JavaScriptCore/JSFunction.h>
 
 namespace JSC {
 
@@ -114,7 +114,7 @@ public:
             return;
         }
         for (unsigned index = 0; index < length; ++index) {
-            if (func(jsCast<JSImmutableButterfly*>(m_boundArgs[0].get())->get(index)) == IterationStatus::Done)
+            if (func(jsCast<JSCellButterfly*>(m_boundArgs[0].get())->get(index)) == IterationStatus::Done)
                 return;
         }
     }
@@ -126,9 +126,16 @@ public:
         return m_canConstruct == TriState::True;
     }
 
+    bool isTainted() const
+    {
+        return m_isTainted;
+    }
+
     static bool canSkipNameAndLengthMaterialization(JSGlobalObject*, Structure*);
 
-    DECLARE_INFO;
+    DECLARE_EXPORT_INFO;
+
+    DECLARE_VISIT_CHILDREN;
 
 private:
     JSBoundFunction(VM&, NativeExecutable*, JSGlobalObject*, Structure*, JSObject* targetFunction, JSValue boundThis, unsigned boundArgsLength, JSValue arg0, JSValue arg1, JSValue arg2, JSString* nameMayBeNull, double length, const SourceCode&);
@@ -139,7 +146,6 @@ private:
     String nameStringWithoutGCSlow(VM&);
 
     DECLARE_DEFAULT_FINISH_CREATION;
-    DECLARE_VISIT_CHILDREN;
 
     WriteBarrier<JSObject> m_targetFunction;
     WriteBarrier<Unknown> m_boundThis;

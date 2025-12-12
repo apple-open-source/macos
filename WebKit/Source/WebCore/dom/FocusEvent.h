@@ -58,6 +58,7 @@ public:
     }
 
     EventTarget* relatedTarget() const final { return m_relatedTarget.get(); }
+    String debugDescription() const final;
 
 private:
     FocusEvent();

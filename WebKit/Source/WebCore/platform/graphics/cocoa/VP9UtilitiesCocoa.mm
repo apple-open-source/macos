@@ -31,11 +31,11 @@
 #import "FourCC.h"
 #import "LibWebRTCProvider.h"
 #import "MediaCapabilitiesInfo.h"
-#import "MediaSample.h"
 #import "PlatformScreen.h"
 #import "ScreenProperties.h"
 #import "SharedBuffer.h"
 #import "SystemBattery.h"
+#import "TrackInfo.h"
 #import "VideoConfiguration.h"
 #import "VideoDecoder.h"
 #import <JavaScriptCore/DataView.h>
@@ -60,6 +60,13 @@ VP9TestingOverrides& VP9TestingOverrides::singleton()
 void VP9TestingOverrides::setHardwareDecoderDisabled(std::optional<bool>&& disabled)
 {
     m_hardwareDecoderDisabled = WTFMove(disabled);
+    if (m_configurationChangedCallback)
+        m_configurationChangedCallback(false);
+}
+
+void VP9TestingOverrides::setVP9HardwareDecoderEnabledOverride(std::optional<bool>&& disabled)
+{
+    m_vp9HardwareDecoderEnabledOverride = WTFMove(disabled);
     if (m_configurationChangedCallback)
         m_configurationChangedCallback(false);
 }
@@ -208,6 +215,9 @@ bool vp9HardwareDecoderAvailable()
 {
     if (auto disabledForTesting = VP9TestingOverrides::singleton().hardwareDecoderDisabled())
         return !*disabledForTesting;
+
+    if (auto vp9HardwareDecoderOverride = VP9TestingOverrides::singleton().vp9HardwareDecoderEnabledOverride())
+        return *vp9HardwareDecoderOverride;
 
     return internalVP9HardwareDecoderAvailableInProcess();
 }

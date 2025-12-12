@@ -40,6 +40,10 @@ using PlatformSettings = WPESettings;
 using PlatformSettings = void;
 #endif
 
+namespace WebCore {
+struct SystemSettingsState;
+}
+
 namespace WebKit {
 
 class SystemSettingsManagerProxy {
@@ -53,6 +57,7 @@ private:
     SystemSettingsManagerProxy();
 
     void settingsDidChange();
+    void updateFontProperties(const String&, WebCore::SystemSettingsState&);
 
     String themeName() const;
     bool darkMode() const;

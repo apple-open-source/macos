@@ -162,12 +162,12 @@ static inline bool parseSimpleAngle(std::span<const CharacterType> characters, R
 }
 
 template <typename CharacterType>
-static inline bool parseSimpleNumberOrPercentage(std::span<const CharacterType> characters, ValueRange valueRange, CSSUnitType& unit, double& number)
+static inline bool parseSimpleNumberOrPercentageDividedBy100(std::span<const CharacterType> characters, double& number)
 {
-    unit = CSSUnitType::CSS_NUMBER;
+    bool isPercentage = false;
     if (!characters.empty() && characters.back() == '%') {
         dropLast(characters);
-        unit = CSSUnitType::CSS_PERCENTAGE;
+        isPercentage = true;
     }
 
     auto parsedNumber = parseCSSNumber(characters);
@@ -175,11 +175,11 @@ static inline bool parseSimpleNumberOrPercentage(std::span<const CharacterType> 
         return false;
 
     number = *parsedNumber;
-    if (number < 0 && valueRange == ValueRange::NonNegative)
-        return false;
-
     if (std::isinf(number))
         return false;
+
+    if (isPercentage)
+        number /= 100.0;
 
     return true;
 }
@@ -1015,17 +1015,16 @@ static RefPtr<CSSValue> parseDisplay(StringView string)
 static RefPtr<CSSValue> parseOpacity(StringView string)
 {
     double number;
-    auto unit = CSSUnitType::CSS_NUMBER;
 
     if (string.is8Bit()) {
-        if (!parseSimpleNumberOrPercentage(string.span8(), ValueRange::NonNegative, unit, number))
+        if (!parseSimpleNumberOrPercentageDividedBy100(string.span8(), number))
             return nullptr;
     } else {
-        if (!parseSimpleNumberOrPercentage(string.span16(), ValueRange::NonNegative, unit, number))
+        if (!parseSimpleNumberOrPercentageDividedBy100(string.span16(), number))
             return nullptr;
     }
 
-    return CSSPrimitiveValue::create(number, unit);
+    return CSSPrimitiveValue::create(number, CSSUnitType::CSS_NUMBER);
 }
 
 static RefPtr<CSSValue> parseColorWithAuto(StringView string, const CSSParserContext& context)
@@ -1060,8 +1059,12 @@ RefPtr<CSSValue> CSSParserFastPaths::maybeParseValue(CSSPropertyID property, Str
         break;
     }
 
-    if (CSSProperty::isColorProperty(property))
-        return parseColor(string, state.context);
+    if (CSSProperty::isColorProperty(property)) {
+        auto context = state.context;
+        if (!CSSProperty::acceptsQuirkyColor(property))
+            context.mode = HTMLStandardMode;
+        return parseColor(string, context);
+    }
 
     if (auto valueRange = lengthValueRangeForPropertiesSupportingSimpleLengths(property)) {
         if (auto result = parseSimpleLengthValue(string, state.context.mode, *valueRange))

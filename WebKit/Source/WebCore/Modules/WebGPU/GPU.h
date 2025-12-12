@@ -25,11 +25,8 @@
 
 #pragma once
 
-#include "GPUAdapter.h"
-#include "GPURequestAdapterOptions.h"
-#include "GPUTextureFormat.h"
-#include "JSDOMPromiseDeferredForward.h"
-#include "WebGPU.h"
+#include <WebCore/JSDOMPromiseDeferredForward.h>
+#include <WebCore/WebGPU.h>
 #include <optional>
 #include <wtf/Deque.h>
 #include <wtf/Ref.h>
@@ -37,12 +34,17 @@
 
 namespace WebCore {
 
+class GPUAdapter;
 class GPUCompositorIntegration;
 class GPUPresentationContext;
 struct GPUPresentationContextDescriptor;
 class GraphicsContext;
 class NativeImage;
 class WGSLLanguageFeatures;
+
+enum class GPUTextureFormat : uint8_t;
+
+struct GPURequestAdapterOptions;
 
 class GPU : public RefCounted<GPU> {
 public:
@@ -63,6 +65,9 @@ public:
     RefPtr<GPUCompositorIntegration> createCompositorIntegration();
 
     void paintToCanvas(NativeImage&, const IntSize&, GraphicsContext&);
+    const WebGPU::GPU& backing() const { return m_backing; }
+    WebGPU::GPU& backing() { return m_backing; }
+
 private:
     GPU(Ref<WebGPU::GPU>&&);
 

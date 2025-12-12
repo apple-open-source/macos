@@ -41,7 +41,7 @@ SUPPRESS_UNCOUNTED_LOCAL static RunLoop* s_webRunLoop;
 
 // Helper class for ThreadSpecificData.
 class RunLoop::Holder {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(RunLoop);
 public:
     Holder()
         : m_runLoop(adoptRef(*new RunLoop))

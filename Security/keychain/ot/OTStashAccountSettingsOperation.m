@@ -81,15 +81,17 @@
                          reply:(void (^)(OTAccountSettings* _Nullable settings, NSError* _Nullable error))reply
 {
     if (accountWide) {
-        AAFAnalyticsEventSecurity *fetchAccountWideSettingsEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
-                                                                                                                            altDSID:activeAccount.altDSID
-                                                                                                                             flowID:flowID
-                                                                                                                    deviceSessionID:deviceSessionID
-                                                                                                                          eventName:kSecurityRTCEventNameFetchAccountWideSettings
-                                                                                                                    testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                                     canSendMetrics:canSendMetrics
-                                                                                                                           category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-
+        AAFAnalyticsEventSecurity *fetchAccountWideSettingsEvent = nil;
+        if (flowID) {
+            fetchAccountWideSettingsEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                     altDSID:activeAccount.altDSID
+                                                                                                      flowID:flowID
+                                                                                             deviceSessionID:deviceSessionID
+                                                                                                   eventName:kSecurityRTCEventNameFetchAccountWideSettings
+                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                              canSendMetrics:canSendMetrics
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+        }
         [cuttlefishXPCWrapper fetchAccountSettingsWithSpecificUser:activeAccount
                                                         forceFetch:forceFetch
                                                            altDSID:activeAccount.altDSID
@@ -100,7 +102,9 @@
                                                                      NSError * _Nullable operror) {
                 if(operror) {
                     secnotice("octagon", "Unable to fetch account settings for (%@,%@): %@", containerName, contextID, operror);
-                    [fetchAccountWideSettingsEvent sendMetricWithResult:NO error:operror];
+                    if (flowID) {
+                        [fetchAccountWideSettingsEvent sendMetricWithResult:NO error:operror];
+                    }
                     reply(nil, operror);
                 } else {
                     if (retSettings && [retSettings count]) {
@@ -117,11 +121,15 @@
                             webAccess.enabled = webAccessSetting.value;
                         }
                         settings.webAccess = webAccess;
-                        [fetchAccountWideSettingsEvent sendMetricWithResult:YES error:nil];
+                        if (flowID) {
+                            [fetchAccountWideSettingsEvent sendMetricWithResult:YES error:nil];
+                        }
                         reply(settings, nil);
                     } else {
                         NSError* localError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoAccountSettingsSet userInfo: @{ NSLocalizedDescriptionKey : @"No account settings have been set"}];
-                        [fetchAccountWideSettingsEvent sendMetricWithResult:NO error:localError];
+                        if (flowID) {
+                            [fetchAccountWideSettingsEvent sendMetricWithResult:NO error:localError];
+                        }
                         reply(nil, localError);
                     }
                 }

@@ -177,7 +177,7 @@ class EGLContextCompatibilityTest : public ANGLETestBase
         ASSERT_TRUE(eglGetPlatformDisplay != nullptr);
 #endif
         EGLAttrib dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, mRenderer, EGL_NONE};
-        mDisplay              = eglGetPlatformDisplay(EGL_PLATFORM_ANGLE_ANGLE,
+        mDisplay              = eglGetPlatformDisplay(GetEglPlatform(),
                                                       reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), dispattrs);
         ASSERT_TRUE(mDisplay != EGL_NO_DISPLAY);
 
@@ -489,7 +489,7 @@ void RegisterContextCompatibilityTests()
         EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE,
     }};
 
-    LoadEntryPointsWithUtilLoader(angle::GLESDriverType::AngleEGL);
+    LoadEntryPointsWithUtilLoader(kDefaultGLESDriver);
 
 #if !defined(EGL_EGL_PROTOTYPES) || !EGL_EGL_PROTOTYPES
     if (eglGetPlatformDisplay == nullptr)
@@ -507,7 +507,7 @@ void RegisterContextCompatibilityTests()
 
         EGLAttrib dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, renderer, EGL_NONE};
         EGLDisplay display    = eglGetPlatformDisplay(
-            EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), dispattrs);
+            GetEglPlatform(), reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), dispattrs);
         if (display == EGL_NO_DISPLAY)
         {
             std::cerr << "EGLContextCompatibilityTest: eglGetPlatformDisplay error\n";

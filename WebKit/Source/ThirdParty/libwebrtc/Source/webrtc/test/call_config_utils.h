@@ -13,6 +13,7 @@
 
 #if !WEBRTC_WEBKIT_BUILD
 
+#include "api/call/transport.h"
 #include "call/video_receive_stream.h"
 #include "rtc_base/strings/json.h"
 

@@ -63,6 +63,12 @@ struct WebKit::RTCNetwork {
     Vector<WebKit::WebRTCNetwork::InterfaceAddress> ips;
 };
 
+struct WebKit::RTCSocketCreationFlags {
+    bool isFirstParty;
+    bool isRelayDisabled;
+    bool enableServiceClass;
+};
+
 #if USE(LIBWEBRTC) && PLATFORM(COCOA)
 header: "RTCWebKitEncodedFrameInfo.h"
 [CustomHeader] struct webrtc::WebKitEncodedFrameInfo {

@@ -89,7 +89,7 @@ void IntlDateTimeFormatPrototype::finishCreation(VM& vm, JSGlobalObject* globalO
 
 // HandleDateTimeValue ( dateTimeFormat, x )
 // https://tc39.es/proposal-temporal/#sec-temporal-handledatetimevalue
-double IntlDateTimeFormat::handleDateTimeValue(JSGlobalObject* globalObject, JSValue x)
+static double handleDateTimeValue(JSGlobalObject* globalObject, JSValue x)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -120,7 +120,7 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatFuncFormatDateTime, (JSGlobalObject* 
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.format called on value that's not a DateTimeFormat"_s));
 
     JSValue date = callFrame->argument(0);
-    double value = IntlDateTimeFormat::handleDateTimeValue(globalObject, date);
+    double value = handleDateTimeValue(globalObject, date);
     RETURN_IF_EXCEPTION(scope, { });
 
     RELEASE_AND_RETURN(scope, JSValue::encode(format->format(globalObject, value)));
@@ -173,7 +173,7 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatPrototypeFuncFormatToParts, (JSGlobal
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.formatToParts called on value that's not a DateTimeFormat"_s));
 
     JSValue date = callFrame->argument(0);
-    double value = IntlDateTimeFormat::handleDateTimeValue(globalObject, date);
+    double value = handleDateTimeValue(globalObject, date);
     RETURN_IF_EXCEPTION(scope, { });
 
     RELEASE_AND_RETURN(scope, JSValue::encode(dateTimeFormat->formatToParts(globalObject, value)));
@@ -196,9 +196,9 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatPrototypeFuncFormatRange, (JSGlobalOb
     if (startDateValue.isUndefined() || endDateValue.isUndefined())
         return throwVMTypeError(globalObject, scope, "startDate or endDate is undefined"_s);
 
-    double startDate = IntlDateTimeFormat::handleDateTimeValue(globalObject, startDateValue);
+    double startDate = handleDateTimeValue(globalObject, startDateValue);
     RETURN_IF_EXCEPTION(scope, { });
-    double endDate = IntlDateTimeFormat::handleDateTimeValue(globalObject, endDateValue);
+    double endDate = handleDateTimeValue(globalObject, endDateValue);
     RETURN_IF_EXCEPTION(scope, { });
 
     RELEASE_AND_RETURN(scope, JSValue::encode(dateTimeFormat->formatRange(globalObject, startDate, endDate)));
@@ -221,9 +221,9 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatPrototypeFuncFormatRangeToParts, (JSG
     if (startDateValue.isUndefined() || endDateValue.isUndefined())
         return throwVMTypeError(globalObject, scope, "startDate or endDate is undefined"_s);
 
-    double startDate = IntlDateTimeFormat::handleDateTimeValue(globalObject, startDateValue);
+    double startDate = handleDateTimeValue(globalObject, startDateValue);
     RETURN_IF_EXCEPTION(scope, { });
-    double endDate = IntlDateTimeFormat::handleDateTimeValue(globalObject, endDateValue);
+    double endDate = handleDateTimeValue(globalObject, endDateValue);
     RETURN_IF_EXCEPTION(scope, { });
 
     RELEASE_AND_RETURN(scope, JSValue::encode(dateTimeFormat->formatRangeToParts(globalObject, startDate, endDate)));

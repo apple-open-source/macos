@@ -30,7 +30,7 @@
 #if ENABLE(WEBXR)
 
 #include "ContextDestructionObserverInlines.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
 #include "EventNames.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSWebXRReferenceSpace.h"
@@ -43,6 +43,7 @@
 #include "WebXRSystem.h"
 #include "WebXRView.h"
 #include "XRFrameRequestCallback.h"
+#include "XRGPUProjectionLayerInit.h"
 #include "XRRenderStateInit.h"
 #include "XRSessionEvent.h"
 #include <wtf/RefPtr.h>
@@ -73,7 +74,8 @@ WebXRSession::WebXRSession(Document& document, WebXRSystem& system, XRSessionMod
     , m_views(device.views(mode))
 {
     device.setTrackingAndRenderingClient(*this);
-    device.initializeTrackingAndRendering(document.securityOrigin().data(), mode, m_requestedFeatures);
+    if (!m_requestedFeatures.contains(PlatformXR::SessionFeature::WebGPU))
+        device.initializeTrackingAndRendering(document.securityOrigin().data(), mode, m_requestedFeatures, std::nullopt);
 
     // https://immersive-web.github.io/webxr/#ref-for-dom-xrreferencespacetype-viewer%E2%91%A2
     // Every session MUST support viewer XRReferenceSpaces.
@@ -85,6 +87,8 @@ WebXRSession::WebXRSession(Document& document, WebXRSystem& system, XRSessionMod
     auto minimumNearClipPlaneFromPlatform = device.minimumNearClipPlane();
     if (minimumNearClipPlaneFromPlatform >= 0)
         m_minimumNearClipPlane = minimumNearClipPlaneFromPlatform;
+
+    document.registerForVisibilityStateChangedCallbacks(*this);
 }
 
 WebXRSession::~WebXRSession()
@@ -137,7 +141,7 @@ ExceptionOr<void> WebXRSession::updateRenderState(const XRRenderStateInit& newSt
 
     // 3. If newState's baseLayer was created with an XRSession other than session,
     //    throw an InvalidStateError and abort these steps.
-    if (newState.baseLayer && newState.baseLayer->session() != this)
+    if (newState.baseLayer && newState.baseLayer.value() && newState.baseLayer.value()->session() != this)
         return Exception { ExceptionCode::InvalidStateError };
 
     // 4. If newState's inlineVerticalFieldOfView is set and session is an immersive session,
@@ -173,6 +177,9 @@ ExceptionOr<void> WebXRSession::updateRenderState(const XRRenderStateInit& newSt
     }
 #endif
 
+    if (newState.passthroughFullyObscured)
+        m_pendingRenderState->setPassthroughFullyObscured(newState.passthroughFullyObscured.value());
+
     // 9. If newState's depthNear value is set, set session's pending render state's depthNear to newState's depthNear.
     if (newState.depthNear)
         m_pendingRenderState->setDepthNear(newState.depthNear.value());
@@ -188,7 +195,7 @@ ExceptionOr<void> WebXRSession::updateRenderState(const XRRenderStateInit& newSt
 
     // 12. If newState's baseLayer is set, set session's pending render state's baseLayer to newState's baseLayer.
     if (newState.baseLayer)
-        m_pendingRenderState->setBaseLayer(newState.baseLayer.get());
+        m_pendingRenderState->setBaseLayer(newState.baseLayer->get());
 
     return { };
 }
@@ -550,7 +557,9 @@ void WebXRSession::applyPendingRenderState()
         m_activeRenderState->setOutputCanvas(nullptr);
     }
 
-    m_requestData = {{ .depthRange = PlatformXR::DepthRange { static_cast<float>(m_activeRenderState->depthNear()), static_cast<float>(m_activeRenderState->depthFar()) } }}; // NOLINT
+    m_requestData = { {
+        .isPassthroughFullyObscured = m_activeRenderState->passthroughFullyObscured().value_or(false),
+        .depthRange = PlatformXR::DepthRange { static_cast<float>(m_activeRenderState->depthNear()), static_cast<float>(m_activeRenderState->depthFar()) } }}; // NOLINT
 }
 
 void WebXRSession::minimalUpdateRendering()
@@ -734,6 +743,28 @@ bool WebXRSession::isHandTrackingEnabled() const
     return m_requestedFeatures.contains(PlatformXR::SessionFeature::HandTracking);
 }
 #endif
+
+void WebXRSession::initializeTrackingAndRendering(std::optional<XRCanvasConfiguration>&& init)
+{
+    RefPtr document = downcast<Document>(scriptExecutionContext());
+    auto device = this->device();
+    if (document && device)
+        device->initializeTrackingAndRendering(document->securityOrigin().data(), m_mode, m_requestedFeatures, WTFMove(init));
+}
+
+void WebXRSession::visibilityStateChanged()
+{
+    RefPtr sessionDocument = downcast<Document>(scriptExecutionContext());
+    if (!sessionDocument)
+        return;
+
+    // For inline sessions the visibility state MUST mirror the Document’s visibilityState
+    // https://immersive-web.github.io/webxr/#xrsession-visibility-state
+    if (m_mode != XRSessionMode::Inline)
+        return;
+
+    updateSessionVisibilityState(sessionDocument->hidden() ? PlatformXR::VisibilityState::Hidden : PlatformXR::VisibilityState::Visible);
+}
 
 WebCoreOpaqueRoot root(WebXRSession* session)
 {

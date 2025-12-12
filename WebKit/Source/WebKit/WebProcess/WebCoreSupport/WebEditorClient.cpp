@@ -43,6 +43,7 @@
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/DocumentFragment.h>
 #include <WebCore/FocusController.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/HTMLInputElement.h>
 #include <WebCore/HTMLNames.h>
@@ -50,6 +51,7 @@
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
+#include <WebCore/NodeDocument.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/Range.h>
@@ -81,7 +83,7 @@ bool WebEditorClient::smartInsertDeleteEnabled()
     RefPtr page = m_page.get();
     return page ? page->isSmartInsertDeleteEnabled() : false;
 }
- 
+
 bool WebEditorClient::isSelectTrailingWhitespaceEnabled() const
 {
     RefPtr page = m_page.get();
@@ -143,7 +145,7 @@ bool WebEditorClient::shouldChangeSelectedRange(const std::optional<SimpleRange>
     RefPtr page = m_page.get();
     return page ? page->injectedBundleEditorClient().shouldChangeSelectedRange(*page, fromRange, toRange, affinity, stillSelecting) : false;
 }
-    
+
 bool WebEditorClient::shouldApplyStyle(const StyleProperties& style, const std::optional<SimpleRange>& range)
 {
     RefPtr page = m_page.get();
@@ -434,7 +436,7 @@ void WebEditorClient::textFieldDidEndEditing(Element& element)
     if (!inputElement)
         return;
 
-    auto webFrame = WebFrame::fromCoreFrame(*element.document().frame());
+    auto webFrame = WebFrame::fromCoreFrame(*element.protectedDocument()->protectedFrame());
     ASSERT(webFrame);
 
     if (RefPtr page = m_page.get())
@@ -449,7 +451,7 @@ void WebEditorClient::textDidChangeInTextField(Element& element)
 
     bool initiatedByUserTyping = UserTypingGestureIndicator::processingUserTypingGesture() && UserTypingGestureIndicator::focusedElementAtGestureStart() == inputElement;
 
-    auto webFrame = WebFrame::fromCoreFrame(*element.document().frame());
+    auto webFrame = WebFrame::fromCoreFrame(*element.protectedDocument()->protectedFrame());
     ASSERT(webFrame);
 
     if (RefPtr page = m_page.get())
@@ -462,7 +464,7 @@ void WebEditorClient::textDidChangeInTextArea(Element& element)
     if (!textAreaElement)
         return;
 
-    auto webFrame = WebFrame::fromCoreFrame(*element.document().frame());
+    auto webFrame = WebFrame::fromCoreFrame(*element.protectedDocument()->protectedFrame());
     ASSERT(webFrame);
 
     if (RefPtr page = m_page.get())
@@ -536,7 +538,7 @@ bool WebEditorClient::doTextFieldCommandFromEvent(Element& element, KeyboardEven
     if (!getActionTypeForKeyEvent(event, actionType))
         return false;
 
-    auto webFrame = WebFrame::fromCoreFrame(*element.document().frame());
+    auto webFrame = WebFrame::fromCoreFrame(*element.protectedDocument()->protectedFrame());
     ASSERT(webFrame);
 
     RefPtr page = m_page.get();
@@ -549,7 +551,7 @@ void WebEditorClient::textWillBeDeletedInTextField(Element& element)
     if (!inputElement)
         return;
 
-    auto webFrame = WebFrame::fromCoreFrame(*element.document().frame());
+    auto webFrame = WebFrame::fromCoreFrame(*element.protectedDocument()->protectedFrame());
     ASSERT(webFrame);
 
     if (RefPtr page = m_page.get())

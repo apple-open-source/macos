@@ -44,7 +44,7 @@ public:
     {
         return adoptRef(*new CoordinatedSceneState());
     }
-    virtual ~CoordinatedSceneState();
+    ~CoordinatedSceneState();
 
     WebCore::CoordinatedPlatformLayer& rootLayer() const { return m_rootLayer.get(); }
 
@@ -58,9 +58,7 @@ public:
     const HashSet<Ref<WebCore::CoordinatedPlatformLayer>>& committedLayers();
     void invalidateCommittedLayers();
 
-#if !HAVE(DISPLAY_LINK)
     bool layersDidChange() const { return m_didChangeLayers; }
-#endif
 
     void waitUntilPaintingComplete();
 

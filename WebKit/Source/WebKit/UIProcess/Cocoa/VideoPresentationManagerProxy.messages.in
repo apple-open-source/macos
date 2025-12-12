@@ -32,6 +32,7 @@ messages -> VideoPresentationManagerProxy {
     SetDocumentVisibility(WebKit::PlaybackSessionContextIdentifier contextId, bool isDocumentVisible)
     SetIsChildOfElementFullscreen(WebKit::PlaybackSessionContextIdentifier contextId, bool isChildOfElementFullscreen)
     AudioSessionCategoryChanged(WebKit::PlaybackSessionContextIdentifier contextId, enum:uint8_t WebCore::AudioSessionCategory category, enum:uint8_t WebCore::AudioSessionMode mode, enum:uint8_t WebCore::RouteSharingPolicy policy)
+    RoutingContextUIDChanged(WebKit::PlaybackSessionContextIdentifier contextId, String routingContextUID)
     HasBeenInteractedWith(WebKit::PlaybackSessionContextIdentifier contextId)
     SetVideoDimensions(WebKit::PlaybackSessionContextIdentifier contextId, WebCore::FloatSize videoDimensions)
     SetupFullscreenWithID(WebKit::PlaybackSessionContextIdentifier contextId, struct WebCore::HostingContext hostingContext, WebCore::FloatRect screenRect, WebCore::FloatSize initialSize, WebCore::FloatSize videoDimensions, float hostingScaleFactor, uint32_t videoFullscreenMode, bool allowsPictureInPicture, bool standby, bool blocksReturnToFullscreenFromPictureInPicture)

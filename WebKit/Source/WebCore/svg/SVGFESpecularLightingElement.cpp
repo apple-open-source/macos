@@ -27,11 +27,11 @@
 #include "FESpecularLighting.h"
 #include "NodeName.h"
 #include "RenderElement.h"
-#include "RenderStyle.h"
+#include "RenderStyleInlines.h"
 #include "SVGFELightElement.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
-#include "SVGRenderStyle.h"
+#include "SVGPropertyOwnerRegistry.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -96,7 +96,7 @@ bool SVGFESpecularLightingElement::setFilterEffectAttribute(FilterEffect& filter
     switch (attrName.nodeName()) {
     case AttributeNames::lighting_colorAttr: {
         auto& style = renderer()->style();
-        auto color = style.colorWithColorFilter(style.svgStyle().lightingColor());
+        auto color = style.colorWithColorFilter(style.lightingColor());
         return effect.setLightingColor(color);
     }
     case AttributeNames::surfaceScaleAttr:
@@ -168,7 +168,7 @@ RefPtr<FilterEffect> SVGFESpecularLightingElement::createFilterEffect(const Filt
     Ref lightSource = lightElement->lightSource();
     auto& style = renderer->style();
 
-    auto color = style.colorWithColorFilter(style.svgStyle().lightingColor());
+    auto color = style.colorWithColorFilter(style.lightingColor());
 
     return FESpecularLighting::create(color, surfaceScale(), specularConstant(), specularExponent(), kernelUnitLengthX(), kernelUnitLengthY(), WTFMove(lightSource));
 }

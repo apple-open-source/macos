@@ -20,3 +20,18 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
+.Dd October 8, 2025
+.Dt pam_basesystem 8
+.Os
+.Sh NAME
+.Nm pam_basesystem
+.Nd BaseSystem PAM module
+.Sh DESCRIPTION
+The BaseSystem PAM module facilitates unlocking FileVault in BaseSystem.
+This allows technologies like OpenSSH to unlock the FileVault protected
+data volumes using a username and password.
+.Sh HISTORY
+This module first appeared in macOS 26 Tahoe.
+.Sh SEE ALSO
+.Xr sshd 8
+.Xr apple_ssh_and_filevault 7

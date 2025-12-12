@@ -44,6 +44,7 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DisplayVBlankMonitor);
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
 std::unique_ptr<DisplayVBlankMonitor> DisplayVBlankMonitor::create(PlatformDisplayID displayID)
 {
     static const char* forceTimer = getenv("WEBKIT_FORCE_VBLANK_TIMER");
@@ -68,6 +69,7 @@ std::unique_ptr<DisplayVBlankMonitor> DisplayVBlankMonitor::create(PlatformDispl
 
     return DisplayVBlankMonitorTimer::create();
 }
+IGNORE_CLANG_WARNINGS_END
 
 DisplayVBlankMonitor::DisplayVBlankMonitor(unsigned refreshRate)
     : m_refreshRate(refreshRate)

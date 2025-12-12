@@ -93,7 +93,7 @@ bool WebDisplayRefreshMonitor::startNotificationMechanism()
         });
     }
 
-    m_runLoopObserver->schedule(CFRunLoopGetCurrent());
+    m_runLoopObserver->schedule(retainPtr(CFRunLoopGetCurrent()).get());
 #endif
     m_displayLinkIsActive = true;
 

@@ -137,3 +137,11 @@ SYSCTL_INT(_net_inet_tcp, OID_AUTO, cubic_sockets,
 SYSCTL_SKMEM_TCP_INT(OID_AUTO, use_newreno,
     CTLFLAG_RW | CTLFLAG_LOCKED, int, tcp_use_newreno, 0,
     "Use TCP NewReno by default");
+
+SYSCTL_SKMEM_TCP_INT(OID_AUTO, use_rto_deadline,
+    CTLFLAG_RW | CTLFLAG_LOCKED, int, tcp_use_rto_deadline, 0,
+    "Enable RTO deadline");
+
+SYSCTL_SKMEM_TCP_INT(OID_AUTO, rto_deadline_sojourn_factor,
+    CTLFLAG_RW | CTLFLAG_LOCKED, int, tcp_rto_sojourn_factor, 75,
+    "RTO deadline sojourn factor (50-100)");

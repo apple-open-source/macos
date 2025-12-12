@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include "ScopedName.h"
-#include "StyleValueTypes.h"
+#include <WebCore/ScopedName.h>
+#include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
 namespace Style {
@@ -44,4 +44,4 @@ struct ViewTransitionClasses : ListOrNone<ViewTransitionClassList> { using ListO
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ViewTransitionClasses> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::ViewTransitionClasses)

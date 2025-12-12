@@ -29,11 +29,11 @@
 
 #pragma once
 
-#include "CSSParserTokenRange.h"
-#include "CSSPropertyNames.h"
-#include "CSSValue.h"
-#include "CSSValueKeywords.h"
-#include "CSSVariableData.h"
+#include <WebCore/CSSParserTokenRange.h>
+#include <WebCore/CSSPropertyNames.h>
+#include <WebCore/CSSValue.h>
+#include <WebCore/CSSValueKeywords.h>
+#include <WebCore/CSSVariableData.h>
 #include <wtf/PointerComparison.h>
 #include <wtf/text/WTFString.h>
 

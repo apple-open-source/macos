@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004-2024 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  *  Copyright (C) 2006 Bjoern Graf (bjoern.graf@gmail.com)
  *
  *  This library is free software; you can redistribute it and/or
@@ -80,9 +80,10 @@
 #include "TestRunnerUtils.h"
 #include "TypedArrayInlines.h"
 #include "VMInlines.h"
-#include "VMInspector.h"
+#include "VMManager.h"
 #include "VMTrapsInlines.h"
 #include "WasmCapabilities.h"
+#include "WasmDebugServer.h"
 #include "WasmFaultSignalHandler.h"
 #include "WebAssemblyMemoryConstructor.h"
 #include <span>
@@ -201,8 +202,6 @@ namespace {
 
 [[noreturn]] static void jscExit(int status)
 {
-    waitForAsynchronousDisassembly();
-    
 #if ENABLE(DFG_JIT)
     if (DFG::isCrashing()) {
         for (;;) {
@@ -457,13 +456,13 @@ struct Script {
     StrictMode strictMode;
     CodeSource codeSource;
     ScriptType scriptType;
-    char* argument;
+    String argument;
 
     Script(StrictMode strictMode, CodeSource codeSource, ScriptType scriptType, char *argument)
         : strictMode(strictMode)
         , codeSource(codeSource)
         , scriptType(scriptType)
-        , argument(argument)
+        , argument(String::fromLatin1(argument))
     {
         if (strictMode == StrictMode::Strict)
             ASSERT(codeSource == CodeSource::File);
@@ -499,7 +498,7 @@ public:
     bool m_canBlockIsFalse { false };
     bool m_reprl { false }; // Set to true to use Fuzzilli.
 
-    void parseArguments(int, char**);
+    void parseArguments(int, char**, int start = 1);
 };
 static LazyNeverDestroyed<CommandLine> mainCommandLine;
 
@@ -590,7 +589,7 @@ private:
     static constexpr unsigned DontEnum = 0 | PropertyAttribute::DontEnum;
 
     class PropertyFilter : public SideDataRepository::SideData {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(PropertyFilter);
     public:
         void add(UniquedStringImpl* uid)
         {
@@ -958,18 +957,14 @@ const GlobalObjectMethodTable GlobalObject::s_globalObjectMethodTable = {
     &shellSupportsRichSourceInfo,
     &shouldInterruptScript,
     &javaScriptRuntimeFlags,
-    nullptr, // queueMicrotaskToEventLoop
+    &queueMicrotaskToEventLoop,
     &shouldInterruptScriptBeforeTimeout,
     &moduleLoaderImportModule,
     &moduleLoaderResolve,
     &moduleLoaderFetch,
     &moduleLoaderCreateImportMetaProperties,
     nullptr, // moduleLoaderEvaluate
-#if ENABLE(FUZZILLI)
     &promiseRejectionTracker,
-#else
-    nullptr,
-#endif
     &reportUncaughtExceptionAtEventLoop,
     &currentScriptExecutionOwner,
     &scriptExecutionStatus,
@@ -1106,7 +1101,7 @@ JSInternalPromise* GlobalObject::moduleLoaderImportModule(JSGlobalObject* global
     auto* promise = JSInternalPromise::create(vm, globalObject->internalPromiseStructure());
 
     auto rejectWithError = [&](JSValue error) {
-        promise->reject(globalObject, error);
+        promise->reject(vm, globalObject, error);
         return promise;
     };
 
@@ -1471,7 +1466,7 @@ JSInternalPromise* GlobalObject::moduleLoaderFetch(JSGlobalObject* globalObject,
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     auto rejectWithError = [&](JSValue error) {
-        promise->reject(globalObject, error);
+        promise->reject(vm, globalObject, error);
         return promise;
     };
 
@@ -1525,6 +1520,9 @@ JSObject* GlobalObject::moduleLoaderCreateImportMetaProperties(JSGlobalObject* g
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     metaProperties->putDirect(vm, Identifier::fromString(vm, "filename"_s), key);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+
+    metaProperties->putDirect(vm, JSC::Identifier::fromString(vm, "url"_s), key);
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     return metaProperties;
@@ -2341,7 +2339,7 @@ JSC_DEFINE_HOST_FUNCTION(functionCallerIsBBQOrOMGCompiled, (JSGlobalObject* glob
     ASSERT(wasmFrame.callerFrame()->callee().isNativeCallee());
     ASSERT(wasmFrame.callerFrame()->callee().asNativeCallee()->category() == NativeCallee::Category::Wasm);
 #if ENABLE(WEBASSEMBLY)
-    auto mode = static_cast<Wasm::Callee*>(wasmFrame.callerFrame()->callee().asNativeCallee())->compilationMode();
+    auto mode = uncheckedDowncast<Wasm::Callee>(wasmFrame.callerFrame()->callee().asNativeCallee())->compilationMode();
     return JSValue::encode(jsBoolean(isAnyBBQ(mode) || isAnyOMG(mode)));
 #endif
     RELEASE_ASSERT_NOT_REACHED();
@@ -3504,12 +3502,11 @@ static void startTimeoutTimer(Seconds duration)
 {
     Thread::create("jsc Timeout Thread"_s, [=] () {
         sleep(duration);
-        VMInspector::forEachVM([&] (VM& vm) -> IterationStatus {
-            if (&vm != s_vm)
-                return IterationStatus::Continue;
-            vm.notifyNeedShellTimeoutCheck();
-            return IterationStatus::Done;
+        VM* foundVM = VMManager::findMatchingVM([&] (VM& vm) {
+            return &vm != s_vm;
         });
+        if (foundVM)
+            foundVM->notifyNeedShellTimeoutCheck();
 
         if (const char* timeoutString = getenv("JSCTEST_hardTimeout")) {
             double hardTimeoutInDouble = 0;
@@ -3606,9 +3603,11 @@ int main(int argc, char** argv)
     // yet, since that would do somethings that we'd like to defer until after we
     // have a chance to parse options.
     WTF::initialize();
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || OS(ANDROID)
     WTF::disableForwardingVPrintfStdErrToOSLog();
+#endif
 
+#if PLATFORM(COCOA)
     if (getenv("JSCTEST_CrashReportArgV")) {
         StringPrintStream out;
         CommaPrinter space(" "_s);
@@ -3820,7 +3819,7 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
 
         switch (scripts[i].codeSource) {
         case Script::CodeSource::File: {
-            fileName = String::fromLatin1(scripts[i].argument);
+            fileName = scripts[i].argument;
             if (scripts[i].strictMode == Script::StrictMode::Strict)
                 scriptBuffer.append("\"use strict\";\n"_span);
 
@@ -3838,9 +3837,9 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
             break;
         }
         case Script::CodeSource::CommandLine: {
-            size_t commandLineLength = strlen(scripts[i].argument);
+            size_t commandLineLength = scripts[i].argument.length();
             scriptBuffer.resize(commandLineLength);
-            std::copy_n(scripts[i].argument, commandLineLength, scriptBuffer.begin());
+            std::copy_n(scripts[i].argument.impl()->span8().data(), commandLineLength, scriptBuffer.begin());
             fileName = "[Command Line]"_s;
             break;
         }
@@ -3912,18 +3911,15 @@ static void runInteractive(GlobalObject* globalObject)
         String source;
         do {
             error = ParserError();
-            char* line = readline(source.isEmpty() ? interactivePrompt : "... ");
+            auto line = adoptSystemMalloc(readline(source.isEmpty() ? interactivePrompt : "... "));
             shouldQuit = !line;
             if (!line)
                 break;
-            source = makeString(source, String::fromUTF8(line), '\n');
+            source = makeString(source, byteCast<char8_t>(unsafeSpan(line.get())), '\n');
             checkSyntax(vm, jscSource(source, sourceOrigin), error);
-            if (!line[0]) {
-                free(line);
+            if (!*line)
                 break;
-            }
-            add_history(line);
-            free(line);
+            add_history(line.get());
         } while (error.syntaxErrorType() == ParserError::SyntaxErrorRecoverable);
         
         if (error.isValid()) {
@@ -4012,6 +4008,8 @@ static void runInteractive(GlobalObject* globalObject)
 #endif
     fprintf(stderr, "  --destroy-vm               Destroy VM before exiting\n");
     fprintf(stderr, "  --can-block-is-false       Make main thread's Atomics.wait throw\n");
+    fprintf(stderr, "  --singleStringSubArgList=<args>   Parse args as a space separated list of arguments. (For VSCode debuggers to pass arguments).\n");
+    fprintf(stderr, "  --wasm-debug[=port]        Enable WebAssembly debugging server (default port 1234)\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Files with a .mjs extension will always be evaluated as modules.\n");
     fprintf(stderr, "\n");
@@ -4064,15 +4062,15 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
-void CommandLine::parseArguments(int argc, char** argv)
+void CommandLine::parseArguments(int argc, char** argv, int start)
 {
     Options::AllowUnfinalizedAccessScope scope;
-    Options::initialize();
-    Options::useSharedArrayBuffer() = true;
-
+    Options::initialize([] {
+        Options::useSharedArrayBuffer() = true;
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(APPLETV) && !PLATFORM(WATCHOS)
-    Options::crashIfCantAllocateJITMemory() = true;
+        Options::crashIfCantAllocateJITMemory() = true;
 #endif
+    });
 
     if (Options::dumpOptions()) {
         printf("Command line:");
@@ -4088,7 +4086,7 @@ void CommandLine::parseArguments(int argc, char** argv)
         printf("\n");
     }
 
-    int i = 1;
+    int i = start;
     bool optionsDumpRequested = false;
 
     bool hasBadJSCOptions = false;
@@ -4283,6 +4281,36 @@ void CommandLine::parseArguments(int argc, char** argv)
             continue;
         }
 
+        ASCIILiteral singleStringSubArgList = "--singleStringSubArgList="_s;
+        if (!strncmp(arg, singleStringSubArgList.characters(), singleStringSubArgList.length())) {
+            // We just assume input is utf-8 (probably ascii)
+            String subArgList = String::fromLatin1(arg + singleStringSubArgList.length());
+            Vector<CString> splitArgs = subArgList.split(" "_s).map([](const String& arg) { return arg.impl()->utf8(); });
+            Vector<char*> buffer = splitArgs.map([](const CString& arg) { return const_cast<char*>(arg.data()); });
+
+            parseArguments(buffer.mutableSpan().size(), buffer.mutableSpan().data(), 0);
+            continue;
+        }
+
+#if ENABLE(WEBASSEMBLY)
+        auto argView = StringView::fromLatin1(arg);
+        constexpr auto wasmDebugOption = "--wasm-debug"_s;
+        bool isBareOption = argView.length() == wasmDebugOption.length();
+        if (argView.startsWith(wasmDebugOption) && (isBareOption || argView[wasmDebugOption.length()] == '=')) {
+            JSC::Options::enableWasmDebugger() = true;
+            JSC::Options::useBBQJIT() = false;
+            JSC::Options::useOMGJIT() = false;
+            if (!isBareOption) {
+                StringView suffix = argView.substring(wasmDebugOption.length() + 1);
+                if (auto portOpt = WTF::parseInteger<uint16_t>(suffix, 10); portOpt && *portOpt)
+                    JSC::Wasm::DebugServer::singleton().setPort(*portOpt);
+                else
+                    dataLogLn("ERROR: invalid port number for --wasm-debug=", suffix);
+            }
+            continue;
+        }
+#endif
+
         // See if the -- option is a JSC VM option.
         if (strstr(arg, "--") == arg) {
             if (!JSC::Options::setOption(&arg[2], /* verify = */ false)) {
@@ -4357,6 +4385,12 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
             startTimeoutThreadIfNeeded(vm);
             globalObject = GlobalObject::create(vm, GlobalObject::createStructure(vm, jsNull()), options.m_arguments);
             globalObject->setInspectable(options.m_inspectable);
+
+#if ENABLE(WEBASSEMBLY)
+            if (Options::enableWasmDebugger()) [[unlikely]]
+                Wasm::DebugServer::singleton().start(&vm);
+#endif
+
             func(vm, globalObject, success);
             vm.drainMicrotasks();
         }
@@ -4457,12 +4491,17 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
         vm.derefSuppressingSaferCPPChecking();
     }
 
+#if ENABLE(WEBASSEMBLY)
+    if (Options::enableWasmDebugger()) [[unlikely]]
+        Wasm::DebugServer::singleton().stop();
+#endif
+
     return result;
 }
 
 #if ENABLE(JIT_OPERATION_VALIDATION) || ENABLE(JIT_OPERATION_DISASSEMBLY)
-extern const JITOperationAnnotation startOfJITOperationsInShell __asm("section$start$__DATA_CONST$__jsc_ops");
-extern const JITOperationAnnotation endOfJITOperationsInShell __asm("section$end$__DATA_CONST$__jsc_ops");
+extern const JITOperationAnnotation startOfJITOperationsInShell __asm__("section$start$__DATA_CONST$__jsc_ops");
+extern const JITOperationAnnotation endOfJITOperationsInShell __asm__("section$end$__DATA_CONST$__jsc_ops");
 #endif
 
 int jscmain(int argc, char** argv)
@@ -4524,7 +4563,8 @@ int jscmain(int argc, char** argv)
 #if PLATFORM(COCOA)
     auto& memoryPressureHandler = MemoryPressureHandler::singleton();
     {
-        auto queue = adoptOSObject(dispatch_queue_create("jsc shell memory pressure handler", DISPATCH_QUEUE_SERIAL));
+        // FIXME: This is a false positive. rdar://160931336
+        SUPPRESS_RETAINPTR_CTOR_ADOPT auto queue = adoptOSObject(dispatch_queue_create("jsc shell memory pressure handler", DISPATCH_QUEUE_SERIAL));
         memoryPressureHandler.setDispatchQueue(WTFMove(queue));
     }
     Box<Critical> memoryPressureCriticalState = Box<Critical>::create(Critical::No);

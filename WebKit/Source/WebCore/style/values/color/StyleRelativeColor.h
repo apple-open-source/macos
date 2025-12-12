@@ -33,6 +33,7 @@
 #include "Color.h"
 #include "ColorSerialization.h"
 #include "StyleColor.h"
+#include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
 #include "StyleResolvedColor.h"
 #include <wtf/text/TextStream.h>
@@ -43,7 +44,7 @@ namespace Style {
 template<typename D, unsigned Index> using RelativeColorComponent = GetCSSColorParseTypeWithCalcAndSymbolsComponentResult<D, Index>;
 
 template<typename D> struct RelativeColor {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(RelativeColor);
 
     using Descriptor = D;
 

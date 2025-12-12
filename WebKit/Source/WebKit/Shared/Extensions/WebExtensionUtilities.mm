@@ -38,8 +38,8 @@
 #import "WebExtensionAPITabs.h"
 #import "WebExtensionMessageSenderParameters.h"
 #import "WebFrame.h"
-#import <WebCore/DocumentInlines.h>
-#import <WebCore/LocalFrame.h>
+#import <WebCore/Document.h>
+#import <WebCore/LocalFrameInlines.h>
 #import <objc/runtime.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -314,11 +314,6 @@ bool validateObject(NSObject *object, NSString *sourceKey, id expectedValueType,
         *outExceptionString = toErrorString(nullString(), sourceKey, errorString).createNSString().autorelease();
 
     return !errorString;
-}
-
-JSObjectRef toJSError(JSContextRef context, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString)
-{
-    return toJSError(context, toErrorString(callingAPIName, sourceKey, underlyingErrorString).createNSString().get());
 }
 
 JSObjectRef toJSRejectedPromise(JSContextRef context, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString)

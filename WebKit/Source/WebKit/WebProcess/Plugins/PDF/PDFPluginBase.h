@@ -524,6 +524,8 @@ protected:
     CompletionHandler<void(const String&, const URL&, std::span<const uint8_t>)> m_pendingSaveCompletionHandler;
     CompletionHandler<void(const String&, std::optional<FrameInfoData>&&, std::span<const uint8_t>)> m_pendingOpenCompletionHandler;
 #endif
+
+    mutable std::optional<bool> m_cachedIsFullFramePlugin;
 };
 
 } // namespace WebKit

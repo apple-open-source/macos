@@ -33,8 +33,10 @@
 #include "DedicatedWorkerThread.h"
 
 #include "DedicatedWorkerGlobalScope.h"
+#include "IDBConnectionProxy.h"
 #include "SecurityOrigin.h"
 #include "ServiceWorker.h"
+#include "SocketProvider.h"
 #include "WorkerObjectProxy.h"
 
 namespace WebCore {

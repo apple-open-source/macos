@@ -34,9 +34,12 @@
 
 #include "CachedResource.h"
 #include "ComputedEffectTiming.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DOMWrapperWorld.h"
 #include "DocumentLoader.h"
 #include "Event.h"
+#include "EventTargetInlines.h"
+#include "FrameInspectorController.h"
 #include "InspectorAnimationAgent.h"
 #include "InspectorCSSAgent.h"
 #include "InspectorCanvasAgent.h"
@@ -52,6 +55,7 @@
 #include "InspectorWorkerAgent.h"
 #include "InstrumentingAgents.h"
 #include "KeyframeEffect.h"
+#include "LargestContentfulPaint.h"
 #include "LoaderStrategy.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
@@ -63,6 +67,7 @@
 #include "PageTimelineAgent.h"
 #include "PlatformStrategies.h"
 #include "RenderObjectInlines.h"
+#include "RenderObjectNode.h"
 #include "RenderView.h"
 #include "ScriptController.h"
 #include "ScriptExecutionContext.h"
@@ -817,9 +822,6 @@ void InspectorInstrumentation::frameStartedLoadingImpl(InstrumentingAgents& inst
         if (auto* pageTimelineAgent = instrumentingAgents.enabledPageTimelineAgent())
             pageTimelineAgent->mainFrameStartedLoading();
     }
-
-    if (auto* inspectorPageAgent = instrumentingAgents.enabledPageAgent())
-        inspectorPageAgent->frameStartedLoading(frame);
 }
 
 void InspectorInstrumentation::didCompleteRenderingFrameImpl(InstrumentingAgents& instrumentingAgents)
@@ -834,21 +836,6 @@ void InspectorInstrumentation::frameStoppedLoadingImpl(InstrumentingAgents& inst
         if (auto* pageDebuggerAgent = instrumentingAgents.enabledPageDebuggerAgent())
             pageDebuggerAgent->mainFrameStoppedLoading();
     }
-
-    if (auto* inspectorPageAgent = instrumentingAgents.enabledPageAgent())
-        inspectorPageAgent->frameStoppedLoading(frame);
-}
-
-void InspectorInstrumentation::frameScheduledNavigationImpl(InstrumentingAgents& instrumentingAgents, Frame& frame, Seconds delay)
-{
-    if (auto* inspectorPageAgent = instrumentingAgents.enabledPageAgent())
-        inspectorPageAgent->frameScheduledNavigation(frame, delay);
-}
-
-void InspectorInstrumentation::frameClearedScheduledNavigationImpl(InstrumentingAgents& instrumentingAgents, Frame& frame)
-{
-    if (auto* inspectorPageAgent = instrumentingAgents.enabledPageAgent())
-        inspectorPageAgent->frameClearedScheduledNavigation(frame);
 }
 
 void InspectorInstrumentation::accessibilitySettingsDidChangeImpl(InstrumentingAgents& instrumentingAgents)
@@ -1015,6 +1002,18 @@ void InspectorInstrumentation::performanceMarkImpl(InstrumentingAgents& instrume
         timelineAgent->didPerformanceMark(label, timestamp);
 }
 
+void InspectorInstrumentation::didEnqueueFirstContentfulPaintImpl(InstrumentingAgents& instrumentingAgents)
+{
+    if (auto* timelineAgent = instrumentingAgents.trackingTimelineAgent())
+        timelineAgent->didEnqueueFirstContentfulPaint();
+}
+
+void InspectorInstrumentation::didEnqueueLargestContentfulPaintImpl(InstrumentingAgents& instrumentingAgents, const LargestContentfulPaint& entry)
+{
+    if (auto* timelineAgent = instrumentingAgents.trackingTimelineAgent())
+        timelineAgent->didEnqueueLargestContentfulPaint(entry.element(), entry.size());
+}
+
 void InspectorInstrumentation::consoleStartRecordingCanvasImpl(InstrumentingAgents& instrumentingAgents, CanvasRenderingContext& context, JSC::JSGlobalObject& exec, JSC::JSObject* options)
 {
     if (auto* canvasAgent = instrumentingAgents.enabledCanvasAgent())
@@ -1129,6 +1128,13 @@ void InspectorInstrumentation::didEnableExtensionImpl(InstrumentingAgents& instr
 {
     if (auto* canvasAgent = instrumentingAgents.enabledCanvasAgent())
         canvasAgent->didEnableExtension(contextWebGLBase, extension);
+}
+
+void InspectorInstrumentation::willDestroyWebGLProgram(WebGLProgram& program)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    if (RefPtr agents = instrumentingAgents(program.protectedScriptExecutionContext().get()))
+        willDestroyWebGLProgramImpl(*agents, program);
 }
 
 void InspectorInstrumentation::didCreateWebGLProgramImpl(InstrumentingAgents& instrumentingAgents, WebGLRenderingContextBase& contextWebGLBase, WebGLProgram& program)
@@ -1300,7 +1306,7 @@ void InspectorInstrumentation::unregisterInstrumentingAgents(InstrumentingAgents
     }
 }
 
-InstrumentingAgents* InspectorInstrumentation::instrumentingAgents(const RenderObject& renderer)
+InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(const RenderObject& renderer)
 {
     return instrumentingAgents(renderer.frame());
 }
@@ -1325,6 +1331,24 @@ InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(WorkerOrWorkl
 InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(ServiceWorkerGlobalScope& globalScope)
 {
     return globalScope.inspectorController().m_instrumentingAgents;
+}
+
+InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(const LocalFrameView& frameView)
+{
+    return instrumentingAgents(frameView.frame());
+}
+
+InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(const LocalFrame& frame)
+{
+    return frame.inspectorController().m_instrumentingAgents.get();
+}
+
+InstrumentingAgents* InspectorInstrumentation::instrumentingAgents(Document& document)
+{
+    Page* page = document.page();
+    if (!page && document.templateDocumentHost())
+        page = document.templateDocumentHost()->page();
+    return instrumentingAgents(page);
 }
 
 InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(Page& page)

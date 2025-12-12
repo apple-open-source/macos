@@ -604,7 +604,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
             if (op.type == GlobalVar || op.type == GlobalVarWithVarInjectionChecks || op.type == GlobalLexicalVar || op.type == GlobalLexicalVarWithVarInjectionChecks)
                 metadata.m_watchpointSet = op.watchpointSet;
             else if (op.structure)
-                metadata.m_structure.set(vm, this, op.structure);
+                metadata.m_structureID.set(vm, this, op.structure);
             metadata.m_operand = op.operand;
             break;
         }
@@ -643,7 +643,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
                 if (op.watchpointSet)
                     op.watchpointSet->invalidate(vm, PutToScopeFireDetail(this, ident));
             } else if (op.structure)
-                metadata.m_structure.set(vm, this, op.structure);
+                metadata.m_structureID.set(vm, this, op.structure);
             metadata.m_operand = op.operand;
             break;
         }
@@ -1656,7 +1656,7 @@ void CodeBlock::finalizeLLIntInlineCaches()
             if (getPutInfo.resolveType() == GlobalVar || getPutInfo.resolveType() == GlobalVarWithVarInjectionChecks
                 || getPutInfo.resolveType() == ResolvedClosureVar || getPutInfo.resolveType() == GlobalLexicalVar || getPutInfo.resolveType() == GlobalLexicalVarWithVarInjectionChecks)
                 return;
-            WriteBarrierBase<Structure>& structure = metadata.m_structure;
+            WriteBarrierStructureID& structure = metadata.m_structureID;
             if (!structure || vm.heap.isMarked(structure.get()))
                 return;
             dataLogLnIf(Options::verboseOSR(), "Clearing scope access with structure ", RawPointer(structure.get()));
@@ -2285,7 +2285,7 @@ void CodeBlock::jettison(Profiler::JettisonReason reason, ReoptimizationMode mod
     {
         ConcurrentJSLocker locker(m_lock);
         forEachStructureStubInfo([&](StructureStubInfo& stubInfo) {
-            stubInfo.reset(locker, this);
+            stubInfo.deref();
             return IterationStatus::Continue;
         });
     }

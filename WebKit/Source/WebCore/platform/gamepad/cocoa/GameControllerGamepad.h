@@ -28,7 +28,7 @@
 #if ENABLE(GAMEPAD)
 
 #include "GameControllerHapticEngines.h"
-#include "PlatformGamepad.h"
+#include <WebCore/PlatformGamepad.h>
 #include <wtf/RetainPtr.h>
 
 OBJC_CLASS GCController;

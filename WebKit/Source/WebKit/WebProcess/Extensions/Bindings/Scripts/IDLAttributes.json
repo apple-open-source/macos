@@ -121,6 +121,9 @@
         "RaisesException": {
             "contextsAllowed": ["operation"]
         },
+        "RaisesStringException": {
+            "contextsAllowed": ["operation"]
+        },
         "ReturnsPromiseWhenCallbackIsOmitted": {
             "contextsAllowed": ["interface", "operation"]
         },
@@ -130,6 +133,9 @@
         },
         "SetProperty": {
             "contextsAllowed": ["operation"]
+        },
+        "String": {
+            "contextsAllowed": ["argument"]
         },
         "URL": {
             "contextsAllowed": ["argument", "attribute", "operation"]

@@ -130,13 +130,94 @@ final class GNISubprocessRunner {
 		log(message, at: .error)
 	}
 
-	public func run(command: String, stdout: String? = nil, stderr: String? = nil) -> (Bool, String?) {
+	// MARK: - Helper Methods
+
+	private func prepareOutputPaths(stdout: String?, stderr: String?) -> (stdoutPath: FilePath, stderrPath: FilePath)? {
+		let stdoutPath: FilePath
+		if stdout == "/dev/null" {
+			stdoutPath = FilePath("/dev/null")
+		} else if let stdout = stdout {
+			stdoutPath = pathRoot.appending(stdout)
+		} else {
+			let stdoutURL = FileManager.default.temporaryDirectory.appending(component: runnerTmpStdoutFilename.string)
+			guard let path = FilePath(stdoutURL) else {
+				errorlog("failed to create temporary file path at url '\(stdoutURL)'")
+				return nil
+			}
+			stdoutPath = path
+		}
+
+		let stderrPath: FilePath
+		if let stderr = stderr {
+			stderrPath = stderr == "/dev/null" ? FilePath("/dev/null") : pathRoot.appending(stderr)
+		} else {
+			stderrPath = stdoutPath
+		}
+
+		return (stdoutPath, stderrPath)
+	}
+
+	private func spawnProcess(binaryPath: String, argv: [UnsafeMutablePointer<CChar>?], stdoutPath: FilePath? = nil, stderrPath: FilePath? = nil) -> Int32 {
+		var fileActions: posix_spawn_file_actions_t? = nil
 		var err: Int32 = 0
+
+		// Only set up file redirection if paths are provided
+		if let stdoutPath = stdoutPath, let stderrPath = stderrPath {
+			err = posix_spawn_file_actions_init(&fileActions)
+			guard err == 0 else {
+				errorlog("posix_spawn_file_actions_init failed with error: \(err)")
+				return err
+			}
+
+			err = posix_spawn_file_actions_addopen(&fileActions, STDOUT_FILENO, stdoutPath.description, O_RDWR | O_APPEND, 0o644)
+			guard err == 0 else {
+				errorlog("posix_spawn_file_actions_addopen '\(STDOUT_FILENO)' failed with error '\(err)'")
+				return err
+			}
+
+			err = posix_spawn_file_actions_addopen(&fileActions, STDERR_FILENO, stderrPath.description, O_RDWR | O_APPEND, 0o644)
+			guard err == 0 else {
+				errorlog("posix_spawn_file_actions_addopen '\(STDERR_FILENO)' failed with error '\(err)'")
+				return err
+			}
+		}
+
+		defer {
+			if fileActions != nil {
+				posix_spawn_file_actions_destroy(&fileActions)
+			}
+		}
+
+		var pid: pid_t = -1
+		err = posix_spawn(&pid, argv[0], &fileActions, nil, argv, environ)
+		guard err == 0 else {
+			errorlog("posix_spawn failed with error '\(err)'")
+			return err
+		}
+
+		let _ = waitpid(pid, &err, 0)
+		guard err == 0 else {
+			errorlog("waitpid failed with error '\(err)'")
+			return err
+		}
+
+		return err
+	}
+
+	// MARK: - Public Methods
+
+	public func run(command: String, stdout: String? = nil, stderr: String? = nil) -> (Bool, String?) {
 		let arguments: [String] = command.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
-		if (arguments.isEmpty) {
+		if arguments.isEmpty {
 			errorlog("gni received empty command")
 			return (false, nil)
 		}
+
+		guard FileManager.default.fileExists(atPath: arguments[0]) else {
+			errorlog("command '\(arguments[0])' doesn't exist")
+			return (false, nil)
+		}
+
 		var argv: [UnsafeMutablePointer<CChar>?] = arguments.map { $0.withCString { strdup($0) } }
 		guard argv.count == arguments.count else {
 			errorlog("failed to create array of c strings from given command '\(command)'")
@@ -146,107 +227,84 @@ final class GNISubprocessRunner {
 		defer {
 			argv.forEach { free($0) }
 		}
-		var skipHeader: Bool = false
 
-		if arguments[0].hasSuffix("tar") || (stdout?.hasSuffix(".tar") ?? false) || (stdout?.hasSuffix(".plist") ?? false) {
-			skipHeader = true
-		}
-		guard FileManager.default.fileExists(atPath: arguments[0]) else {
-			errorlog("command '\(arguments[0])' doesn't exist")
+		let skipHeader = arguments[0].hasSuffix("tar") || (stdout?.hasSuffix(".tar") ?? false) || (stdout?.hasSuffix(".plist") ?? false)
+
+		log(command)
+
+		guard let paths = prepareOutputPaths(stdout: stdout, stderr: stderr) else {
 			return (false, nil)
 		}
 
-		// parent writes into its log file
-		log("\(command)")
-
-		// this redirects stdout and stderr accordingly
-		let stdoutPath: FilePath
-		let stderrPath: FilePath
-		if stdout == "/dev/null" {
-			stdoutPath = FilePath("/dev/null")
-		} else if stdout != nil {
-			stdoutPath = pathRoot.appending(stdout!)
-		} else {
-			let stdoutURL = FileManager.default.temporaryDirectory.appending(component: runnerTmpStdoutFilename.string)
-			guard let stdoutPath_ = FilePath(stdoutURL) else {
-				errorlog("failed to create temporary file path at url '\(stdoutURL)'")
-				return (false, nil)
-			}
-			stdoutPath = stdoutPath_
-		}
-		if stderr == nil {
-			stderrPath = stdoutPath
-		} else if stderr == "/dev/null" {
-			stderrPath = FilePath("/dev/null")
-		} else {
-			stderrPath = pathRoot.appending(stderr!)
-		}
-
-		guard let outputFile: GNIOutputTargetFile = GNIOutputTargetFile(filePath: stdoutPath) else {
-			errorlog("failed to create output file '\(stdoutPath)'")
+		guard let outputFile = GNIOutputTargetFile(filePath: paths.stdoutPath) else {
+			errorlog("failed to create output file '\(paths.stdoutPath)'")
 			return (false, nil)
 		}
 
 		if stdout != nil && !skipHeader {
-			// parent writes into subprocess output file
-			outputFile.write("#\n")
-			outputFile.write("# \(command)\n")
-			outputFile.write("#\n")
+			outputFile.write("#\n# \(command)\n#\n")
 		}
 
-		var fileActions: posix_spawn_file_actions_t? = nil
-		err = posix_spawn_file_actions_init(&fileActions)
-		defer {
-			posix_spawn_file_actions_destroy(&fileActions);
-		}
-		guard err == 0 else {
-			errorlog("posix_spawn_file_actions_init failed with error: \(err)")
-			return  (false, nil)
-		}
-
-		// child writes into subprocess output file
-		err = posix_spawn_file_actions_addopen(&fileActions,
-						       STDOUT_FILENO,
-						       stdoutPath.description,
-						       O_RDWR | O_APPEND,
-						       0o644)
-		guard err == 0 else {
-			errorlog("posix_spawn_file_actions_addopen '\(STDOUT_FILENO)' failed with error '\(err)'")
-			return  (false, nil)
-		}
-
-		// both stdout and stderr are redirected to the same output file
-		err = posix_spawn_file_actions_addopen(&fileActions,
-						       STDERR_FILENO,
-						       stderrPath.description,
-						       O_RDWR | O_APPEND,
-						       0o644)
-		guard err == 0 else {
-			errorlog("posix_spawn_file_actions_addopen '\(STDERR_FILENO)' failed with error '\(err)'")
-			return (false, nil)
-		}
-
-		var pid: pid_t = -1
-		err = posix_spawn(&pid, argv[0], &fileActions, nil, argv, environ)
-		guard err == 0 else {
-			errorlog("posix_spawn failed with error '\(err)'")
-			return (false, nil)
-		}
-
-		let _ = waitpid(pid, &err, 0)
-		guard err == 0 else {
-			errorlog("waitpid failed with error '\(err)'")
-			return (false, nil)
-		}
+		let err = spawnProcess(binaryPath: arguments[0], argv: argv, stdoutPath: paths.stdoutPath, stderrPath: paths.stderrPath)
 
 		var retstr: String? = nil
 		if stdout != nil {
 			outputFile.close()
 		} else {
-			// use this to deal with any temp files created for info we don't persist, like iflist
 			retstr = outputFile.readAll()
 			outputFile.close()
-			try? FileManager.default.removeItem(atPath: stdoutPath.description)
+			try? FileManager.default.removeItem(atPath: paths.stdoutPath.description)
+		}
+
+		return (err == 0, retstr)
+	}
+
+	public func runWithArgs(binaryPath: String, arguments: [String], stdout: String? = nil, stderr: String? = nil) -> (Bool, String?) {
+		guard FileManager.default.fileExists(atPath: binaryPath) else {
+			errorlog("command '\(binaryPath)' doesn't exist")
+			return (false, nil)
+		}
+
+		var argv: [UnsafeMutablePointer<CChar>?] = [binaryPath].map { $0.withCString { strdup($0) } }
+		argv += arguments.map { $0.withCString { strdup($0) } }
+		guard argv.count == (arguments.count + 1) else {
+			errorlog("failed to create array of c strings for '\(binaryPath)' with \(arguments.count) arguments")
+			return (false, nil)
+		}
+		argv += [nil]
+		defer {
+			argv.forEach { free($0) }
+		}
+
+		let skipHeader = binaryPath.hasSuffix("tar") || (stdout?.hasSuffix(".tar") ?? false) || (stdout?.hasSuffix(".plist") ?? false)
+		// Format arguments for display, quoting empty strings
+		let displayArgs = arguments.map { $0.isEmpty ? "\"\"" : $0 }
+		let commandStr = ([binaryPath] + displayArgs).joined(separator: " ")
+
+		log(commandStr)
+
+		guard let paths = prepareOutputPaths(stdout: stdout, stderr: stderr) else {
+			return (false, nil)
+		}
+
+		guard let outputFile = GNIOutputTargetFile(filePath: paths.stdoutPath) else {
+			errorlog("failed to create output file '\(paths.stdoutPath)'")
+			return (false, nil)
+		}
+
+		if stdout != nil && !skipHeader {
+			outputFile.write("#\n# \(commandStr)\n#\n")
+		}
+
+		let err = spawnProcess(binaryPath: binaryPath, argv: argv, stdoutPath: paths.stdoutPath, stderrPath: paths.stderrPath)
+
+		var retstr: String? = nil
+		if stdout != nil {
+			outputFile.close()
+		} else {
+			retstr = outputFile.readAll()
+			outputFile.close()
+			try? FileManager.default.removeItem(atPath: paths.stdoutPath.description)
 		}
 
 		return (err == 0, retstr)
@@ -260,19 +318,7 @@ final class GNISubprocessRunner {
 			argv.forEach { free($0) }
 		}
 
-		var pid: pid_t = -1
-		var err = posix_spawn(&pid, argv[0], nil, nil, argv, environ)
-		guard err == 0 else {
-			errorlog("posix_spawn failed with error '\(err)'")
-			return false
-		}
-
-		let _ = waitpid(pid, &err, 0)
-		guard err == 0 else {
-			errorlog("waitpid failed with error '\(err)'")
-			return false
-		}
-
+		let err = spawnProcess(binaryPath: arguments[0], argv: argv)
 		return err == 0
 	}
 

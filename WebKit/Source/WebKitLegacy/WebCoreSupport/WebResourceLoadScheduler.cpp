@@ -31,7 +31,7 @@
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FetchOptions.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/NetscapePlugInStreamLoader.h>
 #include <WebCore/NetworkStateNotifier.h>
 #include <WebCore/PlatformStrategies.h>
@@ -60,7 +60,7 @@ using namespace WebCore;
 
 WebResourceLoadScheduler& webResourceLoadScheduler()
 {
-    return static_cast<WebResourceLoadScheduler&>(*platformStrategies()->loaderStrategy());
+    return static_cast<WebResourceLoadScheduler&>(*platformStrategies()->loaderStrategy().unsafeGet());
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebResourceLoadScheduler);
@@ -90,9 +90,7 @@ WebResourceLoadScheduler::WebResourceLoadScheduler()
     maxRequestsInFlightPerHost = initializeMaximumHTTPConnectionCountPerHost();
 }
 
-WebResourceLoadScheduler::~WebResourceLoadScheduler()
-{
-}
+WebResourceLoadScheduler::~WebResourceLoadScheduler() = default;
 
 void WebResourceLoadScheduler::loadResource(LocalFrame& frame, CachedResource& resource, ResourceRequest&& request, const ResourceLoaderOptions& options, CompletionHandler<void(RefPtr<WebCore::SubresourceLoader>&&)>&& completionHandler)
 {

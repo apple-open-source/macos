@@ -22,10 +22,11 @@
 #include "RenderView.h"
 
 #include "ContainerNodeInlines.h"
-#include "Document.h"
+#include "DocumentPage.h"
 #include "Element.h"
 #include "FloatQuad.h"
 #include "GraphicsContext.h"
+#include "GraphicsLayerEnums.h"
 #include "HTMLBodyElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLFrameSetElement.h"
@@ -70,6 +71,7 @@
 #include "SVGSVGElement.h"
 #include "Settings.h"
 #include "StyleInheritedData.h"
+#include "StyleScope.h"
 #include "TransformState.h"
 #include <wtf/SetForScope.h>
 #include <wtf/StackStats.h>
@@ -105,8 +107,12 @@ RenderView::RenderView(Document& document, RenderStyle&& style)
 RenderView::~RenderView()
 {
     ASSERT_WITH_MESSAGE(!m_rendererCount, "All renderers should be in the process of being deleted.");
+}
 
-    deleteLines();
+void RenderView::willBeDestroyed()
+{
+    invalidateLineLayout(InvalidationReason::InsertionOrRemoval);
+    RenderBlockFlow::willBeDestroyed();
 }
 
 void RenderView::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -375,7 +381,7 @@ RenderElement* RenderView::rendererForRootBackground() const
 static inline bool rendererObscuresBackground(const RenderElement& rootElement)
 {
     auto& style = rootElement.style();
-    if (style.usedVisibility() != Visibility::Visible || style.opacity() != 1 || style.hasTransform())
+    if (style.usedVisibility() != Visibility::Visible || !style.opacity().isOpaque() || style.hasTransform())
         return false;
 
     if (style.hasBorderRadius())
@@ -391,7 +397,7 @@ static inline bool rendererObscuresBackground(const RenderElement& rootElement)
     if (!rendererForBackground)
         return false;
 
-    if (rendererForBackground->style().backgroundClip() == FillBox::Text)
+    if (rendererForBackground->style().backgroundLayers().first().clip() == FillBox::Text)
         return false;
 
     return true;
@@ -480,7 +486,7 @@ bool RenderView::shouldRepaint(const LayoutRect& rect) const
 void RenderView::repaintRootContents()
 {
     if (layer()->isComposited()) {
-        layer()->setBackingNeedsRepaint(GraphicsLayer::DoNotClipToLayer);
+        layer()->setBackingNeedsRepaint(GraphicsLayerShouldClipToLayer::DoNotClip);
         return;
     }
 
@@ -645,7 +651,7 @@ IntRect RenderView::unscaledDocumentRect() const
 bool RenderView::rootBackgroundIsEntirelyFixed() const
 {
     if (auto* rootBackgroundRenderer = rendererForRootBackground())
-        return rootBackgroundRenderer->style().hasEntirelyFixedBackground();
+        return rootBackgroundRenderer->style().backgroundLayers().hasEntirelyFixedBackground();
     return false;
 }
 
@@ -852,6 +858,11 @@ RenderLayerCompositor& RenderView::compositor()
     return *m_compositor;
 }
 
+CheckedRef<RenderLayerCompositor> RenderView::checkedCompositor()
+{
+    return compositor();
+}
+
 void RenderView::setIsInWindow(bool isInWindow)
 {
     if (m_compositor)
@@ -999,9 +1010,10 @@ void RenderView::updatePlayStateForAllAnimations(const IntRect& visibleRect)
             }
         };
 
-        for (RefPtr layer = renderElement.style().backgroundLayers(); layer; layer = layer->next())
-            updateAnimation(layer->image() ? layer->image()->cachedImage() : nullptr);
-
+        for (auto& layer : renderElement.style().backgroundLayers()) {
+            RefPtr image = layer.image().tryStyleImage();
+            updateAnimation(image ? image->cachedImage() : nullptr);
+        }
         if (auto* renderImage = dynamicDowncast<RenderImage>(renderElement))
             updateAnimation(renderImage->cachedImage());
 
@@ -1120,6 +1132,12 @@ void RenderView::registerPositionTryBox(const RenderBox& box)
 void RenderView::unregisterPositionTryBox(const RenderBox& box)
 {
     m_positionTryBoxes.remove(box);
+
+    // Explicitly forget the last successful position option here, so if the box
+    // ever comes back (i.e display: none to non-none), we don't accidentally reuse
+    // the last successful position option.
+    if (auto styleable = Styleable::fromRenderer(box))
+        document().styleScope().forgetLastSuccessfulPositionOptionIndex(*styleable);
 }
 
 void RenderView::addCounterNeedingUpdate(RenderCounter& renderer)

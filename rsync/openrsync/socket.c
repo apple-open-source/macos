@@ -1142,9 +1142,6 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 		goto out;
 	}
 
-	sess.mplex_reads = 1;
-	LOG2("read multiplexing enabled");
-
 	LOG2("socket detected client version %d, server version %d, "
 	    "negotiated protocol version %d, seed %d",
 	    sess.lver, sess.rver, sess.protocol, sess.seed);
@@ -1153,8 +1150,16 @@ rsync_socket(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	LOG2("Delta transmission %s for this transfer",
 	    sess.opts->whole_file ? "disabled" : "enabled");
 
+	sess.mplex_reads = 1;
+	LOG2("client read multiplexing enabled");
+
 	if (f->mode == FARGS_RECEIVER) {
 		const char *sink = f->sink;
+
+		if (sess.opts->remove_source && !sess.opts->read_batch) {
+			sess.mplex_writes = 1;
+			LOG2("client write multiplexing enabled");
+		}
 
 		LOG2("client starting receiver: %s", f->host);
 		if (sink == NULL) {

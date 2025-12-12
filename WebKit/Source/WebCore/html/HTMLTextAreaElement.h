@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "HTMLTextFormControlElement.h"
+#include <WebCore/HTMLTextFormControlElement.h>
 
 namespace WebCore {
 

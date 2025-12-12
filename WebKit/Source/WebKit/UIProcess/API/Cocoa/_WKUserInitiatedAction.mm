@@ -43,14 +43,14 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKUserInitiatedAction.class, self))
         return;
 
-    _userInitiatedAction->~UserInitiatedAction();
+    SUPPRESS_UNRETAINED_ARG _userInitiatedAction->~UserInitiatedAction();
 
     [super dealloc];
 }
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %p; consumed = %s>", NSStringFromClass(self.class), self, self.consumed ? "YES" : "NO"];
+    return [NSString stringWithFormat:@"<%@: %p; consumed = %s>", RetainPtr { NSStringFromClass(self.class) }.get(), self, self.consumed ? "YES" : "NO"];
 }
 
 - (void)consume

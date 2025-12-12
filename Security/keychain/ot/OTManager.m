@@ -468,6 +468,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     if(!context || error) {
         secnotice("octagon", "Cannot set passcode stash available flag: %@", error);
+        return;
     }
 
     [context passcodeStashAvailable:aksEventContext];

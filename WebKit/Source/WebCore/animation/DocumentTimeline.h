@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "AnimationFrameRate.h"
-#include "AnimationTimeline.h"
-#include "DocumentTimelineOptions.h"
-#include "Timer.h"
+#include <WebCore/AnimationFrameRate.h>
+#include <WebCore/AnimationTimeline.h>
+#include <WebCore/DocumentTimelineOptions.h>
+#include <WebCore/Timer.h>
 #include <wtf/Ref.h>
 #include <wtf/WeakPtr.h>
 
@@ -75,6 +75,7 @@ public:
     AnimationEvents prepareForPendingAnimationEventsDispatch();
     void documentDidUpdateAnimationsAndSendEvents();
     void styleOriginatedAnimationsWereCreated();
+    void pendingStartTimeWasSetOnAnimation();
 
     WEBCORE_EXPORT Seconds animationInterval() const;
     void suspendAnimations() override;

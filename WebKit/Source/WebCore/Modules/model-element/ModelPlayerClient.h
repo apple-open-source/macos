@@ -25,40 +25,49 @@
 
 #pragma once
 
-#include "LayerHostingContextIdentifier.h"
-#include "PlatformLayerIdentifier.h"
-#include "TransformationMatrix.h"
+#include <WebCore/LayerHostingContextIdentifier.h>
+#include <WebCore/PlatformLayerIdentifier.h>
+#include <WebCore/TransformationMatrix.h>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Forward.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 
 namespace WebCore {
+
 class FloatPoint3D;
-class ModelPlayerClient;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::ModelPlayerClient> : std::true_type { };
-}
-
-namespace WebCore {
-
+class HTMLModelElement;
 class ModelPlayer;
 class ResourceError;
 
-class WEBCORE_EXPORT ModelPlayerClient : public CanMakeWeakPtr<ModelPlayerClient> {
+#if ENABLE(GPU_PROCESS_MODEL)
+class WEBCORE_EXPORT ModelPlayerClient : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ModelPlayerClient> {
+#else
+class WEBCORE_EXPORT ModelPlayerClient : public AbstractRefCountedAndCanMakeWeakPtr<ModelPlayerClient> {
+#endif
 public:
     virtual ~ModelPlayerClient();
 
     virtual void didUpdateLayerHostingContextIdentifier(ModelPlayer&, LayerHostingContextIdentifier) = 0;
+#if ENABLE(GPU_PROCESS_MODEL)
+    // FIXME: Merge with `didUpdateLayerHostingContextIdentifier`, as both just want to trigger `renderer->updateFromElement()` and mean the same thing semantically.
+    virtual void didUpdateDisplayDelegate(ModelPlayer&) const = 0;
+#endif
+
     virtual void didFinishLoading(ModelPlayer&) = 0;
     virtual void didFailLoading(ModelPlayer&, const ResourceError&) = 0;
-#if ENABLE(MODEL_PROCESS)
-    virtual void didUpdateEntityTransform(ModelPlayer&, const TransformationMatrix&) = 0;
-    virtual void didUpdateBoundingBox(ModelPlayer&, const FloatPoint3D&, const FloatPoint3D&) = 0;
-    virtual void didFinishEnvironmentMapLoading(bool succeeded) = 0;
-    virtual void didUnload(ModelPlayer&) = 0;
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
+    // FIXME: This should be made consistent with didFinishLoading/didFailLoading, by splitting it into a didFinishEnvironmentMapLoading and a didFailEnvironmentMapLoading which takes a `const ResourceError&`.
+    virtual void didFinishEnvironmentMapLoading(ModelPlayer&, bool succeeded) = 0;
 #endif
+    virtual void didUnload(ModelPlayer&) = 0;
+
+#if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
+    virtual void didUpdateEntityTransform(ModelPlayer&, const TransformationMatrix&) = 0;
+#endif
+#if ENABLE(MODEL_ELEMENT_BOUNDING_BOX)
+    virtual void didUpdateBoundingBox(ModelPlayer&, const FloatPoint3D&, const FloatPoint3D&) = 0;
+#endif
+
     virtual std::optional<PlatformLayerIdentifier> modelContentsLayerID() const = 0;
     virtual bool isVisible() const = 0;
     virtual bool isIntersectingViewport() const = 0;

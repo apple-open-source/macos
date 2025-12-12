@@ -15,6 +15,7 @@
 int policytree_verbose = DUMP_POLICY_TREE;
 
 static bool randomly_add_children(policy_tree_t node, void *ctx) {
+    policy_tree_t root = (policy_tree_t)ctx;
     int i, count;
     uint32_t rnd = arc4random();
 #if 1
@@ -39,7 +40,7 @@ static bool randomly_add_children(policy_tree_t node, void *ctx) {
     diag("node %p add %d children", node, count);
 #endif
     for (i = 1; i <= count ; ++i) {
-        policy_tree_add_child(node, &oidAnyPolicy, NULL);
+        (void)policy_tree_add_child(root, node, &oidAnyPolicy, NULL);
         //diag("node %p %d/%d children added", node, i, count);
         //policy_tree_dump(node);
     }
@@ -57,7 +58,7 @@ static void tests(void)
 #if 0
     int i, count = 4;
     for (i = 1; i <= count ; ++i) {
-        policy_tree_add_child(tree, &oidAnyPolicy, NULL);
+        policy_tree_add_child(tree, tree, &oidAnyPolicy, NULL);
 #if DUMP_POLICY_TREE
         diag("node %p %d/%d children added", tree, i, count);
 #endif
@@ -69,7 +70,7 @@ static void tests(void)
         bool added = false;
         while (!added) {
             added = policy_tree_walk_depth(tree, depth,
-                randomly_add_children, NULL);
+                randomly_add_children, tree);
 #if DUMP_POLICY_TREE
             diag("depth: %d %s", depth,
                 (added ? "added children" : "no children added"));

@@ -7,6 +7,10 @@
 //    Implements the class methods for TextureVk.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "libANGLE/renderer/vulkan/TextureVk.h"
 #include <vulkan/vulkan.h>
 
@@ -2657,8 +2661,6 @@ angle::Result TextureVk::copyBufferDataToImage(ContextVk *contextVk,
 
 angle::Result TextureVk::generateMipmapsWithCompute(ContextVk *contextVk)
 {
-    vk::Renderer *renderer = contextVk->getRenderer();
-
     // Requires that the image:
     //
     // - is not sRGB
@@ -2688,7 +2690,8 @@ angle::Result TextureVk::generateMipmapsWithCompute(ContextVk *contextVk)
     vk::SharedSamplerPtr sampler;
     vk::SamplerDesc samplerDesc(contextVk, samplerState, false, nullptr,
                                 static_cast<angle::FormatID>(0));
-    ANGLE_TRY(renderer->getSamplerCache().getSampler(contextVk, samplerDesc, &sampler));
+    ANGLE_TRY(
+        contextVk->getShareGroup()->getSamplerCache().getSampler(contextVk, samplerDesc, &sampler));
 
     // If the image has more levels than supported, generate as many mips as possible at a time.
     const vk::LevelIndex maxGenerateLevels(UtilsVk::GetGenerateMipmapMaxLevels(contextVk));
@@ -3147,7 +3150,9 @@ angle::Result TextureVk::respecifyImageStorage(ContextVk *contextVk)
     else
     {
         const vk::Format &format = getBaseLevelFormat(contextVk->getRenderer());
-        if (mImage->getActualFormatID() != format.getActualImageFormatID(getRequiredImageAccess()))
+        if (mImage->getActualFormatID() !=
+                format.getActualImageFormatID(getRequiredImageAccess()) &&
+            mImage->getLevelCount() == getMipLevelCount(ImageMipLevels::EnabledLevels))
         {
             ANGLE_TRY(reinitImageAsRenderable(contextVk, format));
         }
@@ -3260,6 +3265,26 @@ angle::Result TextureVk::getAttachmentRenderTarget(const gl::Context *context,
         }
     }
 
+    // If rendering to a YUV image and nullColorAttachmentWithExternalFormatResolve is not supported
+    // create an RGB image that is otherwise identical to the YUV image. This new RGB image
+    // will be used as the draw attachment, while the original YUV image is used as the resolve
+    // attachment.
+    if (mImage->isYuvExternalFormat() && mRgbDrawImageForYuvResolve == nullptr &&
+        !contextVk->getRenderer()->nullColorAttachmentWithExternalFormatResolve())
+    {
+        vk::Renderer *renderer = contextVk->getRenderer();
+
+        // Allocate implicit RGB image and image view
+        mRgbDrawImageForYuvResolve      = std::make_unique<vk::ImageHelper>();
+        mRgbDrawImageViewsForYuvResolve = std::make_unique<vk::ImageViewHelper>();
+
+        // Initialize implicit RGB image and image view
+        ANGLE_TRY(mRgbDrawImageForYuvResolve->initRgbDrawImageForYuvResolve(
+            contextVk, renderer->getMemoryProperties(), *mImage,
+            contextVk->isRobustResourceInitEnabled()));
+        mRgbDrawImageViewsForYuvResolve->init(renderer);
+    }
+
     GLuint layerIndex = 0, layerCount = 0, imageLayerCount = 0;
     GetRenderTargetLayerCountAndIndex(mImage, imageIndex, &layerIndex, &layerCount,
                                       &imageLayerCount);
@@ -3367,7 +3392,7 @@ void TextureVk::initSingleLayerRenderTargets(ContextVk *contextVk,
     if (isMultisampledRenderToTexture)
     {
         ASSERT(mMultisampledImages->at(renderToTextureIndex)[requestedLevel].valid());
-        ASSERT(!mImage->isYuvResolve());
+        ASSERT(!mImage->isYuvExternalFormat());
 
         resolveImage      = drawImage;
         resolveImageViews = drawImageViews;
@@ -3386,7 +3411,7 @@ void TextureVk::initSingleLayerRenderTargets(ContextVk *contextVk,
             transience = RenderTargetTransience::MultisampledTransient;
         }
     }
-    else if (mImage->isYuvResolve())
+    else if (mImage->isYuvExternalFormat())
     {
         // If rendering to YUV, similar to multisampled render to texture
         resolveImage      = drawImage;
@@ -3401,11 +3426,9 @@ void TextureVk::initSingleLayerRenderTargets(ContextVk *contextVk,
         }
         else
         {
-            transience = RenderTargetTransience::YuvResolveTransient;
-            // Need to populate drawImage here; either abuse mMultisampledImages etc
-            // or build something parallel to it. we don't have a vulkan implementation which
-            // wants this path yet, though.
-            UNREACHABLE();
+            transience     = RenderTargetTransience::YuvResolveTransient;
+            drawImage      = mRgbDrawImageForYuvResolve.get();
+            drawImageViews = mRgbDrawImageViewsForYuvResolve.get();
         }
     }
 
@@ -3781,9 +3804,10 @@ angle::Result TextureVk::syncState(const gl::Context *context,
     vk::SamplerDesc samplerDescSamplerExternal2DY2YEXT(contextVk, mState.getSamplerState(),
                                                        mState.isStencilMode(), &y2yConversionDesc,
                                                        mImage->getIntendedFormatID());
-    ANGLE_TRY(renderer->getSamplerCache().getSampler(contextVk, samplerDesc, &mSampler));
-    ANGLE_TRY(renderer->getSamplerCache().getSampler(contextVk, samplerDescSamplerExternal2DY2YEXT,
-                                                     &mY2YSampler));
+    ANGLE_TRY(contextVk->getShareGroup()->getSamplerCache().getSampler(contextVk, samplerDesc,
+                                                                       &mSampler));
+    ANGLE_TRY(contextVk->getShareGroup()->getSamplerCache().getSampler(
+        contextVk, samplerDescSamplerExternal2DY2YEXT, &mY2YSampler));
 
     updateCachedImageViewSerials();
 
@@ -3882,7 +3906,7 @@ const vk::ImageView &TextureVk::getCopyImageView() const
     return imageViews.getLinearCopyImageView();
 }
 
-angle::Result TextureVk::getLevelLayerImageView(vk::ErrorContext *context,
+angle::Result TextureVk::getLevelLayerImageView(ContextVk *contextVk,
                                                 gl::LevelIndex level,
                                                 size_t layer,
                                                 const vk::ImageView **imageViewOut)
@@ -3893,15 +3917,15 @@ angle::Result TextureVk::getLevelLayerImageView(vk::ErrorContext *context,
     vk::LevelIndex levelVk = mImage->toVkLevel(levelGL);
     uint32_t nativeLayer   = getNativeImageLayer(static_cast<uint32_t>(layer));
 
-    return getImageViews().getLevelLayerDrawImageView(context, *mImage, levelVk, nativeLayer,
+    return getImageViews().getLevelLayerDrawImageView(contextVk, *mImage, levelVk, nativeLayer,
                                                       imageViewOut);
 }
 
-angle::Result TextureVk::getStorageImageView(vk::ErrorContext *context,
+angle::Result TextureVk::getStorageImageView(ContextVk *contextVk,
                                              const gl::ImageUnit &binding,
                                              const vk::ImageView **imageViewOut)
 {
-    vk::Renderer *renderer = context->getRenderer();
+    vk::Renderer *renderer = contextVk->getRenderer();
 
     angle::FormatID formatID = angle::Format::InternalFormatToID(binding.format);
     const vk::Format *format = &renderer->getFormat(formatID);
@@ -3919,7 +3943,7 @@ angle::Result TextureVk::getStorageImageView(vk::ErrorContext *context,
         uint32_t nativeLayer = getNativeImageLayer(static_cast<uint32_t>(binding.layer));
 
         return getImageViews().getLevelLayerStorageImageView(
-            context, *mImage, nativeLevelVk, nativeLayer,
+            contextVk, *mImage, nativeLevelVk, nativeLayer,
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             format->getActualImageFormatID(getRequiredImageAccess()), imageViewOut);
     }
@@ -3927,7 +3951,7 @@ angle::Result TextureVk::getStorageImageView(vk::ErrorContext *context,
     uint32_t nativeLayer = getNativeImageLayer(0);
 
     return getImageViews().getLevelStorageImageView(
-        context, mState.getType(), *mImage, nativeLevelVk, nativeLayer,
+        contextVk, mState.getType(), *mImage, nativeLevelVk, nativeLayer,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
         format->getActualImageFormatID(getRequiredImageAccess()), imageViewOut);
 }
@@ -4137,8 +4161,9 @@ angle::Result TextureVk::initImage(ContextVk *contextVk,
     }
 
     // Fixed rate compression
-    VkImageCompressionControlEXT *compressionInfo   = nullptr;
-    VkImageCompressionControlEXT compressionInfoVar = {};
+    VkImageCompressionControlEXT *compressionInfo        = nullptr;
+    VkImageCompressionControlEXT compressionInfoVar      = {};
+    VkImageCompressionFixedRateFlagsEXT compressionRates = VK_IMAGE_COMPRESSION_FIXED_RATE_NONE_EXT;
     if (renderer->getFeatures().supportsImageCompressionControl.enabled && mOwnsImage &&
         mState.getSurfaceCompressionFixedRate() != GL_SURFACE_COMPRESSION_FIXED_RATE_NONE_EXT)
     {
@@ -4146,16 +4171,11 @@ angle::Result TextureVk::initImage(ContextVk *contextVk,
         // Use default compression control flag for query
         compressionInfoVar.flags = VK_IMAGE_COMPRESSION_FIXED_RATE_DEFAULT_EXT;
 
-        VkImageCompressionPropertiesEXT compressionProp = {};
-        compressionProp.sType = VK_STRUCTURE_TYPE_IMAGE_COMPRESSION_PROPERTIES_EXT;
-
         // If fixed rate compression is supported by this type, not support YUV now.
         const vk::Format &format = renderer->getFormat(intendedImageFormatID);
-        if (!mImage->isYuvResolve() &&
+        if (!mImage->isYuvExternalFormat() &&
             (GetFormatSupportedCompressionRates(renderer, format, 0, nullptr) != 0))
         {
-            VkImageCompressionFixedRateFlagsEXT compressionRates =
-                VK_IMAGE_COMPRESSION_FIXED_RATE_NONE_EXT;
             GetCompressionFixedRate(&compressionInfoVar, &compressionRates,
                                     mState.getSurfaceCompressionFixedRate());
             compressionInfo = &compressionInfoVar;
@@ -4271,6 +4291,13 @@ void TextureVk::releaseImage(ContextVk *contextVk)
         mMultisampledImages.reset();
     }
 
+    if (mRgbDrawImageForYuvResolve)
+    {
+        mRgbDrawImageForYuvResolve->releaseImageFromShareContexts(renderer, contextVk,
+                                                                  mImageSiblingSerial);
+        mRgbDrawImageForYuvResolve.reset();
+    }
+
     onStateChange(angle::SubjectMessage::SubjectChanged);
     mRedefinedLevels = {};
 }
@@ -4315,6 +4342,12 @@ void TextureVk::releaseImageViews(ContextVk *contextVk)
             }
         }
         mMultisampledImageViews.reset();
+    }
+
+    if (mRgbDrawImageViewsForYuvResolve)
+    {
+        mRgbDrawImageViewsForYuvResolve->release(renderer, mImage->getResourceUse());
+        mRgbDrawImageViewsForYuvResolve.reset();
     }
 
     for (auto &renderTargets : mSingleLayerRenderTargets)

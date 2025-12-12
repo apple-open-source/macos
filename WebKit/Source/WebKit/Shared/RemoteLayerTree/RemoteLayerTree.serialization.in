@@ -88,23 +88,15 @@ enum class WebKit::SwapBuffersDisplayRequirement : uint8_t {
     NeedsNoDisplay
 };
 
-headers: "RemoteLayerBackingStore.h"
-enum class WebKit::LayerContentsType : uint8_t {
-  IOSurface
-  CAMachPort
-  CachedIOSurface
-};
-
 header: "RemoteLayerBackingStore.h"
 [Nested] enum class WebKit::RemoteLayerBackingStore::Type : bool;
 
 [RValue, CustomHeader, LegacyPopulateFromEmptyConstructor] class WebKit::RemoteLayerBackingStoreProperties {
     std::optional<WebKit::ImageBufferBackendHandle> m_bufferHandle;
-    [NotSerialized] RetainPtr<id> m_contentsBuffer;
-    std::optional<WebKit::RemoteImageBufferSetIdentifier> m_bufferSet;
-    std::optional<WebKit::BufferAndBackendInfo> m_frontBufferInfo;
-    std::optional<WebKit::BufferAndBackendInfo> m_backBufferInfo;
-    std::optional<WebKit::BufferAndBackendInfo> m_secondaryBackBufferInfo;
+    std::optional<WebKit::ImageBufferSetIdentifier> m_bufferSet;
+    [NotSerialized] std::optional<WebKit::BufferAndBackendInfo> m_frontBufferInfo;
+    [NotSerialized] std::optional<WebKit::BufferAndBackendInfo> m_backBufferInfo;
+    [NotSerialized] std::optional<WebKit::BufferAndBackendInfo> m_secondaryBackBufferInfo;
     std::optional<WebCore::RenderingResourceIdentifier> m_contentsRenderingResourceIdentifier;
     std::optional<WebCore::IntRect> m_paintedRect;
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
@@ -113,7 +105,6 @@ header: "RemoteLayerBackingStore.h"
     bool m_isOpaque;
     WebKit::RemoteLayerBackingStore::Type m_type;
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    bool m_hasExtendedDynamicRange;
     float m_maxRequestedEDRHeadroom;
 #endif
 };
@@ -155,6 +146,7 @@ header: "RemoteLayerBackingStore.h"
     double m_maximumScaleFactor;
     double m_initialScaleFactor;
     double m_viewportMetaTagWidth;
+    WebCore::InteractiveWidget m_viewportMetaTagInteractiveWidget;
     uint64_t m_renderTreeSize;
     WebKit::TransactionID m_transactionID;
     WebKit::ActivityStateChangeID m_activityStateChangeID;

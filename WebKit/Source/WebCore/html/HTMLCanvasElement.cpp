@@ -35,11 +35,13 @@
 #include "CanvasPattern.h"
 #include "CanvasRenderingContext2D.h"
 #include "CanvasRenderingContext2DSettings.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "ContainerNodeInlines.h"
+#include "DocumentQuirks.h"
+#include "DocumentView.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
+#include "FrameDestructionObserverInlines.h"
 #include "GPU.h"
 #include "GPUBasedCanvasRenderingContext.h"
 #include "GPUCanvasContext.h"
@@ -63,7 +65,6 @@
 #include "NodeInlines.h"
 #include "OffscreenCanvas.h"
 #include "PlaceholderRenderingContext.h"
-#include "Quirks.h"
 #include "RenderBoxInlines.h"
 #include "RenderElement.h"
 #include "RenderHTMLCanvas.h"
@@ -187,7 +188,7 @@ RenderPtr<RenderElement> HTMLCanvasElement::createElementRenderer(RenderStyle&& 
     return HTMLElement::createElementRenderer(WTFMove(style), insertionPosition);
 }
 
-bool HTMLCanvasElement::isReplaced(const RenderStyle&) const
+bool HTMLCanvasElement::isReplaced(const RenderStyle*) const
 {
     RefPtr frame = document().frame();
     return frame && frame->checkedScript()->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript);
@@ -369,7 +370,7 @@ CanvasRenderingContext2D* HTMLCanvasElement::createContext2d(const String& type,
         return nullptr;
 
 #if ENABLE(PIXEL_FORMAT_RGBA16F) && HAVE(SUPPORT_HDR_DISPLAY)
-    if (m_context->pixelFormat() == ImageBufferPixelFormat::RGBA16F)
+    if (m_context->pixelFormat() == PixelFormat::RGBA16F)
         protectedDocument()->setHasHDRContent();
 #endif
 
@@ -486,7 +487,7 @@ WebGLRenderingContextBase* HTMLCanvasElement::getContextWebGL(WebGLVersion type,
     if ((type == WebGLVersion::WebGL1) != glContext->isWebGL1())
         return nullptr;
 
-    return glContext.get();
+    return glContext.unsafeGet();
 }
 
 #endif // ENABLE(WEBGL)
@@ -563,25 +564,43 @@ GPUCanvasContext* HTMLCanvasElement::getContextWebGPU(const String& type, GPU* g
     return dynamicDowncast<GPUCanvasContext>(m_context.get());
 }
 
+std::optional<FloatRect> HTMLCanvasElement::computeDirtyRectangleIfNeeded(const std::optional<FloatRect>& rect) const
+{
+    if (!rect)
+        return std::nullopt;
+
+#if ENABLE(DAMAGE_TRACKING)
+    if (usesContentsAsLayerContents() && !document().settings().propagateDamagingInformation())
+        return std::nullopt;
+#else
+    if (usesContentsAsLayerContents())
+        return std::nullopt;
+#endif
+
+    FloatRect destRect;
+    CheckedPtr renderer = renderBox();
+    if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer))
+        destRect = renderReplaced->replacedContentRect();
+    else
+        destRect = renderer->contentBoxRect();
+
+    FloatRect dirtyRect = mapRect(*rect, FloatRect { { }, size() }, destRect);
+    dirtyRect.intersect(destRect);
+    if (dirtyRect.isEmpty())
+        return std::nullopt;
+
+    return dirtyRect;
+}
+
 void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
     clearCopiedImage();
     if (CheckedPtr renderer = renderBox()) {
+        const std::optional<FloatRect> dirtyRect = computeDirtyRectangleIfNeeded(rect);
         if (usesContentsAsLayerContents())
-            renderer->contentChanged(ContentChangeType::CanvasPixels);
-        else if (rect) {
-            FloatRect destRect;
-            if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer))
-                destRect = renderReplaced->replacedContentRect();
-            else
-                destRect = renderer->contentBoxRect();
-
-            FloatRect r = mapRect(*rect, FloatRect { { }, size() }, destRect);
-            r.intersect(destRect);
-
-            if (!r.isEmpty())
-                renderer->repaintRectangle(enclosingIntRect(r));
-        }
+            renderer->contentChanged(ContentChangeType::CanvasPixels, dirtyRect);
+        else if (dirtyRect)
+            renderer->repaintRectangle(enclosingIntRect(*dirtyRect));
     }
     CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
 }
@@ -704,7 +723,7 @@ ExceptionOr<UncachedString> HTMLCanvasElement::toDataURL(const String& mimeType,
         return UncachedString { "data:,"_s };
     Ref document = this->document();
     if (document->settings().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logCanvasRead(document);
+        ResourceLoadObserver::singleton().logCanvasRead(document);
 
     auto encodingMIMEType = toEncodingMimeType(mimeType);
     auto quality = qualityFromJSValue(qualityValue);
@@ -719,13 +738,13 @@ ExceptionOr<UncachedString> HTMLCanvasElement::toDataURL(const String& mimeType,
 #if USE(CG)
     // Try to get ImageData first, as that may avoid lossy conversions.
     if (auto imageData = getImageData())
-        return UncachedString { dataURL(imageData->pixelBuffer(), encodingMIMEType, quality) };
+        return UncachedString { dataURL(imageData->byteArrayPixelBuffer(), encodingMIMEType, quality) };
 #endif
 
     if (auto url = document->quirks().advancedPrivacyProtectionSubstituteDataURLForScriptWithFeatures(lastFillText(), width(), height()); !url.isNull()) {
         RELEASE_LOG(FingerprintingMitigation, "HTMLCanvasElement::toDataURL: Quirking returned URL for identified fingerprinting script");
         auto consoleMessage = "Detected fingerprinting script. Quirking value returned from HTMLCanvasElement.toDataURL()"_s;
-        canvasBaseScriptExecutionContext()->addConsoleMessage(MessageSource::Rendering, MessageLevel::Info, consoleMessage);
+        protectedCanvasBaseScriptExecutionContext()->addConsoleMessage(MessageSource::Rendering, MessageLevel::Info, consoleMessage);
         return UncachedString { url };
     }
     RefPtr buffer = makeRenderingResultsAvailable();
@@ -750,7 +769,7 @@ ExceptionOr<void> HTMLCanvasElement::toBlob(Ref<BlobCallback>&& callback, const 
         return { };
     }
     if (document->settings().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logCanvasRead(document);
+        ResourceLoadObserver::singleton().logCanvasRead(document);
 
     auto encodingMIMEType = toEncodingMimeType(mimeType);
     auto quality = qualityFromJSValue(qualityValue);
@@ -769,7 +788,7 @@ ExceptionOr<void> HTMLCanvasElement::toBlob(Ref<BlobCallback>&& callback, const 
 
 #if USE(CG)
     if (auto imageData = getImageData()) {
-        scheduleCallbackWithBlobData(WTFMove(callback), encodeData(imageData->pixelBuffer(), encodingMIMEType, quality));
+        scheduleCallbackWithBlobData(WTFMove(callback), encodeData(imageData->byteArrayPixelBuffer(), encodingMIMEType, quality));
         return { };
     }
 #endif
@@ -807,7 +826,7 @@ RefPtr<ImageData> HTMLCanvasElement::getImageData()
 
     Ref document = this->document();
     if (document->settings().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logCanvasRead(document.get());
+        ResourceLoadObserver::singleton().logCanvasRead(document.get());
 
     RefPtr pixelBuffer = context->drawingBufferToPixelBuffer();
     if (!pixelBuffer)
@@ -829,13 +848,13 @@ RefPtr<VideoFrame> HTMLCanvasElement::toVideoFrame()
 #if ENABLE(WEBGL)
     if (RefPtr context = dynamicDowncast<WebGLRenderingContextBase>(m_context.get())) {
         if (document->settings().webAPIStatisticsEnabled())
-            ResourceLoadObserver::shared().logCanvasRead(document.get());
+            ResourceLoadObserver::singleton().logCanvasRead(document.get());
         return context->surfaceBufferToVideoFrame(CanvasRenderingContext::SurfaceBuffer::DrawingBuffer);
     }
 #endif
 
     if (document->settings().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logCanvasRead(document.get());
+        ResourceLoadObserver::singleton().logCanvasRead(document.get());
 
     RefPtr imageBuffer = makeRenderingResultsAvailable();
     if (!imageBuffer)
@@ -865,7 +884,7 @@ ExceptionOr<Ref<MediaStream>> HTMLCanvasElement::captureStream(std::optional<dou
         return Exception(ExceptionCode::SecurityError, "Canvas is tainted"_s);
     Ref document = this->document();
     if (document->settings().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logCanvasRead(document.get());
+        ResourceLoadObserver::singleton().logCanvasRead(document.get());
 
     if (frameRequestRate && frameRequestRate.value() < 0)
         return Exception(ExceptionCode::NotSupportedError, "frameRequestRate is negative"_s);

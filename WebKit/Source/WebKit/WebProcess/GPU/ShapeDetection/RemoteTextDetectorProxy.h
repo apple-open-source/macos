@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "RenderingBackendIdentifier.h"
+#include "RemoteRenderingBackendIdentifier.h"
 #include "ShapeDetectionIdentifier.h"
 #include <WebCore/TextDetectorInterface.h>
 #include <wtf/CompletionHandler.h>
@@ -49,12 +49,12 @@ namespace WebKit::ShapeDetection {
 class RemoteTextDetectorProxy : public WebCore::ShapeDetection::TextDetector {
     WTF_MAKE_TZONE_ALLOCATED(RemoteTextDetectorProxy);
 public:
-    static Ref<RemoteTextDetectorProxy> create(Ref<IPC::StreamClientConnection>&&, RenderingBackendIdentifier, ShapeDetectionIdentifier);
+    static Ref<RemoteTextDetectorProxy> create(Ref<IPC::StreamClientConnection>&&, RemoteRenderingBackendIdentifier, ShapeDetectionIdentifier);
 
     virtual ~RemoteTextDetectorProxy();
 
 private:
-    RemoteTextDetectorProxy(Ref<IPC::StreamClientConnection>&&, RenderingBackendIdentifier, ShapeDetectionIdentifier);
+    RemoteTextDetectorProxy(Ref<IPC::StreamClientConnection>&&, RemoteRenderingBackendIdentifier, ShapeDetectionIdentifier);
 
     RemoteTextDetectorProxy(const RemoteTextDetectorProxy&) = delete;
     RemoteTextDetectorProxy(RemoteTextDetectorProxy&&) = delete;
@@ -67,7 +67,7 @@ private:
 
     ShapeDetectionIdentifier m_backing;
     const Ref<IPC::StreamClientConnection> m_streamClientConnection;
-    RenderingBackendIdentifier m_renderingBackendIdentifier;
+    RemoteRenderingBackendIdentifier m_renderingBackendIdentifier;
 };
 
 } // namespace WebKit::ShapeDetection

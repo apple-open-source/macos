@@ -235,7 +235,7 @@ void RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded()
         if (!m_shouldApplyRotation && (m_currentRotation == webrtc::kVideoRotation_270 || m_currentRotation == webrtc::kVideoRotation_90))
             std::swap(width, height);
 
-        m_blackFrame = createBlackFrame(width, height);
+        m_blackFrame = WTF::toRef(createBlackFrame(width, height));
         ASSERT(m_blackFrame);
         if (!m_blackFrame) {
             ALWAYS_LOG(LOGIDENTIFIER, "Unable to send black frames");
@@ -249,7 +249,7 @@ void RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded()
 void RealtimeOutgoingVideoSource::sendOneBlackFrame()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    sendFrame(webrtc::scoped_refptr<webrtc::VideoFrameBuffer>(m_blackFrame));
+    sendFrame(webrtc::scoped_refptr { m_blackFrame.get() });
 }
 
 void RealtimeOutgoingVideoSource::sendFrame(webrtc::scoped_refptr<webrtc::VideoFrameBuffer>&& buffer)

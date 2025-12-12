@@ -35,6 +35,7 @@
 #import "WebProcess.h"
 #import <WebCore/CVUtilities.h>
 #import <WebCore/GraphicsLayerContentsDisplayDelegate.h>
+#import <WebCore/GraphicsLayerEnums.h>
 #import <WebCore/IOSurface.h>
 #import <WebCore/PlatformCALayer.h>
 #import <WebCore/PlatformCALayerDelegatedContents.h>
@@ -100,9 +101,9 @@ public:
             layer.clearContents();
     }
 
-    WebCore::GraphicsLayer::CompositingCoordinatesOrientation orientation() const final
+    WebCore::GraphicsLayerCompositingCoordinatesOrientation orientation() const final
     {
-        return WebCore::GraphicsLayer::CompositingCoordinatesOrientation::BottomUp;
+        return WebCore::GraphicsLayerCompositingCoordinatesOrientation::BottomUp;
     }
 
     void setDisplayBuffer(MachSendRight&& displayBuffer, RefPtr<DisplayBufferFence> finishedFence)
@@ -130,7 +131,7 @@ private:
 };
 
 class RemoteGraphicsContextGLProxyCocoa final : public RemoteGraphicsContextGLProxy {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(RemoteGraphicsContextGLProxyCocoa);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteGraphicsContextGLProxyCocoa);
 public:
     // RemoteGraphicsContextGLProxy overrides.

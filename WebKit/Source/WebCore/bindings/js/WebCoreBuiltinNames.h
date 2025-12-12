@@ -71,7 +71,6 @@ namespace WebCore {
     macro(ApplePaySession) \
     macro(ApplePaySetup) \
     macro(ApplePaySetupFeature) \
-    macro(ApplicationCache) \
     macro(AttachmentElement) \
     macro(Audio) \
     macro(AudioBuffer) \
@@ -134,6 +133,9 @@ namespace WebCore {
     macro(CSSCounterStyleRule) \
     macro(CSSColor) \
     macro(CSSColorValue) \
+    macro(CSSFunctionDeclarations) \
+    macro(CSSFunctionDescriptors) \
+    macro(CSSFunctionRule) \
     macro(CSSHSL) \
     macro(CSSHWB) \
     macro(CSSImageValue) \
@@ -195,6 +197,7 @@ namespace WebCore {
     macro(ElementInternals) \
     macro(EncodedAudioChunk) \
     macro(EncodedVideoChunk) \
+    macro(EventCounts) \
     macro(ExtendableCookieChangeEvent) \
     macro(ExtendableEvent) \
     macro(ExtendableMessageEvent) \
@@ -292,6 +295,7 @@ namespace WebCore {
     macro(InstallEvent) \
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \
+    macro(LargestContentfulPaint) \
     macro(KeyframeEffect) \
     macro(Lock) \
     macro(LockManager) \
@@ -357,6 +361,7 @@ namespace WebCore {
     macro(PaintWorkletGlobalScope) \
     macro(PerformanceEntry) \
     macro(PerformanceEntryList) \
+    macro(PerformanceEventTiming) \
     macro(PerformanceMark) \
     macro(PerformanceMeasure) \
     macro(PerformanceObserver) \
@@ -409,9 +414,9 @@ namespace WebCore {
     macro(RTCTrackEvent) \
     macro(RTCTransformEvent) \
     macro(ReadableByteStreamController) \
-    macro(ReadableStream) \
     macro(ReadableStreamBYOBReader) \
     macro(ReadableStreamBYOBRequest) \
+    macro(ReadableStream) \
     macro(ReadableStreamDefaultController) \
     macro(ReadableStreamDefaultReader) \
     macro(RemotePlayback) \
@@ -502,6 +507,8 @@ namespace WebCore {
     macro(WebKitMediaKeyNeededEvent) \
     macro(WebKitMediaKeySession) \
     macro(WebKitMediaKeys) \
+    macro(WebKitSerializedNode) \
+    macro(WebKitJSHandle) \
     macro(WebSocket) \
     macro(WebTransport) \
     macro(WebTransportBidirectionalStream) \
@@ -554,12 +561,12 @@ namespace WebCore {
     macro(XRWebGLBinding) \
     macro(XRWebGLLayer) \
     macro(XRWebGLSubImage) \
+    macro(XSLTProcessor) \
     macro(VideoTrackGenerator) \
     macro(abortAlgorithm) \
     macro(abortSteps) \
     macro(addAbortAlgorithmToSignal) \
     macro(appendFromJS) \
-    macro(associatedReadableByteStreamController) \
     macro(autoAllocateChunkSize) \
     macro(backingMap) \
     macro(backingSet) \
@@ -600,7 +607,6 @@ namespace WebCore {
     macro(encode) \
     macro(encoding) \
     macro(errorSteps) \
-    macro(failureKind) \
     macro(fatal) \
     macro(fetch) \
     macro(fetchRequest) \
@@ -638,6 +644,7 @@ namespace WebCore {
     macro(isSecureContext) \
     macro(kind) \
     macro(language) \
+    macro(localStorage) \
     macro(localStreams) \
     macro(location) \
     macro(makeDOMException) \
@@ -694,7 +701,6 @@ namespace WebCore {
     macro(readable) \
     macro(readIntoRequests) \
     macro(readRequests) \
-    macro(readableByteStreamAPIEnabled) \
     macro(readableStreamController) \
     macro(reader) \
     macro(readyPromise) \
@@ -706,6 +712,7 @@ namespace WebCore {
     macro(responseCacheIsValid) \
     macro(retrieveResponse) \
     macro(self) \
+    macro(sessionStorage) \
     macro(setBody) \
     macro(setBodyFromInputRequest) \
     macro(setStatus) \
@@ -746,6 +753,7 @@ namespace WebCore {
     macro(underlyingByteSource) \
     macro(underlyingSink) \
     macro(underlyingSource) \
+    macro(utils) \
     macro(view) \
     macro(visualViewport) \
     macro(webkit) \

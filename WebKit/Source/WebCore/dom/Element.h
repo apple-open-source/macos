@@ -24,17 +24,16 @@
 
 #pragma once
 
-#include "AXTextStateChangeIntent.h"
-#include "ContainerNode.h"
-#include "ElementIdentifier.h"
-#include "EventOptions.h"
-#include "FocusOptions.h"
-#include "HitTestRequest.h"
-#include "QualifiedName.h"
-#include "RenderPtr.h"
-#include "ScrollTypes.h"
-#include "SimulatedClickOptions.h"
 #include <JavaScriptCore/Forward.h>
+#include <WebCore/AXTextStateChangeIntent.h>
+#include <WebCore/ContainerNode.h>
+#include <WebCore/EventOptions.h>
+#include <WebCore/FocusOptions.h>
+#include <WebCore/HitTestRequest.h>
+#include <WebCore/QualifiedName.h>
+#include <WebCore/RenderPtr.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/SimulatedClickOptions.h>
 
 #define DUMP_NODE_STATISTICS 0
 
@@ -138,6 +137,7 @@ struct GetAnimationsOptions;
 struct GetHTMLOptions;
 struct IntersectionObserverData;
 struct KeyframeAnimationOptions;
+struct ElementLargestContentfulPaintData;
 struct PointerLockOptions;
 struct ResizeObserverData;
 struct ScrollIntoViewOptions;
@@ -223,6 +223,30 @@ public:
 
     enum class TopLayerElementType : bool { Other, Popover };
     HTMLElement* topmostPopoverAncestor(TopLayerElementType topLayerType);
+
+    // https://github.com/w3c/aria/pull/2484
+    // These ARIA attributes will become enumerated. Currently, they use [ReflectSetter] with custom getters
+    // rather than [Reflect, Enumerated] to facilitate testing behind the EnumeratedARIAAttributeReflectionEnabled flag.
+    const AtomString& ariaAtomic() const;
+    const AtomString& ariaAutoComplete() const;
+    const AtomString& ariaBusy() const;
+    const AtomString& ariaChecked() const;
+    const AtomString& ariaCurrent() const;
+    const AtomString& ariaDisabled() const;
+    const AtomString& ariaExpanded() const;
+    const AtomString& ariaHasPopup() const;
+    const AtomString& ariaHidden() const;
+    const AtomString& ariaInvalid() const;
+    const AtomString& ariaLive() const;
+    const AtomString& ariaModal() const;
+    const AtomString& ariaMultiLine() const;
+    const AtomString& ariaMultiSelectable() const;
+    const AtomString& ariaOrientation() const;
+    const AtomString& ariaPressed() const;
+    const AtomString& ariaReadOnly() const;
+    const AtomString& ariaRequired() const;
+    const AtomString& ariaSelected() const;
+    const AtomString& ariaSort() const;
 
 #if DUMP_NODE_STATISTICS
     bool hasNamedNodeMap() const;
@@ -371,8 +395,8 @@ public:
 
     String nodeName() const override;
 
-    Ref<Element> cloneElementWithChildren(Document&, CustomElementRegistry*);
-    Ref<Element> cloneElementWithoutChildren(Document&, CustomElementRegistry*);
+    Ref<Element> cloneElementWithChildren(Document&, CustomElementRegistry*) const;
+    Ref<Element> cloneElementWithoutChildren(Document&, CustomElementRegistry*) const;
 
     void normalizeAttributes();
 
@@ -420,13 +444,19 @@ public:
 
     virtual RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&);
     virtual bool rendererIsNeeded(const RenderStyle&);
-    virtual bool isReplaced(const RenderStyle&) const { return false; }
+    virtual bool isReplaced(const RenderStyle* = nullptr) const { return false; }
 
     inline ShadowRoot* shadowRoot() const; // Defined in ElementRareData.h
     RefPtr<ShadowRoot> shadowRootForBindings(JSC::JSGlobalObject&) const;
     RefPtr<ShadowRoot> openOrClosedShadowRoot() const;
     RefPtr<Element> resolveReferenceTarget() const;
     RefPtr<Element> retargetReferenceTargetForBindings(RefPtr<Element>) const;
+
+    bool isInLargestContentfulPaintTextContentSet() const { return hasStateFlag(StateFlag::InLargestContentfulPaintTextContentSet); }
+    void setInLargestContentfulPaintTextContentSet() { setStateFlag(StateFlag::InLargestContentfulPaintTextContentSet); }
+
+    void didDispatchShadowRootAttachedEvent() { clearStateFlag(StateFlag::IsShadowRootAttachedEventPending); }
+    void dispatchShadowRootAttachedEvent();
 
     enum class CustomElementRegistryKind : bool { Window, Null };
 
@@ -436,6 +466,7 @@ public:
     WEBCORE_EXPORT ShadowRoot* userAgentShadowRoot() const;
     RefPtr<ShadowRoot> protectedUserAgentShadowRoot() const;
     WEBCORE_EXPORT ShadowRoot& ensureUserAgentShadowRoot();
+    Ref<ShadowRoot> ensureProtectedUserAgentShadowRoot();
     WEBCORE_EXPORT ShadowRoot& createUserAgentShadowRoot();
 
     void setIsDefinedCustomElement(JSCustomElementInterface&);
@@ -474,6 +505,13 @@ public:
     virtual bool isFocusable() const;
     virtual bool isKeyboardFocusable(const FocusEventData&) const;
     virtual bool isMouseFocusable() const;
+    // True for elements that transferred focus to a non-web-content picker upon activation.
+    // An example of this is the DateTimeFieldElement (which is what the day / month /
+    // year subfields are rendered as in an <input type="date">). Activating these
+    // elements opens an external date picker on some platforms (e.g. a NSDatePicker inside
+    // a wrapping NSWindow on macOS).
+    virtual bool transferredFocusToPicker() const { return false; }
+    virtual void didSuppressBlurDueToPickerFocusTransfer() { }
 
     virtual bool shouldUseInputMethod();
 
@@ -570,7 +608,7 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> setOuterHTML(Variant<RefPtr<TrustedHTML>, String>&&);
     WEBCORE_EXPORT String innerText();
     WEBCORE_EXPORT String outerText();
- 
+
     virtual String title() const;
 
     WEBCORE_EXPORT const AtomString& userAgentPart() const;
@@ -592,7 +630,7 @@ public:
     void beginParsingChildren() { clearIsParsingChildrenFinished(); }
     virtual void finishParsingChildren();
 
-    PseudoElement& ensurePseudoElement(PseudoId);
+    PseudoElement& ensurePseudoElement(PseudoElementType);
     WEBCORE_EXPORT PseudoElement* beforePseudoElement() const;
     WEBCORE_EXPORT PseudoElement* afterPseudoElement() const;
     RefPtr<PseudoElement> pseudoElementIfExists(Style::PseudoElementIdentifier);
@@ -823,10 +861,13 @@ public:
     void setAttributeEventListener(const AtomString& eventType, const QualifiedName& attributeName, const AtomString& value);
 
     virtual IntersectionObserverData& ensureIntersectionObserverData();
-    virtual IntersectionObserverData* intersectionObserverDataIfExists();
+    virtual IntersectionObserverData* intersectionObserverDataIfExists() const;
 
     ResizeObserverData& ensureResizeObserverData();
-    ResizeObserverData* resizeObserverDataIfExists();
+    ResizeObserverData* resizeObserverDataIfExists() const;
+
+    ElementLargestContentfulPaintData& ensureLargestContentfulPaintData();
+    ElementLargestContentfulPaintData* largestContentfulPaintDataIfExists() const;
 
     std::optional<LayoutUnit> lastRememberedLogicalWidth() const;
     std::optional<LayoutUnit> lastRememberedLogicalHeight() const;
@@ -839,9 +880,6 @@ public:
 
     ExceptionOr<Ref<WebAnimation>> animate(JSC::JSGlobalObject&, JSC::Strong<JSC::JSObject>&&, std::optional<Variant<double, KeyframeAnimationOptions>>&&);
     Vector<RefPtr<WebAnimation>> getAnimations(std::optional<GetAnimationsOptions>);
-
-    WEBCORE_EXPORT ElementIdentifier identifier() const;
-    WEBCORE_EXPORT static Element* fromIdentifier(ElementIdentifier);
 
     String description() const override;
     String debugDescription() const override;
@@ -877,6 +915,8 @@ public:
     double lookupCSSRandomBaseValue(const std::optional<Style::PseudoElementIdentifier>&, const CSSCalc::RandomCachingKey&) const;
     bool hasRandomCachingKeyMap() const;
 
+    void addShadowRoot(Ref<ShadowRoot>&&);
+
 protected:
     Element(const QualifiedName&, Document&, OptionSet<TypeFlag>);
 
@@ -890,8 +930,6 @@ protected:
     void classAttributeChanged(const AtomString& newClassString, AttributeModificationReason);
     void partAttributeChanged(const AtomString& newValue);
 
-    void addShadowRoot(Ref<ShadowRoot>&&);
-
     ExceptionOr<void> replaceChildrenWithMarkup(const String&, OptionSet<ParserContentPolicy>);
 
     static ExceptionOr<void> mergeWithNextTextNode(Text&);
@@ -904,6 +942,9 @@ protected:
 
     void disconnectFromIntersectionObservers();
     static AtomString makeTargetBlankIfHasDanglingMarkup(const AtomString& target);
+
+    template<typename ShadowRoot> std::optional<ShadowRoot> serializeShadowRoot() const;
+    template<typename Attribute> Vector<Attribute> serializeAttributes() const;
 
 private:
     LocalFrame* documentFrameWithNonNullView() const;
@@ -968,9 +1009,12 @@ private:
     void disconnectFromResizeObserversSlow(ResizeObserverData&);
 
     // The cloneNode function is private so that non-virtual cloneElementWith/WithoutChildren are used instead.
-    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) override;
-    void cloneShadowTreeIfPossible(Element& newHost);
-    virtual Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*);
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) const override;
+    SerializedNode serializeNode(CloningOperation) const override;
+    void cloneShadowTreeIfPossible(Element& newHost) const;
+    virtual Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) const;
+
+    void enqueueShadowRootAttachedEvent();
 
     inline void removeShadowRoot(); // Defined in ElementRareData.h.
     void removeShadowRootSlow(ShadowRoot&);
@@ -996,9 +1040,9 @@ private:
 
     // Anyone thinking of using this should call document instead of ownerDocument.
     void ownerDocument() const = delete;
-    
+
     void attachAttributeNodeIfNeeded(Attr&);
-    
+
 #if ASSERT_ENABLED
     WEBCORE_EXPORT bool fastAttributeLookupAllowed(const QualifiedName&) const;
 #endif

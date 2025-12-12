@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "UnlinkedGlobalCodeBlock.h"
+#include <JavaScriptCore/UnlinkedGlobalCodeBlock.h>
 #include <wtf/FixedVector.h>
 
 namespace JSC {

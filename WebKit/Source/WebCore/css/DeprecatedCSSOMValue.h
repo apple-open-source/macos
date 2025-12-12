@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "CSSStyleDeclaration.h"
-#include "CSSValue.h"
-#include "ExceptionOr.h"
+#include <WebCore/CSSStyleDeclaration.h>
+#include <WebCore/CSSValue.h>
+#include <WebCore/ExceptionOr.h>
 #include <wtf/NoVirtualDestructorBase.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
@@ -35,6 +35,8 @@
 
 namespace WebCore {
 
+// NOTE: This destructor is non-virtual for memory and performance reasons.
+// Don't go making it virtual again unless you know exactly what you're doing!
 class DeprecatedCSSOMValue : public RefCountedAndCanMakeWeakPtr<DeprecatedCSSOMValue>, public NoVirtualDestructorBase {
 public:
     // Exactly match the IDL. No reason to add anything if it's not in the IDL.
@@ -59,9 +61,6 @@ public:
 
     CSSStyleDeclaration& owner() const { return m_owner; }
 
-    // NOTE: This destructor is non-virtual for memory and performance reasons.
-    // Don't go making it virtual again unless you know exactly what you're doing!
-    ~DeprecatedCSSOMValue() = default;
     WEBCORE_EXPORT void operator delete(DeprecatedCSSOMValue*, std::destroying_delete_t);
 
 protected:

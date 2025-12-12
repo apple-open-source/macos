@@ -4,7 +4,7 @@
 ******************************************************************************
 *
 *   Copyright (C) 1998-2005, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
 *
@@ -171,14 +171,6 @@ protected:
    * @stable ICU 2.0
    */
   StringCharacterIterator();
-
-  /**
-   * Sets the iterator to iterate over the provided string.
-   * @param newText The string to be iterated over
-   * @param newTextLength The length of the String
-   * @stable ICU 2.0
-   */
-  void setText(const char16_t* newText, int32_t newTextLength);
 
   /**
    * Copy of the iterated string object.

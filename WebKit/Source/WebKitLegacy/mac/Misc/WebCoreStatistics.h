@@ -62,9 +62,6 @@
 + (BOOL)shouldPrintExceptions;
 + (void)setShouldPrintExceptions:(BOOL)print;
 
-+ (void)startIgnoringWebCoreNodeLeaks;
-+ (void)stopIgnoringWebCoreNodeLeaks;
-
 + (NSDictionary *)memoryStatistics;
 + (void)returnFreeMemoryToSystem;
 

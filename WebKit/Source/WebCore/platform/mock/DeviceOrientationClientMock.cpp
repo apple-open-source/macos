@@ -47,7 +47,7 @@ void DeviceOrientationClientMock::setController(DeviceOrientationController* con
     ASSERT(m_controller);
 }
 
-void DeviceOrientationClientMock::startUpdating(const SecurityOriginData&)
+void DeviceOrientationClientMock::startUpdating()
 {
     m_isUpdating = true;
 }

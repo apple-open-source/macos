@@ -443,7 +443,7 @@ void WKWebsiteDataStoreStatisticsHasIsolatedSession(WKWebsiteDataStoreRef dataSt
 void WKWebsiteDataStoreHasAppBoundSession(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreHasAppBoundSessionFunction callback)
 {
 #if ENABLE(APP_BOUND_DOMAINS)
-    WebKit::toImpl(dataStoreRef)->hasAppBoundSession([context, callback](bool hasAppBoundSession) {
+    WebKit::toProtectedImpl(dataStoreRef)->hasAppBoundSession([context, callback](bool hasAppBoundSession) {
         callback(hasAppBoundSession, context);
     });
 #else
@@ -467,7 +467,7 @@ void WKWebsiteDataStoreSetResourceLoadStatisticsShouldBlockThirdPartyCookiesForT
         case kWKThirdPartyCookieBlockingPolicyAllOnlyOnSitesWithoutUserInteraction:
             blockingMode = WebCore::ThirdPartyCookieBlockingMode::AllOnSitesWithoutUserInteraction;
             break;
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
         case kWKThirdPartyCookieBlockingPolicyAllExceptPartitioned:
             blockingMode = WebCore::ThirdPartyCookieBlockingMode::AllExceptPartitioned;
             break;
@@ -520,11 +520,8 @@ void WKWebsiteDataStoreSetAppBoundDomainsForTesting(WKArrayRef originURLsRef, vo
     HashSet<WebCore::RegistrableDomain> domains;
     domains.reserveInitialCapacity(newSize);
     for (size_t i = 0; i < newSize; ++i) {
-        auto* originURL = originURLsArray->at<API::URL>(i);
-        if (!originURL)
-            continue;
-        
-        domains.add(WebCore::RegistrableDomain { URL { originURL->string() } });
+        if (RefPtr originURL = originURLsArray->at<API::URL>(i))
+            domains.add(WebCore::RegistrableDomain { URL { originURL->string() } });
     }
 
     WebKit::WebsiteDataStore::setAppBoundDomainsForTesting(WTFMove(domains), [context, completionHandler] {
@@ -740,7 +737,7 @@ void WKWebsiteDataStoreSetOriginQuotaRatioEnabled(WKWebsiteDataStoreRef dataStor
 void WKWebsiteDataStoreClearAppBoundSession(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearAppBoundSessionFunction completionHandler)
 {
 #if ENABLE(APP_BOUND_DOMAINS)
-    WebKit::toImpl(dataStoreRef)->clearAppBoundSession([context, completionHandler] {
+    WebKit::toProtectedImpl(dataStoreRef)->clearAppBoundSession([context, completionHandler] {
         completionHandler(context);
     });
 #else
@@ -752,7 +749,7 @@ void WKWebsiteDataStoreClearAppBoundSession(WKWebsiteDataStoreRef dataStoreRef, 
 void WKWebsiteDataStoreReinitializeAppBoundDomains(WKWebsiteDataStoreRef dataStoreRef)
 {
 #if ENABLE(APP_BOUND_DOMAINS)
-    WebKit::toImpl(dataStoreRef)->reinitializeAppBoundDomains();
+    WebKit::toProtectedImpl(dataStoreRef)->reinitializeAppBoundDomains();
 #else
     UNUSED_PARAM(dataStoreRef);
 #endif
@@ -795,4 +792,28 @@ void WKWebsiteDataStoreResetResourceMonitorThrottler(WKWebsiteDataStoreRef dataS
     if (callback)
         callback(context);
 #endif
+}
+
+void WKWebsiteDataStoreSetStorageAccessPermissionForTesting(WKWebsiteDataStoreRef dataStoreRef, WKPageRef pageRef, bool granted, WKStringRef topFrame, WKStringRef subFrame, void* context, WKWebsiteDataStoreSetStorageAccessPermissionForTestingFunction completionHandler)
+{
+    Ref callbackAggregator = CallbackAggregator::create([context, completionHandler] {
+        completionHandler(context);
+    });
+
+    Ref store = *WebKit::toImpl(dataStoreRef);
+    if (!granted)
+        store->clearResourceLoadStatisticsInWebProcesses([callbackAggregator] { });
+    store->setStorageAccessPermissionForTesting(granted, WebKit::toImpl(pageRef)->identifier(), WebKit::toProtectedImpl(topFrame)->string(), WebKit::toProtectedImpl(subFrame)->string(), [callbackAggregator] { });
+}
+
+void WKWebsiteDataStoreSetStorageAccessForTesting(WKWebsiteDataStoreRef dataStoreRef, bool blocked, void* context, WKWebsiteDataStoreSetStorageAccessForTestingFunction completionHandler)
+{
+    Ref callbackAggregator = CallbackAggregator::create([context, completionHandler] {
+        completionHandler(context);
+    });
+
+    Ref store = *WebKit::toImpl(dataStoreRef);
+    if (blocked)
+        store->clearStorageAccessForTesting([callbackAggregator] { });
+    store->setResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(blocked, WebCore::ThirdPartyCookieBlockingMode::All, [callbackAggregator] { });
 }

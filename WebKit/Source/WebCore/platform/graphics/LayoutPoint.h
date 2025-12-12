@@ -30,8 +30,9 @@
 
 #pragma once
 
-#include "FloatPoint.h"
-#include "LayoutSize.h"
+#include <WebCore/DoublePoint.h>
+#include <WebCore/FloatPoint.h>
+#include <WebCore/LayoutSize.h>
 
 namespace WebCore {
 
@@ -40,8 +41,12 @@ public:
     constexpr LayoutPoint() = default;
     template<typename T, typename U> LayoutPoint(T x, U y) : m_x(x), m_y(y) { }
     LayoutPoint(const IntPoint& point) : m_x(point.x()), m_y(point.y()) { }
-    explicit LayoutPoint(const FloatPoint& size) : m_x(size.x()), m_y(size.y()) { }
-    explicit LayoutPoint(const LayoutSize& size) : m_x(size.width()), m_y(size.height()) { }
+    explicit LayoutPoint(const FloatPoint& size)
+        : m_x(size.x()), m_y(size.y()) { }
+    explicit LayoutPoint(const DoublePoint& size)
+        : m_x(size.x()), m_y(size.y()) { }
+    explicit LayoutPoint(const LayoutSize& size)
+        : m_x(size.width()), m_y(size.height()) { }
 
     static constexpr LayoutPoint zero() { return LayoutPoint(); }
     constexpr bool isZero() const { return !m_x && !m_y; }
@@ -108,6 +113,7 @@ public:
     }
 
     operator FloatPoint() const { return { m_x, m_y }; }
+    operator DoublePoint() const { return { m_x, m_y }; }
 
 private:
     LayoutUnit m_x, m_y;

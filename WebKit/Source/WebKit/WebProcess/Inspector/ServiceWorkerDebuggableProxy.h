@@ -42,7 +42,6 @@ class ServiceWorkerDebuggableProxy final : public Inspector::RemoteInspectionTar
     WTF_MAKE_NONCOPYABLE(ServiceWorkerDebuggableProxy);
 public:
     static Ref<ServiceWorkerDebuggableProxy> create(const String& url, WebCore::ServiceWorkerIdentifier, WebProcessProxy&);
-    ~ServiceWorkerDebuggableProxy() = default;
 
     Inspector::RemoteControllableTarget::Type type() const final { return Inspector::RemoteControllableTarget::Type::ServiceWorker; }
 

@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "File.h"
+#include <WebCore/File.h>
 #include <pal/text/TextEncoding.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>

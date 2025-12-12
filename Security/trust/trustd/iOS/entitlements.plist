@@ -35,6 +35,7 @@
 	<key>com.apple.security.exception.mach-lookup.global-name</key>
 	<array>
 		<string>com.apple.mobileasset.autoasset</string>
+		<string>com.apple.biome.access.system</string>
 	</array>
 	<key>com.apple.security.exception.files.absolute-path.read-only</key>
 	<array>
@@ -46,5 +47,11 @@
 	</array>
 	<key>com.apple.private.trustd.FileHelp</key>
 	<true/>
+	<key>com.apple.private.biome.read-write</key>
+	<array>
+		<string>Device.Networking.TLS</string>
+	</array>
+	<key>com.apple.private.biome.client-identifier</key>
+	<string>com.apple.trustd</string>
 </dict>
 </plist>

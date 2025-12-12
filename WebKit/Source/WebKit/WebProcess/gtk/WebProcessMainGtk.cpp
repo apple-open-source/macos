@@ -29,8 +29,11 @@
 
 #include "AuxiliaryProcessMain.h"
 #include "WebProcess.h"
-#include <WebCore/GtkVersioning.h>
 #include <libintl.h>
+
+#if !USE(GTK4) && USE(CAIRO)
+#include <gtk/gtk.h>
+#endif
 
 #if USE(GSTREAMER)
 #include <WebCore/GStreamerCommon.h>
@@ -80,7 +83,9 @@ public:
             g_usleep(30 * G_USEC_PER_SEC);
 #endif
 
+#if !USE(GTK4) && USE(CAIRO)
         gtk_init(nullptr, nullptr);
+#endif
 
         bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
         bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
@@ -98,18 +103,16 @@ public:
 
 int WebProcessMain(int argc, char** argv)
 {
+#if !USE(GTK4) && USE(CAIRO)
 #if USE(ATSPI)
-    // Disable ATK/GTK accessibility support in the WebProcess.
-#if USE(GTK4)
-    g_setenv("GTK_A11Y", "none", TRUE);
-#else
+    // Disable ATK accessibility support in the WebProcess.
     g_setenv("NO_AT_BRIDGE", "1", TRUE);
-#endif
 #endif
 
     // Ignore the GTK_THEME environment variable, the theme is always set by the UI process now.
     // This call needs to happen before any threads begin execution
     unsetenv("GTK_THEME");
+#endif
 
     return AuxiliaryProcessMain<WebProcessMainGtk>(argc, argv);
 }

@@ -43,7 +43,7 @@ public:
 
 private:
     CSSMathOperator getOperator() const final { return CSSMathOperator::Max; }
-    CSSStyleValueType getType() const final { return CSSStyleValueType::CSSMathMax; }
+    CSSStyleValueType styleValueType() const final { return CSSStyleValueType::CSSMathMax; }
     void serialize(StringBuilder&, OptionSet<SerializationArguments>) const final;
     std::optional<SumValue> toSumValue() const final;
     bool equals(const CSSNumericValue& other) const final { return equalsImpl<CSSMathMax>(other); }
@@ -55,7 +55,7 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CSSMathMax)
-static bool isType(const WebCore::CSSStyleValue& styleValue) { return styleValue.getType() == WebCore::CSSStyleValueType::CSSMathMax; }
-static bool isType(const WebCore::CSSNumericValue& numericValue) { return numericValue.getType() == WebCore::CSSStyleValueType::CSSMathMax; }
-static bool isType(const WebCore::CSSMathValue& mathValue) { return mathValue.getType() == WebCore::CSSStyleValueType::CSSMathMax; }
+static bool isType(const WebCore::CSSStyleValue& styleValue) { return styleValue.styleValueType() == WebCore::CSSStyleValueType::CSSMathMax; }
+static bool isType(const WebCore::CSSNumericValue& numericValue) { return numericValue.styleValueType() == WebCore::CSSStyleValueType::CSSMathMax; }
+static bool isType(const WebCore::CSSMathValue& mathValue) { return mathValue.styleValueType() == WebCore::CSSStyleValueType::CSSMathMax; }
 SPECIALIZE_TYPE_TRAITS_END()

@@ -106,7 +106,7 @@ static inline JSValue regExpExec(JSGlobalObject* globalObject, JSValue thisValue
 
     JSValue match;
     if (regExpExec != regExpBuiltinExec && regExpExec.isCallable()) [[unlikely]] {
-        auto callData = JSC::getCallData(regExpExec);
+        auto callData = JSC::getCallDataInline(regExpExec);
         ASSERT(callData.type != CallData::Type::None);
         if (callData.type == CallData::Type::JS) [[likely]] {
             CachedCall cachedCall(globalObject, jsCast<JSFunction*>(regExpExec), 1);
@@ -125,7 +125,7 @@ static inline JSValue regExpExec(JSGlobalObject* globalObject, JSValue thisValue
             return { };
         }
     } else {
-        auto callData = JSC::getCallData(regExpBuiltinExec);
+        auto callData = JSC::getCallDataInline(regExpBuiltinExec);
         MarkedArgumentBuffer args;
         args.append(str);
         ASSERT(!args.hasOverflowed());

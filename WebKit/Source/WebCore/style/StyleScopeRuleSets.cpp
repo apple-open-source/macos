@@ -32,8 +32,7 @@
 #include "CSSPropertyParser.h"
 #include "CSSStyleSheet.h"
 #include "CSSViewTransitionRule.h"
-#include "CascadeLevel.h"
-#include "DocumentInlines.h"
+#include "DeclarationOrigin.h"
 #include "ExtensionStyleSheets.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
@@ -97,16 +96,16 @@ RuleSet* ScopeRuleSets::userStyle() const
     return m_userStyle.get();
 }
 
-RuleSet* ScopeRuleSets::styleForCascadeLevel(CascadeLevel level)
+RuleSet* ScopeRuleSets::styleForDeclarationOrigin(DeclarationOrigin origin)
 {
-    switch (level) {
-    case CascadeLevel::Author:
+    switch (origin) {
+    case DeclarationOrigin::Author:
         return m_authorStyle.get();
 
-    case CascadeLevel::User:
+    case DeclarationOrigin::User:
         return userStyle();
 
-    case CascadeLevel::UserAgent:
+    case DeclarationOrigin::UserAgent:
         return userAgentMediaQueryStyle();
     }
 

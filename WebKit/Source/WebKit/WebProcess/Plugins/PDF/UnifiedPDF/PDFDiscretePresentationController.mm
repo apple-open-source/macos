@@ -33,15 +33,15 @@
 #include "WebEventConversion.h"
 #include "WebKeyboardEvent.h"
 #include "WebWheelEvent.h"
-#include <WebCore/Animation.h>
 #include <WebCore/GraphicsLayer.h>
-#include <WebCore/Length.h>
+#include <WebCore/GraphicsLayerAnimation.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PlatformWheelEvent.h>
 #include <WebCore/TiledBacking.h>
 #include <WebCore/TimingFunction.h>
 #include <WebCore/TransformOperations.h>
 #include <WebCore/TransformationMatrix.h>
+#include <WebCore/TranslateTransformOperation.h>
 #include <pal/spi/mac/NSScrollViewSPI.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -486,12 +486,9 @@ void PDFDiscretePresentationController::startTransitionAnimation(PageTransitionS
     auto transitionDuration = defaultTransitionDuration;
 
     auto transformAnimationValueForTranslation = [](double keyTime, FloatSize offset) {
-        auto xLength = Length(offset.width(), LengthType::Fixed);
-        auto yLength = Length(offset.height(), LengthType::Fixed);
-
         Vector<Ref<TransformOperation>> operations;
         operations.reserveInitialCapacity(1);
-        operations.append(TranslateTransformOperation::create(xLength, yLength, Length(0, LengthType::Fixed), TransformOperationType::Translate));
+        operations.append(TranslateTransformOperation::create(offset.width(), offset.height(), 0, TransformOperationType::Translate));
 
         return makeUnique<TransformAnimationValue>(keyTime, TransformOperations { WTFMove(operations) }, nullptr);
     };
@@ -536,20 +533,20 @@ void PDFDiscretePresentationController::startTransitionAnimation(PageTransitionS
         }
 
         auto moveFrames = createPositionKeyframesForAnimation(direction, startOffset, endOffset);
-        Ref moveAnimation = Animation::create();
+        Ref moveAnimation = GraphicsLayerAnimation::create();
         moveAnimation->setDuration(transitionDuration.seconds());
         moveAnimation->setTimingFunction(WTFMove(moveTimingFunction));
         Ref animatingRowContainerLayer = *animatingRow.containerLayer;
-        animatingRowContainerLayer->addAnimation(moveFrames, { }, moveAnimation.ptr(), "move"_s, 0);
+        animatingRowContainerLayer->addAnimation(moveFrames, moveAnimation.ptr(), "move"_s, 0);
 
         auto fadeKeyframes = createOpacityKeyframesForAnimation(direction, layerEndOpacities[topLayerIndex]);
-        Ref fadeAnimation = Animation::create();
+        Ref fadeAnimation = GraphicsLayerAnimation::create();
         fadeAnimation->setDuration(transitionDuration.seconds());
         fadeAnimation->setTimingFunction(WTFMove(fadeTimingFunction));
-        animatingRowContainerLayer->addAnimation(fadeKeyframes, { }, fadeAnimation.ptr(), "fade"_s, 0);
+        animatingRowContainerLayer->addAnimation(fadeKeyframes, fadeAnimation.ptr(), "fade"_s, 0);
 
         auto stationaryLayerFadeKeyframes = createOpacityKeyframesForAnimation(direction, layerEndOpacities[bottomLayerIndex]);
-        stationaryRow.protectedContainerLayer()->addAnimation(stationaryLayerFadeKeyframes, { }, fadeAnimation.ptr(), "fade"_s, 0);
+        stationaryRow.protectedContainerLayer()->addAnimation(stationaryLayerFadeKeyframes, fadeAnimation.ptr(), "fade"_s, 0);
 
         return transitionDuration;
     };
@@ -588,7 +585,7 @@ void PDFDiscretePresentationController::startTransitionAnimation(PageTransitionS
 
     case TransitionDirection::NextHorizontal:
     case TransitionDirection::NextVertical: {
-        // Top page animates up, fading out. Botom page fades in.
+        // Top page animates up, fading out. Bottom page fades in.
         auto additionalVisibleRowIndex = additionalVisibleRowIndexForDirection(*m_transitionDirection);
         if (!additionalVisibleRowIndex)
             return;

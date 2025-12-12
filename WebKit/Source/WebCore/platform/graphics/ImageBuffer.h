@@ -27,13 +27,13 @@
 
 #pragma once
 
-#include "ImageBufferAllocator.h"
-#include "ImageBufferBackend.h"
-#include "ImageBufferFormat.h"
-#include "PlatformScreen.h"
-#include "ProcessIdentity.h"
-#include "RenderingMode.h"
-#include "RenderingResourceIdentifier.h"
+#include <WebCore/ImageBufferAllocator.h>
+#include <WebCore/ImageBufferBackend.h>
+#include <WebCore/ImageBufferFormat.h>
+#include <WebCore/PlatformScreen.h>
+#include <WebCore/ProcessIdentity.h>
+#include <WebCore/RenderingMode.h>
+#include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/Function.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
@@ -41,12 +41,12 @@
 #include <wtf/ThreadSafeWeakPtr.h>
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-#include "DynamicContentScalingResourceCache.h"
+#include <WebCore/DynamicContentScalingResourceCache.h>
 #endif
 
 #if HAVE(IOSURFACE)
-#include "IOSurface.h"
-#include "IOSurfacePool.h"
+#include <WebCore/IOSurface.h>
+#include <WebCore/IOSurfacePool.h>
 #endif
 
 #if USE(SKIA)
@@ -93,7 +93,7 @@ class ImageBuffer : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Image
 public:
     using Parameters = ImageBufferParameters;
 
-    static RefPtr<ImageBuffer> create(const FloatSize& size, RenderingMode mode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferPixelFormat bufferFormat, GraphicsClient* client = nullptr)
+    static RefPtr<ImageBuffer> create(const FloatSize& size, RenderingMode mode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat bufferFormat, GraphicsClient* client = nullptr)
     {
         return create(size, mode, purpose, resolutionScale, colorSpace, ImageBufferFormat { bufferFormat }, client);
     }
@@ -173,7 +173,7 @@ public:
     DestinationColorSpace colorSpace() const { return m_parameters.colorSpace; }
     
     RenderingPurpose renderingPurpose() const { return m_parameters.purpose; }
-    ImageBufferPixelFormat pixelFormat() const { return m_parameters.bufferFormat.pixelFormat; }
+    PixelFormat pixelFormat() const { return m_parameters.bufferFormat.pixelFormat; }
     const Parameters& parameters() const { return m_parameters; }
 
     RenderingMode renderingMode() const { return m_backendInfo.renderingMode; }

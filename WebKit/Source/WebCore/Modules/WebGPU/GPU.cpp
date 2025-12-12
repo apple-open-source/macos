@@ -26,8 +26,11 @@
 #include "config.h"
 #include "GPU.h"
 
+#include "GPUAdapter.h"
 #include "GPUPresentationContext.h"
 #include "GPUPresentationContextDescriptor.h"
+#include "GPURequestAdapterOptions.h"
+#include "GPUTextureFormat.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSGPUAdapter.h"
 #include "JSWGSLLanguageFeatures.h"

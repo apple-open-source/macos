@@ -28,18 +28,21 @@
 
 #if ENABLE(MODEL_ELEMENT)
 
-#include "CachedResourceLoader.h"
 #include "ContainerNodeInlines.h"
 #include "DOMMatrixReadOnly.h"
 #include "DOMPointReadOnly.h"
 #include "DOMPromiseProxy.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentEventLoop.h"
+#include "DocumentPage.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentView.h"
 #include "ElementChildIteratorInlines.h"
 #include "ElementInlines.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "Exception.h"
 #include "FloatPoint3D.h"
+#include "FrameDestructionObserverInlines.h"
 #include "GraphicsLayer.h"
 #include "GraphicsLayerCA.h"
 #include "HTMLModelElementCamera.h"
@@ -72,12 +75,13 @@
 #include "RenderModel.h"
 #include "RenderReplaced.h"
 #include "ScriptController.h"
+#include "Settings.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_CONTEXT)
 #include "ModelContext.h"
 #endif
 
@@ -93,10 +97,14 @@ HTMLModelElement::HTMLModelElement(const QualifiedName& tagName, Document& docum
     : HTMLElement(tagName, document, { TypeFlag::HasCustomStyleResolveCallbacks, TypeFlag::HasDidMoveToNewDocument })
     , ActiveDOMObject(document)
     , m_readyPromise { makeUniqueRef<ReadyPromise>(*this, &HTMLModelElement::readyPromiseResolve) }
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
     , m_entityTransform(DOMMatrixReadOnly::create(TransformationMatrix::identity, DOMMatrixReadOnly::Is2D::No))
+#endif
+#if ENABLE(MODEL_ELEMENT_BOUNDING_BOX)
     , m_boundingBoxCenter(DOMPointReadOnly::create({ }))
     , m_boundingBoxExtents(DOMPointReadOnly::create({ }))
+#endif
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     , m_environmentMapReadyPromise(makeUniqueRef<EnvironmentMapPromise>())
 #endif
 {
@@ -109,7 +117,7 @@ HTMLModelElement::~HTMLModelElement()
         m_resource = nullptr;
     }
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     if (m_environmentMapResource) {
         m_environmentMapResource->removeClient(*this);
         m_environmentMapResource = nullptr;
@@ -239,8 +247,10 @@ void HTMLModelElement::setSourceURL(const URL& url)
 
     deleteModelPlayer();
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
     m_entityTransform = DOMMatrixReadOnly::create(TransformationMatrix::identity, DOMMatrixReadOnly::Is2D::No);
+#endif
+#if ENABLE(MODEL_ELEMENT_BOUNDING_BOX)
     m_boundingBoxCenter = DOMPointReadOnly::create({ });
     m_boundingBoxExtents = DOMPointReadOnly::create({ });
 #endif
@@ -299,7 +309,7 @@ void HTMLModelElement::dataReceived(CachedResource& resource, const SharedBuffer
 {
     if (&resource == m_resource)
         m_data.append(buffer);
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     else if (&resource == m_environmentMapResource)
         m_environmentMapData.append(buffer);
 #endif
@@ -311,7 +321,7 @@ void HTMLModelElement::notifyFinished(CachedResource& resource, const NetworkLoa
 {
     if (&resource == m_resource)
         modelResourceFinished();
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     else if (&resource == m_environmentMapResource)
         environmentMapResourceFinished();
 #endif
@@ -350,11 +360,16 @@ void HTMLModelElement::createModelPlayer()
         deleteModelPlayer();
 
     ASSERT(document().page());
-#if ENABLE(MODEL_PROCESS)
+
+#if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
     m_entityTransform = DOMMatrixReadOnly::create(TransformationMatrix::identity, DOMMatrixReadOnly::Is2D::No);
+#endif
+
+#if ENABLE(MODEL_ELEMENT_BOUNDING_BOX)
     m_boundingBoxCenter = DOMPointReadOnly::create({ });
     m_boundingBoxExtents = DOMPointReadOnly::create({ });
 #endif
+
     if (!m_modelPlayerProvider)
         m_modelPlayerProvider = document().page()->modelPlayerProvider();
     if (RefPtr protectedModelPlayerProvider = m_modelPlayerProvider.get())
@@ -365,11 +380,17 @@ void HTMLModelElement::createModelPlayer()
         return;
     }
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ANIMATIONS_CONTROL)
     m_modelPlayer->setAutoplay(autoplay());
     m_modelPlayer->setLoop(loop());
     m_modelPlayer->setPlaybackRate(m_playbackRate, [&](double) { });
+#endif
+
+#if ENABLE(MODEL_ELEMENT_PORTAL)
     m_modelPlayer->setHasPortal(hasPortal());
+#endif
+
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
     m_modelPlayer->setStageMode(stageMode());
 #endif
 
@@ -377,7 +398,7 @@ void HTMLModelElement::createModelPlayer()
     // in with load probably doesn't make sense.
     m_modelPlayer->load(*m_model, size);
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     if (m_environmentMapData)
         m_modelPlayer->setEnvironmentMap(m_environmentMapData.takeAsContiguous().get());
     else if (!m_environmentMapURL.isEmpty())
@@ -455,7 +476,7 @@ void HTMLModelElement::reloadModelPlayer()
     RELEASE_LOG(ModelElement, "%p - HTMLModelElement: Reloading previous states to new model player: %p", this, m_modelPlayer.get());
     m_modelPlayer->reload(*m_model, size, *animationState, WTFMove(*transformState));
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     if (m_environmentMapData)
         m_modelPlayer->setEnvironmentMap(m_environmentMapData.takeAsContiguous().get());
     else if (!m_environmentMapURL.isEmpty())
@@ -497,6 +518,21 @@ bool HTMLModelElement::usesPlatformLayer() const
     return m_modelPlayer && m_modelPlayer->layer();
 }
 
+#if ENABLE(GPU_PROCESS_MODEL)
+
+// FIXME: It is a layering violation for WebCore to be concerned with MachSendRights like this.
+const MachSendRight* HTMLModelElement::displayBuffer() const
+{
+    return m_modelPlayer ? m_modelPlayer->displayBuffer() : nullptr;
+}
+
+GraphicsLayerContentsDisplayDelegate* HTMLModelElement::contentsDisplayDelegate()
+{
+    return m_modelPlayer ? m_modelPlayer->contentsDisplayDelegate() : nullptr;
+}
+
+#endif
+
 PlatformLayer* HTMLModelElement::platformLayer() const
 {
     if (m_modelPlayer)
@@ -528,6 +564,18 @@ void HTMLModelElement::didUpdateLayerHostingContextIdentifier(ModelPlayer& model
         renderer->updateFromElement();
 }
 
+#if ENABLE(GPU_PROCESS_MODEL)
+
+void HTMLModelElement::didUpdateDisplayDelegate(ModelPlayer& modelPlayer) const
+{
+    ASSERT_UNUSED(modelPlayer, &modelPlayer == m_modelPlayer);
+
+    if (CheckedPtr renderer = this->renderer())
+        renderer->updateFromElement();
+}
+
+#endif
+
 void HTMLModelElement::logWarning(ModelPlayer& modelPlayer, const String& warningMessage)
 {
     ASSERT_UNUSED(modelPlayer, &modelPlayer == m_modelPlayer);
@@ -557,6 +605,20 @@ void HTMLModelElement::didFailLoading(ModelPlayer& modelPlayer, const ResourceEr
 
     m_dataMemoryCost.store(0, std::memory_order_relaxed);
     reportExtraMemoryCost();
+}
+
+void HTMLModelElement::didUnload(ModelPlayer& modelPlayer)
+{
+    if (m_modelPlayer != &modelPlayer)
+        return;
+
+    unloadModelPlayer(false);
+
+    if (!isVisible())
+        return;
+
+    // FIXME: rdar://148027600 Prevent infinite reloading of model.
+    startLoadModelTimer();
 }
 
 RefPtr<GraphicsLayer> HTMLModelElement::graphicsLayer() const
@@ -598,7 +660,8 @@ bool HTMLModelElement::isVisible() const
     return !document().hidden() && m_isIntersectingViewport;
 }
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_CONTEXT)
+
 RefPtr<ModelContext> HTMLModelElement::modelContext() const
 {
     auto modelLayerIdentifier = layerID();
@@ -609,8 +672,18 @@ RefPtr<ModelContext> HTMLModelElement::modelContext() const
     if (!modelContentsLayerHostingContextIdentifier)
         return nullptr;
 
-    return ModelContext::create(*modelLayerIdentifier, *modelContentsLayerHostingContextIdentifier, contentSize(), hasPortal() ? ModelContextDisablePortal::No : ModelContextDisablePortal::Yes, std::nullopt).ptr();
+#if ENABLE(MODEL_ELEMENT_PORTAL)
+    auto shouldEnablePortal = hasPortal() ? ModelContextDisablePortal::No : ModelContextDisablePortal::Yes;
+#else
+    auto shouldEnablePortal = ModelContextDisablePortal::Yes;
+#endif
+
+    return ModelContext::create(*modelLayerIdentifier, *modelContentsLayerHostingContextIdentifier, contentSize(), shouldEnablePortal, std::nullopt).ptr();
 }
+
+#endif
+
+#if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
 
 const DOMMatrixReadOnly& HTMLModelElement::entityTransform() const
 {
@@ -619,8 +692,10 @@ const DOMMatrixReadOnly& HTMLModelElement::entityTransform() const
 
 ExceptionOr<void> HTMLModelElement::setEntityTransform(const DOMMatrixReadOnly& transform)
 {
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE_INTERACTION)
     if (supportsStageModeInteraction())
         return Exception { ExceptionCode::InvalidStateError,  "Transform is read-only unless StageMode is set to 'none'"_s };
+#endif
 
     auto player = m_modelPlayer;
     if (!player) {
@@ -644,6 +719,10 @@ void HTMLModelElement::didUpdateEntityTransform(ModelPlayer&, const Transformati
     m_entityTransform = DOMMatrixReadOnly::create(transform, DOMMatrixReadOnly::Is2D::No);
 }
 
+#endif
+
+#if ENABLE(MODEL_ELEMENT_BOUNDING_BOX)
+
 const DOMPointReadOnly& HTMLModelElement::boundingBoxCenter() const
 {
     return m_boundingBoxCenter;
@@ -660,7 +739,11 @@ void HTMLModelElement::didUpdateBoundingBox(ModelPlayer&, const FloatPoint3D& ce
     m_boundingBoxExtents = DOMPointReadOnly::fromFloatPoint(extents);
 }
 
-void HTMLModelElement::didFinishEnvironmentMapLoading(bool succeeded)
+#endif
+
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
+
+void HTMLModelElement::didFinishEnvironmentMapLoading(ModelPlayer&, bool succeeded)
 {
     if (!m_environmentMapURL.isEmpty() && !m_environmentMapReadyPromise->isFulfilled()) {
         if (succeeded)
@@ -672,6 +755,10 @@ void HTMLModelElement::didFinishEnvironmentMapLoading(bool succeeded)
         reportExtraMemoryCost();
     }
 }
+
+#endif
+
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE_INTERACTION)
 
 bool HTMLModelElement::supportsStageModeInteraction() const
 {
@@ -710,21 +797,7 @@ void HTMLModelElement::resetModelTransformAfterDrag()
         m_modelPlayer->resetModelTransformAfterDrag();
 }
 
-void HTMLModelElement::didUnload(ModelPlayer& modelPlayer)
-{
-    if (m_modelPlayer != &modelPlayer)
-        return;
-
-    unloadModelPlayer(false);
-
-    if (!isVisible())
-        return;
-
-    // FIXME: rdar://148027600 Prevent infinite reloading of model.
-    startLoadModelTimer();
-}
-
-#endif // ENABLE(MODEL_PROCESS)
+#endif
 
 // MARK: - Fullscreen support.
 
@@ -762,19 +835,23 @@ void HTMLModelElement::attributeChanged(const QualifiedName& name, const AtomStr
         if (m_modelPlayer)
             m_modelPlayer->setInteractionEnabled(isInteractive());
     }
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ANIMATIONS_CONTROL)
     else if (name == autoplayAttr)
         updateAutoplay();
     else if (name == loopAttr)
         updateLoop();
+#endif
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     else if (name == environmentmapAttr)
         updateEnvironmentMap();
+#endif
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
     else if (name == stagemodeAttr)
         updateStageMode();
-#if PLATFORM(VISION)
+#endif
+#if ENABLE(MODEL_ELEMENT_PORTAL)
     else if (document().settings().modelNoPortalAttributeEnabled() && name == noportalAttr)
         updateHasPortal();
-#endif
 #endif
     else
         HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
@@ -888,7 +965,8 @@ void HTMLModelElement::setCamera(HTMLModelElementCamera camera, DOMPromiseDeferr
 
 // MARK: - Animations support.
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ANIMATIONS_CONTROL)
+
 void HTMLModelElement::setPlaybackRate(double playbackRate)
 {
     if (m_playbackRate == playbackRate)
@@ -946,21 +1024,6 @@ void HTMLModelElement::updateAutoplay()
         m_modelPlayer->setAutoplay(autoplay());
 }
 
-WebCore::StageModeOperation HTMLModelElement::stageMode() const
-{
-    String attr = attributeWithoutSynchronization(HTMLNames::stagemodeAttr);
-    if (equalLettersIgnoringASCIICase(attr, "orbit"_s))
-        return WebCore::StageModeOperation::Orbit;
-
-    return WebCore::StageModeOperation::None;
-}
-
-void HTMLModelElement::updateStageMode()
-{
-    if (m_modelPlayer)
-        m_modelPlayer->setStageMode(stageMode());
-}
-
 bool HTMLModelElement::loop() const
 {
     return hasAttributeWithoutSynchronization(HTMLNames::loopAttr);
@@ -983,13 +1046,32 @@ void HTMLModelElement::setCurrentTime(double currentTime)
         m_modelPlayer->setCurrentTime(Seconds(currentTime), [&]() { });
 }
 
+#endif
+
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
+
+WebCore::StageModeOperation HTMLModelElement::stageMode() const
+{
+    String attr = attributeWithoutSynchronization(HTMLNames::stagemodeAttr);
+    if (equalLettersIgnoringASCIICase(attr, "orbit"_s))
+        return WebCore::StageModeOperation::Orbit;
+
+    return WebCore::StageModeOperation::None;
+}
+
+void HTMLModelElement::updateStageMode()
+{
+    if (m_modelPlayer)
+        m_modelPlayer->setStageMode(stageMode());
+}
+
+#endif
+
+#if ENABLE(MODEL_ELEMENT_PORTAL)
+
 bool HTMLModelElement::hasPortal() const
 {
-#if PLATFORM(VISION)
     return !(document().settings().modelNoPortalAttributeEnabled() && hasAttributeWithoutSynchronization(HTMLNames::noportalAttr));
-#else
-    return true;
-#endif
 }
 
 void HTMLModelElement::updateHasPortal()
@@ -1001,10 +1083,14 @@ void HTMLModelElement::updateHasPortal()
         modelPlayer->setHasPortal(hasPortal());
 }
 
+#endif
+
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
+
 const URL& HTMLModelElement::environmentMap() const
 {
     return m_environmentMapURL;
-};
+}
 
 void HTMLModelElement::setEnvironmentMap(const URL& url)
 {
@@ -1040,7 +1126,7 @@ URL HTMLModelElement::selectEnvironmentMapURL() const
 
     if (hasAttributeWithoutSynchronization(environmentmapAttr)) {
         const auto& attr = attributeWithoutSynchronization(environmentmapAttr).string().trim(isASCIIWhitespace);
-        if (StringView(attr).containsOnly<isASCIIWhitespace<UChar>>())
+        if (StringView(attr).containsOnly<isASCIIWhitespace<char16_t>>())
             return { };
         return getURLAttribute(environmentmapAttr);
     }
@@ -1100,7 +1186,7 @@ void HTMLModelElement::environmentMapResourceFinished()
     m_environmentMapResource = nullptr;
 }
 
-#endif // ENABLE(MODEL_PROCESS)
+#endif
 
 bool HTMLModelElement::shouldDeferLoading() const
 {
@@ -1325,13 +1411,15 @@ void HTMLModelElement::stop()
     deleteModelPlayer();
 }
 
-#if PLATFORM(COCOA)
-Vector<RetainPtr<id>> HTMLModelElement::accessibilityChildren()
+#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
+
+ModelPlayerAccessibilityChildren HTMLModelElement::accessibilityChildren()
 {
     if (!m_modelPlayer)
         return { };
     return m_modelPlayer->accessibilityChildren();
 }
+
 #endif
 
 LayoutSize HTMLModelElement::contentSize() const
@@ -1343,12 +1431,14 @@ LayoutSize HTMLModelElement::contentSize() const
 }
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+
 String HTMLModelElement::inlinePreviewUUIDForTesting() const
 {
     if (!m_modelPlayer)
         return emptyString();
     return m_modelPlayer->inlinePreviewUUIDForTesting();
 }
+
 #endif
 
 void HTMLModelElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
@@ -1373,7 +1463,7 @@ bool HTMLModelElement::hasPresentationalHintsForAttribute(const QualifiedName& n
 bool HTMLModelElement::isURLAttribute(const Attribute& attribute) const
 {
     return attribute.name() == srcAttr
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
         || attribute.name() == environmentmapAttr
 #endif
         || HTMLElement::isURLAttribute(attribute);
@@ -1385,6 +1475,9 @@ Node::InsertedIntoAncestorResult HTMLModelElement::insertedIntoAncestor(Insertio
 
     if (insertionType.connectedToDocument) {
         document().registerForVisibilityStateChangedCallbacks(*this);
+#if ENABLE(MODEL_PROCESS)
+        document().incrementModelElementCount();
+#endif
         m_modelPlayerProvider = document().page()->modelPlayerProvider();
         LazyLoadModelObserver::observe(*this);
     }
@@ -1398,6 +1491,9 @@ void HTMLModelElement::removedFromAncestor(RemovalType removalType, ContainerNod
 
     if (removalType.disconnectedFromDocument) {
         document().unregisterForVisibilityStateChangedCallbacks(*this);
+#if ENABLE(MODEL_PROCESS)
+        document().decrementModelElementCount();
+#endif
         LazyLoadModelObserver::unobserve(*this, document());
 
         m_loadModelTimer = nullptr;
@@ -1425,13 +1521,14 @@ size_t HTMLModelElement::memoryCost() const
 {
     // May be called from GC threads.
     auto cost = m_dataMemoryCost.load(std::memory_order_relaxed);
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     cost += m_environmentMapDataMemoryCost.load(std::memory_order_relaxed);
 #endif
     return cost;
 }
 
 #if ENABLE(RESOURCE_USAGE)
+
 size_t HTMLModelElement::externalMemoryCost() const
 {
     // For the purposes of Web Inspector, external memory means memory reported as
@@ -1439,6 +1536,7 @@ size_t HTMLModelElement::externalMemoryCost() const
     // 2) not allocated from "Page" category, e.g. from bmalloc.
     return memoryCost();
 }
+
 #endif
 
 void HTMLModelElement::sourceRequestResource()

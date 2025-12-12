@@ -2811,8 +2811,6 @@ exclaves_requirement_startup(void)
 	if ((exclaves_entitlement_flags & EXCLAVES_PRIV_CONCLAVE_HOST) == 0) {
 		exclaves_requirement_relax(EXCLAVES_R_CONCLAVE_RESOURCES);
 	}
-
-	exclaves_requirement_relax(EXCLAVES_R_EIC);
 }
 STARTUP(TUNABLES, STARTUP_RANK_MIDDLE, exclaves_requirement_startup);
 

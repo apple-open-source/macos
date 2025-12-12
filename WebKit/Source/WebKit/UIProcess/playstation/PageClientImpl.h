@@ -76,8 +76,8 @@ private:
     // Return whether the view is focused.
     bool isViewFocused() override;
 
-    // Return whether the view is visible.
-    bool isViewVisible() override;
+    // Return whether the active view is visible.
+    bool isActiveViewVisible() override;
 
     // Return whether the view is in a window.
     bool isViewInWindow() override;

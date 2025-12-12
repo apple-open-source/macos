@@ -23,7 +23,7 @@
 
 #include "ActiveDOMObject.h"
 #include "ContextDestructionObserverInlines.h"
-#include "DocumentInlines.h"
+#include "DocumentSettingsValues.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -479,7 +479,7 @@ JSValue JSTestConditionalIncludes::getConstructor(VM& vm, const JSGlobalObject* 
 
 void JSTestConditionalIncludes::destroy(JSC::JSCell* cell)
 {
-    JSTestConditionalIncludes* thisObject = static_cast<JSTestConditionalIncludes*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestConditionalIncludes* thisObject = static_cast<JSTestConditionalIncludes*>(cell);
     thisObject->JSTestConditionalIncludes::~JSTestConditionalIncludes();
 }
 
@@ -674,7 +674,7 @@ static inline JSC::EncodedJSValue jsTestConditionalIncludesPrototypeFunction_mix
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
     if (callFrame->argumentCount() < 2) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
-    auto* context = jsCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext();
+    RefPtr context = jsCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext();
     if (!context) [[unlikely]]
         return JSValue::encode(jsUndefined());
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
@@ -814,7 +814,7 @@ bool JSTestConditionalIncludesOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC:
 
 void JSTestConditionalIncludesOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestConditionalIncludes = static_cast<JSTestConditionalIncludes*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestConditionalIncludes = static_cast<JSTestConditionalIncludes*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestConditionalIncludes->protectedWrapped().ptr(), jsTestConditionalIncludes);
 }
@@ -828,7 +828,7 @@ extern "C" { extern void (*const __identifier("??_7TestConditionalIncludes@WebCo
 extern "C" { extern void* _ZTVN7WebCore23TestConditionalIncludesE[]; }
 #endif
 template<std::same_as<TestConditionalIncludes> T>
-static inline void verifyVTable(TestConditionalIncludes* ptr) 
+static inline void verifyVTable(TestConditionalIncludes* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -848,8 +848,9 @@ static inline void verifyVTable(TestConditionalIncludes* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestConditionalIncludes>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestConditionalIncludes>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestConditionalIncludes>(impl.ptr());
 #endif

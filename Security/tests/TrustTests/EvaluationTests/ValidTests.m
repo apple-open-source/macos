@@ -12,6 +12,8 @@
 #include <Security/SecCertificatePriv.h>
 #include <utilities/SecCFWrappers.h>
 #include "trust/trustd/OTATrustUtilities.h"
+#include "featureflags/featureflags.h"
+#import "trust/trustd/SecRevocationDb.h"
 
 #import "../TestMacroConversions.h"
 #import "TrustEvaluationTestCase.h"
@@ -25,7 +27,6 @@ enum {
 @end
 
 @implementation ValidTests
-
 - (void) run_valid_trust_test:(SecCertificateRef)leaf
                            ca:(SecCertificateRef)ca
                         subca:(SecCertificateRef)subca

@@ -22,10 +22,10 @@
 
 #pragma once
 
-#include "FloatingObjects.h"
-#include "LegacyLineLayout.h"
-#include "LineWidth.h"
-#include "RenderBlock.h"
+#include <WebCore/FloatingObjects.h>
+#include <WebCore/LegacyLineLayout.h>
+#include <WebCore/LineWidth.h>
+#include <WebCore/RenderBlock.h>
 #include <memory>
 #include <wtf/TZoneMalloc.h>
 
@@ -148,6 +148,9 @@ protected:
 
     void simplifiedNormalFlowLayout() override;
     LayoutUnit shiftForAlignContent(LayoutUnit intrinsicLogicalHeight, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom);
+
+    void computeOverflow(LayoutRect contentArea, OptionSet<ComputeOverflowOptions> = { }) override;
+    void addOverflowFromInFlowChildren(OptionSet<ComputeOverflowOptions> = { }) override;
 
     // RenderBlockFlows override these methods, since they are the only class that supports margin collapsing.
     LayoutUnit collapsedMarginBefore() const final { return maxPositiveMarginBefore() - maxNegativeMarginBefore(); }
@@ -282,10 +285,8 @@ public:
     bool subtreeContainsFloats() const;
     bool subtreeContainsFloat(const RenderBox&) const;
 
-    void deleteLines() override;
-    void computeOverflow(LayoutUnit oldClientAfterEdge, bool recomputeFloats = false) override;
     Position positionForPoint(const LayoutPoint&, HitTestSource) override;
-    VisiblePosition positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
+    PositionWithAffinity positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
 
     LayoutUnit lowestFloatLogicalBottom(FloatingObject::Type = FloatingObject::FloatLeftRight) const;
 
@@ -349,11 +350,11 @@ public:
     bool hasLines() const;
 
     enum InvalidationReason : uint8_t {
-        StyleChange,
-        InsertionOrRemoval, // renderer gets constructed/goes away
+        InternalMove,       // (anon) block is moved or collapsed
+        InsertionOrRemoval, // child renderer gets constructed/goes away
         ContentChange       // existing renderer gets changed (text content only atm)
     };
-    void invalidateLineLayoutPath(InvalidationReason);
+    void invalidateLineLayout(InvalidationReason);
     void computeAndSetLineLayoutPath();
 
     enum LineLayoutPath { UndeterminedPath = 0, InlinePath, SvgTextPath };
@@ -449,7 +450,6 @@ protected:
 
     std::optional<LayoutUnit> firstLineBaseline() const override;
     std::optional<LayoutUnit> lastLineBaseline() const override;
-    std::optional<LayoutUnit> inlineBlockBaseline(LineDirectionMode) const override;
 
     void setComputedColumnCountAndWidth(int, LayoutUnit);
 
@@ -460,11 +460,9 @@ protected:
 
     virtual void computeColumnCountAndWidth();
 
-protected:
     // Called to lay out the legend for a fieldset or the ruby text of a ruby run. Also used by multi-column layout to handle
     // the flow thread child.
     void layoutExcludedChildren(RelayoutChildren) override;
-    void addOverflowFromFloats();
 
 private:
     bool recomputeLogicalWidthAndColumnWidth();
@@ -509,12 +507,12 @@ private:
     bool hitTestFloats(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset) override;
     bool hitTestInlineChildren(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;
 
-    void addOverflowFromInlineChildren() override;
+    void addOverflowFromInlineChildren();
 
     GapRects inlineSelectionGaps(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
         LayoutUnit& lastLogicalTop, LayoutUnit& lastLogicalLeft, LayoutUnit& lastLogicalRight, const LogicalSelectionOffsetCaches&, const PaintInfo*) override;
     
-    VisiblePosition positionForPointWithInlineChildren(const LayoutPoint& pointInLogicalContents, HitTestSource) override;
+    PositionWithAffinity positionForPointWithInlineChildren(const LayoutPoint& pointInLogicalContents, HitTestSource) override;
     void addFocusRingRectsForInlineChildren(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject*) const override;
 
     bool hasSvgTextLayout() const;

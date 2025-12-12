@@ -11,6 +11,7 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 
 set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
+    "${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}"
     "${WebCore_DERIVED_SOURCES_DIR}"
     "${WEBCORE_DIR}"
     "${WEBCORE_DIR}/Modules/ShapeDetection"
@@ -109,6 +110,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/values/color-adjust"
     "${WEBCORE_DIR}/css/values/easing"
     "${WEBCORE_DIR}/css/values/filter-effects"
+    "${WEBCORE_DIR}/css/values/grid"
     "${WEBCORE_DIR}/css/values/images"
     "${WEBCORE_DIR}/css/values/motion"
     "${WEBCORE_DIR}/css/values/primitives"
@@ -137,6 +139,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/layout/formattingContexts/block"
     "${WEBCORE_DIR}/layout/formattingContexts/block/tablewrapper"
     "${WEBCORE_DIR}/layout/formattingContexts/flex"
+    "${WEBCORE_DIR}/layout/formattingContexts/grid"
     "${WEBCORE_DIR}/layout/floats"
     "${WEBCORE_DIR}/layout/formattingContexts/inline"
     "${WEBCORE_DIR}/layout/formattingContexts/inline/display"
@@ -145,11 +148,11 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/layout/formattingContexts/inline/text"
     "${WEBCORE_DIR}/layout/integration"
     "${WEBCORE_DIR}/layout/integration/flex"
+    "${WEBCORE_DIR}/layout/integration/grid"
     "${WEBCORE_DIR}/layout/integration/inline"
     "${WEBCORE_DIR}/layout/layouttree"
     "${WEBCORE_DIR}/layout/formattingContexts/table"
     "${WEBCORE_DIR}/loader"
-    "${WEBCORE_DIR}/loader/appcache"
     "${WEBCORE_DIR}/loader/archive"
     "${WEBCORE_DIR}/loader/archive/mhtml"
     "${WEBCORE_DIR}/loader/cache"
@@ -161,8 +164,8 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/page/text-extraction"
     "${WEBCORE_DIR}/platform"
     "${WEBCORE_DIR}/platform/animation"
+    "${WEBCORE_DIR}/platform/animation/values"
     "${WEBCORE_DIR}/platform/audio"
-    "${WEBCORE_DIR}/platform/calc"
     "${WEBCORE_DIR}/platform/encryptedmedia"
     "${WEBCORE_DIR}/platform/gamepad"
     "${WEBCORE_DIR}/platform/graphics"
@@ -197,32 +200,54 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/replay"
     "${WEBCORE_DIR}/storage"
     "${WEBCORE_DIR}/style"
+    "${WEBCORE_DIR}/style/calc"
     "${WEBCORE_DIR}/style/values"
     "${WEBCORE_DIR}/style/values/align"
     "${WEBCORE_DIR}/style/values/anchor-position"
+    "${WEBCORE_DIR}/style/values/animations"
+    "${WEBCORE_DIR}/style/values/backgrounds"
     "${WEBCORE_DIR}/style/values/borders"
     "${WEBCORE_DIR}/style/values/box"
+    "${WEBCORE_DIR}/style/values/break"
     "${WEBCORE_DIR}/style/values/color-adjust"
     "${WEBCORE_DIR}/style/values/color"
     "${WEBCORE_DIR}/style/values/contain"
+    "${WEBCORE_DIR}/style/values/content"
+    "${WEBCORE_DIR}/style/values/counter-styles"
+    "${WEBCORE_DIR}/style/values/css2"
+    "${WEBCORE_DIR}/style/values/display"
     "${WEBCORE_DIR}/style/values/easing"
+    "${WEBCORE_DIR}/style/values/fill-stroke"
     "${WEBCORE_DIR}/style/values/filter-effects"
     "${WEBCORE_DIR}/style/values/flexbox"
+    "${WEBCORE_DIR}/style/values/fonts"
     "${WEBCORE_DIR}/style/values/grid"
     "${WEBCORE_DIR}/style/values/images"
     "${WEBCORE_DIR}/style/values/inline"
+    "${WEBCORE_DIR}/style/values/line-grid"
+    "${WEBCORE_DIR}/style/values/lists"
     "${WEBCORE_DIR}/style/values/masking"
     "${WEBCORE_DIR}/style/values/motion"
+    "${WEBCORE_DIR}/style/values/multicol"
+    "${WEBCORE_DIR}/style/values/non-standard"
+    "${WEBCORE_DIR}/style/values/overflow"
+    "${WEBCORE_DIR}/style/values/page"
     "${WEBCORE_DIR}/style/values/position"
     "${WEBCORE_DIR}/style/values/primitives"
+    "${WEBCORE_DIR}/style/values/rhythm"
     "${WEBCORE_DIR}/style/values/scroll-animations"
     "${WEBCORE_DIR}/style/values/scroll-snap"
+    "${WEBCORE_DIR}/style/values/scrollbars"
     "${WEBCORE_DIR}/style/values/shapes"
+    "${WEBCORE_DIR}/style/values/size-adjust"
     "${WEBCORE_DIR}/style/values/sizing"
     "${WEBCORE_DIR}/style/values/svg"
     "${WEBCORE_DIR}/style/values/text"
     "${WEBCORE_DIR}/style/values/text-decoration"
     "${WEBCORE_DIR}/style/values/transforms"
+    "${WEBCORE_DIR}/style/values/transforms/functions"
+    "${WEBCORE_DIR}/style/values/transitions"
+    "${WEBCORE_DIR}/style/values/ui"
     "${WEBCORE_DIR}/style/values/view-transitions"
     "${WEBCORE_DIR}/svg"
     "${WEBCORE_DIR}/svg/animation"
@@ -395,6 +420,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/fetch/FetchRequestMode.idl
     Modules/fetch/FetchRequestRedirect.idl
     Modules/fetch/FetchResponse.idl
+    Modules/fetch/IPAddressSpace.idl
     Modules/fetch/RequestPriority.idl
     Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl
 
@@ -459,7 +485,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediacapabilities/VideoConfiguration.idl
     Modules/mediacapabilities/WorkerNavigator+MediaCapabilities.idl
 
+    Modules/mediacontrols/DOMWindow+MediaControls.idl
     Modules/mediacontrols/MediaControlsHost.idl
+    Modules/mediacontrols/MediaControlsUtils.idl
 
     Modules/mediarecorder/BlobEvent.idl
     Modules/mediarecorder/MediaRecorder.idl
@@ -529,6 +557,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCDtlsTransport.idl
     Modules/mediastream/RTCDtlsTransportState.idl
     Modules/mediastream/RTCEncodedAudioFrame.idl
+    Modules/mediastream/RTCEncodedStreams.idl
     Modules/mediastream/RTCEncodedVideoFrame.idl
     Modules/mediastream/RTCError.idl
     Modules/mediastream/RTCErrorDetailType.idl
@@ -689,16 +718,25 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/streams/ByteLengthQueuingStrategy.idl
     Modules/streams/CountQueuingStrategy.idl
     Modules/streams/GenericTransformStream.idl
+    Modules/streams/QueuingStrategy.idl
+    Modules/streams/QueuingStrategySize.idl
     Modules/streams/ReadableByteStreamController.idl
-    Modules/streams/ReadableStream.idl
     Modules/streams/ReadableStreamBYOBReader.idl
     Modules/streams/ReadableStreamBYOBRequest.idl
+    Modules/streams/ReadableStream.idl
     Modules/streams/ReadableStreamDefaultController.idl
     Modules/streams/ReadableStreamDefaultReader.idl
+    Modules/streams/ReadableStreamReadResult.idl
     Modules/streams/ReadableStreamSink.idl
     Modules/streams/ReadableStreamSource.idl
+    Modules/streams/ReadableStreamType.idl
+    Modules/streams/StreamPipeOptions.idl
     Modules/streams/TransformStream.idl
     Modules/streams/TransformStreamDefaultController.idl
+    Modules/streams/UnderlyingSource.idl
+    Modules/streams/UnderlyingSourceCancelCallback.idl
+    Modules/streams/UnderlyingSourcePullCallback.idl
+    Modules/streams/UnderlyingSourceStartCallback.idl
     Modules/streams/WritableStream.idl
     Modules/streams/WritableStreamDefaultController.idl
     Modules/streams/WritableStreamDefaultWriter.idl
@@ -892,6 +930,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webtransport/WebTransportBidirectionalStream.idl
     Modules/webtransport/WebTransportCloseInfo.idl
     Modules/webtransport/WebTransportCongestionControl.idl
+    Modules/webtransport/WebTransportConnectionStats.idl
     Modules/webtransport/WebTransportDatagramDuplexStream.idl
     Modules/webtransport/WebTransportDatagramStats.idl
     Modules/webtransport/WebTransportError.idl
@@ -905,7 +944,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webtransport/WebTransportSendStream.idl
     Modules/webtransport/WebTransportSendStreamOptions.idl
     Modules/webtransport/WebTransportSendStreamStats.idl
-    Modules/webtransport/WebTransportStats.idl
 
     accessibility/AccessibilityRole.idl
     accessibility/AriaAttributes.idl
@@ -989,6 +1027,9 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSFontFaceRule.idl
     css/CSSFontFeatureValuesRule.idl
     css/CSSFontPaletteValuesRule.idl
+    css/CSSFunctionDeclarations.idl
+    css/CSSFunctionDescriptors.idl
+    css/CSSFunctionRule.idl
     css/CSSGroupingRule.idl
     css/CSSImportRule.idl
     css/CSSKeyframeRule.idl
@@ -1207,7 +1248,6 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/Observable.idl
     dom/ObservableInspector.idl
     dom/ObservableInspectorAbortCallback.idl
-    dom/OverflowEvent.idl
     dom/PageRevealEvent.idl
     dom/PageSwapEvent.idl
     dom/PageTransitionEvent.idl
@@ -1370,8 +1410,8 @@ set(WebCore_NON_SVG_IDL_FILES
     html/ImageBitmap.idl
     html/ImageBitmapOptions.idl
     html/ImageData.idl
+    html/ImageDataPixelFormat.idl
     html/ImageDataSettings.idl
-    html/ImageDataStorageFormat.idl
     html/MediaController.idl
     html/MediaEncryptedEvent.idl
     html/MediaError.idl
@@ -1467,6 +1507,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/DOMWindow+Selection.idl
     page/DOMWindow+VisualViewport.idl
     page/DOMWindow.idl
+    page/EventCounts.idl
     page/EventSource.idl
     page/FragmentDirective.idl
     page/GetComposedRangesOptions.idl
@@ -1475,6 +1516,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/IntersectionObserver.idl
     page/IntersectionObserverCallback.idl
     page/IntersectionObserverEntry.idl
+    page/LargestContentfulPaint.idl
     page/Location.idl
     page/NavigateEvent.idl
     page/Navigation.idl
@@ -1498,6 +1540,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/NavigatorUA.idl
     page/NavigatorUABrandVersion.idl
     page/NavigatorUAData.idl
+    page/PaintTimingMixin.idl
     page/Performance+EventCounts.idl
     page/Performance+NavigationTiming.idl
     page/Performance+PerformanceTimeline.idl
@@ -1505,6 +1548,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/Performance+UserTiming.idl
     page/Performance.idl
     page/PerformanceEntry.idl
+    page/PerformanceEventTiming.idl
     page/PerformanceMark.idl
     page/PerformanceMarkOptions.idl
     page/PerformanceMeasure.idl
@@ -1539,7 +1583,9 @@ set(WebCore_NON_SVG_IDL_FILES
     page/UndoItem.idl
     page/UndoManager.idl
     page/VisualViewport.idl
+    page/WebKitJSHandle.idl
     page/WebKitPoint.idl
+    page/WebKitSerializedNode.idl
     page/WindowEventHandlers.idl
     page/WindowLocalStorage.idl
     page/WindowOrWorkerGlobalScope+Crypto.idl
@@ -2041,6 +2087,7 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/html.css
     ${WEBCORE_DIR}/css/htmlSwitchControl.css
     ${WEBCORE_DIR}/css/mathml.css
+    ${WEBCORE_DIR}/css/mathmlCoreExtras.css
     ${WEBCORE_DIR}/css/popover.css
     ${WEBCORE_DIR}/css/quirks.css
     ${WEBCORE_DIR}/css/svg.css
@@ -2582,18 +2629,27 @@ add_custom_command(
 
 # Generate process sync data files
 add_custom_command(
-    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.cpp ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.cpp ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.cpp ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.serialization.in
-    MAIN_DEPENDENCY ${WEBCORE_DIR}/page/ProcessSyncData.in
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.cpp ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncClient.cpp ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncClient.h ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.serialization.in
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/page/DocumentSyncData.in
     DEPENDS ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py ${WEBCORE_DIR}/page/ProcessSyncData.in ${WebCore_DERIVED_SOURCES_DIR}
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py "Document" ${WEBCORE_DIR}/page/DocumentSyncData.in ${WebCore_DERIVED_SOURCES_DIR}
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.h)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncClient.cpp)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncClient.h)
+
+add_custom_command(
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.cpp ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncClient.cpp ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncClient.h ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.serialization.in
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/page/FrameTreeSyncData.in
+    DEPENDS ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py "FrameTree" ${WEBCORE_DIR}/page/FrameTreeSyncData.in ${WebCore_DERIVED_SOURCES_DIR}
+    VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.h)
-list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.cpp)
-list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h)
-list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncClient.cpp)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncClient.h)
+
 
 # Modules that the bindings generator scripts may use
 set(SCRIPTS_RESOLVE_SUPPLEMENTAL
@@ -2706,11 +2762,11 @@ list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/HTTPHeaderNames.cpp)
 
 # Log messages
 add_custom_command(
-    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions.h
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions.h ${WebCore_DERIVED_SOURCES_DIR}/WebCoreVirtualLogFunctions.h
     MAIN_DEPENDENCY ${WEBCORE_DIR}/platform/LogMessages.in
     DEPENDS ${WEBCORE_DIR}/Scripts/generate-log-declarations.py
     WORKING_DIRECTORY ${WebCore_DERIVED_SOURCES_DIR}
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/Scripts/generate-log-declarations.py ${WEBCORE_DIR}/platform/LogMessages.in ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions.h
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/Scripts/generate-log-declarations.py ${WEBCORE_DIR}/platform/LogMessages.in ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions.h ${WebCore_DERIVED_SOURCES_DIR}/WebCoreVirtualLogFunctions.h
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions.h)
 
@@ -2831,7 +2887,7 @@ GENERATE_BINDINGS(WebCoreBindings
         --workletGlobalScopeConstructorsFile ${WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE}
         --paintWorkletGlobalScopeConstructorsFile ${PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE}
         --audioWorkletGlobalScopeConstructorsFile ${AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE})
-list(APPEND WebCore_DEPENDENCIES WebCoreBindings)
+list(APPEND WebCore_DEPENDENCIES WebCoreBindings WebCore_CopyPrivateHeaders)
 
 if (ENABLE_WEBINSPECTORUI)
     list(APPEND WebCore_DEPENDENCIES WebInspectorUI)
@@ -2859,10 +2915,6 @@ set(WebCore_BUILTINS_SOURCES
     ${WEBCORE_DIR}/Modules/compression/DecompressionStream.js
     ${WEBCORE_DIR}/Modules/streams/ByteLengthQueuingStrategy.js
     ${WEBCORE_DIR}/Modules/streams/CountQueuingStrategy.js
-    ${WEBCORE_DIR}/Modules/streams/ReadableByteStreamController.js
-    ${WEBCORE_DIR}/Modules/streams/ReadableByteStreamInternals.js
-    ${WEBCORE_DIR}/Modules/streams/ReadableStreamBYOBReader.js
-    ${WEBCORE_DIR}/Modules/streams/ReadableStreamBYOBRequest.js
     ${WEBCORE_DIR}/Modules/streams/ReadableStreamDefaultController.js
     ${WEBCORE_DIR}/Modules/streams/ReadableStreamInternals.js
     ${WEBCORE_DIR}/Modules/streams/ReadableStreamDefaultReader.js
@@ -2978,7 +3030,10 @@ WEBKIT_COMPUTE_SOURCES(WebCore)
 target_precompile_headers(WebCore PRIVATE WebCorePrefix.h)
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
-    ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.serialization.in
+    ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.serialization.in
+    ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.serialization.in
+
+    Modules/Model/InternalAPI/DDModel.serialization.in
 
     Modules/WebGPU/InternalAPI/WebGPU.serialization.in
     Modules/indexeddb/IndexedDB.serialization.in
@@ -3000,20 +3055,13 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/ProtectionSpaceBase.serialization.in
 )
 
-WEBKIT_COPY_FILES(WebCore_CopyPrivateHeaders
+WEBKIT_SYMLINK_FILES(WebCore_CopyPrivateHeaders
     DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore
     FILES ${WebCore_PRIVATE_FRAMEWORK_HEADERS}
     FLATTENED
 )
 list(APPEND WebCore_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
 list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
-# WebCore_CopyPrivateHeaders needs to have a direct or indirect
-# dependency of WebCore target for CMake Visual Studio generator to
-# eliminate duplicated custom commands. Otherwise, CSSPropertyNames.h
-# will be generated in both projects.
-if (NOT INTERNAL_BUILD)
-    add_dependencies(WebCore_CopyPrivateHeaders WebCore)
-endif ()
 
 WEBKIT_FRAMEWORK(WebCore)
 

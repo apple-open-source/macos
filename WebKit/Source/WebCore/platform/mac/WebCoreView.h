@@ -23,6 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#import <wtf/Platform.h>
+
+#if USE(APPKIT)
+#import <AppKit/NSView.h>
+#endif
+
 @interface NSView (WebCoreView)
 - (NSView *)_webcore_effectiveFirstResponder;
 @end

@@ -22,26 +22,26 @@
 
 #pragma once
 
-#include "ArrayConventions.h"
-#include "ArrayStorage.h"
-#include "Butterfly.h"
-#include "CPU.h"
-#include "CagedBarrierPtr.h"
-#include "CallFrame.h"
-#include "ClassInfo.h"
-#include "CustomGetterSetter.h"
-#include "DOMAttributeGetterSetter.h"
-#include "DeletePropertySlot.h"
-#include "Heap.h"
-#include "IndexingHeaderInlines.h"
-#include "JSCast.h"
-#include "MathCommon.h"
-#include "PropertySlot.h"
-#include "PropertyStorage.h"
-#include "PutDirectIndexMode.h"
-#include "PutPropertySlot.h"
-#include "Structure.h"
-#include "StructureTransitionTable.h"
+#include <JavaScriptCore/ArrayConventions.h>
+#include <JavaScriptCore/ArrayStorage.h>
+#include <JavaScriptCore/Butterfly.h>
+#include <JavaScriptCore/CPU.h>
+#include <JavaScriptCore/CagedBarrierPtr.h>
+#include <JavaScriptCore/CallFrame.h>
+#include <JavaScriptCore/ClassInfo.h>
+#include <JavaScriptCore/CustomGetterSetter.h>
+#include <JavaScriptCore/DOMAttributeGetterSetter.h>
+#include <JavaScriptCore/DeletePropertySlot.h>
+#include <JavaScriptCore/Heap.h>
+#include <JavaScriptCore/IndexingHeaderInlines.h>
+#include <JavaScriptCore/JSCast.h>
+#include <JavaScriptCore/MathCommon.h>
+#include <JavaScriptCore/PropertySlot.h>
+#include <JavaScriptCore/PropertyStorage.h>
+#include <JavaScriptCore/PutDirectIndexMode.h>
+#include <JavaScriptCore/PutPropertySlot.h>
+#include <JavaScriptCore/Structure.h>
+#include <JavaScriptCore/StructureTransitionTable.h>
 #include <wtf/StdLibExtras.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -1156,7 +1156,7 @@ public:
 
     static inline constexpr TypeInfo typeInfo() { return TypeInfo(FinalObjectType, StructureFlags); }
     static constexpr IndexingType defaultIndexingType = NonArray;
-    static constexpr int32_t defaultTypeInfoBlob()
+    static constexpr uint32_t defaultTypeInfoBlob()
     {
         return TypeInfoBlob::typeInfoBlob(defaultIndexingType, typeInfo().type(), typeInfo().inlineTypeFlags());
     }

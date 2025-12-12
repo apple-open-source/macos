@@ -137,11 +137,11 @@ bool PageBanner::mouseEvent(const WebMouseEvent& mouseEvent)
 
     switch (m_type) {
     case Header: {
-        positionInBannerSpace = frameView->rootViewToTotalContents(mouseEvent.position());
+        positionInBannerSpace = frameView->rootViewToTotalContents(flooredIntPoint(mouseEvent.position()));
         break;
     }
     case Footer: {
-        positionInBannerSpace = frameView->rootViewToTotalContents(mouseEvent.position()) - IntSize(0, frameView->totalContentsSize().height() - m_height);
+        positionInBannerSpace = frameView->rootViewToTotalContents(flooredIntPoint(mouseEvent.position())) - IntSize(0, frameView->totalContentsSize().height() - m_height);
         break;
     }
     case NotSet:

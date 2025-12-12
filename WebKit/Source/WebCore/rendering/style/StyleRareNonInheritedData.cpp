@@ -29,10 +29,9 @@
 #include "RotateTransformOperation.h"
 #include "ScaleTransformOperation.h"
 #include "StyleImage.h"
+#include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
-#include "StyleReflection.h"
 #include "StyleResolver.h"
-#include "StyleTextEdge.h"
 #include <wtf/PointerComparison.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/TextStream.h>
@@ -44,8 +43,6 @@ DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRareNonInheritedData);
 StyleRareNonInheritedData::StyleRareNonInheritedData()
     : containIntrinsicWidth(RenderStyle::initialContainIntrinsicWidth())
     , containIntrinsicHeight(RenderStyle::initialContainIntrinsicHeight())
-    , perspectiveOriginX(RenderStyle::initialPerspectiveOriginX())
-    , perspectiveOriginY(RenderStyle::initialPerspectiveOriginY())
     , lineClamp(RenderStyle::initialLineClamp())
     , zoom(RenderStyle::initialZoom())
     , maxLines(RenderStyle::initialMaxLines())
@@ -58,20 +55,20 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , backdropFilter(StyleFilterData::create())
     , grid(StyleGridData::create())
     , gridItem(StyleGridItemData::create())
-    // clip
+    , clip(RenderStyle::initialClip())
     // scrollMargin
     // scrollPadding
     // counterDirectives
     , willChange(RenderStyle::initialWillChange())
-    // boxReflect
-    , maskBorder(NinePieceImage::Type::Mask)
-    // pageSize
+    , boxReflect(RenderStyle::initialBoxReflect())
+    , maskBorder(RenderStyle::initialMaskBorder())
+    , pageSize(RenderStyle::initialPageSize())
     , shapeOutside(RenderStyle::initialShapeOutside())
     , shapeMargin(RenderStyle::initialShapeMargin())
     , shapeImageThreshold(RenderStyle::initialShapeImageThreshold())
     , perspective(RenderStyle::initialPerspective())
+    , perspectiveOrigin(RenderStyle::initialPerspectiveOrigin())
     , clipPath(RenderStyle::initialClipPath())
-    , textDecorationColor(RenderStyle::initialTextDecorationColor())
     , customProperties(Style::CustomPropertyData::create())
     // customPaintWatchedProperties
     , rotate(RenderStyle::initialRotate())
@@ -87,6 +84,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , offsetPosition(RenderStyle::initialOffsetPosition())
     , offsetAnchor(RenderStyle::initialOffsetAnchor())
     , offsetRotate(RenderStyle::initialOffsetRotate())
+    , textDecorationColor(RenderStyle::initialTextDecorationColor())
     , textDecorationThickness(RenderStyle::initialTextDecorationThickness())
     // scrollTimelines
     , scrollTimelineAxes(RenderStyle::initialScrollTimelineAxes())
@@ -96,28 +94,27 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , viewTimelineAxes(RenderStyle::initialViewTimelineAxes())
     , viewTimelineNames(RenderStyle::initialViewTimelineNames())
     // timelineScope
-    // scrollbarGutter
-    // scrollSnapType
-    // scrollSnapAlign
-    // scrollSnapStop
+    , scrollbarGutter(RenderStyle::initialScrollbarGutter())
+    , scrollSnapType(RenderStyle::initialScrollSnapType())
+    , scrollSnapAlign(RenderStyle::initialScrollSnapAlign())
+    , scrollSnapStop(RenderStyle::initialScrollSnapStop())
     , pseudoElementNameArgument(nullAtom())
     , anchorNames(RenderStyle::initialAnchorNames())
     , anchorScope(RenderStyle::initialAnchorScope())
     , positionAnchor(RenderStyle::initialPositionAnchor())
     , positionArea(RenderStyle::initialPositionArea())
     , positionTryFallbacks(RenderStyle::initialPositionTryFallbacks())
-    , lastSuccessfulPositionTryFallbackIndex()
+    , usedPositionOptionIndex()
     , blockStepSize(RenderStyle::initialBlockStepSize())
     , blockStepAlign(static_cast<unsigned>(RenderStyle::initialBlockStepAlign()))
     , blockStepInsert(static_cast<unsigned>(RenderStyle::initialBlockStepInsert()))
     , blockStepRound(static_cast<unsigned>(RenderStyle::initialBlockStepRound()))
     , overscrollBehaviorX(static_cast<unsigned>(RenderStyle::initialOverscrollBehaviorX()))
     , overscrollBehaviorY(static_cast<unsigned>(RenderStyle::initialOverscrollBehaviorY()))
-    , pageSizeType(static_cast<unsigned>(PageSizeType::Auto))
     , transformStyle3D(static_cast<unsigned>(RenderStyle::initialTransformStyle3D()))
     , transformStyleForcedToFlat(false)
     , backfaceVisibility(static_cast<unsigned>(RenderStyle::initialBackfaceVisibility()))
-    , useSmoothScrolling(static_cast<unsigned>(RenderStyle::initialUseSmoothScrolling()))
+    , scrollBehavior(static_cast<unsigned>(RenderStyle::initialScrollBehavior()))
     , textDecorationStyle(static_cast<unsigned>(RenderStyle::initialTextDecorationStyle()))
     , textGroupAlign(static_cast<unsigned>(RenderStyle::initialTextGroupAlign()))
     , contentVisibility(static_cast<unsigned>(RenderStyle::initialContentVisibility()))
@@ -134,7 +131,6 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , containerType(static_cast<unsigned>(RenderStyle::initialContainerType()))
     , textBoxTrim(static_cast<unsigned>(RenderStyle::initialTextBoxTrim()))
     , overflowAnchor(static_cast<unsigned>(RenderStyle::initialOverflowAnchor()))
-    , hasClip(false)
     , positionTryOrder(static_cast<unsigned>(RenderStyle::initialPositionTryOrder()))
     , positionVisibility(RenderStyle::initialPositionVisibility().toRaw())
     , fieldSizing(static_cast<unsigned>(RenderStyle::initialFieldSizing()))
@@ -146,6 +142,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , usesAnchorFunctions(false)
     , anchorFunctionScrollCompensatedAxes(0)
     , isPopoverInvoker(false)
+    , useSVGZoomRulesForLength(false)
 {
 }
 
@@ -153,8 +150,6 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     : RefCounted<StyleRareNonInheritedData>()
     , containIntrinsicWidth(o.containIntrinsicWidth)
     , containIntrinsicHeight(o.containIntrinsicHeight)
-    , perspectiveOriginX(o.perspectiveOriginX)
-    , perspectiveOriginY(o.perspectiveOriginY)
     , lineClamp(o.lineClamp)
     , zoom(o.zoom)
     , maxLines(o.maxLines)
@@ -179,8 +174,8 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , shapeMargin(o.shapeMargin)
     , shapeImageThreshold(o.shapeImageThreshold)
     , perspective(o.perspective)
+    , perspectiveOrigin(o.perspectiveOrigin)
     , clipPath(o.clipPath)
-    , textDecorationColor(o.textDecorationColor)
     , customProperties(o.customProperties)
     , customPaintWatchedProperties(o.customPaintWatchedProperties)
     , rotate(o.rotate)
@@ -196,6 +191,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , offsetPosition(o.offsetPosition)
     , offsetAnchor(o.offsetAnchor)
     , offsetRotate(o.offsetRotate)
+    , textDecorationColor(o.textDecorationColor)
     , textDecorationThickness(o.textDecorationThickness)
     , scrollTimelines(o.scrollTimelines)
     , scrollTimelineAxes(o.scrollTimelineAxes)
@@ -215,18 +211,17 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , positionAnchor(o.positionAnchor)
     , positionArea(o.positionArea)
     , positionTryFallbacks(o.positionTryFallbacks)
-    , lastSuccessfulPositionTryFallbackIndex(o.lastSuccessfulPositionTryFallbackIndex)
+    , usedPositionOptionIndex(o.usedPositionOptionIndex)
     , blockStepSize(o.blockStepSize)
     , blockStepAlign(o.blockStepAlign)
     , blockStepInsert(o.blockStepInsert)
     , blockStepRound(o.blockStepRound)
     , overscrollBehaviorX(o.overscrollBehaviorX)
     , overscrollBehaviorY(o.overscrollBehaviorY)
-    , pageSizeType(o.pageSizeType)
     , transformStyle3D(o.transformStyle3D)
     , transformStyleForcedToFlat(o.transformStyleForcedToFlat)
     , backfaceVisibility(o.backfaceVisibility)
-    , useSmoothScrolling(o.useSmoothScrolling)
+    , scrollBehavior(o.scrollBehavior)
     , textDecorationStyle(o.textDecorationStyle)
     , textGroupAlign(o.textGroupAlign)
     , contentVisibility(o.contentVisibility)
@@ -243,7 +238,6 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , containerType(o.containerType)
     , textBoxTrim(o.textBoxTrim)
     , overflowAnchor(o.overflowAnchor)
-    , hasClip(o.hasClip)
     , positionTryOrder(o.positionTryOrder)
     , positionVisibility(o.positionVisibility)
     , fieldSizing(o.fieldSizing)
@@ -255,6 +249,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , usesAnchorFunctions(o.usesAnchorFunctions)
     , anchorFunctionScrollCompensatedAxes(o.anchorFunctionScrollCompensatedAxes)
     , isPopoverInvoker(o.isPopoverInvoker)
+    , useSVGZoomRulesForLength(o.useSVGZoomRulesForLength)
 {
 }
 
@@ -269,8 +264,6 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
 {
     return containIntrinsicWidth == o.containIntrinsicWidth
         && containIntrinsicHeight == o.containIntrinsicHeight
-        && perspectiveOriginX == o.perspectiveOriginX
-        && perspectiveOriginY == o.perspectiveOriginY
         && lineClamp == o.lineClamp
         && zoom == o.zoom
         && maxLines == o.maxLines
@@ -288,13 +281,14 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && scrollPadding == o.scrollPadding
         && counterDirectives == o.counterDirectives
         && arePointingToEqualData(willChange, o.willChange)
-        && arePointingToEqualData(boxReflect, o.boxReflect)
+        && boxReflect == o.boxReflect
         && maskBorder == o.maskBorder
         && pageSize == o.pageSize
-        && arePointingToEqualData(shapeOutside, o.shapeOutside)
+        && shapeOutside == o.shapeOutside
         && shapeMargin == o.shapeMargin
         && shapeImageThreshold == o.shapeImageThreshold
         && perspective == o.perspective
+        && perspectiveOrigin == o.perspectiveOrigin
         && clipPath == o.clipPath
         && textDecorationColor == o.textDecorationColor
         && customProperties == o.customProperties
@@ -329,18 +323,17 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && positionAnchor == o.positionAnchor
         && positionArea == o.positionArea
         && positionTryFallbacks == o.positionTryFallbacks
-        && lastSuccessfulPositionTryFallbackIndex == o.lastSuccessfulPositionTryFallbackIndex
+        && usedPositionOptionIndex == o.usedPositionOptionIndex
         && blockStepSize == o.blockStepSize
         && blockStepAlign == o.blockStepAlign
         && blockStepInsert == o.blockStepInsert
         && blockStepRound == o.blockStepRound
         && overscrollBehaviorX == o.overscrollBehaviorX
         && overscrollBehaviorY == o.overscrollBehaviorY
-        && pageSizeType == o.pageSizeType
         && transformStyle3D == o.transformStyle3D
         && transformStyleForcedToFlat == o.transformStyleForcedToFlat
         && backfaceVisibility == o.backfaceVisibility
-        && useSmoothScrolling == o.useSmoothScrolling
+        && scrollBehavior == o.scrollBehavior
         && textDecorationStyle == o.textDecorationStyle
         && textGroupAlign == o.textGroupAlign
         && effectiveBlendMode == o.effectiveBlendMode
@@ -359,7 +352,6 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && overflowAnchor == o.overflowAnchor
         && viewTransitionClasses == o.viewTransitionClasses
         && viewTransitionName == o.viewTransitionName
-        && hasClip == o.hasClip
         && positionTryOrder == o.positionTryOrder
         && positionVisibility == o.positionVisibility
         && fieldSizing == o.fieldSizing
@@ -370,7 +362,8 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && scrollbarWidth == o.scrollbarWidth
         && usesAnchorFunctions == o.usesAnchorFunctions
         && anchorFunctionScrollCompensatedAxes == o.anchorFunctionScrollCompensatedAxes
-        && isPopoverInvoker == o.isPopoverInvoker;
+        && isPopoverInvoker == o.isPopoverInvoker
+        && useSVGZoomRulesForLength == o.useSVGZoomRulesForLength;
 }
 
 OptionSet<Containment> StyleRareNonInheritedData::usedContain() const
@@ -393,7 +386,7 @@ OptionSet<Containment> StyleRareNonInheritedData::usedContain() const
 
 bool StyleRareNonInheritedData::hasBackdropFilters() const
 {
-    return !backdropFilter->operations.isEmpty();
+    return !backdropFilter->filter.isNone();
 }
 
 #if !LOG_DISABLED
@@ -406,9 +399,6 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
 
     LOG_IF_DIFFERENT(containIntrinsicWidth);
     LOG_IF_DIFFERENT(containIntrinsicHeight);
-
-    LOG_IF_DIFFERENT(perspectiveOriginX);
-    LOG_IF_DIFFERENT(perspectiveOriginY);
 
     LOG_IF_DIFFERENT(lineClamp);
 
@@ -436,10 +426,11 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT(pageSize);
 
     LOG_IF_DIFFERENT(shapeOutside);
-
     LOG_IF_DIFFERENT(shapeMargin);
     LOG_IF_DIFFERENT(shapeImageThreshold);
+
     LOG_IF_DIFFERENT(perspective);
+    LOG_IF_DIFFERENT(perspectiveOrigin);
 
     LOG_IF_DIFFERENT(clipPath);
 
@@ -492,7 +483,7 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT(positionAnchor);
     LOG_IF_DIFFERENT(positionArea);
     LOG_IF_DIFFERENT(positionTryFallbacks);
-    LOG_IF_DIFFERENT(lastSuccessfulPositionTryFallbackIndex);
+    LOG_IF_DIFFERENT(usedPositionOptionIndex);
     LOG_IF_DIFFERENT(positionVisibility);
 
     LOG_IF_DIFFERENT(blockStepSize);
@@ -504,13 +495,11 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT_WITH_CAST(OverscrollBehavior, overscrollBehaviorX);
     LOG_IF_DIFFERENT_WITH_CAST(OverscrollBehavior, overscrollBehaviorY);
 
-    LOG_IF_DIFFERENT_WITH_CAST(PageSizeType, pageSizeType);
-
     LOG_IF_DIFFERENT_WITH_CAST(TransformStyle3D, transformStyle3D);
     LOG_IF_DIFFERENT_WITH_CAST(bool, transformStyleForcedToFlat);
     LOG_IF_DIFFERENT_WITH_CAST(BackfaceVisibility, backfaceVisibility);
 
-    LOG_IF_DIFFERENT_WITH_CAST(ScrollBehavior, useSmoothScrolling);
+    LOG_IF_DIFFERENT_WITH_CAST(Style::ScrollBehavior, scrollBehavior);
     LOG_IF_DIFFERENT_WITH_CAST(TextDecorationStyle, textDecorationStyle);
     LOG_IF_DIFFERENT_WITH_CAST(TextGroupAlign, textGroupAlign);
 
@@ -533,7 +522,6 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT_WITH_CAST(ContainerType, containerType);
     LOG_IF_DIFFERENT_WITH_CAST(TextBoxTrim, textBoxTrim);
     LOG_IF_DIFFERENT_WITH_CAST(OverflowAnchor, overflowAnchor);
-    LOG_IF_DIFFERENT_WITH_CAST(bool, hasClip);
     LOG_IF_DIFFERENT_WITH_CAST(Style::PositionTryOrder, positionTryOrder);
     LOG_IF_DIFFERENT(fieldSizing);
 
@@ -548,6 +536,7 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT_WITH_CAST(bool, usesAnchorFunctions);
     LOG_IF_DIFFERENT_WITH_CAST(bool, anchorFunctionScrollCompensatedAxes);
     LOG_IF_DIFFERENT_WITH_CAST(bool, isPopoverInvoker);
+    LOG_IF_DIFFERENT_WITH_CAST(bool, useSVGZoomRulesForLength);
 }
 #endif // !LOG_DISABLED
 

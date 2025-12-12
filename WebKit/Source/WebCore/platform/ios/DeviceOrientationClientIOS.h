@@ -41,11 +41,12 @@ namespace WebCore {
 
 class DeviceOrientationClientIOS : public DeviceOrientationClient, public MotionManagerClient {
     WTF_MAKE_TZONE_ALLOCATED(DeviceOrientationClientIOS);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DeviceOrientationClientIOS);
 public:
     DeviceOrientationClientIOS(RefPtr<DeviceOrientationUpdateProvider>&&);
     ~DeviceOrientationClientIOS() override;
     void setController(DeviceOrientationController*) override;
-    void startUpdating(const SecurityOriginData&) override;
+    void startUpdating() override;
     void stopUpdating() override;
     DeviceOrientationData* lastOrientation() const override;
     void deviceOrientationControllerDestroyed() override;

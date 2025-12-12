@@ -22,9 +22,10 @@
 #ifndef PopupMenuClient_h
 #define PopupMenuClient_h
 
-#include "LayoutUnit.h"
-#include "PopupMenuStyle.h"
-#include "ScrollTypes.h"
+#include <WebCore/LayoutUnit.h>
+#include <WebCore/PopupMenuStyle.h>
+#include <WebCore/ScrollTypes.h>
+#include <wtf/AbstractCanMakeCheckedPtr.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -35,7 +36,7 @@ class HostWindow;
 class Scrollbar;
 class ScrollableArea;
 
-class PopupMenuClient {
+class PopupMenuClient : public AbstractCanMakeCheckedPtr {
 public:
     virtual ~PopupMenuClient() = default;
     virtual void valueChanged(unsigned listIndex, bool fireEvents = true) = 0;
@@ -74,12 +75,6 @@ public:
     virtual HostWindow* hostWindow() const = 0;
 
     virtual Ref<Scrollbar> createScrollbar(ScrollableArea&, ScrollbarOrientation, ScrollbarWidth) = 0;
-
-    // CheckedPtr interface.
-    virtual uint32_t checkedPtrCount() const = 0;
-    virtual uint32_t checkedPtrCountWithoutThreadCheck() const = 0;
-    virtual void incrementCheckedPtrCount() const = 0;
-    virtual void decrementCheckedPtrCount() const = 0;
 };
 
 }

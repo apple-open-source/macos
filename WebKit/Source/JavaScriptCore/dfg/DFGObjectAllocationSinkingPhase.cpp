@@ -41,10 +41,16 @@
 #include "DFGSSACalculator.h"
 #include "DFGValidate.h"
 #include "JSArrayIterator.h"
+#include "JSAsyncFromSyncIterator.h"
 #include "JSInternalPromise.h"
 #include "JSIteratorHelper.h"
 #include "JSMapIterator.h"
+#include "JSPromiseAllContext.h"
+#include "JSPromiseAllGlobalContext.h"
+#include "JSPromiseReaction.h"
+#include "JSRegExpStringIterator.h"
 #include "JSSetIterator.h"
+#include "JSWrapForValidIterator.h"
 #include "StructureInlines.h"
 #include <wtf/StdList.h>
 
@@ -149,7 +155,7 @@ public:
         : m_identifier(identifier)
         , m_kind(kind)
         , m_indexingType(indexingType)
-        , m_length(length)
+        , m_initializedIndices(length)
     {
     }
 
@@ -193,7 +199,26 @@ public:
 
     unsigned length() const
     {
-        return m_length;
+        return m_initializedIndices.size();
+    }
+
+    bool isIndexInitialized(unsigned index) const
+    {
+        ASSERT(index < length());
+        return m_initializedIndices[index];
+    }
+
+    void setIndexInitialized(unsigned index)
+    {
+        ASSERT(index < length());
+        m_initializedIndices[index] = true;
+    }
+
+    Allocation& mergeInitializedIndices(const Allocation& other)
+    {
+        ASSERT(length() == other.length());
+        m_initializedIndices &= other.m_initializedIndices;
+        return *this;
     }
 
     bool hasStructures() const
@@ -291,14 +316,14 @@ public:
 
     void dumpInContext(PrintStream& out, DumpContext* context) const
     {
+        CommaPrinter comma;
         out.print(m_kind, "Allocation("_s);
         if (!m_structuresForMaterialization.isEmpty())
             out.print(inContext(m_structuresForMaterialization.toStructureSet(), context));
-        if (!m_fields.isEmpty()) {
-            if (!m_structuresForMaterialization.isEmpty())
-                out.print(", ");
-            out.print(mapDump(m_fields, " => #"_s, ", "_s));
-        }
+        if (!m_fields.isEmpty())
+            out.print(comma, mapDump(m_fields, " => #"_s, ", "_s));
+        if (!m_initializedIndices.isEmpty())
+            out.print(comma, "initialized: ["_s, m_initializedIndices, "]"_s);
         out.print(")"_s);
     }
 
@@ -307,7 +332,7 @@ private:
     Kind m_kind;
     Fields m_fields;
     IndexingType m_indexingType { NoIndexingShape };
-    unsigned m_length { 0 };
+    FastBitVector m_initializedIndices;
 
     // This set of structures is the intersection of structures seen at control flow edges. It's used
     // for checks and speculation since it can't be widened.
@@ -488,6 +513,7 @@ public:
             } else {
                 mergePointerSets(allocationEntry.value.fields(), allocationIter->value.fields(), toEscape);
                 allocationEntry.value.mergeStructures(allocationIter->value);
+                allocationEntry.value.mergeInitializedIndices(allocationIter->value);
             }
         }
 
@@ -965,7 +991,7 @@ private:
                     goto escapeChildren;
 
                 unsigned arraySize = node->child1()->asInt32();
-                target = &m_heap.newAllocation(node, Allocation::Kind::ArrayButterfly, node->indexingType(), arraySize);
+                target = &m_heap.newAllocation(node, Allocation::Kind::ArrayButterfly, node->indexingType());
                 writes.add(PromotedLocationDescriptor(ArrayButterflyPublicLengthPLoc), LazyNode(ensureConstant(arraySize)));
             }
             break;
@@ -1054,8 +1080,12 @@ private:
                     if (!isProvenValidTypeForIndexingShapeStorage(target->indexingType(), typeFilterFor(value.useKind())))
                         goto escapeChildren;
                     writes.add(PromotedLocationDescriptor(ArrayIndexedPropertyPLoc, index->asInt32()), LazyNode(value.node()));
-                } else
+                    target->setIndexInitialized(index->asInt32());
+                } else {
+                    if (!target->isIndexInitialized(index->asInt32()))
+                        goto escapeChildren;
                     exactRead = PromotedLocationDescriptor(ArrayIndexedPropertyPLoc, index->asInt32());
+                }
             } else
                 goto escapeChildren;
             break;
@@ -1104,6 +1134,21 @@ private:
                 break;
             case JSIteratorHelperType:
                 target = handleInternalFieldClass<JSIteratorHelper>(node, writes);
+                break;
+            case JSWrapForValidIteratorType:
+                target = handleInternalFieldClass<JSWrapForValidIterator>(node, writes);
+                break;
+            case JSAsyncFromSyncIteratorType:
+                target = handleInternalFieldClass<JSAsyncFromSyncIterator>(node, writes);
+                break;
+            case JSPromiseAllContextType:
+                target = handleInternalFieldClass<JSPromiseAllContext>(node, writes);
+                break;
+            case JSPromiseAllGlobalContextType:
+                target = handleInternalFieldClass<JSPromiseAllGlobalContext>(node, writes);
+                break;
+            case JSRegExpStringIteratorType:
+                target = handleInternalFieldClass<JSRegExpStringIterator>(node, writes);
                 break;
             case JSPromiseType:
                 if (node->structure()->classInfoForCells() == JSInternalPromise::info())
@@ -1583,12 +1628,12 @@ escapeChildren:
         if (m_sinkCandidates.isEmpty())
             return hasUnescapedReads;
 
+        dataLogLnIf(Options::verboseObjectAllocationSinking(), "Candidates: ", listDump(m_sinkCandidates));
+
         // Create the materialization nodes.
         forEachEscapee([&] (UncheckedKeyHashMap<Node*, Allocation>& escapees, Node* where) {
             placeMaterializations(WTFMove(escapees), where);
         });
-
-        dataLogLnIf(Options::verboseObjectAllocationSinking(), "Candidates: ", listDump(m_sinkCandidates));
 
         return hasUnescapedReads || !m_sinkCandidates.isEmpty();
     }

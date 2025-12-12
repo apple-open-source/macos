@@ -642,6 +642,15 @@ private:
                     break;
                 }
             }
+            if (m_node->arrayMode().type() == Array::String) {
+                bool changed = false;
+                while (m_node->child1()->op() == ResolveRope) {
+                    m_node->child1() = m_node->child1()->child1();
+                    changed = true;
+                }
+                m_changed = changed;
+                break;
+            }
             break;
         }
 
@@ -670,6 +679,10 @@ private:
             if (!flags)
                 break;
 
+            // NewRegExp node does not have an explicit structure, so don't reduce cross-realm RegExp.
+            if (m_node->structure().get() != m_graph.globalObjectFor(m_node->origin.semantic)->regExpStructure())
+                break;
+
             auto* regExp = vm().regExpCache()->lookup(vm(), pattern, flags.value());
             if (!regExp)
                 break;
@@ -679,7 +692,7 @@ private:
             break;
         }
 
-        // FIXME: handle RegExpSearch here if possible.
+        case RegExpSearch:
         case RegExpExec:
         case RegExpTest:
         case RegExpMatchFast:
@@ -703,7 +716,7 @@ private:
             Node* regExpObjectNode = nullptr;
             RegExp* regExp = nullptr;
             bool regExpObjectNodeIsConstant = false;
-            if (m_node->op() == RegExpExec || m_node->op() == RegExpTest || m_node->op() == RegExpMatchFast) {
+            if (m_node->op() == RegExpExec || m_node->op() == RegExpTest || m_node->op() == RegExpMatchFast || m_node->op() == RegExpSearch) {
                 regExpObjectNode = m_node->child2().node();
                 if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>()) {
                     JSGlobalObject* globalObject = regExpObject->globalObject();
@@ -875,6 +888,9 @@ private:
 
                 FrozenValue* globalObjectFrozenValue = m_graph.freeze(globalObject);
 
+                if (regExpObjectNode && regExpObjectNode->op() == NewRegExp && regExpObjectNode->child1()->isInt32Constant())
+                    lastIndex = regExpObjectNode->child1()->asUInt32();
+
                 MatchResult result;
                 Vector<int> ovector;
                 // We have to call the kind of match function that the main thread would have called.
@@ -994,8 +1010,13 @@ private:
                         m_node->convertToIdentityOn(resultNode);
                     } else
                         m_graph.convertToConstant(m_node, jsNull());
-                } else
+                } else if (m_node->op() == RegExpTest)
                     m_graph.convertToConstant(m_node, jsBoolean(!!result));
+                else {
+                    ASSERT(m_node->op() == RegExpSearch);
+                    int32_t searchResult = result ? result.start : -1;
+                    m_graph.convertToConstant(m_node, jsNumber(searchResult));
+                }
 
                 // Whether it's Exec or Test, we need to tell the globalObject and RegExpObject what's up.
                 // Because SetRegExpObjectLastIndex may exit and it clobbers exit state, we do that
@@ -1501,7 +1522,7 @@ private:
             // DirectCall to wasm function has suboptimal implementation. We avoid using DirectCall if we know that function is a wasm function.
             // https://bugs.webkit.org/show_bug.cgi?id=220339
             if (executable->intrinsic() == WasmFunctionIntrinsic && !Options::forceICFailure()) {
-                if (m_node->op() != Call) // FIXME: We should support tail-call.
+                if (m_node->op() != Call && m_node->op() != TailCallInlinedCaller) // FIXME: We should support tail-call.
                     break;
                 if (!function)
                     break;

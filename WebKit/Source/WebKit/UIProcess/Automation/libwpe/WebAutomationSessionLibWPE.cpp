@@ -360,7 +360,9 @@ void platformSimulateWheelInteractionLibWPE(WebPageProxy& page, const WebCore::I
     // No need to scale the location as the virtual method override already did it for us.
 #if WPE_CHECK_VERSION(1, 5, 0)
     struct wpe_input_axis_2d_event event;
+    IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
     memset(&event, 0, sizeof(event));
+    IGNORE_CLANG_WARNINGS_END
     event.base.type = static_cast<wpe_input_axis_event_type>(wpe_input_axis_event_type_mask_2d | wpe_input_axis_event_type_motion_smooth);
     event.base.x = location.x();
     event.base.y = location.y();

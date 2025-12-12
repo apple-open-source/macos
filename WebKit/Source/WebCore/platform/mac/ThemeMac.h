@@ -25,9 +25,10 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(MAC)
 
-#include "ThemeCocoa.h"
+#include <WebCore/ThemeCocoa.h>
 
 namespace WebCore {
 

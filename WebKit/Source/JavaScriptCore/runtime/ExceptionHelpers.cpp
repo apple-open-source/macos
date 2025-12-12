@@ -340,6 +340,11 @@ JSObject* createErrorForInvalidGlobalVarDeclaration(JSGlobalObject* globalObject
     return createTypeError(globalObject, makeString("Can't declare global variable '"_s, ident.string(), "': global object must be extensible"_s));
 }
 
+JSObject* createTDZError(JSGlobalObject* globalObject, StringView ident)
+{
+    return createReferenceError(globalObject, makeString("Cannot access '"_s, ident, "' before initialization."_s));
+}
+
 JSObject* createTDZError(JSGlobalObject* globalObject)
 {
     return createReferenceError(globalObject, "Cannot access uninitialized variable."_s);

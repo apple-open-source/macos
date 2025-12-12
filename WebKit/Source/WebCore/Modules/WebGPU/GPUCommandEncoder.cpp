@@ -41,7 +41,7 @@ GPUCommandEncoder::GPUCommandEncoder(Ref<WebGPU::CommandEncoder>&& backing, WebG
 
 String GPUCommandEncoder::label() const
 {
-    return m_backing->label();
+    return m_overrideLabel ? *m_overrideLabel : m_backing->label();
 }
 
 void GPUCommandEncoder::setLabel(String&& label)
@@ -161,7 +161,12 @@ ExceptionOr<Ref<GPUCommandBuffer>> GPUCommandEncoder::finish(const std::optional
     RefPtr buffer = protectedBacking()->finish(convertToBacking(commandBufferDescriptor));
     if (!buffer)
         return Exception { ExceptionCode::InvalidStateError, "GPUCommandEncoder.finish: Unable to finish."_s };
-    return GPUCommandBuffer::create(buffer.releaseNonNull(), *this);
+    auto result = GPUCommandBuffer::create(buffer.releaseNonNull(), *this);
+    if (RefPtr device = m_device.get()) {
+        m_overrideLabel = label();
+        m_backing = device->invalidCommandEncoder();
+    }
+    return result;
 }
 
 void GPUCommandEncoder::setBacking(WebGPU::CommandEncoder& newBacking)

@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 * Copyright (C) 2008-2009, International Business Machines Corporation and
-* others. All rights reserved.
+* others. All Rights Reserved.
 *******************************************************************************
 *
 * File DTINTRV.H 
@@ -131,7 +131,7 @@ private:
     /** 
      * Default constructor, not implemented.
      */
-    DateInterval();
+    DateInterval() = delete;
 
     UDate fromDate;
     UDate toDate;

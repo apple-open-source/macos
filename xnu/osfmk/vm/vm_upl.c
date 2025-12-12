@@ -375,6 +375,15 @@ process_upl_to_abort:
 					 * We have to free it here.
 					 */
 					must_free = TRUE;
+					if (upl->flags & UPL_PAGEIN) {
+						counter_inc(&vm_statistics_pageins_aborted);
+						/*
+						 * Due to split pageins, aborted head I/O results in over-counting of
+						 * page-ins. Decrement the counter here so that the counter is closer
+						 * to reality.
+						 */
+						counter_dec(&vm_statistics_pageins);
+					}
 				}
 				m->vmp_cleaning = FALSE;
 

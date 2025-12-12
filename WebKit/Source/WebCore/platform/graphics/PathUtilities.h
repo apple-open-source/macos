@@ -26,7 +26,7 @@
 #ifndef PathUtilities_h
 #define PathUtilities_h
 
-#include "FloatRoundedRect.h"
+#include <WebCore/FloatRoundedRect.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {

@@ -33,10 +33,11 @@
 #include "WebPage.h"
 #include "WebProcessCreationParameters.h"
 #include "WebProcessExtensionManager.h"
-
+#include "WebSystemSoundDelegate.h"
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/RenderTheme.h>
 #include <WebCore/ScreenProperties.h>
+#include <WebCore/SystemSoundManager.h>
 
 #if ENABLE(REMOTE_INSPECTOR)
 #include <JavaScriptCore/RemoteInspector.h>
@@ -56,6 +57,7 @@
 
 #if USE(GBM)
 #include <WebCore/DRMDeviceManager.h>
+#include <WebCore/GBMDevice.h>
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -114,6 +116,9 @@ void WebProcess::stopRunLoop()
     for (auto& webPage : copyToVector(m_pageMap.values()))
         webPage->close();
 
+    if (auto* display = PlatformDisplay::sharedDisplayIfExists())
+        display->clearGLContexts();
+
     AuxiliaryProcess::stopRunLoop();
 }
 
@@ -142,11 +147,13 @@ void WebProcess::initializePlatformDisplayIfNeeded() const
         bool disabled = false;
 #if PLATFORM(GTK)
         const char* disableGBM = getenv("WEBKIT_DMABUF_RENDERER_DISABLE_GBM");
+        IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
         disabled = disableGBM && strcmp(disableGBM, "0");
+        IGNORE_CLANG_WARNINGS_END
 #endif
         if (!disabled) {
-            if (auto* device = DRMDeviceManager::singleton().mainGBMDeviceNode(DRMDeviceManager::NodeType::Render)) {
-                PlatformDisplay::setSharedDisplay(PlatformDisplayGBM::create(device));
+            if (auto device = DRMDeviceManager::singleton().mainGBMDevice(DRMDeviceManager::NodeType::Render)) {
+                PlatformDisplay::setSharedDisplay(PlatformDisplayGBM::create(device->device()));
                 return;
             }
         }
@@ -173,8 +180,10 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 {
 #if USE(SKIA)
     const char* enableCPURendering = getenv("WEBKIT_SKIA_ENABLE_CPU_RENDERING");
+    IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
     if (enableCPURendering && strcmp(enableCPURendering, "0"))
         ProcessCapabilities::setCanUseAcceleratedBuffers(false);
+    IGNORE_CLANG_WARNINGS_END
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -182,7 +191,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #endif
 
 #if USE(GBM)
-    DRMDeviceManager::singleton().initializeMainDevice(parameters.renderDeviceFile);
+    DRMDeviceManager::singleton().initializeMainDevice(WTFMove(parameters.drmDevice));
 #endif
 
     m_rendererBufferTransportMode = parameters.rendererBufferTransportMode;
@@ -231,6 +240,8 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
 #if PLATFORM(GTK)
     WebCore::setScreenProperties(parameters.screenProperties);
+
+    WebCore::SystemSoundManager::singleton().setSystemSoundDelegate(makeUnique<WebSystemSoundDelegate>());
 #endif
 
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)

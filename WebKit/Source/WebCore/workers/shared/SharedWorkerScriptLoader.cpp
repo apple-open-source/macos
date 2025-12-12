@@ -26,6 +26,7 @@
 #include "config.h"
 #include "SharedWorkerScriptLoader.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "EventNames.h"
 #include "InspectorInstrumentation.h"
 #include "SharedWorker.h"
@@ -38,6 +39,11 @@
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(SharedWorkerScriptLoader);
+
+Ref<SharedWorkerScriptLoader> SharedWorkerScriptLoader::create(URL&& url, SharedWorker& worker, WorkerOptions&& options)
+{
+    return adoptRef(*new SharedWorkerScriptLoader(WTFMove(url), worker, WTFMove(options)));
+}
 
 SharedWorkerScriptLoader::SharedWorkerScriptLoader(URL&& url, SharedWorker& worker, WorkerOptions&& options)
     : m_options(WTFMove(options))

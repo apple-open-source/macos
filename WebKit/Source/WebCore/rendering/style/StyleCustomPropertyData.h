@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "StyleCustomProperty.h"
+#include <WebCore/StyleCustomProperty.h>
 #include <wtf/Function.h>
 #include <wtf/HashMap.h>
 #include <wtf/IterationStatus.h>

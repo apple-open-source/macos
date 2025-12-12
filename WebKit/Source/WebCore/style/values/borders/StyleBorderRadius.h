@@ -24,10 +24,10 @@
 
 #pragma once
 
-#include "CSSBorderRadius.h"
-#include "FloatRoundedRect.h"
-#include "LayoutRoundedRect.h"
-#include "StylePrimitiveNumericTypes.h"
+#include <WebCore/CSSBorderRadius.h>
+#include <WebCore/FloatRoundedRect.h>
+#include <WebCore/LayoutRoundedRect.h>
+#include <WebCore/StylePrimitiveNumericTypes.h>
 
 namespace WebCore {
 
@@ -79,9 +79,11 @@ template<> struct CSSValueConversion<BorderRadiusValue> { auto operator()(Builde
 
 // MARK: - Evaluation
 
-template<> struct Evaluation<BorderRadius> {
-    auto operator()(const BorderRadius&, FloatSize) -> FloatRoundedRect::Radii;
-    auto operator()(const BorderRadius&, LayoutSize) -> LayoutRoundedRect::Radii;
+template<> struct Evaluation<BorderRadius, FloatRoundedRect::Radii> {
+    auto operator()(const BorderRadius&, FloatSize, ZoomNeeded) -> FloatRoundedRect::Radii;
+};
+template<> struct Evaluation<BorderRadius, LayoutRoundedRect::Radii> {
+    auto operator()(const BorderRadius&, LayoutSize, ZoomNeeded) -> LayoutRoundedRect::Radii;
 };
 
 } // namespace Style

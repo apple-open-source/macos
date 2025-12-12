@@ -29,7 +29,6 @@
 
 #include "AXObjectCache.h"
 #include "BitmapImage.h"
-#include "DocumentInlines.h"
 #include "GeometryUtilities.h"
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
@@ -37,15 +36,15 @@
 #include "ImageQualityController.h"
 #include "LayoutRepainter.h"
 #include "PointerEventsHitRules.h"
-#include "RenderElementInlines.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderImageResource.h"
 #include "RenderLayer.h"
 #include "RenderObjectInlines.h"
 #include "RenderSVGModelObjectInlines.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImageElement.h"
-#include "SVGRenderStyle.h"
 #include "SVGVisitedRendererTracking.h"
+#include "Settings.h"
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -158,7 +157,7 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     auto coordinateSystemOriginTranslation = adjustedPaintOffset - flooredLayoutPoint(objectBoundingBox().location());
     paintInfo.context().translate(coordinateSystemOriginTranslation.width(), coordinateSystemOriginTranslation.height());
 
-    if (style().svgStyle().bufferedRendering() == BufferedRendering::Static && bufferForeground(paintInfo, flooredLayoutPoint(objectBoundingBox().location())))
+    if (style().bufferedRendering() == BufferedRendering::Static && bufferForeground(paintInfo, flooredLayoutPoint(objectBoundingBox().location())))
         return;
 
     paintForeground(paintInfo, flooredLayoutPoint(objectBoundingBox().location()));
@@ -217,14 +216,19 @@ void RenderSVGImage::paintForeground(PaintInfo& paintInfo, const LayoutPoint& pa
 
     ImageDrawResult result = paintIntoRect(paintInfo, contentBoxRect, replacedContentRect);
 
-    if (cachedImage()) {
+    if (cachedImage() && !context.paintingDisabled()) {
         // For now, count images as unpainted if they are still progressively loading. We may want
         // to refine this in the future to account for the portion of the image that has painted.
-        FloatRect visibleRect = intersection(replacedContentRect, contentBoxRect);
+        replacedContentRect.moveBy(paintOffset);
+        auto visibleRect = intersection(replacedContentRect, contentBoxRect);
         if (cachedImage()->isLoading() || result == ImageDrawResult::DidRequestDecoding)
             page().addRelevantUnpaintedObject(*this, enclosingLayoutRect(visibleRect));
         else
             page().addRelevantRepaintedObject(*this, enclosingLayoutRect(visibleRect));
+
+        auto localVisibleRect = visibleRect;
+        localVisibleRect.moveBy(-paintOffset);
+        protectedDocument()->didPaintImage(protectedImageElement().get(), cachedImage(), localVisibleRect);
     }
 }
 
@@ -359,6 +363,11 @@ void RenderSVGImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
     if (CheckedPtr cache = document().existingAXObjectCache())
         cache->deferRecomputeIsIgnoredIfNeeded(protectedImageElement().ptr());
+
+    if (auto* image = imageResource().cachedImage(); image && image->currentFrameIsComplete(this)) {
+        if (auto styleable = Styleable::fromRenderer(*this))
+            protectedDocument()->didLoadImage(styleable->protectedElement().get(), image);
+    }
 }
 
 bool RenderSVGImage::bufferForeground(PaintInfo& paintInfo, const LayoutPoint& paintOffset)

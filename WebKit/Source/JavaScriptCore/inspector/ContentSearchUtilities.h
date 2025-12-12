@@ -28,7 +28,6 @@
 
 #pragma once
 
-#include "InspectorProtocolObjects.h"
 #include <wtf/Forward.h>
 
 namespace JSC { namespace Yarr {
@@ -36,6 +35,9 @@ class RegularExpression;
 } }
 
 namespace Inspector {
+namespace Protocol { namespace GenericTypes {
+class SearchMatch;
+} }
 
 namespace ContentSearchUtilities {
 

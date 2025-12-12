@@ -1035,6 +1035,8 @@ angle::CallCapture CaptureReleaseTexturesANGLE(const State &glState,
 
 // GL_ARM_shader_framebuffer_fetch_depth_stencil
 
+// GL_ARM_texture_unnormalized_coordinates
+
 // GL_CHROMIUM_bind_uniform_location
 angle::CallCapture CaptureBindUniformLocationCHROMIUM(const State &glState,
                                                       bool isCallValid,
@@ -1432,11 +1434,13 @@ angle::CallCapture CaptureGetFragmentShadingRatesEXT(const State &glState,
                                                      GLsizei maxCount,
                                                      GLsizei *count,
                                                      GLenum *shadingRates);
-angle::CallCapture CaptureShadingRateEXT(const State &glState, bool isCallValid, GLenum rate);
+angle::CallCapture CaptureShadingRateEXT(const State &glState,
+                                         bool isCallValid,
+                                         ShadingRate ratePacked);
 angle::CallCapture CaptureShadingRateCombinerOpsEXT(const State &glState,
                                                     bool isCallValid,
-                                                    GLenum combinerOp0,
-                                                    GLenum combinerOp1);
+                                                    CombinerOp combinerOp0Packed,
+                                                    CombinerOp combinerOp1Packed);
 
 // GL_EXT_geometry_shader
 angle::CallCapture CaptureFramebufferTextureEXT(const State &glState,
@@ -2934,7 +2938,9 @@ angle::CallCapture CaptureFramebufferFoveationParametersQCOM(const State &glStat
 // GL_QCOM_render_shared_exponent
 
 // GL_QCOM_shading_rate
-angle::CallCapture CaptureShadingRateQCOM(const State &glState, bool isCallValid, GLenum rate);
+angle::CallCapture CaptureShadingRateQCOM(const State &glState,
+                                          bool isCallValid,
+                                          ShadingRate ratePacked);
 
 // GL_QCOM_texture_foveated
 angle::CallCapture CaptureTextureFoveationParametersQCOM(const State &glState,

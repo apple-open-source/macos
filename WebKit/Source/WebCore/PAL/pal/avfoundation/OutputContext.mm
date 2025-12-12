@@ -48,9 +48,9 @@ std::optional<OutputContext>& OutputContext::sharedAudioPresentationOutputContex
 {
     static NeverDestroyed<std::optional<OutputContext>> sharedAudioPresentationOutputContext = [] () -> std::optional<OutputContext> {
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-        AVOutputContext* context = [getAVOutputContextClass() sharedSystemAudioContext];
+        AVOutputContext* context = [getAVOutputContextClassSingleton() sharedSystemAudioContext];
 #else
-        auto context = [getAVOutputContextClass() sharedAudioPresentationOutputContext];
+        auto context = [getAVOutputContextClassSingleton() sharedAudioPresentationOutputContext];
 #endif
         if (!context)
             return std::nullopt;

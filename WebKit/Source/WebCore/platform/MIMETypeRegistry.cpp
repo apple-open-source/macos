@@ -28,6 +28,7 @@
 #include "MIMETypeRegistry.h"
 
 #include "DeprecatedGlobalSettings.h"
+#include "HTTPParsers.h"
 #include "MediaPlayer.h"
 #include "ThreadGlobalData.h"
 #include <ranges>
@@ -161,6 +162,27 @@ template<ASCIISubset subset, unsigned size> static FixedVector<ASCIILiteral> mak
         return literal.literal;
     });
     return result;
+}
+
+static bool isValidMIMETypeWithSuffix(const String& mimeType, const ASCIILiteral suffix)
+{
+    if (!mimeType.endsWithIgnoringASCIICase(suffix))
+        return false;
+
+    if (mimeType.length() < suffix.length() + 2)
+        return false;
+
+    auto slashPosition = mimeType.find('/');
+    if (slashPosition == notFound || slashPosition <= 0)
+        return false;
+
+    auto type = mimeType.substring(0, slashPosition);
+    if (!isValidHTTPToken(type))
+        return false;
+
+    // Assume the suffix is already a valid HTTP token and avoid checking it.
+    auto subtypeExcludingSuffix = mimeType.substring(slashPosition + 1, mimeType.length() - slashPosition - suffix.length());
+    return isValidHTTPToken(subtypeExcludingSuffix);
 }
 
 FixedVector<ASCIILiteral> MIMETypeRegistry::supportedImageMIMETypes()
@@ -455,10 +477,10 @@ std::unique_ptr<MIMETypeRegistryThreadGlobalData> MIMETypeRegistry::createMIMETy
     HashSet<String, ASCIICaseInsensitiveHash> supportedImageMIMETypesForEncoding;
     CFIndex count = CFArrayGetCount(supportedTypes.get());
     for (CFIndex i = 0; i < count; i++) {
-        CFStringRef supportedType = reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(supportedTypes.get(), i));
-        if (!isSupportedImageType(supportedType))
+        RetainPtr supportedType = checked_cf_cast<CFStringRef>(CFArrayGetValueAtIndex(supportedTypes.get(), i));
+        if (!isSupportedImageType(supportedType.get()))
             continue;
-        String mimeType = MIMETypeForImageType(supportedType);
+        String mimeType = MIMETypeForImageType(supportedType.get());
         if (mimeType.isEmpty())
             continue;
         supportedImageMIMETypesForEncoding.add(mimeType);
@@ -494,7 +516,7 @@ bool MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(const String& mimeTyp
 {
     if (mimeType.isEmpty())
         return false;
-    return threadGlobalData().mimeTypeRegistryThreadGlobalData().supportedImageMIMETypesForEncoding().contains(mimeType);
+    return threadGlobalDataSingleton().mimeTypeRegistryThreadGlobalData().supportedImageMIMETypesForEncoding().contains(mimeType);
 }
 
 bool MIMETypeRegistry::isSupportedJavaScriptMIMEType(const String& mimeType)
@@ -549,23 +571,10 @@ bool MIMETypeRegistry::isTextMediaPlaylistMIMEType(const String& mimeType)
 // https://mimesniff.spec.whatwg.org/#json-mime-type
 bool MIMETypeRegistry::isSupportedJSONMIMEType(const String& mimeType)
 {
-    if (mimeType.isEmpty())
-        return false;
-
-    if (equalLettersIgnoringASCIICase(mimeType, "application/json"_s))
+    if (equalLettersIgnoringASCIICase(mimeType, "text/json"_s) || equalLettersIgnoringASCIICase(mimeType, "application/json"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(mimeType, "text/json"_s))
-        return true;
-
-    // When detecting +json ensure there is a non-empty type / subtype preceeding the suffix.
-    if (mimeType.endsWithIgnoringASCIICase("+json"_s) && mimeType.length() >= 8) {
-        size_t slashPosition = mimeType.find('/');
-        if (slashPosition != notFound && slashPosition > 0 && slashPosition <= mimeType.length() - 6)
-            return true;
-    }
-
-    return false;
+    return isValidMIMETypeWithSuffix(mimeType, "+json"_s);
 }
 
 bool MIMETypeRegistry::isSupportedNonImageMIMEType(const String& mimeType)
@@ -603,35 +612,13 @@ bool MIMETypeRegistry::isTextMIMEType(const String& mimeType)
             && !equalLettersIgnoringASCIICase(mimeType, "text/xsl"_s));
 }
 
-static inline bool isValidXMLMIMETypeChar(UChar c)
-{
-    // Valid characters per RFCs 3023 and 2045: 0-9a-zA-Z_-+~!$^{}|.%'`#&*
-    return isASCIIAlphanumeric(c) || c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' || c == '*' || c == '+'
-        || c == '-' || c == '.' || c == '^' || c == '_' || c == '`' || c == '{' || c == '|' || c == '}' || c == '~';
-}
-
 // https://mimesniff.spec.whatwg.org/#xml-mime-type
 bool MIMETypeRegistry::isXMLMIMEType(const String& mimeType)
 {
     if (equalLettersIgnoringASCIICase(mimeType, "text/xml"_s) || equalLettersIgnoringASCIICase(mimeType, "application/xml"_s))
         return true;
 
-    if (!mimeType.endsWithIgnoringASCIICase("+xml"_s))
-        return false;
-
-    size_t slashPosition = mimeType.find('/');
-    // Take into account the '+xml' ending of mimeType.
-    if (slashPosition == notFound || !slashPosition || slashPosition == mimeType.length() - 5)
-        return false;
-
-    // Again, mimeType ends with '+xml', no need to check the validity of that substring.
-    size_t mimeLength = mimeType.length();
-    for (size_t i = 0; i < mimeLength - 4; ++i) {
-        if (!isValidXMLMIMETypeChar(mimeType[i]) && i != slashPosition)
-            return false;
-    }
-
-    return true;
+    return isValidMIMETypeWithSuffix(mimeType, "+xml"_s);
 }
 
 bool MIMETypeRegistry::isXMLEntityMIMEType(StringView mimeType)

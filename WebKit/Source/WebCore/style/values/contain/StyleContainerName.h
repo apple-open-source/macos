@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include "ScopedName.h"
-#include "StyleValueTypes.h"
+#include <WebCore/ScopedName.h>
+#include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
 namespace Style {
@@ -44,4 +44,4 @@ struct ContainerNames : ListOrNone<ContainerNameList> { using ListOrNone<Contain
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ContainerNames> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::ContainerNames)

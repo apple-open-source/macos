@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ImageTypes.h"
+#include <WebCore/ImageTypes.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>

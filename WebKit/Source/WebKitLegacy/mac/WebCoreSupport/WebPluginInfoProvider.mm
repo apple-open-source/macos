@@ -41,13 +41,9 @@ WebPluginInfoProvider& WebPluginInfoProvider::singleton()
     return pluginInfoProvider;
 }
 
-WebPluginInfoProvider::WebPluginInfoProvider()
-{
-}
+WebPluginInfoProvider::WebPluginInfoProvider() = default;
 
-WebPluginInfoProvider::~WebPluginInfoProvider()
-{
-}
+WebPluginInfoProvider::~WebPluginInfoProvider() = default;
 
 void WebPluginInfoProvider::refreshPlugins()
 {

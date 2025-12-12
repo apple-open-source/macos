@@ -34,6 +34,7 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/GRefPtr.h>
 
+typedef struct _GdkPixbuf GdkPixbuf;
 typedef struct _GtkWidget GtkWidget;
 
 #if USE(GTK4)
@@ -59,6 +60,8 @@ public:
     void begin(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, RefPtr<WebCore::ShareableBitmap>&&, WebCore::IntPoint&& imageHotspot);
 
 private:
+    GRefPtr<GdkPixbuf> selectionImage() const;
+
     GtkWidget* m_webView { nullptr };
 #if USE(GTK4)
     GRefPtr<GdkDrag> m_drag;

@@ -28,6 +28,8 @@
 
 #include "SessionState.h"
 #include "WebBackForwardListItem.h"
+#include <wtf/HashMap.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
@@ -122,7 +124,7 @@ WebBackForwardListFrameItem& WebBackForwardListFrameItem::rootFrame()
     Ref rootFrame = *this;
     while (rootFrame->m_parent && rootFrame->m_parent->identifier().processIdentifier() == identifier().processIdentifier())
         rootFrame = *rootFrame->m_parent;
-    return rootFrame.get();
+    return rootFrame.unsafeGet();
 }
 
 WebBackForwardListFrameItem& WebBackForwardListFrameItem::mainFrame()
@@ -130,7 +132,7 @@ WebBackForwardListFrameItem& WebBackForwardListFrameItem::mainFrame()
     Ref mainFrame = *this;
     while (mainFrame->m_parent)
         mainFrame = *mainFrame->m_parent;
-    return mainFrame.get();
+    return mainFrame.unsafeGet();
 }
 
 Ref<WebBackForwardListFrameItem> WebBackForwardListFrameItem::protectedMainFrame()

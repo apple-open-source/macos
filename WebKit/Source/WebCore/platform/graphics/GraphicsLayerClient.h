@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "ContentsFormat.h"
-#include "LayerTreeAsTextOptions.h"
-#include "TiledBacking.h"
-#include "TransformationMatrix.h"
+#include <WebCore/ContentsFormat.h>
+#include <WebCore/LayerTreeAsTextOptions.h>
+#include <WebCore/TiledBacking.h>
+#include <WebCore/TransformationMatrix.h>
 #include <wtf/Forward.h>
 #include <wtf/OptionSet.h>
 

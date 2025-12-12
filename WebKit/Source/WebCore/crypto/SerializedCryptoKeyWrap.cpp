@@ -27,6 +27,9 @@
 #include "SerializedCryptoKeyWrap.h"
 
 #include <wtf/CompletionHandler.h>
+#include <wtf/NeverDestroyed.h>
+#include <wtf/Ref.h>
+#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 

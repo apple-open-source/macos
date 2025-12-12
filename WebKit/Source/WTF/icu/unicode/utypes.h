@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 *   Copyright (C) 1996-2016, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
 *  FILE NAME : UTYPES.H (formerly ptypes.h)

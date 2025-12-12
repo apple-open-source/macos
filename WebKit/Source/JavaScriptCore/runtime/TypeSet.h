@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "ConcurrentJSLock.h"
-#include "RuntimeType.h"
-#include "StructureSet.h"
+#include <JavaScriptCore/ConcurrentJSLock.h>
+#include <JavaScriptCore/RuntimeType.h>
+#include <JavaScriptCore/StructureSet.h>
 #include <wtf/HashSet.h>
 #include <wtf/JSONValues.h>
 #include <wtf/RefCounted.h>

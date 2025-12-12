@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "StyleLengthWrapper.h"
+#include <WebCore/StyleLengthWrapper.h>
 
 namespace WebCore {
 namespace Style {
@@ -33,8 +33,9 @@ namespace Style {
 // https://drafts.csswg.org/css-box/#margin-physical
 struct MarginEdge : LengthWrapperBase<LengthPercentage<>, CSS::Keyword::Auto> {
     using Base::Base;
+    using Base::hasQuirk;
 
-    ALWAYS_INLINE bool hasQuirk() const { return m_value.hasQuirk(); }
+    ALWAYS_INLINE bool isAuto() const { return holdsAlternative<CSS::Keyword::Auto>(); }
 };
 
 // <'margin'> = <'margin-top'>{1,4}
@@ -44,4 +45,4 @@ using MarginBox = MinimallySerializingSpaceSeparatedRectEdges<MarginEdge>;
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::MarginEdge> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::MarginEdge)

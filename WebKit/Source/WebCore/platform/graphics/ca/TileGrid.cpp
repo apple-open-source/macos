@@ -30,10 +30,12 @@
 #include "TileGrid.h"
 
 #include "GraphicsContext.h"
+#include "GraphicsLayerClient.h"
 #include "LayerPool.h"
 #include "Logging.h"
 #include "PlatformCALayer.h"
 #include "TileController.h"
+#include "TransformationMatrix.h"
 #include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>

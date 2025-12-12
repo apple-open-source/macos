@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ImageDecoder.h"
+#include <WebCore/ImageDecoder.h>
 #include <atomic>
 #include <wtf/TZoneMalloc.h>
 

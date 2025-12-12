@@ -415,8 +415,6 @@ extern bool ipcpv_telemetry_enabled;
 /* Enables reply port/voucher/persona debugging code */
 extern bool enforce_strict_reply;
 
-extern bool prp_enforcement_enabled;
-
 extern bool bootstrap_port_telemetry_enabled;
 
 /*!

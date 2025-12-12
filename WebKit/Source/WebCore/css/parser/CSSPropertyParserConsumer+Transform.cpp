@@ -41,13 +41,12 @@
 #include "CSSPropertyParserConsumer+Primitives.h"
 #include "CSSPropertyParserState.h"
 #include "CSSPropertyParsing.h"
-#include "CSSToLengthConversionData.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
 #include "RenderStyle.h"
 #include "StyleBuilderState.h"
-#include "TransformOperations.h"
-#include "TransformOperationsBuilder.h"
+#include "StyleTransform.h"
+#include "StyleValueTypes+CSSValueConversion.h"
 
 namespace WebCore {
 namespace CSSPropertyParserHelpers {
@@ -412,7 +411,7 @@ RefPtr<CSSValue> consumeScale(CSSParserTokenRange& range, CSS::PropertyParserSta
     return CSSValueList::createSpaceSeparated(x.releaseNonNull());
 }
 
-std::optional<TransformOperations> parseTransformRaw(const String& string, const CSSParserContext& context)
+std::optional<Style::Transform> parseTransformRaw(const String& string, const CSSParserContext& context)
 {
     auto tokenizer = CSSTokenizer(string);
     auto range = tokenizer.tokenRange();
@@ -432,12 +431,12 @@ std::optional<TransformOperations> parseTransformRaw(const String& string, const
         return { };
 
     auto dummyStyle = RenderStyle::create();
-    auto dummyState = Style::BuilderState { dummyStyle };
+    auto dummyState = Style::BuilderState::create(dummyStyle);
 
-    if (!parsedValue->canResolveDependenciesWithConversionData(dummyState.cssToLengthConversionData()))
+    if (!parsedValue->canResolveDependenciesWithConversionData(dummyState->cssToLengthConversionData()))
         return { };
 
-    return Style::createTransformOperations(*parsedValue, dummyState);
+    return Style::toStyleFromCSSValue<Style::Transform>(*CheckedPtr { dummyState.ptr() }, *parsedValue);
 }
 
 } // namespace CSSPropertyParserHelpers

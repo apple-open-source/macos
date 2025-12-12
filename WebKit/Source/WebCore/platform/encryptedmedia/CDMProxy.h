@@ -30,9 +30,9 @@
 
 #if ENABLE(ENCRYPTED_MEDIA)
 
-#include "CDMInstance.h"
-#include "CDMInstanceSession.h"
-#include "SharedBuffer.h"
+#include <WebCore/CDMInstance.h>
+#include <WebCore/CDMInstanceSession.h>
+#include <WebCore/SharedBuffer.h>
 #include <wtf/BoxPtr.h>
 #include <wtf/Condition.h>
 #include <wtf/HashMap.h>

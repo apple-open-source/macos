@@ -38,6 +38,8 @@ template<> struct WrapperTraits<WebInspectorUIProxy> {
 
 }
 
+Ref<WebKit::WebInspectorUIProxy> protectedInspector(_WKInspector *);
+
 @interface _WKInspector () <WKObject> {
 @package
     AlignedStorage<WebKit::WebInspectorUIProxy> _inspector;

@@ -118,8 +118,6 @@ private:
     Ref<WebGPU::ObjectHeap> protectedObjectHeap() const;
     Ref<RemoteGPU> protectedGPU() const { return m_gpu.get(); }
 
-    RefPtr<IPC::Connection> connection() const;
-
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
     void destroy();

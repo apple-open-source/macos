@@ -59,7 +59,6 @@ Ref<BitmapTexture> BitmapTexturePool::acquireTexture(const IntSize& size, Option
                 && entry.m_texture->flags().contains(BitmapTexture::Flags::BackedByDMABuf) == flags.contains(BitmapTexture::Flags::BackedByDMABuf)
                 && entry.m_texture->flags().contains(BitmapTexture::Flags::ForceLinearBuffer) == flags.contains(BitmapTexture::Flags::ForceLinearBuffer)
 #endif
-                && entry.m_texture->flags().contains(BitmapTexture::Flags::UseNearestTextureFilter) == flags.contains(BitmapTexture::Flags::UseNearestTextureFilter)
                 && entry.m_texture->flags().contains(BitmapTexture::Flags::DepthBuffer) == flags.contains(BitmapTexture::Flags::DepthBuffer);
         });
 

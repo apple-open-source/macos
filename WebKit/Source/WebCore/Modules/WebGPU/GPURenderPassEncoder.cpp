@@ -43,7 +43,7 @@ GPURenderPassEncoder::GPURenderPassEncoder(Ref<WebGPU::RenderPassEncoder>&& back
 
 String GPURenderPassEncoder::label() const
 {
-    return m_backing->label();
+    return m_overrideLabel ? *m_overrideLabel : m_backing->label();
 }
 
 void GPURenderPassEncoder::setLabel(String&& label)
@@ -168,8 +168,10 @@ void GPURenderPassEncoder::executeBundles(Vector<Ref<GPURenderBundle>>&& bundles
 void GPURenderPassEncoder::end()
 {
     protectedBacking()->end();
-    if (RefPtr device = m_device.get())
+    if (RefPtr device = m_device.get()) {
+        m_overrideLabel = label();
         m_backing = device->invalidRenderPassEncoder();
+    }
 }
 
 }

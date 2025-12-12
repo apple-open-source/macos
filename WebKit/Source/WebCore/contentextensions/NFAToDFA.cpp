@@ -42,6 +42,7 @@ namespace WebCore {
 
 namespace ContentExtensions {
 
+typedef HashSet<unsigned, DefaultHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> NFANodeIndexSet;
 typedef MutableRange<signed char, NFANodeIndexSet> NFANodeRange;
 typedef MutableRangeList<signed char, NFANodeIndexSet> NFANodeRangeList;
 typedef MutableRangeList<signed char, NFANodeIndexSet, 128> PreallocatedNFANodeRangeList;

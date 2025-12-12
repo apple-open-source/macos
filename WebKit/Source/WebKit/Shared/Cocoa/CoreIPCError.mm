@@ -76,7 +76,7 @@ RetainPtr<id> CoreIPCError::toID() const
 
         RetainPtr<CFMutableDictionaryRef> mutableUserInfo;
         if (!m_userInfo)
-            mutableUserInfo = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, NULL, NULL));
+            mutableUserInfo = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
         else
             mutableUserInfo = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(m_userInfo.get()) + 1, m_userInfo.get()));
         CFDictionarySetValue(mutableUserInfo.get(), (__bridge CFStringRef)NSUnderlyingErrorKey, (__bridge CFTypeRef)underlyingNSError.get());

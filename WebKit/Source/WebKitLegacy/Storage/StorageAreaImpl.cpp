@@ -28,6 +28,7 @@
 #include "StorageAreaSync.h"
 #include "StorageSyncManager.h"
 #include "StorageTracker.h"
+#include <WebCore/DocumentPage.h>
 #include <WebCore/FrameInlines.h>
 #include <WebCore/LocalDOMWindow.h>
 #include <WebCore/LocalFrameInlines.h>

@@ -47,8 +47,8 @@ SOFT_LINK_CLASS(CoreLocation, CLLocation)
 SOFT_LINK_CONSTANT(CoreLocation, kCLLocationAccuracyBest, double)
 SOFT_LINK_CONSTANT(CoreLocation, kCLLocationAccuracyHundredMeters, double)
 
-#define kCLLocationAccuracyBest getkCLLocationAccuracyBest()
-#define kCLLocationAccuracyHundredMeters getkCLLocationAccuracyHundredMeters()
+#define kCLLocationAccuracyBest getkCLLocationAccuracyBestSingleton()
+#define kCLLocationAccuracyHundredMeters getkCLLocationAccuracyHundredMetersSingleton()
 
 @interface WebCLLocationManager : NSObject<CLLocationManagerDelegate>
 @end

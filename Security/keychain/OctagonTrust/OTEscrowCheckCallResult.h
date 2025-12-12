@@ -39,13 +39,29 @@ typedef NS_ENUM(NSInteger, OTEscrowCheckRepairReason) {
     OTEscrowCheckRepairReasonRecordNeedsMigration = 5,
 };
 
+typedef NS_ENUM(NSInteger, OTEscrowCheckRateLimitState) {
+    OTEscrowCheckRateLimitStateUnknown = 0,
+    OTEscrowCheckRateLimitStateNotRateLimited = 1,
+    OTEscrowCheckRateLimitStateRateLimited = 2,
+};
+
+typedef NS_ENUM(NSInteger, OctagonTrustStatus) {
+    OctagonTrustStatusUnknown = 0,
+    OctagonTrustStatusNotTrustedLocally = 1,
+    OctagonTrustStatusNotTrustedCuttlefish = 2,
+    OctagonTrustStatusGraphNeedsRepair = 3,
+    OctagonTrustStatusTrusted = 4,
+};
+
 @interface OTEscrowCheckCallResult: NSObject<NSSecureCoding>
 @property bool needsReenroll;
-@property bool octagonTrusted;
+@property NSInteger octagonTrusted;
 @property bool secureTermsNeeded;
 @property NSInteger repairReason;
 @property (nullable, retain) OTEscrowMoveRequestContext* moveRequest;
 @property bool repairDisabled;
+@property NSInteger daysLeftOnRateLimit;
+@property NSInteger rateLimitState;
 - (NSDictionary*)dictionaryRepresentation;
 @end
 

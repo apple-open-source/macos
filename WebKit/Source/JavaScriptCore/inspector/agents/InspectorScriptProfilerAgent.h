@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "Debugger.h"
-#include "InspectorAgentBase.h"
-#include "InspectorBackendDispatchers.h"
-#include "InspectorFrontendDispatchers.h"
+#include <JavaScriptCore/Debugger.h>
+#include <JavaScriptCore/InspectorAgentBase.h>
+#include <JavaScriptCore/InspectorBackendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendDispatchers.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
 

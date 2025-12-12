@@ -522,7 +522,7 @@ typedef uint32_t                        kern_segment_idx_t;
  *      If applicable, the owner should wire/prepare the memory and insert
  *      it into the memory mapper (IOMMU/DART) prior to returning.
  */
-typedef void (*pbuf_seg_ctor_fn_t)(const kern_pbufpool_t,
+typedef int (*pbuf_seg_ctor_fn_t)(const kern_pbufpool_t,
     const kern_segment_t buf_seg, const IOSKMemoryDescriptor buf_desc);
 
 /*

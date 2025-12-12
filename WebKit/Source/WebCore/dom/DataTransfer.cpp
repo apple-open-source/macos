@@ -33,7 +33,9 @@
 #include "DataTransferItemList.h"
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentFragment.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
+#include "DocumentView.h"
 #include "DragData.h"
 #include "Editor.h"
 #include "FileList.h"
@@ -43,10 +45,11 @@
 #include "HostWindow.h"
 #include "Image.h"
 #include "LocalFrame.h"
+#include "LocalFrameView.h"
+#include "NodeDocument.h"
 #include "Page.h"
 #include "PagePasteboardContext.h"
 #include "Pasteboard.h"
-#include "Quirks.h"
 #include "Settings.h"
 #include "StaticPasteboard.h"
 #include "WebContentReader.h"
@@ -280,7 +283,7 @@ void DataTransfer::setDataFromItemList(Document& document, const String& type, c
 
     String sanitizedData;
     if (type == "text/html"_s)
-        sanitizedData = sanitizeMarkup(data);
+        sanitizedData = sanitizeMarkup(data, &document);
     else if (type == "text/uri-list"_s) {
         auto url = URL({ }, data);
         if (url.isValid())

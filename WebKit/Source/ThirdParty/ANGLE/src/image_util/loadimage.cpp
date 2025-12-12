@@ -4,6 +4,10 @@
 // found in the LICENSE file.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 // angle_loadimage.cpp: Defines image loading functions.
 
 #include "image_util/loadimage.h"
@@ -52,9 +56,10 @@ inline bool supportsSSE2()
 
 namespace angle
 {
-ImageLoadContext::ImageLoadContext()                              = default;
-ImageLoadContext::~ImageLoadContext()                             = default;
-ImageLoadContext::ImageLoadContext(const ImageLoadContext &other) = default;
+ImageLoadContext::ImageLoadContext()                                         = default;
+ImageLoadContext::~ImageLoadContext()                                        = default;
+ImageLoadContext::ImageLoadContext(const ImageLoadContext &other)            = default;
+ImageLoadContext &ImageLoadContext::operator=(const ImageLoadContext &other) = default;
 
 void LoadA8ToRGBA8(const ImageLoadContext &context,
                    size_t width,

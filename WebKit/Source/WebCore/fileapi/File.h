@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "Blob.h"
+#include <WebCore/Blob.h>
 #include <wtf/FileSystem.h>
 #include <wtf/Ref.h>
 #include <wtf/TZoneMalloc.h>

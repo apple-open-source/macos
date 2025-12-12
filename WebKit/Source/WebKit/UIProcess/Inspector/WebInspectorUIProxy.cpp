@@ -37,6 +37,7 @@
 #include "PageClient.h"
 #include "WebAutomationSession.h"
 #include "WebFrameProxy.h"
+#include "WebInspectorBackendProxyMessages.h"
 #include "WebInspectorInterruptDispatcherMessages.h"
 #include "WebInspectorMessages.h"
 #include "WebInspectorUIExtensionControllerProxy.h"
@@ -72,14 +73,15 @@ const unsigned WebInspectorUIProxy::initialWindowWidth = 1000;
 const unsigned WebInspectorUIProxy::initialWindowHeight = 650;
 
 WebInspectorUIProxy::WebInspectorUIProxy(WebPageProxy& inspectedPage)
-    : m_inspectedPage(inspectedPage)
+    : m_backend(adoptRef(new WebInspectorBackendProxy(*this)))
+    , m_inspectedPage(inspectedPage)
     , m_inspectorClient(makeUnique<API::InspectorClient>())
     , m_inspectedPageIdentifier(inspectedPage.identifier())
 #if PLATFORM(MAC)
     , m_closeFrontendAfterInactivityTimer(RunLoop::mainSingleton(), "WebInspectorUIProxy::CloseFrontendAfterInactivityTimer"_s, this, &WebInspectorUIProxy::closeFrontendAfterInactivityTimerFired)
 #endif
 {
-    protectedInspectedPage()->protectedLegacyMainFrameProcess()->addMessageReceiver(Messages::WebInspectorUIProxy::messageReceiverName(), m_inspectedPage->webPageIDInMainFrameProcess(), *this);
+    protectedInspectedPage()->protectedLegacyMainFrameProcess()->addMessageReceiver(Messages::WebInspectorBackendProxy::messageReceiverName(), m_inspectedPage->webPageIDInMainFrameProcess(), *m_backend);
 }
 
 WebInspectorUIProxy::~WebInspectorUIProxy()
@@ -238,7 +240,7 @@ void WebInspectorUIProxy::resetState()
 void WebInspectorUIProxy::reset()
 {
     if (RefPtr inspectedPage = m_inspectedPage.get()) {
-        inspectedPage->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::WebInspectorUIProxy::messageReceiverName(), inspectedPage->webPageIDInMainFrameProcess());
+        inspectedPage->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::WebInspectorBackendProxy::messageReceiverName(), inspectedPage->webPageIDInMainFrameProcess());
         m_inspectedPage = nullptr;
     }
 }
@@ -250,7 +252,7 @@ void WebInspectorUIProxy::updateForNewPageProcess(WebPageProxy& inspectedPage)
     m_inspectedPage = inspectedPage;
     m_inspectedPageIdentifier = inspectedPage.identifier();
 
-    protectedInspectedPage()->protectedLegacyMainFrameProcess()->addMessageReceiver(Messages::WebInspectorUIProxy::messageReceiverName(), m_inspectedPage->webPageIDInMainFrameProcess(), *this);
+    protectedInspectedPage()->protectedLegacyMainFrameProcess()->addMessageReceiver(Messages::WebInspectorBackendProxy::messageReceiverName(), m_inspectedPage->webPageIDInMainFrameProcess(), *m_backend);
 
     if (RefPtr inspectorPage = m_inspectorPage.get())
         inspectorPage->protectedLegacyMainFrameProcess()->send(Messages::WebInspectorUI::UpdateConnection(), m_inspectorPage->webPageIDInMainFrameProcess());
@@ -744,6 +746,15 @@ void WebInspectorUIProxy::setInspectorPageDeveloperExtrasEnabled(bool enabled)
         return;
 
     inspectorPage->protectedPreferences()->setDeveloperExtrasEnabled(enabled);
+}
+
+void WebInspectorUIProxy::setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor)
+{
+    RefPtr inspectorPage = m_inspectorPage.get();
+    if (!inspectorPage)
+        return;
+
+    inspectorPage->setPageAndTextZoomFactors(pageZoomFactor, textZoomFactor);
 }
 
 void WebInspectorUIProxy::elementSelectionChanged(bool active)

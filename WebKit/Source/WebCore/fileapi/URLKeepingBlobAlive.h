@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "SecurityOriginData.h"
+#include <WebCore/SecurityOriginData.h>
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/URL.h>
 

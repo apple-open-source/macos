@@ -27,19 +27,20 @@
 #include "WebInspectorInternal.h"
 
 #include "WebFrame.h"
+#include "WebInspectorBackendProxyMessages.h"
 #include "WebInspectorMessages.h"
 #include "WebInspectorUIMessages.h"
-#include "WebInspectorUIProxyMessages.h"
 #include "WebPage.h"
 #include "WebProcess.h"
 #include <WebCore/Chrome.h>
-#include <WebCore/Document.h>
+#include <WebCore/DocumentView.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/InspectorFrontendClient.h>
 #include <WebCore/InspectorPageAgent.h>
 #include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/NavigationAction.h>
 #include <WebCore/NotImplemented.h>
@@ -77,7 +78,7 @@ WebPage* WebInspector::page() const
 
 void WebInspector::openLocalInspectorFrontend()
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::RequestOpenLocalInspectorFrontend(), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::RequestOpenLocalInspectorFrontend(), m_page->identifier());
 }
 
 void WebInspector::setFrontendConnection(IPC::Connection::Handle&& connectionHandle)
@@ -101,7 +102,7 @@ void WebInspector::setFrontendConnection(IPC::Connection::Handle&& connectionHan
 
 void WebInspector::closeFrontendConnection()
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::DidClose(), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::DidClose(), m_page->identifier());
 
     // If we tried to close the frontend before it was created, then no connection exists yet.
     if (RefPtr frontendConnection = m_frontendConnection) {
@@ -117,7 +118,7 @@ void WebInspector::closeFrontendConnection()
 
 void WebInspector::bringToFront()
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::BringToFront(), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::BringToFront(), m_page->identifier());
 }
 
 void WebInspector::whenFrontendConnectionEstablished(Function<void(IPC::Connection&)>&& callback)
@@ -238,24 +239,24 @@ void WebInspector::stopElementSelection()
 
 void WebInspector::elementSelectionChanged(bool active)
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::ElementSelectionChanged(active), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::ElementSelectionChanged(active), m_page->identifier());
 }
 
 void WebInspector::timelineRecordingChanged(bool active)
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::TimelineRecordingChanged(active), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::TimelineRecordingChanged(active), m_page->identifier());
 }
 
 void WebInspector::setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference developerPreference, std::optional<bool> overrideValue)
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::SetDeveloperPreferenceOverride(developerPreference, overrideValue), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::SetDeveloperPreferenceOverride(developerPreference, overrideValue), m_page->identifier());
 }
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
 void WebInspector::setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit)
 {
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::SetEmulatedConditions(WTFMove(bytesPerSecondLimit)), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::SetEmulatedConditions(WTFMove(bytesPerSecondLimit)), m_page->identifier());
 }
 
 #endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
@@ -296,7 +297,7 @@ void WebInspector::updateDockingAvailability()
 
     m_previousCanAttach = canAttachWindow;
 
-    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::AttachAvailabilityChanged(canAttachWindow), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorBackendProxy::AttachAvailabilityChanged(canAttachWindow), m_page->identifier());
 }
 
 } // namespace WebKit

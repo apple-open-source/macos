@@ -27,8 +27,8 @@
 
 #include "ScrollingCoordinator.h"
 
-#include "Document.h"
 #include "DocumentClasses.h"
+#include "DocumentView.h"
 #include "EventNames.h"
 #include "GraphicsLayer.h"
 #include "LocalFrame.h"
@@ -180,14 +180,13 @@ EventTrackingRegions ScrollingCoordinator::absoluteEventTrackingRegionsForFrame(
     }
 
 #if !ENABLE(WHEEL_EVENT_REGIONS)
-    auto wheelHandlerRegion = frame.document()->absoluteRegionForEventTargets(frame.document()->wheelEventTargets());
+    auto wheelHandlerRegion = frame.document()->absoluteRegionForWheelEventTargets();
     bool wheelHandlerInFixedContent = wheelHandlerRegion.second;
     if (wheelHandlerInFixedContent) {
         // FIXME: need to handle position:sticky here too.
         LayoutRect inflatedWheelHandlerBounds = frameView->fixedScrollableAreaBoundsInflatedForScrolling(LayoutRect(wheelHandlerRegion.first.bounds()));
         wheelHandlerRegion.first.unite(enclosingIntRect(inflatedWheelHandlerBounds));
     }
-    
     nonFastScrollableRegion.unite(wheelHandlerRegion.first);
 #endif
 
@@ -451,6 +450,11 @@ String ScrollingCoordinator::synchronousScrollingReasonsAsText() const
 FrameIdentifier ScrollingCoordinator::mainFrameIdentifier() const
 {
     return m_page->mainFrame().frameID();
+}
+
+void ScrollingCoordinator::setScrollbarColor(ScrollableArea&, std::optional<ScrollbarColor>)
+{
+
 }
 
 } // namespace WebCore

@@ -41,7 +41,6 @@
 #include "JSDOMPromiseDeferred.h"
 #include "TextResourceDecoder.h"
 #include <wtf/StdLibExtras.h>
-#include <wtf/StringExtras.h>
 #include <wtf/URLParser.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/ParsingUtilities.h>
@@ -54,7 +53,7 @@ static inline Ref<Blob> blobFromData(ScriptExecutionContext* context, Vector<uin
 }
 
 // https://mimesniff.spec.whatwg.org/#http-quoted-string-token-code-point
-static bool isHTTPQuotedStringTokenCodePoint(UChar c)
+static bool isHTTPQuotedStringTokenCodePoint(char16_t c)
 {
     return c == 0x09
         || (c >= 0x20 && c <= 0x7E)
@@ -99,7 +98,7 @@ static HashMap<String, String> parseParameters(StringView input, size_t position
             size_t valueBegin = position;
             while (position < input.length() && input[position] != ';')
                 position++;
-            parameterValue = input.substring(valueBegin, position - valueBegin).trim(isASCIIWhitespaceWithoutFF<UChar>);
+            parameterValue = input.substring(valueBegin, position - valueBegin).trim(isASCIIWhitespaceWithoutFF<char16_t>);
         }
 
         if (parameterName.length()
@@ -114,7 +113,7 @@ static HashMap<String, String> parseParameters(StringView input, size_t position
 // https://mimesniff.spec.whatwg.org/#parsing-a-mime-type
 static std::optional<MimeType> parseMIMEType(const String& contentType)
 {
-    String input = contentType.trim(isASCIIWhitespaceWithoutFF<UChar>);
+    String input = contentType.trim(isASCIIWhitespaceWithoutFF<char16_t>);
     size_t slashIndex = input.find('/');
     if (slashIndex == notFound)
         return std::nullopt;
@@ -124,7 +123,7 @@ static std::optional<MimeType> parseMIMEType(const String& contentType)
         return std::nullopt;
     
     size_t semicolonIndex = input.find(';', slashIndex);
-    String subtype = input.substring(slashIndex + 1, semicolonIndex - slashIndex - 1).trim(isASCIIWhitespaceWithoutFF<UChar>);
+    String subtype = input.substring(slashIndex + 1, semicolonIndex - slashIndex - 1).trim(isASCIIWhitespaceWithoutFF<char16_t>);
     if (!subtype.length() || !isValidHTTPToken(subtype))
         return std::nullopt;
 
@@ -180,7 +179,7 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
             size_t contentTypeBegin = header.findIgnoringASCIICase(contentTypeCharacters);
             if (contentTypeBegin != notFound) {
                 size_t contentTypeEnd = header.find(oneNewLine, contentTypeBegin);
-                contentType = StringView(header).substring(contentTypeBegin + contentTypePrefixLength, contentTypeEnd - contentTypeBegin - contentTypePrefixLength).trim(isASCIIWhitespaceWithoutFF<UChar>).toString();
+                contentType = StringView(header).substring(contentTypeBegin + contentTypePrefixLength, contentTypeEnd - contentTypeBegin - contentTypePrefixLength).trim(isASCIIWhitespaceWithoutFF<char16_t>).toString();
             }
 
             form.append(name, File::create(context, Blob::create(context, Vector(body), Blob::normalizedContentType(contentType)).get(), filename).get(), filename);
@@ -445,7 +444,51 @@ Ref<Blob> FetchBodyConsumer::takeAsBlob(ScriptExecutionContext* context, const S
     if (!m_buffer)
         return Blob::create(context, Vector<uint8_t>(), normalizedContentType);
 
-    return blobFromData(context, m_buffer.take()->extractData(), normalizedContentType);
+    // Minimise the number of DataSegments to reduce overall memory allocation.
+    // We pack it in 8MiB minimum segment.
+    static constexpr size_t MinimumBlobSize = 8 * 1024 * 1024;
+
+    RefPtr buffer = m_buffer.take();
+    if (buffer->size() <= MinimumBlobSize)
+        return Blob::create(context, buffer->extractData(), normalizedContentType);
+
+    size_t packedBufferSize = std::min(buffer->size(), MinimumBlobSize);
+    Vector<uint8_t> packedBuffer;
+    packedBuffer.reserveInitialCapacity(packedBufferSize);
+
+    Vector<Ref<SharedBuffer>> segments;
+    segments.reserveInitialCapacity(buffer->segmentsCount());
+    buffer->forEachSegmentAsSharedBuffer([&](Ref<SharedBuffer>&& sharedBuffer) {
+        segments.append(WTFMove(sharedBuffer));
+    });
+    buffer = nullptr; // So that the segments above hold each a single refcount to allow extractData to move the content.
+
+    SharedBufferBuilder bufferBuilder;
+    for (auto&& segment : segments) {
+        if (segment->size() >= MinimumBlobSize) {
+            if (packedBuffer.size()) {
+                bufferBuilder.append(std::exchange(packedBuffer, { }));
+                packedBuffer.reserveInitialCapacity(packedBufferSize);
+            }
+            bufferBuilder.append(WTFMove(segment));
+            continue;
+        }
+        if (packedBuffer.size() + segment->size() <= MinimumBlobSize) {
+            packedBuffer.appendVector(segment->extractData());
+            continue;
+        }
+        ASSERT(packedBuffer.size() <= MinimumBlobSize);
+        size_t leftInPacked = MinimumBlobSize - packedBuffer.size();
+        auto segmentData = segment->extractData();
+        packedBuffer.appendVector(segmentData.subvector(0, leftInPacked));
+        bufferBuilder.append(std::exchange(packedBuffer, { }));
+        packedBuffer.reserveInitialCapacity(packedBufferSize);
+        packedBuffer.appendVector(segmentData.subvector(leftInPacked));
+    };
+    if (!packedBuffer.isEmpty())
+        bufferBuilder.append(WTFMove(packedBuffer));
+
+    return Blob::create(context, bufferBuilder.take(), normalizedContentType);
 }
 
 String FetchBodyConsumer::takeAsText()

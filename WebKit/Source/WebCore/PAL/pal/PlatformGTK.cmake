@@ -14,14 +14,13 @@ list(APPEND PAL_SOURCES
     crypto/tasn1/Utilities.cpp
 
     system/ClockGeneric.cpp
+    system/Sound.cpp
 
     system/glib/SleepDisablerGLib.cpp
-
-    system/gtk/SoundGtk.cpp
 
     text/KillRing.cpp
 )
 
 list(APPEND PAL_LIBRARIES
-    GTK::GTK
+    GLib::GLib
 )

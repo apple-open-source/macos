@@ -37,7 +37,7 @@ using BitSetWordType = std::conditional_t<(size <= 32 && sizeof(UCPURegister) > 
 
 template<size_t bitSetSize, typename PassedWordType = BitSetWordType<bitSetSize>>
 class BitSet final {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(BitSet);
     
 public:
     using WordType = PassedWordType;
@@ -86,7 +86,7 @@ public:
     constexpr size_t findBit(size_t startIndex, bool value) const;
 
     class iterator {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(iterator);
     public:
         constexpr iterator()
             : m_bitSet(nullptr)

@@ -39,7 +39,7 @@ namespace WTF {
 
 // FIXME: This should be `: private BitVector`.
 class FixedBitVector final {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FixedBitVector);
     using WordType = decltype(BitVector::m_bitsOrPointer);
 
 public:
@@ -60,7 +60,7 @@ public:
 
     bool testAndSet(size_t bitIndex);
     bool testAndClear(size_t bitIndex);
-    bool test(size_t bitIndex);
+    bool test(size_t bitIndex) const;
 
     inline void merge(const FixedBitVector& other);
     inline void filter(const FixedBitVector& other);
@@ -153,7 +153,7 @@ ALWAYS_INLINE bool FixedBitVector::testAndClear(size_t bitIndex)
     return previousValue;
 }
 
-ALWAYS_INLINE bool FixedBitVector::test(size_t bitIndex)
+ALWAYS_INLINE bool FixedBitVector::test(size_t bitIndex) const
 {
     if (bitIndex >= size()) [[unlikely]]
         return false;

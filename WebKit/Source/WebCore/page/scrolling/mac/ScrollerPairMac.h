@@ -25,13 +25,14 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(MAC)
 
-#include "FloatRect.h"
-#include "FloatSize.h"
-#include "PlatformWheelEvent.h"
-#include "ScrollerMac.h"
-#include "ScrollingStateScrollingNode.h"
+#include <WebCore/FloatRect.h>
+#include <WebCore/FloatSize.h>
+#include <WebCore/PlatformWheelEvent.h>
+#include <WebCore/ScrollerMac.h>
+#include <WebCore/ScrollingStateScrollingNode.h>
 #include <wtf/RecursiveLockAdapter.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakPtr.h>
@@ -43,6 +44,9 @@ OBJC_CLASS WebScrollerImpPairDelegateMac;
 namespace WebCore {
 class PlatformWheelEvent;
 class ScrollingTreeScrollingNode;
+
+struct ScrollbarColor;
+
 }
 
 namespace WebCore {
@@ -110,6 +114,7 @@ public:
     void mouseExitedContentArea();
     void mouseMovedInContentArea(const MouseLocationState&);
     void mouseIsInScrollbar(ScrollbarHoverState);
+    void scrollbarColorChanged(const std::optional<ScrollbarColor>&);
 
     NSScrollerImpPair *scrollerImpPair() const { return m_scrollerImpPair.get(); }
     void ensureOnMainThreadWithProtectedThis(Function<void(ScrollerPairMac&)>&&);

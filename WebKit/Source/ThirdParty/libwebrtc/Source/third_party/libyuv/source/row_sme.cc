@@ -569,7 +569,7 @@ __arm_locally_streaming void Convert16To8Row_SME(const uint16_t* src_y,
   // 15 - clz(scale), + 8 to shift result into the high half of the lane to
   // saturate, then we can just use UZP2 to narrow rather than a pair of
   // saturating narrow instructions.
-  int shift = 23 - __builtin_clz((int32_t)scale);
+  const int shift = 23 - __builtin_clz((int32_t)scale);
   int vl;
   asm volatile(
       "cntb     %x[vl]                                  \n"
@@ -917,7 +917,7 @@ __arm_locally_streaming static void HalfRow_16To8_SME(uint8_t* dst_ptr,
   // 15 - clz(scale), + 8 to shift result into the high half of the lane to
   // saturate, then we can just use UZP2 to narrow rather than a pair of
   // saturating narrow instructions.
-  int shift = 23 - __builtin_clz((int32_t)scale);
+  const int shift = 23 - __builtin_clz((int32_t)scale);
 
   int vl;
   asm volatile(
@@ -977,8 +977,8 @@ __arm_locally_streaming void InterpolateRow_16To8_SME(uint8_t* dst_ptr,
                                                       int scale,
                                                       int width,
                                                       int source_y_fraction) {
-  int y1_fraction = source_y_fraction;
-  int y0_fraction = 256 - y1_fraction;
+  const int y1_fraction = source_y_fraction;
+  const int y0_fraction = 256 - y1_fraction;
   const uint16_t* src_ptr1 = src_ptr + src_stride;
 
   // y0_fraction == 0 is never called here.
@@ -994,7 +994,7 @@ __arm_locally_streaming void InterpolateRow_16To8_SME(uint8_t* dst_ptr,
   // 15 - clz(scale), + 8 to shift result into the high half of the lane to
   // saturate, then we can just use UZP2 to narrow rather than a pair of
   // saturating narrow instructions.
-  int shift = 23 - __builtin_clz((int32_t)scale);
+  const int shift = 23 - __builtin_clz((int32_t)scale);
 
   int vl;
   asm volatile(
@@ -1085,7 +1085,7 @@ __arm_locally_streaming void Convert8To16Row_SME(const uint8_t* src_y,
   // (src * 0x0101 * scale) >> 16.
   // Since scale is a power of two, compute the shift to use to avoid needing
   // to widen to int32.
-  int shift = __builtin_clz(scale) - 15;
+  const int shift = __builtin_clz(scale) - 15;
 
   uint64_t vl;
   asm volatile(
@@ -1118,6 +1118,60 @@ __arm_locally_streaming void Convert8To16Row_SME(const uint8_t* src_y,
         [vl] "=&r"(vl)        // %[vl]
       : [shift] "r"(shift)    // %[shift]
       : "cc", "memory", "z0", "z1", "z2", "p0", "p1");
+}
+
+__arm_locally_streaming void ARGBToUVRow_SME(const uint8_t* src_argb,
+                                             int src_stride_argb,
+                                             uint8_t* dst_u,
+                                             uint8_t* dst_v,
+                                             int width) {
+  ARGBToUVMatrixRow_SVE_SC(src_argb, src_stride_argb, dst_u, dst_v, width,
+                           kARGBToUVCoefficients);
+}
+
+__arm_locally_streaming void ARGBToUVJRow_SME(const uint8_t* src_argb,
+                                              int src_stride_argb,
+                                              uint8_t* dst_u,
+                                              uint8_t* dst_v,
+                                              int width) {
+  ARGBToUVMatrixRow_SVE_SC(src_argb, src_stride_argb, dst_u, dst_v, width,
+                           kARGBToUVJCoefficients);
+}
+
+__arm_locally_streaming void ABGRToUVJRow_SME(const uint8_t* src_abgr,
+                                              int src_stride_abgr,
+                                              uint8_t* dst_uj,
+                                              uint8_t* dst_vj,
+                                              int width) {
+  ARGBToUVMatrixRow_SVE_SC(src_abgr, src_stride_abgr, dst_uj, dst_vj, width,
+                           kABGRToUVJCoefficients);
+}
+
+__arm_locally_streaming void BGRAToUVRow_SME(const uint8_t* src_bgra,
+                                             int src_stride_bgra,
+                                             uint8_t* dst_u,
+                                             uint8_t* dst_v,
+                                             int width) {
+  ARGBToUVMatrixRow_SVE_SC(src_bgra, src_stride_bgra, dst_u, dst_v, width,
+                           kBGRAToUVCoefficients);
+}
+
+__arm_locally_streaming void ABGRToUVRow_SME(const uint8_t* src_abgr,
+                                             int src_stride_abgr,
+                                             uint8_t* dst_u,
+                                             uint8_t* dst_v,
+                                             int width) {
+  ARGBToUVMatrixRow_SVE_SC(src_abgr, src_stride_abgr, dst_u, dst_v, width,
+                           kABGRToUVCoefficients);
+}
+
+__arm_locally_streaming void RGBAToUVRow_SME(const uint8_t* src_rgba,
+                                             int src_stride_rgba,
+                                             uint8_t* dst_u,
+                                             uint8_t* dst_v,
+                                             int width) {
+  ARGBToUVMatrixRow_SVE_SC(src_rgba, src_stride_rgba, dst_u, dst_v, width,
+                           kRGBAToUVCoefficients);
 }
 
 #endif  // !defined(LIBYUV_DISABLE_SME) && defined(CLANG_HAS_SME) &&

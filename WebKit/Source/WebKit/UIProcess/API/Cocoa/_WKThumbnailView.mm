@@ -127,7 +127,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [super updateLayer];
 
     RetainPtr backgroundColor = self.overrideBackgroundColor ?: [NSColor quaternaryLabelColor];
-    self.layer.backgroundColor = backgroundColor.get().CGColor;
+    self.layer.backgroundColor = RetainPtr { backgroundColor.get().CGColor }.get();
 }
 
 - (void)requestSnapshot

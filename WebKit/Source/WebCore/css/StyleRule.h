@@ -21,15 +21,15 @@
 
 #pragma once
 
-#include "CSSSelector.h"
-#include "CSSSelectorList.h"
-#include "CSSVariableData.h"
-#include "CompiledSelector.h"
-#include "ContainerQuery.h"
-#include "FontFeatureValues.h"
-#include "FontPaletteValues.h"
-#include "MediaQuery.h"
-#include "StyleRuleType.h"
+#include <WebCore/CSSSelector.h>
+#include <WebCore/CSSSelectorList.h>
+#include <WebCore/CSSVariableData.h>
+#include <WebCore/CompiledSelector.h>
+#include <WebCore/ContainerQuery.h>
+#include <WebCore/FontFeatureValues.h>
+#include <WebCore/FontPaletteValues.h>
+#include <WebCore/MediaQuery.h>
+#include <WebCore/StyleRuleType.h>
 #include <map>
 #include <wtf/NoVirtualDestructorBase.h>
 #include <wtf/Ref.h>
@@ -53,7 +53,7 @@ using CascadeLayerName = Vector<AtomString>;
     
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleBase);
 class StyleRuleBase : public RefCounted<StyleRuleBase>, public NoVirtualDestructorBase {
-    WTF_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleBase);
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleBase, StyleRuleBase);
 public:
     StyleRuleType type() const { return static_cast<StyleRuleType>(m_type); }
 
@@ -71,7 +71,7 @@ public:
     bool isStyleRule() const { return type() == StyleRuleType::Style || type() == StyleRuleType::StyleWithNesting || type() == StyleRuleType::NestedDeclarations; }
     bool isStyleRuleWithNesting() const { return type() == StyleRuleType::StyleWithNesting; }
     bool isNestedDeclarationsRule() const { return type() == StyleRuleType::NestedDeclarations; }
-    bool isGroupRule() const { return type() == StyleRuleType::Media || type() == StyleRuleType::Supports || type() == StyleRuleType::LayerBlock || type() == StyleRuleType::Container || type() == StyleRuleType::Scope || type() == StyleRuleType::StartingStyle; }
+    bool isGroupRule() const { return type() == StyleRuleType::Media || type() == StyleRuleType::Supports || type() == StyleRuleType::LayerBlock || type() == StyleRuleType::Container || type() == StyleRuleType::Scope || type() == StyleRuleType::StartingStyle || type() == StyleRuleType::Function || type() == StyleRuleType::InternalBaseAppearance; }
     bool isSupportsRule() const { return type() == StyleRuleType::Supports; }
     bool isImportRule() const { return type() == StyleRuleType::Import; }
     bool isLayerRule() const { return type() == StyleRuleType::LayerBlock || type() == StyleRuleType::LayerStatement; }
@@ -81,6 +81,7 @@ public:
     bool isStartingStyleRule() const { return type() == StyleRuleType::StartingStyle; }
     bool isViewTransitionRule() const { return type() == StyleRuleType::ViewTransition; }
     bool isPositionTryRule() const { return type() == StyleRuleType::PositionTry; }
+    bool isInternalBaseAppearanceRule() const { return type() == StyleRuleType::InternalBaseAppearance; }
 
     Ref<StyleRuleBase> copy() const;
 
@@ -117,7 +118,7 @@ private:
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRule);
 class StyleRule : public StyleRuleBase {
-    WTF_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRule);
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRule, StyleRule);
 public:
     static Ref<StyleRule> create(Ref<StyleProperties>&&, bool hasDocumentSecurityOrigin, CSSSelectorList&&);
     Ref<StyleRule> copy() const;
@@ -169,7 +170,7 @@ private:
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleWithNesting);
 class StyleRuleWithNesting final : public StyleRule {
-    WTF_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleWithNesting);
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleWithNesting, StyleRuleWithNesting);
 public:
     static Ref<StyleRuleWithNesting> create(Ref<StyleProperties>&&, bool hasDocumentSecurityOrigin, CSSSelectorList&&, Vector<Ref<StyleRuleBase>>&& nestedRules);
     static Ref<StyleRuleWithNesting> create(StyleRule&&);
@@ -197,10 +198,9 @@ private:
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleNestedDeclarations);
 class StyleRuleNestedDeclarations final : public StyleRule {
-    WTF_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleNestedDeclarations);
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_COMPACT_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRuleNestedDeclarations, StyleRuleNestedDeclarations);
 public:
     static Ref<StyleRuleNestedDeclarations> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleNestedDeclarations(WTFMove(properties))); }
-    ~StyleRuleNestedDeclarations() = default;
     Ref<StyleRuleNestedDeclarations> copy() const { return adoptRef(*new StyleRuleNestedDeclarations(*this)); }
 
     String debugDescription() const;
@@ -253,8 +253,6 @@ public:
     {
         return adoptRef(*new StyleRuleFontFeatureValuesBlock(type, tags));
     }
-    
-    ~StyleRuleFontFeatureValuesBlock() = default;
 
     FontFeatureValuesType fontFeatureValuesType() const { return m_type; }
 
@@ -272,8 +270,6 @@ private:
 class StyleRuleFontFeatureValues final : public StyleRuleBase {
 public:
     static Ref<StyleRuleFontFeatureValues> create(const Vector<AtomString>& fontFamilies, Ref<FontFeatureValues>&&);
-    
-    ~StyleRuleFontFeatureValues() = default;
 
     const Vector<AtomString>& fontFamilies() const { return m_fontFamilies; }
 
@@ -465,6 +461,16 @@ private:
     StyleRuleCharset(const StyleRuleCharset&) = default;
 };
 
+class StyleRuleInternalBaseAppearance final : public StyleRuleGroup {
+public:
+    static Ref<StyleRuleInternalBaseAppearance> create(Vector<Ref<StyleRuleBase>>&&);
+    Ref<StyleRuleInternalBaseAppearance> copy() const { return adoptRef(*new StyleRuleInternalBaseAppearance(*this)); }
+
+private:
+    StyleRuleInternalBaseAppearance(Vector<Ref<StyleRuleBase>>&&);
+    StyleRuleInternalBaseAppearance(const StyleRuleInternalBaseAppearance&) = default;
+};
+
 class StyleRuleNamespace final : public StyleRuleBase {
 public:
     static Ref<StyleRuleNamespace> create(const AtomString& prefix, const AtomString& uri);
@@ -597,4 +603,8 @@ SPECIALIZE_TYPE_TRAITS_END()
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleStartingStyle)
     static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isStartingStyleRule(); }
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleInternalBaseAppearance)
+    static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isInternalBaseAppearanceRule(); }
 SPECIALIZE_TYPE_TRAITS_END()

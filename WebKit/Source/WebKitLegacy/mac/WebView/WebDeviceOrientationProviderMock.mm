@@ -54,8 +54,7 @@ using namespace WebCore;
 
 - (void)startUpdating
 {
-    auto placeholderOrigin = WebCore::SecurityOriginData { };
-    m_core->startUpdating(placeholderOrigin);
+    m_core->startUpdating();
 }
 
 - (void)stopUpdating

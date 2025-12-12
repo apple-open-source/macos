@@ -144,7 +144,7 @@ JSValue JSTestTaggedWrapper::getConstructor(VM& vm, const JSGlobalObject* global
 
 void JSTestTaggedWrapper::destroy(JSC::JSCell* cell)
 {
-    JSTestTaggedWrapper* thisObject = static_cast<JSTestTaggedWrapper*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestTaggedWrapper* thisObject = static_cast<JSTestTaggedWrapper*>(cell);
     thisObject->JSTestTaggedWrapper::~JSTestTaggedWrapper();
 }
 
@@ -187,7 +187,7 @@ bool JSTestTaggedWrapperOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unkno
 
 void JSTestTaggedWrapperOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestTaggedWrapper = static_cast<JSTestTaggedWrapper*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestTaggedWrapper = static_cast<JSTestTaggedWrapper*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestTaggedWrapper->protectedWrapped().ptr(), jsTestTaggedWrapper);
 }
@@ -201,7 +201,7 @@ extern "C" { extern void (*const __identifier("??_7TestTaggedWrapper@WebCore@@6B
 extern "C" { extern void* _ZTVN7WebCore17TestTaggedWrapperE[]; }
 #endif
 template<std::same_as<TestTaggedWrapper> T>
-static inline void verifyVTable(TestTaggedWrapper* ptr) 
+static inline void verifyVTable(TestTaggedWrapper* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -221,8 +221,9 @@ static inline void verifyVTable(TestTaggedWrapper* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestTaggedWrapper>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestTaggedWrapper>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestTaggedWrapper>(impl.ptr());
 #endif

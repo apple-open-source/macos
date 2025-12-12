@@ -69,7 +69,7 @@ bool LineWidth::fitsOnLineExcludingTrailingCollapsedWhitespace() const
 void LineWidth::updateAvailableWidth()
 {
     LayoutUnit height = m_block.logicalHeight();
-    auto lineHeight = std::max(0_lu, m_block.lineHeight(true, m_block.isHorizontalWritingMode() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes));
+    auto lineHeight = std::max(0_lu, m_block.lineHeight());
     m_left = m_block.logicalLeftOffsetForLine(height, lineHeight);
     m_right = m_block.logicalRightOffsetForLine(height, lineHeight);
 
@@ -85,14 +85,6 @@ void LineWidth::commit()
         m_hasUncommittedReplaced = false;
     }
     m_hasCommitted = true;
-}
-
-inline static float availableWidthAtOffset(const RenderBlockFlow& block, const LayoutUnit& offset,
-    float& newLineLeft, float& newLineRight, const LayoutUnit& lineHeight = 0)
-{
-    newLineLeft = block.logicalLeftOffsetForLine(offset, lineHeight);
-    newLineRight = block.logicalRightOffsetForLine(offset, lineHeight);
-    return std::max(0.0f, newLineRight - newLineLeft);
 }
 
 void LineWidth::updateLineDimension(LayoutUnit newLineTop, LayoutUnit newLineWidth, float newLineLeft, float newLineRight)

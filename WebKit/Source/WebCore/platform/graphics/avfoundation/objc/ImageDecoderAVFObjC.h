@@ -27,9 +27,9 @@
 
 #if HAVE(AVASSETREADER)
 
-#include "ImageDecoder.h"
-#include "ProcessIdentity.h"
-#include "SampleMap.h"
+#include <WebCore/ImageDecoder.h>
+#include <WebCore/ProcessIdentity.h>
+#include <WebCore/SampleMap.h>
 #include <wtf/Lock.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
@@ -97,6 +97,7 @@ private:
     ImageDecoderAVFObjC(const FragmentedSharedBuffer&, const String& mimeType, AlphaOption, GammaAndColorProfileOption, ProcessIdentity resourceOwner);
 
     AVAssetTrack *firstEnabledTrack();
+    RetainPtr<AVAssetTrack> protectedFirstEnabledTrack();
     void readSamples();
     void readTrackMetadata();
     bool storeSampleBuffer(CMSampleBufferRef);

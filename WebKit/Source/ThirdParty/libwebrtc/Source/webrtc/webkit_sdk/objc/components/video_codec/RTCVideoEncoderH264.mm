@@ -443,7 +443,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
         return nil;
       }
 
-    _useBaseline = ![(__bridge NSString *)ExtractProfile(*_profile_level_id) containsString: @"High"];
+    _useBaseline = _profile_level_id->profile == webrtc::H264Profile::kProfileConstrainedBaseline || _profile_level_id->profile == webrtc::H264Profile::kProfileBaseline;
 #if ENABLE_VCP_FOR_H264_BASELINE
     _useVCP = true;
 #else
@@ -855,7 +855,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
   else
 #endif
   SetVTSessionProperty(_vtCompressionSession, kVTCompressionPropertyKey_ProfileLevel, ExtractProfile(*_profile_level_id));
-  if (_profile_level_id->profile != webrtc::H264Profile::kProfileConstrainedBaseline && _profile_level_id->profile != webrtc::H264Profile::kProfileBaseline)
+  if (!_useBaseline)
     SetVTSessionProperty(_vtCompressionSession, kVTCompressionPropertyKey_AllowFrameReordering, false);
   if (_enableL1T2ScalabilityMode) {
     const double kL1T2Fraction = 0.5;

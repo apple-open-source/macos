@@ -25,7 +25,7 @@
 #ifndef AuthenticationMac_h
 #define AuthenticationMac_h
 
-#import "PlatformExportMacros.h"
+#import <WebCore/PlatformExportMacros.h>
 
 @class NSURLAuthenticationChallenge;
 
@@ -34,6 +34,7 @@ namespace WebCore {
 class AuthenticationChallenge;
 
 WEBCORE_EXPORT NSURLAuthenticationChallenge *mac(const AuthenticationChallenge&);
+WEBCORE_EXPORT RetainPtr<NSURLAuthenticationChallenge> protectedMac(const AuthenticationChallenge&);
 
 WEBCORE_EXPORT AuthenticationChallenge core(NSURLAuthenticationChallenge *);
 

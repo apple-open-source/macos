@@ -180,7 +180,6 @@ list(APPEND PAL_SOURCES
     cocoa/CryptoKitPrivateSoftLink.mm
     cocoa/DataDetectorsCoreSoftLink.mm
     cocoa/FileSizeFormatterCocoa.mm
-    cocoa/Gunzip.cpp
     cocoa/LinkPresentationSoftLink.mm
     cocoa/MediaToolboxSoftLink.cpp
     cocoa/NaturalLanguageSoftLink.mm

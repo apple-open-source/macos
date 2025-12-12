@@ -277,6 +277,7 @@ static const char *THREAD_GROUP_FILTER = "S0x01A6";
 
 T_DECL(thread_group_flags_from_workload_properties,
     "Verify that workload properties correctly propagate thread group flags",
+    XNU_T_META_REQUIRES_DEVELOPMENT_KERNEL,     /* needed to set workload config */
     T_META_ASROOT(true))
 {
 	int ret;
@@ -388,6 +389,7 @@ search_for_pid_based_tg_flags_tracepoints(char *trace_path, int num_threads, str
 
 T_DECL(thread_group_flags_from_pid_interfaces,
     "Verify that Car Play and Game Mode correctly propagate thread group flags",
+    XNU_T_META_REQUIRES_DEVELOPMENT_KERNEL,        /* needed for kern.thread_group_id */
     T_META_ASROOT(true))
 {
 	int ret;

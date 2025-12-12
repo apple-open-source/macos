@@ -54,6 +54,10 @@ void PipeWireCaptureDeviceManager::computeCaptureDevices(CompletionHandler<void(
         return;
     }
 
+#if PLATFORM(WPE)
+    callback();
+    return;
+#endif
     if (!m_pipewireDeviceProvider || !gstObjectHasProperty(GST_OBJECT_CAST(m_pipewireDeviceProvider.get()), "fd"_s)) {
         GST_WARNING("PipeWire Device Provider is missing or too old. Please install PipeWire >= 0.3.64.");
         callback();
@@ -69,8 +73,10 @@ void PipeWireCaptureDeviceManager::computeCaptureDevices(CompletionHandler<void(
         return;
     }
 
+    GST_DEBUG("Attempting to access the camera");
     portal->accessCamera([this, callback = WTFMove(callback)](auto fd) mutable {
         if (!fd) {
+            GST_DEBUG("Camera access unavailable");
             callback();
             return;
         }

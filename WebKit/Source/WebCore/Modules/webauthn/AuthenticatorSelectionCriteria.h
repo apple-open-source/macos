@@ -26,13 +26,13 @@
 #pragma once
 
 #if ENABLE(WEB_AUTHN)
-#include "AttestationConveyancePreference.h"
-#include "AuthenticationExtensionsClientInputs.h"
-#include "BufferSource.h"
-#include "PublicKeyCredentialDescriptor.h"
-#include "PublicKeyCredentialType.h"
-#include "ResidentKeyRequirement.h"
-#include "UserVerificationRequirement.h"
+#include <WebCore/AttestationConveyancePreference.h>
+#include <WebCore/AuthenticationExtensionsClientInputs.h>
+#include <WebCore/BufferSource.h>
+#include <WebCore/PublicKeyCredentialDescriptor.h>
+#include <WebCore/PublicKeyCredentialType.h>
+#include <WebCore/ResidentKeyRequirement.h>
+#include <WebCore/UserVerificationRequirement.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -40,11 +40,16 @@ namespace WebCore {
 enum class AuthenticatorAttachment : uint8_t;
 
 struct AuthenticatorSelectionCriteria {
-    std::optional<AuthenticatorAttachment> authenticatorAttachment;
+    String authenticatorAttachmentString;
+    WEBCORE_EXPORT std::optional<AuthenticatorAttachment> authenticatorAttachment() const;
+
     // residentKey replaces requireResidentKey, see: https://www.w3.org/TR/webauthn-2/#dictionary-authenticatorSelection
-    std::optional<ResidentKeyRequirement> residentKey;
+    String residentKeyString;
+    WEBCORE_EXPORT std::optional<ResidentKeyRequirement> residentKey() const;
     bool requireResidentKey { false };
-    UserVerificationRequirement userVerification { UserVerificationRequirement::Preferred };
+
+    String userVerificationString { String { "preferred"_s } };
+    WEBCORE_EXPORT UserVerificationRequirement userVerification() const;
 };
 
 }

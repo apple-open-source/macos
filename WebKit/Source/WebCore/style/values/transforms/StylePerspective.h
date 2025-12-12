@@ -24,50 +24,23 @@
 
 #pragma once
 
-#include "StylePrimitiveNumericTypes.h"
+#include <WebCore/StylePrimitiveNumericTypes.h>
 
 namespace WebCore {
 namespace Style {
 
 // <'perspective'> = none | <length [0,∞]>
 // https://drafts.csswg.org/css-transforms-2/#propdef-perspective
-struct Perspective {
-    using Length = Style::Length<CSS::Nonnegative, float>;
+struct Perspective : ValueOrKeyword<Length<CSS::Nonnegative, float>, CSS::Keyword::None> {
+    using Base::Base;
+    using Length = typename Base::Value;
 
-    Perspective(CSS::Keyword::None) : m_value { } { }
-    Perspective(Length value) : m_value { value } { }
+    float usedPerspective() const { return std::max(1.0f, tryValue().value_or(1.0f).resolveZoom(Style::ZoomNeeded { })); }
 
-    float usedPerspective() const { return m_value ? std::max(1.0f, m_value->value) : 1.0f; }
-
-    bool isNone() const { return !m_value; }
-    bool isLength() const { return !!m_value; }
-
-    template<typename> bool holdsAlternative() const;
-    template<typename... F> decltype(auto) switchOn(F&&...) const;
-
-    bool operator==(const Perspective&) const = default;
-
-private:
-    template<typename> friend struct Blending;
-
-    Markable<Length> m_value;
+    bool isNone() const { return isKeyword(); }
+    bool isLength() const { return isValue(); }
 };
 static_assert(sizeof(Perspective) == sizeof(float));
-
-template<typename T> bool Perspective::holdsAlternative() const
-{
-         if constexpr (std::same_as<T, CSS::Keyword::None>) return isNone();
-    else if constexpr (std::same_as<T, Length>)             return isLength();
-}
-
-template<typename... F> decltype(auto) Perspective::switchOn(F&&... f) const
-{
-    auto visitor = WTF::makeVisitor(std::forward<F>(f)...);
-
-    if (!m_value)
-        return visitor(CSS::Keyword::None { });
-    return visitor(*m_value);
-}
 
 // MARK: - Conversion
 
@@ -83,4 +56,4 @@ template<> struct Blending<Perspective> {
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::Perspective> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::Perspective)

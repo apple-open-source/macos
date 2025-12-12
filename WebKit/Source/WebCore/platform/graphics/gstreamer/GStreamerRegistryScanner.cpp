@@ -25,6 +25,8 @@
 #include "ContentType.h"
 #include "GStreamerCodecUtilities.h"
 #include "GStreamerCommon.h"
+#include "PlatformScreen.h"
+#include "ScreenProperties.h"
 #include <fnmatch.h>
 #include <gst/pbutils/codec-utils.h>
 #include <wtf/NeverDestroyed.h>
@@ -165,6 +167,8 @@ GStreamerRegistryScanner::ElementFactories::ElementFactories(OptionSet<ElementFa
         rtpDepayloaderFactories = gst_element_factory_list_get_elements(GST_ELEMENT_FACTORY_TYPE_DEPAYLOADER, GST_RANK_MARGINAL);
     if (types.contains(Type::Decryptor))
         decryptorFactories = gst_element_factory_list_get_elements(GST_ELEMENT_FACTORY_TYPE_DECRYPTOR, GST_RANK_MARGINAL);
+    if (types.contains(Type::CaptionEncoder))
+        captionEncoderFactories = gst_element_factory_list_get_elements(GST_ELEMENT_FACTORY_TYPE_ENCODER | GST_ELEMENT_FACTORY_TYPE_MEDIA_SUBTITLE, GST_RANK_MARGINAL);
 }
 
 GStreamerRegistryScanner::ElementFactories::~ElementFactories()
@@ -180,6 +184,7 @@ GStreamerRegistryScanner::ElementFactories::~ElementFactories()
     gst_plugin_feature_list_free(rtpPayloaderFactories);
     gst_plugin_feature_list_free(rtpDepayloaderFactories);
     gst_plugin_feature_list_free(decryptorFactories);
+    gst_plugin_feature_list_free(captionEncoderFactories);
 }
 
 const char* GStreamerRegistryScanner::ElementFactories::elementFactoryTypeToString(GStreamerRegistryScanner::ElementFactories::Type factoryType)
@@ -207,6 +212,8 @@ const char* GStreamerRegistryScanner::ElementFactories::elementFactoryTypeToStri
         return "RTP depayloader";
     case Type::Decryptor:
         return "Decryptor";
+    case Type::CaptionEncoder:
+        return "caption encoder";
     case Type::All:
         break;
     }
@@ -239,6 +246,8 @@ GList* GStreamerRegistryScanner::ElementFactories::factory(GStreamerRegistryScan
         return rtpDepayloaderFactories;
     case GStreamerRegistryScanner::ElementFactories::Type::Decryptor:
         return decryptorFactories;
+    case GStreamerRegistryScanner::ElementFactories::Type::CaptionEncoder:
+        return captionEncoderFactories;
     case GStreamerRegistryScanner::ElementFactories::Type::All:
         break;
     }
@@ -294,7 +303,7 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::Element
     RELEASE_ASSERT(!gst_caps_is_any(caps.get()));
 
     GstPadDirection padDirection = GST_PAD_SINK;
-    if (factoryType == Type::AudioEncoder || factoryType == Type::VideoEncoder || factoryType == Type::Muxer || factoryType == Type::RtpDepayloader)
+    if (factoryType == Type::AudioEncoder || factoryType == Type::VideoEncoder || factoryType == Type::Muxer || factoryType == Type::RtpDepayloader || factoryType == Type::CaptionEncoder)
         padDirection = GST_PAD_SRC;
 
     // We can't use gst_element_factory_list_filter here because it would allow-list elements with
@@ -519,10 +528,19 @@ void GStreamerRegistryScanner::initializeDecoders(const GStreamerRegistryScanner
     fillMimeTypeSetFromCapsMapping(factories, mseCompatibleMapping);
 
     if (m_isMediaSource) {
-        // This ensures WebVTT will always be supported in MSE, since it's decoded directly by WebKit,
-        // so we don't actually push any WebVTT to the playback pipeline.
-        RegistryLookupResult webvttDecoderAvailable = { true, false, nullptr };
-        m_decoderCodecMap.add("wvtt"_s, webvttDecoderAvailable);
+        // WebVTT will always be supported in MSE, since it's decoded directly by WebKit.
+        RegistryLookupResult wvttAvailable = { true, false, nullptr };
+        m_decoderCodecMap.add("wvtt"_s, wvttAvailable);
+
+        // In this case, we will need to encode plain timed text to WebVTT.
+        RegistryLookupResult wvttEncoderAvailable = factories.hasElementForMediaType(ElementFactories::Type::CaptionEncoder, "application/x-subtitle-vtt"_s, ElementFactories::CheckHardwareClassifier::No);
+        m_decoderCodecMap.add("tx3g"_s, wvttEncoderAvailable);
+
+        // For CEA-608, we just transcode to WebVTT directly.
+        if (GRefPtr<GstElementFactory> cea608tottFactory = adoptGRef(gst_element_factory_find("cea608tott"))) {
+            RegistryLookupResult cea608tottAvailable = { true, false, cea608tottFactory };
+            m_decoderCodecMap.add("x-cea-608"_s, cea608tottAvailable);
+        }
         return;
     }
 
@@ -824,12 +842,12 @@ MediaPlayerEnums::SupportsType GStreamerRegistryScanner::isContentTypeSupported(
     if (!ok)
         height = 0;
 
-    if (videoDecodingLimits && (width > videoDecodingLimits->mediaMaxWidth || height > videoDecodingLimits->mediaMaxHeight))
-        return SupportsType::IsNotSupported;
-
     float frameRate = contentType.parameter("framerate"_s).toFloat(&ok);
-    // Limit frameRate only in case of highest supported resolution.
-    if (ok && videoDecodingLimits && width == videoDecodingLimits->mediaMaxWidth && height == videoDecodingLimits->mediaMaxHeight && frameRate > videoDecodingLimits->mediaMaxFrameRate)
+    if (!ok)
+        frameRate = 0;
+
+    if (videoDecodingLimits && (width > videoDecodingLimits->mediaMaxWidth || height > videoDecodingLimits->mediaMaxHeight
+        || frameRate > videoDecodingLimits->mediaMaxFrameRate))
         return SupportsType::IsNotSupported;
 
     const auto& codecs = contentType.codecs();
@@ -868,9 +886,8 @@ MediaPlayerEnums::SupportsType GStreamerRegistryScanner::isContentTypeSupported(
                 continue;
             }
             auto structure = gst_caps_get_structure(codecCaps.get(), 0);
-            auto nameView = gstStructureGetName(structure);
-            auto name = nameView.utf8();
-            auto caps = adoptGRef(gst_caps_new_simple("application/x-webm-enc", "original-media-type", G_TYPE_STRING, name.data(), nullptr));
+            auto name = gstStructureGetName(structure);
+            auto caps = adoptGRef(gst_caps_new_simple("application/x-webm-enc", "original-media-type", G_TYPE_STRING, name.utf8(), nullptr));
             if (!factories.hasElementForCaps(ElementFactories::Type::Decryptor, caps))
                 return SupportsType::IsNotSupported;
         }
@@ -997,7 +1014,6 @@ ASCIILiteral GStreamerRegistryScanner::configurationNameForLogging(Configuration
 
 GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::isConfigurationSupported(Configuration configuration, const MediaConfiguration& mediaConfiguration) const
 {
-    bool isSupported = false;
     bool isUsingHardware = false;
 #ifndef GST_DISABLE_GST_DEBUG
     ASCIILiteral configLogString = configurationNameForLogging(configuration);
@@ -1012,11 +1028,32 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::isConfi
             videoConfiguration.bitrate, videoConfiguration.framerate);
 #endif
 
+#if ENABLE(WPE_PLATFORM)
+        auto* scrData = screenData(primaryScreenDisplayID());
+        if (!scrData || !scrData->screenSupportsHighDynamicRange) {
+            // Check HDR metadata field
+            if (videoConfiguration.hdrMetadataType.has_value())
+                return { false, false, nullptr };
+            // Transfer function (EOTF)
+            if (videoConfiguration.transferFunction.has_value()) {
+                auto tf = videoConfiguration.transferFunction.value();
+                // compare to your enum values for PQ/HLG; adjust names if different
+                if (tf == TransferFunction::PQ || tf == TransferFunction::HLG)
+                    return { false, false, nullptr };
+            }
+        }
+#endif
+
         auto contentType = ContentType(videoConfiguration.contentType);
-        isSupported = isContainerTypeSupported(configuration, contentType.containerType());
+        if (!isContainerTypeSupported(configuration, contentType.containerType()))
+            return { false, false, nullptr };
+
         auto codecs = contentType.codecs();
-        if (!codecs.isEmpty())
+        if (!codecs.isEmpty()) {
+            if (!areAllCodecsSupported(configuration, codecs, false))
+                return { false, false, nullptr };
             isUsingHardware = areAllCodecsSupported(configuration, codecs, true);
+        }
     }
 
     if (mediaConfiguration.audio) {
@@ -1027,10 +1064,11 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::isConfi
             audioConfiguration.bitrate.value_or(0), audioConfiguration.samplerate.value_or(0));
 #endif
         auto contentType = ContentType(audioConfiguration.contentType);
-        isSupported = isContainerTypeSupported(configuration, contentType.containerType());
+        if (!isContainerTypeSupported(configuration, contentType.containerType()))
+            return { false, false, nullptr };
     }
 
-    return { isSupported, isUsingHardware, nullptr };
+    return { true, isUsingHardware, nullptr };
 }
 
 #if USE(GSTREAMER_WEBRTC)

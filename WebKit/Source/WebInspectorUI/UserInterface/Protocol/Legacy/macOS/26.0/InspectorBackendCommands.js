@@ -84,7 +84,7 @@ InspectorBackend.registerEnum("CSS.StyleSheetOrigin", {User: "user", UserAgent: 
 InspectorBackend.registerEnum("CSS.PseudoId", {FirstLine: "first-line", FirstLetter: "first-letter", GrammarError: "grammar-error", Highlight: "highlight", Marker: "marker", Before: "before", After: "after", Selection: "selection", Backdrop: "backdrop", SpellingError: "spelling-error", TargetText: "target-text", ViewTransition: "view-transition", ViewTransitionGroup: "view-transition-group", ViewTransitionImagePair: "view-transition-image-pair", ViewTransitionOld: "view-transition-old", ViewTransitionNew: "view-transition-new", WebKitScrollbar: "-webkit-scrollbar", WebKitResizer: "-webkit-resizer", WebKitScrollbarThumb: "-webkit-scrollbar-thumb", WebKitScrollbarButton: "-webkit-scrollbar-button", WebKitScrollbarTrack: "-webkit-scrollbar-track", WebKitScrollbarTrackPiece: "-webkit-scrollbar-track-piece", WebKitScrollbarCorner: "-webkit-scrollbar-corner"});
 InspectorBackend.registerEnum("CSS.ForceablePseudoClass", {Active: "active", Focus: "focus", FocusVisible: "focus-visible", FocusWithin: "focus-within", Hover: "hover", Target: "target", Visited: "visited"});
 InspectorBackend.registerEnum("CSS.CSSPropertyStatus", {Active: "active", Inactive: "inactive", Disabled: "disabled", Style: "style"});
-InspectorBackend.registerEnum("CSS.GroupingType", {MediaRule: "media-rule", MediaImportRule: "media-import-rule", MediaLinkNode: "media-link-node", MediaStyleNode: "media-style-node", SupportsRule: "supports-rule", LayerRule: "layer-rule", LayerImportRule: "layer-import-rule", ContainerRule: "container-rule", StyleRule: "style-rule"});
+InspectorBackend.registerEnum("CSS.GroupingType", {MediaRule: "media-rule", MediaImportRule: "media-import-rule", MediaLinkNode: "media-link-node", MediaStyleNode: "media-style-node", SupportsRule: "supports-rule", LayerRule: "layer-rule", LayerImportRule: "layer-import-rule", ContainerRule: "container-rule", ScopeRule: "scope-rule", StartingStyleRule: "starting-style-rule", StyleRule: "style-rule"});
 InspectorBackend.registerEnum("CSS.LayoutFlag", {Rendered: "rendered", Scrollable: "scrollable", Flex: "flex", Grid: "grid", Event: "event", SlotAssigned: "slot-assigned", SlotFilled: "slot-filled"});
 InspectorBackend.registerEnum("CSS.LayoutContextTypeChangedMode", {Observed: "observed", All: "all"});
 InspectorBackend.registerCommand("CSS.enable", null, [], []);
@@ -464,10 +464,6 @@ InspectorBackend.registerEvent("Page.domContentEventFired", ["page"], ["timestam
 InspectorBackend.registerEvent("Page.loadEventFired", ["page"], ["timestamp"]);
 InspectorBackend.registerEvent("Page.frameNavigated", null, ["frame"]);
 InspectorBackend.registerEvent("Page.frameDetached", ["page"], ["frameId"]);
-InspectorBackend.registerEvent("Page.frameStartedLoading", null, ["frameId"]);
-InspectorBackend.registerEvent("Page.frameStoppedLoading", null, ["frameId"]);
-InspectorBackend.registerEvent("Page.frameScheduledNavigation", ["page"], ["frameId", "delay"]);
-InspectorBackend.registerEvent("Page.frameClearedScheduledNavigation", ["page"], ["frameId"]);
 InspectorBackend.registerEvent("Page.defaultUserPreferencesDidChange", ["page"], ["preferences"]);
 InspectorBackend.registerPageDispatcher = InspectorBackend.registerDispatcher.bind(InspectorBackend, "Page");
 InspectorBackend.activateDomain("Page", ["itml", "page", "web-page"]);

@@ -336,15 +336,18 @@ static void encodeString(WKRemoteObjectEncoder *encoder, NSString *string)
 
 static RetainPtr<id> decodeObjCObject(WKRemoteObjectDecoder *decoder, Class objectClass)
 {
+    // This is OK because we'll adopt below after -init.
     SUPPRESS_UNRETAINED_LOCAL id allocation = [objectClass allocWithZone:decoder.zone];
     if (!allocation)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"Class \"%@\" returned nil from +alloc while being decoded", NSStringFromClass(objectClass)];
 
-    RetainPtr<id> result = adoptNS([allocation initWithCoder:decoder]);
+    // This is OK because we're adopting the +1 from alloc above.
+    SUPPRESS_RETAINPTR_CTOR_ADOPT RetainPtr<id> result = adoptNS([allocation initWithCoder:decoder]);
     if (!result)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"Object of class \"%@\" returned nil from -initWithCoder: while being decoded", NSStringFromClass(objectClass)];
 
-    result = adoptNS([result.leakRef() awakeAfterUsingCoder:decoder]);
+    // This is OK because -awakeAfterUsingCoder consumes its argument and returns +1 (NS_REPLACES_RECEIVER).
+    SUPPRESS_RETAINPTR_CTOR_ADOPT result = adoptNS([result.leakRef() awakeAfterUsingCoder:decoder]);
     if (!result)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"Object of class \"%@\" returned nil from -awakeAfterUsingCoder: while being decoded", NSStringFromClass(objectClass)];
 

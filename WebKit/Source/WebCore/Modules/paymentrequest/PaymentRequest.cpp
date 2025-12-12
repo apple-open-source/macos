@@ -29,6 +29,7 @@
 #if ENABLE(PAYMENT_REQUEST)
 
 #include "ApplePayPaymentHandler.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
@@ -497,6 +498,11 @@ void PaymentRequest::suspend(ReasonForSuspension reason)
     }
 
     stop();
+}
+
+ScriptExecutionContext* PaymentRequest::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 RefPtr<ScriptExecutionContext> PaymentRequest::protectedScriptExecutionContext() const

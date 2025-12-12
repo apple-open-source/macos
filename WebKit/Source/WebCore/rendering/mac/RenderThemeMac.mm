@@ -43,7 +43,7 @@
 #import "HTMLInputElement.h"
 #import "HTMLMeterElement.h"
 #import "HTMLNames.h"
-#import "HTMLPlugInImageElement.h"
+#import "HTMLPlugInElement.h"
 #import "Icon.h"
 #import "Image.h"
 #import "ImageControlsButtonMac.h"
@@ -69,6 +69,7 @@
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #import <CoreServices/CoreServices.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <math.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/CoreUISPI.h>
@@ -99,19 +100,28 @@
     if (!self)
         return nil;
 
-    [[NSNotificationCenter defaultCenter] addObserver:self
-        selector:@selector(systemColorsDidChange:) name:NSSystemColorsDidChangeNotification object:nil];
+    RetainPtr systemColorsChangedNotification = NSSystemColorsDidChangeNotification;
+    RetainPtr accessibilityDisplayOptionsChangedNotification = NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification;
 
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(systemColorsDidChange:) name:systemColorsChangedNotification.get() object:nil];
     [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self
-        selector:@selector(systemColorsDidChange:) name:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification object:nil];
+        selector:@selector(accessibilityDisplayOptionsDidChange:) name:accessibilityDisplayOptionsChangedNotification.get() object:nil];
 
     return self;
+}
+
+- (void)accessibilityDisplayOptionsDidChange:(NSNotification *)notification
+{
+    UNUSED_PARAM(notification);
+    WebCore::RenderTheme::singleton().platformColorsDidChange();
 }
 
 - (void)systemColorsDidChange:(NSNotification *)notification
 {
     UNUSED_PARAM(notification);
     WebCore::RenderTheme::singleton().platformColorsDidChange();
+    WebCore::Page::updateControlTintsForAllPages();
 }
 
 @end
@@ -203,7 +213,7 @@ RenderThemeMac::RenderThemeMac()
 {
 }
 
-bool RenderThemeMac::canCreateControlPartForRenderer(const RenderObject& renderer) const
+bool RenderThemeMac::canCreateControlPartForRenderer(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled())
@@ -240,7 +250,7 @@ bool RenderThemeMac::canCreateControlPartForRenderer(const RenderObject& rendere
         || type == StyleAppearance::SwitchTrack;
 }
 
-bool RenderThemeMac::canCreateControlPartForBorderOnly(const RenderObject& renderer) const
+bool RenderThemeMac::canCreateControlPartForBorderOnly(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled())
@@ -253,7 +263,7 @@ bool RenderThemeMac::canCreateControlPartForBorderOnly(const RenderObject& rende
         || appearance == StyleAppearance::TextField;
 }
 
-bool RenderThemeMac::canCreateControlPartForDecorations(const RenderObject& renderer) const
+bool RenderThemeMac::canCreateControlPartForDecorations(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled())
@@ -380,7 +390,7 @@ Color RenderThemeMac::platformTextSearchHighlightColor(OptionSet<StyleColorOptio
     return colorFromCocoaColor([NSColor findHighlightColor]);
 }
 
-Color RenderThemeMac::platformAnnotationHighlightColor(OptionSet<StyleColorOptions>) const
+Color RenderThemeMac::platformAnnotationHighlightBackgroundColor(OptionSet<StyleColorOptions>) const
 {
     // FIXME: expose the real value from AppKit.
     return SRGBA<uint8_t> { 255, 238, 190 };
@@ -462,8 +472,8 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColorOpt
         auto systemAppearanceColor = [useDarkAppearance] (Color& color, SEL selector) -> Color {
             if (!color.isValid()) {
                 LocalDefaultSystemAppearance localAppearance(useDarkAppearance);
-                auto systemColor = wtfObjCMsgSend<NSColor *>([NSColor class], selector);
-                color = semanticColorFromNSColor(systemColor);
+                RetainPtr systemColor = wtfObjCMsgSend<NSColor *>([NSColor class], selector);
+                color = semanticColorFromNSColor(systemColor.get());
             }
 
             return color;
@@ -654,8 +664,8 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColorOpt
         };
 
         if (auto selector = selectCocoaColor()) {
-            if (auto color = wtfObjCMsgSend<NSColor *>([NSColor class], selector))
-                return semanticColorFromNSColor(color);
+            if (RetainPtr color = wtfObjCMsgSend<NSColor *>([NSColor class], selector))
+                return semanticColorFromNSColor(color.get());
         }
 
         auto textColorForActiveButton = [&] {
@@ -1021,26 +1031,17 @@ static const std::span<const IntSize, 4> switchSizes()
     return sizes;
 }
 
-static std::span<const int, 4> switchMargins(NSControlSize controlSize)
-{
-    static constexpr std::array margins {
-        // top right bottom left
-        std::array { 2, 2, 1, 2 },
-        std::array { 2, 2, 1, 2 },
-        std::array { 1, 1, 0, 1 },
-        std::array { 2, 2, 1, 2 },
-    };
-    return margins[controlSize];
-}
-
 static std::span<const int, 4> visualSwitchMargins(NSControlSize controlSize, bool isVertical)
 {
-    auto margins = switchMargins(controlSize);
-    if (isVertical) {
-        static const std::array verticalMargins { margins[3], margins[0], margins[1], margins[2] };
-        return verticalMargins;
-    }
-    return margins;
+    static constexpr std::array switchMarginsNonMini { 2, 2, 1, 2 };
+    static constexpr std::array switchMarginsMini { 1, 1, 0, 1 };
+    static constexpr std::array switchMarginsNonMiniVertical { switchMarginsNonMini[3], switchMarginsNonMini[0], switchMarginsNonMini[1], switchMarginsNonMini[2] };
+    static constexpr std::array switchMarginsMiniVertical { switchMarginsMini[3], switchMarginsMini[0], switchMarginsMini[1], switchMarginsMini[2] };
+
+    if (controlSize == NSControlSizeMini)
+        return isVertical ? switchMarginsMiniVertical : switchMarginsMini;
+
+    return isVertical ? switchMarginsNonMiniVertical : switchMarginsNonMini;
 }
 
 static Style::PreferredSizePair switchSize(const Style::PreferredSizePair& zoomedSize, float zoomFactor)
@@ -1112,7 +1113,7 @@ static void inflateControlPaintRect(StyleAppearance appearance, FloatRect& zoome
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void RenderThemeMac::inflateRectForControlRenderer(const RenderObject& renderer, FloatRect& rect)
+void RenderThemeMac::inflateRectForControlRenderer(const RenderElement& renderer, FloatRect& rect)
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled()) {
@@ -1147,31 +1148,23 @@ void RenderThemeMac::inflateRectForControlRenderer(const RenderObject& renderer,
     }
 }
 
-void RenderThemeMac::adjustRepaintRect(const RenderBox& renderer, FloatRect& rect)
-{
-    auto repaintRect = rect;
-    inflateRectForControlRenderer(renderer, repaintRect);
-    renderer.flipForWritingMode(repaintRect);
-    rect = repaintRect;
-}
-
-bool RenderThemeMac::controlSupportsTints(const RenderObject& o) const
+bool RenderThemeMac::controlSupportsTints(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
-    if (o.settings().formControlRefreshEnabled())
-        return RenderThemeCocoa::controlSupportsTints(o);
+    if (renderer.settings().formControlRefreshEnabled())
+        return RenderThemeCocoa::controlSupportsTints(renderer);
 #endif
     // An alternate way to implement this would be to get the appropriate cell object
     // and call the private _needRedrawOnWindowChangedKeyState method. An advantage of
     // that would be that we would match AppKit behavior more closely, but a disadvantage
     // would be that we would rely on an AppKit SPI method.
 
-    if (!isEnabled(o))
+    if (!isEnabled(renderer))
         return false;
 
     // Checkboxes only have tint when checked.
-    if (o.style().usedAppearance() == StyleAppearance::Checkbox)
-        return isChecked(o);
+    if (renderer.style().usedAppearance() == StyleAppearance::Checkbox)
+        return isChecked(renderer);
 
     // For now assume other controls have tint if enabled.
     return true;
@@ -1269,7 +1262,7 @@ void RenderThemeMac::adjustImageControlsButtonStyle(RenderStyle& style, const El
 
 FloatSize RenderThemeMac::meterSizeForBounds(const RenderMeter& renderMeter, const FloatRect& bounds) const
 {
-    auto* control = const_cast<RenderMeter&>(renderMeter).ensureControlPartForRenderer();
+    RefPtr control = const_cast<RenderMeter&>(renderMeter).ensureControlPartForRenderer();
     if (!control)
         return bounds.size();
 
@@ -1306,7 +1299,7 @@ void RenderThemeMac::setColorWellSwatchBackground(HTMLElement& swatch, Color col
 
 IntRect RenderThemeMac::progressBarRectForBounds(const RenderProgress& renderProgress, const IntRect& bounds) const
 {
-    auto* control = const_cast<RenderProgress&>(renderProgress).ensureControlPartForRenderer();
+    RefPtr control = const_cast<RenderProgress&>(renderProgress).ensureControlPartForRenderer();
     if (!control)
         return bounds;
 
@@ -1416,8 +1409,14 @@ PopupMenuStyle::Size RenderThemeMac::popupMenuSize(const RenderStyle& style, Int
     }
 }
 
-void RenderThemeMac::adjustMenuListButtonStyle(RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustMenuListButtonStyle(RenderStyle& style, const Element* element) const
 {
+#if ENABLE(FORM_CONTROL_REFRESH)
+    if (element && element->document().settings().formControlRefreshEnabled())
+        RenderThemeCocoa::adjustMenuListButtonStyle(style, element);
+#else
+    UNUSED_PARAM(element);
+#endif
     float fontScale = style.computedFontSize() / baseFontSize;
 
     style.resetPadding();
@@ -1482,7 +1481,7 @@ void RenderThemeMac::adjustSearchFieldStyle(RenderStyle& style, const Element* e
 
     // Override border.
     style.resetBorder();
-    const short borderWidth = 2 * style.usedZoom();
+    auto borderWidth = 2_css_px * style.usedZoom();
     style.setBorderLeftWidth(borderWidth);
     style.setBorderLeftStyle(BorderStyle::Inset);
     style.setBorderRightWidth(borderWidth);
@@ -1705,7 +1704,7 @@ Style::MinimumSizePair RenderThemeMac::minimumControlSize(StyleAppearance appear
     }
 }
 
-LengthBox RenderThemeMac::controlBorder(StyleAppearance appearance, const FontCascade& font, const LengthBox& zoomedBox, float zoomFactor, const Element* element) const
+Style::LineWidthBox RenderThemeMac::controlBorder(StyleAppearance appearance, const FontCascade& font, const Style::LineWidthBox& zoomedBox, float zoomFactor, const Element* element) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (element && element->document().settings().formControlRefreshEnabled())
@@ -1717,7 +1716,7 @@ LengthBox RenderThemeMac::controlBorder(StyleAppearance appearance, const FontCa
     case StyleAppearance::ColorWell:
     case StyleAppearance::DefaultButton:
     case StyleAppearance::Button:
-        return LengthBox(0, zoomedBox.right().value(), 0, zoomedBox.left().value());
+        return Style::LineWidthBox { 0_css_px, zoomedBox.right(), 0_css_px, zoomedBox.left() };
     default:
         return RenderTheme::controlBorder(appearance, font, zoomedBox, zoomFactor, element);
     }
@@ -1773,14 +1772,11 @@ static RefPtr<Icon> iconForAttachment(const String& fileName, const String& atta
 
     if (!attachmentType.isEmpty() && !equalLettersIgnoringASCIICase(attachmentType, "public.data"_s)) {
         if (equalLettersIgnoringASCIICase(attachmentType, "public.directory"_s) || equalLettersIgnoringASCIICase(attachmentType, "multipart/x-folder"_s) || equalLettersIgnoringASCIICase(attachmentType, "application/vnd.apple.folder"_s)) {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            auto type = kUTTypeFolder;
-ALLOW_DEPRECATED_DECLARATIONS_END
-            if (auto icon = Icon::createIconForUTI(type)) {
-                LOG_ATTACHMENT("-> Got icon for kUTTypeFolder");
+            if (auto icon = Icon::createIconForUTI(UTTypeFolder.identifier)) {
+                LOG_ATTACHMENT("-> Got icon for UTTypeFolder");
                 return icon;
             }
-            LOG_ATTACHMENT("-> No icon for kUTTypeFolder! Will fallback to filename or title...");
+            LOG_ATTACHMENT("-> No icon for UTTypeFolder! Will fallback to filename or title...");
         } else {
             String type;
             if (isDeclaredUTI(attachmentType))
@@ -1973,7 +1969,7 @@ static void paintAttachmentPlaceholderBorder(const RenderAttachment& attachment,
     context.strokePath(borderPath);
 }
 
-bool RenderThemeMac::paintAttachment(const RenderObject& renderer, const PaintInfo& paintInfo, const IntRect& paintRect)
+bool RenderThemeMac::paintAttachment(const RenderElement& renderer, const PaintInfo& paintInfo, const IntRect& paintRect)
 {
     auto* attachment = dynamicDowncast<RenderAttachment>(renderer);
     if (!attachment)

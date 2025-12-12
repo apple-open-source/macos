@@ -40,7 +40,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(FastBitVector);
 inline constexpr size_t fastBitVectorArrayLength(size_t numBits) { return (numBits + 31) / 32; }
 
 class FastBitVectorWordView {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FastBitVectorWordView);
 public:
     typedef FastBitVectorWordView ViewType;
     
@@ -64,7 +64,7 @@ private:
 };
 
 class FastBitVectorWordOwner {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FastBitVectorWordOwner);
 public:
     typedef FastBitVectorWordView ViewType;
     
@@ -150,7 +150,7 @@ private:
 
 template<typename Left, typename Right>
 class FastBitVectorAndWords {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FastBitVectorAndWords);
 public:
     typedef FastBitVectorAndWords ViewType;
     
@@ -180,7 +180,7 @@ private:
     
 template<typename Left, typename Right>
 class FastBitVectorOrWords {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FastBitVectorOrWords);
 public:
     typedef FastBitVectorOrWords ViewType;
     
@@ -210,7 +210,7 @@ private:
     
 template<typename View>
 class FastBitVectorNotWords {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FastBitVectorNotWords);
 public:
     typedef FastBitVectorNotWords ViewType;
     
@@ -239,7 +239,7 @@ class FastBitVector;
 
 template<typename Words>
 class FastBitVectorImpl {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FastBitVectorImpl);
 public:
     FastBitVectorImpl()
         : m_words()
@@ -415,7 +415,7 @@ private:
 };
 
 class FastBitReference {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(FastBitReference);
 public:
     FastBitReference() = default;
 

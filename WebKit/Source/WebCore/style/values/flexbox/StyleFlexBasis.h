@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "StyleLengthWrapper.h"
+#include <WebCore/StyleLengthWrapper.h>
 
 namespace WebCore {
 namespace Style {
@@ -38,9 +38,41 @@ struct FlexBasis : LengthWrapperBase<LengthPercentage<CSS::Nonnegative>, CSS::Ke
 
     // `FlexBasis` is a superset of `PreferredSize` and therefore this conversion can fail when type is `content`.
     std::optional<PreferredSize> tryPreferredSize() const;
+
+    ALWAYS_INLINE bool isContent() const { return holdsAlternative<CSS::Keyword::Content>(); }
+    ALWAYS_INLINE bool isAuto() const { return holdsAlternative<CSS::Keyword::Auto>(); }
+    ALWAYS_INLINE bool isMinContent() const { return holdsAlternative<CSS::Keyword::MinContent>(); }
+    ALWAYS_INLINE bool isMaxContent() const { return holdsAlternative<CSS::Keyword::MaxContent>(); }
+    ALWAYS_INLINE bool isFitContent() const { return holdsAlternative<CSS::Keyword::FitContent>(); }
+    ALWAYS_INLINE bool isFillAvailable() const { return holdsAlternative<CSS::Keyword::WebkitFillAvailable>(); }
+    ALWAYS_INLINE bool isIntrinsicKeyword() const { return holdsAlternative<CSS::Keyword::Intrinsic>(); }
+    ALWAYS_INLINE bool isMinIntrinsic() const { return holdsAlternative<CSS::Keyword::MinIntrinsic>(); }
+
+    ALWAYS_INLINE bool isIntrinsic() const
+    {
+        return holdsAlternative<CSS::Keyword::MinContent>()
+            || holdsAlternative<CSS::Keyword::MaxContent>()
+            || holdsAlternative<CSS::Keyword::WebkitFillAvailable>()
+            || holdsAlternative<CSS::Keyword::FitContent>();
+    }
+    ALWAYS_INLINE bool isLegacyIntrinsic() const
+    {
+        return holdsAlternative<CSS::Keyword::Intrinsic>()
+            || holdsAlternative<CSS::Keyword::MinIntrinsic>();
+    }
+    ALWAYS_INLINE bool isIntrinsicOrLegacyIntrinsicOrAuto() const
+    {
+        return holdsAlternative<CSS::Keyword::MinContent>()
+            || holdsAlternative<CSS::Keyword::MaxContent>()
+            || holdsAlternative<CSS::Keyword::WebkitFillAvailable>()
+            || holdsAlternative<CSS::Keyword::FitContent>()
+            || holdsAlternative<CSS::Keyword::Intrinsic>()
+            || holdsAlternative<CSS::Keyword::MinIntrinsic>()
+            || holdsAlternative<CSS::Keyword::Auto>();
+    }
 };
 
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::FlexBasis> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::FlexBasis)

@@ -57,6 +57,10 @@ class RemoteScrollingTree;
 class WebPageProxy;
 class WebWheelEvent;
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+class RemoteAnimationTimeline;
+#endif
+
 class RemoteScrollingCoordinatorProxy : public CanMakeWeakPtr<RemoteScrollingCoordinatorProxy>, public CanMakeCheckedPtr<RemoteScrollingCoordinatorProxy> {
     WTF_MAKE_TZONE_ALLOCATED(RemoteScrollingCoordinatorProxy);
     WTF_MAKE_NONCOPYABLE(RemoteScrollingCoordinatorProxy);
@@ -85,7 +89,6 @@ public:
     // Inform the web process that the scroll position changed (called from the scrolling tree)
     virtual bool scrollingTreeNodeRequestsScroll(WebCore::ScrollingNodeID, const WebCore::RequestedScrollData&);
     virtual bool scrollingTreeNodeRequestsKeyboardScroll(WebCore::ScrollingNodeID, const WebCore::RequestedKeyboardScrollData&);
-    void scrollingTreeNodeDidStopAnimatedScroll(WebCore::ScrollingNodeID);
 
     void scrollingThreadAddedPendingUpdate();
 
@@ -120,6 +123,7 @@ public:
     bool hasScrollableOrZoomedMainFrame() const;
 
     WebCore::ScrollbarWidth mainFrameScrollbarWidth() const;
+    std::optional<WebCore::ScrollbarColor> mainFrameScrollbarColor() const;
 
     WebCore::OverscrollBehavior mainFrameHorizontalOverscrollBehavior() const;
     WebCore::OverscrollBehavior mainFrameVerticalOverscrollBehavior() const;
@@ -141,6 +145,8 @@ public:
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     virtual void animationsWereAddedToNode(RemoteLayerTreeNode&) { }
     virtual void animationsWereRemovedFromNode(RemoteLayerTreeNode&) { }
+    virtual void registerTimelineIfNecessary(WebCore::ProcessIdentifier, Seconds, MonotonicTime) { }
+    virtual const RemoteAnimationTimeline* timeline(WebCore::ProcessIdentifier) const { return nullptr; }
 #endif
 
     String scrollingTreeAsText() const;
@@ -175,11 +181,11 @@ public:
     String scrollbarStateForScrollingNodeID(std::optional<WebCore::ScrollingNodeID>, bool isVertical);
     bool overlayScrollbarsEnabled();
 
-    void sendScrollingTreeNodeDidScroll();
+    void sendScrollingTreeNodeUpdate();
     
     void scrollingTreeNodeScrollbarVisibilityDidChange(WebCore::ScrollingNodeID, WebCore::ScrollbarOrientation, bool);
     void scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(WebCore::ScrollingNodeID, WebCore::ScrollbarOrientation, int);
-    void receivedLastScrollingTreeNodeDidScrollReply();
+    void receivedLastScrollingTreeNodeUpdateReply();
     bool isMonitoringWheelEvents();
 
 protected:

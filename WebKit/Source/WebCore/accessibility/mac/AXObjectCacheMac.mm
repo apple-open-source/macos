@@ -29,11 +29,13 @@
 #if PLATFORM(MAC)
 
 #import "AXIsolatedObject.h"
+#import "AXNotifications.h"
+#import "AXObjectCacheInlines.h"
 #import "AXSearchManager.h"
 #import "AccessibilityObject.h"
-#import "AccessibilityTable.h"
 #import "CocoaAccessibilityConstants.h"
 #import "DeprecatedGlobalSettings.h"
+#import "DocumentView.h"
 #import "LocalFrameView.h"
 #import "RenderObject.h"
 #import "RenderView.h"
@@ -44,13 +46,13 @@
 #import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <ApplicationServices/ApplicationServicesPriv.h>
+#endif
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 #import <pal/spi/cocoa/AccessibilitySupportSPI.h>
 #import <pal/spi/cocoa/AccessibilitySupportSoftLink.h>
-#endif
-
-#if USE(APPLE_INTERNAL_SDK)
-#import <ApplicationServices/ApplicationServicesPriv.h>
 #endif
 
 // Very large strings can negatively impact the performance of notifications, so this length is chosen to try to fit an average paragraph or line of text, but not allow strings to be large enough to hurt performance.
@@ -235,9 +237,10 @@ static void exerciseIsIgnored(AccessibilityObject& object)
 {
     object.updateBackingStore();
     if (object.isAttachment()) {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [[object.wrapper() attachmentView] accessibilityIsIgnored];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        ALLOW_DEPRECATED_DECLARATIONS_END
+
         return;
     }
     object.isIgnored();
@@ -288,7 +291,7 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNoti
         macNotification = NSAccessibilityInvalidStatusChangedNotification;
         break;
     case AXNotification::SelectedChildrenChanged:
-        if (object.isTable() && object.isExposable())
+        if (object.isExposableTable())
             macNotification = NSAccessibilitySelectedRowsChangedNotification;
         else
             macNotification = NSAccessibilitySelectedChildrenChangedNotification;
@@ -752,7 +755,7 @@ void AXObjectCache::initializeAXThreadIfNeeded()
         // Initialize the role map before the accessibility thread starts so that it's safe for both threads
         // to use (the only thing that needs to be thread-safe about it is initialization since it's not modified
         // after creation and is never destroyed).
-        initializeRoleMap();
+        Accessibility::initializeRoleMap();
 
         _AXUIElementUseSecondaryAXThread(true);
         axThreadInitialized = true;
@@ -815,7 +818,7 @@ void AXObjectCache::addSortedObjects(Vector<Ref<AccessibilityObject>>&& objectsT
 
     Vector<AXID>& sortedList = type == PreSortedObjectType::LiveRegion ? m_sortedLiveRegionIDs : m_sortedNonRootWebAreaIDs;
     auto updateIsolatedTree = [&] () {
-        if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID)) {
+        if (RefPtr tree = AXIsolatedTree::treeForFrameID(m_frameID)) {
             if (type == PreSortedObjectType::LiveRegion)
                 tree->sortedLiveRegionsDidChange(m_sortedLiveRegionIDs);
             else
@@ -881,7 +884,7 @@ void AXObjectCache::removeLiveRegion(AccessibilityObject& object)
         return;
 
     if (m_sortedLiveRegionIDs.removeAll(object.objectID())) {
-        if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
+        if (RefPtr tree = AXIsolatedTree::treeForFrameID(m_frameID))
             tree->sortedLiveRegionsDidChange(m_sortedLiveRegionIDs);
     }
 }
@@ -905,7 +908,7 @@ void AXObjectCache::initializeSortedIDLists()
         }
     }
 
-    if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID)) {
+    if (RefPtr tree = AXIsolatedTree::treeForFrameID(m_frameID)) {
         if (m_sortedLiveRegionIDs.size())
             tree->sortedLiveRegionsDidChange(m_sortedLiveRegionIDs);
         if (m_sortedNonRootWebAreaIDs.size())
@@ -1088,6 +1091,6 @@ std::optional<SimpleRange> rangeForTextMarkerRange(AXObjectCache* cache, AXTextM
     return cache->rangeForUnorderedCharacterOffsets(startCharacterOffset, endCharacterOffset);
 }
 
-}
+} // namespace WebCore
 
 #endif // PLATFORM(MAC)

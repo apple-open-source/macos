@@ -44,7 +44,7 @@ class PlatformCAAnimationRemote final : public WebCore::PlatformCAAnimation {
 public:
     static Ref<PlatformCAAnimation> create(AnimationType, const String& keyPath);
 
-    virtual ~PlatformCAAnimationRemote() { }
+    virtual ~PlatformCAAnimationRemote() = default;
 
     bool isPlatformCAAnimationRemote() const override { return true; }
 

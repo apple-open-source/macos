@@ -23,7 +23,7 @@
 #include "config.h"
 #include "LegacyInlineTextBox.h"
 
-#include "BreakLines.h"
+#include "BreakablePositions.h"
 #include "CompositionHighlight.h"
 #include "DashArray.h"
 #include "Document.h"
@@ -47,8 +47,9 @@
 #include "RenderElementInlines.h"
 #include "RenderHighlight.h"
 #include "RenderLineBreak.h"
-#include "RenderStyleInlines.h"
+#include "RenderObjectStyle.h"
 #include "RenderSVGInlineText.h"
+#include "RenderStyleInlines.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
@@ -248,7 +249,7 @@ TextRun LegacyInlineTextBox::createTextRun() const
 {
     const auto& style = lineStyle();
     TextRun textRun { text(), textPos(), 0, ExpansionBehavior::forbidAll(), direction(), style.rtlOrdering() == Order::Visual, !renderer().canUseSimpleFontCodePath() };
-    textRun.setTabSize(!style.collapseWhiteSpace(), style.tabSize());
+    textRun.setTabSize(!style.collapseWhiteSpace(), Style::toPlatform(style.tabSize()));
     return textRun;
 }
 

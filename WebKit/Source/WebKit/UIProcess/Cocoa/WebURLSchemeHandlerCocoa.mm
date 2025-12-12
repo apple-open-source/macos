@@ -36,12 +36,12 @@
 
 namespace WebKit {
 
-Ref<WebURLSchemeHandlerCocoa> WebURLSchemeHandlerCocoa::create(id <WKURLSchemeHandler> apiHandler)
+Ref<WebURLSchemeHandlerCocoa> WebURLSchemeHandlerCocoa::create(id<WKURLSchemeHandler> apiHandler)
 {
     return adoptRef(*new WebURLSchemeHandlerCocoa(apiHandler));
 }
 
-WebURLSchemeHandlerCocoa::WebURLSchemeHandlerCocoa(id <WKURLSchemeHandler> apiHandler)
+WebURLSchemeHandlerCocoa::WebURLSchemeHandlerCocoa(id<WKURLSchemeHandler> apiHandler)
     : m_apiHandler(apiHandler)
 {
 }
@@ -60,6 +60,11 @@ void WebURLSchemeHandlerCocoa::platformStopTask(WebPageProxy& page, WebURLScheme
         [m_apiHandler.get() webView:webView.get() stopURLSchemeTask:strongTask.get()];
     else
         task.suppressTaskStoppedExceptions();
+}
+
+RetainPtr<id<WKURLSchemeHandler>> WebURLSchemeHandlerCocoa::protectedAPIHandler() const
+{
+    return apiHandler();
 }
 
 } // namespace WebKit

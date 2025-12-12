@@ -44,6 +44,8 @@ ALIASING_EXCEPTIONS = [
     'drawArraysInstancedBaseInstanceANGLE',
     'drawElementsInstancedBaseVertexBaseInstanceANGLE',
     'logicOpANGLE',
+    'shadingRateEXT',
+    'shadingRateQCOM',
 ]
 
 # These are the entry points which potentially are used first by an application
@@ -99,8 +101,10 @@ CONTEXT_PRIVATE_LIST = [
     'glDepthRangef',
     'glDisable',
     'glDisablei',
+    'glDisableVertexAttribArray',
     'glEnable',
     'glEnablei',
+    'glEnableVertexAttribArray',
     'glFrontFace',
     'glHint',
     'glIsEnabled',
@@ -119,8 +123,9 @@ CONTEXT_PRIVATE_LIST = [
     'glSampleCoverage',
     'glSampleMaski',
     'glScissor',
-    'glShadingRate',
     'glShadingRateCombinerOps',
+    'glShadingRateEXT',
+    'glShadingRateQCOM',
     'glStencilFunc',
     'glStencilFuncSeparate',
     'glStencilMask',
@@ -148,6 +153,10 @@ CONTEXT_PRIVATE_LIST = [
     'glPushMatrix',
     'glSampleCoveragex',
     'glShadeModel',
+    'glVertexAttribBinding',
+    'glVertexAttribFormat',
+    'glVertexAttribIFormat',
+    'glVertexBindingDivisor',
 ]
 CONTEXT_PRIVATE_WILDCARDS = [
     'glBlendFunc*',
@@ -156,6 +165,7 @@ CONTEXT_PRIVATE_WILDCARDS = [
     'glVertexAttribI[1-4]*',
     'glVertexAttribP[1-4]*',
     'glVertexAttribL[1-4]*',
+    'glVertexAttribDivisor*',
     # GLES1 entry points
     'glClipPlane[fx]',
     'glGetClipPlane[fx]',
@@ -177,6 +187,12 @@ CONTEXT_PRIVATE_WILDCARDS = [
     'glScale[fx]',
     'glTexEnv[fix]*',
     'glTranslate[fx]',
+]
+
+# These context private APIs needs to pass PrivateStateCache to validation function
+VALIDATION_NEEDS_PRIVATE_STATE_CACHE_LIST = [
+    'glVertexAttribFormat',
+    'glVertexAttribIFormat',
 ]
 
 TEMPLATE_ENTRY_POINT_HEADER = """\
@@ -730,6 +746,7 @@ namespace gl
 {{
 class Context;
 class PrivateState;
+class PrivateStateCache;
 class ErrorSet;
 
 {prototypes}
@@ -1657,12 +1674,18 @@ def is_egl_entry_point_accessing_both_sync_and_non_sync_API_resources(cmd_name):
     return False
 
 
+def validation_needs_private_state_cache(name):
+    return name in VALIDATION_NEEDS_PRIVATE_STATE_CACHE_LIST
+
 def get_validation_expression(api, cmd_name, entry_point_name, internal_params, sources):
     if api != "GLES":
         return ""
 
     name = strip_api_prefix(cmd_name)
-    private_params = ["context->getPrivateState()", "context->getMutableErrorSetForValidation()"]
+    private_params = ["context->getPrivateState()"]
+    if validation_needs_private_state_cache(cmd_name):
+        private_params += ["context->getPrivateStateCache()"]
+    private_params += ["context->getMutableErrorSetForValidation()"]
     is_private = is_context_private_state_command(api, cmd_name)
     extra_params = private_params if is_private else ["context"]
     expr = "Validate{name}({params})".format(
@@ -1899,6 +1922,7 @@ def is_context_lost_acceptable_cmd(cmd_name):
         "glGetError",
         "glGetSync",
         "glGetQueryObjecti",
+        "glGetQueryObjectui",
         "glGetProgramiv",
         "glGetGraphicsResetStatus",
         "glGetShaderiv",
@@ -2340,9 +2364,14 @@ def format_validation_proto(api, cmd_name, params, cmd_packed_gl_enums, packed_p
     else:
         return_type = "bool"
     if api in [apis.GL, apis.GLES]:
-        with_extra_params = ["const PrivateState &state",
-                             "ErrorSet *errors"] if is_context_private_state_command(
-                                 api, cmd_name) else ["Context *context"]
+        with_extra_params = []
+        if is_context_private_state_command(api, cmd_name):
+            with_extra_params += ["const PrivateState &state"]
+            if validation_needs_private_state_cache(cmd_name):
+                with_extra_params += ["const PrivateStateCache &privateStateCache"]
+            with_extra_params += ["ErrorSet *errors"]
+        else:
+            with_extra_params += ["Context *context"]
         with_extra_params += ["angle::EntryPoint entryPoint"] + params
     elif api == apis.EGL:
         with_extra_params = ["ValidationContext *val"] + params
@@ -3322,9 +3351,10 @@ def get_prepare_swap_buffers_call(api, cmd_name, params):
     prepareCall = "ANGLE_EGLBOOLEAN_TRY(EGL_PrepareSwapBuffersANGLE(%s));" % (", ".join(
         [just_the_name(param) for param in passed_params]))
 
-    # For eglQuerySurface, the prepare call is only needed for EGL_BUFFER_AGE
+    # For eglQuerySurface, the prepare call is needed for EGL_BUFFER_AGE
+    # and EGL_SURFACE_COMPRESSION_EXT
     if cmd_name in ["eglQuerySurface", "eglQuerySurface64KHR"]:
-        prepareCall = "if (attribute == EGL_BUFFER_AGE_EXT) {" + prepareCall + "}"
+        prepareCall = "if (attribute == EGL_BUFFER_AGE_EXT || attribute == EGL_SURFACE_COMPRESSION_EXT) {" + prepareCall + "}"
 
     return prepareCall
 

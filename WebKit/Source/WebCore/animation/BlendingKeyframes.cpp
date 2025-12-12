@@ -22,7 +22,6 @@
 #include "config.h"
 #include "BlendingKeyframes.h"
 
-#include "Animation.h"
 #include "CSSAnimation.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSKeyframeRule.h"
@@ -38,6 +37,8 @@
 #include "StyleInterpolation.h"
 #include "StyleProperties.h"
 #include "StyleResolver.h"
+#include "StyleTransform.h"
+#include "StyleTranslate.h"
 #include "TransformOperations.h"
 #include "TranslateTransformOperation.h"
 #include <wtf/CryptographicallyRandomNumber.h>
@@ -183,12 +184,12 @@ void BlendingKeyframes::fillImplicitKeyframes(const KeyframeEffect& effect, cons
             return true;
 
         if (RefPtr cssAnimation = dynamicDowncast<CSSAnimation>(effect.animation())) {
-            RefPtr animationWideTimingFunction = cssAnimation->backingAnimation().defaultTimingFunctionForKeyframes();
+            auto animationWideTimingFunction = cssAnimation->backingStyleAnimation().defaultTimingFunctionForKeyframes();
             // If we're dealing with a CSS Animation and if that CSS Animation's backing animation
             // has a default timing function set, then if that keyframe's timing function matches,
             // that keyframe is suitable.
             if (animationWideTimingFunction)
-                return timingFunction == animationWideTimingFunction;
+                return timingFunction == animationWideTimingFunction->value.ptr();
             // Otherwise, the keyframe will be suitable if its timing function matches the default.
             return timingFunction == &CubicBezierTimingFunction::defaultTimingFunction();
         }
@@ -362,26 +363,15 @@ void BlendingKeyframes::analyzeKeyframe(const BlendingKeyframe& keyframe)
             return;
 
         if (keyframe.animatesProperty(CSSPropertyTransform)) {
-            for (auto& operation : style->transform()) {
-                if (RefPtr translate = dynamicDowncast<TranslateTransformOperation>(operation.get())) {
-                    if (translate->x().isPercent())
-                        m_hasWidthDependentTransform = true;
-                    if (translate->y().isPercent())
-                        m_hasHeightDependentTransform = true;
-                }
-            }
+            auto [isWidthDependent, isHeightDependent] = style->transform().computeSizeDependencies();
+            m_hasWidthDependentTransform = isWidthDependent;
+            m_hasHeightDependentTransform = isHeightDependent;
         }
 
         if (keyframe.animatesProperty(CSSPropertyTranslate)) {
-            WTF::switchOn(style->translate(),
-                [&](const CSS::Keyword::None&) { },
-                [&](const Style::Translate::Operation& operation) {
-                    if (operation->x().isPercent())
-                        m_hasWidthDependentTransform = true;
-                    if (operation->y().isPercent())
-                        m_hasHeightDependentTransform = true;
-                }
-            );
+            auto [isWidthDependent, isHeightDependent] = style->translate().computeSizeDependencies();
+            m_hasWidthDependentTransform = isWidthDependent;
+            m_hasHeightDependentTransform = isHeightDependent;
         }
     };
 
@@ -467,7 +457,7 @@ bool BlendingKeyframe::animatesProperty(KeyframeInterpolation::Property property
 
 bool BlendingKeyframe::usesRangeOffset() const
 {
-    return m_specifiedOffset.name != SingleTimelineRange::Name::Omitted && m_specifiedOffset.name != SingleTimelineRange::Name::Normal;
+    return m_specifiedOffset.name != Style::SingleAnimationRangeName::Omitted && m_specifiedOffset.name != Style::SingleAnimationRangeName::Normal;
 }
 
 } // namespace WebCore

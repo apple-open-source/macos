@@ -33,6 +33,7 @@
 #include "NodeName.h"
 #include "Page.h"
 #include "RenderMeter.h"
+#include "RenderStyleInlines.h"
 #include "RenderTheme.h"
 #include "ShadowRoot.h"
 #include "UserAgentParts.h"

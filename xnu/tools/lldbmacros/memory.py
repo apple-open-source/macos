@@ -5460,3 +5460,49 @@ def ShowDiagmemThresholds(cmd_args=None, cmd_options={}):
 
     # EndMacro: showdiagmemthresholds
 
+# Macro: showmtetag
+
+@lldb_command('showmtag', 'A:')
+def showmtetag(cmd_args=None, cmd_options={}):
+    """ Routine to show tag information for a given kernel mapped virtual address.
+        Usage: showmtag -A vaddr
+    """
+    if kern.globals.page_protection_type < kern.PAGE_PROTECTION_TYPE_SPTM:
+        print('Error: System does not support MTE.')
+        return
+
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError()
+
+    vaddr = kern.GetValueFromAddress(cmd_options['-A'], 'vm_map_offset_t')
+    # Workaround for old version of lldb without MTE support. Can be removed once fixed lldb lands.
+    kernel_map = kern.GetValueFromAddress(int(kern.globals.kernel_map), 'vm_map_t')
+    offset_in_page = vaddr % kern.globals.page_size
+    tag_space_phys = kern.globals.SPTMArgs.libsptm_state.sptm_first_tag_storage_paddr
+    tag_space = kern.PhysToKernelVirt(tag_space_phys)
+
+    page = vm_page_lookup_in_map(kernel_map, vaddr)
+    print(page)
+
+    ppnum = _vm_page_get_phys_page(page)
+    phys_addr = ppnum * kern.globals.page_size
+    phys_offset = phys_addr - kern.globals.gDramBase
+    page_index = phys_offset // kern.globals.page_size
+    print(hex(phys_offset), hex(page_index))
+
+    # 4 bits per 16 bytes, so 1 byte per 32 bytes.
+    tag_space_size_per_page = kern.globals.page_size // 32
+    addr_tag_offset = offset_in_page // 32
+
+    page_tags_offset = page_index * tag_space_size_per_page
+    tag_offset = page_tags_offset + addr_tag_offset
+    print(f'tag_offset={tag_offset:x}')
+    tag_byte_addr = tag_space + tag_offset
+    print(f'tag_byte_addr={tag_byte_addr:x}')
+    nibble = (vaddr // 16) % 2
+    tag_byte = kern.GetValueFromAddress(tag_byte_addr, 'char *')[0]
+    tag = (tag_byte & (0xF << (nibble * 4))) >> (nibble * 4)
+    print(f'tag: 0x{tag:x}')
+
+
+# EndMacro: showmtag

@@ -25,9 +25,8 @@
 
 #pragma once
 
-#include "LayoutRect.h"
-#include "LocalFrameViewLayoutContext.h"
-#include "StyleTextEdge.h"
+#include <WebCore/LayoutRect.h>
+#include <WebCore/LocalFrameViewLayoutContext.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
@@ -209,7 +208,8 @@ class ContentVisibilityOverrideScope {
 public:
     enum class OverrideType {
         Hidden = 1 << 0,
-        Auto  = 1 << 1
+        Auto  = 1 << 1,
+        RevealedWhenFound = 1 << 2
     };
     ContentVisibilityOverrideScope(LocalFrameViewLayoutContext&, OptionSet<OverrideType>);
     ~ContentVisibilityOverrideScope();

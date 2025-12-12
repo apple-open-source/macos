@@ -29,9 +29,10 @@
 #include "BackForwardCache.h"
 #include "CachedFramePlatformData.h"
 #include "CachedPage.h"
-#include "Document.h"
-#include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentPage.h"
+#include "DocumentView.h"
+#include "DocumentWindow.h"
 #include "FrameLoader.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
@@ -39,7 +40,6 @@
 #include "LocalFrameView.h"
 #include "Logging.h"
 #include "NavigationDisabler.h"
-#include "Page.h"
 #include "RemoteFrame.h"
 #include "RemoteFrameView.h"
 #include "RenderWidgetInlines.h"
@@ -48,7 +48,6 @@
 #include "SerializedScriptValue.h"
 #include "StyleTreeResolver.h"
 #include "WindowEventLoop.h"
-#include <wtf/RefCountedLeakCounter.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 
@@ -60,8 +59,6 @@
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CachedFrame);
-
-DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, cachedFrameCounter, ("CachedFrame"));
 
 CachedFrameBase::CachedFrameBase(Frame& frame)
     : m_view(frame.virtualView())
@@ -80,9 +77,6 @@ void CachedFrameBase::initializeWithLocalFrame(LocalFrame& frame)
 
 CachedFrameBase::~CachedFrameBase()
 {
-#ifndef NDEBUG
-    cachedFrameCounter.decrement();
-#endif
     // CachedFrames should always have had destroy() called by their parent CachedPage
     ASSERT(!m_document);
 }
@@ -166,9 +160,6 @@ void CachedFrameBase::restore()
 CachedFrame::CachedFrame(Frame& frame)
     : CachedFrameBase(frame)
 {
-#ifndef NDEBUG
-    cachedFrameCounter.increment();
-#endif
     RefPtr document = m_document;
     ASSERT(document || is<RemoteFrame>(frame));
     ASSERT(m_documentLoader || is<RemoteFrame>(frame));
@@ -347,10 +338,11 @@ UsedLegacyTLS CachedFrame::usedLegacyTLS() const
     return UsedLegacyTLS::No;
 }
 
+// FIXME: Remove all uses of HasInsecureContent across the codebase since we no longer allow insecure content.
 HasInsecureContent CachedFrame::hasInsecureContent() const
 {
     if (auto* document = this->document()) {
-        if (!document->isSecureContext() || !document->foundMixedContent().isEmpty())
+        if (!document->isSecureContext())
             return HasInsecureContent::Yes;
     }
 

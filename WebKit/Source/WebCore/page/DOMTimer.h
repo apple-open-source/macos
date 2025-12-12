@@ -26,9 +26,9 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "EventLoop.h"
-#include "UserGestureIndicator.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/EventLoop.h>
+#include <WebCore/UserGestureIndicator.h>
 #include <memory>
 #include <wtf/MonotonicTime.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>

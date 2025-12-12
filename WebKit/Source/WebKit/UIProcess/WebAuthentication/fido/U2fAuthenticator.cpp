@@ -180,7 +180,7 @@ void U2fAuthenticator::continueRegisterCommandAfterResponseReceived(ApduResponse
             U2F_RELEASE_LOG("continueRegisterCommandAfterResponseReceived: rp.id empty. Should not be.");
             ASSERT(false);
         }
-        auto response = readU2fRegisterResponse(options.rp.id, apduResponse.data(), AuthenticatorAttachment::CrossPlatform, { driver().transport() }, options.attestation);
+        auto response = readU2fRegisterResponse(options.rp.id, apduResponse.data(), AuthenticatorAttachment::CrossPlatform, { driver().transport() }, options.attestation());
         if (!response) {
             receiveRespond(ExceptionData { ExceptionCode::UnknownError, "Couldn't parse the U2F register response."_s });
             return;

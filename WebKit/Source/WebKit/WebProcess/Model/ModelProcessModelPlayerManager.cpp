@@ -61,7 +61,7 @@ ModelProcessConnection& ModelProcessModelPlayerManager::modelProcessConnection()
         modelProcessConnection->addClient(*this);
     }
 
-    return *modelProcessConnection;
+    return *modelProcessConnection.unsafeGet();
 }
 
 Ref<ModelProcessModelPlayer> ModelProcessModelPlayerManager::createModelProcessModelPlayer(WebPage& page, WebCore::ModelPlayerClient& client)

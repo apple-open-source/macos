@@ -136,7 +136,7 @@ bool JSWorkerGlobalScopeBase::shouldInterruptScriptBeforeTimeout(const JSGlobalO
 RuntimeFlags JSWorkerGlobalScopeBase::javaScriptRuntimeFlags(const JSGlobalObject* object)
 {
     const JSWorkerGlobalScopeBase *thisObject = jsCast<const JSWorkerGlobalScopeBase*>(object);
-    return thisObject->m_wrapped->thread().runtimeFlags();
+    return thisObject->m_wrapped->thread()->runtimeFlags();
 }
 
 JSC::ScriptExecutionStatus JSWorkerGlobalScopeBase::scriptExecutionStatus(JSC::JSGlobalObject* globalObject, JSC::JSObject* owner)
@@ -154,7 +154,7 @@ void JSWorkerGlobalScopeBase::queueMicrotaskToEventLoop(JSGlobalObject& object, 
 {
     JSWorkerGlobalScopeBase& thisObject = static_cast<JSWorkerGlobalScopeBase&>(object);
     auto& context = thisObject.wrapped();
-    task.setDispatcher(context.eventLoop().jsMicrotaskDispatcher());
+    task.setDispatcher(context.eventLoop().jsMicrotaskDispatcher(task));
     context.eventLoop().queueMicrotask(WTFMove(task));
 }
 

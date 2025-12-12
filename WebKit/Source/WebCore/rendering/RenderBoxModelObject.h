@@ -23,16 +23,15 @@
 
 #pragma once
 
-#include "FontBaseline.h"
-#include "LayoutRect.h"
-#include "RectEdges.h"
-#include "RenderLayerModelObject.h"
+#include <WebCore/FontBaseline.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/RectEdges.h>
+#include <WebCore/RenderLayerModelObject.h>
 
 namespace WebCore {
 
 // Modes for some of the line-related functions.
-enum LinePositionMode { PositionOnContainingLine, PositionOfInteriorLineBoxes };
-enum LineDirectionMode { HorizontalLine, VerticalLine };
+enum class LineDirection : bool { Horizontal, Vertical };
 
 enum class BleedAvoidance : uint8_t {
     None,
@@ -45,7 +44,7 @@ enum class ContentChangeType : uint8_t {
     Image,
     HDRImage,
     MaskImage,
-    BackgroundIImage,
+    BackgroundImage,
     Canvas,
     CanvasPixels,
     Video,
@@ -60,17 +59,18 @@ class Image;
 class ImageBuffer;
 class RenderTextFragment;
 class StickyPositionViewportConstraints;
+class StyleImage;
 class TransformationMatrix;
 
 namespace InlineIterator {
 class InlineBoxIterator;
 };
 
-enum class BoxSideFlag : uint8_t;
+enum class BoxSide : uint8_t;
 enum class DecodingMode : uint8_t;
 enum class InterpolationQuality : uint8_t;
 
-using BoxSideSet = OptionSet<BoxSideFlag>;
+using BoxSideSet = EnumSet<BoxSide>;
 using BorderEdges = RectEdges<BorderEdge>;
 
 // This class is the base for all objects that adhere to the CSS box model as described
@@ -83,13 +83,11 @@ public:
     virtual ~RenderBoxModelObject();
     
     LayoutSize relativePositionOffset() const;
-    inline LayoutSize relativePositionLogicalOffset() const;
 
     FloatRect constrainingRectForStickyPosition() const;
     std::pair<const RenderBox&, const RenderLayer*> enclosingClippingBoxForStickyPosition() const;
     void computeStickyPositionConstraints(StickyPositionViewportConstraints&, const FloatRect& constrainingRect) const;
     LayoutSize stickyPositionOffset() const;
-    inline LayoutSize stickyPositionLogicalOffset() const;
 
     LayoutSize offsetForInFlowPosition() const;
 
@@ -194,17 +192,13 @@ public:
 
     virtual LayoutUnit containingBlockLogicalWidthForContent() const;
 
-    // Overridden by subclasses to determine line height and baseline position.
-    virtual LayoutUnit lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const = 0;
-    virtual LayoutUnit baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const = 0;
-
     void mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode>, TransformState&) const override;
 
     void setSelectionState(HighlightState) override;
 
     bool canHaveBoxInfoInFragment() const { return !isFloating() && !isBlockLevelReplacedOrAtomicInline() && !isInline() && !isRenderTableCell() && isRenderBlock() && !isRenderSVGBlock(); }
 
-    void contentChanged(ContentChangeType);
+    void contentChanged(ContentChangeType, const std::optional<FloatRect>& = std::nullopt);
     bool hasAcceleratedCompositing() const;
 
     RenderBoxModelObject* continuation() const;
@@ -240,7 +234,7 @@ public:
 
     void paintMaskForTextFillBox(GraphicsContext&, const FloatRect&, const InlineIterator::InlineBoxIterator&, const LayoutRect&);
 
-    // For RenderBlocks and RenderInlines with m_style->pseudoElementType() == PseudoId::FirstLetter, this tracks their remaining text fragments
+    // For RenderBlocks and RenderInlines with m_style->pseudoElementType() == PseudoElementType::FirstLetter, this tracks their remaining text fragments
     RenderTextFragment* firstLetterRemainingText() const;
     void setFirstLetterRemainingText(RenderTextFragment&);
     void clearFirstLetterRemainingText();
@@ -255,7 +249,7 @@ public:
     void removeOutOfFlowBoxesIfNeededOnStyleChange(RenderBlock& delegateBlock, const RenderStyle& oldStyle, const RenderStyle& newStyle);
 
     struct ContinuationChainNode {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ContinuationChainNode);
 
         SingleThreadWeakPtr<RenderBoxModelObject> renderer;
         ContinuationChainNode* previous { nullptr };

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "DefaultUndoController.h"
 #include "PageClient.h"
 #include "WebFullScreenManagerProxy.h"
 #include <wtf/TZoneMalloc.h>
@@ -188,6 +189,7 @@ private:
     WebKitWebResourceLoadManager* webResourceLoadManager() override;
 
     WKWPE::View& m_view;
+    DefaultUndoController m_undoController;
 #if ENABLE(FULLSCREEN_API)
     std::unique_ptr<WebFullScreenManagerProxyClient> m_fullscreenClientForTesting;
 #endif

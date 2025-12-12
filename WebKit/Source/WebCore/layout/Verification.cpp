@@ -190,12 +190,12 @@ static bool outputMismatchingBlockBoxInformationIfNeeded(TextStream& stream, con
         auto marginStart = LayoutUnit { };
         auto& marginStartStyle = layoutBox.style().marginStart();
         if (marginStartStyle.isFixed() || marginStartStyle.isPercent() || marginStartStyle.isCalculated())
-            marginStart = Style::evaluate(marginStartStyle, containingBlockWidth);
+            marginStart = Style::evaluate<LayoutUnit>(marginStartStyle, containingBlockWidth, Style::ZoomNeeded { });
 
         auto marginEnd = LayoutUnit { };
         auto& marginEndStyle = layoutBox.style().marginEnd();
         if (marginEndStyle.isFixed() || marginEndStyle.isPercent() || marginEndStyle.isCalculated())
-            marginEnd = Style::evaluate(marginEndStyle, containingBlockWidth);
+            marginEnd = Style::evaluate<LayoutUnit>(marginEndStyle, containingBlockWidth, Style::ZoomNeeded { });
 
         auto marginBefore = boxGeometry.marginBefore();
         auto marginAfter = boxGeometry.marginAfter();

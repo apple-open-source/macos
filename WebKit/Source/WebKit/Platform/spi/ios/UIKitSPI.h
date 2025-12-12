@@ -150,6 +150,10 @@ DECLARE_SYSTEM_HEADER
 #import <UIKit/UIView+SpatialComputing.h>
 #endif
 
+#if HAVE(UITOOLTIPINTERACTION)
+#import <UIKitMacHelper/UINSWindow.h>
+#endif
+
 #if PLATFORM(IOS)
 @interface UIWebClip(Staging_134304426)
 + (NSString *)pathForWebClipWithIdentifier:(NSString *)identifier;
@@ -161,6 +165,12 @@ DECLARE_SYSTEM_HEADER
 #endif
 
 #else // USE(APPLE_INTERNAL_SDK)
+
+#if HAVE(UITOOLTIPINTERACTION)
+@protocol UINSWindow <NSObject>
+@property (nonatomic, readonly, weak) NSObject *sceneView;
+@end
+#endif
 
 @interface UIWebClip : NSObject
 + (UIWebClip *)webClipWithIdentifier:(NSString *)identifier;
@@ -243,7 +253,6 @@ WTF_EXTERN_C_END
 - (void)_cancelAllTouches;
 - (BOOL)isSuspendedUnderLock;
 - (void)_enqueueHIDEvent:(IOHIDEventRef)event;
-- (BOOL)_appAdoptsUISceneLifecycle;
 - (void)_registerBSActionHandler:(id<_UIApplicationBSActionHandler>)handler;
 @end
 
@@ -472,6 +481,10 @@ typedef struct CGSVGDocument *CGSVGDocumentRef;
 @property (nonatomic, setter=_setAllowsParentToBeginVertically:) BOOL _allowsParentToBeginVertically;
 @property (nonatomic) BOOL tracksImmediatelyWhileDecelerating;
 @property (nonatomic, getter=_avoidsJumpOnInterruptedBounce, setter=_setAvoidsJumpOnInterruptedBounce:) BOOL _avoidsJumpOnInterruptedBounce;
+#if HAVE(UIKIT_SCROLLBAR_COLOR_SPI)
+@property (nonatomic, nullable, setter=_setVerticalScrollIndicatorColor:) UIColor *_verticalScrollIndicatorColor;
+@property (nonatomic, nullable, setter=_setHorizontalScrollIndicatorColor:) UIColor *_horizontalScrollIndicatorColor;
+#endif
 @end
 
 typedef NS_ENUM(NSUInteger, UIScrollPhase) {
@@ -1065,6 +1078,21 @@ extern void _UIApplicationCatalystRequestViewServiceIdiomAndScaleFactor(UIUserIn
 
 #endif // USE(APPLE_INTERNAL_SDK)
 
+#if HAVE(UITOOLTIPINTERACTION)
+@interface NSObject (NSViewDynamicToolTipManager)
+@property (readonly) NSObject *_dynamicToolTipManager;
+- (void)windowChangedKeyState;
+@end
+
+@protocol UINSApplicationDelegate <NSObject>
+- (id<UINSWindow>)hostWindowForUIWindow:(id)window;
+@end
+
+WTF_EXTERN_C_BEGIN
+extern id<UINSApplicationDelegate> UINSSharedApplicationDelegate(void);
+WTF_EXTERN_C_END
+#endif
+
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
     _UIScrollDeviceCategoryOverlayScroll = 6
@@ -1256,16 +1284,9 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 
 #if HAVE(LIQUID_GLASS)
 
-@interface _UIScrollPocket : UIView
-- (void)invalidateAllElements;
-@end
-
-@interface UIScrollView (ScrollPocket_IPI)
-- (_UIScrollPocket *)_pocketForEdge:(UIRectEdge)edge makeIfNeeded:(BOOL)makeIfNeeded;
-@end
-
-@interface UIScrollView (Staging_155261419)
+@interface UIScrollView ()
 - (void)_setPrefersSolidColorHardPocket:(BOOL)prefersSolidColorHardPocket forEdge:(UIRectEdge)edge;
+- (void)_setPocketColor:(UIColor *)color forEdge:(UIRectEdge)edge;
 @end
 
 #endif // HAVE(LIQUID_GLASS)

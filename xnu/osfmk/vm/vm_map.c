@@ -1123,10 +1123,12 @@ vm_map_apple_protected(
 	struct vm_map_entry tmp_entry;
 	memory_object_t unprotected_mem_obj;
 	vm_object_t     protected_object;
+	vm_object_offset_t protected_offset;
 	vm_map_offset_t map_addr;
 	vm_map_offset_t start_aligned, end_aligned;
 	vm_object_offset_t      crypto_start, crypto_end;
 	boolean_t       cache_pager;
+	vm_map_kernel_flags_t vmk_flags;
 
 	vmlp_api_start(VM_MAP_APPLE_PROTECTED);
 
@@ -1162,47 +1164,58 @@ vm_map_apple_protected(
 	for (map_addr = start_aligned;
 	    map_addr < end;
 	    map_addr = tmp_entry.vme_end) {
-		vm_map_lock(map);
-		map_locked = TRUE;
+		vm_map_copy_t copy_map;
+		vm_prot_t cur_prot, max_prot;
 
-		/* lookup the protected VM object */
-		if (!vm_map_lookup_entry(map,
-		    map_addr,
-		    &map_entry) ||
-		    map_entry->is_sub_map ||
-		    VME_OBJECT(map_entry) == VM_OBJECT_NULL) {
+		map_locked = FALSE;
+
+		/* extract a copy of the current mapping */
+		cur_prot = VM_PROT_READ;
+		if (cryptid != CRYPTID_MODEL_ENCRYPTION) {
+			cur_prot |= VM_PROT_EXECUTE;
+		}
+		max_prot = cur_prot;
+		vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
+		vmk_flags.vmkf_copy_single_object = true;
+		copy_map = VM_MAP_COPY_NULL;
+		kr = vm_map_copy_extract(map, map_addr, end_aligned - map_addr,
+		    true /* copy */,
+		    &copy_map, &cur_prot, &max_prot, VM_INHERIT_NONE,
+		    vmk_flags);
+		if (kr != KERN_SUCCESS) {
 			/* that memory is not properly mapped */
 			kr = KERN_INVALID_ARGUMENT;
 			goto done;
 		}
+		assert(copy_map != VM_MAP_COPY_NULL);
+		assert3u(copy_map->type, ==, VM_MAP_COPY_ENTRY_LIST);
+		assert3u(copy_map->c_u.hdr.nentries, ==, 1);
 
-		/* ensure mapped memory is mapped as executable except
-		 *  except for model decryption flow */
-		if ((cryptid != CRYPTID_MODEL_ENCRYPTION) &&
-		    !(map_entry->protection & VM_PROT_EXECUTE)) {
+		map_entry = vm_map_copy_first_entry(copy_map);
+		if (map_entry->is_sub_map ||
+		    VME_OBJECT(map_entry) == VM_OBJECT_NULL) {
+			vm_map_copy_discard(copy_map);
+			copy_map = VM_MAP_COPY_NULL;
 			kr = KERN_INVALID_ARGUMENT;
 			goto done;
 		}
 
-		/* get the protected object to be decrypted */
 		protected_object = VME_OBJECT(map_entry);
-		if (protected_object == VM_OBJECT_NULL) {
-			/* there should be a VM object here at this point */
-			kr = KERN_INVALID_ARGUMENT;
-			goto done;
-		}
-		/* ensure protected object stays alive while map is unlocked */
+		assert(protected_object != VM_OBJECT_NULL);
+		protected_offset = map_entry->vme_offset;
+
+		/* take an extra reference on the backing object for the pager */
 		vm_object_reference(protected_object);
 
-		/* limit the map entry to the area we want to cover */
-		vm_map_clip_start(map, map_entry, start_aligned);
-		vm_map_clip_end(map, map_entry, end_aligned);
-
 		tmp_entry = *map_entry;
+		/* re-align to its original starting point in map */
+		tmp_entry.vme_start += map_addr;
+		tmp_entry.vme_end += map_addr;
 		vmlp_range_event_entry(map, &tmp_entry);
-		map_entry = VM_MAP_ENTRY_NULL; /* not valid after unlocking map */
-		vm_map_unlock(map);
-		map_locked = FALSE;
+
+		map_entry = VM_MAP_ENTRY_NULL; /* not valid after discarding copy_map */
+		vm_map_copy_discard(copy_map);
+		copy_map = VM_MAP_COPY_NULL;
 
 		/*
 		 * This map entry might be only partially encrypted
@@ -1268,11 +1281,10 @@ vm_map_apple_protected(
 		}
 
 		/* can overwrite an immutable mapping */
-		vm_map_kernel_flags_t vmk_flags = {
-			.vmf_fixed = true,
-			.vmf_overwrite = true,
-			.vmkf_overwrite_immutable = true,
-		};
+		vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
+		vmk_flags.vmf_fixed = true;
+		vmk_flags.vmf_overwrite = true;
+		vmk_flags.vmkf_overwrite_immutable = true;
 		/* make the new mapping as "permanent" as the one it replaces */
 		vmk_flags.vmf_permanent = tmp_entry.vme_permanent;
 
@@ -3475,6 +3487,18 @@ proceed_with_enter_mte_memory_request:
 	 *	semantics.
 	 */
 
+#if HAS_MTE
+	/*
+	 * We'll have to make a decision on coalescing the mapping,
+	 * let's record if it's MTE enabled.
+	 */
+	bool prev_object_is_mte_mappable = false;
+
+	if (!entry->is_sub_map && VME_OBJECT(entry)) {
+		prev_object_is_mte_mappable = vm_object_is_mte_mappable(VME_OBJECT(entry));
+	}
+#endif /* HAS_MTE */
+
 	if (purgable ||
 	    entry_for_jit ||
 	    entry_for_tpro ||
@@ -3562,9 +3586,6 @@ proceed_with_enter_mte_memory_request:
 	    (VME_ALIAS(entry) == alias)) &&
 	    (entry->no_cache == no_cache) &&
 	    (entry->vme_permanent == permanent) &&
-#if HAS_MTE
-	    (entry->vme_is_tagged == is_caller_entering_mte_memory) &&
-#endif
 	    /* no coalescing for immutable executable mappings */
 	    !((entry->protection & VM_PROT_EXECUTE) &&
 	    entry->vme_permanent) &&
@@ -3574,6 +3595,15 @@ proceed_with_enter_mte_memory_request:
 #if __arm64e__
 	    (!entry->used_for_tpro && !entry_for_tpro) &&
 #endif
+#if HAS_MTE
+	    /*
+	     * Given that we only coalesce if object == VM_OBJECT_NULL and we
+	     * will always enter the first arm of the if on `is_caller_entering_mte_memory`
+	     * this check will only really kick in for non-MTE mapping, which will
+	     * be the only ones being coalesced here.
+	     */
+	    (prev_object_is_mte_mappable == is_caller_entering_mte_memory) &&
+#endif /* HAS_MTE */
 	    (!entry->csm_associated) &&
 	    (entry->iokit_acct == iokit_acct) &&
 	    (!entry->vme_resilient_codesign) &&
@@ -6777,7 +6807,7 @@ vm_map_wire_nested(
 	boolean_t               main_map = FALSE;
 	wait_interrupt_t        interruptible_state;
 	thread_t                cur_thread;
-	unsigned int            last_timestamp;
+	uint64_t                last_timestamp;
 	vm_map_size_t           size;
 	boolean_t               wire_and_extract;
 	vm_prot_t               extra_prots;
@@ -7653,7 +7683,7 @@ vm_map_unwire_nested(
 	struct vm_map_entry     *first_entry, tmp_entry;
 	boolean_t               need_wakeup;
 	boolean_t               main_map = FALSE;
-	unsigned int            last_timestamp;
+	uint64_t                last_timestamp;
 
 	vmlp_api_start(VM_MAP_UNWIRE_NESTED);
 
@@ -9168,7 +9198,7 @@ in_transition:
 		if (entry->wired_count) {
 			struct vm_map_entry tmp_entry;
 			boolean_t           user_wire;
-			unsigned int        last_timestamp;
+			uint64_t            last_timestamp;
 
 			user_wire = entry->user_wired_count > 0;
 
@@ -9553,7 +9583,7 @@ in_transition:
 
 		if ((flags & VM_MAP_REMOVE_NO_YIELD) == 0 && s < end) {
 			vmlp_lock_event_locked(VMLP_EVENT_LOCK_YIELD_BEGIN, map);
-			unsigned int last_timestamp = map->timestamp++;
+			uint64_t last_timestamp = map->timestamp++;
 
 			if (lck_rw_lock_yield_exclusive(&map->lock,
 			    LCK_RW_YIELD_ANY_WAITER)) {
@@ -17281,6 +17311,9 @@ vm_map_simplify_entry(
 #if __arm64e__
 	    (prev_entry->used_for_tpro == this_entry->used_for_tpro) &&
 #endif
+#if HAS_MTE
+	    (prev_entry->vme_is_tagged == this_entry->vme_is_tagged) &&
+#endif /* HAS_MTE */
 	    (prev_entry->csm_associated == this_entry->csm_associated) &&
 	    (prev_entry->vme_xnu_user_debug == this_entry->vme_xnu_user_debug) &&
 	    (prev_entry->iokit_acct == this_entry->iokit_acct) &&
@@ -18465,7 +18498,7 @@ vm_map_zero(
 		vm_map_offset_t start_offset;
 		vm_map_offset_t cur_offset;
 		vm_map_offset_t end_offset;
-		unsigned int last_timestamp = map->timestamp;
+		uint64_t last_timestamp = map->timestamp;
 		vm_object_t object;
 
 		ret = vm_map_zero_entry_preflight(entry);

@@ -39,12 +39,12 @@ Ref<WebImage> WebImage::createEmpty()
     return adoptRef(*new WebImage(nullptr));
 }
 
-Ref<WebImage> WebImage::create(const IntSize& size, ImageOptions options, const DestinationColorSpace& colorSpace, ChromeClient* client)
+Ref<WebImage> WebImage::create(const FloatSize& size, ImageOptions options, const DestinationColorSpace& colorSpace, ChromeClient* client)
 {
-    auto pixelFormat = ImageBufferPixelFormat::BGRA8;
+    auto pixelFormat = PixelFormat::BGRA8;
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
     if (options.contains(ImageOption::AllowHDR) && colorSpace.usesExtendedRange())
-        pixelFormat = ImageBufferPixelFormat::RGBA16F;
+        pixelFormat = PixelFormat::RGBA16F;
 #endif
 
     if (client) {

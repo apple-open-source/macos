@@ -232,6 +232,13 @@ WEBKIT_API void
 webkit_settings_set_pictograph_font_family                     (WebKitSettings *settings,
                                                                 const gchar    *pictograph_font_family);
 
+WEBKIT_API const gchar *
+webkit_settings_get_math_font_family                           (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_math_font_family                           (WebKitSettings *settings,
+                                                                const gchar    *math_font_family);
+
 WEBKIT_API guint32
 webkit_settings_get_default_font_size                          (WebKitSettings *settings);
 

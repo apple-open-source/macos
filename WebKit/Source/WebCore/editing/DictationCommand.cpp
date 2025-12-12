@@ -28,13 +28,13 @@
 
 #include "AlternativeTextController.h"
 #include "Document.h"
-#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameSelection.h"
 #include "InsertParagraphSeparatorCommand.h"
 #include "InsertTextCommand.h"
 #include "LocalFrame.h"
+#include "NodeDocument.h"
 #include "Text.h"
 
 namespace WebCore {

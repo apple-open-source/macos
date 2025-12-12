@@ -32,12 +32,14 @@
 #include "ChromeClient.h"
 #include "ContainerNodeInlines.h"
 #include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
+#include "DocumentView.h"
 #include "Element.h"
 #include "ElementInlines.h"
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "FrameDestructionObserverInlines.h"
+#include "FrameInlines.h"
 #include "HTMLDialogElement.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLVideoElement.h"
@@ -50,7 +52,6 @@
 #include "Page.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "QualifiedName.h"
-#include "Quirks.h"
 #include "RenderBlock.h"
 #include "RenderVideo.h"
 #include "SVGElementTypeHelpers.h"
@@ -66,6 +67,22 @@
 #endif
 
 namespace WebCore {
+
+class DocumentFullscreen::CompletionHandlerScope final {
+public:
+    CompletionHandlerScope(CompletionHandler<void(ExceptionOr<void>)>&& completionHandler)
+        : m_completionHandler(WTFMove(completionHandler)) { }
+    CompletionHandlerScope(CompletionHandlerScope&&) = default;
+    CompletionHandlerScope& operator=(CompletionHandlerScope&&) = default;
+    ~CompletionHandlerScope()
+    {
+        if (m_completionHandler)
+            m_completionHandler({ });
+    }
+    CompletionHandler<void(ExceptionOr<void>)> release() { return WTFMove(m_completionHandler); }
+private:
+    CompletionHandler<void(ExceptionOr<void>)> m_completionHandler;
+};
 
 // MARK: - Constructor.
 
@@ -86,7 +103,7 @@ Element* DocumentFullscreen::fullscreenElement() const
 {
     for (Ref element : makeReversedRange(document().topLayerElements())) {
         if (element->hasFullscreenFlag())
-            return element.ptr();
+            return element.unsafePtr();
     }
 
     return nullptr;
@@ -144,6 +161,7 @@ void DocumentFullscreen::requestFullscreen(Ref<Element>&& element, FullscreenChe
             return;
         }
 
+#if ENABLE(VIDEO)
         Ref videoList = maybeVideoList.releaseReturnValue();
 
         RefPtr<HTMLVideoElement> largestVideo = nullptr;
@@ -166,6 +184,7 @@ void DocumentFullscreen::requestFullscreen(Ref<Element>&& element, FullscreenChe
         }
         if (largestVideo)
             largestVideo->webkitRequestFullscreen();
+#endif
 
         completionHandler({ });
         return;
@@ -423,6 +442,11 @@ bool DocumentFullscreen::isSimpleFullscreenDocument() const
         }
     }
     return foundFullscreenFlag;
+}
+
+Page* DocumentFullscreen::page() const
+{
+    return document().page();
 }
 
 // MARK: - Simple helper to get document frame

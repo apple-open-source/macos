@@ -27,18 +27,16 @@
 #include "HTMLParserOptions.h"
 
 #include "Document.h"
-#include "FrameDestructionObserverInlines.h"
-#include "FrameLoader.h"
 #include "LocalFrame.h"
 #include "ScriptController.h"
 #include "Settings.h"
-#include "SubframeLoader.h"
 
 namespace WebCore {
 
 HTMLParserOptions::HTMLParserOptions()
     : scriptingFlag(false)
     , usePreHTML5ParserQuirks(false)
+    , enhancedSelect(false)
     , maximumDOMTreeDepth(Settings::defaultMaximumHTMLParserDOMTreeDepth)
 {
 }
@@ -52,7 +50,8 @@ HTMLParserOptions::HTMLParserOptions(Document& document)
         scriptingFlag = frame && frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript) && document.allowsContentJavaScript();
 
     usePreHTML5ParserQuirks = document.settings().usePreHTML5ParserQuirks();
+    enhancedSelect = document.settings().htmlEnhancedSelectParsingEnabled();
     maximumDOMTreeDepth = document.settings().maximumHTMLParserDOMTreeDepth();
 }
 
-}
+} // namespace WebCore

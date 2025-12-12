@@ -3558,7 +3558,7 @@ struct { // rdar://144904333 & rdar://145184053
   { "en@calendar=telugu", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
   { "en@calendar=malayalam", "Kumbham 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names rdar://153720231 malayalam field order
   { "en@calendar=marathi", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
-  { "gu@calendar=gujarati", "મહા કૃ૰ બીજ" },  // rdar://151311580 Gujarati should return Amanta based dates rdar://145904346 Shorten narrow names
+  { "gu@calendar=gujarati", "મહા વદ બીજ" },  // rdar://151311580 Gujarati should return Amanta based dates rdar://145904346 Shorten narrow names
   { "kn@calendar=kannada", "ಮಾಘ ಕೃ. ಬಿದಿಗೆ" },  // rdar://151311580 Kannada should return Amanta based dates rdar://145904346 Shorten narrow names rdar://157607506 audit and fix locale data
   { "mr@calendar=marathi", "माघ कृ. द्वितीया" },  // rdar://151311580 Marathi should return Amanta based dates rdar://145904346 Shorten narrow names rdar://157607506 audit and fix locale data
   { "bn@calendar=bangla", "1 ফাল্গুন" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
@@ -3609,7 +3609,7 @@ void TestHinduLeapMonthFormatting() {
         { "en@calendar=kannada", "Jyeṣṭha (A) Ś. 1" },
         { "en@calendar=telugu", "Jyeṣṭha (A) S. 1" },
         { "en@calendar=marathi", "Jyeṣṭha (A) Ś. 1" },
-        { "gu@calendar=gujarati", "અ૰જેઠ શુ૰ પ્રતિપદા" },
+        { "gu@calendar=gujarati", "અ૰જેઠ સુદ પ્રતિપદા" },
         { "kn@calendar=kannada", "ಅ.ಜ್ಯೇಷ್ಠ ಶು. ಪಾಡ್ಯ" }, //  rdar://157607506 audit and fix locale data
         { "mr@calendar=marathi", "अ.ज्येष्ठ शु. प्रतिपदा" }, //  rdar://157607506 audit and fix locale data
         { "te@calendar=telugu", "అ.జ్యేష్ఠ శుక్ల పాడ్యమి" }, //  rdar://157607506 audit and fix locale data

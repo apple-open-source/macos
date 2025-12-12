@@ -15,13 +15,6 @@
 #ifdef __linux__
 #include <ctype.h>
 #include <sys/utsname.h>
-#include <unistd.h>  // for sysconf
-#endif
-#if defined(_WIN32)
-#include <windows.h>  // for GetSystemInfo
-#endif
-#if defined(__APPLE__)
-#include <sys/sysctl.h>  // for sysctlbyname
 #endif
 
 #include "libyuv/cpu_id.h"
@@ -58,23 +51,6 @@ int main(int argc, const char* argv[]) {
     printf("Kernel Version %d.%d\n", kernelversion[0], kernelversion[1]);
   }
 #endif  // defined(__linux__)
-#if defined(_WIN32)
-  SYSTEM_INFO sysInfo;
-  GetSystemInfo(&sysInfo);
-  int num_cpus = (int)sysInfo.dwNumberOfProcessors;
-#elif defined(__linux__)
-  int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined(__APPLE__)
-  int num_cpus = 0;
-  size_t num_cpus_len = sizeof(num_cpus);
-  // Get the number of logical CPU cores
-  if (sysctlbyname("hw.logicalcpu", &num_cpus, &num_cpus_len, NULL, 0) == -1) {
-    printf("sysctlbyname failed to get hw.logicalcpu\n");
-  }
-#else
-  int num_cpus = 0;  // unknown OS
-#endif
-  printf("Number of cpus: %d\n", num_cpus);
 
 #if defined(__arm__) || defined(__aarch64__)
   int has_arm = TestCpuFlag(kCpuHasARM);
@@ -178,13 +154,6 @@ int main(int argc, const char* argv[]) {
     cpu_info[1] = cpu_info[3];
     cpu_info[3] = 0;
     printf("Cpu Vendor: %s\n", (char*)(&cpu_info[0]));
-
-    for (int n = 0; n < num_cpus; ++n) {
-      // Check EDX bit 15 for hybrid design indication
-      CpuId(7, n, &cpu_info[0]);
-      int hybrid = (cpu_info[3] >> 15) & 1;
-      printf("  Cpu %d Hybrid %d\n", n, hybrid);
-    }
 
     // CPU Family and Model
     // 3:0 - Stepping

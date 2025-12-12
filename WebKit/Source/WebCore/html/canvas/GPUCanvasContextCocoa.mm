@@ -33,6 +33,7 @@
 #include "GPUPresentationContextDescriptor.h"
 #include "GPUTextureDescriptor.h"
 #include "GraphicsLayerContentsDisplayDelegate.h"
+#include "GraphicsLayerEnums.h"
 #include "ImageBitmap.h"
 #include "PlatformCALayerDelegatedContents.h"
 #include "PlatformScreen.h"
@@ -66,9 +67,9 @@ public:
         } else
             layer.clearContents();
     }
-    GraphicsLayer::CompositingCoordinatesOrientation orientation() const final
+    GraphicsLayerCompositingCoordinatesOrientation orientation() const final
     {
-        return GraphicsLayer::CompositingCoordinatesOrientation::TopDown;
+        return GraphicsLayerCompositingCoordinatesOrientation::TopDown;
     }
     void setDisplayBuffer(WTF::MachSendRight& displayBuffer)
     {
@@ -386,6 +387,11 @@ static WebGPU::TextureFormat computeTextureFormat(GPUTextureFormat format, GPUCa
     return WebCore::convertToBacking(format);
 }
 
+static bool isSupportedContextFormat(GPUTextureFormat format)
+{
+    return format == GPUTextureFormat::Bgra8unorm || format == GPUTextureFormat::Rgba8unorm || format == GPUTextureFormat::Rgba16float;
+}
+
 ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& configuration, bool dueToReshape)
 {
     if (isConfigured()) {
@@ -399,13 +405,16 @@ ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& conf
     if (!configuration.device)
         return Exception { ExceptionCode::TypeError, "GPUCanvasContextCocoa::configure: Device is required but missing"_s };
 
-    if (!configuration.device->isSupportedFormat(configuration.format))
-        return Exception { ExceptionCode::TypeError, "GPUCanvasContext.configure: Unsupported texture format."_s };
+    if (auto error = configuration.device->errorValidatingSupportedFormat(configuration.format))
+        return Exception { ExceptionCode::TypeError, makeString("GPUCanvasContext.configure: Unsupported texture format: "_s, *error) };
 
     for (auto viewFormat : configuration.viewFormats) {
-        if (!configuration.device->isSupportedFormat(viewFormat))
-            return Exception { ExceptionCode::TypeError, "Unsupported texture view format."_s };
+        if (auto error = configuration.device->errorValidatingSupportedFormat(viewFormat))
+            return Exception { ExceptionCode::TypeError, makeString("Unsupported texture view format: "_s, *error) };
     }
+
+    if (!isSupportedContextFormat(configuration.format))
+        return Exception { ExceptionCode::TypeError, "GPUCanvasContext.configure: Unsupported context format."_s };
 
     if (configuration.toneMapping.mode != GPUCanvasToneMappingMode::Standard) {
 #if ENABLE(HDR_FOR_WEBGPU)
@@ -427,7 +436,7 @@ ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& conf
     m_currentEDRHeadroom = 0.f;
     m_suppressEDR = false;
 #endif // HAVE(SUPPORT_HDR_DISPLAY)
-    auto renderBuffers = m_compositorIntegration->recreateRenderBuffers(m_width, m_height, toWebCoreColorSpace(configuration.colorSpace, configuration.toneMapping), configuration.alphaMode == GPUCanvasAlphaMode::Premultiplied ? WebCore::AlphaPremultiplication::Premultiplied : WebCore::AlphaPremultiplication::Unpremultiplied, textureFormat, configuration.device->backing());
+    auto renderBuffers = m_compositorIntegration->recreateRenderBuffers(m_width, m_height, toWebCoreColorSpace(configuration.colorSpace, configuration.toneMapping), configuration.alphaMode == GPUCanvasAlphaMode::Premultiplied ? WebCore::AlphaPremultiplication::Premultiplied : WebCore::AlphaPremultiplication::Unpremultiplied, textureFormat, is<OffscreenCanvas>(canvasBase()) ? 1 : 3, configuration.device->backing());
     // FIXME: This ASSERT() is wrong. It's totally possible for the IPC to the GPU process to timeout if the GPUP is busy, and return nothing here.
     ASSERT(!renderBuffers.isEmpty());
 
@@ -496,13 +505,13 @@ ExceptionOr<RefPtr<GPUTexture>> GPUCanvasContextCocoa::getCurrentTexture()
     return currentTexture;
 }
 
-ImageBufferPixelFormat GPUCanvasContextCocoa::pixelFormat() const
+PixelFormat GPUCanvasContextCocoa::pixelFormat() const
 {
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
     if (m_configuration)
-        return m_configuration->toneMapping.mode == GPUCanvasToneMappingMode::Extended ? ImageBufferPixelFormat::RGBA16F : ImageBufferPixelFormat::BGRA8;
+        return m_configuration->toneMapping.mode == GPUCanvasToneMappingMode::Extended ? PixelFormat::RGBA16F : PixelFormat::BGRA8;
 #endif
-    return ImageBufferPixelFormat::BGRX8;
+    return PixelFormat::BGRX8;
 }
 
 bool GPUCanvasContextCocoa::isOpaque() const

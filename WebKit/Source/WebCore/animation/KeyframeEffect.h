@@ -25,23 +25,22 @@
 
 #pragma once
 
-#include "AcceleratedEffect.h"
-#include "Animation.h"
-#include "AnimationEffect.h"
-#include "AnimationEffectPhase.h"
+#include <WebCore/AcceleratedEffect.h>
+#include <WebCore/AnimationEffect.h>
+#include <WebCore/AnimationEffectPhase.h>
 #include "BlendingKeyframes.h"
-#include "CompositeOperation.h"
-#include "CompositeOperationOrAuto.h"
-#include "Document.h"
-#include "EffectTiming.h"
-#include "Element.h"
-#include "IterationCompositeOperation.h"
-#include "KeyframeEffectOptions.h"
-#include "KeyframeInterpolation.h"
-#include "RenderStyle.h"
-#include "StyleInterpolationClient.h"
-#include "Styleable.h"
-#include "WebAnimationTypes.h"
+#include <WebCore/CompositeOperation.h>
+#include <WebCore/CompositeOperationOrAuto.h>
+#include <WebCore/Document.h>
+#include <WebCore/EffectTiming.h>
+#include <WebCore/Element.h>
+#include <WebCore/IterationCompositeOperation.h>
+#include <WebCore/KeyframeEffectOptions.h>
+#include <WebCore/KeyframeInterpolation.h>
+#include <WebCore/RenderStyle.h>
+#include <WebCore/StyleInterpolationClient.h>
+#include <WebCore/Styleable.h>
+#include <WebCore/WebAnimationTypes.h>
 #include <wtf/Ref.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
@@ -50,6 +49,7 @@ namespace WebCore {
 
 class Element;
 class FilterOperations;
+class GraphicsLayerAnimation;
 class MutableStyleProperties;
 class RenderStyle;
 
@@ -133,13 +133,14 @@ public:
     void setBindingsComposite(CompositeOperation);
 
     void getAnimatedStyle(std::unique_ptr<RenderStyle>& animatedStyle);
-    OptionSet<AnimationImpact> apply(RenderStyle& targetStyle, const Style::ResolutionContext&);
+    OptionSet<AnimationImpact> apply(RenderStyle& targetStyle, const Style::ResolutionContext&, EndpointInclusiveActiveInterval = EndpointInclusiveActiveInterval::No);
     void invalidate();
 
     void animationRelevancyDidChange();
     void transformRelatedPropertyDidChange();
     enum class RecomputationReason : uint8_t { LogicalPropertyChange, Other };
     std::optional<RecomputationReason> recomputeKeyframesIfNecessary(const RenderStyle* previousUnanimatedStyle, const RenderStyle& unanimatedStyle, const Style::ResolutionContext&);
+    void recomputeKeyframesAtNextOpportunity();
     void applyPendingAcceleratedActions();
     void applyPendingAcceleratedActionsOrUpdateTimingProperties();
 
@@ -176,7 +177,6 @@ public:
     bool requiresPseudoElement() const;
     bool hasImplicitKeyframes() const;
 
-    void keyframesRuleDidChange();
     void customPropertyRegistrationDidChange(const AtomString&);
 
     bool canBeAccelerated() const;
@@ -232,7 +232,7 @@ private:
     void setAnimatedPropertiesInStyle(RenderStyle&, const ComputedEffectTiming&);
     const TimingFunction* timingFunctionForKeyframeAtIndex(size_t) const;
     const TimingFunction* timingFunctionForBlendingKeyframe(const BlendingKeyframe&) const;
-    Ref<const Animation> backingAnimationForCompositedRenderer();
+    Ref<const GraphicsLayerAnimation> backingAnimationForCompositedRenderer();
     void computedNeedsForcedLayout();
     void computeStackingContextImpact();
     void computeSomeKeyframesUseStepsOrLinearTimingFunctionWithPoints();
@@ -285,9 +285,9 @@ private:
     bool ticksContinuouslyWhileActive() const final;
     std::optional<double> progressUntilNextStep(double) const final;
     bool preventsAnimationReadiness() const final;
-    void animationProgressBasedTimelineSourceDidChangeMetrics(const TimelineRange&) final;
+    void animationProgressBasedTimelineSourceDidChangeMetrics(const Style::SingleAnimationRange&) final;
 
-    const ViewTimeline* activeViewTimeline();
+    RefPtr<const ViewTimeline> activeViewTimeline() const;
     void updateComputedKeyframeOffsetsIfNeeded();
 
     // KeyframeInterpolation

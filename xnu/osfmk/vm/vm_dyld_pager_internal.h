@@ -55,6 +55,19 @@ vm_map_with_linking(
 	uint32_t                link_info_size,
 	memory_object_control_t file_control);
 
+struct vm_map_with_linking_stats {
+	uint64_t vmwls_total_success;
+	uint64_t vmwls_total_fail;
+	uint64_t vmwls_overflow;
+	uint64_t vmwls_bad_offset;
+	uint64_t vmwls_bad_addr;
+	uint64_t vmwls_bad_prot;
+	uint64_t vmwls_bad_file;
+	uint64_t vmwls_bad_shadows;
+	uint64_t vmwls_bad_cow;
+};
+extern struct vm_map_with_linking_stats vm_map_with_linking_stats;
+
 #endif /* KERNEL_PRIVATE */
 
 #endif  /* _VM_DYLD_PAGER_INTERNAL_H_ */

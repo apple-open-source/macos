@@ -7,6 +7,10 @@
 //   Implementation of common ANGLE testing fixture.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "ANGLETest.h"
 
 #include <algorithm>
@@ -205,6 +209,9 @@ GPUTestConfig::API GetTestConfigAPIFromRenderer(angle::GLESDriverType driverType
                                                 EGLenum deviceType)
 {
     if (driverType != angle::GLESDriverType::AngleEGL &&
+#if defined(ANGLE_TEST_ENABLE_SYSTEM_EGL)
+        driverType != angle::GLESDriverType::SystemEGL &&
+#endif
         driverType != angle::GLESDriverType::AngleVulkanSecondariesEGL)
     {
         return GPUTestConfig::kAPIUnknown;
@@ -378,6 +385,14 @@ GLColor32F ReadColor32F(GLint x, GLint y)
 void LoadEntryPointsWithUtilLoader(angle::GLESDriverType driverType)
 {
 #if defined(ANGLE_USE_UTIL_LOADER)
+    Library *driverLibrary = ANGLETestEnvironment::GetDriverLibrary(driverType);
+    if (driverLibrary == nullptr)
+    {
+        WriteDebugMessage("Failed to load library! (driverType = %d)",
+                          static_cast<int>(driverType));
+        return;
+    }
+
     PFNEGLGETPROCADDRESSPROC getProcAddress;
     ANGLETestEnvironment::GetDriverLibrary(driverType)->getAs("eglGetProcAddress", &getProcAddress);
     ASSERT(nullptr != getProcAddress);
@@ -394,6 +409,19 @@ bool IsFormatEmulated(GLenum target)
 
     // This helper only works for compressed formats
     return gl::IsEmulatedCompressedFormat(readFormat);
+}
+
+EGLenum GetEglPlatform()
+{
+    EGLenum eglPlatform = EGL_PLATFORM_ANGLE_ANGLE;
+
+#if defined(ANGLE_TEST_ENABLE_SYSTEM_EGL)
+    if (angle::IsAndroid())
+    {
+        eglPlatform = EGL_PLATFORM_ANDROID_KHR;
+    }
+#endif
+    return eglPlatform;
 }
 
 }  // namespace angle
@@ -569,7 +597,7 @@ void ANGLETestBase::initOSWindow()
             FATAL() << "Failed to create a new window";
         }
         mFixture->osWindow->disableErrorMessageDialog();
-        if (!mFixture->osWindow->initialize(windowName.c_str(), 128, 128))
+        if (!mFixture->osWindow->initialize(windowName, 128, 128))
         {
             std::cerr << "Failed to initialize OS Window.\n";
         }
@@ -765,7 +793,7 @@ void ANGLETestBase::ANGLETestSetUp()
     // Only allow skipping tests due to unsupported ANGLE extensions when testing the system EGL,
     // since we want it to be obvious if ANGLE itself stops exposing them.
     // Must be checked before initializing the Display, since
-    if (mCurrentParams->driver == GLESDriverType::SystemEGL)
+    if (isDriverSystemEgl())
     {
         if ((!mCurrentParams->eglParameters.enabledFeatureOverrides.empty() ||
              !mCurrentParams->eglParameters.disabledFeatureOverrides.empty()) &&
@@ -824,6 +852,15 @@ void ANGLETestBase::ANGLETestSetUp()
     if (!mDeferContextInit && !mFixture->eglWindow->initializeContext())
     {
         FAIL() << "GL Context init failed.";
+    }
+
+    if (mFixture->eglWindow->getClientMajorVersion() != mCurrentParams->majorVersion ||
+        mFixture->eglWindow->getClientMinorVersion() != mCurrentParams->minorVersion)
+    {
+        WARN() << "Requested Context version does not match the version created. Requested: "
+               << mCurrentParams->majorVersion << "." << mCurrentParams->minorVersion
+               << ", Actual: " << mFixture->eglWindow->getClientMajorVersion() << "."
+               << mFixture->eglWindow->getClientMinorVersion();
     }
 
     if (needSwap)
@@ -1224,8 +1261,7 @@ void ANGLETestBase::drawIndexedQuad(GLuint program,
                                     GLfloat positionAttribZ,
                                     GLfloat positionAttribXYScale)
 {
-    ASSERT(!mFixture || !mFixture->configParams.webGLCompatibility ||
-           !mFixture->configParams.webGLCompatibility);
+    ASSERT(!mFixture || !mFixture->configParams.webGLCompatibility);
     drawIndexedQuad(program, positionAttribName, positionAttribZ, positionAttribXYScale, false);
 }
 

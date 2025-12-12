@@ -1860,4 +1860,38 @@ exit:
     CFReleaseSafe(staleDate);
 }
 
+- (void)testTestAppleAnchorsAsSystemRoots {
+#if TARGET_OS_BRIDGE
+    /* bridgeOS doesn't use trust store */
+    XCTSkip();
+#endif
+    /* rdar:// Verify that constrained system roots can correctly use client/server policies */
+    SecPolicyRef policy = SecPolicyCreateIPSec(true, NULL); // This policy is currently conveinently not checking much about leaves.
+    SecCertificateRef g1TestAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"TestApplePlatformECCRoot-G1" subdirectory:@"si-20-sectrust-policies-data"];
+    SecCertificateRef g1Anchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ApplePlatformTLSECCRoot-G1"
+                                                                                       subdirectory:@"si-20-sectrust-policies-data"];
+
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)g1Anchor]
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSince1970:1762000000]];
+    NSError *error = nil;
+    XCTAssert([eval evaluate:&error]);
+    XCTAssertNil(error);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)g1TestAnchor]
+                                                                         policies:@[(__bridge id)policy]];
+    error = nil;
+    if (SecIsInternalRelease()) {
+        XCTAssert([eval evaluate:&error]);
+        XCTAssertNil(error);
+    } else {
+        XCTAssertFalse([eval evaluate:&error]);
+        XCTAssertNotNil(error);
+    }
+
+    CFReleaseNull(g1TestAnchor);
+    CFReleaseNull(g1Anchor);
+    CFReleaseNull(policy);
+}
+
 @end

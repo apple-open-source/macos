@@ -40,11 +40,11 @@
 
 - (void)dealloc
 {
-    [_timeout release];
-    [_relyingPartyIdentifier release];
-    [_allowCredentials release];
-    [_extensions release];
-    [_extensionsCBOR release];
+    SUPPRESS_UNRETAINED_ARG [_timeout release];
+    SUPPRESS_UNRETAINED_ARG [_relyingPartyIdentifier release];
+    SUPPRESS_UNRETAINED_ARG [_allowCredentials release];
+    SUPPRESS_UNRETAINED_ARG [_extensions release];
+    SUPPRESS_UNRETAINED_ARG [_extensionsCBOR release];
     [super dealloc];
 }
 

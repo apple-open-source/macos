@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "CollectionScope.h"
-#include "TypeofType.h"
+#include <JavaScriptCore/CollectionScope.h>
+#include <JavaScriptCore/TypeofType.h>
 #include <wtf/Noncopyable.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN

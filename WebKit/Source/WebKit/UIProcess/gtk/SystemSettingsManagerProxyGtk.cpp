@@ -26,6 +26,8 @@
 #include "config.h"
 #include "SystemSettingsManagerProxy.h"
 
+#include <WebCore/PlatformScreen.h>
+#include <WebCore/SystemSettings.h>
 #include <gtk/gtk.h>
 #include <wtf/glib/GUniquePtr.h>
 
@@ -172,6 +174,29 @@ bool SystemSettingsManagerProxy::enableAnimations() const
     gboolean enableAnimationsSetting;
     g_object_get(m_settings, "gtk-enable-animations", &enableAnimationsSetting, nullptr);
     return enableAnimationsSetting ? true : false;
+}
+
+void SystemSettingsManagerProxy::updateFontProperties(const String& fontName, WebCore::SystemSettingsState& changedState)
+{
+    changedState.fontName = fontName;
+    changedState.fontFamily = std::nullopt;
+    changedState.fontSize = std::nullopt;
+    changedState.fontWeight = std::nullopt;
+    if (fontName.isEmpty())
+        return;
+
+    PangoFontDescription* pangoDescription = pango_font_description_from_string(fontName.utf8().data());
+    if (!pangoDescription)
+        return;
+
+    int size = pango_font_description_get_size(pangoDescription) / PANGO_SCALE;
+    // If the size of the font is in points, we need to convert it to pixels.
+    if (!pango_font_description_get_size_is_absolute(pangoDescription))
+        size = size * (fontDPI() / 72.0);
+    changedState.fontFamily = String::fromUTF8(unsafeSpan8(pango_font_description_get_family(pangoDescription)));
+    changedState.fontSize = static_cast<float>(size);
+    changedState.fontWeight = pango_font_description_get_weight(pangoDescription);
+    pango_font_description_free(pangoDescription);
 }
 
 SystemSettingsManagerProxy::SystemSettingsManagerProxy()

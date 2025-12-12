@@ -39,8 +39,8 @@
 
 - (void)dealloc
 {
-    [_identifier release];
-    [_transports release];
+    SUPPRESS_UNRETAINED_ARG [_identifier release];
+    SUPPRESS_UNRETAINED_ARG [_transports release];
     [super dealloc];
 }
 

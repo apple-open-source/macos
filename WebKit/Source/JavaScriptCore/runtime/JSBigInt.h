@@ -26,11 +26,11 @@
 
 #pragma once
 
-#include "CPU.h"
-#include "Error.h"
-#include "ExceptionHelpers.h"
-#include "JSObject.h"
-#include "MathCommon.h"
+#include <JavaScriptCore/CPU.h>
+#include <JavaScriptCore/Error.h>
+#include <JavaScriptCore/ExceptionHelpers.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/MathCommon.h>
 #include <wtf/CagedUniquePtr.h>
 #include <wtf/Int128.h>
 #include <wtf/text/StringBuilder.h>

@@ -30,6 +30,8 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol OTSecureBackupAdapter
 - (BOOL)moveToFederationAllowed:(NSString*)federation altDSID:(NSString*)altDSID error:(NSError**)error NS_SWIFT_NOTHROW;
 - (bool)enableWithSecureBackup:(id)sb error:(NSError**)error NS_SWIFT_NOTHROW;
+- (NSDictionary* _Nullable)enableWithSecureBackupAndReturnHint:(id)sb error:(NSError**)error NS_SWIFT_NOTHROW;
+- (NSDictionary*)getAccountInfoWithSecureBackup:(id)sb error:(NSError**)error NS_SWIFT_NOTHROW;
 @end
 
 @interface OTSecureBackupActualAdapter : NSObject <OTSecureBackupAdapter>

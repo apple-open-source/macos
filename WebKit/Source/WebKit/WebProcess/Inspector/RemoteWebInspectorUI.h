@@ -115,6 +115,10 @@ public:
     void inspectedURLChanged(const String&) override;
     void showCertificate(const WebCore::CertificateInfo&) override;
     void setInspectorPageDeveloperExtrasEnabled(bool) override;
+
+    void setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor) override;
+    double pageZoomFactor() const override;
+
     void sendMessageToBackend(const String&) override;
     WebCore::InspectorFrontendAPIDispatcher& frontendAPIDispatcher() override { return m_frontendAPIDispatcher; }
     WebCore::Page* frontendPage() final;
@@ -159,6 +163,8 @@ private:
 #if ENABLE(INSPECTOR_TELEMETRY)
     bool m_diagnosticLoggingAvailable { false };
 #endif
+
+    double m_pageZoomFactor { 1.0 };
 };
 
 } // namespace WebKit

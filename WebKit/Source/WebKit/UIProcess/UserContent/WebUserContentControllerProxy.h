@@ -27,12 +27,8 @@
 
 #include "APIObject.h"
 #include "ContentWorldShared.h"
-#include "MessageReceiver.h"
 #include "ScriptMessageHandlerIdentifier.h"
 #include "UserContentControllerIdentifier.h"
-#include "WebPageProxyIdentifier.h"
-#include "WebUserContentControllerProxyMessages.h"
-#include <WebCore/PageIdentifier.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/HashCountedSet.h>
@@ -53,22 +49,22 @@ class UserScript;
 class UserStyleSheet;
 }
 
-namespace WebCore {
-class SecurityOriginData;
-}
-
 namespace WebKit {
 
+class JavaScriptEvaluationResult;
 class NetworkProcessProxy;
+class WebPageProxy;
 class WebProcessProxy;
-class WebScriptMessageHandler;
-struct FrameInfoData;
 class WebCompiledContentRuleListData;
-struct WebPageCreationParameters;
+class WebScriptMessageHandler;
+
+struct FrameInfoData;
 struct UserContentControllerParameters;
+struct WebPageCreationParameters;
+
 enum class InjectUserScriptImmediately : bool;
 
-class WebUserContentControllerProxy : public API::ObjectImpl<API::Object::Type::UserContentController>, public IPC::MessageReceiver, public Identified<UserContentControllerIdentifier> {
+class WebUserContentControllerProxy : public API::ObjectImpl<API::Object::Type::UserContentController>, public CanMakeWeakPtr<WebUserContentControllerProxy>, public Identified<UserContentControllerIdentifier> {
 public:
 #if ENABLE(WK_WEB_EXTENSIONS)
     enum class RemoveWebExtensions : bool { No, Yes };
@@ -82,15 +78,9 @@ public:
     WebUserContentControllerProxy();
     ~WebUserContentControllerProxy();
 
-    void ref() const final { API::ObjectImpl<API::Object::Type::UserContentController>::ref(); }
-    void deref() const final { API::ObjectImpl<API::Object::Type::UserContentController>::deref(); }
-
     static WebUserContentControllerProxy* get(UserContentControllerIdentifier);
 
-    UserContentControllerParameters parameters() const;
-
-    void addProcess(WebProcessProxy&);
-    void removeProcess(WebProcessProxy&);
+    UserContentControllerParameters parametersForProcess(WebProcessProxy&) const;
 
     API::Array& userScripts() { return m_userScripts.get(); }
     void addUserScript(API::UserScript&, InjectUserScriptImmediately);
@@ -134,23 +124,15 @@ public:
     Vector<std::pair<WebCompiledContentRuleListData, URL>> contentRuleListData() const;
 #endif
 
-    void contentWorldDestroyed(API::ContentWorld&);
-
     bool operator==(const WebUserContentControllerProxy& other) const { return (this == &other); }
 
+    void didPostMessage(WebPageProxy&, FrameInfoData&&, ScriptMessageHandlerIdentifier, JavaScriptEvaluationResult&&, CompletionHandler<void(Expected<JavaScriptEvaluationResult, String>&&)>&&) const;
+
 private:
-    // IPC::MessageReceiver.
-    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
-
-    void didPostMessage(WebPageProxyIdentifier, FrameInfoData&&, ScriptMessageHandlerIdentifier, JavaScriptEvaluationResult&&, CompletionHandler<void(Expected<JavaScriptEvaluationResult, String>&&)>&&);
-
-    void addContentWorld(API::ContentWorld&);
-
-    WeakHashSet<WebProcessProxy> m_processes;
+    mutable WeakHashSet<WebProcessProxy> m_processes;
     const Ref<API::Array> m_userScripts;
     const Ref<API::Array> m_userStyleSheets;
-    HashMap<ScriptMessageHandlerIdentifier, RefPtr<WebScriptMessageHandler>> m_scriptMessageHandlers;
-    HashSet<ContentWorldIdentifier> m_associatedContentWorlds;
+    HashMap<ScriptMessageHandlerIdentifier, Ref<WebScriptMessageHandler>> m_scriptMessageHandlers;
 
 #if ENABLE(CONTENT_EXTENSIONS)
     WeakHashSet<NetworkProcessProxy> m_networkProcesses;

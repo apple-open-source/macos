@@ -24,13 +24,13 @@
 
 #pragma once
 
-#include "StyleLengthWrapper.h"
-#include "StyleValueTypes.h"
+#include <WebCore/StyleLengthWrapper.h>
+#include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
 namespace Style {
 
-struct TextIndentLength : LengthWrapperBase<LengthPercentage<>> {
+struct TextIndentLength : LengthWrapperBase<LengthPercentage<CSS::AllUnzoomed>> {
     using Base::Base;
 };
 

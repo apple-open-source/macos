@@ -27,6 +27,7 @@
 #import "WKWebViewPrivateForTesting.h"
 
 #import "AudioSessionRoutingArbitratorProxy.h"
+#import "EditingRange.h"
 #import "GPUProcessProxy.h"
 #import "LogStream.h"
 #import "MediaSessionCoordinatorProxyPrivate.h"
@@ -58,6 +59,10 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
+#if USE(APPLE_INTERNAL_SDK)
+#import <wtf/cocoa/Entitlements.h>
+#import <wtf/spi/darwin/XPCSPI.h>
+#endif
 #import <wtf/text/MakeString.h>
 
 #if PLATFORM(MAC)
@@ -88,6 +93,36 @@
 #endif
 
 @implementation WKWebView (WKTesting)
+
+- (_WKRectEdge)_fixedContainerEdges
+{
+    // FIXME: Remove once it's no longer required to maintain binary compatibility with internal clients.
+    _WKRectEdge edges = _WKRectEdgeNone;
+    if (_fixedContainerEdges.hasFixedEdge(WebCore::BoxSide::Bottom))
+        edges |= _WKRectEdgeBottom;
+    if (_fixedContainerEdges.hasFixedEdge(WebCore::BoxSide::Left))
+        edges |= _WKRectEdgeLeft;
+    if (_fixedContainerEdges.hasFixedEdge(WebCore::BoxSide::Right))
+        edges |= _WKRectEdgeRight;
+    if (_fixedContainerEdges.hasFixedEdge(WebCore::BoxSide::Top))
+        edges |= _WKRectEdgeTop;
+    return edges;
+}
+
+- (WebCore::CocoaColor *)_sampledBottomFixedPositionContentColor
+{
+    return sampledFixedPositionContentColor(_fixedContainerEdges, WebCore::BoxSide::Bottom);
+}
+
+- (WebCore::CocoaColor *)_sampledLeftFixedPositionContentColor
+{
+    return sampledFixedPositionContentColor(_fixedContainerEdges, WebCore::BoxSide::Left);
+}
+
+- (WebCore::CocoaColor *)_sampledRightFixedPositionContentColor
+{
+    return sampledFixedPositionContentColor(_fixedContainerEdges, WebCore::BoxSide::Right);
+}
 
 - (NSString *)_caLayerTreeAsText
 {
@@ -620,6 +655,13 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 }
 
+- (void)_getRenderTreeAsStringWithCompletionHandler:(void(^)(NSString *, NSError *))callback
+{
+    _page->getRenderTreeExternalRepresentation([callback = makeBlockPtr(callback)] (const String& result) {
+        callback(result.createNSString().get(), nil);
+    });
+}
+
 - (void)_lastNavigationWasAppInitiated:(void(^)(BOOL))completionHandler
 {
     _page->lastNavigationWasAppInitiated([completionHandler = makeBlockPtr(completionHandler)] (bool isAppInitiated) {
@@ -1038,6 +1080,15 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 }
 
+- (bool)_receivedLogsDuringLaunchForTesting
+{
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    if (RefPtr mainFrame = _page->mainFrame())
+        return mainFrame->process().receivedLogsDuringLaunchForTesting();
+#endif
+    return 0;
+}
+
 - (void)_modelProcessModelPlayerCountForTesting:(void(^)(NSUInteger))completionHandler
 {
 #if ENABLE(MODEL_PROCESS)
@@ -1053,6 +1104,43 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #else
     completionHandler(0);
 #endif
+}
+
+- (NSString *)_webContentProcessVariantForFrame:(_WKFrameHandle *)frameHandle
+{
+#if USE(APPLE_INTERNAL_SDK)
+    if (!_page)
+        return @"standard";
+
+    RefPtr<WebKit::WebProcessProxy> process;
+
+    if (frameHandle) {
+        auto frameID = frameHandle->_frameHandle.get() ? frameHandle->_frameHandle->frameID() : std::nullopt;
+        if (!frameID)
+            return @"standard";
+
+        process = _page->processContainingFrame(frameID);
+        if (!process)
+            process = _page->legacyMainFrameProcess();
+    } else {
+        // No frameHandle provided, check main frame process
+        process = _page->legacyMainFrameProcess();
+    }
+
+    if (!process || !process->hasConnection())
+        return @"standard";
+
+    Ref connection = process->connection();
+    bool hasEnhancedSecurity = hasEntitlement(connection->xpcConnection(), "com.apple.private.webkit.enhanced-security"_s);
+    bool hasLockdownMode = hasEntitlement(connection->xpcConnection(), "com.apple.private.webkit.lockdown-mode"_s);
+
+    if (hasEnhancedSecurity)
+        return @"security";
+    if (hasLockdownMode)
+        return @"lockdown";
+
+#endif
+    return @"standard";
 }
 
 @end
@@ -1104,4 +1192,15 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 
 @implementation _WKNowPlayingMetadata : NSObject
+- (void)dealloc
+{
+IGNORE_NULL_CHECK_WARNINGS_BEGIN
+    self.title = nil;
+    self.artist = nil;
+    self.album = nil;
+    self.sourceApplicationIdentifier = nil;
+IGNORE_NULL_CHECK_WARNINGS_END
+
+    [super dealloc];
+}
 @end

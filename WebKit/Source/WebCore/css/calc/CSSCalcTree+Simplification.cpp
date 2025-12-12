@@ -26,6 +26,7 @@
 #include "CSSCalcTree+Simplification.h"
 
 #include "AnchorPositionEvaluator.h"
+#include "CSSCalcExecutor.h"
 #include "CSSCalcRandomCachingKey.h"
 #include "CSSCalcSymbolTable.h"
 #include "CSSCalcTree+Copy.h"
@@ -34,10 +35,9 @@
 #include "CSSCalcTree+NumericIdentity.h"
 #include "CSSCalcTree+Traversal.h"
 #include "CSSCalcTree.h"
+#include "CSSPrimitiveNumericCategory.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSUnevaluatedCalc.h"
-#include "CalculationCategory.h"
-#include "CalculationExecutor.h"
 #include "RenderStyle.h"
 #include "RenderStyleInlines.h"
 #include "StyleBuilderState.h"
@@ -56,7 +56,7 @@ static auto copyAndSimplify(const std::optional<T>&, const SimplificationOptions
 
 template<typename Op, typename... Args> static double executeMathOperation(Args&&... args)
 {
-    return Calculation::executeOperation<ToCalculationTreeOp<Op>>(std::forward<Args>(args)...);
+    return executeOperation<ToCalculationTreeOp<Op>::op>(std::forward<Args>(args)...);
 }
 
 template<typename... F> static decltype(auto) switchTogether(const Child& a, const Child& b, F&&... f)
@@ -79,19 +79,19 @@ template<typename... F> static decltype(auto) switchTogether(const Child& a, con
 static bool percentageResolveToDimension(const SimplificationOptions& options)
 {
     switch (options.category) {
-    case Calculation::Category::Integer:
-    case Calculation::Category::Number:
-    case Calculation::Category::Length:
-    case Calculation::Category::Percentage:
-    case Calculation::Category::Angle:
-    case Calculation::Category::Time:
-    case Calculation::Category::Frequency:
-    case Calculation::Category::Resolution:
-    case Calculation::Category::Flex:
+    case CSS::Category::Integer:
+    case CSS::Category::Number:
+    case CSS::Category::Length:
+    case CSS::Category::Percentage:
+    case CSS::Category::Angle:
+    case CSS::Category::Time:
+    case CSS::Category::Frequency:
+    case CSS::Category::Resolution:
+    case CSS::Category::Flex:
         return false;
 
-    case Calculation::Category::AnglePercentage:
-    case Calculation::Category::LengthPercentage:
+    case CSS::Category::AnglePercentage:
+    case CSS::Category::LengthPercentage:
         return true;
     }
 
@@ -500,7 +500,7 @@ std::optional<Child> simplify(Number&, const SimplificationOptions&)
 std::optional<Child> simplify(Percentage&, const SimplificationOptions&)
 {
     // 1.1. If root is a percentage that will be resolved against another value, and there is enough information available to resolve it, do so, and express the resulting numeric value in the appropriate canonical unit. Return the value.
-    // NOTE: Handled by the Calculation::Tree / CalculationValue types at use time.
+    // NOTE: Handled by the Style::Calculation::Tree / Style::CalculationValue types at use time.
     return { };
 }
 
@@ -539,7 +539,7 @@ std::optional<Child> simplify(SiblingCount&, const SimplificationOptions& option
     if (!options.conversionData->styleBuilderState()->element())
         return { };
 
-    return makeChild(Number { .value = static_cast<double>(options.conversionData->styleBuilderState()->siblingCount()) });
+    return makeChild(Number { .value = static_cast<double>(options.conversionData->protectedStyleBuilderState()->siblingCount()) });
 }
 
 std::optional<Child> simplify(SiblingIndex&, const SimplificationOptions& options)
@@ -549,7 +549,7 @@ std::optional<Child> simplify(SiblingIndex&, const SimplificationOptions& option
     if (!options.conversionData->styleBuilderState()->element())
         return { };
 
-    return makeChild(Number { .value = static_cast<double>(options.conversionData->styleBuilderState()->siblingIndex()) });
+    return makeChild(Number { .value = static_cast<double>(options.conversionData->protectedStyleBuilderState()->siblingIndex()) });
 }
 
 std::optional<Child> simplify(Sum& root, const SimplificationOptions& options)
@@ -886,26 +886,26 @@ std::optional<Child> simplify(Product& root, const SimplificationOptions& option
     if (success) {
         if (auto category = productResult.type.calculationCategory()) {
             switch (*category) {
-            case Calculation::Category::Integer:
-            case Calculation::Category::Number:
+            case CSS::Category::Integer:
+            case CSS::Category::Number:
                 return makeChild(Number { .value = productResult.value });
-            case Calculation::Category::Percentage:
+            case CSS::Category::Percentage:
                 return makeChild(Percentage { .value = productResult.value, .hint = Type::determinePercentHint(options.category) });
-            case Calculation::Category::LengthPercentage:
+            case CSS::Category::LengthPercentage:
                 return makeChild(Percentage { .value = productResult.value, .hint = PercentHint::Length });
-            case Calculation::Category::Length:
+            case CSS::Category::Length:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Length });
-            case Calculation::Category::Angle:
+            case CSS::Category::Angle:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Angle });
-            case Calculation::Category::AnglePercentage:
+            case CSS::Category::AnglePercentage:
                 return makeChild(Percentage { .value = productResult.value, .hint = PercentHint::Angle });
-            case Calculation::Category::Time:
+            case CSS::Category::Time:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Time });
-            case Calculation::Category::Frequency:
+            case CSS::Category::Frequency:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Frequency });
-            case Calculation::Category::Resolution:
+            case CSS::Category::Resolution:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Resolution });
-            case Calculation::Category::Flex:
+            case CSS::Category::Flex:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Flex });
             }
         }
@@ -1339,7 +1339,7 @@ std::optional<Child> simplify(Random& root, const SimplificationOptions& options
                 [&](const Random::SharingOptions& sharingOptions) -> std::optional<double> {
                     if (sharingOptions.elementShared.has_value() && !options.conversionData->styleBuilderState()->element())
                         return { };
-                    return options.conversionData->styleBuilderState()->lookupCSSRandomBaseValue(
+                    return options.conversionData->protectedStyleBuilderState()->lookupCSSRandomBaseValue(
                         sharingOptions.identifier,
                         sharingOptions.elementShared
                     );
@@ -1408,7 +1408,7 @@ std::optional<Child> simplify(Anchor& anchor, const SimplificationOptions& optio
         // If no fallback value is specified, it makes the declaration referencing it invalid at computed-value time."
 
         if (!anchor.fallback)
-            options.conversionData->styleBuilderState()->setCurrentPropertyInvalidAtComputedValueTime();
+            options.conversionData->protectedStyleBuilderState()->setCurrentPropertyInvalidAtComputedValueTime();
 
         // Replace the anchor node with the fallback node.
         return std::exchange(anchor.fallback, { });
@@ -1421,21 +1421,21 @@ std::optional<Child> simplify(AnchorSize& anchorSize, const SimplificationOption
     if (!options.conversionData || !options.conversionData->styleBuilderState())
         return { };
 
-    auto& builderState = *options.conversionData->styleBuilderState();
+    CheckedPtr builderState = options.conversionData->styleBuilderState();
 
     std::optional<Style::ScopedName> anchorSizeScopedName;
     if (!anchorSize.elementName.isNull()) {
         anchorSizeScopedName = Style::ScopedName {
             .name = anchorSize.elementName,
-            .scopeOrdinal = builderState.styleScopeOrdinal()
+            .scopeOrdinal = builderState->styleScopeOrdinal()
         };
     }
 
-    auto result = Style::AnchorPositionEvaluator::evaluateSize(builderState, anchorSizeScopedName, anchorSize.dimension);
+    auto result = Style::AnchorPositionEvaluator::evaluateSize(*builderState, anchorSizeScopedName, anchorSize.dimension);
 
     if (!result) {
         if (!anchorSize.fallback)
-            options.conversionData->styleBuilderState()->setCurrentPropertyInvalidAtComputedValueTime();
+            options.conversionData->protectedStyleBuilderState()->setCurrentPropertyInvalidAtComputedValueTime();
 
         return std::exchange(anchorSize.fallback, { });
     }

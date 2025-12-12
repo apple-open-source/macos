@@ -359,6 +359,21 @@ run_callback(struct sudoers_context *ctx, const char *file, int line,
     debug_return_bool(def->callback(ctx, file, line, column, &def->sd_un, op));
 }
 
+#ifdef __APPLE_DYNAMIC_LV__
+static bool
+installer_flag_set(void)
+{
+	int csflags = 0;
+	int rv = 0;
+	pid_t pid = getpid();
+	rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+	bool retval = (rv == 0 && (csflags & CS_INSTALLER) != 0);
+	debug_decl(set_default, SUDOERS_DEBUG_DEFAULTS);
+	sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO, "Installer flag detected: %d", retval);
+	return retval;
+}
+#endif
+
 /*
  * Sets/clears an entry in the defaults structure.
  * Runs the callback if present on success.
@@ -374,25 +389,25 @@ set_default(struct sudoers_context *ctx, const char *var, const char *val,
 	"%s: setting Defaults %s -> %s", __func__, var, val ? val : "false");
 
 #ifdef __APPLE_DYNAMIC_LV__
-    if (strcmp(var, sudo_defs_table[I_SECURE_PATH].name) == 0) {
-        int csflags = 0;
-        int rv = 0;
-        pid_t pid = getpid();
-        rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
-        if (rv == 0 && (csflags & CS_INSTALLER) != 0) {
+    if (installer_flag_set()) {
+        if (strcmp(var, sudo_defs_table[I_SECURE_PATH].name) == 0 ) {
             /* Suppress secure_path when CS_INSTALLER is set. */
             sudo_warnx(U_("%s: %s"), __func__, U_("ignoring secure_path due to CS_INSTALLER"));
-		debug_return_bool(true);
-	}
-    }
-    if (strcmp(var, sudo_defs_table[I_RUNCHROOT].name) == 0) {
-        int csflags = 0;
-        int rv = 0;
-        pid_t pid = getpid();
-        rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
-        if (rv == 0 && (csflags & CS_INSTALLER) != 0) {
+            debug_return_bool(true);
+        }
+        if (strcmp(var, sudo_defs_table[I_RUNCHROOT].name) == 0) {
             /* Suppress runchroot when CS_INSTALLER is set. */
             sudo_warnx(U_("%s: %s"), __func__, U_("ignoring runchroot due to CS_INSTALLER"));
+            debug_return_bool(true);
+        }
+        if (strcmp(var, sudo_defs_table[I_IOLOG_DIR].name) == 0 ) {
+            /* Suppress iolog_dir when CS_INSTALLER is set. */
+            sudo_warnx(U_("%s: %s"), __func__, U_("ignoring iologdir due to CS_INSTALLER"));
+            debug_return_bool(true);
+        }
+        if (strcmp(var, sudo_defs_table[I_IOLOG_FILE].name) == 0 ) {
+            /* Suppress iolog_flush when CS_INSTALLER is set. */
+            sudo_warnx(U_("%s: %s"), __func__, U_("ignoring iologfile due to CS_INSTALLER"));
             debug_return_bool(true);
         }
     }

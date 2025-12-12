@@ -5123,9 +5123,11 @@ errOut:
 
 SecPolicyRef SecPolicyCreateMacDistributionInstaller(void)
 {
-    return SecPolicyCreateApplePinned(kSecPolicyNameMacDistributionInstaller,
-                                      CFSTR("1.2.840.113635.100.6.2.1"),
-                                      CFSTR("1.2.840.113635.100.6.1.8"));
+    SecPolicyRef policy =  SecPolicyCreateApplePinned(kSecPolicyNameMacDistributionInstaller,
+                                                      CFSTR("1.2.840.113635.100.6.2.1"),
+                                                      CFSTR("1.2.840.113635.100.6.1.8"));
+    SecPolicySetOid(policy, kSecPolicyAppleMacDistributionInstaller);
+    return policy;
 }
 
 SecPolicyRef SecPolicyCreateApplePayModelSigning(bool checkExpiration) {

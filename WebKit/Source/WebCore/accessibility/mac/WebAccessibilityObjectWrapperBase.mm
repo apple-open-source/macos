@@ -31,27 +31,22 @@
 
 #import "AXCoreObject.h"
 #import "AXIsolatedObject.h"
+#import "AXLoggerBase.h"
 #import "AXObjectCache.h"
 #import "AXRemoteFrame.h"
 #import "AXSearchManager.h"
-#import "AccessibilityARIAGridRow.h"
-#import "AccessibilityList.h"
-#import "AccessibilityListBox.h"
 #import "AccessibilityRenderObject.h"
 #import "AccessibilityScrollView.h"
 #import "AccessibilitySpinButton.h"
-#import "AccessibilityTable.h"
-#import "AccessibilityTableCell.h"
 #import "AccessibilityTableColumn.h"
-#import "AccessibilityTableRow.h"
 #import "BoundaryPointInlines.h"
 #import "ColorMac.h"
 #import "ContextMenuController.h"
 #import "Editing.h"
 #import "FrameDestructionObserverInlines.h"
-#import "FrameInlines.h"
 #import "FrameSelection.h"
 #import "LayoutRect.h"
+#import "LocalFrameInlines.h"
 #import "LocalizedStrings.h"
 #import "Page.h"
 #import "RenderTextControl.h"
@@ -64,13 +59,15 @@
 #import <Accessibility/Accessibility.h>
 #import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/cocoa/VectorCocoa.h>
-#import <pal/cocoa/AccessibilitySoftLink.h>
 
 #if PLATFORM(MAC)
+#import <AppKit/NSAccessibilityConstants.h>
 #import "WebAccessibilityObjectWrapperMac.h"
 #else
 #import "WebAccessibilityObjectWrapperIOS.h"
 #endif
+
+#import <pal/cocoa/AccessibilitySoftLink.h>
 
 using namespace WebCore;
 
@@ -266,18 +263,16 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
         // We want to return the attachment view instead of the object representing the attachment,
         // otherwise, we get palindrome errors in the AX hierarchy.
         if (child->isAttachment()) {
-            if (id attachmentView = wrapper.attachmentView)
-                return attachmentView;
+            if (RetainPtr<id> attachmentView = wrapper.attachmentView)
+                return attachmentView.unsafeGet();
         } else if (child->isRemoteFrame() && returnPlatformElements)
-            return child->remoteFramePlatformElement().get();
+            return child->remoteFramePlatformElement().unsafeGet();
 
         return wrapper;
     }).autorelease();
 }
 
 @implementation WebAccessibilityObjectWrapperBase
-
-@synthesize identifier = _identifier;
 
 - (id)initWithAccessibilityObject:(AccessibilityObject&)axObject
 {
@@ -291,23 +286,21 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 
 - (void)attachAXObject:(AccessibilityObject&)axObject
 {
-    ASSERT(!_identifier || _identifier == axObject.objectID());
+    // Once a wrapper becomes associated with an object, it shouldn't ever be associated with any other one.
+    // The only acceptable scenario is when a new instance of the "same" object (as determined by the objectID)
+    // is created and attached to this wrapper, replacing it.
+    ASSERT(!m_axObject || m_axObject->objectID() == axObject.objectID());
     m_axObject = axObject;
-    if (!_identifier)
-        _identifier = m_axObject->objectID();
 }
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-- (void)attachIsolatedObject:(AXIsolatedObject*)isolatedObject
+- (void)attachIsolatedObject:(AXIsolatedObject&)newObject
 {
     ASSERT(!isMainThread());
-    ASSERT(isolatedObject && (!_identifier || *_identifier == isolatedObject->objectID()));
+    ASSERT(!m_isolatedObject || m_isolatedObject->objectID() == newObject.objectID());
 
-    m_isolatedObject = isolatedObject;
-    m_isolatedObjectInitialized = !!isolatedObject;
-
-    if (!_identifier)
-        _identifier = m_isolatedObject.get()->objectID();
+    m_isolatedObject = newObject;
+    m_isolatedObjectInitialized = true;
 }
 
 - (BOOL)hasIsolatedObject
@@ -319,7 +312,6 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 - (void)detach
 {
     ASSERT(isMainThread());
-    _identifier = std::nullopt;
     m_axObject = nullptr;
 }
 
@@ -378,6 +370,20 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 }
 #endif
 
+- (NSString *)description
+{
+    if (RefPtr<AXCoreObject> backingObject = self.axBackingObject) {
+        RetainPtr<NSString> backingDescription = backingObject->debugDescription().createNSString().autorelease();
+        return [NSString stringWithFormat:@"wrapper %p { object %@ }", self, backingDescription.get()];
+    }
+    return [NSString stringWithFormat:@"%@ (null backing object)", [super description]];
+}
+
+- (NSString *)debugDescription
+{
+    return [self description];
+}
+
 - (id)attachmentView
 {
     return nil;
@@ -389,7 +395,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
         return m_axObject.get();
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    ASSERT(AXObjectCache::isIsolatedTreeEnabled());
+    AX_DEBUG_ASSERT(AXObjectCache::isIsolatedTreeEnabled());
     return m_isolatedObject.get();
 #else
     ASSERT_NOT_REACHED();
@@ -409,7 +415,10 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 
 - (NSArray<NSString *> *)baseAccessibilitySpeechHint
 {
-    return [self.axBackingObject->speechHint().createNSString() componentsSeparatedByString:@" "];
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
+    if (!backingObject)
+        return nil;
+    return [backingObject->speechHint().createNSString() componentsSeparatedByString:@" "];
 }
 
 #if HAVE(ACCESSIBILITY_FRAMEWORK)
@@ -418,77 +427,74 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
     RefPtr<AXCoreObject> backingObject = [self baseUpdateBackingStore];
     if (!backingObject)
         return nil;
-    
+
     RetainPtr<NSMutableArray<AXCustomContent *>> accessibilityCustomContent = nil;
     auto extendedDescription = backingObject->extendedDescription();
     if (extendedDescription.length()) {
         accessibilityCustomContent = adoptNS([[NSMutableArray alloc] init]);
-        AXCustomContent *contentItem = [PAL::getAXCustomContentClass() customContentWithLabel:WEB_UI_STRING("description", "description detail").createNSString().get() value:extendedDescription.createNSString().get()];
+        Class customContentClass = PAL::getAXCustomContentClassSingleton();
+        AXCustomContent *contentItem = [customContentClass customContentWithLabel:WEB_UI_STRING("description", "description detail").createNSString().get() value:extendedDescription.createNSString().get()];
         // Set this to high, so that it's always spoken.
         [contentItem setImportance:AXCustomContentImportanceHigh];
         [accessibilityCustomContent addObject:contentItem];
     }
-    
+
     return accessibilityCustomContent.autorelease();
 }
 #endif
 
 - (NSString *)baseAccessibilityHelpText
 {
-    return self.axBackingObject->helpTextAttributeValue().createNSString().autorelease();
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
+    return backingObject ? backingObject->helpTextAttributeValue().createNSString().autorelease() : nil;
 }
 
 struct PathConversionInfo {
-    WebAccessibilityObjectWrapperBase *wrapper;
-    CGMutablePathRef path;
+    RetainPtr<WebAccessibilityObjectWrapperBase> wrapper;
+    RetainPtr<CGMutablePathRef> path;
 };
 
 static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, const PathElement& element)
 {
-    WebAccessibilityObjectWrapperBase *wrapper = conversion.wrapper;
-    CGMutablePathRef newPath = conversion.path;
+    RetainPtr<WebAccessibilityObjectWrapperBase> wrapper = conversion.wrapper;
+    RetainPtr newPath = conversion.path;
     FloatRect rect;
     switch (element.type) {
-    case PathElement::Type::MoveToPoint:
-    {
+    case PathElement::Type::MoveToPoint: {
         rect = FloatRect(element.points[0], FloatSize());
-        CGPoint newPoint = [wrapper convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
-        CGPathMoveToPoint(newPath, nil, newPoint.x, newPoint.y);
+        CGPoint newPoint = [wrapper.get() convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
+        CGPathMoveToPoint(newPath.get(), nil, newPoint.x, newPoint.y);
         break;
     }
-    case PathElement::Type::AddLineToPoint:
-    {
+    case PathElement::Type::AddLineToPoint: {
         rect = FloatRect(element.points[0], FloatSize());
-        CGPoint newPoint = [wrapper convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
-        CGPathAddLineToPoint(newPath, nil, newPoint.x, newPoint.y);
+        CGPoint newPoint = [wrapper.get() convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
+        CGPathAddLineToPoint(newPath.get(), nil, newPoint.x, newPoint.y);
         break;
     }
-    case PathElement::Type::AddQuadCurveToPoint:
-    {
+    case PathElement::Type::AddQuadCurveToPoint: {
         rect = FloatRect(element.points[0], FloatSize());
-        CGPoint newPoint1 = [wrapper convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
+        CGPoint newPoint1 = [wrapper.get() convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
 
         rect = FloatRect(element.points[1], FloatSize());
-        CGPoint newPoint2 = [wrapper convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
-        CGPathAddQuadCurveToPoint(newPath, nil, newPoint1.x, newPoint1.y, newPoint2.x, newPoint2.y);
+        CGPoint newPoint2 = [wrapper.get() convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
+        CGPathAddQuadCurveToPoint(newPath.get(), nil, newPoint1.x, newPoint1.y, newPoint2.x, newPoint2.y);
         break;
     }
-    case PathElement::Type::AddCurveToPoint:
-    {
+    case PathElement::Type::AddCurveToPoint: {
         rect = FloatRect(element.points[0], FloatSize());
-        CGPoint newPoint1 = [wrapper convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
+        CGPoint newPoint1 = [wrapper.get() convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
 
         rect = FloatRect(element.points[1], FloatSize());
-        CGPoint newPoint2 = [wrapper convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
+        CGPoint newPoint2 = [wrapper.get() convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
 
         rect = FloatRect(element.points[2], FloatSize());
-        CGPoint newPoint3 = [wrapper convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
-        CGPathAddCurveToPoint(newPath, nil, newPoint1.x, newPoint1.y, newPoint2.x, newPoint2.y, newPoint3.x, newPoint3.y);
+        CGPoint newPoint3 = [wrapper.get() convertRectToSpace:rect space:AccessibilityConversionSpace::Screen].origin;
+        CGPathAddCurveToPoint(newPath.get(), nil, newPoint1.x, newPoint1.y, newPoint2.x, newPoint2.y, newPoint3.x, newPoint3.y);
         break;
     }
-    case PathElement::Type::CloseSubpath:
-    {
-        CGPathCloseSubpath(newPath);
+    case PathElement::Type::CloseSubpath: {
+        CGPathCloseSubpath(newPath.get());
         break;
     }
     }
@@ -497,7 +503,7 @@ static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, con
 - (CGPathRef)convertPathToScreenSpace:(const Path&)path
 {
     auto convertedPath = adoptCF(CGPathCreateMutable());
-    PathConversionInfo conversion = { self, convertedPath.get() };
+    PathConversionInfo conversion = { retainPtr(self), convertedPath };
     path.applyElements([&conversion](const PathElement& pathElement) {
         convertPathToScreenSpaceFunction(conversion, pathElement);
     });
@@ -508,7 +514,6 @@ static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, con
 // advancing forward by line from top and backwards by line from the bottom, until we have a visible range.
 - (NSRange)accessibilityVisibleCharacterRange
 {
-
 #if ENABLE(AX_THREAD_TEXT_APIS)
     if (AXObjectCache::useAXThreadTextApis()) {
         RefPtr<AXCoreObject> backingObject = self.baseUpdateBackingStore;
@@ -556,7 +561,7 @@ NSRange makeNSRange(std::optional<SimpleRange> range)
 {
     if (!range)
         return NSMakeRange(NSNotFound, 0);
-    
+
     Ref document = range->start.document();
     RefPtr frame = document->frame();
     if (!frame)
@@ -606,7 +611,7 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
         return nullptr;
     RefPtr<AXCoreObject> backingObject = self.axBackingObject;
 #endif
-    return backingObject.get();
+    return backingObject.unsafeGet();
 }
 
 - (NSArray<NSDictionary *> *)lineRectsAndText
@@ -629,7 +634,7 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
         if (end <= start)
             break;
 
-        auto rect = backingObject->boundsForVisiblePositionRange({start, end});
+        auto rect = backingObject->boundsForVisiblePositionRange({ start, end });
 
         auto lineRange = makeSimpleRange(start, end);
         if (!lineRange)
@@ -641,9 +646,9 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
             if ([item isKindOfClass:NSAttributedString.class])
                 [text appendAttributedString:item];
             else if ([item isKindOfClass:WebAccessibilityObjectWrapper.class]) {
+                RetainPtr wrapper = static_cast<WebAccessibilityObjectWrapper *>(item);
 #if PLATFORM(MAC)
-                auto *wrapper = static_cast<WebAccessibilityObjectWrapper *>(item);
-                RefPtr<AXCoreObject> object = wrapper.axBackingObject;
+                RefPtr<AXCoreObject> object = [wrapper axBackingObject];
                 if (!object)
                     continue;
 
@@ -653,7 +658,7 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
                     label = object->stringValue().createNSString();
                     break;
                 case AccessibilityRole::Image: {
-                    String name = object->titleAttributeValue();
+                    String name = object->title();
                     if (name.isEmpty())
                         name = object->descriptionAttributeValue();
                     label = name.createNSString();
@@ -663,8 +668,8 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
                     break;
                 }
 #else
-                RetainPtr<NSString> label = static_cast<WebAccessibilityObjectWrapper *>(item).accessibilityLabel;
-#endif
+                RetainPtr<NSString> label = [wrapper accessibilityLabel];
+#endif // PLATFORM(MAC)
                 if (!label)
                     continue;
 
@@ -672,7 +677,7 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
                 [text appendAttributedString:attributedLabel.get()];
             }
         }
-        lines.append({rect, text});
+        lines.append({ rect, text });
 
         start = end;
         // If start is at a hard breakline "\n", move to the beginning of the next line.
@@ -693,14 +698,17 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
     if (lines.isEmpty())
         return nil;
     return createNSArray(lines, [self] (const auto& line) {
-        return @{ @"rect": [NSValue valueWithRect:[self convertRectToSpace:FloatRect(line.first) space:AccessibilityConversionSpace::Screen]],
-                  @"text": line.second.get() };
+        return @{
+            @"rect": [NSValue valueWithRect:[self convertRectToSpace:FloatRect(line.first) space:AccessibilityConversionSpace::Screen]],
+            @"text": line.second.get()
+        };
     }).autorelease();
 }
 
 - (NSString *)ariaLandmarkRoleDescription
 {
-    return self.axBackingObject->ariaLandmarkRoleDescription().createNSString().autorelease();
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
+    return backingObject ? backingObject->ariaLandmarkRoleDescription().createNSString().autorelease() : nil;
 }
 
 - (NSString *)accessibilityPlatformMathSubscriptKey
@@ -712,20 +720,28 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
 - (NSString *)accessibilityPlatformMathSuperscriptKey
 {
     ASSERT_NOT_REACHED();
-    return nil;    
+    return nil;
 }
 
 - (NSArray *)accessibilityMathPostscriptPairs
 {
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
+    if (!backingObject)
+        return nil;
+
     AccessibilityObject::AccessibilityMathMultiscriptPairs pairs;
-    self.axBackingObject->mathPostscripts(pairs);
+    backingObject->mathPostscripts(pairs);
     return convertMathPairsToNSArray(pairs, [self accessibilityPlatformMathSubscriptKey], [self accessibilityPlatformMathSuperscriptKey]);
 }
 
 - (NSArray *)accessibilityMathPrescriptPairs
 {
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
+    if (!backingObject)
+        return nil;
+
     AccessibilityObject::AccessibilityMathMultiscriptPairs pairs;
-    self.axBackingObject->mathPrescripts(pairs);
+    backingObject->mathPrescripts(pairs);
     return convertMathPairsToNSArray(pairs, [self accessibilityPlatformMathSubscriptKey], [self accessibilityPlatformMathSuperscriptKey]);
 }
 
@@ -895,11 +911,11 @@ static AccessibilitySearchKeyMap* createAccessibilitySearchKeyMap()
         SearchKeyEntry { NSAccessibilityUnvisitedLinkSearchKey, AccessibilitySearchKey::UnvisitedLink },
         SearchKeyEntry { NSAccessibilityVisitedLinkSearchKey, AccessibilitySearchKey::VisitedLink }
     };
-    
+
     AccessibilitySearchKeyMap* searchKeyMap = new AccessibilitySearchKeyMap;
     for (auto& searchKey : searchKeys)
         searchKeyMap->set(searchKey.key, searchKey.value);
-    
+
     return searchKeyMap;
 }
 
@@ -907,9 +923,9 @@ static AccessibilitySearchKey accessibilitySearchKeyForString(const String& valu
 {
     if (value.isEmpty())
         return AccessibilitySearchKey::AnyType;
-    
+
     static const AccessibilitySearchKeyMap* searchKeyMap = createAccessibilitySearchKeyMap();
-    AccessibilitySearchKey searchKey = searchKeyMap->get(value);    
+    AccessibilitySearchKey searchKey = searchKeyMap->get(value);
     return static_cast<int>(searchKey) ? searchKey : AccessibilitySearchKey::AnyType;
 }
 
@@ -947,7 +963,7 @@ AccessibilitySearchCriteria accessibilitySearchCriteriaForSearchPredicate(AXCore
             criteria.startRange = *nsRange;
 
         if (!criteria.startObject)
-            criteria.startObject = markerRange.start().object().get();
+            criteria.startObject = markerRange.start().object().unsafeGet();
     }
 #endif
 

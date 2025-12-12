@@ -23,9 +23,10 @@
 
 #pragma once
 
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Forward.h>
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -37,7 +38,7 @@ class SegmentedString;
 class ScriptableDocumentParser;
 class WeakPtrImplWithEventTargetData;
 
-class DocumentParser : public RefCounted<DocumentParser> {
+class DocumentParser : public RefCountedAndCanMakeWeakPtr<DocumentParser> {
 public:
     virtual ~DocumentParser();
 

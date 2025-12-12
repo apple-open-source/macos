@@ -636,9 +636,8 @@ udp6_output(struct in6pcb *in6p, struct mbuf *m, struct sockaddr *addr6,
 		if (error == 0 && nstat_collect) {
 			stats_functional_type ifnet_count_type = stats_functional_type_unclassified;
 
-			if (in6p->in6p_route.ro_rt != NULL) {
-				ifnet_count_type = IFNET_COUNT_TYPE(in6p->in6p_route.
-				    ro_rt->rt_ifp);
+			if (ro.ro_rt != NULL) {
+				ifnet_count_type = IFNET_COUNT_TYPE(ro.ro_rt->rt_ifp);
 			}
 			INP_ADD_TXSTAT(in6p, ifnet_count_type, 1, ulen);
 		}

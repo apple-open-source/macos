@@ -85,6 +85,7 @@ public:
     void clearHasPendingResources() { setEventTargetFlag(EventTargetFlag::HasPendingResources, false); }
     virtual void buildPendingResource() { }
 
+    virtual bool isSVGAnimationElement() const { return false; }
     virtual bool isSVGTextPositioningElement() const { return false; }
     virtual bool isSVGGraphicsElement() const { return false; }
     virtual bool isSVGGeometryElement() const { return false; }
@@ -184,6 +185,7 @@ public:
     SVGConditionalProcessingAttributes* conditionalProcessingAttributesIfExists() const;
 
     bool hasAssociatedSVGLayoutBox() const;
+    void invalidateInstances();
 
 protected:
     SVGElement(const QualifiedName&, Document&, UniqueRef<SVGPropertyRegistry>&&, OptionSet<TypeFlag> = { });
@@ -221,8 +223,6 @@ private:
 #ifndef NDEBUG
     virtual bool filterOutAnimatableAttribute(const QualifiedName&) const;
 #endif
-
-    void invalidateInstances();
 
     std::unique_ptr<SVGElementRareData> m_svgRareData;
 

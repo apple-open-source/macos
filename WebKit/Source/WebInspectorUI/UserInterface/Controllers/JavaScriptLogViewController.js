@@ -67,9 +67,6 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
         this._pendingMessagesForSessionOrGroup = new Map;
         this._scheduledRenderIdentifier = 0;
 
-        this._consoleMessageViews = [];
-        this._showTimestamps = WI.settings.showConsoleMessageTimestamps.value;
-
         this.startNewSession();
     }
 
@@ -288,7 +285,6 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
             this._pendingMessagesForSessionOrGroup.set(this._currentSessionOrGroup, pendingMessagesForSession);
         }
         pendingMessagesForSession.push(messageView);
-        this._consoleMessageViews.push(messageView);
 
         this._cleared = false;
         this._repeatCountWasInterrupted = repeatCountWasInterrupted || false;
@@ -343,7 +339,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
         this._currentSessionOrGroup = savedCurrentConsoleGroup;
 
-        this._currentSessionOrGroup.element.classList.toggle("timestamps-visible", this._showTimestamps);
+        this._handleShowConsoleMessageTimestampsSettingChanged();
 
         if (wasScrolledToBottom || lastMessageView instanceof WI.ConsoleCommandView || lastMessageView.message.type === WI.ConsoleMessage.MessageType.Result || lastMessageView.message.type === WI.ConsoleMessage.MessageType.Image)
             this.scrollToBottom();
@@ -406,14 +402,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
     _handleShowConsoleMessageTimestampsSettingChanged()
     {
-        this._showTimestamps = WI.settings.showConsoleMessageTimestamps.value;
-        this._currentSessionOrGroup.element.classList.toggle("timestamps-visible", this._showTimestamps);
-        if (this._showTimestamps) {
-            for (let consoleMessageView of this._consoleMessageViews) {
-                if (consoleMessageView instanceof WI.ConsoleMessageView)
-                    consoleMessageView.renderTimestamp();
-            }
-        }
+        this._currentSessionOrGroup.element.classList.toggle("timestamps-visible", WI.settings.showConsoleMessageTimestamps.value);
     }
 };
 

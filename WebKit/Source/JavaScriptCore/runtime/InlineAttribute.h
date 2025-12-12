@@ -30,6 +30,7 @@ namespace JSC {
 enum class InlineAttribute : uint8_t {
     None,
     Always,
+    Never,
 };
 
 } // namespace JSC

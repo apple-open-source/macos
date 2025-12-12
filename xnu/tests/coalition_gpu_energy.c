@@ -35,6 +35,7 @@
 
 #include <darwintest.h>
 #include <darwintest_utils.h>
+#include <test_utils.h>
 #include <mach/task.h>
 #include <mach/mach.h>
 
@@ -42,6 +43,7 @@ T_GLOBAL_META(T_META_NAMESPACE("xnu.scheduler"),
     T_META_RADAR_COMPONENT_NAME("xnu"),
     T_META_RADAR_COMPONENT_VERSION("scheduler"),
     T_META_OWNER("chimene"),
+    XNU_T_META_REQUIRES_DEVELOPMENT_KERNEL,     /* needed for development-only sysctls */
     T_META_RUN_CONCURRENTLY(false));
 
 static uint64_t

@@ -121,7 +121,7 @@ void WebExtensionAPIPort::setError(JSValue *error)
     m_error = error;
 }
 
-void WebExtensionAPIPort::postMessage(WebFrame& frame, NSString *message, NSString **outExceptionString)
+void WebExtensionAPIPort::postMessage(WebFrame& frame, const String& message, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/Port#postmessage
 
@@ -130,7 +130,7 @@ void WebExtensionAPIPort::postMessage(WebFrame& frame, NSString *message, NSStri
         return;
     }
 
-    if (message.length > webExtensionMaxMessageLength) {
+    if (message.length() > webExtensionMaxMessageLength) {
         *outExceptionString = toErrorString(nullString(), @"message", @"it exceeded the maximum allowed length").createNSString().autorelease();
         return;
     }

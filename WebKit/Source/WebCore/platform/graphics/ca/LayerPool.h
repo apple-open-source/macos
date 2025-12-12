@@ -26,10 +26,10 @@
 #ifndef LayerPool_h
 #define LayerPool_h
 
-#include "IntSize.h"
-#include "IntSizeHash.h"
-#include "PlatformCALayer.h"
-#include "Timer.h"
+#include <WebCore/IntSize.h>
+#include <WebCore/IntSizeHash.h>
+#include <WebCore/PlatformCALayer.h>
+#include <WebCore/Timer.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>

@@ -42,6 +42,8 @@
 
 namespace WebKit {
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
+
 static const size_t notSet = static_cast<size_t>(-1);
 
 static const Seconds s_minPollingInterval { 1_s };
@@ -508,6 +510,8 @@ size_t CGroupMemoryController::getMemoryUsageWithCgroup()
 
     return notSet;
 }
+
+IGNORE_CLANG_WARNINGS_END
 
 } // namespace WebKit
 

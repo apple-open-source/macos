@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "Position.h"
-#include "Range.h"
-#include "StaticRange.h"
+#include <WebCore/Position.h>
+#include <WebCore/Range.h>
+#include <WebCore/StaticRange.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 
 namespace WebCore {

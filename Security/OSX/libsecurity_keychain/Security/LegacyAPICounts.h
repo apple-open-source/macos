@@ -39,6 +39,8 @@ bool countLegacyAPIEnabledForThread(void);
 
 void countLegacyMDSPlugin(const char* path, const char* guid);
 
+void countLegacyKeychainUserDefaults(const bool defaultModified, const bool loginModified, const int8_t searchListLength, const int8_t defaultLoginIndex, const int8_t currentLoginIndex, const int8_t firstSymlinkIndex, const int8_t firstOutsideIndex);
+
 #ifdef  __cplusplus
 }
 #endif

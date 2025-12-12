@@ -207,8 +207,20 @@ static const std::optional<Vector<FourCC>>& nullOptionalFourCCVector()
 
 class NullMediaPlayerClient final
     : public MediaPlayerClient
+    , public RefCounted<NullMediaPlayerClient>
     , public Identified<MediaPlayerClientIdentifier> {
+public:
+    static Ref<NullMediaPlayerClient> create()
+    {
+        return adoptRef(*new NullMediaPlayerClient);
+    }
+
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
 private:
+    NullMediaPlayerClient() = default;
+
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger() final
     {
@@ -259,7 +271,7 @@ const Vector<ContentType>& MediaPlayerClient::mediaContentTypesRequiringHardware
 
 static MediaPlayerClient& nullMediaPlayerClient()
 {
-    static NeverDestroyed<NullMediaPlayerClient> client;
+    static NeverDestroyed<Ref<NullMediaPlayerClient>> client = NullMediaPlayerClient::create();
     return client.get();
 }
 
@@ -299,31 +311,32 @@ static void buildMediaEnginesVector() WTF_REQUIRES_LOCK(mediaEngineVectorLock)
 #if USE(AVFOUNDATION)
     auto& registerRemoteEngine = registerRemotePlayerCallback();
 #if ENABLE(MEDIA_SOURCE)
-    if (registerRemoteEngine && platformStrategies()->mediaStrategy().mockMediaSourceEnabled())
+    if (registerRemoteEngine && platformStrategies()->mediaStrategy()->mockMediaSourceEnabled())
         registerRemoteEngine(addMediaEngine, MediaPlayerEnums::MediaEngineIdentifier::MockMSE);
 #endif
 
     if (DeprecatedGlobalSettings::isAVFoundationEnabled()) {
-
-#if ENABLE(COCOA_WEBM_PLAYER)
-        if (!hasPlatformStrategies() || platformStrategies()->mediaStrategy().enableWebMMediaPlayer()) {
-            if (registerRemoteEngine)
-                registerRemoteEngine(addMediaEngine, MediaPlayerEnums::MediaEngineIdentifier::CocoaWebM);
-            else
-                MediaPlayerPrivateWebM::registerMediaEngine(addMediaEngine);
-        }
-#endif
-
         if (registerRemoteEngine)
             registerRemoteEngine(addMediaEngine, MediaPlayerEnums::MediaEngineIdentifier::AVFoundation);
         else
             MediaPlayerPrivateAVFoundationObjC::registerMediaEngine(addMediaEngine);
 
 #if ENABLE(MEDIA_SOURCE)
-        if (registerRemoteEngine)
+        bool useMSERemoteRenderer = hasPlatformStrategies() && platformStrategies()->mediaStrategy()->hasRemoteRendererFor(MediaPlayerMediaEngineIdentifier::AVFoundationMSE);
+        if (registerRemoteEngine && !useMSERemoteRenderer)
             registerRemoteEngine(addMediaEngine, MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMSE);
         else
             MediaPlayerPrivateMediaSourceAVFObjC::registerMediaEngine(addMediaEngine);
+#endif
+
+#if ENABLE(COCOA_WEBM_PLAYER)
+        bool useRemoteRenderer = hasPlatformStrategies() && platformStrategies()->mediaStrategy()->hasRemoteRendererFor(MediaPlayerMediaEngineIdentifier::CocoaWebM);
+        if (!hasPlatformStrategies() || platformStrategies()->mediaStrategy()->enableWebMMediaPlayer()) {
+            if (registerRemoteEngine && !useRemoteRenderer)
+                registerRemoteEngine(addMediaEngine, MediaPlayerEnums::MediaEngineIdentifier::CocoaWebM);
+            else
+                MediaPlayerPrivateWebM::registerMediaEngine(addMediaEngine);
+        }
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -505,8 +518,8 @@ MediaPlayer::MediaPlayer(MediaPlayerClient& client, MediaPlayerEnums::MediaEngin
 MediaPlayer::~MediaPlayer()
 {
     ASSERT(!m_initializingMediaEngine);
-    if (m_private)
-        m_private->mediaPlayerWillBeDestroyed();
+    if (RefPtr privatePtr = m_private)
+        privatePtr->mediaPlayerWillBeDestroyed();
 }
 
 void MediaPlayer::invalidate()
@@ -594,7 +607,7 @@ const MediaPlayerFactory* MediaPlayer::nextBestMediaEngine(const MediaPlayerFact
 
 void MediaPlayer::reloadAndResumePlaybackIfNeeded()
 {
-    client().mediaPlayerReloadAndResumePlaybackIfNeeded();
+    protectedClient()->mediaPlayerReloadAndResumePlaybackIfNeeded();
 }
 
 void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
@@ -614,7 +627,7 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
 
     ASSERT(!m_initializingMediaEngine);
     m_initializingMediaEngine = true;
-    client().mediaPlayerWillInitializeMediaEngine();
+    protectedClient()->mediaPlayerWillInitializeMediaEngine();
 
     const MediaPlayerFactory* engine = nullptr;
 
@@ -636,7 +649,7 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
         RefPtr playerPrivate = engine->createMediaEnginePlayer(this);
         m_private = playerPrivate;
         if (playerPrivate) {
-            client().mediaPlayerEngineUpdated();
+            protectedClient()->mediaPlayerEngineUpdated();
             playerPrivate->setMessageClientForTesting(m_internalMessageClient);
 
             if (m_pageIsVisible)
@@ -659,8 +672,9 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
         }
     }
 
+    Ref client = this->client();
     if (RefPtr playerPrivate = m_private) {
-        playerPrivate->setShouldCheckHardwareSupport(client().mediaPlayerShouldCheckHardwareSupport());
+        playerPrivate->setShouldCheckHardwareSupport(client->mediaPlayerShouldCheckHardwareSupport());
 
 #if ENABLE(MEDIA_SOURCE)
         if (RefPtr mediaSource = m_mediaSource.get())
@@ -680,19 +694,19 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
             && (nextBestMediaEngine(m_currentMediaEngine) || nextMediaEngine(m_currentMediaEngine)))
             m_reloadTimer.startOneShot(0_s);
         else {
-            client().mediaPlayerEngineUpdated();
-            client().mediaPlayerResourceNotSupported();
+            client->mediaPlayerEngineUpdated();
+            client->mediaPlayerResourceNotSupported();
         }
     }
 
     m_initializingMediaEngine = false;
-    client().mediaPlayerDidInitializeMediaEngine();
+    client->mediaPlayerDidInitializeMediaEngine();
 }
 
 void MediaPlayer::queueTaskOnEventLoop(Function<void()>&& task)
 {
     ASSERT(isMainThread());
-    client().mediaPlayerQueueTaskOnEventLoop(WTFMove(task));
+    protectedClient()->mediaPlayerQueueTaskOnEventLoop(WTFMove(task));
 }
 
 bool MediaPlayer::hasAvailableVideoFrame() const
@@ -703,7 +717,7 @@ bool MediaPlayer::hasAvailableVideoFrame() const
 void MediaPlayer::prepareForRendering()
 {
     m_shouldPrepareToRender = true;
-    m_private->prepareForRendering();
+    protectedPrivate()->prepareForRendering();
 }
 
 void MediaPlayer::cancelLoad()
@@ -716,7 +730,7 @@ void MediaPlayer::prepareToPlay()
     Ref<MediaPlayer> protectedThis(*this);
 
     m_shouldPrepareToPlay = true;
-    m_private->prepareToPlay();
+    protectedPrivate()->prepareToPlay();
 }
 
 void MediaPlayer::play()
@@ -731,29 +745,29 @@ void MediaPlayer::pause()
 
 void MediaPlayer::setBufferingPolicy(BufferingPolicy policy)
 {
-    m_private->setBufferingPolicy(policy);
+    protectedPrivate()->setBufferingPolicy(policy);
 }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
 RefPtr<LegacyCDMSession> MediaPlayer::createSession(const String& keySystem, LegacyCDMSessionClient& client)
 {
-    return m_private->createSession(keySystem, client);
+    return protectedPrivate()->createSession(keySystem, client);
 }
 
 void MediaPlayer::setCDM(LegacyCDM* cdm)
 {
-    m_private->setCDM(cdm);
+    protectedPrivate()->setCDM(cdm);
 }
 
 void MediaPlayer::setCDMSession(LegacyCDMSession* session)
 {
-    m_private->setCDMSession(session);
+    protectedPrivate()->setCDMSession(session);
 }
 
 void MediaPlayer::keyAdded()
 {
-    m_private->keyAdded();
+    protectedPrivate()->keyAdded();
 }
 
 #endif
@@ -762,17 +776,17 @@ void MediaPlayer::keyAdded()
 
 void MediaPlayer::cdmInstanceAttached(CDMInstance& instance)
 {
-    m_private->cdmInstanceAttached(instance);
+    protectedPrivate()->cdmInstanceAttached(instance);
 }
 
 void MediaPlayer::cdmInstanceDetached(CDMInstance& instance)
 {
-    m_private->cdmInstanceDetached(instance);
+    protectedPrivate()->cdmInstanceDetached(instance);
 }
 
 void MediaPlayer::attemptToDecryptWithInstance(CDMInstance& instance)
 {
-    m_private->attemptToDecryptWithInstance(instance);
+    protectedPrivate()->attemptToDecryptWithInstance(instance);
 }
 
 #endif
@@ -781,7 +795,7 @@ void MediaPlayer::attemptToDecryptWithInstance(CDMInstance& instance)
 void MediaPlayer::setShouldContinueAfterKeyNeeded(bool should)
 {
     m_shouldContinueAfterKeyNeeded = should;
-    m_private->setShouldContinueAfterKeyNeeded(m_shouldContinueAfterKeyNeeded);
+    protectedPrivate()->setShouldContinueAfterKeyNeeded(m_shouldContinueAfterKeyNeeded);
 }
 #endif
 
@@ -812,7 +826,7 @@ bool MediaPlayer::timeIsProgressing() const
 
 bool MediaPlayer::setCurrentTimeDidChangeCallback(CurrentTimeDidChangeCallback&& callback)
 {
-    return m_private->setCurrentTimeDidChangeCallback(WTFMove(callback));
+    return protectedPrivate()->setCurrentTimeDidChangeCallback(WTFMove(callback));
 }
 
 MediaTime MediaPlayer::getStartDate() const
@@ -822,7 +836,7 @@ MediaTime MediaPlayer::getStartDate() const
 
 void MediaPlayer::willSeekToTarget(const MediaTime& time)
 {
-    m_private->willSeekToTarget(time);
+    protectedPrivate()->willSeekToTarget(time);
 }
 
 void MediaPlayer::seekToTarget(const SeekTarget& target)
@@ -847,7 +861,7 @@ void MediaPlayer::seekWhenPossible(const MediaTime& time)
 
 void MediaPlayer::seeked(const MediaTime& time)
 {
-    client().mediaPlayerSeeked(time);
+    protectedClient()->mediaPlayerSeeked(time);
 }
 
 bool MediaPlayer::paused() const
@@ -862,27 +876,27 @@ bool MediaPlayer::seeking() const
 
 bool MediaPlayer::supportsFullscreen() const
 {
-    return m_private->supportsFullscreen();
+    return protectedPrivate()->supportsFullscreen();
 }
 
 bool MediaPlayer::canSaveMediaData() const
 {
-    return m_private->canSaveMediaData();
+    return protectedPrivate()->canSaveMediaData();
 }
 
 bool MediaPlayer::supportsScanning() const
 {
-    return m_private->supportsScanning();
+    return protectedPrivate()->supportsScanning();
 }
 
 bool MediaPlayer::supportsProgressMonitoring() const
 {
-    return m_private->supportsProgressMonitoring();
+    return protectedPrivate()->supportsProgressMonitoring();
 }
 
 bool MediaPlayer::requiresImmediateCompositing() const
 {
-    return m_private->requiresImmediateCompositing();
+    return protectedPrivate()->requiresImmediateCompositing();
 }
 
 FloatSize MediaPlayer::naturalSize()
@@ -902,7 +916,7 @@ bool MediaPlayer::hasAudio() const
 
 PlatformLayer* MediaPlayer::platformLayer() const
 {
-    return m_private->platformLayer();
+    return protectedPrivate()->platformLayer();
 }
     
 #if ENABLE(VIDEO_PRESENTATION_MODE)
@@ -919,50 +933,50 @@ void MediaPlayer::setVideoFullscreenLayer(PlatformLayer* layer, Function<void()>
 
 void MediaPlayer::updateVideoFullscreenInlineImage()
 {
-    m_private->updateVideoFullscreenInlineImage();
+    protectedPrivate()->updateVideoFullscreenInlineImage();
 }
 
-void MediaPlayer::setVideoFullscreenFrame(FloatRect frame)
+void MediaPlayer::setVideoFullscreenFrame(const FloatRect& frame)
 {
-    m_private->setVideoFullscreenFrame(frame);
+    protectedPrivate()->setVideoFullscreenFrame(frame);
 }
 
 void MediaPlayer::setVideoFullscreenGravity(MediaPlayer::VideoGravity gravity)
 {
-    m_private->setVideoFullscreenGravity(gravity);
+    protectedPrivate()->setVideoFullscreenGravity(gravity);
 }
 
 void MediaPlayer::setVideoFullscreenMode(MediaPlayer::VideoFullscreenMode mode)
 {
-    m_private->setVideoFullscreenMode(mode);
+    protectedPrivate()->setVideoFullscreenMode(mode);
 }
 
 MediaPlayer::VideoFullscreenMode MediaPlayer::fullscreenMode() const
 {
-    return client().mediaPlayerFullscreenMode();
+    return protectedClient()->mediaPlayerFullscreenMode();
 }
 
 void MediaPlayer::videoFullscreenStandbyChanged()
 {
-    m_private->videoFullscreenStandbyChanged();
+    protectedPrivate()->videoFullscreenStandbyChanged();
 }
 
 bool MediaPlayer::isVideoFullscreenStandby() const
 {
-    return client().mediaPlayerIsVideoFullscreenStandby();
+    return protectedClient()->mediaPlayerIsVideoFullscreenStandby();
 }
 
 #endif
 
 FloatSize MediaPlayer::videoLayerSize() const
 {
-    return client().mediaPlayerVideoLayerSize();
+    return protectedClient()->mediaPlayerVideoLayerSize();
 }
 
 #if PLATFORM(IOS_FAMILY)
 bool MediaPlayer::canShowWhileLocked() const
 {
-    return client().canShowWhileLocked();
+    return protectedClient()->canShowWhileLocked();
 }
 
 void MediaPlayer::setSceneIdentifier(const String& identifier)
@@ -970,35 +984,35 @@ void MediaPlayer::setSceneIdentifier(const String& identifier)
     if (m_sceneIdentifier == identifier)
         return;
     m_sceneIdentifier = identifier;
-    m_private->sceneIdentifierDidChange();
+    protectedPrivate()->sceneIdentifierDidChange();
 }
 #endif
 
 void MediaPlayer::videoLayerSizeDidChange(const FloatSize& size)
 {
-    client().mediaPlayerVideoLayerSizeDidChange(size);
+    protectedClient()->mediaPlayerVideoLayerSizeDidChange(size);
 }
 
 void MediaPlayer::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRightAnnotated&& fence)
 {
-    m_private->setVideoLayerSizeFenced(size, WTFMove(fence));
+    protectedPrivate()->setVideoLayerSizeFenced(size, WTFMove(fence));
 }
 
 #if PLATFORM(IOS_FAMILY)
 
 NSArray* MediaPlayer::timedMetadata() const
 {
-    return m_private->timedMetadata();
+    return protectedPrivate()->timedMetadata();
 }
 
 String MediaPlayer::accessLog() const
 {
-    return m_private->accessLog();
+    return protectedPrivate()->accessLog();
 }
 
 String MediaPlayer::errorLog() const
 {
-    return m_private->errorLog();
+    return protectedPrivate()->errorLog();
 }
 
 #endif
@@ -1015,7 +1029,7 @@ MediaPlayer::ReadyState MediaPlayer::readyState() const
 
 void MediaPlayer::setVolumeLocked(bool volumeLocked)
 {
-    m_private->setVolumeLocked(volumeLocked);
+    protectedPrivate()->setVolumeLocked(volumeLocked);
 }
 
 double MediaPlayer::volume() const
@@ -1026,7 +1040,7 @@ double MediaPlayer::volume() const
 void MediaPlayer::setVolume(double volume)
 {
     m_volume = volume;
-    m_private->setVolumeDouble(volume);
+    protectedPrivate()->setVolumeDouble(volume);
 }
 
 bool MediaPlayer::muted() const
@@ -1038,37 +1052,37 @@ void MediaPlayer::setMuted(bool muted)
 {
     m_muted = muted;
 
-    m_private->setMuted(muted);
+    protectedPrivate()->setMuted(muted);
 }
 
 bool MediaPlayer::hasClosedCaptions() const
 {
-    return m_private->hasClosedCaptions();
+    return protectedPrivate()->hasClosedCaptions();
 }
 
 void MediaPlayer::setClosedCaptionsVisible(bool closedCaptionsVisible)
 {
-    m_private->setClosedCaptionsVisible(closedCaptionsVisible);
+    protectedPrivate()->setClosedCaptionsVisible(closedCaptionsVisible);
 }
 
 double MediaPlayer::rate() const
 {
-    return m_private->rate();
+    return protectedPrivate()->rate();
 }
 
 void MediaPlayer::setRate(double rate)
 {
-    m_private->setRateDouble(rate);
+    protectedPrivate()->setRateDouble(rate);
 }
 
 double MediaPlayer::effectiveRate() const
 {
-    return m_private->effectiveRate();
+    return protectedPrivate()->effectiveRate();
 }
 
 double MediaPlayer::requestedRate() const
 {
-    return client().mediaPlayerRequestedPlaybackRate();
+    return protectedClient()->mediaPlayerRequestedPlaybackRate();
 }
 
 bool MediaPlayer::preservesPitch() const
@@ -1079,7 +1093,7 @@ bool MediaPlayer::preservesPitch() const
 void MediaPlayer::setPreservesPitch(bool preservesPitch)
 {
     m_preservesPitch = preservesPitch;
-    m_private->setPreservesPitch(preservesPitch);
+    protectedPrivate()->setPreservesPitch(preservesPitch);
 }
 
 void MediaPlayer::setPitchCorrectionAlgorithm(PitchCorrectionAlgorithm pitchCorrectionAlgorithm)
@@ -1088,7 +1102,7 @@ void MediaPlayer::setPitchCorrectionAlgorithm(PitchCorrectionAlgorithm pitchCorr
         return;
 
     m_pitchCorrectionAlgorithm = pitchCorrectionAlgorithm;
-    m_private->setPitchCorrectionAlgorithm(pitchCorrectionAlgorithm);
+    protectedPrivate()->setPitchCorrectionAlgorithm(pitchCorrectionAlgorithm);
 }
 
 RefPtr<MediaPlayerPrivateInterface> MediaPlayer::protectedPrivate() const
@@ -1118,22 +1132,22 @@ MediaTime MediaPlayer::minTimeSeekable() const
 
 double MediaPlayer::seekableTimeRangesLastModifiedTime()
 {
-    return m_private->seekableTimeRangesLastModifiedTime();
+    return protectedPrivate()->seekableTimeRangesLastModifiedTime();
 }
 
 void MediaPlayer::bufferedTimeRangesChanged()
 {
-    client().mediaPlayerBufferedTimeRangesChanged();
+    protectedClient()->mediaPlayerBufferedTimeRangesChanged();
 }
 
 void MediaPlayer::seekableTimeRangesChanged()
 {
-    client().mediaPlayerSeekableTimeRangesChanged();
+    protectedClient()->mediaPlayerSeekableTimeRangesChanged();
 }
 
 double MediaPlayer::liveUpdateInterval()
 {
-    return m_private->liveUpdateInterval();
+    return protectedPrivate()->liveUpdateInterval();
 }
 
 void MediaPlayer::didLoadingProgress(DidLoadingProgressCompletionHandler&& callback) const
@@ -1147,7 +1161,7 @@ void MediaPlayer::setPresentationSize(const IntSize& size)
         return;
 
     m_presentationSize = size;
-    m_private->setPresentationSize(size);
+    protectedPrivate()->setPresentationSize(size);
 }
 
 void MediaPlayer::setPageIsVisible(bool visible)
@@ -1171,13 +1185,13 @@ void MediaPlayer::setVisibleInViewport(bool visible)
         return;
 
     m_visibleInViewport = visible;
-    m_private->setVisibleInViewport(visible);
+    protectedPrivate()->setVisibleInViewport(visible);
 }
 
 void MediaPlayer::setResourceOwner(const ProcessIdentity& processIdentity)
 {
     m_processIdentity = processIdentity;
-    m_private->setResourceOwner(processIdentity);
+    protectedPrivate()->setResourceOwner(processIdentity);
 }
 
 MediaPlayer::Preload MediaPlayer::preload() const
@@ -1188,7 +1202,7 @@ MediaPlayer::Preload MediaPlayer::preload() const
 void MediaPlayer::setPreload(MediaPlayer::Preload preload)
 {
     m_preload = preload;
-    m_private->setPreload(preload);
+    protectedPrivate()->setPreload(preload);
 }
 
 void MediaPlayer::paint(GraphicsContext& context, const FloatRect& destination)
@@ -1203,13 +1217,13 @@ void MediaPlayer::paintCurrentFrameInContext(GraphicsContext& context, const Flo
 
 RefPtr<VideoFrame> MediaPlayer::videoFrameForCurrentTime()
 {
-    return m_private->videoFrameForCurrentTime();
+    return protectedPrivate()->videoFrameForCurrentTime();
 }
 
 
 RefPtr<NativeImage> MediaPlayer::nativeImageForCurrentTime()
 {
-    return m_private->nativeImageForCurrentTime();
+    return protectedPrivate()->nativeImageForCurrentTime();
 }
 
 DestinationColorSpace MediaPlayer::colorSpace()
@@ -1219,7 +1233,7 @@ DestinationColorSpace MediaPlayer::colorSpace()
 
 bool MediaPlayer::shouldGetNativeImageForCanvasDrawing() const
 {
-    return m_private->shouldGetNativeImageForCanvasDrawing();
+    return protectedPrivate()->shouldGetNativeImageForCanvasDrawing();
 }
 
 MediaPlayer::SupportsType MediaPlayer::supportsType(const MediaEngineSupportParameters& parameters)
@@ -1260,14 +1274,14 @@ bool MediaPlayer::isAvailable()
 
 bool MediaPlayer::supportsPictureInPicture() const
 {
-    return m_private->supportsPictureInPicture();
+    return protectedPrivate()->supportsPictureInPicture();
 }
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 bool MediaPlayer::isCurrentPlaybackTargetWireless() const
 {
-    return m_private->isCurrentPlaybackTargetWireless();
+    return protectedPrivate()->isCurrentPlaybackTargetWireless();
 }
 
 String MediaPlayer::wirelessPlaybackTargetName() const
@@ -1277,64 +1291,64 @@ String MediaPlayer::wirelessPlaybackTargetName() const
 
 MediaPlayer::WirelessPlaybackTargetType MediaPlayer::wirelessPlaybackTargetType() const
 {
-    return m_private->wirelessPlaybackTargetType();
+    return protectedPrivate()->wirelessPlaybackTargetType();
 }
 
 bool MediaPlayer::wirelessVideoPlaybackDisabled() const
 {
-    return m_private->wirelessVideoPlaybackDisabled();
+    return protectedPrivate()->wirelessVideoPlaybackDisabled();
 }
 
 void MediaPlayer::setWirelessVideoPlaybackDisabled(bool disabled)
 {
-    m_private->setWirelessVideoPlaybackDisabled(disabled);
+    protectedPrivate()->setWirelessVideoPlaybackDisabled(disabled);
 }
 
 void MediaPlayer::currentPlaybackTargetIsWirelessChanged(bool isCurrentPlaybackTargetWireless)
 {
-    client().mediaPlayerCurrentPlaybackTargetIsWirelessChanged(isCurrentPlaybackTargetWireless);
+    protectedClient()->mediaPlayerCurrentPlaybackTargetIsWirelessChanged(isCurrentPlaybackTargetWireless);
 }
 
 bool MediaPlayer::canPlayToWirelessPlaybackTarget() const
 {
-    return m_private->canPlayToWirelessPlaybackTarget();
+    return protectedPrivate()->canPlayToWirelessPlaybackTarget();
 }
 
 void MediaPlayer::setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&& device)
 {
-    m_private->setWirelessPlaybackTarget(WTFMove(device));
+    protectedPrivate()->setWirelessPlaybackTarget(WTFMove(device));
 }
 
 void MediaPlayer::setShouldPlayToPlaybackTarget(bool shouldPlay)
 {
-    m_private->setShouldPlayToPlaybackTarget(shouldPlay);
+    protectedPrivate()->setShouldPlayToPlaybackTarget(shouldPlay);
 }
 
 #endif
 
 double MediaPlayer::maxFastForwardRate() const
 {
-    return m_private->maxFastForwardRate();
+    return protectedPrivate()->maxFastForwardRate();
 }
 
 double MediaPlayer::minFastReverseRate() const
 {
-    return m_private->minFastReverseRate();
+    return protectedPrivate()->minFastReverseRate();
 }
 
 void MediaPlayer::acceleratedRenderingStateChanged()
 {
-    m_private->acceleratedRenderingStateChanged();
+    protectedPrivate()->acceleratedRenderingStateChanged();
 }
 
 bool MediaPlayer::supportsAcceleratedRendering() const
 {
-    return m_private->supportsAcceleratedRendering();
+    return protectedPrivate()->supportsAcceleratedRendering();
 }
 
 void MediaPlayer::setShouldMaintainAspectRatio(bool maintainAspectRatio)
 {
-    m_private->setShouldMaintainAspectRatio(maintainAspectRatio);
+    protectedPrivate()->setShouldMaintainAspectRatio(maintainAspectRatio);
 }
 
 void MediaPlayer::requestHostingContext(LayerHostingContextCallback&& callback)
@@ -1344,12 +1358,12 @@ void MediaPlayer::requestHostingContext(LayerHostingContextCallback&& callback)
 
 HostingContext MediaPlayer::hostingContext() const
 {
-    return m_private->hostingContext();
+    return protectedPrivate()->hostingContext();
 }
 
 bool MediaPlayer::didPassCORSAccessCheck() const
 {
-    return m_private->didPassCORSAccessCheck();
+    return protectedPrivate()->didPassCORSAccessCheck();
 }
 
 bool MediaPlayer::isCrossOrigin(const SecurityOrigin& origin) const
@@ -1360,37 +1374,37 @@ bool MediaPlayer::isCrossOrigin(const SecurityOrigin& origin) const
     if (m_url.protocolIsData())
         return false;
 
-    return !origin.canRequest(m_url, EmptyOriginAccessPatterns::singleton());
+    return !origin.canRequest(m_url, originAccessPatternsForWebProcessOrEmpty());
 }
 
 MediaPlayer::MovieLoadType MediaPlayer::movieLoadType() const
 {
-    return m_private->movieLoadType();
+    return protectedPrivate()->movieLoadType();
 }
 
 MediaTime MediaPlayer::mediaTimeForTimeValue(const MediaTime& timeValue) const
 {
-    return m_private->mediaTimeForTimeValue(timeValue);
+    return protectedPrivate()->mediaTimeForTimeValue(timeValue);
 }
 
 unsigned MediaPlayer::decodedFrameCount() const
 {
-    return m_private->decodedFrameCount();
+    return protectedPrivate()->decodedFrameCount();
 }
 
 unsigned MediaPlayer::droppedFrameCount() const
 {
-    return m_private->droppedFrameCount();
+    return protectedPrivate()->droppedFrameCount();
 }
 
 unsigned MediaPlayer::audioDecodedByteCount() const
 {
-    return m_private->audioDecodedByteCount();
+    return protectedPrivate()->audioDecodedByteCount();
 }
 
 unsigned MediaPlayer::videoDecodedByteCount() const
 {
-    return m_private->videoDecodedByteCount();
+    return protectedPrivate()->videoDecodedByteCount();
 }
 
 void MediaPlayer::reloadTimerFired()
@@ -1441,8 +1455,8 @@ bool MediaPlayer::supportsKeySystem(const String& keySystem, const String& mimeT
 void MediaPlayer::setPrivateBrowsingMode(bool privateBrowsingMode)
 {
     m_inPrivateBrowsingMode = privateBrowsingMode;
-    if (m_private)
-        m_private->setPrivateBrowsingMode(m_inPrivateBrowsingMode);
+    if (RefPtr privateInterface = m_private)
+        privateInterface->setPrivateBrowsingMode(m_inPrivateBrowsingMode);
 }
 
 // Client callbacks.
@@ -1451,10 +1465,11 @@ void MediaPlayer::networkStateChanged()
     RefPtr playerPrivate = m_private;
     if (playerPrivate->networkState() >= MediaPlayer::NetworkState::FormatError)
         m_lastErrorMessage = playerPrivate->errorMessage();
+    Ref client = this->client();
     // If more than one media engine is installed and this one failed before finding metadata,
     // let the next engine try.
     if (playerPrivate->networkState() >= MediaPlayer::NetworkState::FormatError && playerPrivate->readyState() < MediaPlayer::ReadyState::HaveMetadata) {
-        client().mediaPlayerEngineFailedToLoad();
+        client->mediaPlayerEngineFailedToLoad();
         if (!m_activeEngineIdentifier
             && installedMediaEngines().size() > 1
             && (nextBestMediaEngine(m_currentMediaEngine) || nextMediaEngine(m_currentMediaEngine))) {
@@ -1462,12 +1477,12 @@ void MediaPlayer::networkStateChanged()
             return;
         }
     }
-    client().mediaPlayerNetworkStateChanged();
+    client->mediaPlayerNetworkStateChanged();
 }
 
 void MediaPlayer::readyStateChanged()
 {
-    client().mediaPlayerReadyStateChanged();
+    protectedClient()->mediaPlayerReadyStateChanged();
     if (m_pendingSeekRequest && protectedPrivate()->readyState() == MediaPlayer::ReadyState::HaveMetadata)
         seekToTime(*std::exchange(m_pendingSeekRequest, std::nullopt));
 }
@@ -1476,11 +1491,11 @@ void MediaPlayer::volumeChanged(double newVolume)
 {
 #if PLATFORM(IOS_FAMILY)
     UNUSED_PARAM(newVolume);
-    m_volume = m_private->volume();
+    m_volume = protectedPrivate()->volume();
 #else
     m_volume = newVolume;
 #endif
-    client().mediaPlayerVolumeChanged();
+    protectedClient()->mediaPlayerVolumeChanged();
 }
 
 void MediaPlayer::muteChanged(bool newMuted)
@@ -1489,54 +1504,54 @@ void MediaPlayer::muteChanged(bool newMuted)
         return;
 
     m_muted = newMuted;
-    client().mediaPlayerMuteChanged();
+    protectedClient()->mediaPlayerMuteChanged();
 }
 
 void MediaPlayer::timeChanged()
 {
-    client().mediaPlayerTimeChanged();
+    protectedClient()->mediaPlayerTimeChanged();
 }
 
 void MediaPlayer::sizeChanged()
 {
-    client().mediaPlayerSizeChanged();
+    protectedClient()->mediaPlayerSizeChanged();
 }
 
 void MediaPlayer::repaint()
 {
-    client().mediaPlayerRepaint();
+    protectedClient()->mediaPlayerRepaint();
 }
 
 void MediaPlayer::durationChanged()
 {
-    client().mediaPlayerDurationChanged();
+    protectedClient()->mediaPlayerDurationChanged();
 }
 
 void MediaPlayer::rateChanged()
 {
-    client().mediaPlayerRateChanged();
+    protectedClient()->mediaPlayerRateChanged();
 }
 
 void MediaPlayer::playbackStateChanged()
 {
-    client().mediaPlayerPlaybackStateChanged();
+    protectedClient()->mediaPlayerPlaybackStateChanged();
 }
 
 void MediaPlayer::firstVideoFrameAvailable()
 {
-    client().mediaPlayerFirstVideoFrameAvailable();
+    protectedClient()->mediaPlayerFirstVideoFrameAvailable();
 }
 
 void MediaPlayer::characteristicChanged()
 {
-    client().mediaPlayerCharacteristicChanged();
+    protectedClient()->mediaPlayerCharacteristicChanged();
 }
 
 #if ENABLE(WEB_AUDIO)
 
 AudioSourceProvider* MediaPlayer::audioSourceProvider()
 {
-    return m_private->audioSourceProvider();
+    return protectedPrivate()->audioSourceProvider();
 }
 
 #endif
@@ -1545,17 +1560,17 @@ AudioSourceProvider* MediaPlayer::audioSourceProvider()
 
 RefPtr<ArrayBuffer> MediaPlayer::cachedKeyForKeyId(const String& keyId) const
 {
-    return client().mediaPlayerCachedKeyForKeyId(keyId);
+    return protectedClient()->mediaPlayerCachedKeyForKeyId(keyId);
 }
 
 void MediaPlayer::keyNeeded(const SharedBuffer& initData)
 {
-    client().mediaPlayerKeyNeeded(initData);
+    protectedClient()->mediaPlayerKeyNeeded(initData);
 }
 
 String MediaPlayer::mediaKeysStorageDirectory() const
 {
-    return client().mediaPlayerMediaKeysStorageDirectory();
+    return protectedClient()->mediaPlayerMediaKeysStorageDirectory();
 }
 
 #endif
@@ -1564,30 +1579,30 @@ String MediaPlayer::mediaKeysStorageDirectory() const
 
 void MediaPlayer::initializationDataEncountered(const String& initDataType, RefPtr<ArrayBuffer>&& initData)
 {
-    client().mediaPlayerInitializationDataEncountered(initDataType, WTFMove(initData));
+    protectedClient()->mediaPlayerInitializationDataEncountered(initDataType, WTFMove(initData));
 }
 
 void MediaPlayer::waitingForKeyChanged()
 {
-    client().mediaPlayerWaitingForKeyChanged();
+    protectedClient()->mediaPlayerWaitingForKeyChanged();
 }
 
 bool MediaPlayer::waitingForKey() const
 {
     if (!m_private)
         return false;
-    return m_private->waitingForKey();
+    return protectedPrivate()->waitingForKey();
 }
 #endif
 
 String MediaPlayer::referrer() const
 {
-    return client().mediaPlayerReferrer();
+    return protectedClient()->mediaPlayerReferrer();
 }
 
 String MediaPlayer::userAgent() const
 {
-    return client().mediaPlayerUserAgent();
+    return protectedClient()->mediaPlayerUserAgent();
 }
 
 String MediaPlayer::engineDescription() const
@@ -1601,76 +1616,76 @@ long MediaPlayer::platformErrorCode() const
     if (!m_private)
         return 0;
 
-    return m_private->platformErrorCode();
+    return protectedPrivate()->platformErrorCode();
 }
 
 CachedResourceLoader* MediaPlayer::cachedResourceLoader()
 {
-    return client().mediaPlayerCachedResourceLoader();
+    return protectedClient()->mediaPlayerCachedResourceLoader();
 }
 
 Ref<PlatformMediaResourceLoader> MediaPlayer::mediaResourceLoader()
 {
     if (!m_mediaResourceLoader)
-        m_mediaResourceLoader = client().mediaPlayerCreateResourceLoader();
+        m_mediaResourceLoader = protectedClient()->mediaPlayerCreateResourceLoader();
 
     return *m_mediaResourceLoader;
 }
 
 void MediaPlayer::addAudioTrack(AudioTrackPrivate& track)
 {
-    client().mediaPlayerDidAddAudioTrack(track);
+    protectedClient()->mediaPlayerDidAddAudioTrack(track);
 }
 
 void MediaPlayer::removeAudioTrack(AudioTrackPrivate& track)
 {
-    client().mediaPlayerDidRemoveAudioTrack(track);
+    protectedClient()->mediaPlayerDidRemoveAudioTrack(track);
 }
 
 void MediaPlayer::addTextTrack(InbandTextTrackPrivate& track)
 {
-    client().mediaPlayerDidAddTextTrack(track);
+    protectedClient()->mediaPlayerDidAddTextTrack(track);
 }
 
 void MediaPlayer::removeTextTrack(InbandTextTrackPrivate& track)
 {
-    client().mediaPlayerDidRemoveTextTrack(track);
+    protectedClient()->mediaPlayerDidRemoveTextTrack(track);
 }
 
 void MediaPlayer::addVideoTrack(VideoTrackPrivate& track)
 {
-    client().mediaPlayerDidAddVideoTrack(track);
+    protectedClient()->mediaPlayerDidAddVideoTrack(track);
 }
 
 void MediaPlayer::removeVideoTrack(VideoTrackPrivate& track)
 {
-    client().mediaPlayerDidRemoveVideoTrack(track);
+    protectedClient()->mediaPlayerDidRemoveVideoTrack(track);
 }
 
 void MediaPlayer::setTextTrackRepresentation(TextTrackRepresentation* representation)
 {
-    m_private->setTextTrackRepresentation(representation);
+    protectedPrivate()->setTextTrackRepresentation(representation);
 }
 
 void MediaPlayer::syncTextTrackBounds()
 {
-    m_private->syncTextTrackBounds();
+    protectedPrivate()->syncTextTrackBounds();
 }
 
 void MediaPlayer::tracksChanged()
 {
-    m_private->tracksChanged();
+    protectedPrivate()->tracksChanged();
 }
 
 void MediaPlayer::notifyTrackModeChanged()
 {
-    if (m_private)
-        m_private->notifyTrackModeChanged();
+    if (RefPtr privateInterface = m_private)
+        privateInterface->notifyTrackModeChanged();
 }
 
 Vector<RefPtr<PlatformTextTrack>> MediaPlayer::outOfBandTrackSources()
 {
-    return client().outOfBandTrackSources();
+    return protectedClient()->outOfBandTrackSources();
 }
 
 void MediaPlayer::resetMediaEngines()
@@ -1692,26 +1707,14 @@ void MediaPlayer::simulateAudioInterruption()
     if (!m_private)
         return;
 
-    m_private->simulateAudioInterruption();
+    protectedPrivate()->simulateAudioInterruption();
 }
 
 bool MediaPlayer::isGStreamerHolePunchingEnabled()
 {
-    return client().isGStreamerHolePunchingEnabled();
+    return protectedClient()->isGStreamerHolePunchingEnabled();
 }
 #endif
-
-void MediaPlayer::beginSimulatedHDCPError()
-{
-    if (m_private)
-        m_private->beginSimulatedHDCPError();
-}
-
-void MediaPlayer::endSimulatedHDCPError()
-{
-    if (m_private)
-        m_private->endSimulatedHDCPError();
-}
 
 String MediaPlayer::languageOfPrimaryAudioTrack() const
 {
@@ -1727,7 +1730,7 @@ size_t MediaPlayer::extraMemoryCost() const
 
 void MediaPlayer::reportGPUMemoryFootprint(uint64_t footPrint) const
 {
-    client().mediaPlayerDidReportGPUMemoryFootprint(footPrint);
+    protectedClient()->mediaPlayerDidReportGPUMemoryFootprint(footPrint);
 }
 
 unsigned long long MediaPlayer::fileSize() const
@@ -1735,12 +1738,12 @@ unsigned long long MediaPlayer::fileSize() const
     if (!m_private)
         return 0;
     
-    return m_private->fileSize();
+    return protectedPrivate()->fileSize();
 }
 
 bool MediaPlayer::ended() const
 {
-    return m_private->ended();
+    return protectedPrivate()->ended();
 }
 
 std::optional<VideoPlaybackQualityMetrics> MediaPlayer::videoPlaybackQualityMetrics()
@@ -1763,12 +1766,12 @@ Ref<MediaPlayer::VideoPlaybackQualityMetricsPromise> MediaPlayer::asyncVideoPlay
 
 String MediaPlayer::sourceApplicationIdentifier() const
 {
-    return client().mediaPlayerSourceApplicationIdentifier();
+    return protectedClient()->mediaPlayerSourceApplicationIdentifier();
 }
 
 Vector<String> MediaPlayer::preferredAudioCharacteristics() const
 {
-    return client().mediaPlayerPreferredAudioCharacteristics();
+    return protectedClient()->mediaPlayerPreferredAudioCharacteristics();
 }
 
 void MediaPlayerFactorySupport::callRegisterMediaEngine(MediaEngineRegister registerMediaEngine)
@@ -1778,30 +1781,30 @@ void MediaPlayerFactorySupport::callRegisterMediaEngine(MediaEngineRegister regi
 
 bool MediaPlayer::doesHaveAttribute(const AtomString& attribute, AtomString* value) const
 {
-    return client().doesHaveAttribute(attribute, value);
+    return protectedClient()->doesHaveAttribute(attribute, value);
 }
 
 #if PLATFORM(IOS_FAMILY)
 String MediaPlayer::mediaPlayerNetworkInterfaceName() const
 {
-    return client().mediaPlayerNetworkInterfaceName();
+    return protectedClient()->mediaPlayerNetworkInterfaceName();
 }
 
 void MediaPlayer::getRawCookies(const URL& url, MediaPlayerClient::GetRawCookiesCallback&& completionHandler) const
 {
-    client().mediaPlayerGetRawCookies(url, WTFMove(completionHandler));
+    protectedClient()->mediaPlayerGetRawCookies(url, WTFMove(completionHandler));
 }
 #endif
 
 void MediaPlayer::setShouldDisableSleep(bool flag)
 {
-    if (m_private)
-        m_private->setShouldDisableSleep(flag);
+    if (RefPtr privateInterface = m_private)
+        privateInterface->setShouldDisableSleep(flag);
 }
 
 bool MediaPlayer::shouldDisableSleep() const
 {
-    return client().mediaPlayerShouldDisableSleep();
+    return protectedClient()->mediaPlayerShouldDisableSleep();
 }
 
 String MediaPlayer::contentMIMEType() const
@@ -1821,82 +1824,82 @@ bool MediaPlayer::contentMIMETypeWasInferredFromExtension() const
 
 const Vector<ContentType>& MediaPlayer::mediaContentTypesRequiringHardwareSupport() const
 {
-    return client().mediaContentTypesRequiringHardwareSupport();
+    return protectedClient()->mediaContentTypesRequiringHardwareSupport();
 }
 
 const std::optional<Vector<String>>& MediaPlayer::allowedMediaContainerTypes() const
 {
-    return client().allowedMediaContainerTypes();
+    return protectedClient()->allowedMediaContainerTypes();
 }
 
 const std::optional<Vector<String>>& MediaPlayer::allowedMediaCodecTypes() const
 {
-    return client().allowedMediaCodecTypes();
+    return protectedClient()->allowedMediaCodecTypes();
 }
 
 const std::optional<Vector<FourCC>>& MediaPlayer::allowedMediaVideoCodecIDs() const
 {
-    return client().allowedMediaVideoCodecIDs();
+    return protectedClient()->allowedMediaVideoCodecIDs();
 }
 
 const std::optional<Vector<FourCC>>& MediaPlayer::allowedMediaAudioCodecIDs() const
 {
-    return client().allowedMediaAudioCodecIDs();
+    return protectedClient()->allowedMediaAudioCodecIDs();
 }
 
 const std::optional<Vector<FourCC>>& MediaPlayer::allowedMediaCaptionFormatTypes() const
 {
-    return client().allowedMediaCaptionFormatTypes();
+    return protectedClient()->allowedMediaCaptionFormatTypes();
 }
 
 void MediaPlayer::applicationWillResignActive()
 {
-    m_private->applicationWillResignActive();
+    protectedPrivate()->applicationWillResignActive();
 }
 
 void MediaPlayer::applicationDidBecomeActive()
 {
-    m_private->applicationDidBecomeActive();
+    protectedPrivate()->applicationDidBecomeActive();
 }
 
 #if USE(AVFOUNDATION)
 
 AVPlayer* MediaPlayer::objCAVFoundationAVPlayer() const
 {
-    return m_private->objCAVFoundationAVPlayer();
+    return protectedPrivate()->objCAVFoundationAVPlayer();
 }
 
 #endif
 
-bool MediaPlayer::performTaskAtTime(Function<void()>&& task, const MediaTime& time)
+bool MediaPlayer::performTaskAtTime(Function<void(const MediaTime&)>&& task, const MediaTime& time)
 {
-    return m_private->performTaskAtTime(WTFMove(task), time);
+    return protectedPrivate()->performTaskAtTime(WTFMove(task), time);
 }
 
 bool MediaPlayer::shouldIgnoreIntrinsicSize()
 {
-    return m_private->shouldIgnoreIntrinsicSize();
+    return protectedPrivate()->shouldIgnoreIntrinsicSize();
 }
 
 void MediaPlayer::isLoopingChanged()
 {
-    m_private->isLoopingChanged();
+    protectedPrivate()->isLoopingChanged();
 }
 
 void MediaPlayer::remoteEngineFailedToLoad()
 {
-    client().mediaPlayerEngineFailedToLoad();
+    protectedClient()->mediaPlayerEngineFailedToLoad();
 }
 
 SecurityOriginData MediaPlayer::documentSecurityOrigin() const
 {
-    return client().documentSecurityOrigin();
+    return protectedClient()->documentSecurityOrigin();
 }
 
 void MediaPlayer::setPreferredDynamicRangeMode(DynamicRangeMode mode)
 {
     m_preferredDynamicRangeMode = mode;
-    m_private->setPreferredDynamicRangeMode(mode);
+    protectedPrivate()->setPreferredDynamicRangeMode(mode);
 }
 
 void MediaPlayer::setPlatformDynamicRangeLimit(PlatformDynamicRangeLimit platformDynamicRangeLimit)
@@ -1904,12 +1907,12 @@ void MediaPlayer::setPlatformDynamicRangeLimit(PlatformDynamicRangeLimit platfor
     if (m_platformDynamicRangeLimit == platformDynamicRangeLimit)
         return;
     m_platformDynamicRangeLimit = platformDynamicRangeLimit;
-    m_private->setPlatformDynamicRangeLimit(platformDynamicRangeLimit);
+    protectedPrivate()->setPlatformDynamicRangeLimit(platformDynamicRangeLimit);
 }
 
 void MediaPlayer::audioOutputDeviceChanged()
 {
-    m_private->audioOutputDeviceChanged();
+    protectedPrivate()->audioOutputDeviceChanged();
 }
 
 std::optional<MediaPlayerIdentifier> MediaPlayer::identifier() const
@@ -1925,50 +1928,50 @@ std::optional<VideoFrameMetadata> MediaPlayer::videoFrameMetadata()
 void MediaPlayer::startVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = true;
-    m_private->startVideoFrameMetadataGathering();
+    protectedPrivate()->startVideoFrameMetadataGathering();
 }
 
 void MediaPlayer::stopVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = false;
-    m_private->stopVideoFrameMetadataGathering();
+    protectedPrivate()->stopVideoFrameMetadataGathering();
 }
 
 void MediaPlayer::renderVideoWillBeDestroyed()
 {
-    m_private->renderVideoWillBeDestroyed();
+    protectedPrivate()->renderVideoWillBeDestroyed();
 }
 
 void MediaPlayer::setShouldDisableHDR(bool shouldDisable)
 {
-    m_private->setShouldDisableHDR(shouldDisable);
+    protectedPrivate()->setShouldDisableHDR(shouldDisable);
 }
 
 void MediaPlayer::playerContentBoxRectChanged(const LayoutRect& rect)
 {
-    m_private->playerContentBoxRectChanged(rect);
+    protectedPrivate()->playerContentBoxRectChanged(rect);
 }
 
 #if PLATFORM(COCOA)
 void MediaPlayer::onNewVideoFrameMetadata(VideoFrameMetadata&& metadata, RetainPtr<CVPixelBufferRef>&& buffer)
 {
-    client().mediaPlayerOnNewVideoFrameMetadata(WTFMove(metadata), WTFMove(buffer));
+    protectedClient()->mediaPlayerOnNewVideoFrameMetadata(WTFMove(metadata), WTFMove(buffer));
 }
 #endif
 
 String MediaPlayer::elementId() const
 {
-    return client().mediaPlayerElementId();
+    return protectedClient()->mediaPlayerElementId();
 }
 
 bool MediaPlayer::supportsPlayAtHostTime() const
 {
-    return m_private->supportsPlayAtHostTime();
+    return protectedPrivate()->supportsPlayAtHostTime();
 }
 
 bool MediaPlayer::supportsPauseAtHostTime() const
 {
-    return m_private->supportsPauseAtHostTime();
+    return protectedPrivate()->supportsPauseAtHostTime();
 }
 
 bool MediaPlayer::playAtHostTime(const MonotonicTime& hostTime)
@@ -1976,7 +1979,7 @@ bool MediaPlayer::playAtHostTime(const MonotonicTime& hostTime)
     // It is invalid to call playAtHostTime() if the underlying
     // media player does not support it.
     ASSERT(supportsPlayAtHostTime());
-    return m_private->playAtHostTime(hostTime);
+    return protectedPrivate()->playAtHostTime(hostTime);
 }
 
 bool MediaPlayer::pauseAtHostTime(const MonotonicTime& hostTime)
@@ -1984,12 +1987,12 @@ bool MediaPlayer::pauseAtHostTime(const MonotonicTime& hostTime)
     // It is invalid to call pauseAtHostTime() if the underlying
     // media player does not support it.
     ASSERT(supportsPauseAtHostTime());
-    return m_private->pauseAtHostTime(hostTime);
+    return protectedPrivate()->pauseAtHostTime(hostTime);
 }
 
 void MediaPlayer::setShouldCheckHardwareSupport(bool value)
 {
-    m_private->setShouldCheckHardwareSupport(value);
+    protectedPrivate()->setShouldCheckHardwareSupport(value);
 }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
@@ -2003,7 +2006,7 @@ void MediaPlayer::setDefaultSpatialTrackingLabel(const String& defaultSpatialTra
     if (m_defaultSpatialTrackingLabel == defaultSpatialTrackingLabel)
         return;
     m_defaultSpatialTrackingLabel = defaultSpatialTrackingLabel;
-    m_private->setDefaultSpatialTrackingLabel(defaultSpatialTrackingLabel);
+    protectedPrivate()->setDefaultSpatialTrackingLabel(defaultSpatialTrackingLabel);
 }
 
 const String& MediaPlayer::spatialTrackingLabel() const
@@ -2016,7 +2019,7 @@ void MediaPlayer::setSpatialTrackingLabel(const String& spatialTrackingLabel)
     if (m_spatialTrackingLabel == spatialTrackingLabel)
         return;
     m_spatialTrackingLabel = spatialTrackingLabel;
-    m_private->setSpatialTrackingLabel(spatialTrackingLabel);
+    protectedPrivate()->setSpatialTrackingLabel(spatialTrackingLabel);
 }
 #endif
 
@@ -2026,18 +2029,18 @@ void MediaPlayer::setPrefersSpatialAudioExperience(bool value)
     if (m_prefersSpatialAudioExperience == value)
         return;
     m_prefersSpatialAudioExperience = value;
-    m_private->prefersSpatialAudioExperienceChanged();
+    protectedPrivate()->prefersSpatialAudioExperienceChanged();
 }
 #endif
 
 auto MediaPlayer::soundStageSize() const -> SoundStageSize
 {
-    return client().mediaPlayerSoundStageSize();
+    return protectedClient()->mediaPlayerSoundStageSize();
 }
 
 void MediaPlayer::soundStageSizeDidChange()
 {
-    m_private->soundStageSizeDidChange();
+    protectedPrivate()->soundStageSizeDidChange();
 }
 
 void MediaPlayer::setInFullscreenOrPictureInPicture(bool isInFullscreenOrPictureInPicture)
@@ -2046,7 +2049,7 @@ void MediaPlayer::setInFullscreenOrPictureInPicture(bool isInFullscreenOrPicture
         return;
 
     m_isInFullscreenOrPictureInPicture = isInFullscreenOrPictureInPicture;
-    m_private->isInFullscreenOrPictureInPictureChanged(isInFullscreenOrPictureInPicture);
+    protectedPrivate()->isInFullscreenOrPictureInPictureChanged(isInFullscreenOrPictureInPicture);
 }
 
 bool MediaPlayer::isInFullscreenOrPictureInPicture() const
@@ -2057,26 +2060,32 @@ bool MediaPlayer::isInFullscreenOrPictureInPicture() const
 #if ENABLE(LINEAR_MEDIA_PLAYER)
 bool MediaPlayer::supportsLinearMediaPlayer() const
 {
-    return m_private->supportsLinearMediaPlayer();
+    return protectedPrivate()->supportsLinearMediaPlayer();
 }
 #endif
 
 #if !RELEASE_LOG_DISABLED
 const Logger& MediaPlayer::mediaPlayerLogger()
 {
-    return client().mediaPlayerLogger();
+    return protectedClient()->mediaPlayerLogger();
 }
 #endif
 
 void MediaPlayer::setMessageClientForTesting(WeakPtr<MessageClientForTesting> internalMessageClient)
 {
     m_internalMessageClient = WTFMove(internalMessageClient);
-    m_private->setMessageClientForTesting(m_internalMessageClient);
+    protectedPrivate()->setMessageClientForTesting(m_internalMessageClient);
 }
 
 MessageClientForTesting* MediaPlayer::messageClientForTesting() const
 {
     return m_internalMessageClient.get();
+}
+
+void MediaPlayer::elementIdChanged(const String& id) const
+{
+    if (RefPtr playerPrivate = m_private)
+        playerPrivate->elementIdChanged(id);
 }
 
 String convertEnumerationToString(MediaPlayer::ReadyState enumerationValue)

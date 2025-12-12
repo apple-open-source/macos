@@ -26,6 +26,7 @@
 #pragma once
 
 #include <wtf/CheckedRef.h>
+#include <wtf/RawPtrTraits.h>
 
 namespace WTF {
 
@@ -39,7 +40,7 @@ namespace WTF {
 
 template<typename T, typename PtrTraits>
 class CheckedPtr {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(CheckedPtr);
 public:
 
     constexpr CheckedPtr()
@@ -109,9 +110,10 @@ public:
 
     ALWAYS_INLINE explicit operator bool() const { return PtrTraits::unwrap(m_ptr); }
 
-    ALWAYS_INLINE T* get() const { return PtrTraits::unwrap(m_ptr); }
-    ALWAYS_INLINE T& operator*() const { RELEASE_ASSERT(m_ptr); return *get(); }
-    ALWAYS_INLINE T* operator->() const { RELEASE_ASSERT(m_ptr); return get(); }
+    ALWAYS_INLINE T* get() const LIFETIME_BOUND { return PtrTraits::unwrap(m_ptr); }
+    ALWAYS_INLINE T* unsafeGet() const { return PtrTraits::unwrap(m_ptr); }
+    ALWAYS_INLINE T& operator*() const LIFETIME_BOUND { RELEASE_ASSERT(m_ptr); return *get(); }
+    ALWAYS_INLINE T* operator->() const LIFETIME_BOUND { RELEASE_ASSERT(m_ptr); return get(); }
 
     CheckedRef<T> releaseNonNull()
     {
@@ -198,6 +200,7 @@ struct GetPtrHelper<CheckedPtr<T, PtrTraits>> {
 template <typename T, typename U>
 struct IsSmartPtr<CheckedPtr<T, U>> {
     static constexpr bool value = true;
+    static constexpr bool isNullable = false;
 };
 
 template<typename ExpectedType, typename ArgType, typename ArgPtrTraits>

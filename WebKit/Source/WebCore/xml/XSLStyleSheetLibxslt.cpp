@@ -23,12 +23,12 @@
 
 #if ENABLE(XSLT)
 
-#include "CachedResourceLoader.h"
-#include "DocumentInlines.h"
+#include "DocumentResourceLoader.h"
+#include "FrameConsoleClient.h"
 #include "FrameDestructionObserverInlines.h"
 #include "LocalFrame.h"
+#include "NodeDocument.h"
 #include "Page.h"
-#include "PageConsoleClient.h"
 #include "TransformSource.h"
 #include "XMLDocumentParser.h"
 #include "XMLDocumentParserScope.h"
@@ -132,17 +132,16 @@ bool XSLStyleSheet::parseString(const String& string)
     const unsigned char BOMHighByte = *reinterpret_cast<const unsigned char*>(&byteOrderMark);
     clearXSLStylesheetDocument();
 
-    PageConsoleClient* console = nullptr;
-    RefPtr frame = ownerDocument()->frame();
-    if (frame && frame->page())
-        console = &frame->page()->console();
+    FrameConsoleClient* console = nullptr;
+    if (RefPtr frame = ownerDocument()->frame())
+        console = &frame->console();
 
     XMLDocumentParserScope scope(cachedResourceLoader(), XSLTProcessor::genericErrorFunc, XSLTProcessor::parseErrorFunc, console);
 
     auto upconvertedCharacters = StringView(string).upconvertedCharacters();
     const char* buffer = reinterpret_cast<const char*>(upconvertedCharacters.get());
     CheckedUint32 unsignedSize = string.length();
-    unsignedSize *= sizeof(UChar);
+    unsignedSize *= sizeof(char16_t);
     if (unsignedSize.hasOverflowed() || unsignedSize > static_cast<unsigned>(std::numeric_limits<int>::max()))
         return false;
 

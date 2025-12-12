@@ -64,6 +64,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerRunLoop);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerDedicatedRunLoop);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerDedicatedRunLoop::Task);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerMainRunLoop);
 
 class WorkerSharedTimer final : public SharedTimer {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(WorkerSharedTimer);
@@ -142,7 +143,7 @@ public:
     {
         if (!m_runLoop.m_nestedCount) {
             m_runLoop.m_sharedTimer = makeUnique<WorkerSharedTimer>();
-            threadGlobalData().threadTimers().setSharedTimer(m_runLoop.m_sharedTimer.get());
+            threadGlobalDataSingleton().threadTimers().setSharedTimer(m_runLoop.m_sharedTimer.get());
         }
         m_runLoop.m_nestedCount++;
         if (m_isForDebugging == IsForDebugging::Yes)
@@ -153,7 +154,7 @@ public:
     {
         m_runLoop.m_nestedCount--;
         if (!m_runLoop.m_nestedCount) {
-            threadGlobalData().threadTimers().setSharedTimer(nullptr);
+            threadGlobalDataSingleton().threadTimers().setSharedTimer(nullptr);
             m_runLoop.m_sharedTimer = nullptr;
         }
         if (m_isForDebugging == IsForDebugging::Yes)
@@ -288,10 +289,12 @@ WorkerDedicatedRunLoop::RunInModeResult WorkerDedicatedRunLoop::runInMode(Worker
     timeoutDelay = std::max(0_s, Seconds(timeUntilNextCFRunLoopTimerInSeconds));
 #endif
 
+    CheckedPtr script = context->script();
+
 #if OS(WINDOWS)
     RunLoop::cycle();
 
-    if (auto* script = context->script()) {
+    if (script) {
         JSC::VM& vm = script->vm();
         timeoutDelay = vm.deferredWorkTimer->timeUntilFire().value_or(Seconds::infinity());
     }
@@ -300,13 +303,13 @@ WorkerDedicatedRunLoop::RunInModeResult WorkerDedicatedRunLoop::runInMode(Worker
     if (predicate.isDefaultMode() && m_sharedTimer->isActive())
         timeoutDelay = std::min(timeoutDelay, m_sharedTimer->fireTimeDelay());
 
-    if (auto* script = context->script()) {
+    if (script) {
         script->releaseHeapAccess();
         script->addTimerSetNotification(timerAddedTask);
     }
     MessageQueueWaitResult result;
     auto task = m_messageQueue.waitForMessageFilteredWithTimeout(result, predicate, timeoutDelay);
-    if (auto* script = context->script()) {
+    if (script) {
         script->acquireHeapAccess();
         script->removeTimerSetNotification(timerAddedTask);
     }
@@ -426,14 +429,18 @@ void WorkerMainRunLoop::postTaskAndTerminate(ScriptExecutionContext::Task&& task
         return;
 
     RunLoop::mainSingleton().dispatch([weakThis = WeakPtr { *this }, task = WTFMove(task)]() mutable {
-        if (!weakThis || weakThis->m_terminated)
-            return;
-        RefPtr workerOrWorkletGlobalScope = weakThis->m_workerOrWorkletGlobalScope.get();
-        if (!workerOrWorkletGlobalScope)
-            return;
+        RefPtr<WorkerOrWorkletGlobalScope> scope;
+        {
+            CheckedPtr checkedThis = weakThis.get();
+            if (!checkedThis || checkedThis->m_terminated)
+                return;
+            scope = checkedThis->m_workerOrWorkletGlobalScope.get();
+            if (!scope)
+                return;
 
-        weakThis->m_terminated = true;
-        task.performTask(*workerOrWorkletGlobalScope);
+            checkedThis->m_terminated = true;
+        }
+        task.performTask(*scope);
     });
 }
 
@@ -443,13 +450,16 @@ void WorkerMainRunLoop::postTaskForMode(ScriptExecutionContext::Task&& task, con
         return;
 
     RunLoop::mainSingleton().dispatch([weakThis = WeakPtr { *this }, task = WTFMove(task)]() mutable {
-        if (!weakThis || weakThis->m_terminated)
-            return;
-        RefPtr workerOrWorkletGlobalScope = weakThis->m_workerOrWorkletGlobalScope.get();
-        if (!workerOrWorkletGlobalScope)
-            return;
-
-        task.performTask(*workerOrWorkletGlobalScope);
+        RefPtr<WorkerOrWorkletGlobalScope> scope;
+        {
+            CheckedPtr checkedThis = weakThis.get();
+            if (!checkedThis || checkedThis->m_terminated)
+                return;
+            scope = checkedThis->m_workerOrWorkletGlobalScope.get();
+            if (!scope)
+                return;
+        }
+        task.performTask(*scope);
     });
 }
 

@@ -25,10 +25,11 @@
 
 #pragma once
 
-#include "DestinationColorSpace.h"
-#include "FloatRect.h"
-#include "PlatformScreen.h"
+#include <WebCore/DestinationColorSpace.h>
+#include <WebCore/FloatRect.h>
+#include <WebCore/PlatformScreen.h>
 #include <wtf/HashMap.h>
+#include <wtf/Platform.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 

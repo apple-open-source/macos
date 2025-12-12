@@ -32,10 +32,12 @@
 
 #include "AXObjectCache.h"
 #include "ContainerNodeInlines.h"
+#include "DocumentPage.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FormAssociatedElement.h"
 #include "FormController.h"
 #include "HTMLDataListElement.h"

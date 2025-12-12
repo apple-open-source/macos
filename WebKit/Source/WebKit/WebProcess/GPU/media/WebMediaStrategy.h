@@ -31,6 +31,8 @@
 namespace WebKit {
 
 class WebMediaStrategy final : public WebCore::MediaStrategy {
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebMediaStrategy);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebMediaStrategy);
 public:
     virtual ~WebMediaStrategy();
 
@@ -43,6 +45,9 @@ private:
 
 #if ENABLE(WEB_AUDIO)
     Ref<WebCore::AudioDestination> createAudioDestination(const WebCore::AudioDestinationCreationOptions&) override;
+#endif
+#if ENABLE(VIDEO) && ENABLE(GPU_PROCESS)
+    RefPtr<WebCore::AudioVideoRenderer> createAudioVideoRenderer(LoggerHelper*, WebCore::HTMLMediaElementIdentifier, WebCore::MediaPlayerIdentifier) const final;
 #endif
     std::unique_ptr<WebCore::NowPlayingManager> createNowPlayingManager() const final;
     bool hasThreadSafeMediaSourceSupport() const final;

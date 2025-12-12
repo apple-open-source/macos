@@ -1,5 +1,6 @@
 /**
  * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -19,7 +20,6 @@
 
 #pragma once
 
-#include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include "RenderTableCell.h"
 #include "StyleContentAlignmentData.h"
@@ -50,20 +50,6 @@ inline const BorderValue& RenderTableCell::borderAdjoiningTableStart() const
     return style().borderStart(tableWritingMode());
 }
 
-inline LayoutUnit RenderTableCell::logicalHeightForRowSizing() const
-{
-    // FIXME: This function does too much work, and is very hot during table layout!
-    LayoutUnit adjustedLogicalHeight = logicalHeight() - (intrinsicPaddingBefore() + intrinsicPaddingAfter());
-    if (!style().logicalHeight().isSpecified())
-        return adjustedLogicalHeight;
-    LayoutUnit styleLogicalHeight = Style::evaluate(style().logicalHeight(), 0_lu);
-    // In strict mode, box-sizing: content-box do the right thing and actually add in the border and padding.
-    // Call computedCSSPadding* directly to avoid including implicitPadding.
-    if (!document().inQuirksMode() && style().boxSizing() != BoxSizing::BorderBox)
-        styleLogicalHeight += computedCSSPaddingBefore() + computedCSSPaddingAfter() + borderBefore() + borderAfter();
-    return std::max(styleLogicalHeight, adjustedLogicalHeight);
-}
-
 inline Style::PreferredSize RenderTableCell::styleOrColLogicalWidth() const
 {
     auto& styleWidth = style().logicalWidth();
@@ -79,8 +65,22 @@ inline bool RenderTableCell::isBaselineAligned() const
     if (auto alignContent = style().alignContent(); !alignContent.isNormal())
         return alignContent.position() == ContentPosition::Baseline;
 
-    VerticalAlign va = style().verticalAlign();
-    return va == VerticalAlign::Baseline || va == VerticalAlign::TextBottom || va == VerticalAlign::TextTop || va == VerticalAlign::Super || va == VerticalAlign::Sub || va == VerticalAlign::Length;
+    auto& verticalAlign = style().verticalAlign();
+    return WTF::holdsAlternative<CSS::Keyword::Baseline>(verticalAlign)
+        || WTF::holdsAlternative<CSS::Keyword::TextBottom>(verticalAlign)
+        || WTF::holdsAlternative<CSS::Keyword::TextTop>(verticalAlign)
+        || WTF::holdsAlternative<CSS::Keyword::Super>(verticalAlign)
+        || WTF::holdsAlternative<CSS::Keyword::Sub>(verticalAlign)
+        || WTF::holdsAlternative<Style::VerticalAlign::Length>(verticalAlign);
+}
+
+inline bool RenderTableCell::isOrthogonal() const
+{
+    if (auto* row = this->row())
+        return writingMode().isOrthogonal(row->writingMode());
+
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 } // namespace WebCore

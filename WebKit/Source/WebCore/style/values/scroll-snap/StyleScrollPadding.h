@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include "BoxExtents.h"
-#include "StyleLengthWrapper.h"
+#include <WebCore/BoxExtents.h>
+#include <WebCore/StyleLengthWrapper.h>
 
 namespace WebCore {
 
@@ -37,9 +37,6 @@ namespace Style {
 // https://drafts.csswg.org/css-scroll-snap-1/#padding-longhands-physical
 struct ScrollPaddingEdge : LengthWrapperBase<LengthPercentage<CSS::Nonnegative>, CSS::Keyword::Auto> {
     using Base::Base;
-
-private:
-    friend struct Evaluation<ScrollPaddingEdge>;
 };
 
 // <'scroll-padding'> = [ auto | <length-percentage [0,∞]> ]{1,4}
@@ -48,16 +45,18 @@ using ScrollPaddingBox = MinimallySerializingSpaceSeparatedRectEdges<ScrollPaddi
 
 // MARK: - Evaluation
 
-template<> struct Evaluation<ScrollPaddingEdge> {
-    auto operator()(const ScrollPaddingEdge&, LayoutUnit referenceLength) -> LayoutUnit;
-    auto operator()(const ScrollPaddingEdge&, float referenceLength) -> float;
+template<> struct Evaluation<ScrollPaddingEdge, LayoutUnit> {
+    auto operator()(const ScrollPaddingEdge&, LayoutUnit referenceLength, ZoomNeeded) -> LayoutUnit;
+};
+template<> struct Evaluation<ScrollPaddingEdge, float> {
+    auto operator()(const ScrollPaddingEdge&, float referenceLength, ZoomNeeded) -> float;
 };
 
 // MARK: - Extent
 
-LayoutBoxExtent extentForRect(const ScrollPaddingBox&, const LayoutRect&);
+LayoutBoxExtent extentForRect(const ScrollPaddingBox&, const LayoutRect&, ZoomNeeded);
 
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ScrollPaddingEdge> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::ScrollPaddingEdge)

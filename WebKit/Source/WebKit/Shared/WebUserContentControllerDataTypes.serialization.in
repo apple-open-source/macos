@@ -23,20 +23,20 @@
 header: "WebUserContentControllerDataTypes.h"
 [CustomHeader, DebugDecodingFailure] struct WebKit::WebUserScriptData {
     WebKit::UserScriptIdentifier identifier;
-    WebKit::ContentWorldIdentifier worldIdentifier;
+    WebKit::ContentWorldData worldData;
     WebCore::UserScript userScript;
 }
 
 header: "WebUserContentControllerDataTypes.h"
 [CustomHeader, DebugDecodingFailure] struct WebKit::WebUserStyleSheetData {
     WebKit::UserStyleSheetIdentifier identifier;
-    WebKit::ContentWorldIdentifier worldIdentifier;
+    WebKit::ContentWorldData worldData;
     WebCore::UserStyleSheet userStyleSheet;
 }
 
 header: "WebUserContentControllerDataTypes.h"
 [CustomHeader, DebugDecodingFailure] struct WebKit::WebScriptMessageHandlerData {
     WebKit::ScriptMessageHandlerIdentifier identifier;
-    WebKit::ContentWorldIdentifier worldIdentifier;
+    WebKit::ContentWorldData worldData;
     String name;
 }

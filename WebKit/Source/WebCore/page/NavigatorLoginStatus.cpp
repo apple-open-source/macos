@@ -28,7 +28,8 @@
 
 #include "Chrome.h"
 #include "ChromeClient.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
+#include "DocumentSecurityOrigin.h"
 #include "JSDOMPromiseDeferred.h"
 #include "Navigator.h"
 #include "Page.h"

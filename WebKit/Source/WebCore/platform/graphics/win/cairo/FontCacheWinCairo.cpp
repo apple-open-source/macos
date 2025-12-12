@@ -41,7 +41,7 @@ bool isGDIFontWeightBold(LONG);
 std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontCreationContext&, OptionSet<FontLookupOptions> options)
 {
     LONG weight = adjustedGDIFontWeight(toGDIFontWeight(fontDescription.weight()), family);
-    auto hfont = createGDIFont(family, weight, isItalic(fontDescription.italic()),
+    auto hfont = createGDIFont(family, weight, isItalic(fontDescription.fontStyleSlope()),
         fontDescription.computedSize() * cWindowsFontScaleFactor);
 
     if (!hfont)
@@ -53,7 +53,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     bool synthesizeBold = !options.contains(FontLookupOptions::DisallowBoldSynthesis)
         && isGDIFontWeightBold(weight) && !isGDIFontWeightBold(logFont.lfWeight);
     bool synthesizeItalic = !options.contains(FontLookupOptions::DisallowObliqueSynthesis)
-        && isItalic(fontDescription.italic()) && !logFont.lfItalic;
+        && isItalic(fontDescription.fontStyleSlope()) && !logFont.lfItalic;
 
     auto result = makeUnique<FontPlatformData>(WTFMove(hfont), fontDescription.computedSize(), synthesizeBold, synthesizeItalic);
 

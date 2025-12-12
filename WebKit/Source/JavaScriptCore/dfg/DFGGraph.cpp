@@ -1289,7 +1289,7 @@ unsigned Graph::stackPointerOffset()
 unsigned Graph::requiredRegisterCountForExit()
 {
     unsigned count = JIT::frameRegisterCountFor(m_profiledBlock);
-    for (InlineCallFrameSet::iterator iter = m_plan.inlineCallFrames()->begin(); !!iter; ++iter) {
+    for (InlineCallFrameSet::iterator iter = m_plan.inlineCallFrames().unsafeGet()->begin(); !!iter; ++iter) {
         InlineCallFrame* inlineCallFrame = *iter;
         CodeBlock* codeBlock = baselineCodeBlockForInlineCallFrame(inlineCallFrame);
         unsigned requiredCount = VirtualRegister(inlineCallFrame->stackOffset).toLocal() + 1 + JIT::frameRegisterCountFor(codeBlock);
@@ -1524,6 +1524,45 @@ JSValue Graph::tryGetConstantSetter(Node* getterSetter)
     if (!cell)
         return JSValue();
     return cell->setterConcurrently();
+}
+
+ObjectPropertyConditionSet Graph::tryEnsureAbsence(JSGlobalObject* globalObject, const StructureSet& structureSet, CacheableIdentifier identifier)
+{
+    if (structureSet.isEmpty())
+        return ObjectPropertyConditionSet::invalid();
+
+    Structure* headStructure = structureSet.onlyStructure();
+    if (!headStructure)
+        return ObjectPropertyConditionSet::invalid();
+
+    auto result = generateConditionsForPropertyMissConcurrently(globalObject->vm(), globalObject, headStructure, identifier.uid());
+    if (!result.isValid())
+        return result;
+
+    for (auto& condition : result) {
+        auto* object = condition.object();
+        if (!object)
+            return ObjectPropertyConditionSet::invalid();
+
+        auto* structure = object->structure();
+        if (structure->typeInfo().overridesGetOwnPropertySlot())
+            return ObjectPropertyConditionSet::invalid();
+
+        if (!structure->propertyAccessesAreCacheable())
+            return ObjectPropertyConditionSet::invalid();
+
+        if (!structure->propertyAccessesAreCacheableForAbsence())
+            return ObjectPropertyConditionSet::invalid();
+
+        unsigned attributes;
+        PropertyOffset offset = structure->getConcurrently(identifier.uid(), attributes);
+        if (isValidOffset(offset))
+            return ObjectPropertyConditionSet::invalid();
+
+        if (structure->hasPolyProto())
+            return ObjectPropertyConditionSet::invalid();
+    }
+    return result;
 }
 
 void Graph::registerFrozenValues()

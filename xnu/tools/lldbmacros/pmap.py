@@ -571,8 +571,7 @@ def PmapDecodeTTEARM64(tte, level, stage2 = False, is_iommu_tte = False):
             attr_index = (tte >> 2) & 0x7
             attr_string = { 0: 'WRITEBACK', 1: 'WRITECOMB', 2: 'WRITETHRU',
                 3: 'CACHE DISABLE',
-                4: 'RESERVED'
-                ,
+                4: 'RESERVED (MTE if FEAT_MTE supported)',
                 5: 'POSTED (DISABLE_XS if FEAT_XS supported)',
                 6: 'POSTED_REORDERED (POSTED_COMBINED_REORDERED if FEAT_XS supported)',
                 7: 'POSTED_COMBINED_REORDERED (POSTED_COMBINED_REORDERED_XS if FEAT_XS supported)' }

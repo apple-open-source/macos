@@ -38,7 +38,6 @@ class WebMediaKeySystemClient final : public WebCore::MediaKeySystemClient {
     WTF_MAKE_TZONE_ALLOCATED(WebMediaKeySystemClient);
 public:
     WebMediaKeySystemClient(WebPage&);
-    ~WebMediaKeySystemClient() { }
 
 private:
     void pageDestroyed() final;

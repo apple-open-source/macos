@@ -105,7 +105,7 @@ bool SessionHost::isConnected() const
 }
 
 struct ConnectToBrowserAsyncData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ConnectToBrowserAsyncData);
     ConnectToBrowserAsyncData(SessionHost* sessionHost, GUniquePtr<char>&& inspectorAddress, GCancellable* cancellable, Function<void(std::optional<String>)>&& completionHandler)
         : sessionHost(sessionHost)
         , inspectorAddress(WTFMove(inspectorAddress))

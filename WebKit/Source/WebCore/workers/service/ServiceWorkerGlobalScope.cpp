@@ -143,7 +143,7 @@ Page* ServiceWorkerGlobalScope::serviceWorkerPage()
 
 void ServiceWorkerGlobalScope::skipWaiting(Ref<DeferredPromise>&& promise)
 {
-    RELEASE_LOG(ServiceWorker, "ServiceWorkerGlobalScope::skipWaiting for worker %" PRIu64, thread().identifier().toUInt64());
+    RELEASE_LOG(ServiceWorker, "ServiceWorkerGlobalScope::skipWaiting for worker %" PRIu64, thread()->identifier().toUInt64());
 
     uint64_t requestIdentifier = ++m_lastRequestIdentifier;
     m_pendingSkipWaitingPromises.add(requestIdentifier, WTFMove(promise));
@@ -169,9 +169,9 @@ enum EventTargetInterfaceType ServiceWorkerGlobalScope::eventTargetInterface() c
     return EventTargetInterfaceType::ServiceWorkerGlobalScope;
 }
 
-ServiceWorkerThread& ServiceWorkerGlobalScope::thread()
+Ref<ServiceWorkerThread> ServiceWorkerGlobalScope::thread()
 {
-    return static_cast<ServiceWorkerThread&>(WorkerGlobalScope::thread());
+    return downcast<ServiceWorkerThread>(WorkerGlobalScope::thread());
 }
 
 void ServiceWorkerGlobalScope::prepareForDestruction()
@@ -182,7 +182,7 @@ void ServiceWorkerGlobalScope::prepareForDestruction()
 
     auto ongoingFetchTasks = std::exchange(m_ongoingFetchTasks, { });
     for (auto& task : ongoingFetchTasks.values())
-        task.client->contextIsStopping();
+        RefPtr { task.client }->contextIsStopping();
 
     WorkerGlobalScope::prepareForDestruction();
 }
@@ -199,8 +199,9 @@ void ServiceWorkerGlobalScope::updateExtendedEventsSet(ExtendableEvent* newEvent
 
     if (newEvent && newEvent->pendingPromiseCount()) {
         m_extendedEvents.append(*newEvent);
-        newEvent->whenAllExtendLifetimePromisesAreSettled([this](auto&&) {
-            this->updateExtendedEventsSet();
+        newEvent->whenAllExtendLifetimePromisesAreSettled([weakThis = WeakPtr { *this }](auto&&) {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->updateExtendedEventsSet();
         });
         // Clear out the event's target as it is the WorkerGlobalScope and we do not want to keep it
         // alive unnecessarily.
@@ -211,7 +212,7 @@ void ServiceWorkerGlobalScope::updateExtendedEventsSet(ExtendableEvent* newEvent
     if (hasPendingEvents == hadPendingEvents)
         return;
 
-    callOnMainThread([threadIdentifier = thread().identifier(), hasPendingEvents] {
+    callOnMainThread([threadIdentifier = thread()->identifier(), hasPendingEvents] {
         if (RefPtr connection = SWContextManager::singleton().connection())
             connection->setServiceWorkerHasPendingEvents(threadIdentifier, hasPendingEvents);
     });
@@ -225,7 +226,7 @@ const ServiceWorkerContextData::ImportedScript* ServiceWorkerGlobalScope::script
 
 void ServiceWorkerGlobalScope::setScriptResource(const URL& url, ServiceWorkerContextData::ImportedScript&& script)
 {
-    callOnMainThread([threadIdentifier = thread().identifier(), url = url.isolatedCopy(), script = script.isolatedCopy()] {
+    callOnMainThread([threadIdentifier = thread()->identifier(), url = url.isolatedCopy(), script = script.isolatedCopy()] {
         if (RefPtr connection = SWContextManager::singleton().connection())
             connection->setScriptResource(threadIdentifier, url, script);
     });
@@ -265,7 +266,7 @@ bool ServiceWorkerGlobalScope::didFirePushEventRecently() const
 void ServiceWorkerGlobalScope::addConsoleMessage(MessageSource source, MessageLevel level, const String& message, unsigned long requestIdentifier)
 {
     if (m_consoleMessageReportingEnabled) {
-        callOnMainThread([threadIdentifier = thread().identifier(), source, level, message = message.isolatedCopy(), requestIdentifier] {
+        callOnMainThread([threadIdentifier = thread()->identifier(), source, level, message = message.isolatedCopy(), requestIdentifier] {
             if (RefPtr connection = SWContextManager::singleton().connection())
                 connection->reportConsoleMessage(threadIdentifier, source, level, message, requestIdentifier);
         });
@@ -338,7 +339,7 @@ void ServiceWorkerGlobalScope::navigationPreloadFailed(FetchKey key, ResourceErr
         return;
 
     if (std::holds_alternative<Ref<FetchEvent>>(iterator->value.navigationPreload)) {
-        std::get<Ref<FetchEvent>>(iterator->value.navigationPreload)->navigationPreloadFailed(WTFMove(error));
+        Ref { std::get<Ref<FetchEvent>>(iterator->value.navigationPreload) }->navigationPreloadFailed(WTFMove(error));
         iterator->value.navigationPreload = nullptr;
         return;
     }
@@ -353,7 +354,7 @@ void ServiceWorkerGlobalScope::navigationPreloadIsReady(FetchKey key, ResourceRe
         return;
 
     if (std::holds_alternative<Ref<FetchEvent>>(iterator->value.navigationPreload)) {
-        std::get<Ref<FetchEvent>>(iterator->value.navigationPreload)->navigationPreloadIsReady(WTFMove(response));
+        Ref { std::get<Ref<FetchEvent>>(iterator->value.navigationPreload) }->navigationPreloadIsReady(WTFMove(response));
         iterator->value.navigationPreload = nullptr;
         return;
     }

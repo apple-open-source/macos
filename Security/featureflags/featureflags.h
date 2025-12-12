@@ -45,6 +45,14 @@ bool _SecTrustEarlyAnchorExpirationEnabled(void);
 bool _SecTrustRemoveOldAppleAnchorSource(void);
 bool _SecTrustRemoveOldSystemAnchorSource(void);
 
+// Helpers for CRLite
+bool _SecTrustUseCRLite(void);
+void _SecTrustUseCRLiteSetOverride(bool value);
+void _SecTrustUseCRLiteClearOverride(void);
+bool _SecTrustUseCRLiteEnforcement(void);
+void _SecTrustUseCRLiteEnforcementSetOverride(bool value);
+void _SecTrustUseCRLiteEnforcementClearOverride(void);
+
 // Helper for protecting login keychain with DP
 bool _SecProtectLoginKeychainWithDP(void);
 

@@ -25,7 +25,8 @@
 
 #pragma once
 
-#import <wtf/Platform.h>
+#import <wtf/Compiler.h>
+#include <wtf/Platform.h>
 
 DECLARE_SYSTEM_HEADER
 
@@ -381,6 +382,7 @@ CGContextRef CGIOSurfaceContextCreate(IOSurfaceRef, size_t, size_t, size_t, size
 CGImageRef CGIOSurfaceContextCreateImage(CGContextRef);
 CGImageRef CGIOSurfaceContextCreateImageReference(CGContextRef);
 CGColorSpaceRef CGIOSurfaceContextGetColorSpace(CGContextRef);
+size_t CGIOSurfaceContextGetBitmapInfo(CGContextRef);
 void CGIOSurfaceContextSetDisplayMask(CGContextRef, uint32_t mask);
 IOSurfaceRef CGIOSurfaceContextGetSurface(CGContextRef);
 void CGIOSurfaceContextInvalidateSurface(CGContextRef);
@@ -463,6 +465,8 @@ CG_EXTERN void CGEnterLockdownModeForPDF();
 CG_LOCAL bool CGIsInLockdownModeForPDF();
 CG_EXTERN void CGEnterLockdownModeForFonts();
 #endif
+
+extern CGDataProviderRef __nullable CGDataProviderCreateWithCopyOfData(const void *, size_t);
 
 WTF_EXTERN_C_END
 

@@ -37,10 +37,13 @@
 #import "WebPage.h"
 #import "WebProcess.h"
 #import <WebCore/Color.h>
+#import <WebCore/DocumentQuirks.h>
+#import <WebCore/DocumentView.h>
 #import <WebCore/ElementInlines.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/HTMLMediaElement.h>
+#import <WebCore/HTMLVideoElement.h>
 #import <WebCore/MediaSelectionOption.h>
 #import <WebCore/Navigator.h>
 #import <WebCore/NavigatorMediaSession.h>
@@ -65,9 +68,7 @@ PlaybackSessionInterfaceContext::PlaybackSessionInterfaceContext(PlaybackSession
 {
 }
 
-PlaybackSessionInterfaceContext::~PlaybackSessionInterfaceContext()
-{
-}
+PlaybackSessionInterfaceContext::~PlaybackSessionInterfaceContext() = default;
 
 void PlaybackSessionInterfaceContext::durationChanged(double duration)
 {
@@ -173,14 +174,14 @@ void PlaybackSessionInterfaceContext::isInWindowFullscreenActiveChanged(bool isI
 
 void PlaybackSessionInterfaceContext::spatialVideoMetadataChanged(const std::optional<WebCore::SpatialVideoMetadata>& metadata)
 {
-    if (m_manager)
-        m_manager->spatialVideoMetadataChanged(m_contextId, metadata);
+    if (RefPtr manager = m_manager.get())
+        manager->spatialVideoMetadataChanged(m_contextId, metadata);
 }
 
 void PlaybackSessionInterfaceContext::videoProjectionMetadataChanged(const std::optional<VideoProjectionMetadata>& value)
 {
-    if (m_manager)
-        m_manager->videoProjectionMetadataChanged(m_contextId, value);
+    if (RefPtr manager = m_manager.get())
+        manager->videoProjectionMetadataChanged(m_contextId, value);
 }
 
 #pragma mark - PlaybackSessionManager
@@ -300,13 +301,15 @@ void PlaybackSessionManager::setUpPlaybackControlsManager(WebCore::HTMLMediaElem
     if (m_controlsManagerContextId == contextId)
         return;
 
+    Ref page = *m_page;
     if (auto previousContextId = std::exchange(m_controlsManagerContextId, contextId)) {
-        if (mediaElement.document().quirks().needsNowPlayingFullscreenSwapQuirk()) {
-            RefPtr previousElement = mediaElementWithContextId(*previousContextId);
-            if (mediaElement.isVideo() && previousElement && previousElement->isVideo() && previousElement->fullscreenMode() != HTMLMediaElement::VideoFullscreenModeNone) {
-                m_page->videoPresentationManager().swapFullscreenModes(downcast<HTMLVideoElement>(mediaElement), downcast<HTMLVideoElement>(*previousElement));
+        if (mediaElement.protectedDocument()->quirks().needsNowPlayingFullscreenSwapQuirk()) {
+            RefPtr previousElement = dynamicDowncast<HTMLVideoElement>(mediaElementWithContextId(*previousContextId));
+            if (RefPtr videoElement = dynamicDowncast<HTMLVideoElement>(mediaElement); videoElement && previousElement
+                && previousElement->fullscreenMode() != HTMLMediaElement::VideoFullscreenModeNone) {
+                page->protectedVideoPresentationManager()->swapFullscreenModes(*videoElement, *previousElement);
 
-                m_page->send(Messages::PlaybackSessionManagerProxy::SwapFullscreenModes(processQualify(contextId), processQualify(*previousContextId)));
+                page->send(Messages::PlaybackSessionManagerProxy::SwapFullscreenModes(processQualify(contextId), processQualify(*previousContextId)));
 
                 ensureModel(*previousContextId)->updateAll();
                 ensureModel(contextId)->updateAll();
@@ -317,8 +320,8 @@ void PlaybackSessionManager::setUpPlaybackControlsManager(WebCore::HTMLMediaElem
 
     addClientForContext(*m_controlsManagerContextId);
 
-    m_page->videoControlsManagerDidChange();
-    m_page->send(Messages::PlaybackSessionManagerProxy::SetUpPlaybackControlsManagerWithID(processQualify(*m_controlsManagerContextId), mediaElement.isVideo()));
+    page->videoControlsManagerDidChange();
+    page->send(Messages::PlaybackSessionManagerProxy::SetUpPlaybackControlsManagerWithID(processQualify(*m_controlsManagerContextId), mediaElement.isVideo()));
 #if HAVE(PIP_SKIP_PREROLL)
     setMediaSessionAndRegisterAsObserver();
 #endif
@@ -332,8 +335,9 @@ void PlaybackSessionManager::clearPlaybackControlsManager()
     removeClientForContext(*m_controlsManagerContextId);
     m_controlsManagerContextId = std::nullopt;
 
-    m_page->videoControlsManagerDidChange();
-    m_page->send(Messages::PlaybackSessionManagerProxy::ClearPlaybackControlsManager());
+    Ref page = *m_page;
+    page->videoControlsManagerDidChange();
+    page->send(Messages::PlaybackSessionManagerProxy::ClearPlaybackControlsManager());
 }
 
 void PlaybackSessionManager::mediaEngineChanged(HTMLMediaElement& mediaElement)
@@ -359,7 +363,7 @@ void PlaybackSessionManager::mediaEngineChanged(HTMLMediaElement& mediaElement)
     if (it == m_contextMap.end())
         return;
 
-    std::get<0>(it->value)->mediaEngineChanged();
+    Ref { std::get<0>(it->value) }->mediaEngineChanged();
 }
 
 WebCore::HTMLMediaElementIdentifier PlaybackSessionManager::contextIdForMediaElement(WebCore::HTMLMediaElement& mediaElement)
@@ -708,7 +712,7 @@ void PlaybackSessionManager::setSoundStageSize(WebCore::HTMLMediaElementIdentifi
         if (model.soundStageSize() > maxSize)
             maxSize = model.soundStageSize();
     });
-    AudioSession::sharedSession().setSoundStageSize(maxSize);
+    AudioSession::singleton().setSoundStageSize(maxSize);
 }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)

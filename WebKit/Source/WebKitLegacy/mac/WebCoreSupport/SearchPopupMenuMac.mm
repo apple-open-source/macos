@@ -40,9 +40,7 @@ SearchPopupMenuMac::SearchPopupMenuMac(WebCore::PopupMenuClient* client)
     FileSystem::makeAllDirectories(m_directory);
 }
 
-SearchPopupMenuMac::~SearchPopupMenuMac()
-{
-}
+SearchPopupMenuMac::~SearchPopupMenuMac() = default;
 
 WebCore::PopupMenu* SearchPopupMenuMac::popupMenu()
 {

@@ -72,7 +72,7 @@ VideoTrack* VideoTrackList::getTrackById(const AtomString& id) const
     for (auto& inbandTracks : m_inbandTracks) {
         Ref track = downcast<VideoTrack>(*inbandTracks);
         if (track->id() == id)
-            return track.ptr();
+            return track.unsafePtr();
     }
     return nullptr;
 }

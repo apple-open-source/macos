@@ -36,6 +36,9 @@
 #include "CachedPage.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentPage.h"
+#include "DocumentView.h"
+#include "DocumentWindow.h"
 #include "FrameLoader.h"
 #include "FrameLoaderStateMachine.h"
 #include "FrameTree.h"
@@ -50,6 +53,7 @@
 #include "ProcessSwapDisposition.h"
 #include "ScrollingCoordinator.h"
 #include "SerializedScriptValue.h"
+#include "Settings.h"
 #include "SharedStringHash.h"
 #include "ShouldTreatAsContinuingLoad.h"
 #include "VisitedLinkStore.h"
@@ -259,7 +263,7 @@ void HistoryController::restoreDocumentState()
     case FrameLoadType::ReloadFromOrigin:
     case FrameLoadType::ReloadExpiredOnly:
     case FrameLoadType::Same:
-    case FrameLoadType::Replace:
+    case FrameLoadType::MultipartReplace:
         // Not restoring the document state.
         return;
     case FrameLoadType::Back:
@@ -267,6 +271,7 @@ void HistoryController::restoreDocumentState()
     case FrameLoadType::IndexedBackForward:
     case FrameLoadType::RedirectWithLockedBackForwardList:
     case FrameLoadType::Standard:
+    case FrameLoadType::NavigationAPIReplace:
         break;
     }
 
@@ -519,9 +524,9 @@ void HistoryController::updateForBackForwardNavigation()
     updateCurrentItem();
 }
 
-void HistoryController::updateForReload()
+void HistoryController::updateForReloadOrReplace()
 {
-    LOG(History, "HistoryController %p updateForReload: Updating History for reload in frame %p (main frame %d) %s", this, m_frame.ptr(), m_frame->isMainFrame(), m_frame->loader().documentLoader() ? m_frame->loader().documentLoader()->url().string().utf8().data() : "");
+    LOG(History, "HistoryController %p updateForReloadOrReplace: Updating History for reload or replace in frame %p (main frame %d) %s", this, m_frame.ptr(), m_frame->isMainFrame(), m_frame->loader().documentLoader() ? m_frame->loader().documentLoader()->url().string().utf8().data() : "");
 
     if (RefPtr currentItem = m_currentItem) {
         BackForwardCache::singleton().remove(*currentItem);
@@ -651,7 +656,7 @@ void HistoryController::updateForCommit()
 
     FrameLoadType type = frameLoader->loadType();
     if (isBackForwardLoadType(type)
-        || isReplaceLoadTypeWithProvisionalItem(type)
+        || isMultipartReplaceLoadTypeWithProvisionalItem(type)
         || (isReloadTypeWithProvisionalItem(type) && !frameLoader->provisionalDocumentLoader()->unreachableURL().isEmpty())) {
         // Once committed, we want to use current item for saving DocState, and
         // the provisional item for restoring state.
@@ -678,11 +683,11 @@ void HistoryController::updateForCommit()
     }
 }
 
-bool HistoryController::isReplaceLoadTypeWithProvisionalItem(FrameLoadType type)
+bool HistoryController::isMultipartReplaceLoadTypeWithProvisionalItem(FrameLoadType type)
 {
-    // Going back to an error page in a subframe can trigger a FrameLoadType::Replace
+    // Going back to an error page in a subframe can trigger a FrameLoadType::MultipartReplace
     // while m_provisionalItem is set, so we need to commit it.
-    return type == FrameLoadType::Replace && m_provisionalItem;
+    return type == FrameLoadType::MultipartReplace && m_provisionalItem;
 }
 
 bool HistoryController::isReloadTypeWithProvisionalItem(FrameLoadType type)
@@ -759,11 +764,6 @@ void HistoryController::recursiveUpdateForSameDocumentNavigation()
     // The frame that navigated will now have a null provisional item.
     // Ignore it and its children.
     if (!m_provisionalItem)
-        return;
-
-    // The provisional item may represent a different pending navigation.
-    // Don't commit it if it isn't a same document navigation.
-    if (m_currentItem && !protectedCurrentItem()->shouldDoSameDocumentNavigationTo(*protectedProvisionalItem()))
         return;
 
     // Commit the provisional item.
@@ -1084,13 +1084,13 @@ void HistoryController::pushState(RefPtr<SerializedScriptValue>&& stateObject, c
         document->protectedWindow()->protectedNavigation()->updateForNavigation(*currentItem, NavigationNavigationType::Push);
 }
 
-void HistoryController::replaceState(RefPtr<SerializedScriptValue>&& stateObject, const String& urlString)
+void HistoryController::updateBackForwardListForReplaceState(RefPtr<SerializedScriptValue>&& stateObject, const String& urlString)
 {
     RefPtr currentItem = m_currentItem;
     if (!currentItem)
         return;
 
-    LOG(History, "HistoryController %p replaceState: Setting url of current item %p to %s scrollRestoration %s", this, currentItem.get(), urlString.ascii().data(), currentItem->shouldRestoreScrollPosition() ? "auto" : "manual");
+    LOG(History, "HistoryController %p updateBackForwardListForReplaceState: Setting url of current item %p to %s scrollRestoration %s", this, currentItem.get(), urlString.ascii().data(), currentItem->shouldRestoreScrollPosition() ? "auto" : "manual");
 
     if (!urlString.isEmpty())
         currentItem->setURLString(urlString);
@@ -1098,6 +1098,15 @@ void HistoryController::replaceState(RefPtr<SerializedScriptValue>&& stateObject
     currentItem->setFormData(nullptr);
     currentItem->setFormContentType(String());
     currentItem->notifyChanged();
+}
+
+void HistoryController::replaceState(RefPtr<SerializedScriptValue>&& stateObject, const String& urlString)
+{
+    RefPtr currentItem = m_currentItem;
+    if (!currentItem)
+        return;
+
+    updateBackForwardListForReplaceState(WTFMove(stateObject), urlString);
 
     Ref frame = m_frame.get();
     RefPtr page = frame->page();

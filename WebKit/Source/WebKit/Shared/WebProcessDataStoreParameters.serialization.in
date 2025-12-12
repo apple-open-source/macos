@@ -38,11 +38,11 @@
     String modelElementCacheDirectory;
     WebKit::SandboxExtensionHandle modelElementCacheDirectoryExtensionHandle;
 #endif
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY) && !USE(EXTENSIONKIT)
     WebKit::SandboxExtensionHandle containerTemporaryDirectoryExtensionHandle;
 #endif
     bool trackingPreventionEnabled;
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     bool isOptInCookiePartitioningEnabled;
 #endif
 };

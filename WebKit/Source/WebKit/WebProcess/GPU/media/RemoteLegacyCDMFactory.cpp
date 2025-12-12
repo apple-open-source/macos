@@ -116,10 +116,11 @@ bool RemoteLegacyCDMFactory::supportsKeySystemAndMimeType(const String& keySyste
 std::unique_ptr<CDMPrivateInterface> RemoteLegacyCDMFactory::createCDM(WebCore::LegacyCDM& cdm)
 {
     std::optional<MediaPlayerIdentifier> playerId;
+    Ref gpuProcessConnection = this->gpuProcessConnection();
     if (auto player = cdm.mediaPlayer())
-        playerId = gpuProcessConnection().protectedMediaPlayerManager()->findRemotePlayerId(player->protectedPlayerPrivate().get());
+        playerId = gpuProcessConnection->protectedMediaPlayerManager()->findRemotePlayerId(player->protectedPlayerPrivate().get());
 
-    auto sendResult = gpuProcessConnection().connection().sendSync(Messages::RemoteLegacyCDMFactoryProxy::CreateCDM(cdm.keySystem(), WTFMove(playerId)), { });
+    auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteLegacyCDMFactoryProxy::CreateCDM(cdm.keySystem(), WTFMove(playerId)), { });
     auto [identifier] = sendResult.takeReplyOr(std::nullopt);
     if (!identifier)
         return nullptr;

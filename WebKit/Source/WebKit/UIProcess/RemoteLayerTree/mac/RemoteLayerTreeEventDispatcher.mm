@@ -388,8 +388,8 @@ void RemoteLayerTreeEventDispatcher::startOrStopDisplayLinkOnMainThread()
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
         {
-            Locker lock { m_effectStacksLock };
-            if (!m_effectStacks.isEmpty())
+            Locker lock { m_animationLock };
+            if (!m_animationStacks.isEmpty())
                 return true;
         }
 #endif
@@ -573,8 +573,8 @@ bool RemoteLayerTreeEventDispatcher::scrollingTreeWasRecentlyActive()
         return true;
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    Locker lock { m_effectStacksLock };
-    return !m_effectStacks.isEmpty();
+    Locker lock { m_animationLock };
+    return !m_animationStacks.isEmpty();
 #else
     return false;
 #endif
@@ -616,53 +616,71 @@ void RemoteLayerTreeEventDispatcher::renderingUpdateComplete()
 void RemoteLayerTreeEventDispatcher::lockForAnimationChanges()
 {
     ASSERT(isMainRunLoop());
-    m_effectStacksLock.lock();
+    m_animationLock.lock();
 }
 
 void RemoteLayerTreeEventDispatcher::unlockForAnimationChanges()
 {
     ASSERT(isMainRunLoop());
-    m_effectStacksLock.unlock();
+    m_animationLock.unlock();
     startOrStopDisplayLink();
 }
 
 void RemoteLayerTreeEventDispatcher::animationsWereAddedToNode(RemoteLayerTreeNode& node)
 {
     ASSERT(isMainRunLoop());
-    assertIsHeld(m_effectStacksLock);
-    auto effectStack = node.takeEffectStack();
-    ASSERT(effectStack);
-    m_effectStacks.set(node.layerID(), effectStack.releaseNonNull());
+    assertIsHeld(m_animationLock);
+    auto animationStack = node.takeAnimationStack();
+    ASSERT(animationStack);
+    m_animationStacks.set(node.layerID(), animationStack.releaseNonNull());
 }
 
 void RemoteLayerTreeEventDispatcher::animationsWereRemovedFromNode(RemoteLayerTreeNode& node)
 {
     ASSERT(isMainRunLoop());
-    assertIsHeld(m_effectStacksLock);
-    if (auto effectStack = m_effectStacks.take(node.layerID()))
-        effectStack->clear(node.layer());
+    assertIsHeld(m_animationLock);
+    if (auto animationStack = m_animationStacks.take(node.layerID()))
+        animationStack->clear(node.protectedLayer().get());
+}
+
+void RemoteLayerTreeEventDispatcher::registerTimelineIfNecessary(WebCore::ProcessIdentifier processIdentifier, Seconds originTime, MonotonicTime now)
+{
+    assertIsHeld(m_animationLock);
+    if (m_timelines.find(processIdentifier) == m_timelines.end())
+        m_timelines.set(processIdentifier, RemoteAnimationTimeline::create(originTime, now));
+}
+
+const RemoteAnimationTimeline* RemoteLayerTreeEventDispatcher::timeline(WebCore::ProcessIdentifier processIdentifier) const
+{
+    assertIsHeld(m_animationLock);
+    auto it = m_timelines.find(processIdentifier);
+    if (it != m_timelines.end())
+        return it->value.ptr();
+    return nullptr;
 }
 
 void RemoteLayerTreeEventDispatcher::updateAnimations()
 {
     ASSERT(!isMainRunLoop());
-    Locker lock { m_effectStacksLock };
+    Locker lock { m_animationLock };
 
     // FIXME: Rather than using 'now' at the point this is called, we
     // should probably be using the timestamp of the (next?) display
     // link update or vblank refresh.
     auto now = MonotonicTime::now();
+    for (auto& timeline : m_timelines.values())
+        timeline->updateCurrentTime(now);
 
-    auto effectStacks = std::exchange(m_effectStacks, { });
-    for (auto [layerID, currentEffectStack] : effectStacks) {
-        Ref effectStack = currentEffectStack;
-        effectStack->applyEffectsFromScrollingThread(now);
+    auto animationStacks = std::exchange(m_animationStacks, { });
+    for (auto [layerID, currentAnimationStack] : animationStacks) {
+        Ref animationStack = currentAnimationStack;
+        animationStack->applyEffectsFromScrollingThread();
 
         // We can clear the effect stack if it's empty, but the previous
         // call to applyEffects() is important so that the base values
         // were re-applied.
-        if (effectStack->hasEffects())
-            m_effectStacks.set(layerID, WTFMove(effectStack));
+        if (!animationStack->isEmpty())
+            m_animationStacks.set(layerID, WTFMove(animationStack));
     }
 }
 #endif

@@ -1384,6 +1384,8 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 		loginDLDbIdentifier = mSavedList.loginDLDbIdentifier();
 	}
 
+    mSavedList.sendTelemetryData();
+
 	secnotice("KCLogin", "StorageManager::login: loginDLDbIdentifier is %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
 	if (!loginDLDbIdentifier)
 		MacOSError::throwMe(errSecNoSuchKeychain);

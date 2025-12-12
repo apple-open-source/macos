@@ -53,7 +53,7 @@ messages -> WebExtensionContext {
     #if ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS)
     // Bookmarks APIs
     [Validator=isBookmarksMessageAllowed] BookmarksCreate(std::optional<String> parentId, std::optional<uint64_t> index, std::optional<String> url, std::optional<String> title) -> (Expected<WebKit::WebExtensionBookmarksParameters, WebKit::WebExtensionError> result)
-    [Validator=isBookmarksMessageAllowed] BookmarksGetTree() -> (Expected<WebKit::WebExtensionBookmarksParameters, WebKit::WebExtensionError> result)
+    [Validator=isBookmarksMessageAllowed] BookmarksGetTree() -> (Expected<Vector<WebKit::WebExtensionBookmarksParameters>, WebKit::WebExtensionError> result)
     [Validator=isBookmarksMessageAllowed] BookmarksGetSubTree(String bookmarkId) -> (Expected<Vector<WebKit::WebExtensionBookmarksParameters>, WebKit::WebExtensionError> result)
     [Validator=isBookmarksMessageAllowed] BookmarksGet(Vector<String> bookmarkId) -> (Expected<Vector<WebKit::WebExtensionBookmarksParameters>, WebKit::WebExtensionError> result)
     [Validator=isBookmarksMessageAllowed] BookmarksGetChildren(String bookmarkId) -> (Expected<Vector<WebKit::WebExtensionBookmarksParameters>, WebKit::WebExtensionError> result)

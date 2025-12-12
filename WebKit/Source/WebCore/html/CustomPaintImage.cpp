@@ -42,8 +42,12 @@
 #include "JSCSSPaintCallback.h"
 #include "JSDOMExceptionHandling.h"
 #include "MainThreadStylePropertyMapReadOnly.h"
+#include "NodeInlines.h"
 #include "PaintRenderingContext2D.h"
 #include "RenderElement.h"
+#include "RenderElementInlines.h"
+#include "RenderObjectStyle.h"
+#include "RenderStyleInlines.h"
 #include "StyleExtractor.h"
 #include <JavaScriptCore/ConstructData.h>
 

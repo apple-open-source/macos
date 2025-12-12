@@ -24,11 +24,13 @@
  */
 
 #import "config.h"
-#import "AccessibilityObject.h"
+#import "AccessibilityObjectInlines.h"
 
 #if PLATFORM(IOS_FAMILY)
 
 #import "AXRemoteFrame.h"
+#import "AXRemoteTokenIOS.h"
+#import "AXUtilities.h"
 #import "AccessibilityRenderObject.h"
 #import "EventNames.h"
 #import "EventTargetInlines.h"
@@ -51,18 +53,18 @@ SOFT_LINK_CLASS_OPTIONAL(AXRuntime, AXRemoteElement);
 #endif
 
 SOFT_LINK_CONSTANT(AXRuntime, UIAccessibilityTokenBlockquoteLevel, NSString *);
-#define AccessibilityTokenBlockquoteLevel getUIAccessibilityTokenBlockquoteLevel()
+#define AccessibilityTokenBlockquoteLevel getUIAccessibilityTokenBlockquoteLevelSingleton()
 SOFT_LINK_CONSTANT(AXRuntime, UIAccessibilityTokenUnderline, NSString *);
-#define AccessibilityTokenUnderline getUIAccessibilityTokenUnderline()
+#define AccessibilityTokenUnderline getUIAccessibilityTokenUnderlineSingleton()
 SOFT_LINK_CONSTANT(AXRuntime, UIAccessibilityTokenLanguage, NSString *);
-#define AccessibilityTokenLanguage getUIAccessibilityTokenLanguage()
+#define AccessibilityTokenLanguage getUIAccessibilityTokenLanguageSingleton()
 SOFT_LINK_CONSTANT(AXRuntime, UIAccessibilityInlineTextCompletion, NSString *);
-#define AccessibilityInlineTextCompletion getUIAccessibilityInlineTextCompletion()
+#define AccessibilityInlineTextCompletion getUIAccessibilityInlineTextCompletionSingleton()
 SOFT_LINK_CONSTANT(AXRuntime, UIAccessibilityAcceptedInlineTextCompletion, NSString *);
-#define AccessibilityAcceptedInlineTextCompletion getUIAccessibilityAcceptedInlineTextCompletion()
+#define AccessibilityAcceptedInlineTextCompletion getUIAccessibilityAcceptedInlineTextCompletionSingleton()
 
 namespace WebCore {
-    
+
 void AccessibilityObject::detachPlatformWrapper(AccessibilityDetachmentType)
 {
     [wrapper() detach];
@@ -94,12 +96,6 @@ FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect,
     return convertFrameToSpace(rect, space);
 }
 
-// On iOS, we don't have to return the value in the title. We can return the actual title, given the API.
-bool AccessibilityObject::fileUploadButtonReturnsValueInTitle() const
-{
-    return false;
-}
-
 // In iPhone only code for now. It's debateable whether this is desired on all platforms.
 unsigned AccessibilityObject::accessibilitySecureFieldLength()
 {
@@ -112,11 +108,16 @@ unsigned AccessibilityObject::accessibilitySecureFieldLength()
     return inputElement ? inputElement->value()->length() : 0;
 }
 
+void AccessibilityObject::markPlatformWrapperIgnoredStateDirty() const
+{
+    [wrapper() _clearCachedIsAccessibilityElementState];
+}
+
 bool AccessibilityObject::accessibilityIgnoreAttachment() const
 {
     return [[wrapper() attachmentView] accessibilityIsIgnored];
 }
-    
+
 AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesObject() const
 {
     if (role() == AccessibilityRole::Unknown)
@@ -177,35 +178,17 @@ void AccessibilityObject::setLastPresentedTextPrediction(Node& previousCompositi
 #endif // HAVE (INLINE_PREDICTIONS)
 }
 
-#if !PLATFORM(MACCATALYST)
-
-static RetainPtr<NSDictionary> unarchivedTokenForData(RetainPtr<NSData> tokenData)
+AccessibilityRemoteToken AXRemoteFrame::generateRemoteToken() const
 {
-    NSError *error = nil;
-    return [NSKeyedUnarchiver unarchivedObjectOfClasses:[NSSet setWithObjects:[NSDictionary class], [NSNumber class], [NSString class], nil] fromData:tokenData.get() error:&error];
+    return { WTF::UUID::createVersion4(), getpid() };
 }
 
-#endif
-
-Vector<uint8_t> AXRemoteFrame::generateRemoteToken() const
-{
-    if (RetainPtr data = Accessibility::newAccessibilityRemoteToken([[NSUUID UUID] UUIDString]))
-        return makeVector(data.get());
-    return { };
-}
-
-void AXRemoteFrame::initializePlatformElementWithRemoteToken(std::span<const uint8_t> token, int processIdentifier)
+void AXRemoteFrame::initializePlatformElementWithRemoteToken(AccessibilityRemoteToken token, int processIdentifier)
 {
 #if !PLATFORM(MACCATALYST)
     m_processIdentifier = processIdentifier;
 
-    RetainPtr nsToken = WTF::toNSData(token);
-    NSDictionary *tokenDictionary = nsToken ? unarchivedTokenForData(nsToken).get() : nil;
-    if (!tokenDictionary)
-        return;
-
-    NSString *uuid = [tokenDictionary objectForKey:@"ax-uuid"];
-    RetainPtr remoteElement = adoptNS([allocAXRemoteElementInstance() initWithUUID:uuid andRemotePid:processIdentifier andContextId:0]);
+    RetainPtr remoteElement = adoptNS([allocAXRemoteElementInstance() initWithUUID:[token.uuid.createNSUUID() UUIDString] andRemotePid:processIdentifier andContextId:0]);
     remoteElement.get().onClientSide = YES;
     RefPtr parent = parentObjectUnignored();
     remoteElement.get().accessibilityContainer = parent ?  parent->wrapper() : nil;
@@ -267,10 +250,9 @@ static void attributeStringSetStyle(NSMutableAttributedString *attrString, Rende
     auto& style = renderer->style();
 
     // Set basic font info.
-    attributedStringSetFont(attrString, style.fontCascade().primaryFont()->getCTFont(), range);
+    attributedStringSetFont(attrString, style.fontCascade().primaryFont()->ctFont(), range);
 
-    auto decor = style.textDecorationLineInEffect();
-    if (decor & TextDecorationLine::Underline)
+    if (style.textDecorationLineInEffect().hasUnderline())
         attributedStringSetNumber(attrString, AccessibilityTokenUnderline, @YES, range);
 
     // Add code context if this node is within a <code> block.
@@ -341,17 +323,6 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node& node, StringView text
     return result;
 }
 
-namespace Accessibility {
-
-RetainPtr<NSData> newAccessibilityRemoteToken(NSString *uuidString)
-{
-    if (!uuidString)
-        return nil;
-    return [NSKeyedArchiver archivedDataWithRootObject:@{ @"ax-pid" : @(getpid()), @"ax-uuid" : uuidString, @"ax-register" : @YES } requiringSecureCoding:YES error:nullptr];
-}
-
-}
-
-} // WebCore
+} // namespace WebCore
 
 #endif // PLATFORM(IOS_FAMILY)

@@ -51,13 +51,13 @@
     [EnabledBy=FileSystemEnabled] GetHandleNames(WebCore::FileSystemHandleIdentifier identifier) -> (Expected<Vector<String>, WebKit::FileSystemStorageError> result)
     [EnabledBy=FileSystemEnabled] GetHandle(WebCore::FileSystemHandleIdentifier identifier, String name) -> (Expected<std::optional<std::pair<WebCore::FileSystemHandleIdentifier, bool>>, WebKit::FileSystemStorageError> result)
 
-    ConnectToStorageArea(WebCore::StorageType type, WebKit::StorageAreaMapIdentifier sourceIdentifier, std::optional<WebKit::StorageNamespaceIdentifier> namespaceIdentifier, struct WebCore::ClientOrigin origin) -> (std::optional<WebKit::StorageAreaIdentifier> identifier, HashMap<String, String> items, uint64_t messageIdentifier)
-    ConnectToStorageAreaSync(WebCore::StorageType type, WebKit::StorageAreaMapIdentifier sourceIdentifier, std::optional<WebKit::StorageNamespaceIdentifier> namespaceIdentifier, struct WebCore::ClientOrigin origin) -> (std::optional<WebKit::StorageAreaIdentifier> identifier, HashMap<String, String> items, uint64_t messageIdentifier) Synchronous
-    CancelConnectToStorageArea(WebCore::StorageType type, std::optional<WebKit::StorageNamespaceIdentifier> namespaceIdentifier, struct WebCore::ClientOrigin origin)
-    DisconnectFromStorageArea(WebKit::StorageAreaIdentifier identifier)
-    SetItem(WebKit::StorageAreaIdentifier identifier, WebKit::StorageAreaImplIdentifier implIdentifier, String key, String value, String urlString) -> (bool hasError, HashMap<String, String> allItems)
-    RemoveItem(WebKit::StorageAreaIdentifier identifier, WebKit::StorageAreaImplIdentifier implIdentifier, String key, String urlString) -> (bool hasError, HashMap<String, String> allItems)
-    Clear(WebKit::StorageAreaIdentifier identifier, WebKit::StorageAreaImplIdentifier implIdentifier, String urlString) -> ()
+    [EnabledBy=LocalStorageEnabled || SessionStorageEnabled] ConnectToStorageArea(WebCore::StorageType type, WebKit::StorageAreaMapIdentifier sourceIdentifier, std::optional<WebKit::StorageNamespaceIdentifier> namespaceIdentifier, struct WebCore::ClientOrigin origin) -> (std::optional<WebKit::StorageAreaIdentifier> identifier, HashMap<String, String> items, uint64_t messageIdentifier)
+    [EnabledBy=LocalStorageEnabled || SessionStorageEnabled] ConnectToStorageAreaSync(WebCore::StorageType type, WebKit::StorageAreaMapIdentifier sourceIdentifier, std::optional<WebKit::StorageNamespaceIdentifier> namespaceIdentifier, struct WebCore::ClientOrigin origin) -> (std::optional<WebKit::StorageAreaIdentifier> identifier, HashMap<String, String> items, uint64_t messageIdentifier) Synchronous
+    [EnabledBy=LocalStorageEnabled || SessionStorageEnabled] CancelConnectToStorageArea(WebCore::StorageType type, std::optional<WebKit::StorageNamespaceIdentifier> namespaceIdentifier, struct WebCore::ClientOrigin origin)
+    [EnabledBy=LocalStorageEnabled || SessionStorageEnabled] DisconnectFromStorageArea(WebKit::StorageAreaIdentifier identifier)
+    [EnabledBy=LocalStorageEnabled || SessionStorageEnabled] SetItem(WebKit::StorageAreaIdentifier identifier, WebKit::StorageAreaImplIdentifier implIdentifier, String key, String value, String urlString) -> (bool hasError, HashMap<String, String> allItems)
+    [EnabledBy=LocalStorageEnabled || SessionStorageEnabled] RemoveItem(WebKit::StorageAreaIdentifier identifier, WebKit::StorageAreaImplIdentifier implIdentifier, String key, String urlString) -> (bool hasError, HashMap<String, String> allItems)
+    [EnabledBy=LocalStorageEnabled || SessionStorageEnabled] Clear(WebKit::StorageAreaIdentifier identifier, WebKit::StorageAreaImplIdentifier implIdentifier, String urlString) -> ()
 
     [EnabledBy=IndexedDBAPIEnabled] OpenDatabase(WebCore::IDBOpenRequestData requestData)
     [EnabledBy=IndexedDBAPIEnabled] OpenDBRequestCancelled(WebCore::IDBOpenRequestData requestData)

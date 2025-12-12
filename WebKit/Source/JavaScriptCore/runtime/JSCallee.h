@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "JSGlobalObject.h"
-#include "JSObject.h"
-#include "JSScope.h"
+#include <JavaScriptCore/JSGlobalObject.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/JSScope.h>
 
 namespace JSC {
 
@@ -75,6 +75,8 @@ public:
 
     DECLARE_EXPORT_INFO;
 
+    DECLARE_VISIT_CHILDREN;
+
     inline static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
     static constexpr ptrdiff_t offsetOfScopeChain()
@@ -87,7 +89,6 @@ protected:
     JSCallee(VM&, JSScope*, Structure*);
 
     DECLARE_DEFAULT_FINISH_CREATION;
-    DECLARE_VISIT_CHILDREN;
 
     friend class LLIntOffsetsExtractor;
 

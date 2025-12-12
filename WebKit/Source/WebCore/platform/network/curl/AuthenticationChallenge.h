@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "AuthenticationChallengeBase.h"
-#include "AuthenticationClient.h"
+#include <WebCore/AuthenticationChallengeBase.h>
+#include <WebCore/AuthenticationClient.h>
 
 namespace WebCore {
 

@@ -181,7 +181,7 @@ struct skmem_region_params {
 	uint16_t                srp_max_frags;  /* (i) max frags per packet */
 };
 
-typedef void (*sksegment_ctor_fn_t)(struct sksegment *,
+typedef int (*sksegment_ctor_fn_t)(struct sksegment *,
     IOSKMemoryBufferRef, void *);
 typedef void (*sksegment_dtor_fn_t)(struct sksegment *,
     IOSKMemoryBufferRef, void *);

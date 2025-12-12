@@ -169,6 +169,9 @@ public:
     bool suspendsWebProcessesAggressivelyOnMemoryPressure() { return m_suspendsWebProcessesAggressivelyOnMemoryPressure; }
 #endif
 
+    void setPrewarmedProcessCountLimitForTesting(unsigned limit) { m_prewarmedProcessCountLimitForTesting = limit; }
+    unsigned prewarmedProcessCountLimitForTesting() const { return m_prewarmedProcessCountLimitForTesting; }
+
 private:
     WTF::String m_injectedBundlePath;
     Vector<WTF::String> m_cachePartitionedURLSchemes;
@@ -214,6 +217,7 @@ private:
 #if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
     bool m_suspendsWebProcessesAggressivelyOnMemoryPressure { false };
 #endif
+    unsigned m_prewarmedProcessCountLimitForTesting { 0 };
 };
 
 } // namespace API

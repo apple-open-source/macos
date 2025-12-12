@@ -44,10 +44,10 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HIDDevice);
 
 static int getDevicePropertyAsInt(IOHIDDeviceRef device, CFStringRef key)
 {
-    CFNumberRef cfPropertyValue = checked_cf_cast<CFNumberRef>(IOHIDDeviceGetProperty(device, key));
+    RetainPtr cfPropertyValue = checked_cf_cast<CFNumberRef>(IOHIDDeviceGetProperty(device, key));
     int propertyValue = -1;
     if (cfPropertyValue)
-        CFNumberGetValue(cfPropertyValue, kCFNumberIntType, &propertyValue);
+        CFNumberGetValue(cfPropertyValue.get(), kCFNumberIntType, &propertyValue);
     return propertyValue;
 }
 
@@ -69,8 +69,8 @@ HIDDevice::HIDDevice(IOHIDDeviceRef device)
     m_vendorID = (uint16_t)vendorID;
     m_productID = (uint16_t)productID;
 
-    CFStringRef cfProductName = checked_cf_cast<CFStringRef>(IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductKey)));
-    m_productName = cfProductName ? String(cfProductName) : String("Unknown"_s);
+    RetainPtr cfProductName = checked_cf_cast<CFStringRef>(IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductKey)));
+    m_productName = cfProductName ? String(cfProductName.get()) : "Unknown"_str;
 }
 
 Vector<HIDElement> HIDDevice::uniqueInputElementsInDeviceTreeOrder() const
@@ -86,23 +86,23 @@ Vector<HIDElement> HIDDevice::uniqueInputElementsInDeviceTreeOrder() const
     Vector<HIDElement> result;
 
     while (!elementQueue.isEmpty()) {
-        auto element = elementQueue.takeFirst();
-        IOHIDElementCookie cookie = IOHIDElementGetCookie(element);
+        RetainPtr element = elementQueue.takeFirst();
+        IOHIDElementCookie cookie = IOHIDElementGetCookie(element.get());
         if (encounteredCookies.contains(cookie))
             continue;
 
-        switch (IOHIDElementGetType(element)) {
+        switch (IOHIDElementGetType(element.get())) {
         case kIOHIDElementTypeCollection: {
-            auto children = IOHIDElementGetChildren(element);
-            for (CFIndex i = CFArrayGetCount(children) - 1; i >= 0; --i)
-                elementQueue.prepend(checked_cf_cast<IOHIDElementRef>(CFArrayGetValueAtIndex(children, i)));
+            RetainPtr children = IOHIDElementGetChildren(element.get());
+            for (CFIndex i = CFArrayGetCount(children.get()) - 1; i >= 0; --i)
+                elementQueue.prepend(checked_cf_cast<IOHIDElementRef>(CFArrayGetValueAtIndex(children.get(), i)));
             continue;
         }
         case kIOHIDElementTypeInput_Misc:
         case kIOHIDElementTypeInput_Button:
         case kIOHIDElementTypeInput_Axis:
             encounteredCookies.add(cookie);
-            result.append(element);
+            result.append(element.get());
             continue;
         default:
             continue;

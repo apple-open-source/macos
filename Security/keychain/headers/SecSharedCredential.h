@@ -68,9 +68,10 @@ extern const CFStringRef kSecSharedPassword
  Note: since a request involving shared web credentials may potentially require user interaction or other verification to be approved, this function is dispatched asynchronously; your code provides a completion handler that will be called once the results (if any) are available.
  */
 void SecAddSharedWebCredential(CFStringRef fqdn, CFStringRef account, CFStringRef __nullable password,
-    void (^completionHandler)(CFErrorRef __nullable error))
-    API_AVAILABLE(ios(8.0), macCatalyst(14.0), macos(10.16))
-    API_UNAVAILABLE(tvos, watchos);
+                               void (^completionHandler)(CFErrorRef __nullable error))
+API_DEPRECATED("Use ASCredentialDataManager.save(password:for:title:anchor:)  (AuthenticationServices framework)",
+               ios(8.0, 26.2), macCatalyst(14.0, 26.2), macos(10.16, 26.2))
+API_UNAVAILABLE(tvos, watchos);
 
 /*!
  @function SecRequestSharedWebCredential

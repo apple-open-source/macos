@@ -41,7 +41,6 @@ class PageDebuggable final : public Inspector::RemoteInspectionTarget {
     WTF_MAKE_NONCOPYABLE(PageDebuggable);
 public:
     static Ref<PageDebuggable> create(Page&);
-    ~PageDebuggable() = default;
 
     Inspector::RemoteControllableTarget::Type type() const final { return Inspector::RemoteControllableTarget::Type::Page; }
 

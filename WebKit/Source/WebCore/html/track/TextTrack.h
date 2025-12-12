@@ -28,11 +28,10 @@
 
 #if ENABLE(VIDEO)
 
-#include "ContextDestructionObserverInlines.h"
-#include "EventTargetInterfaces.h"
-#include "PlatformTimeRanges.h"
-#include "TextTrackCue.h"
-#include "TrackBase.h"
+#include <WebCore/EventTargetInterfaces.h>
+#include <WebCore/PlatformTimeRanges.h>
+#include <WebCore/TextTrackCue.h>
+#include <WebCore/TrackBase.h>
 #include <wtf/WeakHashSet.h>
 
 namespace WebCore {
@@ -142,7 +141,7 @@ public:
     virtual bool shouldPurgeCuesFromUnbufferedRanges() const { return false; }
     virtual void removeCuesNotInTimeRanges(const PlatformTimeRanges&);
 
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
 
 protected:
     TextTrack(ScriptExecutionContext*, const AtomString& kind, TrackID, const AtomString& label, const AtomString& language, TextTrackType);

@@ -37,19 +37,20 @@
 
 namespace WebCore {
 
-static NSBundle *passKitBundle()
+static NSBundle *passKitBundleSingleton()
 {
     static NSBundle *passKitBundle;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        passKitBundle = [NSBundle bundleWithURL:[NSURL fileURLWithPath:[FileSystem::systemDirectoryPath() stringByAppendingPathComponent:@"Library/Frameworks/PassKit.framework"] isDirectory:YES]];
+        RetainPtr systemDirectoryPath = FileSystem::systemDirectoryPath();
+        passKitBundle = [NSBundle bundleWithURL:[NSURL fileURLWithPath:[systemDirectoryPath stringByAppendingPathComponent:@"Library/Frameworks/PassKit.framework"] isDirectory:YES]];
     });
     return passKitBundle;
 }
 
 static RetainPtr<CGPDFPageRef> loadPassKitPDFPage(NSString *imageName)
 {
-    NSURL *url = [passKitBundle() URLForResource:imageName withExtension:@"pdf"];
+    NSURL *url = [passKitBundleSingleton() URLForResource:imageName withExtension:@"pdf"];
     if (!url)
         return nullptr;
     auto document = adoptCF(CGPDFDocumentCreateWithURL((CFURLRef)url));

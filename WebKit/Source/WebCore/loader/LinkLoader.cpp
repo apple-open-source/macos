@@ -40,10 +40,13 @@
 #include "ContainerNode.h"
 #include "CrossOriginAccessControl.h"
 #include "DefaultResourceLoadPriority.h"
-#include "DocumentInlines.h"
+#include "DocumentLoader.h"
+#include "DocumentPage.h"
 #include "FetchRequestDestination.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "HTMLSrcsetParser.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include "JSFetchRequestDestination.h"
 #include "LinkHeader.h"
 #include "LinkPreloadResourceClients.h"
@@ -63,6 +66,7 @@
 #include "SizesAttributeParser.h"
 #include "StyleResolver.h"
 #include "UserContentProvider.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -165,6 +169,8 @@ std::optional<CachedResource::Type> LinkLoader::resourceTypeFromAsAttribute(cons
         return CachedResource::Type::ImageResource;
     case FetchRequestDestination::Iframe:
         return std::nullopt;
+    case FetchRequestDestination::Json:
+        return CachedResource::Type::JSON;
     case FetchRequestDestination::Manifest:
         return std::nullopt;
     case FetchRequestDestination::Model:
@@ -180,6 +186,8 @@ std::optional<CachedResource::Type> LinkLoader::resourceTypeFromAsAttribute(cons
     case FetchRequestDestination::Serviceworker:
         return CachedResource::Type::Script;
     case FetchRequestDestination::Sharedworker:
+        return CachedResource::Type::Script;
+    case FetchRequestDestination::Speculationrules:
         return CachedResource::Type::Script;
     case FetchRequestDestination::Style:
         return CachedResource::Type::CSSStyleSheet;
@@ -206,6 +214,7 @@ static std::unique_ptr<LinkPreloadResourceClient> createLinkPreloadResourceClien
     switch (resource.type()) {
     case CachedResource::Type::ImageResource:
         return makeUnique<LinkPreloadImageResourceClient>(loader, downcast<CachedImage>(resource));
+    case CachedResource::Type::JSON:
     case CachedResource::Type::Script:
         return makeUnique<LinkPreloadDefaultResourceClient>(loader, downcast<CachedScript>(resource));
     case CachedResource::Type::CSSStyleSheet:
@@ -251,6 +260,8 @@ bool LinkLoader::isSupportedType(CachedResource::Type resourceType, const String
     switch (resourceType) {
     case CachedResource::Type::ImageResource:
         return MIMETypeRegistry::isSupportedImageVideoOrSVGMIMEType(mimeType);
+    case CachedResource::Type::JSON:
+        return MIMETypeRegistry::isSupportedJSONMIMEType(mimeType);
     case CachedResource::Type::Script:
         return MIMETypeRegistry::isSupportedJavaScriptMIMEType(mimeType);
     case CachedResource::Type::CSSStyleSheet:
@@ -284,18 +295,15 @@ void LinkLoader::preconnectIfNeeded(const LinkLoadParameters& params, Document& 
     ResourceRequest request { URL { params.href } };
 #if ENABLE(CONTENT_EXTENSIONS)
     RefPtr page = document.page();
-    if (!page)
-        return;
-
     RefPtr documentLoader = document.loader();
-    if (!documentLoader)
-        return;
-
-    auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, params.href, ContentExtensions::ResourceType::Ping, *documentLoader);
-    if (results.shouldBlock())
-        return;
-
-    ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), request);
+    RefPtr frame = document.frame();
+    RefPtr userContentProvider = frame ? frame->userContentProvider() : nullptr;
+    if (page && documentLoader && userContentProvider) {
+        auto results = userContentProvider->processContentRuleListsForLoad(*page, params.href, ContentExtensions::ResourceType::Ping, *documentLoader);
+        if (results.shouldBlock())
+            return;
+        ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), request);
+    }
 #endif
 
     ASSERT(document.settings().linkPreconnectEnabled());
@@ -325,7 +333,7 @@ std::unique_ptr<LinkPreloadResourceClient> LinkLoader::preloadIfNeeded(const Lin
         type = LinkLoader::resourceTypeFromAsAttribute(params.as, document, ShouldLog::No);
         if (!type)
             type = CachedResource::Type::Script;
-        if (type && type != CachedResource::Type::Script) {
+        if (type && type != CachedResource::Type::Script && type != CachedResource::Type::JSON) {
             if (loader)
                 loader->triggerError();
             return nullptr;
@@ -371,8 +379,9 @@ std::unique_ptr<LinkPreloadResourceClient> LinkLoader::preloadIfNeeded(const Lin
             options.mode = FetchOptions::Mode::Cors;
             options.credentials = equalLettersIgnoringASCIICase(params.crossOrigin, "use-credentials"_s) ? FetchOptions::Credentials::Include : FetchOptions::Credentials::SameOrigin;
             CachedResourceRequest cachedRequest { ResourceRequest { WTFMove(url) }, WTFMove(options) };
-            cachedRequest.setOrigin(document.securityOrigin());
-            updateRequestForAccessControl(cachedRequest.resourceRequest(), document.securityOrigin(), options.storedCredentialsPolicy);
+            Ref securityOrigin = document.securityOrigin();
+            cachedRequest.setOrigin(securityOrigin.get());
+            updateRequestForAccessControl(cachedRequest.resourceRequest(), securityOrigin.get(), options.storedCredentialsPolicy);
             return cachedRequest;
         }
         return createPotentialAccessControlRequest(WTFMove(url), WTFMove(options), document, params.crossOrigin);

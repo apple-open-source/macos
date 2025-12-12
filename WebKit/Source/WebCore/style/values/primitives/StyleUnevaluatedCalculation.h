@@ -24,11 +24,12 @@
 
 #pragma once
 
-#include "StylePrimitiveNumericConcepts.h"
+#include <WebCore/StylePrimitiveNumericConcepts.h>
 #include <wtf/Forward.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
+namespace Style {
 
 namespace Calculation {
 struct Child;
@@ -36,13 +37,11 @@ struct Child;
 
 class CalculationValue;
 
-namespace Style {
-
 // Non-generic base type to allow code sharing and out-of-line definitions.
 struct UnevaluatedCalculationBase {
     explicit UnevaluatedCalculationBase(CalculationValue&);
     explicit UnevaluatedCalculationBase(Ref<CalculationValue>&&);
-    explicit UnevaluatedCalculationBase(Calculation::Child&&, Calculation::Category, CSS::Range);
+    explicit UnevaluatedCalculationBase(Calculation::Child&&, CSS::Category, CSS::Range);
 
     WEBCORE_EXPORT UnevaluatedCalculationBase(const UnevaluatedCalculationBase&);
     WEBCORE_EXPORT UnevaluatedCalculationBase(UnevaluatedCalculationBase&&);

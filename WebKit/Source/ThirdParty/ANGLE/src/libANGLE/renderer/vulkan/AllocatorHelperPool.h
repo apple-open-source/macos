@@ -10,6 +10,10 @@
 #ifndef LIBANGLE_RENDERER_VULKAN_ALLOCATORHELPERPOOL_H_
 #define LIBANGLE_RENDERER_VULKAN_ALLOCATORHELPERPOOL_H_
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "common/PoolAlloc.h"
 #include "common/vulkan/vk_headers.h"
 #include "libANGLE/renderer/vulkan/vk_command_buffer_utils.h"
@@ -36,7 +40,6 @@ class DedicatedCommandBlockAllocator
     DedicatedCommandMemoryAllocator *getAllocator() { return &mAllocator; }
 
   private:
-    static constexpr size_t kDefaultPoolAllocatorPageSize = 16 * 1024;
     // Using a pool allocator per CBH to avoid threading issues that occur w/ shared allocator
     // between multiple CBHs.
     DedicatedCommandMemoryAllocator mAllocator;

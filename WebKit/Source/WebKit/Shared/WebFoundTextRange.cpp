@@ -60,6 +60,29 @@ bool WebFoundTextRange::operator==(const WebFoundTextRange& other) const
         && order == other.order;
 }
 
+TextStream& operator<<(TextStream& ts, const WebFoundTextRange& range)
+{
+    WTF::switchOn(range.data,
+        [&] (const WebFoundTextRange::DOMData& domData) {
+            ts << "WebFoundTextRange"_s;
+            ts.dumpProperty("DOMData"_s, domData);
+        },
+        [&] (const WebFoundTextRange::PDFData& pdfData) {
+            ts << "WebFoundTextRange"_s;
+            ts.dumpProperty("PDFData"_s, pdfData);
+        }
+    );
+    ts.dumpProperty("order"_s, range.order);
+    ts.dumpProperty("frameIdentifier"_s, range.frameIdentifier);
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, const WebFoundTextRange::DOMData& data)
+{
+    ts << "[location: " << data.location << ", length: " << data.length << "]";
+    return ts;
+}
+
 TextStream& operator<<(TextStream& ts, const WebFoundTextRange::PDFData& data)
 {
     ts << "[start page: " << data.startPage << ", start offset: " << data.startOffset << ", end page: " << data.endPage << ", end offset: " << data.endOffset << "]";

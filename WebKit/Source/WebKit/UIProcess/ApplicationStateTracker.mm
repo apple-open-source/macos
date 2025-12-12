@@ -247,7 +247,7 @@ void ApplicationStateTracker::setWindow(UIWindow *window)
     case ApplicationType::ViewService: {
         UIViewController *serviceViewController = nil;
 
-        for (UIView *view = m_view.get().get(); view; view = view.superview) {
+        for (UIView *view = m_view.get().unsafeGet(); view; view = view.superview) {
             auto viewController = WebCore::viewController(view);
 
             if (viewController._hostProcessIdentifier) {

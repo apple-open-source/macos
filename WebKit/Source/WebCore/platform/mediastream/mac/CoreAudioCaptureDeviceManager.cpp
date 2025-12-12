@@ -40,6 +40,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/darwin/DispatchExtras.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
 
@@ -116,7 +117,9 @@ static bool isValidMicrophoneDevice(const CoreAudioCaptureDevice& device, bool f
 #if HAVE(AUDIO_DEVICE_PROPERTY_REFERENCE_STREAM_ENABLED)
             kAudioDevicePropertyReferenceStreamEnabled,
 #else
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             kAudioDevicePropertyTapEnabled,
+            ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
             kAudioDevicePropertyScopeOutput,
             kAudioObjectPropertyElementMain
@@ -209,7 +212,7 @@ Vector<CoreAudioCaptureDevice>& CoreAudioCaptureDeviceManager::coreAudioCaptureD
             kAudioObjectPropertyScopeGlobal,
             kAudioObjectPropertyElementMain
         };
-        auto err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, dispatch_get_main_queue(), listener);
+        auto err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, mainDispatchQueueSingleton(), listener);
         if (err)
             LOG_ERROR("CoreAudioCaptureDeviceManager::devices(%p) AudioObjectAddPropertyListener for kAudioHardwarePropertyDevices returned error %d (%.4s)", this, (int)err, (char*)&err);
 
@@ -218,7 +221,7 @@ Vector<CoreAudioCaptureDevice>& CoreAudioCaptureDeviceManager::coreAudioCaptureD
             kAudioObjectPropertyScopeGlobal,
             kAudioObjectPropertyElementMain
         };
-        err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, dispatch_get_main_queue(), listener);
+        err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, mainDispatchQueueSingleton(), listener);
         if (err)
             LOG_ERROR("CoreAudioCaptureDeviceManager::devices(%p) AudioObjectAddPropertyListener for kAudioHardwarePropertyDefaultInputDevice returned error %d (%.4s)", this, (int)err, (char*)&err);
 
@@ -227,7 +230,7 @@ Vector<CoreAudioCaptureDevice>& CoreAudioCaptureDeviceManager::coreAudioCaptureD
             kAudioObjectPropertyScopeGlobal,
             kAudioObjectPropertyElementMain
         };
-        err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, dispatch_get_main_queue(), listener);
+        err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, mainDispatchQueueSingleton(), listener);
         if (err)
             LOG_ERROR("CoreAudioCaptureDeviceManager::devices(%p) AudioObjectAddPropertyListener for kAudioHardwarePropertyDefaultOutputDevice returned error %d (%.4s)", this, (int)err, (char*)&err);
     }

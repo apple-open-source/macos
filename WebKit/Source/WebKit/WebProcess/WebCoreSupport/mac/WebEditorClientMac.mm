@@ -72,18 +72,20 @@ void WebEditorClient::setInsertionPasteboard(const String&)
     notImplemented();
 }
 
-static void changeWordCase(WebPage* page, NSString *(*changeCase)(NSString *))
+static void changeWordCase(WebPage& page, NSString *(*changeCase)(NSString *))
 {
-    RefPtr frame = page->corePage()->focusController().focusedOrMainFrame();
+    RefPtr frame = page.corePage()->focusController().focusedOrMainFrame();
     if (!frame)
         return;
-    if (!frame->editor().canEdit())
+
+    Ref editor = frame->editor();
+    if (!editor->canEdit())
         return;
 
-    frame->editor().command("selectWord"_s).execute();
+    editor->command("selectWord"_s).execute();
 
-    RetainPtr selectedString = frame->displayStringModifiedByEncoding(frame->editor().selectedText()).createNSString();
-    page->replaceSelectionWithText(frame.get(), changeCase(selectedString.get()));
+    RetainPtr selectedString = frame->displayStringModifiedByEncoding(editor->selectedText()).createNSString();
+    page.replaceSelectionWithText(frame.get(), changeCase(selectedString.get()));
 }
 
 void WebEditorClient::uppercaseWord()
@@ -91,7 +93,7 @@ void WebEditorClient::uppercaseWord()
     RefPtr page = m_page.get();
     if (!page)
         return;
-    changeWordCase(page.get(), [] (NSString *string) {
+    changeWordCase(*page, [] (NSString *string) {
         return [string uppercaseString];
     });
 }
@@ -101,7 +103,7 @@ void WebEditorClient::lowercaseWord()
     RefPtr page = m_page.get();
     if (!page)
         return;
-    changeWordCase(page.get(), [] (NSString *string) {
+    changeWordCase(*page, [] (NSString *string) {
         return [string lowercaseString];
     });
 }
@@ -111,7 +113,7 @@ void WebEditorClient::capitalizeWord()
     RefPtr page = m_page.get();
     if (!page)
         return;
-    changeWordCase(page.get(), [] (NSString *string) {
+    changeWordCase(*page, [] (NSString *string) {
         return [string capitalizedString];
     });
 }
@@ -190,6 +192,20 @@ void WebEditorClient::toggleAutomaticTextReplacement()
 {
     if (RefPtr page = m_page.get())
         page->send(Messages::WebPageProxy::toggleAutomaticTextReplacement());
+}
+
+bool WebEditorClient::isSmartListsEnabled()
+{
+    if (RefPtr page = m_page.get(); page && page->isControlledByAutomation())
+        return false;
+
+    return WebProcess::singleton().textCheckerState().contains(TextCheckerState::SmartListsEnabled);
+}
+
+void WebEditorClient::toggleSmartLists()
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::WebPageProxy::toggleSmartLists());
 }
 
 bool WebEditorClient::isAutomaticSpellingCorrectionEnabled()

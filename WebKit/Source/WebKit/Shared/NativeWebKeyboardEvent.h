@@ -36,8 +36,8 @@ OBJC_CLASS NSView;
 #endif
 
 #if PLATFORM(GTK)
-#include <WebCore/GRefPtrGtk.h>
-#include <WebCore/GUniquePtrGtk.h>
+#include "GRefPtrGtk.h"
+#include "GUniquePtrGtk.h"
 #if USE(GTK4)
 typedef struct _GdkEvent GdkEvent;
 #else

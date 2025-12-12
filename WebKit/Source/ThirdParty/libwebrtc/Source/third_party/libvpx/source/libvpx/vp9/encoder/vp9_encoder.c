@@ -1060,11 +1060,6 @@ static void dealloc_compressor_data(VP9_COMP *cpi) {
     lc->rc_twopass_stats_in.sz = 0;
   }
 
-  if (cpi->source_diff_var != NULL) {
-    vpx_free(cpi->source_diff_var);
-    cpi->source_diff_var = NULL;
-  }
-
   for (i = 0; i < MAX_LAG_BUFFERS; ++i) {
     vpx_free_frame_buffer(&cpi->svc.scaled_frames[i]);
   }
@@ -2371,57 +2366,6 @@ static void update_initial_width(VP9_COMP *cpi, int use_highbitdepth,
   }
 }
 
-// TODO(angiebird): Check whether we can move this function to vpx_image.c
-static INLINE void vpx_img_chroma_subsampling(vpx_img_fmt_t fmt,
-                                              unsigned int *subsampling_x,
-                                              unsigned int *subsampling_y) {
-  switch (fmt) {
-    case VPX_IMG_FMT_I420:
-    case VPX_IMG_FMT_YV12:
-    case VPX_IMG_FMT_NV12:
-    case VPX_IMG_FMT_I422:
-    case VPX_IMG_FMT_I42016:
-    case VPX_IMG_FMT_I42216: *subsampling_x = 1; break;
-    default: *subsampling_x = 0; break;
-  }
-
-  switch (fmt) {
-    case VPX_IMG_FMT_I420:
-    case VPX_IMG_FMT_I440:
-    case VPX_IMG_FMT_YV12:
-    case VPX_IMG_FMT_NV12:
-    case VPX_IMG_FMT_I42016:
-    case VPX_IMG_FMT_I44016: *subsampling_y = 1; break;
-    default: *subsampling_y = 0; break;
-  }
-}
-
-// TODO(angiebird): Check whether we can move this function to vpx_image.c
-static INLINE int vpx_img_use_highbitdepth(vpx_img_fmt_t fmt) {
-  return fmt & VPX_IMG_FMT_HIGHBITDEPTH;
-}
-
-void vp9_update_compressor_with_img_fmt(VP9_COMP *cpi, vpx_img_fmt_t img_fmt) {
-  const VP9EncoderConfig *oxcf = &cpi->oxcf;
-  unsigned int subsampling_x, subsampling_y;
-  const int use_highbitdepth = vpx_img_use_highbitdepth(img_fmt);
-  vpx_img_chroma_subsampling(img_fmt, &subsampling_x, &subsampling_y);
-
-  update_initial_width(cpi, use_highbitdepth, subsampling_x, subsampling_y);
-#if CONFIG_VP9_TEMPORAL_DENOISING
-  setup_denoiser_buffer(cpi);
-#endif
-
-  assert(cpi->lookahead == NULL);
-  cpi->lookahead = vp9_lookahead_init(oxcf->width, oxcf->height, subsampling_x,
-                                      subsampling_y,
-#if CONFIG_VP9_HIGHBITDEPTH
-                                      use_highbitdepth,
-#endif
-                                      oxcf->lag_in_frames);
-  alloc_raw_frame_buffers(cpi);
-}
-
 VP9_COMP *vp9_create_compressor(const VP9EncoderConfig *oxcf,
                                 BufferPool *const pool) {
   unsigned int i;
@@ -2703,11 +2647,6 @@ VP9_COMP *vp9_create_compressor(const VP9EncoderConfig *oxcf,
     cpi->tpl_stats[i].tpl_stats_ptr = NULL;
   }
 
-  // Allocate memory to store variances for a frame.
-  CHECK_MEM_ERROR(&cm->error, cpi->source_diff_var,
-                  vpx_calloc(cm->MBs, sizeof(*cpi->source_diff_var)));
-  cpi->source_var_thresh = 0;
-  cpi->frames_till_next_var_check = 0;
 #define BFP(BT, SDF, SDSF, SDAF, VF, SVF, SVAF, SDX4DF, SDSX4DF) \
   cpi->fn_ptr[BT].sdf = SDF;                                     \
   cpi->fn_ptr[BT].sdsf = SDSF;                                   \
@@ -4135,14 +4074,12 @@ static int encode_without_recode_loop(VP9_COMP *cpi, size_t *size,
   }
 
   // Avoid scaling last_source unless its needed.
-  // Last source is needed if avg_source_sad() is used, or if
-  // partition_search_type == SOURCE_VAR_BASED_PARTITION, or if noise
-  // estimation is enabled.
+  // Last source is needed if avg_source_sad() is used, or if noise estimation
+  // is enabled.
   if (cpi->unscaled_last_source != NULL &&
       (cpi->oxcf.content == VP9E_CONTENT_SCREEN ||
        (cpi->oxcf.pass == 0 && cpi->oxcf.rc_mode == VPX_VBR &&
         cpi->oxcf.mode == REALTIME && cpi->oxcf.speed >= 5) ||
-       cpi->sf.partition_search_type == SOURCE_VAR_BASED_PARTITION ||
        (cpi->noise_estimate.enabled && !cpi->oxcf.noise_sensitivity) ||
        cpi->compute_source_sad_onepass))
     cpi->Last_Source = vp9_scale_if_required(
@@ -5039,8 +4976,7 @@ static void spatial_denoise_frame(VP9_COMP *cpi) {
   // Base the filter strength on the current active max Q.
   const int q = (int)(vp9_convert_qindex_to_q(twopass->active_worst_quality,
                                               cm->bit_depth));
-  int strength =
-      VPXMAX(oxcf->arnr_strength >> 2, VPXMIN(oxcf->arnr_strength, (q >> 4)));
+  int strength = clamp(q >> 4, oxcf->arnr_strength >> 2, oxcf->arnr_strength);
 
   // Denoise each of Y,U and V buffers.
   spatial_denoise_buffer(cpi, src->y_buffer, src->y_stride, src->y_width,
@@ -6033,7 +5969,11 @@ static void update_level_info(VP9_COMP *cpi, size_t *size, int arf_src_index) {
 
   // update compression_ratio
   level_spec->compression_ratio = (double)level_stats->total_uncompressed_size *
-                                  (int)cm->bit_depth /
+#if WEBRTC_WEBKIT_BUILD
+                                  (double)cm->bit_depth /
+#else
+                                  cm->bit_depth /
+#endif
                                   level_stats->total_compressed_size / 8.0;
 
   // update max_col_tiles

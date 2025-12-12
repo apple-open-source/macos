@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,6 +70,7 @@
 #include "MultithreadedMultiVMExecutionTest.h"
 #include "PingPongStackOverflowTest.h"
 #include "TypedArrayCTest.h"
+#include "VMManagerStopTheWorldTest.h"
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -1196,14 +1197,18 @@ static void checkJSStringOOBUTF8(void)
     const size_t outCStringSize = cStringSize + sourceCStringSize;
 
 IGNORE_WARNINGS_BEGIN("vla")
+IGNORE_WARNINGS_BEGIN("gnu-folding-constant")
     char sourceCString[sourceCStringSize];
+IGNORE_WARNINGS_END
 IGNORE_WARNINGS_END
     memset(sourceCString, 0, sizeof(sourceCString));
     for (size_t i = 0; i < sourceCStringSize - 1; ++i)
         sourceCString[i] = '0' + (i%10);
 
 IGNORE_WARNINGS_BEGIN("vla")
+IGNORE_WARNINGS_BEGIN("gnu-folding-constant")
     char outCString[outCStringSize];
+IGNORE_WARNINGS_END
 IGNORE_WARNINGS_END
     memset(outCString, 0x13, sizeof(outCString));
 
@@ -1231,7 +1236,9 @@ static void checkJSStringOOBUTF16(void)
     const size_t outCStringSize = cStringSize + sourceCStringSize;
 
 IGNORE_WARNINGS_BEGIN("vla")
+IGNORE_WARNINGS_BEGIN("gnu-folding-constant")
     char sourceCString[sourceCStringSize];
+IGNORE_WARNINGS_END
 IGNORE_WARNINGS_END
     memset(sourceCString, 0, sizeof(sourceCString));
     for (size_t i = 0; i < sourceCStringSize - 1; ++i)
@@ -1243,7 +1250,9 @@ IGNORE_WARNINGS_END
     sourceCString[6] = '\x81';
 
 IGNORE_WARNINGS_BEGIN("vla")
+IGNORE_WARNINGS_BEGIN("gnu-folding-constant")
     char outCString[outCStringSize];
+IGNORE_WARNINGS_END
 IGNORE_WARNINGS_END
     memset(outCString, 0x13, sizeof(outCString));
 
@@ -1271,7 +1280,9 @@ static void checkJSStringOOBUTF16AtEnd(void)
     const size_t outCStringSize = cStringSize + sourceCStringSize;
 
 IGNORE_WARNINGS_BEGIN("vla")
+IGNORE_WARNINGS_BEGIN("gnu-folding-constant")
     char sourceCString[sourceCStringSize];
+IGNORE_WARNINGS_END
 IGNORE_WARNINGS_END
     memset(sourceCString, 0, sizeof(sourceCString));
     for (size_t i = 0; i < sourceCStringSize - 1; ++i)
@@ -1283,7 +1294,9 @@ IGNORE_WARNINGS_END
     sourceCString[20] = '\x81';
 
 IGNORE_WARNINGS_BEGIN("vla")
+IGNORE_WARNINGS_BEGIN("gnu-folding-constant")
     char outCString[outCStringSize];
+IGNORE_WARNINGS_END
 IGNORE_WARNINGS_END
     memset(outCString, 0x13, sizeof(outCString));
 
@@ -1609,7 +1622,7 @@ int main(int argc, char* argv[])
 
     RELEASE_ASSERT(!testCAPIViaCpp(filter));
     if (filter)
-        return 0;
+        return failed;
 
     testCompareAndSwap();
     startMultithreadedMultiVMExecutionTest();
@@ -2388,10 +2401,11 @@ int main(int argc, char* argv[])
     // For now, we'll just run them here at the end as a workaround.
     failed |= testPingPongStackOverflow();
     failed |= testExecutionTimeLimit();
+    failed |= testVMManagerStopTheWorld();
 
     if (failed) {
         printf("FAIL: Some tests failed.\n");
-        return 1;
+        return failed;
     }
 
     printf("PASS: Program exited normally.\n");

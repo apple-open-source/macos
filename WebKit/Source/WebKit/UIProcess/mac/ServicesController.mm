@@ -35,6 +35,7 @@
 #import <pal/spi/mac/NSSharingServiceSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/darwin/DispatchExtras.h>
 
 namespace WebKit {
 
@@ -45,7 +46,7 @@ ServicesController& ServicesController::singleton()
 }
 
 ServicesController::ServicesController()
-    : m_refreshQueue(dispatch_queue_create("com.apple.WebKit.ServicesController", DISPATCH_QUEUE_SERIAL))
+    : m_refreshQueue(adoptOSObject(dispatch_queue_create("com.apple.WebKit.ServicesController", DISPATCH_QUEUE_SERIAL)))
     , m_hasPendingRefresh(false)
     , m_hasImageServices(false)
     , m_hasSelectionServices(false)
@@ -83,7 +84,7 @@ void ServicesController::refreshExistingServices(bool refreshImmediately)
     m_hasPendingRefresh = true;
 
     auto refreshTime = dispatch_time(DISPATCH_TIME_NOW, refreshImmediately ? 0 : (int64_t)(1 * NSEC_PER_SEC));
-    dispatch_after(refreshTime, m_refreshQueue, ^{
+    dispatch_after(refreshTime, m_refreshQueue.get(), ^{
         auto serviceLookupGroup = adoptOSObject(dispatch_group_create());
 
         static NeverDestroyed<RetainPtr<NSImage>> image = adoptNS([[NSImage alloc] init]);
@@ -113,7 +114,7 @@ void ServicesController::refreshExistingServices(bool refreshImmediately)
             m_hasRichContentServices = hasServices;
         });
 
-        dispatch_group_notify(serviceLookupGroup.get(), dispatch_get_main_queue(), makeBlockPtr([this] {
+        dispatch_group_notify(serviceLookupGroup.get(), mainDispatchQueueSingleton(), makeBlockPtr([this] {
             bool availableServicesChanged = (m_lastSentHasImageServices != m_hasImageServices) || (m_lastSentHasSelectionServices != m_hasSelectionServices) || (m_lastSentHasRichContentServices != m_hasRichContentServices);
 
             m_lastSentHasSelectionServices = m_hasSelectionServices;

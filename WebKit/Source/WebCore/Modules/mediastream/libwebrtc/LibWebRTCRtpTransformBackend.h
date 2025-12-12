@@ -27,16 +27,11 @@
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
 #include "LibWebRTCMacros.h"
+#include "LibWebRTCRefWrappers.h"
 #include "RTCRtpTransformBackend.h"
 #include <webrtc/api/scoped_refptr.h>
 #include <wtf/Lock.h>
 #include <wtf/StdUnorderedMap.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-
-#include <webrtc/api/frame_transformer_interface.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebCore {
 
@@ -50,7 +45,7 @@ protected:
 
 private:
     void sendFrameToOutput(std::unique_ptr<webrtc::TransformableFrameInterface>&&);
-    void addOutputCallback(webrtc::scoped_refptr<webrtc::TransformedFrameCallback>&&, uint32_t ssrc);
+    void addOutputCallback(Ref<webrtc::TransformedFrameCallback>&&, uint32_t ssrc);
     void removeOutputCallback(uint32_t ssrc);
 
     // RTCRtpTransformBackend
@@ -74,7 +69,7 @@ private:
     Callback m_inputCallback WTF_GUARDED_BY_LOCK(m_inputCallbackLock);
 
     Lock m_outputCallbacksLock;
-    StdUnorderedMap<uint32_t, webrtc::scoped_refptr<webrtc::TransformedFrameCallback>> m_outputCallbacks WTF_GUARDED_BY_LOCK(m_outputCallbacksLock);
+    StdUnorderedMap<uint32_t, Ref<webrtc::TransformedFrameCallback>> m_outputCallbacks WTF_GUARDED_BY_LOCK(m_outputCallbacksLock);
 };
 
 inline LibWebRTCRtpTransformBackend::LibWebRTCRtpTransformBackend(MediaType mediaType, Side side)

@@ -791,7 +791,7 @@ RepairHardLinkChains(SGlobPtr gp, Boolean isdir)
 			continue;
 		(void)utf_encodestr(keyp->nodeName.unicode,
 					keyp->nodeName.length * 2,
-					filename, &len, sizeof(filename));
+					filename, &len, sizeof(filename)-1);
 		filename[len] = 0;
 		if (strstr((char*)filename, prefixName) != (char*)filename)
 			continue;
@@ -910,7 +910,7 @@ CheckHardLinks(void *cookie)
 	size_t len;
 	size_t prefixlen;
 	int result;
-	unsigned char filename[64];
+	unsigned char filename[64] = {};
 	PrimeBuckets *catBucket;
 
 	/* All done if no hard links exist. */
@@ -963,7 +963,7 @@ CheckHardLinks(void *cookie)
 
 		(void) utf_encodestr(keyp->nodeName.unicode,
 					keyp->nodeName.length * 2,
-					filename, &len, sizeof(filename));
+					filename, &len, sizeof(filename)-1);
 		filename[len] = '\0';
 		
 		/* Report Orphaned nodes only in debug mode */

@@ -80,7 +80,7 @@ void RemoteObjectRegistry::sendUnusedReply(uint64_t replyID)
 
 void RemoteObjectRegistry::invokeMethod(const RemoteObjectInvocation& invocation)
 {
-    [m_remoteObjectRegistry _invokeMethod:invocation];
+    [m_remoteObjectRegistry.get() _invokeMethod:invocation];
 }
 
 void RemoteObjectRegistry::callReplyBlock(IPC::Connection& connection, uint64_t replyID, const UserData& blockInvocation)
@@ -89,10 +89,10 @@ void RemoteObjectRegistry::callReplyBlock(IPC::Connection& connection, uint64_t 
     ASSERT_UNUSED(wasRemoved, wasRemoved);
 
     @try {
-        [m_remoteObjectRegistry _callReplyWithID:replyID blockInvocation:blockInvocation];
+        [m_remoteObjectRegistry.get() _callReplyWithID:replyID blockInvocation:blockInvocation];
     } @catch (NSException *exception) {
         NSLog(@"Warning: Exception caught during handling of received message, marking message invalid .\nException: %@", exception);
-        IPC::Connection::markCurrentlyDispatchedMessageAsInvalid(&connection);
+        IPC::markCurrentlyDispatchedMessageAsInvalid(connection);
     }
 }
 
@@ -101,7 +101,7 @@ void RemoteObjectRegistry::releaseUnusedReplyBlock(uint64_t replyID)
     bool wasRemoved = m_pendingReplies.remove(replyID);
     ASSERT_UNUSED(wasRemoved, wasRemoved);
 
-    [m_remoteObjectRegistry _releaseReplyWithID:replyID];
+    [m_remoteObjectRegistry.get() _releaseReplyWithID:replyID];
 }
 
 } // namespace WebKit

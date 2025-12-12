@@ -30,10 +30,10 @@
 
 #pragma once
 
-#include "ThreadableWebSocketChannel.h"
-#include "WebSocketChannelClient.h"
-#include "WorkerGlobalScope.h"
-#include "WorkerLoaderProxy.h"
+#include <WebCore/ThreadableWebSocketChannel.h>
+#include <WebCore/WebSocketChannelClient.h>
+#include <WebCore/WorkerGlobalScope.h>
+#include <WebCore/WorkerLoaderProxy.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>

@@ -179,6 +179,11 @@ void PaymentResponse::suspend(ReasonForSuspension reason)
     stop();
 }
 
+ScriptExecutionContext* PaymentResponse::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
+}
+
 } // namespace WebCore
 
 #endif // ENABLE(PAYMENT_REQUEST)

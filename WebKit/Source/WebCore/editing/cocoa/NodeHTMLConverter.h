@@ -23,8 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "AttributedString.h"
-#import "SimpleRange.h"
+#import <WebCore/AttributedString.h>
+#import <WebCore/SimpleRange.h>
 
 namespace WebCore {
 

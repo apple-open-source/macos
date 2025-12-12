@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include "SecurityOriginData.h"
+#include <WebCore/SecurityOriginData.h>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Hasher.h>
 #include <wtf/ThreadSafeRefCounted.h>

@@ -221,7 +221,8 @@ Vector<uint8_t> activityAccessToken()
     self.cancellable = YES;
     self.cancellationHandler = makeBlockPtr([weakSelf = WeakObjCPtr<WKDownloadProgress> { self }] () mutable {
         ensureOnMainRunLoop([weakSelf = WTFMove(weakSelf)] {
-            [weakSelf performCancel];
+            if (RetainPtr protectedSelf = weakSelf.get())
+                [protectedSelf performCancel];
         });
     }).get();
 

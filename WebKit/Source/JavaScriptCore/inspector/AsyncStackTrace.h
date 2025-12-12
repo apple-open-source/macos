@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "InspectorProtocolObjects.h"
+#include <JavaScriptCore/InspectorProtocolObjects.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 

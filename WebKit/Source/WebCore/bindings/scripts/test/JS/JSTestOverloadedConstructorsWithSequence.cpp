@@ -219,7 +219,7 @@ JSValue JSTestOverloadedConstructorsWithSequence::getConstructor(VM& vm, const J
 
 void JSTestOverloadedConstructorsWithSequence::destroy(JSC::JSCell* cell)
 {
-    JSTestOverloadedConstructorsWithSequence* thisObject = static_cast<JSTestOverloadedConstructorsWithSequence*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestOverloadedConstructorsWithSequence* thisObject = static_cast<JSTestOverloadedConstructorsWithSequence*>(cell);
     thisObject->JSTestOverloadedConstructorsWithSequence::~JSTestOverloadedConstructorsWithSequence();
 }
 
@@ -262,7 +262,7 @@ bool JSTestOverloadedConstructorsWithSequenceOwner::isReachableFromOpaqueRoots(J
 
 void JSTestOverloadedConstructorsWithSequenceOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestOverloadedConstructorsWithSequence = static_cast<JSTestOverloadedConstructorsWithSequence*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestOverloadedConstructorsWithSequence = static_cast<JSTestOverloadedConstructorsWithSequence*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestOverloadedConstructorsWithSequence->protectedWrapped().ptr(), jsTestOverloadedConstructorsWithSequence);
 }
@@ -276,7 +276,7 @@ extern "C" { extern void (*const __identifier("??_7TestOverloadedConstructorsWit
 extern "C" { extern void* _ZTVN7WebCore38TestOverloadedConstructorsWithSequenceE[]; }
 #endif
 template<std::same_as<TestOverloadedConstructorsWithSequence> T>
-static inline void verifyVTable(TestOverloadedConstructorsWithSequence* ptr) 
+static inline void verifyVTable(TestOverloadedConstructorsWithSequence* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -296,8 +296,9 @@ static inline void verifyVTable(TestOverloadedConstructorsWithSequence* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestOverloadedConstructorsWithSequence>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestOverloadedConstructorsWithSequence>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestOverloadedConstructorsWithSequence>(impl.ptr());
 #endif

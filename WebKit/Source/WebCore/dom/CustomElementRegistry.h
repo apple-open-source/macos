@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "ContextDestructionObserver.h"
-#include "Element.h"
-#include "EventTarget.h"
-#include "QualifiedName.h"
-#include "TreeScope.h"
+#include <WebCore/ContextDestructionObserver.h>
+#include <WebCore/Element.h>
+#include <WebCore/EventTarget.h>
+#include <WebCore/QualifiedName.h>
+#include <WebCore/TreeScope.h>
 #include <wtf/Lock.h>
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/RobinHoodHashSet.h>

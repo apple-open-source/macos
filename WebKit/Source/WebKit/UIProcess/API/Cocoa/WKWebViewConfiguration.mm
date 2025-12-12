@@ -665,6 +665,23 @@ static NSString *defaultApplicationNameForUserAgent()
         _pageConfiguration->setRelatedPage(nullptr);
 }
 
+- (void)_setAllowPostingLegacySynchronousMessages:(BOOL)allow
+{
+    RetainPtr bundleID = (__bridge NSString *)CFBundleGetIdentifier(CFBundleGetMainBundle());
+    RELEASE_ASSERT([bundleID isEqualToString:@"com.apple.WebKit.TestWebKitAPI"]
+#if PLATFORM(MAC)
+        || [bundleID isEqualToString:@"com.apple.TV"]
+        || [bundleID isEqualToString:@"com.apple.Music"]
+#endif
+    );
+    self._protectedPageConfiguration->setAllowPostingLegacySynchronousMessages(allow);
+}
+
+- (BOOL)_allowPostingLegacySynchronousMessages
+{
+    return self._protectedPageConfiguration->allowPostingLegacySynchronousMessages();
+}
+
 - (WKWebView *)_webViewToCloneSessionStorageFrom
 {
     if (RefPtr page = self._protectedPageConfiguration->pageToCloneSessionStorageFrom())
@@ -763,6 +780,26 @@ static NSString *defaultApplicationNameForUserAgent()
 - (void)_setShowsSystemScreenTimeBlockingView:(BOOL)shows
 {
     [self setShowsSystemScreenTimeBlockingView:shows];
+}
+
+- (void)_setOverrideReferrerForAllRequests:(NSString *)referrer
+{
+    _pageConfiguration->setOverrideReferrerForAllRequests(referrer);
+}
+
+- (NSString *)_overrideReferrerForAllRequests
+{
+    return _pageConfiguration->overrideReferrerForAllRequests().createNSString().autorelease();
+}
+
+- (void)_setShouldSendConsoleLogsToUIProcessForTesting:(BOOL)should
+{
+    _pageConfiguration->setShouldSendConsoleLogsToUIProcessForTesting(should);
+}
+
+- (BOOL)_shouldSendConsoleLogsToUIProcessForTesting
+{
+    return _pageConfiguration->shouldSendConsoleLogsToUIProcessForTesting();
 }
 
 - (BOOL)_allowTopNavigationToDataURLs
@@ -999,7 +1036,7 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 
 - (Class)_attachmentFileWrapperClass
 {
-    return _pageConfiguration->attachmentFileWrapperClass();
+    return _pageConfiguration->attachmentFileWrapperClassSingleton();
 }
 
 - (void)_setAttachmentFileWrapperClass:(Class)attachmentFileWrapperClass

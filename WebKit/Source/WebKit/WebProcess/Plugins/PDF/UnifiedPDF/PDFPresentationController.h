@@ -30,7 +30,6 @@
 #include "PDFDocumentLayout.h"
 #include "PDFPageCoverage.h"
 #include "UnifiedPDFPlugin.h"
-#include <WebCore/GraphicsLayer.h>
 #include <WebCore/PlatformLayerIdentifier.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefPtr.h>
@@ -41,7 +40,9 @@
 OBJC_CLASS PDFDocument;
 
 namespace WebCore {
+enum class GraphicsLayerType : uint8_t;
 enum class TiledBackingScrollability : uint8_t;
+class GraphicsLayer;
 class GraphicsLayerClient;
 };
 
@@ -123,7 +124,7 @@ public:
     virtual void setSelectionLayerEnabled(bool) { }
 
 protected:
-    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String&, WebCore::GraphicsLayer::Type);
+    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String&, WebCore::GraphicsLayerType);
     RefPtr<WebCore::GraphicsLayer> makePageContainerLayer(PDFDocumentLayout::PageIndex);
     struct LayerCoverage {
         Ref<WebCore::GraphicsLayer> layer;

@@ -27,16 +27,16 @@
 
 #if ENABLE(WEB_AUTHN)
 
-#include "AuthenticatorTransport.h"
-#include "BufferSource.h"
-#include "PublicKeyCredentialType.h"
+#include <WebCore/AuthenticatorTransport.h>
+#include <WebCore/BufferSource.h>
+#include <WebCore/PublicKeyCredentialType.h>
 
 namespace WebCore {
 
 struct PublicKeyCredentialDescriptor {
     PublicKeyCredentialType type;
     BufferSource id;
-    Vector<AuthenticatorTransport> transports;
+    Vector<String> transports;
 };
 
 } // namespace WebCore

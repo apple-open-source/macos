@@ -27,6 +27,7 @@
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
 #include "LibWebRTCMacros.h"
+#include "LibWebRTCRefWrappers.h"
 #include "ProcessQualified.h"
 #include "RTCDataChannelHandler.h"
 #include "RTCDataChannelState.h"
@@ -35,12 +36,6 @@
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-
-#include <webrtc/api/data_channel_interface.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace webrtc {
 struct DataChannelInit;
@@ -92,7 +87,7 @@ private:
 
     void postTask(Function<void()>&&);
 
-    webrtc::scoped_refptr<webrtc::DataChannelInterface> m_channel;
+    const Ref<webrtc::DataChannelInterface> m_channel;
     Lock m_clientLock;
     bool m_hasClient WTF_GUARDED_BY_LOCK(m_clientLock)  { false };
     WeakPtr<RTCDataChannelHandlerClient> m_client WTF_GUARDED_BY_LOCK(m_clientLock) { nullptr };

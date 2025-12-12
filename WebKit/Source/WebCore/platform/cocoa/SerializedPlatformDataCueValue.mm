@@ -132,7 +132,7 @@ bool SerializedPlatformDataCueValue::Data::operator==(const Data& other) const
 {
     return type == other.type
         && otherAttributes == other.otherAttributes
-        && [locale isEqual:other.locale.get()]
+        && ((!locale && !other.locale) || [locale isEqual:other.locale.get()])
         && key == other.key
         && value.index() == other.value.index()
         && WTF::switchOn(value, [] (std::nullptr_t) {

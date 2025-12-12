@@ -27,10 +27,11 @@
 #include "Worklet.h"
 
 #include "ContentSecurityPolicy.h"
-#include "Document.h"
+#include "ContextDestructionObserverInlines.h"
+#include "DocumentPage.h"
 #include "JSDOMPromiseDeferred.h"
-#include "Page.h"
 #include "ScriptSourceCode.h"
+#include "ScriptWrappableInlines.h"
 #include "SecurityOrigin.h"
 #include "WorkerRunLoop.h"
 #include "WorkletGlobalScope.h"

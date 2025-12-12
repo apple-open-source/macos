@@ -111,6 +111,13 @@ bool SystemSettingsManagerProxy::enableAnimations() const
 
 #endif // !PLATFORM(GTK) && (!PLATFORM(WPE) || !ENABLE(WPE_PLATFORM))
 
+#if !PLATFORM(GTK)
+void SystemSettingsManagerProxy::updateFontProperties(const String& fontName, WebCore::SystemSettingsState& changedState)
+{
+    changedState.fontName = fontName;
+}
+#endif
+
 void SystemSettingsManagerProxy::initialize()
 {
     static NeverDestroyed<SystemSettingsManagerProxy> manager;
@@ -131,7 +138,7 @@ void SystemSettingsManagerProxy::settingsDidChange()
 
     auto fontName = this->fontName();
     if (oldState.fontName != fontName)
-        changedState.fontName = fontName;
+        updateFontProperties(fontName, changedState);
 
     auto xftAntialias = this->xftAntialias();
     if (xftAntialias != -1 && oldState.xftAntialias != xftAntialias)

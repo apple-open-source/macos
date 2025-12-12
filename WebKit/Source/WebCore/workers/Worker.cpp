@@ -28,6 +28,7 @@
 #include "Worker.h"
 
 #include "ContentSecurityPolicy.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DedicatedWorkerGlobalScope.h"
 #include "ErrorEvent.h"
 #include "Event.h"
@@ -251,6 +252,11 @@ void Worker::notifyFinished(std::optional<ScriptExecutionContextIdentifier> main
     }
 }
 
+ScriptExecutionContext* Worker::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
+}
+
 void Worker::dispatchEvent(Event& event)
 {
     if (m_wasTerminated)
@@ -287,7 +293,6 @@ void Worker::createRTCRtpScriptTransformer(RTCRtpScriptTransform& transform, Mes
         if (RefPtr transformer = downcast<DedicatedWorkerGlobalScope>(context).createRTCRtpScriptTransformer(WTFMove(options)))
             transform->setTransformer(*transformer);
     });
-
 }
 #endif
 

@@ -162,14 +162,15 @@ void RemoteMediaPlayerManagerProxy::didReceivePlayerMessage(IPC::Connection& con
     }
 }
 
-bool RemoteMediaPlayerManagerProxy::didReceiveSyncPlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& encoder)
+void RemoteMediaPlayerManagerProxy::didReceiveSyncPlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& encoder)
 {
     ASSERT(RunLoop::isMain());
     if (ObjectIdentifier<MediaPlayerIdentifierType>::isValidIdentifier(decoder.destinationID())) {
-        if (RefPtr player = m_proxies.get(ObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID())))
-            return player->didReceiveSyncMessage(connection, decoder, encoder);
+        if (RefPtr player = m_proxies.get(ObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID()))) {
+            player->didReceiveSyncMessage(connection, decoder, encoder);
+            return;
+        }
     }
-    return false;
 }
 
 RefPtr<MediaPlayer> RemoteMediaPlayerManagerProxy::mediaPlayer(std::optional<MediaPlayerIdentifier> identifier)

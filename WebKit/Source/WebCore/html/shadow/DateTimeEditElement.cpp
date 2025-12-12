@@ -27,14 +27,20 @@
 #include "config.h"
 #include "DateTimeEditElement.h"
 
+#include "ContainerNodeInlines.h"
+#include "CSSPropertyNames.h"
 #include "DateComponents.h"
 #include "DateTimeFieldElements.h"
 #include "DateTimeFieldsState.h"
 #include "DateTimeFormat.h"
 #include "DateTimeSymbolicFieldElement.h"
 #include "Document.h"
-#include "Event.h"
+#include "EventTargetInlines.h"
+#include "ExceptionOr.h"
 #include "HTMLNames.h"
+#include "KeyboardEvent.h"
+#include "NodeDocument.h"
+#include "NodeInlines.h"
 #include "PlatformLocale.h"
 #include "RenderElement.h"
 #include "ScriptDisallowedScope.h"
@@ -227,6 +233,21 @@ size_t DateTimeEditElement::fieldIndexOf(const DateTimeFieldElement& fieldToFind
     });
 }
 
+void DateTimeEditElement::defaultEventHandler(Event& event)
+{
+    if (RefPtr keyboardEvent = dynamicDowncast<KeyboardEvent>(event)) {
+        if (keyboardEvent->keyIdentifier() == "U+0020"_s && m_editControlOwner) {
+            // Forward space keypresses to the owner to activate the date picker.
+            m_editControlOwner->didReceiveSpaceKeyFromControl();
+            // We want to mark the event as handled to avoid scrolling the page.
+            event.setDefaultHandled();
+            return;
+        }
+    }
+
+    HTMLDivElement::defaultEventHandler(event);
+}
+
 DateTimeFieldElement* DateTimeEditElement::focusedFieldElement() const
 {
     RefPtr focusedElement = document().focusedElement();
@@ -374,6 +395,17 @@ bool DateTimeEditElement::isFieldOwnerHorizontal() const
     if (CheckedPtr renderer = fieldsWrapperElement().renderer())
         return renderer->isHorizontalWritingMode();
     return true;
+}
+
+bool DateTimeEditElement::didFieldOwnerTransferFocusToPicker()
+{
+    return m_editControlOwner && m_editControlOwner->didEditControlOwnerTransferFocusToPicker();
+}
+
+void DateTimeEditElement::didSuppressBlurDueToPickerFocusTransfer()
+{
+    if (m_editControlOwner)
+        m_editControlOwner->didSuppressBlurDueToPickerFocusTransfer();
 }
 
 AtomString DateTimeEditElement::localeIdentifier() const

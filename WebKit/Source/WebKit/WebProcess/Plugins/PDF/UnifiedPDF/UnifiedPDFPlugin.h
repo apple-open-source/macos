@@ -31,9 +31,8 @@
 #include "PDFPageCoverage.h"
 #include "PDFPluginBase.h"
 #include <WebCore/ContextMenuItem.h>
-#include <WebCore/ElementIdentifier.h>
-#include <WebCore/GraphicsLayer.h>
 #include <WebCore/GraphicsLayerClient.h>
+#include <WebCore/NodeIdentifier.h>
 #include <WebCore/Page.h>
 #include <WebCore/ScrollView.h>
 #include <WebCore/Timer.h>
@@ -52,6 +51,8 @@ class TextStream;
 
 namespace WebCore {
 class FrameView;
+class GraphicsLayer;
+class GraphicsLayerFactory;
 class LocalFrameView;
 class PageOverlay;
 class PlatformWheelEvent;
@@ -59,6 +60,7 @@ class ShadowRoot;
 class AXCoreObject;
 
 enum class DelegatedScrollingMode : uint8_t;
+enum class GraphicsLayerType : uint8_t;
 
 struct DataDetectorElementInfo;
 }
@@ -375,7 +377,7 @@ private:
     String titleForContextMenuItemTag(ContextMenuItemTag) const;
     bool isDisplayModeContextMenuItemTag(ContextMenuItemTag) const;
     PDFContextMenuItem separatorContextMenuItem() const;
-    Vector<PDFContextMenuItem> selectionContextMenuItems(const WebCore::IntPoint& contextMenuEventRootViewPoint) const;
+    Vector<PDFContextMenuItem> selectionContextMenuItems(const WebCore::IntPoint& contextMenuEventRootViewPoint, bool shouldPresentLookupAndSearchOptions) const;
     Vector<PDFContextMenuItem> displayModeContextMenuItems() const;
     Vector<PDFContextMenuItem> scaleContextMenuItems() const;
     Vector<PDFContextMenuItem> navigationContextMenuItemsForPageAtIndex(PDFDocumentLayout::PageIndex) const;
@@ -573,8 +575,8 @@ private:
     void revealAnnotation(PDFAnnotation *);
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() const;
-    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(GraphicsLayerClient&, WebCore::GraphicsLayer::Type);
-    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, WebCore::GraphicsLayer::Type);
+    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(GraphicsLayerClient&, WebCore::GraphicsLayerType);
+    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, WebCore::GraphicsLayerType);
 
     void setNeedsRepaintForIncrementalLoad();
     void setNeedsRepaintForAnnotation(PDFAnnotation *, RepaintRequirements);
@@ -653,8 +655,8 @@ private:
 
     RefPtr<PDFPresentationController> protectedPresentationController() const;
 
-    RefPtr<WebCore::GraphicsLayer> protectedScrollContainerLayer() const { return m_scrollContainerLayer; }
-    RefPtr<WebCore::GraphicsLayer> protectedOverflowControlsContainer() const { return m_overflowControlsContainer; }
+    RefPtr<WebCore::GraphicsLayer> protectedScrollContainerLayer() const;
+    RefPtr<WebCore::GraphicsLayer> protectedOverflowControlsContainer() const;
 
     RefPtr<PDFPresentationController> m_presentationController;
 
@@ -740,6 +742,8 @@ private:
 #endif
 
     HashMap<WebFoundTextRange::PDFData, RetainPtr<PDFSelection>> m_webFoundTextRangePDFDataSelectionMap;
+
+    mutable std::optional<bool> m_cachedIsFullMainFramePlugin;
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, RepaintRequirement);

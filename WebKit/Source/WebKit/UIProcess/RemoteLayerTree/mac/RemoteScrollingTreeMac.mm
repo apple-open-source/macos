@@ -44,6 +44,7 @@
 #import <WebCore/ScrollingTreePositionedNode.h>
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/SetForScope.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/TextStream.h>
 
@@ -250,18 +251,49 @@ void RemoteScrollingTreeMac::scrollingTreeNodeDidScroll(ScrollingTreeScrollingNo
 
 void RemoteScrollingTreeMac::scrollingTreeNodeDidStopAnimatedScroll(ScrollingTreeScrollingNode& node)
 {
+    auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), { }, { }, ScrollUpdateType::AnimatedScrollDidEnd };
+    addPendingScrollUpdate(WTFMove(scrollUpdate));
+
     // Happens when the this is called as a result of the scrolling tree commmit.
     if (RunLoop::isMain()) {
         if (CheckedPtr scrollingCoordinatorProxy = this->scrollingCoordinatorProxy())
-            scrollingCoordinatorProxy->scrollingTreeNodeDidStopAnimatedScroll(node.scrollingNodeID());
+            scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
         return;
     }
 
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+            scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
+    });
+}
+
+void RemoteScrollingTreeMac::scrollingTreeNodeDidStopWheelEventScroll(WebCore::ScrollingTreeScrollingNode& node)
+{
     ASSERT(ScrollingThread::isCurrentThread());
+
+    auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), { }, { }, ScrollUpdateType::WheelEventScrollDidEnd };
+    addPendingScrollUpdate(WTFMove(scrollUpdate));
 
     RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID = node.scrollingNodeID()] {
         if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
-            scrollingCoordinatorProxy->scrollingTreeNodeDidStopAnimatedScroll(nodeID);
+            scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
+    });
+}
+
+void RemoteScrollingTreeMac::scrollingTreeNodeDidStopProgrammaticScroll(WebCore::ScrollingTreeScrollingNode& node)
+{
+    auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), { }, { }, ScrollUpdateType::ProgrammaticScrollDidEnd };
+    addPendingScrollUpdate(WTFMove(scrollUpdate));
+
+    if (RunLoop::isMain()) {
+        if (CheckedPtr scrollingCoordinatorProxy = this->scrollingCoordinatorProxy())
+            scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
+        return;
+    }
+
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+            scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
     });
 }
 

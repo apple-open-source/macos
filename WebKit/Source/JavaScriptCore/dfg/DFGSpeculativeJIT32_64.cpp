@@ -4344,6 +4344,30 @@ void SpeculativeJIT::compile(Node* node)
         compileCheckJSCast(node);
         break;
 
+    case ResolvePromiseFirstResolving:
+        compileResolvePromiseFirstResolving(node);
+        break;
+
+    case RejectPromiseFirstResolving:
+        compileRejectPromiseFirstResolving(node);
+        break;
+
+    case FulfillPromiseFirstResolving:
+        compileFulfillPromiseFirstResolving(node);
+        break;
+
+    case PromiseResolve:
+        compilePromiseResolve(node);
+        break;
+
+    case PromiseReject:
+        compilePromiseReject(node);
+        break;
+
+    case PromiseThen:
+        compilePromiseThen(node);
+        break;
+
     case Unreachable:
         unreachable(node);
         break;
@@ -4446,6 +4470,7 @@ void SpeculativeJIT::compile(Node* node)
     case DateGetTime:
     case DateSetTime:
     case CallWasm:
+    case TailCallInlinedCallerWasm:
     case FunctionBind:
     case NewBoundFunction:
     case EnumeratorPutByVal:

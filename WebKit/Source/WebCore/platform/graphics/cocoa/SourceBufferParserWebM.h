@@ -27,11 +27,12 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
-#include "LibWebRTCMacros.h"
-#include "MediaSample.h"
-#include "SharedBuffer.h"
-#include "SourceBufferParser.h"
 #include <CoreAudio/CoreAudioTypes.h>
+#include <WebCore/LibWebRTCMacros.h>
+#include <WebCore/MediaSample.h>
+#include <WebCore/MediaSamplesBlock.h>
+#include <WebCore/SharedBuffer.h>
+#include <WebCore/SourceBufferParser.h>
 #include <pal/spi/cf/CoreMediaSPI.h>
 #include <webm/callback.h>
 #include <webm/common/vp9_header_parser.h>

@@ -45,10 +45,12 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 
 #include <webrtc/api/audio_codecs/builtin_audio_decoder_factory.h>
 #include <webrtc/api/audio_codecs/builtin_audio_encoder_factory.h>
-#include <webrtc/api/create_peerconnection_factory.h>
+#include <webrtc/api/create_modular_peer_connection_factory.h>
+#include <webrtc/api/enable_media.h>
 #include <webrtc/api/environment/environment_factory.h>
-#include <webrtc/modules/audio_processing/include/audio_processing.h>
 IGNORE_CLANG_WARNINGS_BEGIN("nullability-completeness")
+#include <webrtc/api/rtc_event_log/rtc_event_log_factory.h>
+#include <webrtc/modules/audio_processing/include/audio_processing.h>
 #include <webrtc/p2p/base/basic_packet_socket_factory.h>
 #include <webrtc/p2p/client/basic_port_allocator.h>
 IGNORE_CLANG_WARNINGS_END
@@ -143,9 +145,9 @@ static void doReleaseLogging(webrtc::LoggingSeverity severity, const char* messa
     UNUSED_PARAM(message);
 #else
     if (severity == webrtc::LS_ERROR)
-        RELEASE_LOG_ERROR(WebRTC, "LibWebRTC error: %" PUBLIC_LOG_STRING, message);
+        RELEASE_LOG_ERROR_FORWARDABLE_UNSAFE_ARGS(WebRTC, LIBWEBRTC_LOG_ERROR, message);
     else
-        RELEASE_LOG(WebRTC, "LibWebRTC message: %" PUBLIC_LOG_STRING, message);
+        RELEASE_LOG_FORWARDABLE_UNSAFE_ARGS(WebRTC, LIBWEBRTC_LOG_MESSAGE, message);
 #endif
 }
 
@@ -308,18 +310,66 @@ void LibWebRTCProvider::clearFactory()
     m_videoEncodingCapabilities = { };
 }
 
-webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> LibWebRTCProvider::createPeerConnectionFactory(webrtc::Thread* networkThread, webrtc::Thread* signalingThread)
+void LibWebRTCProvider::setUseL4S(bool useL4S)
+{
+    if (m_useL4S == useL4S)
+        return;
+
+    m_useL4S = useL4S;
+    clearFactory();
+}
+
+class LibWebRTCProviderFieldTrials final : public webrtc::FieldTrialsView {
+    WTF_MAKE_TZONE_ALLOCATED(LibWebRTCProviderFieldTrials);
+public:
+    explicit LibWebRTCProviderFieldTrials(bool useL4S)
+        : m_useL4S(useL4S)
+    {
+    }
+
+private:
+    std::string Lookup(std::string_view trial) const final
+    {
+        if (!m_useL4S || trial != "WebRTC-RFC8888CongestionControlFeedback")
+            return "";
+        return "Enabled,force_send:true";
+    }
+
+    bool m_useL4S { false };
+};
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCProviderFieldTrials);
+
+Ref<webrtc::PeerConnectionFactoryInterface> LibWebRTCProvider::createPeerConnectionFactory(webrtc::Thread* networkThread, webrtc::Thread* signalingThread)
 {
     willCreatePeerConnectionFactory();
 
     ASSERT(!m_audioModule);
     m_audioModule = LibWebRTCAudioModule::create();
 
-    return webrtc::CreatePeerConnectionFactory(networkThread, signalingThread, signalingThread, webrtc::scoped_refptr<webrtc::AudioDeviceModule>(m_audioModule.get()), webrtc::CreateBuiltinAudioEncoderFactory(), webrtc::CreateBuiltinAudioDecoderFactory(), createEncoderFactory(), createDecoderFactory(), nullptr, nullptr, nullptr, nullptr
+    webrtc::PeerConnectionFactoryDependencies dependencies;
+    dependencies.env = webrtc::CreateEnvironment(makeUnique<LibWebRTCProviderFieldTrials>(m_useL4S)
 #if PLATFORM(COCOA)
         , webrtc::CreateTaskQueueGcdFactory()
 #endif
     );
+    dependencies.network_thread = networkThread;
+    dependencies.worker_thread = signalingThread;
+    dependencies.signaling_thread = signalingThread;
+    dependencies.event_log_factory = std::make_unique<webrtc::RtcEventLogFactory>();
+
+    if (networkThread)
+        dependencies.socket_factory = networkThread->socketserver();
+
+    dependencies.adm = webrtc::scoped_refptr<webrtc::AudioDeviceModule>(m_audioModule.get());
+    dependencies.audio_encoder_factory = webrtc::CreateBuiltinAudioEncoderFactory();
+    dependencies.audio_decoder_factory = webrtc::CreateBuiltinAudioDecoderFactory();
+    dependencies.video_encoder_factory = createEncoderFactory();
+    dependencies.video_decoder_factory = createDecoderFactory();
+
+    webrtc::EnableMedia(dependencies);
+
+    return toRef(webrtc::CreateModularPeerConnectionFactory(WTFMove(dependencies)));
 }
 
 std::unique_ptr<webrtc::VideoDecoderFactory> LibWebRTCProvider::createDecoderFactory()
@@ -340,7 +390,7 @@ void LibWebRTCProvider::startedNetworkThread()
 void LibWebRTCProvider::setPeerConnectionFactory(webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface>&& factory)
 {
     auto* thread = getStaticFactoryAndThreads(m_useNetworkThreadWithSocketServer).signalingThread.get();
-    m_factory = webrtc::PeerConnectionFactoryProxy::Create(thread, thread, WTFMove(factory));
+    m_factory = toRef<webrtc::PeerConnectionFactoryInterface>(webrtc::PeerConnectionFactoryProxy::Create(thread, thread, WTFMove(factory)));
 }
 
 webrtc::scoped_refptr<webrtc::PeerConnectionInterface> LibWebRTCProvider::createPeerConnection(ScriptExecutionContextIdentifier, webrtc::PeerConnectionObserver& observer, webrtc::PacketSocketFactory*, webrtc::PeerConnectionInterface::RTCConfiguration&& configuration)

@@ -65,15 +65,6 @@
 
 #include "GCGLSpan.h"
 
-namespace WebCore {
-class WebGLRenderingContextBase;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::WebGLRenderingContextBase> : std::true_type { };
-}
-
 namespace JSC {
 class AbstractSlotVisitor;
 }
@@ -271,7 +262,7 @@ public:
     String getShaderSource(WebGLShader&);
     virtual std::optional<Vector<String>> getSupportedExtensions() = 0;
     virtual WebGLAny getTexParameter(GCGLenum target, GCGLenum pname);
-    WebGLAny getUniform(WebGLProgram&, const WebGLUniformLocation&);
+    WebGLAny getUniform(WebGLProgram&, WebGLUniformLocation&);
     RefPtr<WebGLUniformLocation> getUniformLocation(WebGLProgram&, const String&);
     WebGLAny getVertexAttrib(GCGLuint index, GCGLenum pname);
     long long getVertexAttribOffset(GCGLuint index, GCGLenum pname);
@@ -461,7 +452,7 @@ public:
 
     // GraphicsContextGL::Client
     void forceContextLost() final;
-    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const String&) final;
+    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const CString&) final;
 
     void recycleContext();
 

@@ -27,12 +27,14 @@
 
 #pragma once
 
-#include "AnchorPositionEvaluator.h"
-#include "LayoutRect.h"
-#include "LayoutSize.h"
-#include "StyleScopeIdentifier.h"
-#include "StyleScopeOrdinal.h"
-#include "Timer.h"
+#include <WebCore/AnchorPositionEvaluator.h>
+#include <WebCore/Document.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/LayoutSize.h>
+#include <WebCore/StyleScopeIdentifier.h>
+#include <WebCore/StyleScopeOrdinal.h>
+#include <WebCore/Styleable.h>
+#include <WebCore/Timer.h>
 #include <memory>
 #include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
@@ -53,7 +55,6 @@ namespace WebCore {
 
 class CSSCounterStyleRegistry;
 class CSSStyleSheet;
-class Document;
 class Element;
 class HTMLSlotElement;
 class Node;
@@ -121,6 +122,9 @@ public:
     // The change is assumed to potentially affect all author and user stylesheets including shadow roots.
     WEBCORE_EXPORT void didChangeStyleSheetEnvironment();
 
+    // This is called when extension stylesheets change.
+    void didChangeExtensionStyleSheets();
+
     void didChangeViewportSize();
 
     void invalidateMatchedDeclarationsCache();
@@ -135,6 +139,7 @@ public:
     WEBCORE_EXPORT Resolver& resolver();
     Ref<Resolver> protectedResolver();
     Resolver* resolverIfExists() { return m_resolver.get(); }
+    const Resolver* resolverIfExists() const { return m_resolver.get(); }
     void clearResolver();
     void releaseMemory();
 
@@ -147,10 +152,15 @@ public:
     const ShadowRoot* shadowRoot() const { return m_shadowRoot; }
     ShadowRoot* shadowRoot() { return m_shadowRoot; }
 
+    CheckedPtr<const Scope> hostScope() const;
+
     static Scope& forNode(Node&);
     static const Scope& forNode(const Node&);
     static Scope* forOrdinal(Element&, ScopeOrdinal);
     static const Scope* forOrdinal(const Element&, ScopeOrdinal);
+
+    // The provided function is called for all the relevant scopes until it finds a name match from a scope and returns a truthy value.
+    template<typename F> static auto resolveTreeScopedReference(const Element&, const ScopedName&, const F&&);
 
     struct LayoutDependencyUpdateContext {
         HashSet<CheckedRef<const Element>> invalidatedContainers;
@@ -167,6 +177,10 @@ public:
     const AnchorPositionedToAnchorMap& anchorPositionedToAnchorMap() const { return m_anchorPositionedToAnchorMap; }
     void updateAnchorPositioningStateAfterStyleResolution();
 
+    std::optional<size_t> lastSuccessfulPositionOptionIndexFor(const Styleable&);
+    void setLastSuccessfulPositionOptionIndexMap(HashMap<AnchorPositionedKey, size_t>&&);
+    void forgetLastSuccessfulPositionOptionIndex(const Styleable&);
+
     bool invalidateForAnchorDependencies(LayoutDependencyUpdateContext&);
 
 private:
@@ -175,7 +189,7 @@ private:
 
     void didRemovePendingStylesheet();
 
-    enum class UpdateType : uint8_t { ActiveSet, ContentsOrInterpretation };
+    enum class UpdateType : uint8_t { ActiveSet, FullForExtensionStyleSheets, ContentsOrInterpretation };
     void updateActiveStyleSheets(UpdateType);
     void scheduleUpdate(UpdateType);
 
@@ -267,6 +281,9 @@ private:
         bool operator==(const AnchorPosition&) const = default;
     };
     SingleThreadWeakHashMap<const RenderBoxModelObject, AnchorPosition> m_anchorPositionsOnLastUpdate;
+    // Stores the last successful position option for each anchor-positioned element.
+    // This is recorded when ResizeObserver events are delivered, at Document::updateResizeObservations
+    HashMap<AnchorPositionedKey, size_t> m_lastSuccessfulPositionOptionIndexes;
 
     std::unique_ptr<MatchResultCache> m_matchResultCache;
 
@@ -288,6 +305,29 @@ inline void Scope::flushPendingUpdate()
         flushPendingDescendantUpdates();
     if (m_pendingUpdate)
         flushPendingSelfUpdate();
+}
+
+template<typename F>
+auto Scope::resolveTreeScopedReference(const Element& element, const ScopedName& reference, const F&& function)
+{
+    using ReturnType = std::invoke_result_t<F, Scope, AtomString>;
+
+    // https://drafts.csswg.org/css-scoping-1/#shadow-names
+    // "Whenever a tree-scoped reference is dereferenced to find the CSS construct it is referencing,
+    // first search only the tree-scoped names associated with the same root as the tree-scoped reference must be searched."
+    CheckedPtr firstScope = Scope::forOrdinal(element, reference.scopeOrdinal);
+    if (!firstScope)
+        return ReturnType { };
+
+    if (auto result = function(*firstScope, reference.name))
+        return result;
+
+    // "If no relevant tree-scoped name is found, and the root is a shadow root, then repeat this search in the root’s host’s node tree."
+    for (CheckedPtr hostScope = firstScope->hostScope(); hostScope; hostScope = hostScope->hostScope()) {
+        if (auto result = function(*hostScope, reference.name))
+            return result;
+    }
+    return ReturnType { };
 }
 
 }

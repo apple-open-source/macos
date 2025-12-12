@@ -338,6 +338,39 @@
     }];
 }
 
+- (NSString*)fetchPETForUsername:(NSString*)username error:(NSError**)error
+{
+    __block NSString* result = nil;
+
+    AKAppleIDAuthenticationContext* authContext = [[AKAppleIDAuthenticationContext alloc] init];
+    authContext.username = username;
+    authContext.authenticationType = AKAppleIDAuthenticationTypeSilent;
+    authContext.isUsernameEditable = NO;
+
+    AKAppleIDAuthenticationController *authenticationController = [[AKAppleIDAuthenticationController alloc] init];
+
+    // TODO: 145817503
+    __block NSError* localError = nil;
+    dispatch_semaphore_t s = dispatch_semaphore_create(0);
+    [authenticationController authenticateWithContext:authContext
+                                           completion:^(AKAuthenticationResults authenticationResults, NSError *authenticationError) {
+        if (authenticationError) {
+            secnotice("octagon-escrow-repair", "failed to fetch PET: %@", authenticationError);
+            localError = authenticationError;
+        } else {
+            result = authenticationResults[AKAuthenticationPasswordKey];
+        }
+        dispatch_semaphore_signal(s);
+    }];
+    dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER);
+
+    if (localError && error) {
+        *error = localError;
+    }
+
+    return result;
+}
+
 @end
 
 #endif // OCTAGON

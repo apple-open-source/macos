@@ -50,14 +50,36 @@
 
 #import "keychain/ot/OTLAContextAdapter.h"
 
+#import "NSError+UsefulConstructors.h"
+
+NSString * const kSecureBackupNetworkReachedHintKey = @"SecureBackupNetworkReachedHint";
+
+typedef NS_ENUM(NSInteger, SecureBackupOperationReachedNetwork) {
+    SecureBackupOperationReachedNetworkUnknown = 0,
+    SecureBackupOperationReachedNetworkFailed = 1,
+    SecureBackupOperationReachedNetworkSuccess = 2,
+};
+
 #pragma clang diagnostic push
 #pragma clang diagnostic warning "-Wdeprecated-declarations"
+
+// Declaring the category to avoid disruptive CloudServices dependency
+@interface SecureBackup (Repair)
+@property (nonatomic, nullable, copy) NSString *bottleID;
+@property (nonatomic, nullable, copy) NSData* entropy;
+@property (nonatomic, nullable, copy) NSData* escrowSigningPublicKey;
+
+- (NSDictionary*)enableAndReturnNetworkReachedHint:(NSError**)error;
+@end
 
 @interface OTEscrowRepairOperation ()
 @property OTOperationDependencies* deps;
 @property OTFollowup* followupHandler;
 @property NSOperation* finishedOp;
 @property AppleKeyStorePasscodeCacheReason contextType;
+@property(nonatomic, copy, nullable) NSData* entropy;
+@property(nonatomic, copy, nullable) NSString* bottleID;
+@property(nonatomic, copy, nullable) NSData* escrowSigningSPKI;
 @end
 
 @implementation OTEscrowRepairOperation
@@ -69,6 +91,9 @@
                           errorState:(OctagonState*)errorState
                      followupHandler:(OTFollowup*)followupHandler
                          contextType:(AppleKeyStorePasscodeCacheReason)contextType
+                             entropy:(NSData*)entropy
+                            bottleID:(NSString*)bottleID
+                   escrowSigningSPKI:(NSData*)escrowSigningSPKI
 {
     if ((self = [super init])) {
         _deps = dependencies;
@@ -76,6 +101,9 @@
         _intendedState = intendedState;
         _nextState = errorState;
         _contextType = contextType;
+        _entropy = entropy;
+        _bottleID = bottleID;
+        _escrowSigningSPKI = escrowSigningSPKI;
     }
     return self;
 }
@@ -174,6 +202,15 @@
         return;
     }
 
+    NSDictionary* existingRecord = nil;
+    NSError* getRecordError = nil;
+    if (![self getExistingRecord:&existingRecord peerID:octagonPeerID error:&getRecordError]) {
+        secnotice("octagon-escrow-repair", "failed to get existing record: %@", getRecordError);
+        self.error = getRecordError;
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
+    }
+
     ACAccount* account = nil;
     if (!SecCKKSTestsEnabled()) {
         NSError* accountError = nil;
@@ -205,21 +242,43 @@
                 secnotice("octagon-escrow-repair", "failed to persist escrow repair attempt date: %@", persistError);
             }
 
-            [self deleteRecord:octagonPeerID];
             NSError* enableError = nil;
-            BOOL enableResult = [self enableWithPasscodeStashSecret:laContext.externalizedContext account:account error:&enableError];
-            if (enableError && [self shouldIgnoreError:enableError] == YES) {
+            SecureBackupOperationReachedNetwork reachedNetwork = SecureBackupOperationReachedNetworkUnknown;
+            BOOL enableResult = [self enableWithPasscodeStashSecret:laContext.externalizedContext
+                                                     existingRecord:existingRecord
+                                                            account:account
+                                                     reachedNetwork:&reachedNetwork
+                                                              error:&enableError];
+
+            NSString* debugString = nil;
+            if (reachedNetwork == SecureBackupOperationReachedNetworkUnknown) {
+                debugString = @"reached network unknown";
+            } else if (reachedNetwork == SecureBackupOperationReachedNetworkSuccess) {
+                debugString = @"reached network";
+            } else {
+                debugString = @"failed to reach network";
+            }
+
+            secnotice("octagon-escrow-repair", "device reached the network: %@", debugString);
+            if ((enableError && [self shouldIgnoreError:enableError] == YES) || reachedNetwork == SecureBackupOperationReachedNetworkFailed) {
                 secnotice("octagon-escrow-repair", "resetting last escrow repair attempt, ignored error: %@", enableError);
                 NSError* clearError = nil;
                 BOOL result = [self.deps.stateHolder clearLastEscrowRepairAttempt:&clearError];
                 if (result == NO || clearError) {
                     secerror("octagon-escrow-repair: failed to clear last escrow repair attempt: %@", clearError);
                 }
-                NSError* genericError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorEscrowRepairIgnoredError userInfo:@{NSUnderlyingErrorKey : enableError}];
-                self.error = genericError;
-            } else if (enableResult == NO || enableError) {
+                if (enableError) {
+                    NSError* genericError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorEscrowRepairIgnoredError userInfo:@{NSUnderlyingErrorKey : enableError}];
+                    self.error = genericError;
+                }
+            } else if ((enableResult == NO || enableError) && reachedNetwork != SecureBackupOperationReachedNetworkFailed) {
                 secerror("octagon-escrow-repair: failed to enable with passcode stash secret: %@", enableError);
+                if (enableError == nil) {
+                    enableError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorFailedToEnableWithPasscodeStashSecret userInfo:nil];
+                }
                 self.error = enableError;
+            } else {
+                secnotice("octagon-escrow-repair", "Successfully enabled backup");
             }
         });
 
@@ -234,27 +293,22 @@
     [self runBeforeGroupFinished:self.finishedOp];
 }
 
-- (void)deleteRecord:(NSString*)peerID
+- (BOOL)enableWithPasscodeStashSecret:(NSData*)passcodeStashSecret
+                       existingRecord:(NSDictionary*)existingRecord
+                              account:(ACAccount*)account
+                       reachedNetwork:(SecureBackupOperationReachedNetwork*)reachedNetwork
+                                error:(NSError**)error
 {
-    SecureBackup* sb = [[SecureBackup alloc] initWithUserActivityLabel:@"escrow-repair-disable"];
-    sb.icdp = YES; // kSecureBackupContainsiCDPDataKey
-    sb.recordID = peerID; // kSecureBackupRecordIDKey
+    NSError* petError = nil;
+    NSString* passwordEquivalentToken = [self.deps.authKitAdapter fetchPETForUsername:account.username error:&petError];
 
-    sb.deviceSessionID = self.deps.deviceSessionID; // kSecureBackupDeviceSessionIDKey
-    sb.flowID = self.deps.flowID; // kSecureBackupFlowIDKey
-
-    NSError* disableError = nil;
-    bool success = [sb disableWithError:&disableError];
-    if (success) {
-        secnotice("octagon-escrow-repair", "successfully deleted escrow record");
-    } else {
-        secnotice("octagon-escrow-repair", "failed to delete escrow record: %@", disableError);
-        // error ignored
+    if (!passwordEquivalentToken) {
+        if (error) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorMissingPasswordEquivalentToken description:@"failed to obtain PET" underlying:petError];
+        }
+        return NO;
     }
-}
 
-- (BOOL)enableWithPasscodeStashSecret:(NSData*)passcodeStashSecret account:(ACAccount*)account error:(NSError**)error
-{
     SecureBackup* sb = [[SecureBackup alloc] initWithUserActivityLabel:@"escrow-repair-enable"];
 
     sb.icdp = YES; // kSecureBackupContainsiCDPDataKey
@@ -266,9 +320,9 @@
 
     sb.appleID = account.username; // kSecureBackupAuthenticationAppleID
     sb.dsid = account.aa_personID; // kSecureBackupAuthenticationDSID
-    sb.iCloudPassword = [self fetchPETForUsername:account.username]; // kSecureBackupAuthenticationPassword
+    sb.iCloudPassword = passwordEquivalentToken; // kSecureBackupAuthenticationPassword
 
-    // TODO: kSecureBackupStingrayMetadataHashKey (update when possible, instead of delete/enroll)
+    sb.metadataHash = existingRecord; // kSecureBackupStingrayMetadataHashKey
 
     sb.deviceSessionID = self.deps.deviceSessionID; // kSecureBackupDeviceSessionIDKey
     sb.flowID = self.deps.flowID; // kSecureBackupFlowIDKey
@@ -279,8 +333,34 @@
 
     sb.generateClientMetadata = YES;
 
+    if ([sb respondsToSelector:@selector(entropy)]) {
+        sb.entropy = self.entropy; // kSecureBackupEscrowContentEntropyKey
+    }
+    if ([sb respondsToSelector:@selector(bottleID)]) {
+        sb.bottleID = self.bottleID; // kSecureBackupEscrowContentBottleIDKey
+    }
+    if ([sb respondsToSelector:@selector(escrowSigningPublicKey)]) {
+        sb.escrowSigningPublicKey = self.escrowSigningSPKI; //kSecureBackupEscrowContentSPKIKey
+    }
+
     NSError* enableError = nil;
-    bool success = [self.deps.secureBackupAdapter enableWithSecureBackup:sb error:&enableError];
+    bool success = false;
+    if(reachedNetwork) {
+        *reachedNetwork = SecureBackupOperationReachedNetworkUnknown;
+    }
+    if ([sb respondsToSelector:@selector(enableAndReturnNetworkReachedHint:)]) {
+        NSDictionary* hint = [self.deps.secureBackupAdapter enableWithSecureBackupAndReturnHint:sb error:&enableError];
+        if (enableError == nil) {
+            success = true;
+        }
+        if (hint && hint[kSecureBackupNetworkReachedHintKey]) {
+            if (reachedNetwork) {
+                *reachedNetwork = [hint[kSecureBackupNetworkReachedHintKey] isEqualToNumber:@(YES)] ? SecureBackupOperationReachedNetworkSuccess : SecureBackupOperationReachedNetworkFailed;
+            }
+        }
+    } else {
+        success = [self.deps.secureBackupAdapter enableWithSecureBackup:sb error:&enableError];
+    }
     if (success) {
         secnotice("octagon-escrow-repair", "successfully enrolled escrow record");
 
@@ -298,33 +378,6 @@
     return YES;
 }
 
-- (NSString*)fetchPETForUsername:(NSString*)username
-{
-    __block NSString* result = nil;
-
-    AKAppleIDAuthenticationContext* authContext = [[AKAppleIDAuthenticationContext alloc] init];
-    authContext.username = username;
-    authContext.authenticationType = AKAppleIDAuthenticationTypeSilent;
-    authContext.isUsernameEditable = NO;
-
-    AKAppleIDAuthenticationController *authenticationController = [[AKAppleIDAuthenticationController alloc] init];
-
-    // TODO: 145817503
-    dispatch_semaphore_t s = dispatch_semaphore_create(0);
-    [authenticationController authenticateWithContext:authContext
-                                           completion:^(AKAuthenticationResults authenticationResults, NSError *error) {
-        if (error) {
-            secnotice("octagon-escrow-repair", "failed to fetch PET: %@", error);
-        } else {
-            result = authenticationResults[AKAuthenticationPasswordKey];
-        }
-        dispatch_semaphore_signal(s);
-    }];
-    dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER);
-
-    return result;
-}
-
 - (NSData*)serializedIDMSData
 {
     NSData* result = nil;
@@ -339,6 +392,32 @@
     }
 
     return result;
+}
+
+- (BOOL)getExistingRecord:(NSDictionary**)existingRecord peerID:(NSString*)peerID error:(NSError**)error
+{
+    SecureBackup* sb = [[SecureBackup alloc] initWithUserActivityLabel:@"escrow-repair-get-account-info"];
+
+    NSError* accountInfoError = nil;
+    NSDictionary* accountInfo = [self.deps.secureBackupAdapter getAccountInfoWithSecureBackup:sb error:&accountInfoError];
+    if (!accountInfo || accountInfoError) {
+        if (error) {
+            *error = accountInfoError;
+        }
+        return NO;
+    }
+
+    // Attempt to find existing record. CloudServices will make the appropriate call.
+    // not found: enroll
+    // found: update_blob
+    for (NSDictionary* record in accountInfo[kSecureBackupAlliCDPRecordsKey]) {
+        if ([record[kSecureBackupRecordIDKey] isEqualToString:peerID]) {
+            *existingRecord = record;
+            break;
+        }
+    }
+
+    return YES;
 }
 
 @end

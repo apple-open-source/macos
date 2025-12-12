@@ -55,7 +55,7 @@ static struct __metadata_preamble *pp_metadata_fini(struct __kern_quantum *,
     struct kern_pbufpool *, struct mbuf **, struct __kern_packet **,
     struct skmem_obj **, struct skmem_obj **, struct skmem_obj **, struct skmem_obj **);
 static void pp_purge_upp_locked(struct kern_pbufpool *pp, pid_t pid);
-static void pp_buf_seg_ctor(struct sksegment *, IOSKMemoryBufferRef, void *);
+static int pp_buf_seg_ctor(struct sksegment *, IOSKMemoryBufferRef, void *);
 static void pp_buf_seg_dtor(struct sksegment *, IOSKMemoryBufferRef, void *);
 static void pp_destroy_upp_locked(struct kern_pbufpool *);
 static void pp_destroy_upp_bft_locked(struct kern_pbufpool *);
@@ -912,14 +912,17 @@ pp_metadata_dtor(void *addr, void *arg)
 	    METADATA_PREAMBLE_SZ), arg, TRUE);
 }
 
-static void
+static int
 pp_buf_seg_ctor(struct sksegment *sg, IOSKMemoryBufferRef md, void *arg)
 {
 	struct kern_pbufpool *__single pp = arg;
+	int ret;
 
+	ret = 0;
 	if (pp->pp_pbuf_seg_ctor != NULL) {
-		pp->pp_pbuf_seg_ctor(pp, sg, md);
+		ret = pp->pp_pbuf_seg_ctor(pp, sg, md);
 	}
+	return ret;
 }
 
 static void

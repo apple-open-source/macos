@@ -22,7 +22,6 @@
 
 [DebugDecodingFailure] struct WebKit::UserContentControllerParameters {
     WebKit::UserContentControllerIdentifier identifier;
-    Vector<WebKit::ContentWorldData> userContentWorlds;
     Vector<WebKit::WebUserScriptData> userScripts;
     Vector<WebKit::WebUserStyleSheetData> userStyleSheets;
     Vector<WebKit::WebScriptMessageHandlerData> messageHandlers;

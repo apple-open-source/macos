@@ -24,8 +24,20 @@
 #include "Shared/Sandbox/macOS/common.sb"
 #include "Shared/Sandbox/preferences.sb"
 
+
+(define (enhanced-security)
+    (require-any
+        (require-all
+            (require-not (require-entitlement "com.apple.security.cs.allow-jit"))
+            (require-not (require-entitlement "com.apple.private.verified-jit"))
+            (require-not (require-entitlement "com.apple.security.cs.single-jit"))))
+        (require-entitlement "com.apple.private.webkit.enhanced-security")
+    )
+
 (define (lockdown-mode)
-    (require-not (require-entitlement "com.apple.security.cs.allow-jit")))
+    (require-all
+        (require-not (require-entitlement "com.apple.security.cs.allow-jit"))
+        (require-not (enhanced-security))))
 
 #define FALSE #f
 
@@ -40,6 +52,8 @@
 #if USE(SANDBOX_VERSION_3)
 (allow dynamic-code-generation)
 (with-filter (lockdown-mode)
+    (deny dynamic-code-generation))
+(with-filter (enhanced-security)
     (deny dynamic-code-generation))
 
 (with-filter (mac-policy-name "Sandbox")

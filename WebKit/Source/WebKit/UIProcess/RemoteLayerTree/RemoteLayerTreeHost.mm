@@ -92,27 +92,6 @@ Ref<RemoteLayerTreeDrawingAreaProxy> RemoteLayerTreeHost::protectedDrawingArea()
     return drawingArea();
 }
 
-LayerContentsType RemoteLayerTreeHost::layerContentsType() const
-{
-    // If a surface will be referenced by multiple layers (as in the tile debug indicator), CAMachPort cannot be used.
-    Ref drawingArea = *m_drawingArea;
-    if (drawingArea->hasDebugIndicator())
-        return LayerContentsType::IOSurface;
-
-    // If e.g. SceneKit will be doing an in-process snapshot of the layer tree, CAMachPort cannot be used: rdar://problem/47481972
-    RefPtr page = drawingArea->page();
-    if (page && page->windowKind() == WindowKind::InProcessSnapshotting)
-        return LayerContentsType::IOSurface;
-
-    if (PAL::canLoad_QuartzCore_CAIOSurfaceCreate())
-        return LayerContentsType::CachedIOSurface;
-#if HAVE(MACH_PORT_CALAYER_CONTENTS)
-    return LayerContentsType::CAMachPort;
-#else
-    return LayerContentsType::IOSurface;
-#endif
-}
-
 bool RemoteLayerTreeHost::replayDynamicContentScalingDisplayListsIntoBackingStore() const
 {
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
@@ -157,8 +136,8 @@ bool RemoteLayerTreeHost::updateBannerLayers(const RemoteLayerTreeTransaction& t
     if (!page)
         return false;
 
-    bool headerBannerLayerChanged = updateBannerLayer(page->headerBannerLayer(), scrolledContentsLayer.get());
-    bool footerBannerLayerChanged = updateBannerLayer(page->footerBannerLayer(), scrolledContentsLayer.get());
+    bool headerBannerLayerChanged = updateBannerLayer(page->protectedHeaderBannerLayer().get(), scrolledContentsLayer.get());
+    bool footerBannerLayerChanged = updateBannerLayer(page->protectedFooterBannerLayer().get(), scrolledContentsLayer.get());
     return headerBannerLayerChanged || footerBannerLayerChanged;
 }
 #endif
@@ -195,7 +174,6 @@ bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, con
     };
     Vector<LayerAndClone> clonesToUpdate;
 
-    auto layerContentsType = this->layerContentsType();
     for (auto& [layerID, properties] : transaction.changedLayerProperties()) {
         RefPtr node = nodeForID(layerID);
         ASSERT(node);
@@ -219,6 +197,10 @@ bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, con
             rootNode->addToHostingNode(*remoteRootNode);
     }
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    Ref { *m_drawingArea }->registerTimelineIfNecessary(processIdentifier, transaction.acceleratedTimelineTimeOrigin(), MonotonicTime::now());
+#endif
+
     for (auto& changedLayer : transaction.changedLayerProperties()) {
         auto layerID = changedLayer.key;
         const auto& properties = changedLayer.value.get();
@@ -235,17 +217,18 @@ bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, con
         if (properties.changedProperties.contains(LayerChange::ClonedContentsChanged) && properties.clonedLayerID)
             clonesToUpdate.append({ layerID, *properties.clonedLayerID });
 
-        RemoteLayerTreePropertyApplier::applyProperties(*node, this, properties, m_nodes, layerContentsType);
+        RemoteLayerTreePropertyApplier::applyProperties(*node, this, properties, m_nodes);
 
         if (m_isDebugLayerTreeHost) {
+            RetainPtr layer = node->layer();
             if (properties.changedProperties.contains(LayerChange::BorderWidthChanged))
-                node->layer().borderWidth = properties.borderWidth / indicatorScaleFactor;
-            node->layer().masksToBounds = false;
+                layer.get().borderWidth = properties.borderWidth / indicatorScaleFactor;
+            layer.get().masksToBounds = false;
         }
     }
     
     for (const auto& layerAndClone : clonesToUpdate)
-        layerForID(layerAndClone.layerID).contents = layerForID(layerAndClone.cloneLayerID).contents;
+        protectedLayerForID(layerAndClone.layerID).get().contents = protectedLayerForID(layerAndClone.cloneLayerID).get().contents;
 
     for (auto& destroyedLayer : transaction.destroyedLayers())
         layerWillBeRemoved(processIdentifier, destroyedLayer);
@@ -256,7 +239,7 @@ bool RemoteLayerTreeHost::updateLayerTree(const IPC::Connection& connection, con
         RefPtr node = nodeForID(newlyUnreachableLayerID);
         ASSERT(node);
         if (node) {
-            node->layer().contents = nullptr;
+            node->protectedLayer().get().contents = nullptr;
             node->setAsyncContentsIdentifier(std::nullopt);
         }
     }
@@ -275,7 +258,7 @@ void RemoteLayerTreeHost::asyncSetLayerContents(PlatformLayerIdentifier layerID,
     if (!node)
         return;
 
-    node->applyBackingStore(this, layerContentsType(), properties);
+    node->applyBackingStore(this, properties);
 }
 
 RemoteLayerTreeNode* RemoteLayerTreeHost::nodeForID(std::optional<PlatformLayerIdentifier> layerID) const
@@ -403,9 +386,19 @@ CALayer *RemoteLayerTreeHost::layerForID(std::optional<WebCore::PlatformLayerIde
     return node->layer();
 }
 
+RetainPtr<CALayer> RemoteLayerTreeHost::protectedLayerForID(std::optional<WebCore::PlatformLayerIdentifier> layerID) const
+{
+    return layerForID(layerID);
+}
+
 CALayer *RemoteLayerTreeHost::rootLayer() const
 {
     return m_rootNode ? m_rootNode->layer() : nil;
+}
+
+RetainPtr<CALayer> RemoteLayerTreeHost::protectedRootLayer() const
+{
+    return rootLayer();
 }
 
 void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCreationProperties& properties)
@@ -413,13 +406,13 @@ void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCre
     ASSERT(!m_nodes.contains(*properties.layerID));
 
     auto node = makeNode(properties);
-
-    if ([node->layer() respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
-        [node->layer() setUsesWebKitBehavior:YES];
-        if ([node->layer() isKindOfClass:[CATransformLayer class]])
-            [node->layer() setSortsSublayers:YES];
+    RetainPtr layer = node->layer();
+    if ([layer respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
+        [layer setUsesWebKitBehavior:YES];
+        if ([layer isKindOfClass:[CATransformLayer class]])
+            [layer setSortsSublayers:YES];
         else
-            [node->layer() setSortsSublayers:NO];
+            [layer setSortsSublayers:NO];
     }
 
     if (auto* hostIdentifier = std::get_if<WebCore::LayerHostingContextIdentifier>(&properties.additionalData)) {
@@ -458,7 +451,7 @@ RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeT
         auto layer = RemoteLayerTreeNode::createWithPlainLayer(*properties.layerID);
         // So that the scrolling thread's performance logging code can find all the tiles, mark this as being a tile.
         if (properties.type == PlatformCALayer::LayerType::LayerTypeTiledBackingTileLayer)
-            [layer->layer() setValue:@YES forKey:@"isTile"];
+            [layer->protectedLayer() setValue:@YES forKey:@"isTile"];
         return layer;
     }
 
@@ -513,23 +506,6 @@ void RemoteLayerTreeHost::detachRootLayer()
         rootNode->detachFromParent();
 }
 
-static void recursivelyMapIOSurfaceBackingStore(CALayer *layer)
-{
-    if (layer.contents && CFGetTypeID((__bridge CFTypeRef)layer.contents) == CAMachPortGetTypeID()) {
-        MachSendRight port = MachSendRight::create(CAMachPortGetPort((__bridge CAMachPortRef)layer.contents));
-        auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(port));
-        layer.contents = surface ? surface->asLayerContents() : nil;
-    }
-
-    for (CALayer *sublayer in layer.sublayers)
-        recursivelyMapIOSurfaceBackingStore(sublayer);
-}
-
-void RemoteLayerTreeHost::mapAllIOSurfaceBackingStore()
-{
-    recursivelyMapIOSurfaceBackingStore(rootLayer());
-}
-
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
 void RemoteLayerTreeHost::animationsWereAddedToNode(RemoteLayerTreeNode& node)
 {
@@ -541,14 +517,9 @@ void RemoteLayerTreeHost::animationsWereRemovedFromNode(RemoteLayerTreeNode& nod
     protectedDrawingArea()->animationsWereRemovedFromNode(node);
 }
 
-Seconds RemoteLayerTreeHost::acceleratedTimelineTimeOrigin(WebCore::ProcessIdentifier processIdentifier) const
+const RemoteAnimationTimeline* RemoteLayerTreeHost::timeline(WebCore::ProcessIdentifier processIdentifier) const
 {
-    return protectedDrawingArea()->acceleratedTimelineTimeOrigin(processIdentifier);
-}
-
-MonotonicTime RemoteLayerTreeHost::animationCurrentTime(WebCore::ProcessIdentifier processIdentifier) const
-{
-    return protectedDrawingArea()->animationCurrentTime(processIdentifier);
+    return protectedDrawingArea()->timeline(processIdentifier);
 }
 #endif
 

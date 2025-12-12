@@ -26,8 +26,8 @@
 
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
-#include "ExceptionCode.h"
-#include "RTCIceCandidateFields.h"
+#include <WebCore/ExceptionCode.h>
+#include <WebCore/RTCIceCandidateFields.h>
 #include <webrtc/api/media_types.h>
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <webrtc/api/stats/rtcstats_objects.h>

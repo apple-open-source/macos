@@ -41,7 +41,7 @@ namespace WebCore {
 
 class SkiaRecordingResult final : public ThreadSafeRefCounted<SkiaRecordingResult, WTF::DestructionThread::Main> {
 public:
-    virtual ~SkiaRecordingResult();
+    ~SkiaRecordingResult();
     static Ref<SkiaRecordingResult> create(sk_sp<SkPicture>&&, SkiaImageToFenceMap&&, const IntRect& recordRect, RenderingMode, bool contentsOpaque, float contentsScale);
 
     void waitForFenceIfNeeded(const SkImage&);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -540,41 +540,70 @@ LLINT_SLOW_PATH_DECL(replace)
 #endif // ENABLE(JIT)
 }
 
-LLINT_SLOW_PATH_DECL(stack_check)
+UGPRPair SYSV_ABI llint_check_stack_and_vm_traps(CallFrame* callFrame, const JSInstruction* pc, void* newTopOfStack)
 {
     // It's ok to create the SlowPathFrameTracer here before we
-    // convertToStackOverflowFrame() because this function is always called
+    // convertToZombieFrame() because this function is always called
     // after the frame has been propulated with a proper CodeBlock and callee.
     LLINT_BEGIN();
 
-    slowPathLogF("Checking stack height with callFrame = %p.\n", callFrame);
-    slowPathLog("CodeBlock = ", codeBlock, "\n");
-    if (codeBlock) {
-        slowPathLogF("Num callee registers = %u.\n", codeBlock->numCalleeLocals());
-        slowPathLogF("Num vars = %u.\n", codeBlock->numVars());
-    }
-    slowPathLogF("Current OS stack end is at %p.\n", vm.softStackLimit());
+    if (Options::traceLLIntSlowPath()) [[unlikely]] {
+        slowPathLogF("Checking VMTraps and stack height with callFrame = %p.\n", callFrame);
+        slowPathLog("CodeBlock = ", codeBlock, "\n");
+        if (codeBlock) {
+            slowPathLogF("Num callee registers = %u.\n", codeBlock->numCalleeLocals());
+            slowPathLogF("Num vars = %u.\n", codeBlock->numVars());
+        }
+        slowPathLogF("Current OS stack end is at %p.\n", vm.softStackLimit());
 #if ENABLE(C_LOOP)
-    slowPathLogF("Current C Loop stack end is at %p.\n", vm.cloopStackLimit());
+        slowPathLogF("Current C Loop stack end is at %p.\n", vm.cloopStackLimit());
 #endif
+    }
 
-    // If the stack check succeeds and we don't need to throw the error, then
+    if (vm.traps().handleTrapsIfNeeded()) {
+        if (vm.hasPendingTerminationException()) {
+            throwScope.release();
+            callFrame->convertToZombieFrame(vm, codeBlock);
+            pc = returnToThrow(vm);
+            LLINT_RETURN_TWO(pc, callFrame);
+        }
+    }
+    throwScope.assertNoException();
+
+    // Redo stack check because we may really have gotten here due to an imminent StackOverflow.
+    bool imminentOverflowDetected = false;
+
+#if ENABLE(C_LOOP)
+    Register* newTopOfStackRegister = reinterpret_cast<Register*>(newTopOfStack);
+    if (newTopOfStackRegister < reinterpret_cast<Register*>(callFrame)) {
+        if (!vm.ensureJSStackCapacityFor(newTopOfStackRegister))
+            imminentOverflowDetected = true;
+    } else
+        imminentOverflowDetected = true; // Stack underflow == overflow.
+#else // not C_LOOP case
+
+    void* softStackLimit = vm.softStackLimit();
+#if CPU(ADDRESS32)
+    // With 32-bit addresses, there's a chance that we can underflow, and need this check.
+    // The new stack pointer should only grow smaller. The only way it can be larger than
+    // the callFrame is if subtracting the stack frame size resulted in an underflow.
+    if (std::bit_cast<uintptr_t>(newTopOfStack) > std::bit_cast<uintptr_t>(callFrame))
+        imminentOverflowDetected = true;
+#endif
+    if (newTopOfStack < softStackLimit)
+        imminentOverflowDetected = true;
+
+#endif // end of not C_LOOP case
+
+    // If the stack check succeeds and we don't need to throw any errors, then
     // we'll return 0 instead. The prologue will check for a non-zero value
     // when determining whether to set the callFrame or not.
+    if (!imminentOverflowDetected)
+        LLINT_RETURN_TWO(pc, 0);
 
-    // For JIT enabled builds which uses the C stack, the stack is not growable.
     // Hence, if we get here, then we know a stack overflow is imminent. So, just
     // throw the StackOverflowError unconditionally.
-#if ENABLE(C_LOOP)
-    Register* topOfFrame = callFrame->topOfFrame();
-    if (topOfFrame < reinterpret_cast<Register*>(callFrame)) [[likely]] {
-        ASSERT(!vm.interpreter.cloopStack().containsAddress(topOfFrame));
-        if (vm.ensureStackCapacityFor(topOfFrame)) [[likely]]
-            LLINT_RETURN_TWO(pc, 0);
-    }
-#endif
-
-    callFrame->convertToStackOverflowFrame(vm, codeBlock);
+    callFrame->convertToZombieFrame(vm, codeBlock);
     ErrorHandlingScope errorScope(vm);
     throwStackOverflowError(globalObject, throwScope);
     pc = returnToThrow(vm);
@@ -2035,7 +2064,7 @@ static UGPRPair handleHostCall(CallFrame* calleeFrame, JSValue callee, CodeSpeci
     calleeFrame->clearReturnPC();
 
     if (kind == CodeSpecializationKind::CodeForCall) {
-        auto callData = JSC::getCallData(callee);
+        auto callData = JSC::getCallDataInline(callee);
         ASSERT(callData.type != CallData::Type::JS);
 
         if (callData.type == CallData::Type::Native) {
@@ -2377,7 +2406,7 @@ LLINT_SLOW_PATH_DECL(slow_path_get_from_scope)
             // When we can't statically prove we need a TDZ check, we must perform the check on the slow path.
             result = slot.getValue(globalObject, ident);
             if (result == jsTDZValue())
-                return throwException(globalObject, throwScope, createTDZError(globalObject));
+                return throwException(globalObject, throwScope, createTDZError(globalObject, ident.string()));
         }
 
         CommonSlowPaths::tryCacheGetFromScopeGlobal(globalObject, codeBlock, vm, bytecode, scope, slot, ident);
@@ -2418,7 +2447,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_to_scope)
         PropertySlot slot(scope, PropertySlot::InternalMethodType::Get);
         JSGlobalLexicalEnvironment::getOwnPropertySlot(scope, globalObject, ident, slot);
         if (slot.getValue(globalObject, ident) == jsTDZValue())
-            LLINT_THROW(createTDZError(globalObject));
+            LLINT_THROW(createTDZError(globalObject, ident.string()));
     }
 
     if (metadata.m_getPutInfo.resolveMode() == ThrowIfNotFound && !hasProperty)
@@ -2531,7 +2560,7 @@ static ALWAYS_INLINE int arityCheckFor(VM& vm, CallFrame* callFrame, CodeBlock* 
 
     Register* newStack = callFrame->registers() - WTF::roundUpToMultipleOf(stackAlignmentRegisters(), padding);
 
-    if (!vm.ensureStackCapacityFor(newStack)) [[unlikely]]
+    if (!vm.ensureJSStackCapacityFor(newStack)) [[unlikely]]
         return -1;
     return padding;
 }
@@ -2541,7 +2570,7 @@ LLINT_SLOW_PATH_DECL(slow_path_arityCheck)
     LLINT_BEGIN();
     int slotsToAdd = arityCheckFor(vm, callFrame, codeBlock);
     if (slotsToAdd < 0) [[unlikely]] {
-        callFrame->convertToStackOverflowFrame(vm, codeBlock);
+        callFrame->convertToZombieFrame(vm, codeBlock);
         SlowPathFrameTracer tracer(vm, callFrame);
         ErrorHandlingScope errorScope(vm);
         throwScope.release();
@@ -2820,7 +2849,7 @@ extern "C" UGPRPair SYSV_ABI llint_throw_stack_overflow_error(VM* vm, ProtoCallF
 #if ENABLE(C_LOOP)
 extern "C" UGPRPair SYSV_ABI llint_stack_check_at_vm_entry(VM* vm, Register* newTopOfStack)
 {
-    bool success = vm->ensureStackCapacityFor(newTopOfStack);
+    bool success = vm->ensureJSStackCapacityFor(newTopOfStack);
     return encodeResult(reinterpret_cast<void*>(success), 0);
 }
 #endif

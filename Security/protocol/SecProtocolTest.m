@@ -1895,6 +1895,49 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     });
 }
 
+- (void)test_sec_protocol_options_get_external_pre_shared_keys_enabled {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    XCTAssertFalse(sec_protocol_options_get_external_pre_shared_keys_enabled(options));
+    SecExternalPreSharedKey *external_pre_shared_key = [self create_sample_external_pre_shared_key];
+    sec_protocol_options_add_external_pre_shared_key(options, external_pre_shared_key);
+    XCTAssertTrue(sec_protocol_options_get_external_pre_shared_keys_enabled(options));
+}
+
+- (void)test_sec_protocol_options_get_pake_configured {
+    uint8_t context[] = "test context";
+    dispatch_data_t context_data = dispatch_data_create(context, sizeof(context), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t client_identity[] = "client_identity";
+    dispatch_data_t client_identity_data = dispatch_data_create(client_identity, sizeof(client_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t server_identity[] = "server_identity";
+    dispatch_data_t server_identity_data = dispatch_data_create(server_identity, sizeof(server_identity), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    uint8_t password[] = "password";
+    dispatch_data_t password_data = dispatch_data_create(password, sizeof(password), NULL, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+
+    sec_identity_t client_pake_identity = sec_identity_create_client_SPAKE2PLUSV1_identity(context_data, client_identity_data, server_identity_data, password_data, PAKE_PBKDF_PARAMS_SCRYPT_DEFAULT);
+    XCTAssertNotNil(client_pake_identity);
+
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    XCTAssertFalse(sec_protocol_options_get_pake_configured(options));
+    sec_protocol_options_set_local_identity(options, client_pake_identity);
+    XCTAssertTrue(sec_protocol_options_get_pake_configured(options));
+}
+
+- (void)test_sec_protocol_options_get_pake_configured_with_challenge_block {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    XCTAssertFalse(sec_protocol_options_get_pake_configured(options));
+
+    void (^selection_block)(sec_protocol_metadata_t, SecOfferedPAKEIdentity*, sec_protocol_pake_challenge_complete_t) = ^(sec_protocol_metadata_t metadata, SecOfferedPAKEIdentity *offered_pake_identity, sec_protocol_pake_challenge_complete_t complete) {
+            complete(nil);
+        };
+    dispatch_queue_t selection_queue = dispatch_queue_create("test_sec_protocol_options_set_pake_challenge_block_queue", DISPATCH_QUEUE_SERIAL);
+    sec_protocol_options_set_pake_challenge_block(options, selection_block, selection_queue);
+    XCTAssertTrue(sec_protocol_options_get_pake_configured(options));
+}
+
+
 // Assigns NULL to CF. Releases the value stored at CF unless it was NULL.  Always returns NULL, for your convenience
 #define CFReleaseNull(CF) ({ __typeof__(CF) *const _pcf = &(CF), _cf = *_pcf; (_cf ? (*_pcf) = ((__typeof__(CF))0), (CFRelease(_cf), ((__typeof__(CF))0)) : _cf); })
 

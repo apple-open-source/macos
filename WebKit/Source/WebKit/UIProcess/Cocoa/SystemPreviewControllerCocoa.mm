@@ -436,7 +436,7 @@ void SystemPreviewController::begin(const URL& url, const WebCore::SecurityOrigi
         RefPtr webPageProxy = protectedThis->m_webPageProxy.get();
         if (!webPageProxy)
             return completionHandler();
-        RELEASE_LOG(SystemPreview, "SystemPreview began on %lld", protectedThis->m_systemPreviewInfo.element.elementIdentifier ? protectedThis->m_systemPreviewInfo.element.elementIdentifier->toUInt64() : 0);
+        RELEASE_LOG(SystemPreview, "SystemPreview began on %lld", protectedThis->m_systemPreviewInfo.element.nodeIdentifier ? protectedThis->m_systemPreviewInfo.element.nodeIdentifier->toUInt64() : 0);
         auto request = WebCore::ResourceRequest(URL { url });
         bool shouldRunAtForegroundPriority = false;
         webPageProxy->dataTaskWithRequest(WTFMove(request), topOrigin, shouldRunAtForegroundPriority, [weakThis, completionHandler = WTFMove(completionHandler)] (Ref<API::DataTask>&& task) mutable {
@@ -504,7 +504,7 @@ void SystemPreviewController::begin(const URL& url, const WebCore::SecurityOrigi
 
 void SystemPreviewController::loadStarted(const URL& localFileURL)
 {
-    RELEASE_LOG(SystemPreview, "SystemPreview load has started on %lld", m_systemPreviewInfo.element.elementIdentifier ? m_systemPreviewInfo.element.elementIdentifier->toUInt64() : 0);
+    RELEASE_LOG(SystemPreview, "SystemPreview load has started on %lld", m_systemPreviewInfo.element.nodeIdentifier ? m_systemPreviewInfo.element.nodeIdentifier->toUInt64() : 0);
     m_localFileURL = localFileURL;
 
     // Take the local URL, but add on the fragment from the original request URL.
@@ -512,8 +512,8 @@ void SystemPreviewController::loadStarted(const URL& localFileURL)
         m_localFileURL.setFragmentIdentifier(m_fragmentIdentifier);
 
 #if PLATFORM(VISION)
-    if ([getASVLaunchPreviewClass() respondsToSelector:@selector(beginPreviewApplicationWithURLs:is3DContent:websiteURL:completion:)])
-        [getASVLaunchPreviewClass() beginPreviewApplicationWithURLs:localFileURLs() is3DContent:YES websiteURL:m_downloadURL.createNSURL().get() completion:^(NSError *error) { }];
+    if ([getASVLaunchPreviewClassSingleton() respondsToSelector:@selector(beginPreviewApplicationWithURLs:is3DContent:websiteURL:completion:)])
+        [getASVLaunchPreviewClassSingleton() beginPreviewApplicationWithURLs:localFileURLs() is3DContent:YES websiteURL:m_downloadURL.createNSURL().get() completion:^(NSError *error) { }];
 #endif
 
     m_state = State::Loading;
@@ -521,13 +521,13 @@ void SystemPreviewController::loadStarted(const URL& localFileURL)
 
 void SystemPreviewController::loadCompleted(const URL& localFileURL)
 {
-    RELEASE_LOG(SystemPreview, "SystemPreview load has finished on %lld", m_systemPreviewInfo.element.elementIdentifier ? m_systemPreviewInfo.element.elementIdentifier->toUInt64() : 0);
+    RELEASE_LOG(SystemPreview, "SystemPreview load has finished on %lld", m_systemPreviewInfo.element.nodeIdentifier ? m_systemPreviewInfo.element.nodeIdentifier->toUInt64() : 0);
 
     ASSERT(equalIgnoringFragmentIdentifier(m_localFileURL, localFileURL));
 
 #if PLATFORM(VISION)
-    if ([getASVLaunchPreviewClass() respondsToSelector:@selector(launchPreviewApplicationWithURLs:completion:)])
-        [getASVLaunchPreviewClass() launchPreviewApplicationWithURLs:localFileURLs() completion:^(NSError *error) { }];
+    if ([getASVLaunchPreviewClassSingleton() respondsToSelector:@selector(launchPreviewApplicationWithURLs:completion:)])
+        [getASVLaunchPreviewClassSingleton() launchPreviewApplicationWithURLs:localFileURLs() completion:^(NSError *error) { }];
     m_state = State::Initial;
 #else
     if (m_qlPreviewControllerDataSource)
@@ -542,11 +542,11 @@ void SystemPreviewController::loadCompleted(const URL& localFileURL)
 
 void SystemPreviewController::loadFailed()
 {
-    RELEASE_LOG(SystemPreview, "SystemPreview load has failed on %lld", m_systemPreviewInfo.element.elementIdentifier ? m_systemPreviewInfo.element.elementIdentifier->toUInt64() : 0);
+    RELEASE_LOG(SystemPreview, "SystemPreview load has failed on %lld", m_systemPreviewInfo.element.nodeIdentifier ? m_systemPreviewInfo.element.nodeIdentifier->toUInt64() : 0);
 
 #if PLATFORM(VISION)
-    if (m_state == State::Loading && [getASVLaunchPreviewClass() respondsToSelector:@selector(cancelPreviewApplicationWithURLs:error:completion:)])
-        [getASVLaunchPreviewClass() cancelPreviewApplicationWithURLs:localFileURLs() error:nil completion:^(NSError *error) { }];
+    if (m_state == State::Loading && [getASVLaunchPreviewClassSingleton() respondsToSelector:@selector(cancelPreviewApplicationWithURLs:error:completion:)])
+        [getASVLaunchPreviewClassSingleton() cancelPreviewApplicationWithURLs:localFileURLs() error:nil completion:^(NSError *error) { }];
 #else
     if (m_qlPreviewControllerDataSource)
         [m_qlPreviewControllerDataSource.get() failWithError:nil];
@@ -569,7 +569,7 @@ void SystemPreviewController::loadFailed()
 
 void SystemPreviewController::end()
 {
-    RELEASE_LOG(SystemPreview, "SystemPreview ended on %lld", m_systemPreviewInfo.element.elementIdentifier ? m_systemPreviewInfo.element.elementIdentifier->toUInt64() : 0);
+    RELEASE_LOG(SystemPreview, "SystemPreview ended on %lld", m_systemPreviewInfo.element.nodeIdentifier ? m_systemPreviewInfo.element.nodeIdentifier->toUInt64() : 0);
 
 #if !PLATFORM(VISION)
     m_qlPreviewControllerDelegate = nullptr;
@@ -621,7 +621,7 @@ void SystemPreviewController::setCompletionHandlerForLoadTesting(CompletionHandl
 
 void SystemPreviewController::triggerSystemPreviewAction()
 {
-    RELEASE_LOG(SystemPreview, "SystemPreview action was triggered on %lld", m_systemPreviewInfo.element.elementIdentifier ? m_systemPreviewInfo.element.elementIdentifier->toUInt64() : 0);
+    RELEASE_LOG(SystemPreview, "SystemPreview action was triggered on %lld", m_systemPreviewInfo.element.nodeIdentifier ? m_systemPreviewInfo.element.nodeIdentifier->toUInt64() : 0);
 
     RefPtr page = this->page();
     if (!page)
@@ -630,7 +630,7 @@ void SystemPreviewController::triggerSystemPreviewAction()
     page->systemPreviewActionTriggered(m_systemPreviewInfo, "_apple_ar_quicklook_button_tapped"_s);
 }
 
-void SystemPreviewController::triggerSystemPreviewActionWithTargetForTesting(uint64_t elementID, NSString* documentID, uint64_t pageID)
+void SystemPreviewController::triggerSystemPreviewActionWithTargetForTesting(uint64_t nodeID, NSString* documentID, uint64_t pageID)
 {
     auto uuid = WTF::UUID::parseVersion4(String(documentID));
     ASSERT(uuid);
@@ -639,10 +639,10 @@ void SystemPreviewController::triggerSystemPreviewActionWithTargetForTesting(uin
         return;
 
     m_systemPreviewInfo.isPreview = true;
-    if (elementID)
-        m_systemPreviewInfo.element.elementIdentifier = ObjectIdentifier<WebCore::ElementIdentifierType>(elementID);
+    if (nodeID)
+        m_systemPreviewInfo.element.nodeIdentifier = ObjectIdentifier<WebCore::NodeIdentifierType>(nodeID);
     else
-        m_systemPreviewInfo.element.elementIdentifier = std::nullopt;
+        m_systemPreviewInfo.element.nodeIdentifier = std::nullopt;
     m_systemPreviewInfo.element.documentIdentifier = WebCore::ScriptExecutionContextIdentifier { *uuid, webPageProxy->legacyMainFrameProcess().coreProcessIdentifier() };
     m_systemPreviewInfo.element.webPageIdentifier = ObjectIdentifier<WebCore::PageIdentifierType>(pageID);
     triggerSystemPreviewAction();

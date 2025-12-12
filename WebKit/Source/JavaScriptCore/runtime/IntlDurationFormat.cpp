@@ -330,7 +330,7 @@ static DurationSignType getDurationSign(ISO8601::Duration duration)
 
 static String int128ToString(Int128 value)
 {
-    Vector<LChar> resultString;
+    Vector<Latin1Character> resultString;
     bool isNegative = value < 0;
     if (isNegative)
         value = -value;

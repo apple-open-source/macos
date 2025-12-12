@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include "HTTPHeaderNames.h"
+#include <WebCore/HTTPHeaderNames.h>
 #include <utility>
 #include <wtf/text/StringView.h>
 #include <wtf/text/WTFString.h>

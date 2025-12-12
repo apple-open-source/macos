@@ -39,6 +39,10 @@ public:
 
     void messagePortSentToRemote(const WebCore::MessagePortIdentifier&);
 
+    // Don't do anything in ref() / deref() since this class is a singleton.
+    void ref() const { }
+    void deref() const { }
+
 private:
     WebMessagePortChannelProvider();
     ~WebMessagePortChannelProvider() final;

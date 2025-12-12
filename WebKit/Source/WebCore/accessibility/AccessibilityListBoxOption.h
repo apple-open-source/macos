@@ -71,7 +71,7 @@ private:
     bool computeIsIgnored() const final;
 };
 
-} // namespace WebCore 
+} // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::AccessibilityListBoxOption) \
     static bool isType(const WebCore::AccessibilityObject& object) { return object.isAccessibilityListBoxOptionInstance(); } \

@@ -91,8 +91,6 @@ static ObjectValue valueFromID(id object)
         return CoreIPCError((NSError *)object);
     case IPC::NSType::Locale:
         return CoreIPCLocale((NSLocale *)object);
-    case IPC::NSType::Font:
-        return CoreIPCFont((WebCore::CocoaFont *)object);
     case IPC::NSType::NSValue:
         return CoreIPCNSValue((NSValue *)object);
     case IPC::NSType::Number:

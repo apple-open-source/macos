@@ -169,8 +169,8 @@ void MediaKeys::detachCDMClient(CDMClient& client)
 
 void MediaKeys::attemptToResumePlaybackOnClients()
 {
-    for (auto& cdmClient : m_cdmClients)
-        cdmClient.cdmClientAttemptToResumePlaybackIfNecessary();
+    for (Ref cdmClient : m_cdmClients)
+        cdmClient->cdmClientAttemptToResumePlaybackIfNecessary();
 }
 
 bool MediaKeys::hasOpenSessions() const
@@ -183,8 +183,8 @@ bool MediaKeys::hasOpenSessions() const
 
 void MediaKeys::unrequestedInitializationDataReceived(const String& initDataType, Ref<SharedBuffer>&& initData)
 {
-    for (auto& cdmClient : m_cdmClients)
-        cdmClient.cdmClientUnrequestedInitializationDataReceived(initDataType, initData.copyRef());
+    for (Ref cdmClient : m_cdmClients)
+        cdmClient->cdmClientUnrequestedInitializationDataReceived(initDataType, initData.copyRef());
 }
 
 #if !RELEASE_LOG_DISABLED

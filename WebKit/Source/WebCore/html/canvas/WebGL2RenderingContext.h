@@ -233,7 +233,7 @@ public:
     WebGLAny getActiveUniforms(WebGLProgram&, const Vector<GCGLuint>& uniformIndices, GCGLenum pname);
     GCGLuint getUniformBlockIndex(WebGLProgram&, const String& uniformBlockName);
     WebGLAny getActiveUniformBlockParameter(WebGLProgram&, GCGLuint uniformBlockIndex, GCGLenum pname);
-    WebGLAny getActiveUniformBlockName(WebGLProgram&, GCGLuint uniformBlockIndex);
+    String getActiveUniformBlockName(WebGLProgram&, GCGLuint uniformBlockIndex);
     void uniformBlockBinding(WebGLProgram&, GCGLuint uniformBlockIndex, GCGLuint uniformBlockBinding);
     
     // Vertex array objects

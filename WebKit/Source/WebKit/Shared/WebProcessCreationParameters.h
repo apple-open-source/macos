@@ -66,6 +66,10 @@
 #include <wtf/MemoryPressureHandler.h>
 #endif
 
+#if USE(GBM)
+#include <WebCore/DRMDevice.h>
+#endif
+
 namespace API {
 class Data;
 }
@@ -222,7 +226,7 @@ struct WebProcessCreationParameters {
 #endif
 
 #if USE(GBM)
-    String renderDeviceFile;
+    WebCore::DRMDevice drmDevice;
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -283,6 +287,10 @@ struct WebProcessCreationParameters {
 
 #if HAVE(LIQUID_GLASS)
     bool isLiquidGlassEnabled { false };
+#endif
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    bool isDebugLoggingEnabled { false };
 #endif
 };
 

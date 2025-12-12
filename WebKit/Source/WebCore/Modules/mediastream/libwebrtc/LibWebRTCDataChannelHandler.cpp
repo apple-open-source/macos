@@ -64,9 +64,8 @@ webrtc::DataChannelInit LibWebRTCDataChannelHandler::fromRTCDataChannelInit(cons
 }
 
 LibWebRTCDataChannelHandler::LibWebRTCDataChannelHandler(webrtc::scoped_refptr<webrtc::DataChannelInterface>&& channel)
-    : m_channel(WTFMove(channel))
+    : m_channel(toRef(WTFMove(channel)))
 {
-    ASSERT(m_channel);
     checkState();
     m_channel->RegisterObserver(this);
 }

@@ -145,7 +145,7 @@ private:
     void startUpdatingStats();
     void stopUpdatingStats();
 
-    RefPtr<GStreamerRTPPacketizer> getPacketizerForRid(StringView);
+    RefPtr<GStreamerRTPPacketizer> getPacketizerForRid(const String&);
 };
 
 } // namespace WebCore

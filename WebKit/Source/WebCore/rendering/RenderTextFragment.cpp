@@ -25,6 +25,7 @@
 
 #include "RenderBlock.h"
 #include "RenderIterator.h"
+#include "RenderObjectInlines.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderStyleInlines.h"
 #include "RenderTreeBuilder.h"
@@ -86,12 +87,12 @@ void RenderTextFragment::setTextInternal(const String& newText, bool force)
     ASSERT(!textNode() || textNode()->renderer() == this);
 }
 
-Vector<UChar> RenderTextFragment::previousCharacter() const
+Vector<char16_t> RenderTextFragment::previousCharacter() const
 {
     if (start()) {
         String original = textNode() ? textNode()->data() : contentString();
         if (!original.isNull() && start() <= original.length()) {
-            Vector<UChar> previous;
+            Vector<char16_t> previous;
             previous.append(original[start() - 1]);
             return previous;
         }
@@ -106,7 +107,7 @@ RenderBlock* RenderTextFragment::blockForAccompanyingFirstLetter()
     for (auto& block : ancestorsOfType<RenderBlock>(*m_firstLetter)) {
         if (is<RenderMultiColumnFlow>(block))
             break;
-        if (block.style().hasPseudoStyle(PseudoId::FirstLetter) && block.canHaveChildren())
+        if (block.style().hasPseudoStyle(PseudoElementType::FirstLetter) && block.canHaveChildren())
             return &block;
     }
     return nullptr;

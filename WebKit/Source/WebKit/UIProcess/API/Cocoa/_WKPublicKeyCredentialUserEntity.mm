@@ -40,8 +40,8 @@
 
 - (void)dealloc
 {
-    [_identifier release];
-    [_displayName release];
+    SUPPRESS_UNRETAINED_ARG [_identifier release];
+    SUPPRESS_UNRETAINED_ARG [_displayName release];
     [super dealloc];
 }
 

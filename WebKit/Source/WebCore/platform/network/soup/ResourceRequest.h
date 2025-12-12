@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "PageIdentifier.h"
-#include "ResourceRequestBase.h"
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/ResourceRequestBase.h>
 #include "URLSoup.h"
 #include <wtf/glib/GRefPtr.h>
 
@@ -101,11 +101,7 @@ public:
 private:
     friend class ResourceRequestBase;
 
-#if USE(SOUP2)
-    GUniquePtr<SoupURI> createSoupURI() const;
-#else
     GRefPtr<GUri> createSoupURI() const;
-#endif
 
     void doUpdatePlatformRequest() { }
     void doUpdateResourceRequest() { }

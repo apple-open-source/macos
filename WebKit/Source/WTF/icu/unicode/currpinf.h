@@ -3,7 +3,7 @@
 /*
  *******************************************************************************
  * Copyright (C) 2009-2015, International Business Machines Corporation and    *
- * others. All rights reserved.                                                *
+ * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
 #ifndef CURRPINF_H

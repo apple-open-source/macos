@@ -77,7 +77,7 @@ bool MomentumEventDispatcher::handleWheelEvent(WebCore::PageIdentifier pageIdent
     m_lastRubberBandableEdges = rubberBandableEdges;
     m_lastIncomingEvent = event;
 
-    bool isMomentumEvent = event.momentumPhase() != WebWheelEvent::PhaseNone;
+    bool isMomentumEvent = event.isMomentumEvent();
 
     if (m_currentGesture.active) {
         bool pageIdentifierChanged = pageIdentifier != m_currentGesture.pageIdentifier;
@@ -169,25 +169,26 @@ void MomentumEventDispatcher::dispatchSyntheticMomentumEvent(WebWheelEvent::Phas
     ASSERT(m_currentGesture.active);
     ASSERT(m_currentGesture.initiatingEvent);
 
-    auto appKitScrollMultiplier = appKitScrollMultiplierForEvent(*m_currentGesture.initiatingEvent);
+    CheckedRef initiatingEvent = *m_currentGesture.initiatingEvent;
+    auto appKitScrollMultiplier = appKitScrollMultiplierForEvent(initiatingEvent);
     auto appKitAcceleratedDelta = delta * appKitScrollMultiplier;
     auto wheelTicks = appKitAcceleratedDelta / WebCore::Scrollbar::pixelsPerLineStep();
-    auto time = WallTime::now();
+    auto time = MonotonicTime::now();
 
     // FIXME: Ideally we would stick legitimate rawPlatformDeltas on the event,
     // but currently nothing will consume them, and we'd have to keep track of them separately.
     WebWheelEvent syntheticEvent(
         { WebEventType::Wheel, m_lastIncomingEvent->modifiers(), time },
-        m_currentGesture.initiatingEvent->position(),
-        m_currentGesture.initiatingEvent->globalPosition(),
+        initiatingEvent->position(),
+        initiatingEvent->globalPosition(),
         appKitAcceleratedDelta,
         wheelTicks,
         WebWheelEvent::ScrollByPixelWheelEvent,
-        m_currentGesture.initiatingEvent->directionInvertedFromDevice(),
+        initiatingEvent->directionInvertedFromDevice(),
         WebWheelEvent::PhaseNone,
         phase,
         true,
-        m_currentGesture.initiatingEvent->scrollCount(),
+        initiatingEvent->scrollCount(),
         delta,
         time,
         { },

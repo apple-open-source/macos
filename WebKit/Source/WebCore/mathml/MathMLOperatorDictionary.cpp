@@ -28,6 +28,8 @@
 
 #if ENABLE(MATHML)
 
+#include <array>
+
 namespace WebCore {
 
 using namespace MathMLOperatorDictionary;

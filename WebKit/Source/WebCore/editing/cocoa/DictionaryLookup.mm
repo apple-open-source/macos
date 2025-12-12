@@ -32,15 +32,15 @@
 
 #if ENABLE(REVEAL)
 
-#import "Document.h"
+#import "DocumentPage.h"
 #import "Editing.h"
 #import "FocusController.h"
+#import "FrameDestructionObserverInlines.h"
 #import "FrameSelection.h"
 #import "GraphicsContextCG.h"
 #import "HitTestResult.h"
-#import "LocalFrame.h"
+#import "LocalFrameInlines.h"
 #import "NotImplemented.h"
-#import "Page.h"
 #import "Range.h"
 #import "RenderObject.h"
 #import "RevealUtilities.h"
@@ -225,7 +225,7 @@ SOFT_LINK(UIKitMacHelper, UINSSharedRevealController, id<UINSRevealController>, 
     WebCore::CGContextStateSaver saveState(context);
     CGAffineTransform contextTransform = CGContextGetCTM(context);
     CGFloat backingScale = contextTransform.a;
-    CGFloat macCatalystScaleFactor = [PAL::getUIApplicationClass() sharedApplication]._iOSMacScale;
+    CGFloat macCatalystScaleFactor = [PAL::getUIApplicationClassSingleton() sharedApplication]._iOSMacScale;
     CGAffineTransform transform = CGAffineTransformMakeScale(macCatalystScaleFactor * backingScale, macCatalystScaleFactor * backingScale);
     CGContextSetCTM(context, transform);
     
@@ -252,7 +252,7 @@ static bool canCreateRevealItems()
     static bool result;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [&] {
-        result = PAL::isRevealCoreFrameworkAvailable() && PAL::getRVItemClass();
+        result = PAL::isRevealCoreFrameworkAvailable() && PAL::getRVItemClassSingleton();
     });
     return result;
 }
@@ -348,7 +348,7 @@ std::optional<SimpleRange> DictionaryLookup::rangeAtHitTestResult(const HitTestR
         hitIndex = characterCount(*makeSimpleRange(fullCharacterRange->start, position));
     }
 
-    NSRange selectedRange = [PAL::getRVSelectionClass() revealRangeAtIndex:hitIndex selectedRanges:@[[NSValue valueWithRange:selectionRange]] shouldUpdateSelection:nil];
+    NSRange selectedRange = [PAL::getRVSelectionClassSingleton() revealRangeAtIndex:hitIndex selectedRanges:@[[NSValue valueWithRange:selectionRange]] shouldUpdateSelection:nil];
 
     String itemString = plainText(*fullCharacterRange);
     auto highlightRange = adoptNS([PAL::allocRVItemInstance() initWithText:itemString.createNSString().get() selectedRange:selectedRange]).get().highlightRange;
@@ -430,7 +430,7 @@ static WKRevealController showPopupOrCreateAnimationController(bool createAnimat
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     
 #if PLATFORM(MAC)
-    if (!PAL::isRevealFrameworkAvailable() || !canCreateRevealItems() || !PAL::getRVPresenterClass())
+    if (!PAL::isRevealFrameworkAvailable() || !canCreateRevealItems() || !PAL::getRVPresenterClassSingleton())
         return nil;
 
     auto textIndicator = dictionaryPopupInfo.textIndicator;

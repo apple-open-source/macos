@@ -22,8 +22,8 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "HTMLElement.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/HTMLElement.h>
 
 namespace WebCore {
 
@@ -55,6 +55,8 @@ public:
     // Loop count. -1 means loop indefinitely.
     WEBCORE_EXPORT int loop() const;
     WEBCORE_EXPORT ExceptionOr<void> setLoop(int);
+
+    bool hasRenderMarquee() const { return renderMarquee(); }
     
 private:
     HTMLMarqueeElement(const QualifiedName&, Document&);

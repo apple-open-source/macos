@@ -38,6 +38,7 @@ __BEGIN_DECLS
 
 #define POLICY_MAPPINGS_MAX 10
 #define POLICY_TREE_DEPTH_MAX 15
+#define POLICY_TREE_MAX_NODES 512
 
 #define oid_equal(oid1, oid2) DEROidCompare(&oid1, &oid2)
 typedef DERItem oid_t;
@@ -59,6 +60,7 @@ struct policy_tree {
     policy_tree_t children;
     policy_tree_t siblings;
     policy_tree_t parent;
+    uint64_t tree_size; // 0 for non-root nodes
 };
 
 void policy_set_add(policy_set_t *policy_set, const oid_t *p_oid);
@@ -74,10 +76,10 @@ bool policy_tree_walk_depth(policy_tree_t root, int depth,
 void policy_tree_remove_node(policy_tree_t *node);
 void policy_tree_prune(policy_tree_t *node);
 void policy_tree_prune_childless(policy_tree_t *root, int depth);
-void policy_tree_add_child(policy_tree_t parent,
-    const oid_t *p_oid, policy_qualifier_t p_q);
-void policy_tree_add_sibling(policy_tree_t sibling, const oid_t *p_oid,
-                             policy_qualifier_t p_q, policy_set_t p_expected);
+bool policy_tree_add_child(policy_tree_t root, policy_tree_t parent,
+                           const oid_t *p_oid, policy_qualifier_t p_q);
+bool policy_tree_add_sibling(policy_tree_t root, policy_tree_t sibling,
+                             const oid_t *p_oid, policy_qualifier_t p_q, policy_set_t p_expected);
 void policy_tree_set_expected_policy(policy_tree_t node,
     policy_set_t p_expected);
 

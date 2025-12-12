@@ -34,6 +34,7 @@
 #include "DOMImplementation.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentView.h"
 #include "FrameLoader.h"
 #include "FrameLoaderStateMachine.h"
 #include "HistoryController.h"
@@ -210,7 +211,6 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
         // |document| is the result of evaluating a JavaScript URL.
         document->setCookieURL(ownerDocument->cookieURL());
         document->setSecurityOriginPolicy(ownerDocument->securityOriginPolicy());
-        document->setStrictMixedContentMode(ownerDocument->isStrictMixedContentMode());
         document->setCrossOriginEmbedderPolicy(ownerDocument->crossOriginEmbedderPolicy());
 
         document->setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { url }, document));

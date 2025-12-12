@@ -28,18 +28,18 @@
 
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
-#import "AddEventListenerOptions.h"
+#import "AddEventListenerOptionsInlines.h"
 #import "AudioTrackList.h"
-#import "DocumentInlines.h"
+#import "DocumentPage.h"
 #import "Event.h"
 #import "EventListener.h"
 #import "EventNames.h"
+#import "ExceptionOr.h"
 #import "HTMLVideoElement.h"
 #import "Logging.h"
 #import "MediaControlsHost.h"
 #import "MediaSelectionOption.h"
-#import "NodeInlines.h"
-#import "Page.h"
+#import "NodeDocument.h"
 #import "PageGroup.h"
 #import "TextTrackList.h"
 #import "TimeRanges.h"

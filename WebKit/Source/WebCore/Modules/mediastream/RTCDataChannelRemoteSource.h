@@ -26,11 +26,11 @@
 
 #if ENABLE(WEB_RTC)
 
-#include "RTCDataChannelHandler.h"
-#include "RTCDataChannelHandlerClient.h"
-#include "RTCDataChannelIdentifier.h"
-#include "RTCDataChannelRemoteSourceConnection.h"
-#include "RTCError.h"
+#include <WebCore/RTCDataChannelHandler.h>
+#include <WebCore/RTCDataChannelHandlerClient.h>
+#include <WebCore/RTCDataChannelIdentifier.h>
+#include <WebCore/RTCDataChannelRemoteSourceConnection.h>
+#include <WebCore/RTCError.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 

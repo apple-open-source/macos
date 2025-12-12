@@ -34,7 +34,7 @@
 #include "JSArrayIterator.h"
 #include "JSCBuiltins.h"
 #include "JSCInlines.h"
-#include "JSImmutableButterfly.h"
+#include "JSCellButterfly.h"
 #include "JSStringJoiner.h"
 #include "ObjectConstructor.h"
 #include "ObjectPrototypeInlines.h"
@@ -267,7 +267,7 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncToString, (JSGlobalObject* globalObject, 
         RETURN_IF_EXCEPTION(scope, { });
 
         // 3. If IsCallable(func) is false, then let func be the standard built-in method Object.prototype.toString (15.2.4.2).
-        auto callData = JSC::getCallData(function);
+        auto callData = JSC::getCallDataInline(function);
         if (callData.type == CallData::Type::None) [[unlikely]]
             RELEASE_AND_RETURN(scope, JSValue::encode(objectPrototypeToString(globalObject, thisObject)));
 
@@ -288,7 +288,7 @@ static JSString* toLocaleString(JSGlobalObject* globalObject, JSValue value, JSV
     JSValue toLocaleStringMethod = value.get(globalObject, vm.propertyNames->toLocaleString);
     RETURN_IF_EXCEPTION(scope, { });
 
-    auto callData = JSC::getCallData(toLocaleStringMethod);
+    auto callData = JSC::getCallDataInline(toLocaleStringMethod);
     if (callData.type == CallData::Type::None) {
         throwTypeError(globalObject, scope, "toLocaleString is not callable"_s);
         return { };
@@ -330,7 +330,7 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncToLocaleString, (JSGlobalObject* globalOb
 
     // 3. Let separator be the String value for the list-separator String appropriate for
     // the host environment's current locale (this is derived in an implementation-defined way).
-    const LChar comma = ',';
+    const Latin1Character comma = ',';
     JSString* separator = jsSingleCharacterString(vm, comma);
 
     // 4. Let R be the empty String.
@@ -452,7 +452,7 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncJoin, (JSGlobalObject* globalObject, Call
     // 3. If separator is undefined, let separator be the single-element String ",".
     JSValue separatorValue = callFrame->argument(0);
     if (separatorValue.isUndefined()) {
-        const LChar comma = ',';
+        const Latin1Character comma = ',';
 
         if (length > std::numeric_limits<unsigned>::max() || !canUseFastArrayJoin(thisObject)) [[unlikely]] {
             JSString* jsSeparator = jsSingleCharacterString(vm, comma);
@@ -903,7 +903,7 @@ static ALWAYS_INLINE std::span<EncodedJSValue> sortStableSort(JSGlobalObject* gl
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto callData = JSC::getCallData(comparator);
+    auto callData = JSC::getCallDataInline(comparator);
     ASSERT(callData.type != CallData::Type::None);
 
     if (callData.type == CallData::Type::JS) [[likely]] {
@@ -1321,7 +1321,7 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncIndexOf, (JSGlobalObject* globalObject, C
     if (isJSArray(thisObject)) [[likely]] {
         JSArray* array = asArray(thisObject);
         Butterfly* butterfly = array->butterfly();
-        if (isCopyOnWrite(array->indexingMode()) && JSImmutableButterfly::isOnlyAtomStringsStructure(vm, butterfly) && searchElement.isString()) {
+        if (isCopyOnWrite(array->indexingMode()) && JSCellButterfly::isOnlyAtomStringsStructure(vm, butterfly) && searchElement.isString()) {
             auto search = asString(searchElement)->toAtomString(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
 
@@ -1573,7 +1573,7 @@ static JSArray* concatAppendArray(JSGlobalObject* globalObject, VM& vm, JSArray*
         copyArrayElements<ArrayFillMode::Empty, NeedsGCSafeOps::No>(buffer, firstArraySize, secondButterfly->contiguous().data(), 0, secondArraySize, secondType);
     }
 
-    Butterfly::clearOptimalVectorLengthGap(type, butterfly, vectorLength, resultSize);
+    Butterfly::clearRange(type, butterfly, resultSize, vectorLength);
     return JSArray::createWithButterfly(vm, nullptr, resultStructure, butterfly);
 }
 

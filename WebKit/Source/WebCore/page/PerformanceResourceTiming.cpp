@@ -36,6 +36,7 @@
 #include "Document.h"
 #include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
+#include "Performance.h"
 #include "PerformanceServerTiming.h"
 #include "ResourceResponse.h"
 #include "ResourceTiming.h"
@@ -45,9 +46,9 @@ namespace WebCore {
 
 static double networkLoadTimeToDOMHighResTimeStamp(MonotonicTime timeOrigin, MonotonicTime timeStamp)
 {
-    if (!timeStamp)
-        return 0.0;
     ASSERT(timeOrigin);
+    if (timeStamp <= timeOrigin)
+        return 0.0;
     return Performance::reduceTimeResolution(timeStamp - timeOrigin).milliseconds();
 }
 

@@ -43,7 +43,6 @@
 
 #pragma once
 
-#include "Length.h"
 #include "RenderStyleConstants.h"
 #include "Timer.h"
 #include <wtf/CheckedPtr.h>
@@ -72,7 +71,6 @@ public:
     void updateMarqueePosition();
 
 private:
-
     int speed() const { return m_speed; }
     int marqueeSpeed() const;
 
@@ -91,7 +89,6 @@ private:
     int m_start { 0 };
     int m_end { 0 };
     int m_speed { 0 };
-    Length m_height;
     MarqueeDirection m_direction { MarqueeDirection::Auto };
     bool m_reset { false };
     bool m_suspended { false };

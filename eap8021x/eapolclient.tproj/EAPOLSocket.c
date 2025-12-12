@@ -208,6 +208,8 @@ struct EAPOLSocketSource_s {
     struct EAPOLSocketHead_s		preauth_sockets;
     int					preauth_sockets_count;
     EAPOLControlMode			mode;
+    dispatch_queue_t 			controller_msg_handler_queue;
+    CFRunLoopRef 			runloop;
 };
 
 struct EAPOLSocket_s {
@@ -985,51 +987,101 @@ EAPOLSocketSourceStop(EAPOLSocketSourceRef source)
     return;
 }
 
+static CFStringRef
+EAPOLSocketGetControllerCommandString(EAPOLClientControlCommand command)
+{
+    switch(command) {
+	case kEAPOLClientControlCommandRun:
+	    return CFSTR("Run");
+	case kEAPOLClientControlCommandStop:
+	    return CFSTR("Stop");
+	case kEAPOLClientControlCommandRetry:
+	    return CFSTR("Retry");
+	case kEAPOLClientControlCommandTakeUserInput:
+	    return CFSTR("TakeUserInput");
+	default:
+	    return CFSTR("Unknown");
+    }
+}
+
 static void
-EAPOLSocketSourceClientNotification(EAPOLClientRef client, Boolean server_died,
-				    void * context)
+EAPOLSocketPerformBlockAndDelayedExit(EAPOLSocketSourceRef source, Boolean delayed_exit, void (^block)(void))
+{
+    CFRunLoopPerformBlock(source->runloop, kCFRunLoopDefaultMode, block);
+    CFRunLoopWakeUp(source->runloop);
+    if (delayed_exit) {
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)),
+		       source->controller_msg_handler_queue, ^{
+	    _SC_crash("eapolclient's main thread is unresponsive to controller's commands",
+		      NULL, NULL);
+	    exit(EX_OK);
+	});
+    }
+}
+
+static void
+EAPOLSocketSourceClientNotification(EAPOLClientRef client, Boolean server_died, void * context)
 {
     EAPOLClientControlCommand	command;
     CFNumberRef			command_cf;
     CFDictionaryRef		control_dict = NULL;
     int				result;
+    Boolean 			died_or_stop = FALSE;
+    Boolean 			delay_exit = FALSE;
     EAPOLSocketSourceRef	source = (EAPOLSocketSourceRef)context;
 
+    died_or_stop = server_died;
     if (server_died) {
 	EAPLOG(LOG_NOTICE, "%s: EAPOLController died", source->if_name);
-	if (source->mode == kEAPOLControlModeUser) {
+	if (source->mode != kEAPOLControlModeUser) {
+	    /* just exit, don't send EAPOL Logoff packet <rdar://problem/6418520> */
+	    exit(EX_OK);
+	}
+    } else {
+	result = EAPOLClientGetConfig(client, &control_dict);
+	if (result != 0) {
+	    EAPLOG(LOG_NOTICE, "%s: EAPOLClientGetConfig failed, %s",
+		   source->if_name, strerror(result));
 	    goto stop;
 	}
-	/* just exit, don't send EAPOL Logoff packet <rdar://problem/6418520> */
-	exit(EX_OK);
+	if (control_dict == NULL) {
+	    EAPLOG_FL(LOG_NOTICE, "%s: EAPOLClientGetConfig returned NULL control",
+		      source->if_name);
+	    goto stop;
+	}
+	command_cf = CFDictionaryGetValue(control_dict,
+					  kEAPOLClientControlCommand);
+	if (get_number(command_cf, &command) == FALSE) {
+	    EAPLOG_FL(LOG_NOTICE, "%s: invalid/missing command",
+		      source->if_name);
+	    goto stop;
+	}
+	EAPLOG_FL(LOG_DEBUG, "eapolclient received [%@] command from the controller",
+		  EAPOLSocketGetControllerCommandString(command));
+	died_or_stop = (command == kEAPOLClientControlCommandStop);
     }
-    result = EAPOLClientGetConfig(client, &control_dict);
-    if (result != 0) {
-	EAPLOG(LOG_NOTICE, "%s: EAPOLClientGetConfig failed, %s",
-	       source->if_name, strerror(result));
+    if (died_or_stop) {
+	/* cancel the dispatch source */
+	EAPOLClientCancel(source->client);
+	delay_exit = TRUE;
 	goto stop;
     }
-    if (control_dict == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "%s: EAPOLClientGetConfig returned NULL control",
-		  source->if_name);
-	goto stop;
-    }
-    command_cf = CFDictionaryGetValue(control_dict,
-				      kEAPOLClientControlCommand);
-    if (get_number(command_cf, &command) == FALSE) {
-	EAPLOG_FL(LOG_NOTICE, "%s: invalid/missing command",
-		  source->if_name);
-	goto stop;
-    }
-    if (Supplicant_control(source->sock->supp, command, 
-			   control_dict) == TRUE) {
-	goto stop;
-    }
-    my_CFRelease(&control_dict);
+    EAPOLSocketPerformBlockAndDelayedExit(source, FALSE, ^{
+	EAPLOG_FL(LOG_DEBUG, "processing [%@] command from the controller",
+		  EAPOLSocketGetControllerCommandString(command));
+	if (Supplicant_control(source->sock->supp, command, control_dict)) {
+	    /* supplicant stop is required due to some other issue */
+	    EAPOLSocketSourceStop(source);
+	}
+	my_CFRelease(&control_dict);
+    });
     return;
 
  stop:
-    EAPOLSocketSourceStop(source);
+    my_CFRelease(&control_dict);
+    EAPOLSocketPerformBlockAndDelayedExit(source, delay_exit, ^{
+	EAPOLSocketSourceStop(source);
+    });
     /* NOT REACHED */
     return;
 }
@@ -1535,15 +1587,24 @@ EAPOLSocketSourceCreate(const char * if_name,
     source->store = store;
     source->is_wireless = is_wireless;
     source->wref = wref;
+    source->runloop = CFRunLoopGetCurrent();
     FDHandler_enable(handler, EAPOLSocketSourceReceive, source, NULL);
     EAPOLSocketSourceLinkStatusChanged(source->store, NULL, source);
+    /* create a queue for handling EAPOLController's messages */
+    source->controller_msg_handler_queue = dispatch_queue_create("ControllerMessageHandlerQueue",
+								 NULL);
     source->client = EAPOLClientAttach(source->if_name,
-				       EAPOLSocketSourceClientNotification, 
-				       source, control_dict_p, &result);
+				       EAPOLSocketSourceClientNotification,
+				       source,
+				       source->controller_msg_handler_queue,
+				       control_dict_p, &result);
     if (source->client == NULL) {
 	EAPLOG_FL(LOG_NOTICE, "EAPOLClientAttach(%s) failed: %s",
 		  source->if_name, strerror(result));
+	goto failed;
     }
+    /* activate the dispatch source */
+    EAPOLClientActivate(source->client);
     if (observer != NULL) {
 	source->observer = observer;
 	CFRunLoopAddObserver(CFRunLoopGetCurrent(), source->observer, 
@@ -1719,6 +1780,9 @@ EAPOLSocketSourceFree(EAPOLSocketSourceRef * source_p)
 
 	Timer_free(&source->scan_timer);
 	EAPOLSocketSourceUnscheduleHandshakeNotification(source);
+	if (source->controller_msg_handler_queue != NULL) {
+	    dispatch_release(source->controller_msg_handler_queue);
+	}
 	free(source);
     }
     *source_p = NULL;

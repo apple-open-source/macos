@@ -26,21 +26,13 @@
 #ifndef MediaPlaybackTargetPickerMock_h
 #define MediaPlaybackTargetPickerMock_h
 
+#include <wtf/Platform.h>
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 
-#include "MediaPlaybackTargetContext.h"
-#include "MediaPlaybackTargetPicker.h"
+#include <WebCore/MediaPlaybackTargetContext.h>
+#include <WebCore/MediaPlaybackTargetPicker.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/text/WTFString.h>
-
-namespace WebCore {
-class MediaPlaybackTargetPickerMock;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::MediaPlaybackTargetPickerMock> : std::true_type { };
-}
 
 namespace WebCore {
 

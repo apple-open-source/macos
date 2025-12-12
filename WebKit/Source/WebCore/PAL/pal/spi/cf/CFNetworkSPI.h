@@ -276,7 +276,7 @@ typedef CF_ENUM(int, CFURLCredentialPersistence)
 @property (setter=_setBlockTrackers:) BOOL _blockTrackers;
 #endif
 @property (setter=_setAllowPrivateAccessTokensForThirdParty:) BOOL _allowPrivateAccessTokensForThirdParty;
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES) && defined(CFN_COOKIE_ACCEPTS_POLICY_PARTITION) && CFN_COOKIE_ACCEPTS_POLICY_PARTITION
 @property (setter=_setAllowOnlyPartitionedCookies:) BOOL _allowOnlyPartitionedCookies;
 #endif
 @end
@@ -595,6 +595,12 @@ WTF_EXTERN_C_END
 
 @interface NSMutableURLRequest (Staging_88972294)
 @property (setter=_setPrivacyProxyFailClosedForUnreachableNonMainHosts:) BOOL _privacyProxyFailClosedForUnreachableNonMainHosts;
+@end
+
+@interface NSMutableURLRequest (Staging_151313184)
+#if HAVE(STRICT_FAIL_CLOSED)
+@property (setter=_setPrivacyProxyStrictFailClosed:) BOOL _privacyProxyStrictFailClosed;
+#endif
 @end
 
 @interface NSURLSessionConfiguration (Staging_102778152)

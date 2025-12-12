@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "ResourceErrorBase.h"
+#include <WebCore/ResourceErrorBase.h>
 
 #if USE(SOUP)
 
-#include "CertificateInfo.h"
+#include <WebCore/CertificateInfo.h>
 #include <wtf/glib/GRefPtr.h>
 
 typedef struct _GTlsCertificate GTlsCertificate;

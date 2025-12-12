@@ -27,8 +27,8 @@
 
 #pragma once
 
+#include <JavaScriptCore/YarrErrorCode.h>
 #include <limits>
-#include "YarrErrorCode.h"
 
 namespace JSC { namespace Yarr {
 

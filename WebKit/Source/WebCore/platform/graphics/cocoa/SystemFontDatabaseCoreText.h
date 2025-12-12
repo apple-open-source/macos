@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "FontDescription.h"
-#include "SystemFontDatabase.h"
+#include <WebCore/FontDescription.h>
+#include <WebCore/SystemFontDatabase.h>
 #include <pal/spi/cf/CoreTextSPI.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>

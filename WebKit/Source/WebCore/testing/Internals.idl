@@ -355,6 +355,21 @@ enum AV1ConfigurationRange {
 [
     ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
     JSGenerateToJSObject,
+    JSGenerateToNativeObject
+] dictionary WebDriverCookieData {
+    DOMString name;
+    DOMString value;
+    DOMString path;
+    DOMString domain;
+    boolean secure;
+    boolean httpOnly;
+    double? expiry;
+    DOMString sameSite;
+};
+
+[
+    ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
+    JSGenerateToJSObject,
 ] dictionary TextIndicatorInfo {
     DOMRectReadOnly textBoundingRectInRootViewCoordinates;
     DOMRectList textRectsInBoundingRectCoordinates;
@@ -873,8 +888,6 @@ enum ContentsFormat {
     [Conditional=VIDEO] boolean isChangingPresentationMode(HTMLVideoElement element);
     [Conditional=VIDEO_PRESENTATION_MODE] undefined setMockVideoPresentationModeEnabled(boolean enabled);
 
-    undefined setApplicationCacheOriginQuota(unsigned long long quota);
-
     undefined registerURLSchemeAsBypassingContentSecurityPolicy(DOMString scheme);
     undefined removeURLSchemeRegisteredAsBypassingContentSecurityPolicy(DOMString scheme);
 
@@ -963,8 +976,6 @@ enum ContentsFormat {
     [Conditional=VIDEO] sequence<DOMString> mediaResponseContentRanges(HTMLMediaElement media);
     [Conditional=VIDEO] undefined simulateAudioInterruption(HTMLMediaElement element);
     [Conditional=VIDEO] boolean mediaElementHasCharacteristic(HTMLMediaElement element, DOMString characteristic);
-    [Conditional=VIDEO] undefined beginSimulatedHDCPError(HTMLMediaElement media);
-    [Conditional=VIDEO] undefined endSimulatedHDCPError(HTMLMediaElement media);
     [Conditional=VIDEO] boolean mediaPlayerRenderingCanBeAccelerated(HTMLMediaElement media);
 
     [Conditional=VIDEO] boolean elementShouldBufferData(HTMLMediaElement media);
@@ -972,6 +983,7 @@ enum ContentsFormat {
     [Conditional=VIDEO] undefined setMediaElementBufferingPolicy(HTMLMediaElement element, DOMString policy);
     [Conditional=VIDEO] double privatePlayerVolume(HTMLMediaElement media);
     [Conditional=VIDEO] boolean privatePlayerMuted(HTMLMediaElement media);
+    [Conditional=VIDEO] unrestricted double privatePlayerCurrentTime(HTMLMediaElement media);
     [Conditional=VIDEO] boolean isMediaElementHidden(HTMLMediaElement media);
     [Conditional=VIDEO] undefined setOverridePreferredDynamicRangeMode(HTMLMediaElement media, DOMString mode);
     [Conditional=VIDEO] double elementEffectivePlaybackRate(HTMLMediaElement media);
@@ -1096,7 +1108,6 @@ enum ContentsFormat {
 
     DOMString pathStringWithShrinkWrappedRects(sequence<double> rectComponents, double radius);
 
-    [Conditional=VIDEO] DOMString getCurrentMediaControlsStatusForElement(HTMLMediaElement element);
     [Conditional=VIDEO] undefined setMediaControlsMaximumRightContainerButtonCountOverride(HTMLMediaElement element, unsigned long count);
     [Conditional=VIDEO] undefined setMediaControlsHidePlaybackRates(HTMLMediaElement element, boolean hidePlaybackRates);
 
@@ -1203,7 +1214,7 @@ enum ContentsFormat {
     readonly attribute unsigned long long storageAreaMapCount;
 
     unsigned long long elementIdentifier(Element element);
-    boolean isElementAlive(unsigned long long elementIdentifier);
+    boolean isElementAlive(unsigned long long nodeIdentifier);
     unsigned long long pageIdentifier(Document document);
 
     boolean isAnyWorkletGlobalScopeAlive();
@@ -1311,6 +1322,7 @@ enum ContentsFormat {
 
     undefined setCookie(CookieData cookieData);
     sequence<CookieData> getCookies();
+    sequence<WebDriverCookieData> webDriverGetCookies(Document document);
 
     undefined setAlwaysAllowLocalWebarchive(boolean alwaysAllowLocalWebarchive);
 

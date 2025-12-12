@@ -42,9 +42,7 @@ WebOpenPanelResultListener::WebOpenPanelResultListener(WebPage& page, Ref<WebCor
 {
 }
 
-WebOpenPanelResultListener::~WebOpenPanelResultListener()
-{
-}
+WebOpenPanelResultListener::~WebOpenPanelResultListener() = default;
 
 void WebOpenPanelResultListener::didChooseFiles(const Vector<String>& files, const Vector<String>& replacementFiles)
 {

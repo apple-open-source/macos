@@ -29,4 +29,6 @@
 void SecPolicyCheckCT(SecPVCRef pvc);
 bool SecPolicyCheckNonTlsCT(SecPVCRef pvc);
 
+bool SecCertificateTransparencyExtractSCTLogIDAndTimestamp(CFDataRef sct, CFDataRef *outLogID, CFDateRef *outTimestamp);
+
 #endif /* _SECURITY_CERTIFICATE_TRANSPARENCY_H_ */

@@ -28,6 +28,7 @@
 
 #include "DeleteSelectionCommand.h"
 #include "DocumentFragment.h"
+#include "NodeDocument.h"
 #include "ReplaceSelectionCommand.h"
 
 namespace WebCore {

@@ -419,11 +419,12 @@ headless_retain(if_headless_ref headlessif)
 	OSIncrementAtomic(&headlessif->iff_retain_count);
 }
 
-static void
+static int
 headless_seg_ctor_fn(const kern_pbufpool_t pp, const kern_segment_t buf_seg,
     const IOSKMemoryDescriptor buf_desc)
 {
 #pragma unused(pp, buf_seg, buf_desc)
+	return 0;
 }
 
 static void

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "IterationKind.h"
+#include <JavaScriptCore/IterationKind.h>
 #include <optional>
 #include <wtf/text/ASCIILiteral.h>
 
@@ -196,6 +196,19 @@ namespace JSC {
     macro(FunctionToStringIntrinsic) \
     macro(FunctionBindIntrinsic) \
     macro(IteratorHelperCreateIntrinsic) \
+    macro(WrapForValidIteratorCreateIntrinsic) \
+    macro(AsyncFromSyncIteratorCreateIntrinsic) \
+    macro(PromiseAllContextCreateIntrinsic) \
+    macro(PromiseAllGlobalContextCreateIntrinsic) \
+    macro(RegExpStringIteratorCreateIntrinsic) \
+    macro(ResolvePromiseWithFirstResolvingFunctionCallCheckIntrinsic) \
+    macro(RejectPromiseWithFirstResolvingFunctionCallCheckIntrinsic) \
+    macro(FulfillPromiseWithFirstResolvingFunctionCallCheckIntrinsic) \
+    macro(PromiseConstructorResolveIntrinsic) \
+    macro(PromiseResolveIntrinsic) \
+    macro(PromiseConstructorRejectIntrinsic) \
+    macro(PromiseRejectIntrinsic) \
+    macro(PromisePrototypeThenIntrinsic) \
     \
     /* Getter intrinsics. */ \
     macro(TypedArrayLengthIntrinsic) \

@@ -27,14 +27,14 @@
 
 #include <unicode/utypes.h>
 #include <wtf/Assertions.h>
-#include <wtf/text/LChar.h>
+#include <wtf/text/Latin1Character.h>
 #include <wtf/text/ParsingUtilities.h>
 
 namespace WTF {
 
 template<typename CharacterType>
 class CodePointIterator {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(CodePointIterator);
 public:
     ALWAYS_INLINE CodePointIterator() = default;
     ALWAYS_INLINE CodePointIterator(std::span<const CharacterType> data)
@@ -79,14 +79,14 @@ private:
 };
 
 template<>
-ALWAYS_INLINE char32_t CodePointIterator<LChar>::operator*() const
+ALWAYS_INLINE char32_t CodePointIterator<Latin1Character>::operator*() const
 {
     ASSERT(!atEnd());
     return m_data.front();
 }
 
 template<>
-ALWAYS_INLINE auto CodePointIterator<LChar>::operator++() -> CodePointIterator&
+ALWAYS_INLINE auto CodePointIterator<Latin1Character>::operator++() -> CodePointIterator&
 {
     skip(m_data, 1);
     return *this;

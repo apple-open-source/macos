@@ -37,6 +37,7 @@
 #include "RemoteVideoFrameObjectHeapProxy.h"
 #include "RemoteVideoFrameProxy.h"
 #include "TextTrackPrivateRemote.h"
+#include "VideoLayerRemote.h"
 #include "VideoTrackPrivateRemote.h"
 #include <WebCore/MediaPlayerPrivate.h>
 #include <WebCore/PlatformLayer.h>
@@ -88,12 +89,15 @@ struct MediaTimeUpdateData {
 
 class MediaPlayerPrivateRemote final
     : public WebCore::MediaPlayerPrivateInterface
+    , public VideoLayerRemoteParent
     , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaPlayerPrivateRemote, WTF::DestructionThread::Main>
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
 {
 public:
+    WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
+
     static Ref<MediaPlayerPrivateRemote> create(WebCore::MediaPlayer* player, WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, WebCore::MediaPlayerIdentifier identifier, RemoteMediaPlayerManager& manager)
     {
         return adoptRef(*new MediaPlayerPrivateRemote(player, remoteEngineIdentifier, identifier, manager));
@@ -103,9 +107,6 @@ public:
     ~MediaPlayerPrivateRemote();
 
     constexpr WebCore::MediaPlayerType mediaPlayerType() const final { return WebCore::MediaPlayerType::Remote; }
-
-    void ref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::ref(); }
-    void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
@@ -179,9 +180,7 @@ public:
 
     void activeSourceBuffersChanged();
 
-#if PLATFORM(COCOA)
-    bool inVideoFullscreenOrPictureInPicture() const;
-#endif
+    bool inVideoFullscreenOrPictureInPicture() const final;
 
 #if ENABLE(ENCRYPTED_MEDIA)
     void waitingForKeyChanged(bool);
@@ -220,6 +219,8 @@ public:
     MediaTime duration() const final;
     MediaTime currentTime() const final;
     MediaTime currentOrPendingSeekTime() const final;
+
+    void gpuProcessConnectionDidClose();
 
 private:
     class TimeProgressEstimator final {
@@ -295,7 +296,7 @@ private:
     PlatformLayerContainer createVideoFullscreenLayer() final;
     void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler) final;
     void updateVideoFullscreenInlineImage() final;
-    void setVideoFullscreenFrame(WebCore::FloatRect) final;
+    void setVideoFullscreenFrame(const WebCore::FloatRect&) final;
     void setVideoFullscreenGravity(WebCore::MediaPlayer::VideoGravity) final;
     void setVideoFullscreenMode(WebCore::MediaPlayer::VideoFullscreenMode) final;
     void videoFullscreenStandbyChanged() final;
@@ -433,9 +434,6 @@ private:
 
     void tracksChanged() final;
 
-    void beginSimulatedHDCPError() final;
-    void endSimulatedHDCPError() final;
-
     String languageOfPrimaryAudioTrack() const final;
 
     size_t extraMemoryCost() const final;
@@ -458,7 +456,7 @@ private:
     AVPlayer *objCAVFoundationAVPlayer() const final { return nullptr; }
 #endif
 
-    bool performTaskAtTime(Function<void()>&&, const MediaTime&) final;
+    bool performTaskAtTime(Function<void(const MediaTime&)>&&, const MediaTime&) final;
 
     bool supportsPlayAtHostTime() const final { return m_configuration.supportsPlayAtHostTime; }
     bool supportsPauseAtHostTime() const final { return m_configuration.supportsPauseAtHostTime; }

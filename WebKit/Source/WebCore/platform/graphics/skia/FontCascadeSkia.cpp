@@ -30,70 +30,19 @@
 #include "FontCache.h"
 #include "GraphicsContextSkia.h"
 #include "SurrogatePairAwareTextIterator.h"
-#include <skia/core/SkTextBlob.h>
 #include <wtf/text/CharacterProperties.h>
 
 namespace WebCore {
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib/Win port
-
 void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& position, FontSmoothingMode smoothingMode)
 {
-    if (!font.platformData().size())
+    auto blob = font.buildTextBlob(glyphs, advances, smoothingMode);
+    if (!blob)
         return;
 
-    const auto& fontPlatformData = font.platformData();
-    const auto& skFont = fontPlatformData.skFont();
-
-    if (!font.allowsAntialiasing())
-        smoothingMode = FontSmoothingMode::NoSmoothing;
-
-    SkFont::Edging edging;
-    switch (smoothingMode) {
-    case FontSmoothingMode::AutoSmoothing:
-        edging = skFont.getEdging();
-        break;
-    case FontSmoothingMode::Antialiased:
-        edging = SkFont::Edging::kAntiAlias;
-        break;
-    case FontSmoothingMode::SubpixelAntialiased:
-        edging = SkFont::Edging::kSubpixelAntiAlias;
-        break;
-    case FontSmoothingMode::NoSmoothing:
-        edging = SkFont::Edging::kAlias;
-        break;
-    }
-
-    bool isVertical = fontPlatformData.orientation() == FontOrientation::Vertical;
-    SkTextBlobBuilder builder;
-    const auto& buffer = [&]() {
-        if (skFont.getEdging() == edging)
-            return isVertical ? builder.allocRunPos(skFont, glyphs.size()) : builder.allocRunPosH(skFont, glyphs.size(), 0);
-
-        SkFont copiedFont = skFont;
-        copiedFont.setEdging(edging);
-        return isVertical ? builder.allocRunPos(copiedFont, glyphs.size()) : builder.allocRunPosH(copiedFont, glyphs.size(), 0);
-    }();
-
-    FloatSize glyphPosition;
-    for (size_t i = 0; i < glyphs.size(); ++i) {
-        buffer.glyphs[i] = glyphs[i];
-
-        if (isVertical) {
-            glyphPosition += advances[i];
-            buffer.pos[2 * i] = glyphPosition.height();
-            buffer.pos[2 * i + 1] = glyphPosition.width();
-        } else {
-            buffer.pos[i] = glyphPosition.width();
-            glyphPosition += advances[i];
-        }
-    }
-
-    auto blob = builder.make();
-    static_cast<GraphicsContextSkia*>(&graphicsContext)->drawSkiaText(blob, SkFloatToScalar(position.x()), SkFloatToScalar(position.y()), edging != SkFont::Edging::kAlias, isVertical);
+    static_cast<GraphicsContextSkia*>(&graphicsContext)->drawSkiaText(blob, SkFloatToScalar(position.x()), SkFloatToScalar(position.y()),
+        font.enableAntialiasing(smoothingMode), font.platformData().orientation() == FontOrientation::Vertical);
 }
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 bool FontCascade::canUseGlyphDisplayList(const RenderStyle&)
 {
@@ -195,6 +144,29 @@ RefPtr<const Font> FontCascade::fontForCombiningCharacterSequence(StringView str
 
     if (!triedBaseCharacterFont && baseCharacterGlyphData.font && baseCharacterGlyphData.font->canRenderCombiningCharacterSequence(stringView))
         return baseCharacterGlyphData.font.get();
+
+    bool clusterContainsOtherNonDefaultIgnorableCodePoints = [&] -> bool {
+        if (isOnlySingleCodePoint)
+            return false;
+
+        do {
+            if (!isDefaultIgnorableCodePoint(*codePointsIterator))
+                return true;
+            ++codePointsIterator;
+        } while (codePointsIterator != codePoints.end());
+
+        return false;
+    }();
+
+    // Try a system fallback for the whole cluster if needed.
+    if (clusterContainsOtherNonDefaultIgnorableCodePoints) {
+        auto preferColoredFont = emojiPolicy == ResolvedEmojiPolicy::RequireEmoji ? FontCache::PreferColoredFont::Yes : FontCache::PreferColoredFont::No;
+        if (auto systemFallback = FontCache::forCurrentThread()->systemFallbackForCharacterCluster(m_fontDescription, fallbackRangesAt(0).fontForFirstRange(), IsForPlatformFont::No, preferColoredFont, stringView)) {
+            if (systemFallback->canRenderCombiningCharacterSequence(stringView))
+                return systemFallback.get();
+        }
+    }
+
     return nullptr;
 }
 

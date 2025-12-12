@@ -55,7 +55,7 @@ public:
 
     class Client {
     public:
-        virtual ~Client() { }
+        virtual ~Client() = default;
 
         virtual void willMoveToPage(WebPageOverlay&, WebPage*) = 0;
         virtual void didMoveToPage(WebPageOverlay&, WebPage*) = 0;

@@ -145,7 +145,7 @@ void ImageBitmapRenderingContext::setBlank()
     // can never be changed? Wouldn't a 1x1 buffer give the same rendering? The
     // only reason I can think of is toDataURL(), but that doesn't seem like
     // a good enough argument to waste memory.
-    auto buffer = ImageBuffer::create(FloatSize(canvasBase().width(), canvasBase().height()), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8);
+    auto buffer = ImageBuffer::create(FloatSize(canvasBase().width(), canvasBase().height()), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
     canvasBase().setImageBufferAndMarkDirty(WTFMove(buffer));
 }
 

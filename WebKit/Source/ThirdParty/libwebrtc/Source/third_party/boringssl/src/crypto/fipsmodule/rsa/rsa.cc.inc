@@ -18,6 +18,8 @@
 #include <limits.h>
 #include <string.h>
 
+#include <iterator>
+
 #include <openssl/bn.h>
 #include <openssl/digest.h>
 #include <openssl/engine.h>
@@ -26,7 +28,6 @@
 #include <openssl/md5.h>
 #include <openssl/mem.h>
 #include <openssl/nid.h>
-#include <openssl/thread.h>
 
 #include "../../internal.h"
 #include "../bcm_interface.h"
@@ -184,10 +185,8 @@ RSA *RSA_new_method(const ENGINE *engine) {
   CRYPTO_new_ex_data(&rsa->ex_data);
 
   if (rsa->meth->init && !rsa->meth->init(rsa)) {
-    CRYPTO_free_ex_data(g_rsa_ex_data_class_bss_get(), rsa, &rsa->ex_data);
-    CRYPTO_MUTEX_cleanup(&rsa->lock);
-    METHOD_unref(rsa->meth);
-    OPENSSL_free(rsa);
+    rsa->meth = nullptr;
+    RSA_free(rsa);
     return NULL;
   }
 
@@ -213,12 +212,12 @@ void RSA_free(RSA *rsa) {
     return;
   }
 
-  if (rsa->meth->finish) {
+  if (rsa->meth != nullptr && rsa->meth->finish != nullptr) {
     rsa->meth->finish(rsa);
   }
   METHOD_unref(rsa->meth);
 
-  CRYPTO_free_ex_data(g_rsa_ex_data_class_bss_get(), rsa, &rsa->ex_data);
+  CRYPTO_free_ex_data(g_rsa_ex_data_class_bss_get(), &rsa->ex_data);
 
   BN_free(rsa->n);
   BN_free(rsa->e);
@@ -277,12 +276,6 @@ void RSA_get0_factors(const RSA *rsa, const BIGNUM **out_p,
   if (out_q != NULL) {
     *out_q = rsa->q;
   }
-}
-
-const RSA_PSS_PARAMS *RSA_get0_pss_params(const RSA *rsa) {
-  // We do not support the id-RSASSA-PSS key encoding. If we add support later,
-  // the |maskHash| field should be filled in for OpenSSL compatibility.
-  return NULL;
 }
 
 void RSA_get0_crt_params(const RSA *rsa, const BIGNUM **out_dmp1,
@@ -878,8 +871,8 @@ static const BN_ULONG kSmallFactorsLimbs[] = {TOBN(0xc4309333, 0x3ef4e3e1),
                                               0x000017b1};
 
 DEFINE_LOCAL_DATA(BIGNUM, g_small_factors) {
-  out->d = (BN_ULONG *)kSmallFactorsLimbs;
-  out->width = OPENSSL_ARRAY_SIZE(kSmallFactorsLimbs);
+  out->d = const_cast<BN_ULONG *>(kSmallFactorsLimbs);
+  out->width = std::size(kSmallFactorsLimbs);
   out->dmax = out->width;
   out->neg = 0;
   out->flags = BN_FLG_STATIC_DATA;

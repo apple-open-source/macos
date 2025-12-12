@@ -28,6 +28,7 @@
 
 #if USE(COORDINATED_GRAPHICS) && USE(SKIA)
 #include "BitmapTexturePool.h"
+#include "CoordinatedBackingStoreProxy.h"
 #include "CoordinatedTileBuffer.h"
 #include "GLContext.h"
 #include "GraphicsLayer.h"
@@ -139,7 +140,7 @@ RenderingMode SkiaPaintingEngine::decideHybridRenderingMode(const IntRect& dirty
         return RenderingMode::Unaccelerated;
     };
 
-    // Combined strategy: default for WPE, "hybrid mode", saturates CPU painting, before using GPU.
+    // Combined strategy: saturates CPU painting, before using GPU.
     auto handleCPUAffineRendering = [&]() -> RenderingMode {
         // If there is a non-identity scaling applied, prefer GPU rendering.
         if (contentsScale != 1)
@@ -156,7 +157,7 @@ RenderingMode SkiaPaintingEngine::decideHybridRenderingMode(const IntRect& dirty
         return handleMinimumFractionOfTasksUsingGPU();
     };
 
-    // Combined strategy: default for Gtk, useful mode for high-end GPUs, saturates GPU painting, before using CPU.
+    // Combined strategy: saturates GPU painting, before using CPU.
     auto handleGPUAffineRendering = [&]() -> RenderingMode {
         // If there is a non-identity scaling applied, prefer GPU rendering.
         if (contentsScale != 1)
@@ -167,10 +168,15 @@ RenderingMode SkiaPaintingEngine::decideHybridRenderingMode(const IntRect& dirty
             return RenderingMode::Accelerated;
 
         // If the CPU worker pool has unused workers, use them.
-        if (m_cpuWorkerPool->numberOfTasks() < numberOfCPUPaintingThreads())
-            return RenderingMode::Unaccelerated;
+        if (m_cpuWorkerPool->numberOfTasks() < numberOfCPUPaintingThreads()) {
+            // Do not use the CPU for dirty areas bigger than the default tile area for CPU rendering.
+            static constexpr int maximumAreaForCPURendering = CoordinatedBackingStoreProxy::s_defaultCPUTileSize * CoordinatedBackingStoreProxy::s_defaultCPUTileSize;
+            if (dirtyRect.area() <= maximumAreaForCPURendering)
+                return RenderingMode::Unaccelerated;
+        }
 
-        return handleMinimumFractionOfTasksUsingGPU();
+        // Always prefer GPU when workers are not available.
+        return RenderingMode::Accelerated;
     };
 
     switch (hybridPaintingStrategy()) {
@@ -384,11 +390,7 @@ SkiaPaintingEngine::HybridPaintingStrategy SkiaPaintingEngine::hybridPaintingStr
     static HybridPaintingStrategy strategy;
 
     std::call_once(onceFlag, [] {
-#if PLATFORM(WPE)
-        strategy = HybridPaintingStrategy::CPUAffineRendering; // Saturate CPU, before using GPU.
-#else
         strategy = HybridPaintingStrategy::GPUAffineRendering; // Saturate GPU, before using CPU.
-#endif
 
         if (const char* envString = getenv("WEBKIT_SKIA_HYBRID_PAINTING_MODE_STRATEGY")) {
             auto envStringView = StringView::fromLatin1(envString);

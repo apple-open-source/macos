@@ -136,6 +136,7 @@ public:
     bool detachable() const { return m_detachable; }
 
     ScriptExecutionContext* scriptExecutionContext() const final;
+    using ActiveDOMObject::protectedScriptExecutionContext;
 
     static const MediaTime& currentTimeFudgeFactor();
     static bool contentTypeShouldGenerateTimestamps(const ContentType&);
@@ -205,7 +206,6 @@ private:
     void removeSourceBufferWithOptionalDestruction(SourceBuffer&, bool withDestruction);
 
     Ref<MediaTimePromise> waitForTarget(const SeekTarget&);
-    Ref<MediaPromise> seekToTime(const MediaTime&);
     using RendererType = MediaSourcePrivateClient::RendererType;
     void failedToCreateRenderer(RendererType);
 

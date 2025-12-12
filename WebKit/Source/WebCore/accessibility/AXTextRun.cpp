@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "AXTextRun.h"
+
 #include "Logging.h"
 
 #if ENABLE(AX_THREAD_TEXT_APIS)

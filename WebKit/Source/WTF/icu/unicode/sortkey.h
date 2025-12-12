@@ -3,7 +3,7 @@
 /*
  *****************************************************************************
  * Copyright (C) 1996-2014, International Business Machines Corporation and others.
- * All rights reserved.
+ * All Rights Reserved.
  *****************************************************************************
  *
  * File sortkey.h
@@ -249,7 +249,7 @@ private:
     /**
      * Replaces the current bytes buffer with a new one of newCapacity
      * and copies length bytes from the old buffer to the new one.
-     * @return the new buffer, or NULL if the allocation failed
+     * @return the new buffer, or nullptr if the allocation failed
      */
     uint8_t *reallocate(int32_t newCapacity, int32_t length);
     /**

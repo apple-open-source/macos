@@ -878,6 +878,12 @@ enum ssl_private_key_result_t ssl_private_key_decrypt(SSL_HANDSHAKE *hs,
                                                       size_t max_out,
                                                       Span<const uint8_t> in);
 
+// ssl_parse_peer_subject_public_key_info decodes a SubjectPublicKeyInfo
+// representing the peer TLS key. It returns a newly-allocated |EVP_PKEY| or
+// nullptr on error.
+bssl::UniquePtr<EVP_PKEY> ssl_parse_peer_subject_public_key_info(
+    Span<const uint8_t> spki);
+
 // ssl_pkey_supports_algorithm returns whether |pkey| may be used to sign
 // |sigalg|.
 bool ssl_pkey_supports_algorithm(const SSL *ssl, EVP_PKEY *pkey,
@@ -3113,6 +3119,8 @@ struct DTLS1_STATE {
   // a handshake flight and ACK, respectively.
   bool sending_flight : 1;
   bool sending_ack : 1;
+  // pending_flush is whether we have a pending flush on the transport.
+  bool pending_flush : 1;
 
   // queued_key_update, if not kNone, indicates we've queued a KeyUpdate message
   // to send after the current flight is ACKed.

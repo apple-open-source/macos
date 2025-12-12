@@ -36,21 +36,22 @@ class WebURLSchemeTask;
 
 class WebURLSchemeHandlerCocoa : public WebURLSchemeHandler {
 public:
-    static Ref<WebURLSchemeHandlerCocoa> create(id <WKURLSchemeHandler>);
+    static Ref<WebURLSchemeHandlerCocoa> create(id<WKURLSchemeHandler>);
 
-    id <WKURLSchemeHandler> apiHandler() const { return m_apiHandler.get(); }
+    id<WKURLSchemeHandler> apiHandler() const { return m_apiHandler.get(); }
+    RetainPtr<id<WKURLSchemeHandler>> protectedAPIHandler() const;
 
     bool isAPIHandler() final { return true; }
 
 private:
-    WebURLSchemeHandlerCocoa(id <WKURLSchemeHandler>);
+    WebURLSchemeHandlerCocoa(id<WKURLSchemeHandler>);
 
     bool isWebURLSchemeHandlerCocoa() const final { return true; }
 
     void platformStartTask(WebPageProxy&, WebURLSchemeTask&) final;
     void platformStopTask(WebPageProxy&, WebURLSchemeTask&) final;
 
-    RetainPtr<id <WKURLSchemeHandler>> m_apiHandler;
+    RetainPtr<id<WKURLSchemeHandler>> m_apiHandler;
 
 }; // class WebURLSchemeHandler
 

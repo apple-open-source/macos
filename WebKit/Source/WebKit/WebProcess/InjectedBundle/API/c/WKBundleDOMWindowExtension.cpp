@@ -28,6 +28,7 @@
 
 #include "InjectedBundleDOMWindowExtension.h"
 #include "InjectedBundleScriptWorld.h"
+#include "Shared/API/c/WKSharedAPICast.h"
 #include "WKBundleAPICast.h"
 #include "WebFrame.h"
 
@@ -38,17 +39,16 @@ WKTypeID WKBundleDOMWindowExtensionGetTypeID()
 
 WKBundleDOMWindowExtensionRef WKBundleDOMWindowExtensionCreate(WKBundleFrameRef frame, WKBundleScriptWorldRef world)
 {
-    RefPtr<WebKit::InjectedBundleDOMWindowExtension> extension = WebKit::InjectedBundleDOMWindowExtension::create(WebKit::toImpl(frame), WebKit::toImpl(world));
-    return toAPI(extension.leakRef());
+    RefPtr<WebKit::InjectedBundleDOMWindowExtension> extension = WebKit::InjectedBundleDOMWindowExtension::create(WebKit::toProtectedImpl(frame).get(), WebKit::toProtectedImpl(world).get());
+    SUPPRESS_UNCOUNTED_ARG return toAPI(extension.leakRef());
 }
 
 WKBundleFrameRef WKBundleDOMWindowExtensionGetFrame(WKBundleDOMWindowExtensionRef extension)
 {
-    return toAPI(WebKit::toImpl(extension)->frame().get());
+    return toAPI(WebKit::toProtectedImpl(extension)->frame().get());
 }
 
 WKBundleScriptWorldRef WKBundleDOMWindowExtensionGetScriptWorld(WKBundleDOMWindowExtensionRef extension)
 {
-    return toAPI(WebKit::toImpl(extension)->world());
+    return toAPI(RefPtr { WebKit::toProtectedImpl(extension)->world() }.get());
 }
-

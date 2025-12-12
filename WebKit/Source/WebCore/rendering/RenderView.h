@@ -21,11 +21,11 @@
 
 #pragma once
 
-#include "LocalFrameView.h"
-#include "Region.h"
-#include "RenderBlockFlow.h"
-#include "RenderSelection.h"
-#include "RenderWidget.h"
+#include <WebCore/LocalFrameView.h>
+#include <WebCore/Region.h>
+#include <WebCore/RenderBlockFlow.h>
+#include <WebCore/RenderSelection.h>
+#include <WebCore/RenderWidget.h>
 #include <memory>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -138,6 +138,7 @@ public:
     void setIsInWindow(bool);
 
     WEBCORE_EXPORT RenderLayerCompositor& compositor();
+    WEBCORE_EXPORT CheckedRef<RenderLayerCompositor> checkedCompositor();
     WEBCORE_EXPORT bool usesCompositing() const;
 
     WEBCORE_EXPORT IntRect unscaledDocumentRect() const;
@@ -221,6 +222,9 @@ public:
     void addViewTransitionGroup(const AtomString&, RenderBox&);
     void removeViewTransitionGroup(const AtomString&);
     RenderBox* viewTransitionGroupForName(const AtomString&);
+
+protected:
+    void willBeDestroyed() override;
 
 private:
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;

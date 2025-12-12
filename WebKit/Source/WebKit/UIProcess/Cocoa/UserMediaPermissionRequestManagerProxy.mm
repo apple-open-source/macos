@@ -109,10 +109,10 @@ static WebCore::VideoFrameRotation computeVideoFrameRotation(int rotation)
 -(std::optional<WebCore::VideoFrameRotation>)start:(const String&)persistentId layer:(CALayer*)layer {
     auto iterator = m_coordinators.add(persistentId, RetainPtr<AVCaptureDeviceRotationCoordinator> { }).iterator;
     if (!iterator->value) {
-        if (!PAL::getAVCaptureDeviceRotationCoordinatorClass())
+        if (!PAL::getAVCaptureDeviceRotationCoordinatorClassSingleton())
             return { };
 
-        RetainPtr avDevice = [PAL::getAVCaptureDeviceClass() deviceWithUniqueID:persistentId.createNSString().get()];
+        RetainPtr avDevice = [PAL::getAVCaptureDeviceClassSingleton() deviceWithUniqueID:persistentId.createNSString().get()];
         if (!avDevice)
             return { };
 

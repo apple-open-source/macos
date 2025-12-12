@@ -21,6 +21,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
+#if ENABLE_SWIFTUI
+
 import Foundation
 public import SwiftUI
 
@@ -69,7 +71,7 @@ extension View {
     ///
     /// - Parameter menu: A closure that produces the menu. The single parameter to the closure describes the type of webpage element that was acted upon.
     /// - Returns: A view that can display an item-based context menu.
-    @available(WK_MAC_TBA, *)
+    @available(macOS 26.0, *)
     @available(iOS, unavailable)
     @available(visionOS, unavailable)
     @available(watchOS, unavailable)
@@ -154,4 +156,16 @@ extension View {
     public nonisolated func webViewScrollInputBehavior(_ behavior: ScrollInputBehavior, for input: ScrollInputKind) -> some View {
         environment(\.webViewScrollInputBehaviorContext, .init(behavior: behavior, input: input))
     }
+
+    // FIXME: This is currently a very limited and simple implementation of scroll edge effects.
+    // SPI for testing.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    @_spi(Testing)
+    public nonisolated func webViewScrollEdgeEffectStyle(_ style: ScrollEdgeEffectStyle?, for edges: Edge.Set) -> some View {
+        self
+            .ignoresSafeArea(edges: edges)
+            .environment(\.webViewScrollEdgeEffectStyleContext, .init(style: style, edges: edges))
+    }
 }
+
+#endif

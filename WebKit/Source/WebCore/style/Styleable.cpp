@@ -26,22 +26,19 @@
 #include "config.h"
 #include "Styleable.h"
 
-#include "Animation.h"
 #include "AnimationEffect.h"
-#include "AnimationList.h"
 #include "AnimationTimeline.h"
 #include "CSSAnimation.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSTransition.h"
 #include "CommonAtomStrings.h"
 #include "ContainerNodeInlines.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
 #include "DocumentTimeline.h"
+#include "DocumentView.h"
 #include "Element.h"
 #include "KeyframeEffect.h"
 #include "KeyframeEffectStack.h"
-#include "Quirks.h"
 #include "RenderChildIterator.h"
 #include "RenderDescendantIterator.h"
 #include "RenderElement.h"
@@ -50,6 +47,8 @@
 #include "RenderListMarker.h"
 #include "RenderStyleInlines.h"
 #include "RenderView.h"
+#include "StyleAnimations.h"
+#include "StylableInlines.h"
 #include "StyleCustomPropertyData.h"
 #include "StyleInterpolation.h"
 #include "StyleOriginatedAnimation.h"
@@ -68,37 +67,42 @@ namespace WebCore {
 
 const std::optional<const Styleable> Styleable::fromRenderer(const RenderElement& renderer)
 {
-    switch (renderer.style().pseudoElementType()) {
-    case PseudoId::Backdrop:
+    if (!renderer.style().pseudoElementType()) {
+        if (auto* element = renderer.element())
+            return fromElement(*element);
+        return { };
+    }
+
+    switch (*renderer.style().pseudoElementType()) {
+    case PseudoElementType::Backdrop:
         for (auto& topLayerElement : renderer.document().topLayerElements()) {
             if (topLayerElement->renderer() && topLayerElement->renderer()->backdropRenderer() == &renderer)
-                return Styleable(topLayerElement.get(), Style::PseudoElementIdentifier { PseudoId::Backdrop });
+                return Styleable(topLayerElement.get(), Style::PseudoElementIdentifier { PseudoElementType::Backdrop });
         }
         break;
-    case PseudoId::Marker: {
+    case PseudoElementType::Marker: {
         auto* ancestor = renderer.parent();
         while (ancestor) {
             auto* renderListItem = dynamicDowncast<RenderListItem>(ancestor);
             if (renderListItem && ancestor->element() && renderListItem->markerRenderer() == &renderer)
-                return Styleable(*ancestor->element(), Style::PseudoElementIdentifier { PseudoId::Marker });
+                return Styleable(*ancestor->element(), Style::PseudoElementIdentifier { PseudoElementType::Marker });
             ancestor = ancestor->parent();
         }
         break;
     }
-    case PseudoId::ViewTransitionGroup:
-    case PseudoId::ViewTransitionImagePair:
-    case PseudoId::ViewTransitionNew:
-    case PseudoId::ViewTransitionOld:
+    case PseudoElementType::ViewTransitionGroup:
+    case PseudoElementType::ViewTransitionImagePair:
+    case PseudoElementType::ViewTransitionNew:
+    case PseudoElementType::ViewTransitionOld:
         if (auto* documentElement = renderer.document().documentElement())
             return Styleable(*documentElement, renderer.style().pseudoElementIdentifier());
         break;
-    case PseudoId::ViewTransition:
+    case PseudoElementType::ViewTransition:
         if (auto* documentElement = renderer.document().documentElement())
-            return Styleable(*documentElement, Style::PseudoElementIdentifier { PseudoId::ViewTransition });
+            return Styleable(*documentElement, Style::PseudoElementIdentifier { PseudoElementType::ViewTransition });
         break;
-    case PseudoId::After:
-    case PseudoId::Before:
-    case PseudoId::None:
+    case PseudoElementType::After:
+    case PseudoElementType::Before:
         if (auto* element = renderer.element())
             return fromElement(*element);
         break;
@@ -114,36 +118,36 @@ RenderElement* Styleable::renderer() const
     if (!pseudoElementIdentifier)
         return element.renderer();
 
-    switch (pseudoElementIdentifier->pseudoId) {
-    case PseudoId::After:
+    switch (pseudoElementIdentifier->type) {
+    case PseudoElementType::After:
         if (auto* afterPseudoElement = element.afterPseudoElement())
             return afterPseudoElement->renderer();
         break;
-    case PseudoId::Backdrop:
+    case PseudoElementType::Backdrop:
         if (auto* hostRenderer = element.renderer())
             return hostRenderer->backdropRenderer().get();
         break;
-    case PseudoId::Before:
+    case PseudoElementType::Before:
         if (auto* beforePseudoElement = element.beforePseudoElement())
             return beforePseudoElement->renderer();
         break;
-    case PseudoId::Marker:
+    case PseudoElementType::Marker:
         if (auto* renderListItem = dynamicDowncast<RenderListItem>(element.renderer())) {
             auto* markerRenderer = renderListItem->markerRenderer();
             if (markerRenderer && !markerRenderer->style().hasUsedContentNone())
                 return markerRenderer;
         }
         break;
-    case PseudoId::ViewTransition:
+    case PseudoElementType::ViewTransition:
         if (element.renderer() && element.renderer()->isDocumentElementRenderer()) {
             if (WeakPtr containingBlock = element.renderer()->view().viewTransitionContainingBlock())
                 return containingBlock->firstChildBox();
         }
         break;
-    case PseudoId::ViewTransitionGroup:
-    case PseudoId::ViewTransitionImagePair:
-    case PseudoId::ViewTransitionNew:
-    case PseudoId::ViewTransitionOld: {
+    case PseudoElementType::ViewTransitionGroup:
+    case PseudoElementType::ViewTransitionImagePair:
+    case PseudoElementType::ViewTransitionNew:
+    case PseudoElementType::ViewTransitionOld: {
         if (!element.renderer() || !element.renderer()->isDocumentElementRenderer())
             return nullptr;
 
@@ -153,12 +157,12 @@ RenderElement* Styleable::renderer() const
             return nullptr;
 
         // Return early if we're looking for ::view-transition-group().
-        if (pseudoElementIdentifier->pseudoId == PseudoId::ViewTransitionGroup)
-            return correctGroup.get();
+        if (pseudoElementIdentifier->type == PseudoElementType::ViewTransitionGroup)
+            return correctGroup.unsafeGet();
 
         // Go through all descendants until we find the relevant pseudo element otherwise.
         for (auto& descendant : descendantsOfType<RenderBox>(*correctGroup)) {
-            if (descendant.style().pseudoElementType() == pseudoElementIdentifier->pseudoId)
+            if (descendant.style().pseudoElementType() == pseudoElementIdentifier->type)
                 return &descendant;
         }
         break;
@@ -190,9 +194,9 @@ bool Styleable::computeAnimationExtent(LayoutRect& bounds) const
     if (!animations)
         return false;
 
-    KeyframeEffect* matchingEffect = nullptr;
+    RefPtr<KeyframeEffect> matchingEffect = nullptr;
     for (const auto& animation : *animations) {
-        if (auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+        if (RefPtr keyframeEffect = animation->keyframeEffect()) {
             if (keyframeEffect->blendingKeyframes().containsProperty(CSSPropertyTransform))
                 matchingEffect = keyframeEffect;
         }
@@ -210,7 +214,7 @@ bool Styleable::mayHaveNonZeroOpacity() const
     if (!renderer)
         return false;
 
-    if (renderer->style().opacity() != 0.0f)
+    if (!renderer->style().opacity().isZero())
         return true;
 
     if (renderer->style().willChange() && renderer->style().willChange()->containsProperty(CSSPropertyOpacity))
@@ -251,7 +255,7 @@ bool Styleable::hasRunningAcceleratedAnimations() const
 
     if (auto* animations = this->animations()) {
         for (const auto& animation : *animations) {
-            if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+            if (RefPtr keyframeEffect = animation->keyframeEffect()) {
                 if (keyframeEffect->isRunningAccelerated())
                     return true;
             }
@@ -343,26 +347,28 @@ void Styleable::cancelStyleOriginatedAnimations(const WeakStyleOriginatedAnimati
     }
 
     if (auto* effectStack = keyframeEffectStack())
-        effectStack->setCSSAnimationList(nullptr);
+        effectStack->setCSSAnimationList(std::nullopt);
 
     setAnimationsCreatedByMarkup({ });
 }
 
-static bool keyframesRuleExistsForAnimation(Element& element, const Animation& animation, const String& animationName)
+static bool keyframesRuleExistsForAnimation(Element& element, const Style::ScopedName& animationName)
 {
-    auto* styleScope = Style::Scope::forOrdinal(element, animation.name().scopeOrdinal);
-    return styleScope && styleScope->resolver().isAnimationNameValid(animationName);
+    return Style::Scope::resolveTreeScopedReference(element, animationName, [](const Style::Scope& scope, const AtomString& name) -> bool {
+        if (auto* resolver = scope.resolverIfExists())
+            return resolver->isAnimationNameValid(name);
+        return false;
+    });
 }
 
-bool Styleable::animationListContainsNewlyValidAnimation(const AnimationList& animations) const
+bool Styleable::animationListContainsNewlyValidAnimation(const Style::Animations& animations) const
 {
     auto& keyframeEffectStack = ensureKeyframeEffectStack();
     if (!keyframeEffectStack.hasInvalidCSSAnimationNames())
         return false;
 
-    for (auto& animation : animations) {
-        auto& name = animation->name().name;
-        if (name != noneAtom() && !name.isEmpty() && keyframeEffectStack.containsInvalidCSSAnimationName(name) && keyframesRuleExistsForAnimation(element, animation.get(), name))
+    for (auto& currentAnimation : animations) {
+        if (auto keyframesName = currentAnimation.name().tryKeyframesName(); keyframesName && !keyframesName->name.isEmpty() && keyframeEffectStack.containsInvalidCSSAnimationName(keyframesName->name) && keyframesRuleExistsForAnimation(element, *keyframesName))
             return true;
     }
 
@@ -377,14 +383,14 @@ void Styleable::updateCSSAnimations(const RenderStyle* currentStyle, const Rende
     if ((!currentStyle || currentStyle->display() != DisplayType::None) && newStyle.display() == DisplayType::None) {
         for (auto& cssAnimation : animationsCreatedByMarkup())
             cssAnimation->cancelFromStyle();
-        keyframeEffectStack.setCSSAnimationList(nullptr);
+        keyframeEffectStack.setCSSAnimationList(std::nullopt);
         setAnimationsCreatedByMarkup({ });
         return;
     }
 
-    auto* currentAnimationList = newStyle.animations();
-    auto* previousAnimationList = keyframeEffectStack.cssAnimationList();
-    if (!element.hasPendingKeyframesUpdate(pseudoElementIdentifier) && previousAnimationList && !previousAnimationList->isEmpty() && newStyle.hasAnimations() && *(previousAnimationList) == *(newStyle.animations()) && !animationListContainsNewlyValidAnimation(*newStyle.animations()))
+    auto& currentAnimationList = newStyle.animations();
+    auto& previousAnimationList = keyframeEffectStack.cssAnimationList();
+    if (!element.hasPendingKeyframesUpdate(pseudoElementIdentifier) && previousAnimationList && !previousAnimationList->isNone() && newStyle.hasAnimations() && *previousAnimationList == newStyle.animations() && !animationListContainsNewlyValidAnimation(newStyle.animations()))
         return;
 
     CSSAnimationCollection newAnimations;
@@ -401,23 +407,25 @@ void Styleable::updateCSSAnimations(const RenderStyle* currentStyle, const Rende
     // twice. If a match is not found, a new animation is created. As a result, updating animation-name from ‘a’ to ‘a, a’ will
     // cause the existing animation for ‘a’ to become the second animation in the list and a new animation will be created for the
     // first item in the list.
-    if (currentAnimationList) {
-        for (auto& currentAnimation : makeReversedRange(*currentAnimationList)) {
-            auto& animationName = currentAnimation->name().name;
-            if (animationName == noneAtom() || animationName.isEmpty())
+    if (!currentAnimationList.isNone()) {
+        for (auto& currentAnimation : makeReversedRange(currentAnimationList)) {
+            auto keyframesName = currentAnimation.name().tryKeyframesName();
+            if (!keyframesName || keyframesName->name.isEmpty())
                 continue;
 
-            if (!keyframesRuleExistsForAnimation(element, currentAnimation.get(), animationName)) {
-                keyframeEffectStack.addInvalidCSSAnimationName(animationName);
+            if (!keyframesRuleExistsForAnimation(element, *keyframesName)) {
+                keyframeEffectStack.addInvalidCSSAnimationName(keyframesName->name);
                 continue;
             }
 
+            auto& currentAnimationName = keyframesName->name;
+
             bool foundMatchingAnimation = false;
             for (auto& previousAnimation : previousAnimations) {
-                if (previousAnimation->animationName() == animationName) {
+                if (previousAnimation->animationName() == currentAnimationName) {
                     // Timing properties or play state may have changed so we need to update the backing animation with
                     // the Animation found in the current style.
-                    previousAnimation->setBackingAnimation(currentAnimation.get());
+                    previousAnimation->setBackingStyleAnimation(currentAnimation);
                     // Keyframes may have been cleared if the @keyframes rules was changed since
                     // the last style update, so we must ensure keyframes are picked up.
                     previousAnimation->updateKeyframesIfNeeded(currentStyle, newStyle, resolutionContext);
@@ -431,7 +439,7 @@ void Styleable::updateCSSAnimations(const RenderStyle* currentStyle, const Rende
             }
 
             if (!foundMatchingAnimation && isInDisplayNoneTree == Style::IsInDisplayNoneTree::No) {
-                auto cssAnimation = CSSAnimation::create(*this, currentAnimation.get(), currentStyle, newStyle, resolutionContext);
+                auto cssAnimation = CSSAnimation::create(*this, Style::Animation { currentAnimation }, currentStyle, newStyle, resolutionContext);
                 newStyleOriginatedAnimations.append(cssAnimation.ptr());
                 newAnimations.add(WTFMove(cssAnimation));
             }
@@ -448,7 +456,7 @@ void Styleable::updateCSSAnimations(const RenderStyle* currentStyle, const Rende
 
     setAnimationsCreatedByMarkup(WTFMove(newAnimations));
 
-    keyframeEffectStack.setCSSAnimationList(currentAnimationList);
+    keyframeEffectStack.setCSSAnimationList(Style::Animations { currentAnimationList });
 
     element.cssAnimationsDidUpdate(pseudoElementIdentifier);
 }
@@ -475,81 +483,83 @@ static bool propertyInStyleMatchesValueForTransitionInMap(const AnimatableCSSPro
     return false;
 }
 
-static bool transitionMatchesProperty(const Animation& transition, const AnimatableCSSProperty& property, const RenderStyle& style)
+static bool transitionMatchesProperty(const Style::Transition& transition, const AnimatableCSSProperty& property, const RenderStyle& style)
 {
     if (transition.isPropertyFilled())
         return false;
 
-    switch (transition.property().mode) {
-    case Animation::TransitionMode::All:
-        return true;
-    case Animation::TransitionMode::None:
-    case Animation::TransitionMode::UnknownProperty:
-        return false;
-    case Animation::TransitionMode::SingleProperty: {
-        return WTF::switchOn(transition.property().animatableProperty,
-            [&] (CSSPropertyID propertyId) {
-                if (!std::holds_alternative<CSSPropertyID>(property))
-                    return false;
-                auto propertyIdToMatch = std::get<CSSPropertyID>(property);
-                auto resolvedPropertyId = CSSProperty::resolveDirectionAwareProperty(propertyId, style.writingMode());
-                if (resolvedPropertyId == propertyIdToMatch)
-                    return true;
-                for (auto longhand : shorthandForProperty(resolvedPropertyId)) {
-                    auto resolvedLonghand = CSSProperty::resolveDirectionAwareProperty(longhand, style.writingMode());
-                    if (resolvedLonghand == propertyIdToMatch)
+    return WTF::switchOn(transition.property(),
+        [&](const CSS::Keyword::All&) {
+            return true;
+        },
+        [&](const CSS::Keyword::None&) {
+            return false;
+        },
+        [&](const Style::SingleTransitionProperty::UnknownProperty&) {
+            return false;
+        },
+        [&](const Style::SingleTransitionProperty::SingleProperty& singleProperty) {
+            return WTF::switchOn(singleProperty.value,
+                [&](CSSPropertyID propertyId) {
+                    if (!std::holds_alternative<CSSPropertyID>(property))
+                        return false;
+                    auto propertyIdToMatch = std::get<CSSPropertyID>(property);
+                    auto resolvedPropertyId = CSSProperty::resolveDirectionAwareProperty(propertyId, style.writingMode());
+                    if (resolvedPropertyId == propertyIdToMatch)
                         return true;
-                }
-                return false;
-            },
-            [&] (const AtomString& customProperty) {
-                if (!std::holds_alternative<AtomString>(property))
+                    for (auto longhand : shorthandForProperty(resolvedPropertyId)) {
+                        auto resolvedLonghand = CSSProperty::resolveDirectionAwareProperty(longhand, style.writingMode());
+                        if (resolvedLonghand == propertyIdToMatch)
+                            return true;
+                    }
                     return false;
-                return std::get<AtomString>(property) == customProperty;
-            }
-        );
-    }
-    }
-
-    ASSERT_NOT_REACHED();
-    return false;
+                },
+                [&](const AtomString& customProperty) {
+                    if (!std::holds_alternative<AtomString>(property))
+                        return false;
+                    return std::get<AtomString>(property) == customProperty;
+                }
+            );
+        }
+    );
 }
 
 static void compileTransitionPropertiesInStyle(const RenderStyle& style, CSSPropertiesBitSet& transitionProperties, HashSet<AtomString>& transitionCustomProperties, bool& transitionPropertiesContainAll)
 {
-    auto* transitions = style.transitions();
-    if (!transitions) {
+    auto& transitions = style.transitions();
+    if (transitions.isNone()) {
         // If we don't have any transitions in the map, this means that the initial value "all 0s" was set.
         transitionPropertiesContainAll = true;
         return;
     }
 
-    for (const auto& transition : *transitions) {
-        auto transitionProperty = transition->property();
-        switch (transitionProperty.mode) {
-        case Animation::TransitionMode::All:
-            transitionPropertiesContainAll = true;
-            break;
-        case Animation::TransitionMode::None:
-        case Animation::TransitionMode::UnknownProperty:
-            break;
-        case Animation::TransitionMode::SingleProperty: {
-            WTF::switchOn(transitionProperty.animatableProperty,
-                [&] (CSSPropertyID propertyId) {
-                    auto resolvedPropertyId = CSSProperty::resolveDirectionAwareProperty(propertyId, style.writingMode());
-                    if (isShorthand(resolvedPropertyId)) {
-                        for (auto longhand : shorthandForProperty(resolvedPropertyId))
-                            transitionProperties.m_properties.set(longhand);
-                    } else if (resolvedPropertyId != CSSPropertyInvalid)
-                        transitionProperties.m_properties.set(resolvedPropertyId);
-                },
-                [&] (const AtomString& customProperty) {
-                    transitionCustomProperties.add(customProperty);
-                }
-            );
-            break;
-        }
-        }
+    for (const auto& transition : transitions) {
+        WTF::switchOn(transition.property(),
+            [&](const CSS::Keyword::All&) {
+                transitionPropertiesContainAll = true;
+            },
+            [&](const CSS::Keyword::None&) {
+                // Do nothing.
+            },
+            [&](const Style::SingleTransitionProperty::UnknownProperty&) {
+                // Do nothing.
+            },
+            [&](const Style::SingleTransitionProperty::SingleProperty& property) {
+                WTF::switchOn(property.value,
+                    [&](CSSPropertyID propertyId) {
+                        auto resolvedPropertyId = CSSProperty::resolveDirectionAwareProperty(propertyId, style.writingMode());
+                        if (isShorthand(resolvedPropertyId)) {
+                            for (auto longhand : shorthandForProperty(resolvedPropertyId))
+                                transitionProperties.m_properties.set(longhand);
+                        } else if (resolvedPropertyId != CSSPropertyInvalid)
+                            transitionProperties.m_properties.set(resolvedPropertyId);
+                    },
+                    [&](const AtomString& customProperty) {
+                        transitionCustomProperties.add(customProperty);
+                    }
+                );
+            }
+        );
     }
 }
 
@@ -571,13 +581,13 @@ static void updateCSSTransitionsForStyleableAndProperty(const Styleable& styleab
 
     auto hasMatchingTransitionProperty = false;
     auto matchingTransitionDuration = 0.0;
-    const Animation* matchingBackingAnimation = nullptr;
-    if (auto* transitions = newStyle.transitions()) {
-        for (auto& backingAnimation : *transitions) {
-            if (transitionMatchesProperty(backingAnimation.get(), property, newStyle)) {
+    std::optional<Style::Transition> matchingTransition;
+    if (auto& transitions = newStyle.transitions(); !transitions.isNone()) {
+        for (auto& transition : transitions) {
+            if (transitionMatchesProperty(transition, property, newStyle)) {
                 hasMatchingTransitionProperty = true;
-                matchingBackingAnimation = backingAnimation.ptr();
-                matchingTransitionDuration = std::max(0.0, matchingBackingAnimation->duration().value_or(0)) + matchingBackingAnimation->delay();
+                matchingTransition = transition;
+                matchingTransitionDuration = std::max(0.0, matchingTransition->duration().value) + matchingTransition->delay().value;
             }
         }
     } else if (!document.quirks().needsResettingTransitionCancelsRunningTransitionQuirk()) {
@@ -626,13 +636,13 @@ static void updateCSSTransitionsForStyleableAndProperty(const Styleable& styleab
         return RenderStyle::clone(newStyle);
     }();
 
-    auto allowsDiscreteTransitions = matchingBackingAnimation && matchingBackingAnimation->allowsDiscreteTransitions();
+    auto allowsDiscreteTransitions = matchingTransition && matchingTransition->behavior() == TransitionBehavior::AllowDiscrete;
     auto propertyCanBeInterpolated = [&](const AnimatableCSSProperty& property, const RenderStyle& a, const RenderStyle& b) {
         return allowsDiscreteTransitions || Style::Interpolation::canInterpolate(property, a, b, document);
     };
 
     auto createCSSTransition = [&](const RenderStyle& oldStyle, Seconds delay, Seconds duration, const RenderStyle& reversingAdjustedStartStyle, double reversingShorteningFactor) {
-        auto cssTransition = CSSTransition::create(styleable, property, generationTime, *matchingBackingAnimation, oldStyle, afterChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor);
+        auto cssTransition = CSSTransition::create(styleable, property, generationTime, *matchingTransition, oldStyle, afterChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor);
         newStyleOriginatedAnimations.append(cssTransition.ptr());
         styleable.ensureRunningTransitionsByProperty().set(property, WTFMove(cssTransition));
     };
@@ -660,9 +670,9 @@ static void updateCSSTransitionsForStyleableAndProperty(const Styleable& styleab
         //   - end value is the value of the transitioning property in the after-change style,
         //   - reversing-adjusted start value is the same as the start value, and
         //   - reversing shortening factor is 1.
-        ASSERT(matchingBackingAnimation);
-        auto delay = Seconds(matchingBackingAnimation->delay());
-        auto duration = Seconds(matchingBackingAnimation->duration().value_or(0));
+        ASSERT(matchingTransition);
+        auto delay = Seconds(matchingTransition->delay().value);
+        auto duration = Seconds(matchingTransition->duration().value);
         auto& reversingAdjustedStartStyle = beforeChangeStyle;
         auto reversingShorteningFactor = 1;
         createCSSTransition(beforeChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor);
@@ -712,7 +722,7 @@ static void updateCSSTransitionsForStyleableAndProperty(const Styleable& styleab
             //   - end time is the start time plus the product of the matching transition duration and the new transition’s reversing shortening factor,
             //   - start value is the current value of the property in the running transition,
             //   - end value is the value of the property in the after-change style
-            ASSERT(matchingBackingAnimation);
+            ASSERT(matchingTransition);
             auto& reversingAdjustedStartStyle = previouslyRunningTransition->targetStyle();
             double transformedProgress = 1;
             if (auto* effect = previouslyRunningTransition->effect()) {
@@ -720,8 +730,8 @@ static void updateCSSTransitionsForStyleableAndProperty(const Styleable& styleab
                     transformedProgress = *computedTimingProgress;
             }
             auto reversingShorteningFactor = std::max(std::min(((transformedProgress * previouslyRunningTransition->reversingShorteningFactor()) + (1 - previouslyRunningTransition->reversingShorteningFactor())), 1.0), 0.0);
-            auto delay = matchingBackingAnimation->delay() < 0 ? Seconds(matchingBackingAnimation->delay()) * reversingShorteningFactor : Seconds(matchingBackingAnimation->delay());
-            auto duration = Seconds(matchingBackingAnimation->duration().value_or(0)) * reversingShorteningFactor;
+            auto delay = matchingTransition->delay().value < 0 ? Seconds(matchingTransition->delay().value) * reversingShorteningFactor : Seconds(matchingTransition->delay().value);
+            auto duration = Seconds(matchingTransition->duration().value) * reversingShorteningFactor;
 
             previouslyRunningTransition->cancelFromStyle();
             createCSSTransition(beforeChangeStyle, delay, duration, reversingAdjustedStartStyle, reversingShorteningFactor);
@@ -733,9 +743,9 @@ static void updateCSSTransitionsForStyleableAndProperty(const Styleable& styleab
             //   - end value is the value of the property in the after-change style,
             //   - reversing-adjusted start value is the same as the start value, and
             //   - reversing shortening factor is 1.
-            ASSERT(matchingBackingAnimation);
-            auto delay = Seconds(matchingBackingAnimation->delay());
-            auto duration = Seconds(matchingBackingAnimation->duration().value_or(0));
+            ASSERT(matchingTransition);
+            auto delay = Seconds(matchingTransition->delay().value);
+            auto duration = Seconds(matchingTransition->duration().value);
             auto& reversingAdjustedStartStyle = currentStyle;
             auto reversingShorteningFactor = 1;
             previouslyRunningTransition->cancelFromStyle();
@@ -750,36 +760,9 @@ void Styleable::updateCSSTransitions(const RenderStyle& currentStyle, const Rend
     if (currentStyle.display() == DisplayType::None)
         return;
 
-    auto transitionsDisplay = [](const RenderStyle& style) {
-        if (!style.hasTransitions())
-            return false;
-
-        for (auto& transition : *style.transitions()) {
-            auto transitionProperty = transition->property();
-            switch (transitionProperty.mode) {
-            case Animation::TransitionMode::All:
-                if (transition->allowsDiscreteTransitions())
-                    return true;
-                break;
-            case Animation::TransitionMode::SingleProperty:
-                if (std::holds_alternative<CSSPropertyID>(transitionProperty.animatableProperty)) {
-                    if (std::get<CSSPropertyID>(transitionProperty.animatableProperty) == CSSPropertyDisplay) {
-                        if (transition->allowsDiscreteTransitions())
-                            return true;
-                    }
-                }
-                break;
-            case Animation::TransitionMode::None:
-            case Animation::TransitionMode::UnknownProperty:
-                break;
-            }
-        }
-        return false;
-    };
-
     // In case this element is newly getting a "display: none" we need to cancel all of its transitions and disregard new ones,
     // unless it will transition the "display" property itself.
-    if (currentStyle.hasTransitions() && currentStyle.display() != DisplayType::None && newStyle.display() == DisplayType::None && !transitionsDisplay(newStyle)) {
+    if (currentStyle.hasTransitions() && currentStyle.display() != DisplayType::None && newStyle.display() == DisplayType::None && !styleHasDisplayTransition(newStyle)) {
         if (hasRunningTransitions()) {
             auto runningTransitions = ensureRunningTransitionsByProperty();
             for (const auto& cssTransitionsByAnimatableCSSPropertyMapItem : runningTransitions)
@@ -961,13 +944,14 @@ void Styleable::queryContainerDidChange() const
     auto* animations = this->animations();
     if (!animations)
         return;
-    for (auto animation : *animations) {
-        auto* cssAnimation = dynamicDowncast<CSSAnimation>(animation.get());
-        if (!cssAnimation)
-            continue;
-        auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(cssAnimation->effect());
-        if (keyframeEffect && keyframeEffect->blendingKeyframes().usesContainerUnits())
-            cssAnimation->keyframesRuleDidChange();
+    for (auto& animation : *animations) {
+        RefPtr keyframeEffect = animation->keyframeEffect();
+        if (keyframeEffect && keyframeEffect->blendingKeyframes().usesContainerUnits()) {
+            if (RefPtr cssAnimation = dynamicDowncast<CSSAnimation>(animation))
+                cssAnimation->keyframesRuleDidChange();
+            else
+                keyframeEffect->recomputeKeyframesAtNextOpportunity();
+        }
     }
 }
 

@@ -118,7 +118,7 @@ auto SectionParser::parseType() -> PartialResult
             m_info->rtts.append(TypeInformation::getCanonicalRTT(signature->index()));
             const TypeDefinition& unrolled = signature->unroll();
             if (unrolled.is<Subtype>()) {
-                WASM_PARSER_FAIL_IF(m_info->rtts.last()->displaySize() > maxSubtypeDepth, "subtype depth for Type section's "_s, i, "th signature exceeded the limits of "_s, maxSubtypeDepth);
+                WASM_PARSER_FAIL_IF(m_info->rtts.last()->displaySizeExcludingThis() > maxSubtypeDepth, "subtype depth for Type section's "_s, i, "th signature exceeded the limits of "_s, maxSubtypeDepth);
                 WASM_FAIL_IF_HELPER_FAILS(checkSubtypeValidity(unrolled));
             }
             m_info->typeSignatures.append(signature.releaseNonNull());
@@ -1257,13 +1257,13 @@ auto SectionParser::parseData() -> PartialResult
             WASM_PARSER_FAIL_IF(!parseVarUInt32(dataByteLength), "can't get "_s, segmentNumber, "th Data segment's data byte length"_s);
             WASM_PARSER_FAIL_IF(dataByteLength > maxModuleSize, segmentNumber, "th Data segment's data byte length is too big "_s, dataByteLength, " maximum "_s, maxModuleSize);
 
-            auto segment = Segment::create(*initExpr, dataByteLength, Segment::Kind::Active);
+            auto segment = Segment::tryCreate(*initExpr, dataByteLength, Segment::Kind::Active);
             WASM_PARSER_FAIL_IF(!segment, "can't allocate enough memory for "_s, segmentNumber, "th Data segment of size "_s, dataByteLength);
-            for (uint32_t dataByte = 0; dataByte < dataByteLength; ++dataByte) {
-                uint8_t byte;
-                WASM_PARSER_FAIL_IF(!parseUInt8(byte), "can't get "_s, dataByte, "th data byte from "_s, segmentNumber, "th Data segment"_s);
-                segment->byte(dataByte) = byte;
-            }
+
+            WASM_PARSER_FAIL_IF(source().size() < dataByteLength || (source().size() - dataByteLength) < m_offset, "can't get data bytes from "_s, segmentNumber, "th Data segment"_s);
+
+            memcpySpan(segment->span(), source().subspan(m_offset, dataByteLength));
+            m_offset += dataByteLength;
             m_info->data.append(WTFMove(segment));
             continue;
         }
@@ -1274,13 +1274,13 @@ auto SectionParser::parseData() -> PartialResult
             WASM_PARSER_FAIL_IF(!parseVarUInt32(dataByteLength), "can't get "_s, segmentNumber, "th Data segment's data byte length"_s);
             WASM_PARSER_FAIL_IF(dataByteLength > maxModuleSize, segmentNumber, "th Data segment's data byte length is too big "_s, dataByteLength, " maximum "_s, maxModuleSize);
 
-            auto segment = Segment::create(std::nullopt, dataByteLength, Segment::Kind::Passive);
+            auto segment = Segment::tryCreate(std::nullopt, dataByteLength, Segment::Kind::Passive);
             WASM_PARSER_FAIL_IF(!segment, "can't allocate enough memory for "_s, segmentNumber, "th Data segment of size "_s, dataByteLength);
-            for (uint32_t dataByte = 0; dataByte < dataByteLength; ++dataByte) {
-                uint8_t byte;
-                WASM_PARSER_FAIL_IF(!parseUInt8(byte), "can't get "_s, dataByte, "th data byte from "_s, segmentNumber, "th Data segment"_s);
-                segment->byte(dataByte) = byte;
-            }
+
+            WASM_PARSER_FAIL_IF(source().size() < dataByteLength || (source().size() - dataByteLength) < m_offset, "can't get data bytes from "_s, segmentNumber, "th Data segment"_s);
+
+            memcpySpan(segment->span(), source().subspan(m_offset, dataByteLength));
+            m_offset += dataByteLength;
             m_info->data.append(WTFMove(segment));
             continue;
 
@@ -1298,13 +1298,13 @@ auto SectionParser::parseData() -> PartialResult
             WASM_PARSER_FAIL_IF(!parseVarUInt32(dataByteLength), "can't get "_s, segmentNumber, "th Data segment's data byte length"_s);
             WASM_PARSER_FAIL_IF(dataByteLength > maxModuleSize, segmentNumber, "th Data segment's data byte length is too big "_s, dataByteLength, " maximum "_s, maxModuleSize);
 
-            auto segment = Segment::create(*initExpr, dataByteLength, Segment::Kind::Active);
+            auto segment = Segment::tryCreate(*initExpr, dataByteLength, Segment::Kind::Active);
             WASM_PARSER_FAIL_IF(!segment, "can't allocate enough memory for "_s, segmentNumber, "th Data segment of size "_s, dataByteLength);
-            for (uint32_t dataByte = 0; dataByte < dataByteLength; ++dataByte) {
-                uint8_t byte;
-                WASM_PARSER_FAIL_IF(!parseUInt8(byte), "can't get "_s, dataByte, "th data byte from "_s, segmentNumber, "th Data segment"_s);
-                segment->byte(dataByte) = byte;
-            }
+
+            WASM_PARSER_FAIL_IF(source().size() < dataByteLength || (source().size() - dataByteLength) < m_offset, "can't get data bytes from "_s, segmentNumber, "th Data segment"_s);
+
+            memcpySpan(segment->span(), source().subspan(m_offset, dataByteLength));
+            m_offset += dataByteLength;
             m_info->data.append(WTFMove(segment));
             continue;
         }
@@ -1361,12 +1361,10 @@ auto SectionParser::parseCustom() -> PartialResult
 
     uint32_t payloadBytes = source().size() - m_offset;
     WASM_PARSER_FAIL_IF(!section.payload.tryReserveInitialCapacity(payloadBytes), "can't allocate enough memory for "_s, customSectionNumber, "th custom section's "_s, payloadBytes, " bytes"_s);
-    section.payload.resize(payloadBytes);
-    for (uint32_t byteNumber = 0; byteNumber < payloadBytes; ++byteNumber) {
-        uint8_t byte;
-        WASM_PARSER_FAIL_IF(!parseUInt8(byte), "can't get "_s, byteNumber, "th data byte from "_s, customSectionNumber, "th custom section"_s);
-        section.payload[byteNumber] = byte;
-    }
+
+    section.payload.grow(payloadBytes);
+    memcpySpan(section.payload.mutableSpan(), source().subspan(m_offset, payloadBytes));
+    m_offset += payloadBytes;
 
     if (WTF::Unicode::equal("name"_span8, section.name.span())) {
         NameSectionParser nameSectionParser(section.payload, m_info);

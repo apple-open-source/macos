@@ -55,10 +55,10 @@ void DeviceMotionController::suspendUpdates()
     m_client->stopUpdating();
 }
 
-void DeviceMotionController::resumeUpdates(const SecurityOriginData& origin)
+void DeviceMotionController::resumeUpdates()
 {
     if (hasListeners())
-        m_client->startUpdating(origin);
+        m_client->startUpdating();
 }
 
 #endif

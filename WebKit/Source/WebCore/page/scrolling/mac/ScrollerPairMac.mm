@@ -318,7 +318,7 @@ ScrollerPairMac::Values ScrollerPairMac::valuesForOrientation(ScrollbarOrientati
 
 bool ScrollerPairMac::hasScrollerImp()
 {
-    return verticalScroller().hasScrollerImp() || horizontalScroller().hasScrollerImp();
+    return checkedVerticalScroller()->hasScrollerImp() || checkedHorizontalScroller()->hasScrollerImp();
 }
 
 void ScrollerPairMac::releaseReferencesToScrollerImpsOnTheMainThread()
@@ -443,6 +443,12 @@ void ScrollerPairMac::setScrollbarWidth(ScrollbarWidth scrollbarWidth)
 
     checkedHorizontalScroller()->updateScrollbarStyle();
     checkedVerticalScroller()->updateScrollbarStyle();
+}
+
+void ScrollerPairMac::scrollbarColorChanged(const std::optional<ScrollbarColor>& scrollbarColor)
+{
+    checkedHorizontalScroller()->scrollbarColorChanged(scrollbarColor);
+    checkedVerticalScroller()->scrollbarColorChanged(scrollbarColor);
 }
 
 void ScrollerPairMac::updateScrollbarPainters()

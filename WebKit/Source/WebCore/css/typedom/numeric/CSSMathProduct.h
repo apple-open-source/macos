@@ -43,7 +43,7 @@ public:
 
 private:
     CSSMathOperator getOperator() const final { return CSSMathOperator::Product; }
-    CSSStyleValueType getType() const final { return CSSStyleValueType::CSSMathProduct; }
+    CSSStyleValueType styleValueType() const final { return CSSStyleValueType::CSSMathProduct; }
     void serialize(StringBuilder&, OptionSet<SerializationArguments>) const;
     std::optional<SumValue> toSumValue() const final;
     bool equals(const CSSNumericValue& other) const final { return equalsImpl<CSSMathProduct>(other); }
@@ -55,7 +55,7 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CSSMathProduct)
-static bool isType(const WebCore::CSSStyleValue& styleValue) { return styleValue.getType() == WebCore::CSSStyleValueType::CSSMathProduct; }
-static bool isType(const WebCore::CSSNumericValue& numericValue) { return numericValue.getType() == WebCore::CSSStyleValueType::CSSMathProduct; }
-static bool isType(const WebCore::CSSMathValue& mathValue) { return mathValue.getType() == WebCore::CSSStyleValueType::CSSMathProduct; }
+static bool isType(const WebCore::CSSStyleValue& styleValue) { return styleValue.styleValueType() == WebCore::CSSStyleValueType::CSSMathProduct; }
+static bool isType(const WebCore::CSSNumericValue& numericValue) { return numericValue.styleValueType() == WebCore::CSSStyleValueType::CSSMathProduct; }
+static bool isType(const WebCore::CSSMathValue& mathValue) { return mathValue.styleValueType() == WebCore::CSSStyleValueType::CSSMathProduct; }
 SPECIALIZE_TYPE_TRAITS_END()

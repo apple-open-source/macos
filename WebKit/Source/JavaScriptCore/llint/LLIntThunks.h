@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "MacroAssemblerCodeRef.h"
-#include "OpcodeSize.h"
-#include "VM.h"
+#include <JavaScriptCore/MacroAssemblerCodeRef.h>
+#include <JavaScriptCore/OpcodeSize.h>
+#include <JavaScriptCore/VM.h>
 #include <wtf/Scope.h>
 
 namespace JSC {
@@ -96,12 +96,6 @@ MacroAssemblerCodeRef<ExceptionHandlerPtrTag> callToThrowThunk();
 MacroAssemblerCodeRef<ExceptionHandlerPtrTag> handleUncaughtExceptionThunk();
 MacroAssemblerCodeRef<ExceptionHandlerPtrTag> handleCatchThunk(OpcodeSize);
 
-#if ENABLE(WEBASSEMBLY)
-MacroAssemblerCodeRef<ExceptionHandlerPtrTag> handleWasmCatchThunk(OpcodeSize);
-MacroAssemblerCodeRef<ExceptionHandlerPtrTag> handleWasmCatchAllThunk(OpcodeSize);
-MacroAssemblerCodeRef<ExceptionHandlerPtrTag> handleWasmTryTableThunk(WasmOpcodeID, OpcodeSize);
-#endif
-
 #if ENABLE(JIT_CAGE)
 MacroAssemblerCodeRef<NativeToJITGatePtrTag> jitCagePtrThunk();
 #endif
@@ -128,8 +122,6 @@ MacroAssemblerCodeRef<JSEntryPtrTag> returnLocationThunk(OpcodeID, OpcodeSize);
 #endif
 
 #if ENABLE(WEBASSEMBLY)
-MacroAssemblerCodeRef<JITThunkPtrTag> wasmFunctionEntryThunk();
-MacroAssemblerCodeRef<JITThunkPtrTag> wasmFunctionEntryThunkSIMD();
 MacroAssemblerCodeRef<JITThunkPtrTag> inPlaceInterpreterEntryThunk();
 MacroAssemblerCodeRef<JITThunkPtrTag> inPlaceInterpreterSIMDEntryThunk();
 MacroAssemblerCodeRef<JITThunkPtrTag> inPlaceInterpreterCatchEntryThunk();

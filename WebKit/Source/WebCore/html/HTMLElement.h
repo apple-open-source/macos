@@ -22,8 +22,9 @@
 
 #pragma once
 
-#include "HTMLNames.h"
-#include "StyledElement.h"
+#include <WebCore/HTMLNames.h>
+#include <WebCore/StyledElement.h>
+#include <wtf/Platform.h>
 
 namespace WebCore {
 
@@ -235,4 +236,4 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLElement)
     }
 SPECIALIZE_TYPE_TRAITS_END()
 
-#include "HTMLElementTypeHelpers.h"
+#include <WebCore/HTMLElementTypeHelpers.h>

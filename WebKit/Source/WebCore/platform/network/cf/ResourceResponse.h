@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ResourceResponseBase.h"
+#include <WebCore/ResourceResponseBase.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -82,6 +82,7 @@ public:
     }
 
     WEBCORE_EXPORT NSURLResponse *nsURLResponse() const;
+    WEBCORE_EXPORT RetainPtr<NSURLResponse> protectedNSURLResponse() const;
 
 #if USE(QUICK_LOOK)
     bool isQuickLook() const { return m_isQuickLook; }

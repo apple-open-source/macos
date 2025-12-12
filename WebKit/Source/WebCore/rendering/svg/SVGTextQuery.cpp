@@ -26,6 +26,7 @@
 #include "RenderBlockFlow.h"
 #include "RenderElementInlines.h"
 #include "RenderInline.h"
+#include "RenderObjectStyle.h"
 #include "RenderSVGInlineText.h"
 #include "RenderSVGText.h"
 #include "SVGElementTypeHelpers.h"

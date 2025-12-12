@@ -20,6 +20,7 @@
 #include "config.h"
 #include "WebKitColorChooser.h"
 
+#include "GtkUtilities.h"
 #include "WebKitColorChooserRequestPrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include <WebCore/Color.h>
@@ -63,12 +64,12 @@ void WebKitColorChooser::colorChooserRequestRGBAChanged(WebKitColorChooserReques
 {
     GdkRGBA rgba;
     webkit_color_chooser_request_get_rgba(request, &rgba);
-    colorChooser->didChooseColor(rgba);
+    colorChooser->didChooseColor(gdkRGBAToColor(rgba));
 }
 
 void WebKitColorChooser::showColorPicker(const Color& color)
 {
-    m_initialColor = color;
+    m_initialColor = colorToGdkRGBA(color);
     GRefPtr<WebKitColorChooserRequest> request = adoptGRef(webkitColorChooserRequestCreate(this));
     g_signal_connect(request.get(), "notify::rgba", G_CALLBACK(WebKitColorChooser::colorChooserRequestRGBAChanged), this);
     g_signal_connect(request.get(), "finished", G_CALLBACK(WebKitColorChooser::colorChooserRequestFinished), this);

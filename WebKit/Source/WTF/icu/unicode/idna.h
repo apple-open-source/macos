@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 *   Copyright (C) 2010-2012, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *   file name:  idna.h
 *   encoding:   UTF-8
@@ -305,8 +305,8 @@ public:
 private:
     friend class UTS46;
 
-    IDNAInfo(const IDNAInfo &other);  // no copying
-    IDNAInfo &operator=(const IDNAInfo &other);  // no copying
+    IDNAInfo(const IDNAInfo &other) = delete;  // no copying
+    IDNAInfo &operator=(const IDNAInfo &other) = delete;  // no copying
 
     void reset() {
         errors=labelErrors=0;

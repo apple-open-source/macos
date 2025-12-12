@@ -27,9 +27,9 @@
 
 #if ENABLE(MEDIA_STREAM)
 
-#include "AudioMediaStreamTrackRendererInternalUnit.h"
-#include "BaseAudioMediaStreamTrackRendererUnit.h"
-#include "Timer.h"
+#include <WebCore/AudioMediaStreamTrackRendererInternalUnit.h>
+#include <WebCore/BaseAudioMediaStreamTrackRendererUnit.h>
+#include <WebCore/Timer.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -48,7 +48,7 @@ class AudioSampleBufferList;
 class CAAudioStreamDescription;
 
 class AudioMediaStreamTrackRendererUnit : public BaseAudioMediaStreamTrackRendererUnit {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(AudioMediaStreamTrackRendererUnit);
 public:
     WEBCORE_EXPORT static AudioMediaStreamTrackRendererUnit& singleton();
     static bool supportsPerDeviceRendering();

@@ -21,13 +21,13 @@
 
 #pragma once
 
-#include "FilterEffectVector.h"
-#include "FilterFunction.h"
-#include "FloatPoint3D.h"
-#include "FloatRect.h"
-#include "GraphicsTypes.h"
-#include "ImageBuffer.h"
-#include "RenderingMode.h"
+#include <WebCore/FilterEffectVector.h>
+#include <WebCore/FilterFunction.h>
+#include <WebCore/FloatPoint3D.h>
+#include <WebCore/FloatRect.h>
+#include <WebCore/GraphicsTypes.h>
+#include <WebCore/ImageBuffer.h>
+#include <WebCore/RenderingMode.h>
 
 namespace WebCore {
 

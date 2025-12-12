@@ -69,7 +69,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeDrawingArea);
 constexpr FramesPerSecond DefaultPreferredFramesPerSecond = 60;
 
 RemoteLayerTreeDrawingArea::RemoteLayerTreeDrawingArea(WebPage& webPage, const WebPageCreationParameters& parameters)
-    : DrawingArea(DrawingAreaType::RemoteLayerTree, parameters.drawingAreaIdentifier, webPage)
+    : DrawingArea(parameters.drawingAreaIdentifier, webPage)
     , m_remoteLayerTreeContext(RemoteLayerTreeContext::create(webPage))
     , m_updateRenderingTimer(*this, &RemoteLayerTreeDrawingArea::updateRendering)
     , m_commitQueue(WorkQueue::create("com.apple.WebKit.WebContent.RemoteLayerTreeDrawingArea.CommitQueue"_s, WorkQueue::QOS::UserInteractive))
@@ -502,7 +502,7 @@ bool RemoteLayerTreeDrawingArea::BackingStoreFlusher::flush(UniqueRef<IPC::Encod
 
     TraceScope tracingScope(BackingStoreFlushStart, BackingStoreFlushEnd);
     bool flushSucceeded = true;
-    HashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>> handles;
+    HashMap<ImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>> handles;
     for (auto& flusher : flushers) {
         flushSucceeded = flusher->flushAndCollectHandles(handles);
         if (!flushSucceeded)

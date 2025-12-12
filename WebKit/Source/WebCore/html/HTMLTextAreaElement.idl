@@ -62,4 +62,7 @@
     [ImplementedAs=setSelectionRangeForBindings] undefined setSelectionRange(unsigned long start, unsigned long end, optional DOMString direction);
 
     [CEReactions=NotNeeded, ReflectSetter] attribute [AtomString] DOMString autocomplete;
+
+    // WebKit extension for autofill.
+    [EnabledForWorld=allowAutofill] readonly attribute boolean lastChangeWasUserEdit;
 };

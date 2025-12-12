@@ -196,7 +196,7 @@ try_read_write_test_unexpected: try_read_write.c exc_helpers.c excserver
 try_read_write_test_unexpected: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
 try_read_write_test_unexpected: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
 
-vm/corpse_owned_vmobjects: excserver_protect_state
+vm/corpse_owned_vmobjects: excserver_protect_state excserver
 vm/corpse_owned_vmobjects: OTHER_CFLAGS += $(OBJROOT)/excserver_protect_state.c -I $(OBJROOT)
 vm/corpse_owned_vmobjects: CODE_SIGN_ENTITLEMENTS += vm/corpse_owned_vmobjects.entitlements
 
@@ -691,6 +691,7 @@ vm/test_vm_no_pager: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.en
 CUSTOM_TARGETS += vm/test_vm_no_pager_helper
 
 vm/test_vm_no_pager_helper: vm/test_vm_no_pager_helper.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(CFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -lm -o $(SYMROOT)/$@;
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@;
 
@@ -739,9 +740,9 @@ perf_spawn_fork: CODE_SIGN_ENTITLEMENTS=./private_entitlement.plist
 mach_exception_reply: OTHER_CFLAGS += -Wno-cast-align
 mach_exception_reply: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
 
-os_thread_self_restrict: os_thread_self_restrict.c os_thread_self_restrict-entitlements.plist
+os_thread_self_restrict: os_thread_self_restrict.c os_thread_self_restrict-entitlements.plist test_utils.c
 os_thread_self_restrict: CODE_SIGN_ENTITLEMENTS=os_thread_self_restrict-entitlements.plist
-os_thread_self_restrict: OTHER_LDFLAGS += -sectcreate __TEXT __info_plist os_thread_self_restrict-identifier.plist
+os_thread_self_restrict: OTHER_LDFLAGS += -ldarwintest_utils -sectcreate __TEXT __info_plist os_thread_self_restrict-identifier.plist
 
 # Temporarily disabled.  See rdar://121952316
 EXCLUDED_SOURCES += os_thread_self_restrict.c
@@ -1083,6 +1084,11 @@ else
 EXCLUDED_SOURCES += ipc/rosetta_control_port_movability.c
 endif
 
+ipc/guard_objects_disabled_entitlement: CODE_SIGN_ENTITLEMENTS = entitlements/guard-objects-disabled.plist
+
+ipc/guard_objects_enabled_entitlement: CODE_SIGN_ENTITLEMENTS = entitlements/hardened-proc.entitlements
+
+ipc/hardened_process_version_entitlement: CODE_SIGN_ENTITLEMENTS = entitlements/hardened-proc-version.entitlements
 
 CUSTOM_TARGETS += posix_spawn_archpref_helper
 
@@ -1371,6 +1377,12 @@ arm_mte_soft_mode: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
 arm_mte_soft_mode: OTHER_CFLAGS += $(MTE_CFLAGS)
 arm_mte_soft_mode: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
 arm_mte_soft_mode: CODESIGN = $(CODESIGN_MTE_SOFT)
+
+CODESIGN_MTE_PREFLIGHT:=$(CODESIGN) -i com.apple.internal.arm_mte_preflight_test
+arm_mte_preflight: arm_mte_utilities.c
+arm_mte_preflight: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_preflight: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_preflight: CODESIGN = $(CODESIGN_MTE_PREFLIGHT)
 
 CODESIGN_MTE_API:=$(CODESIGN) -i com.apple.internal.arm_mte_api_test
 arm_mte_api: arm_mte_utilities.c

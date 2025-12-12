@@ -41,29 +41,22 @@ namespace WebCore {
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
-RetainPtr<NSData> TextRecognitionResult::encodeVKCImageAnalysis(RetainPtr<VKCImageAnalysis> analysis)
+std::optional<WebCore::AttributedString> TextRecognitionResult::extractAttributedString(VKCImageAnalysis *analysis)
 {
-    return [NSKeyedArchiver archivedDataWithRootObject:analysis.get() requiringSecureCoding:YES error:nil];
-}
-
-RetainPtr<VKCImageAnalysis> TextRecognitionResult::decodeVKCImageAnalysis(RetainPtr<NSData> data)
-{
-    if (!PAL::isVisionKitCoreFrameworkAvailable())
-        return nil;
-
-    // FIXME: This should use _enableStrictSecureDecodingMode or extract members into custom structures,
-    // but that is blocked by rdar://108673895. In the meantime, just make sure this can't
-    // be reached from outside the web content process to prevent sandbox escapes.
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isInWebProcess());
-
-    return [NSKeyedUnarchiver unarchivedObjectOfClass:PAL::getVKCImageAnalysisClass() fromData:data.get() error:nil];
+    if ([analysis isKindOfClass:PAL::getVKCImageAnalysisClassSingleton()]; [analysis respondsToSelector:@selector(_attributedStringForRange:)]) {
+        if (auto attributedString = [analysis _attributedStringForRange:NSMakeRange(0, NSIntegerMax)])
+            return { AttributedString::fromNSAttributedString(attributedString) };
+    }
+    return std::nullopt;
 }
 
 RetainPtr<NSAttributedString> stringForRange(const TextRecognitionResult& result, const CharacterRange& range)
 {
-    if (auto analysis = TextRecognitionResult::decodeVKCImageAnalysis(result.imageAnalysisData); [analysis respondsToSelector:@selector(_attributedStringForRange:)])
-        return { [analysis _attributedStringForRange:static_cast<NSRange>(range)] };
-    return nil;
+    if (!result.imageAnalysisData)
+        return nil;
+
+    auto everything = result.imageAnalysisData->nsAttributedString();
+    return [everything attributedSubstringFromRange:range];
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)

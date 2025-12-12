@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "JSFunction.h"
+#include <JavaScriptCore/JSFunction.h>
 
 namespace JSC {
 
@@ -46,9 +46,6 @@ public:
 protected:
     JSPromiseConstructor(VM&, FunctionExecutable*, JSGlobalObject*, Structure*);
     void finishCreation(VM&, JSPromisePrototype*);
-
-private:
-    void addOwnInternalSlots(VM&, JSGlobalObject*);
 };
 static_assert(sizeof(JSPromiseConstructor) == sizeof(JSFunction), "Allocate JSPromiseConstructor in JSFunction IsoSubspace");
 

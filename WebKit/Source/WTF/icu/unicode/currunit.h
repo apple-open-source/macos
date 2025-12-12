@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 * Copyright (c) 2004-2014, International Business Machines
-* Corporation and others.  All rights reserved.
+* Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
 * Created: April 26, 2004
@@ -48,7 +48,7 @@ class U_I18N_API CurrencyUnit: public MeasureUnit {
      * Construct an object with the given ISO currency code.
      *
      * @param isoCode the 3-letter ISO 4217 currency code; must have
-     * length 3 and need not be NUL-terminated. If NULL, the currency
+     * length 3 and need not be NUL-terminated. If nullptr, the currency
      * is initialized to the unknown currency XXX.
      * @param ec input-output error code. If the isoCode is invalid,
      * then this will be set to a failing value.

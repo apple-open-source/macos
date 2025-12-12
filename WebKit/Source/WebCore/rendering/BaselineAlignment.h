@@ -32,6 +32,9 @@
 
 namespace WebCore {
 
+enum class BaselineSynthesisEdge : uint8_t;
+enum class FontBaseline : uint8_t;
+enum class LineDirection : bool;
 class RenderBox;
 
 // These classes are used to implement the Baseline Alignment logic, as described in the CSS Box Alignment
@@ -105,7 +108,9 @@ public:
     void updateSharedGroup(const RenderBox& alignmentSubject, ItemPosition preference, LayoutUnit ascent);
     Vector<BaselineGroup>& sharedGroups();
 
+    static FontBaseline dominantBaseline(WritingMode);
     static WritingMode usedWritingModeForBaselineAlignment(LogicalBoxAxis alignmentContextAxis, WritingMode alignmentContainerWritingMode, WritingMode alignmentSubjectWritingMode);
+    static LayoutUnit synthesizedBaseline(const RenderBox&, FontBaseline baselineType, WritingMode writingModeForSynthesis, LineDirection, BaselineSynthesisEdge);
 
 private:
     BaselineGroup& findCompatibleSharedGroup(const RenderBox& alignmentSubject, ItemPosition preference);

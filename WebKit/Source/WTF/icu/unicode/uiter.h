@@ -4,7 +4,7 @@
 *******************************************************************************
 *
 *   Copyright (C) 2002-2011 International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
 *   file name:  uiter.h

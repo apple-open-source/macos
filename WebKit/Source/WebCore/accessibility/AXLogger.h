@@ -28,6 +28,8 @@
 #include "AXCoreObject.h"
 #include "AXObjectCache.h"
 #include <wtf/MonotonicTime.h>
+#include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 

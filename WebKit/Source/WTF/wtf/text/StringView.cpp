@@ -72,6 +72,13 @@ bool StringView::startsWith(StringView prefix) const
     return ::WTF::startsWith(*this, prefix);
 }
 
+bool StringView::hasInfixStartingAt(StringView prefix, unsigned start) const
+{
+    if (start > length())
+        return false;
+    return ::WTF::startsWith(substring(start), prefix);
+}
+
 bool StringView::startsWithIgnoringASCIICase(StringView prefix) const
 {
     return ::WTF::startsWithIgnoringASCIICase(*this, prefix);
@@ -85,6 +92,14 @@ bool StringView::endsWith(char16_t character) const
 bool StringView::endsWith(StringView suffix) const
 {
     return ::WTF::endsWith(*this, suffix);
+}
+
+bool StringView::hasInfixEndingAt(StringView suffix, unsigned end) const
+{
+    if (end < suffix.length())
+        return false;
+    size_t start = end - suffix.length();
+    return hasInfixStartingAt(suffix, start);
 }
 
 bool StringView::endsWithIgnoringASCIICase(StringView suffix) const
@@ -138,7 +153,7 @@ size_t StringView::find(AdaptiveStringSearcherTables& tables, StringView matchSt
     return searchString(tables, span16(), matchString.span16(), start);
 }
 
-size_t StringView::find(std::span<const LChar> match, unsigned start) const
+size_t StringView::find(std::span<const Latin1Character> match, unsigned start) const
 {
     ASSERT(!match.empty());
     auto length = this->length();
@@ -154,7 +169,7 @@ size_t StringView::find(std::span<const LChar> match, unsigned start) const
     return findInner(span16().subspan(start), match, start);
 }
 
-size_t StringView::reverseFind(std::span<const LChar> match, unsigned start) const
+size_t StringView::reverseFind(std::span<const Latin1Character> match, unsigned start) const
 {
     ASSERT(!match.empty());
     if (match.size() > length())
@@ -192,7 +207,7 @@ auto StringView::SplitResult::Iterator::operator++() -> Iterator&
 }
 
 class StringView::GraphemeClusters::Iterator::Impl {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(Impl);
 public:
     Impl(StringView stringView, std::optional<NonSharedCharacterBreakIterator>&& iterator, unsigned index)
         : m_stringView(stringView)
@@ -315,19 +330,29 @@ AtomString StringView::convertToASCIILowercaseAtom() const
     return convertASCIILowercaseAtom(span16());
 }
 
+std::optional<char32_t> StringView::convertToSingleCodePoint() const
+{
+    auto points = codePoints();
+    auto iterator = points.begin();
+    if (iterator == points.end())
+        return std::nullopt;
+    std::optional<char32_t> character { *iterator };
+    ++iterator;
+    return iterator == points.end() ? character : std::nullopt;
+}
 
 template<typename DestinationCharacterType, typename SourceCharacterType>
 void getCharactersWithASCIICaseInternal(StringView::CaseConvertType type, std::span<DestinationCharacterType> destination, std::span<const SourceCharacterType> source)
 {
-    static_assert(std::is_same<SourceCharacterType, LChar>::value || std::is_same<SourceCharacterType, char16_t>::value);
-    static_assert(std::is_same<DestinationCharacterType, LChar>::value || std::is_same<DestinationCharacterType, char16_t>::value);
+    static_assert(std::is_same<SourceCharacterType, Latin1Character>::value || std::is_same<SourceCharacterType, char16_t>::value);
+    static_assert(std::is_same<DestinationCharacterType, Latin1Character>::value || std::is_same<DestinationCharacterType, char16_t>::value);
     static_assert(sizeof(DestinationCharacterType) >= sizeof(SourceCharacterType));
     auto caseConvert = (type == StringView::CaseConvertType::Lower) ? toASCIILower<SourceCharacterType> : toASCIIUpper<SourceCharacterType>;
     for (auto [destinationCharacter, character] : zippedRange(destination, source))
         destinationCharacter = caseConvert(character);
 }
 
-void StringView::getCharactersWithASCIICase(CaseConvertType type, std::span<LChar> destination) const
+void StringView::getCharactersWithASCIICase(CaseConvertType type, std::span<Latin1Character> destination) const
 {
     ASSERT(is8Bit());
     getCharactersWithASCIICaseInternal(type, destination, span8());
@@ -487,7 +512,7 @@ template<typename CharacterType> static String makeStringBySimplifyingNewLinesSl
 String makeStringBySimplifyingNewLinesSlowCase(const String& string, unsigned firstCarriageReturn)
 {
     if (string.is8Bit())
-        return makeStringBySimplifyingNewLinesSlowCase<LChar>(string, firstCarriageReturn);
+        return makeStringBySimplifyingNewLinesSlowCase<Latin1Character>(string, firstCarriageReturn);
     return makeStringBySimplifyingNewLinesSlowCase<char16_t>(string, firstCarriageReturn);
 }
 
@@ -496,7 +521,7 @@ String makeStringBySimplifyingNewLinesSlowCase(const String& string, unsigned fi
 // Manage reference count manually so UnderlyingString does not need to be defined in the header.
 
 struct StringView::UnderlyingString {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(UnderlyingString);
     std::atomic_uint refCount { 1u };
     bool isValid { true };
     SUPPRESS_UNCOUNTED_MEMBER const StringImpl& string;
@@ -510,9 +535,9 @@ StringView::UnderlyingString::UnderlyingString(const StringImpl& string)
 
 static Lock underlyingStringsLock;
 
-static UncheckedKeyHashMap<const StringImpl*, StringView::UnderlyingString*>& underlyingStrings() WTF_REQUIRES_LOCK(underlyingStringsLock)
+static HashMap<const StringImpl*, StringView::UnderlyingString*>& underlyingStrings() WTF_REQUIRES_LOCK(underlyingStringsLock)
 {
-    static NeverDestroyed<UncheckedKeyHashMap<const StringImpl*, StringView::UnderlyingString*>> map;
+    static NeverDestroyed<HashMap<const StringImpl*, StringView::UnderlyingString*>> map;
     return map;
 }
 

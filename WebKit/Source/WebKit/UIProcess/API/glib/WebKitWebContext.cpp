@@ -1428,6 +1428,7 @@ void webkit_web_context_set_sandbox_enabled(WebKitWebContext* context, gboolean 
 }
 #endif
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
 static bool pathExistsAndIsNotHomeDirectory(const char* path)
 {
     std::unique_ptr<char, decltype(free)*> resolvedPath(realpath(path, nullptr), free);
@@ -1450,6 +1451,7 @@ static bool pathExistsAndIsNotHomeDirectory(const char* path)
 
     return strcmp(resolvedPath.get(), resolvedHomeDirectory.get());
 }
+IGNORE_CLANG_WARNINGS_END
 
 static bool pathIsBlocked(const char* path)
 {

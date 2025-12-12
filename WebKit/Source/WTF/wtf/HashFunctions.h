@@ -24,15 +24,9 @@
 #include <tuple>
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WTF {
-
-    template<size_t size> struct IntTypes;
-    template<> struct IntTypes<1> { typedef int8_t SignedType; typedef uint8_t UnsignedType; };
-    template<> struct IntTypes<2> { typedef int16_t SignedType; typedef uint16_t UnsignedType; };
-    template<> struct IntTypes<4> { typedef int32_t SignedType; typedef uint32_t UnsignedType; };
-    template<> struct IntTypes<8> { typedef int64_t SignedType; typedef uint64_t UnsignedType; };
-
     // integer hash function
 
     // Thomas Wang's 32 Bit Mix Function: http://www.cris.com/~Ttwang/tech/inthash.htm
@@ -100,13 +94,13 @@ namespace WTF {
     }
 
     template<typename T> struct IntHash {
-        static unsigned hash(T key) { return intHash(static_cast<typename IntTypes<sizeof(T)>::UnsignedType>(key)); }
+        static unsigned hash(T key) { return intHash(static_cast<typename SizedUnsignedTrait<sizeof(T)>::Type>(key)); }
         static bool equal(T a, T b) { return a == b; }
         static constexpr bool safeToCompareToEmptyOrDeleted = true;
     };
 
     template<typename T> struct FloatHash {
-        typedef typename IntTypes<sizeof(T)>::UnsignedType Bits;
+        typedef typename SizedUnsignedTrait<sizeof(T)>::Type Bits;
         static unsigned hash(T key)
         {
             return intHash(std::bit_cast<Bits>(key));

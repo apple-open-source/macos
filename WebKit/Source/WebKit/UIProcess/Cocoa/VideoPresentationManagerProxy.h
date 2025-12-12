@@ -81,6 +81,7 @@ private:
 
     void setVideoDimensions(const WebCore::FloatSize&);
     void audioSessionCategoryChanged(WebCore::AudioSessionCategory, WebCore::AudioSessionMode, WebCore::RouteSharingPolicy);
+    void routingContextUIDChanged(const String&);
 
     // VideoPresentationModel
     void addClient(WebCore::VideoPresentationModelClient&) override;
@@ -89,7 +90,7 @@ private:
     void setVideoLayerFrame(WebCore::FloatRect) override;
     void setVideoLayerGravity(WebCore::MediaPlayerEnums::VideoGravity) override;
     void setVideoFullscreenFrame(WebCore::FloatRect) override;
-    void fullscreenModeChanged(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) override;
+    void fullscreenModeChanged(WebCore::HTMLMediaElementEnums::VideoFullscreenMode, ShouldNotifyMediaElement) override;
     bool hasVideo() const override { return m_hasVideo; }
     bool isChildOfElementFullscreen() const final { return m_isChildOfElementFullscreen; }
 
@@ -237,6 +238,7 @@ private:
     void setDocumentVisibility(PlaybackSessionContextIdentifier, bool);
     void setIsChildOfElementFullscreen(PlaybackSessionContextIdentifier, bool);
     void audioSessionCategoryChanged(PlaybackSessionContextIdentifier, WebCore::AudioSessionCategory, WebCore::AudioSessionMode, WebCore::RouteSharingPolicy);
+    void routingContextUIDChanged(PlaybackSessionContextIdentifier, const String&);
     void hasBeenInteractedWith(PlaybackSessionContextIdentifier);
     void setVideoDimensions(PlaybackSessionContextIdentifier, const WebCore::FloatSize&);
     void enterFullscreen(PlaybackSessionContextIdentifier);

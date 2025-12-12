@@ -531,7 +531,7 @@ RefPtr<Value> Value::parseJSON(StringView json)
     RefPtr<Value> result;
     if (json.is8Bit()) {
         auto data = json.span8();
-        std::span<const LChar> tokenEnd;
+        std::span<const Latin1Character> tokenEnd;
         result = buildValue(data, tokenEnd, 0);
         if (containsNonSpace(tokenEnd))
             return nullptr;

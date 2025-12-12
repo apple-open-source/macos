@@ -23,8 +23,7 @@
 
 #include "ActiveDOMObject.h"
 #include "ContextDestructionObserverInlines.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAbstractOperations.h"
@@ -34,7 +33,6 @@
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMGlobalObjectInlines.h"
 #include "JSDOMWrapperCache.h"
-#include "Quirks.h"
 #include "ScriptExecutionContext.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
@@ -149,7 +147,7 @@ JSValue JSTestNamedSetterNoIdentifier::getConstructor(VM& vm, const JSGlobalObje
 
 void JSTestNamedSetterNoIdentifier::destroy(JSC::JSCell* cell)
 {
-    JSTestNamedSetterNoIdentifier* thisObject = static_cast<JSTestNamedSetterNoIdentifier*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestNamedSetterNoIdentifier* thisObject = static_cast<JSTestNamedSetterNoIdentifier*>(cell);
     thisObject->JSTestNamedSetterNoIdentifier::~JSTestNamedSetterNoIdentifier();
 }
 
@@ -381,7 +379,7 @@ bool JSTestNamedSetterNoIdentifierOwner::isReachableFromOpaqueRoots(JSC::Handle<
 
 void JSTestNamedSetterNoIdentifierOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestNamedSetterNoIdentifier = static_cast<JSTestNamedSetterNoIdentifier*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestNamedSetterNoIdentifier = static_cast<JSTestNamedSetterNoIdentifier*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestNamedSetterNoIdentifier->protectedWrapped().ptr(), jsTestNamedSetterNoIdentifier);
 }
@@ -395,7 +393,7 @@ extern "C" { extern void (*const __identifier("??_7TestNamedSetterNoIdentifier@W
 extern "C" { extern void* _ZTVN7WebCore27TestNamedSetterNoIdentifierE[]; }
 #endif
 template<std::same_as<TestNamedSetterNoIdentifier> T>
-static inline void verifyVTable(TestNamedSetterNoIdentifier* ptr) 
+static inline void verifyVTable(TestNamedSetterNoIdentifier* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -415,8 +413,9 @@ static inline void verifyVTable(TestNamedSetterNoIdentifier* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestNamedSetterNoIdentifier>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestNamedSetterNoIdentifier>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestNamedSetterNoIdentifier>(impl.ptr());
 #endif

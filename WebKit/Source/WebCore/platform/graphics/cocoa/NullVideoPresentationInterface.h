@@ -25,12 +25,13 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(COCOA)
 
-#include "NullPlaybackSessionInterface.h"
-#include "VideoFullscreenCaptions.h"
-#include "VideoPresentationLayerProvider.h"
-#include "VideoPresentationModel.h"
+#include <WebCore/NullPlaybackSessionInterface.h>
+#include <WebCore/VideoFullscreenCaptions.h>
+#include <WebCore/VideoPresentationLayerProvider.h>
+#include <WebCore/VideoPresentationModel.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -71,7 +72,7 @@ public:
     void preparedToReturnToStandby() { }
     bool mayAutomaticallyShowVideoPictureInPicture() const { return false; }
     void applicationDidBecomeActive() { }
-    void setMode(HTMLMediaElementEnums::VideoFullscreenMode, bool) { }
+    void setMode(HTMLMediaElementEnums::VideoFullscreenMode, VideoPresentationModel::ShouldNotifyMediaElement) { }
     HTMLMediaElementEnums::VideoFullscreenMode mode() const { return HTMLMediaElementEnums::VideoFullscreenModeNone; }
     bool hasMode(HTMLMediaElementEnums::VideoFullscreenMode) const { return false; }
     bool pictureInPictureWasStartedWhenEnteringBackground() const { return false; }

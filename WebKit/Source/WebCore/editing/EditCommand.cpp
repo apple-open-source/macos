@@ -28,7 +28,7 @@
 
 #include "AXObjectCache.h"
 #include "CompositeEditCommand.h"
-#include "DocumentInlines.h"
+#include "DocumentView.h"
 #include "Editing.h"
 #include "Editor.h"
 #include "Element.h"

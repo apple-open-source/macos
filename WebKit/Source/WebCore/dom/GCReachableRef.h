@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "Node.h"
+#include <WebCore/Node.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/RawPtrTraits.h>
 #include <wtf/RefPtr.h>

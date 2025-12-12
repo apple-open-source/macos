@@ -26,6 +26,7 @@
 #include "config.h"
 #include "TransactionOperation.h"
 
+#include "IDBActiveDOMObjectInlines.h"
 #include "IDBCursor.h"
 #include "IDBDatabase.h"
 #include <JavaScriptCore/HeapInlines.h>
@@ -57,6 +58,19 @@ TransactionOperation::TransactionOperation(IDBTransaction& transaction, IDBReque
 
     request.setTransactionOperationID(m_operationID);
     m_idbRequest = request;
+}
+
+void TransactionOperation::transitionToComplete(const IDBResultData& data, RefPtr<TransactionOperation>&& lastRef)
+{
+    ASSERT(isMainThread());
+
+    if (canCurrentThreadAccessThreadLocalData(originThread()))
+        transitionToCompleteOnThisThread(data);
+    else {
+        m_transaction->performCallbackOnOriginThread(*this, &TransactionOperation::transitionToCompleteOnThisThread, data);
+        m_transaction->callFunctionOnOriginThread([lastRef = WTFMove(lastRef)]() {
+        });
+    }
 }
 
 } // namespace IDBClient

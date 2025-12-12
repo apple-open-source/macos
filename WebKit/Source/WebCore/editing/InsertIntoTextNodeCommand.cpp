@@ -31,6 +31,7 @@
 #include "Editor.h"
 #include "EditorClient.h"
 #include "LocalFrame.h"
+#include "NodeDocument.h"
 #include "RenderText.h"
 #include "Settings.h"
 #include "Text.h"

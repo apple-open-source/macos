@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -201,6 +201,29 @@
 #define PAS_CPU_ADDRESS64 1
 #else
 #error "Unsupported compiler for libpas"
+#endif
+
+#if PAS_PLATFORM(COCOA)
+/* Should be aligned with the definition in WTF/wtf/PlatformUse.h */
+#if defined __has_include && __has_include(<CoreFoundation/CFPriv.h>)
+#define PAS_USE_APPLE_INTERNAL_SDK 1
+#else
+#define PAS_USE_APPLE_INTERNAL_SDK 0
+#endif
+#else // !PAS_PLATFORM(COCOA)
+#define PAS_USE_APPLE_INTERNAL_SDK 0
+#endif // PAS_PLATFORM(COCOA)
+
+#ifndef PAS_USE_OPENSOURCE_MTE
+#define PAS_USE_OPENSOURCE_MTE 1
+// For legacy consumers of certain headers
+#ifndef MTE_ENABLED_IN_BUILD
+#define MTE_ENABLED_IN_BUILD 0
+#endif // MTE_ENABLED_IN_BUILD
+#endif // PAS_USE_OPENSOURCE_MTE
+
+#if PAS_CPU(ADDRESS64) && PAS_PLATFORM(IOS_FAMILY) && !PAS_PLATFORM(IOS_FAMILY_SIMULATOR) && !PAS_PLATFORM(MACCATALYST)
+#define PAS_HAVE_36BIT_ADDRESS 1
 #endif
 
 /* PAS_ALLOW_UNSAFE_BUFFER_USAGE */

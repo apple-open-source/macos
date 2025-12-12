@@ -27,7 +27,7 @@
 #include "WebCoreJSClientData.h"
 
 #include "DOMGCOutputConstraint.h"
-#include "DocumentInlines.h"
+#include "ElementInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSAudioWorkletGlobalScope.h"
@@ -147,7 +147,7 @@ JSVMClientData::JSVMClientData(VM& vm)
 JSVMClientData::~JSVMClientData()
 {
     m_clients.forEach([](auto& client) {
-        client.willDestroyVM();
+        Ref { client }->willDestroyVM();
     });
 
     ASSERT(m_worldSet.contains(m_normalWorld.get()));

@@ -47,8 +47,6 @@ webkit_platform_headers: "CoreIPCContacts.h"
     Variant<WebKit::CoreIPCDateComponents, WebKit::CoreIPCCNPhoneNumber, WebKit::CoreIPCCNPostalAddress, WebKit::CoreIPCString> value;
 }
 
-enum class WebKit::ContactType : bool
-
 [CustomHeader, WebKitPlatform, LegacyPopulateFromEmptyConstructor] class WebKit::CoreIPCCNContact {
     String m_identifier;
     bool m_personContactType;

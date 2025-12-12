@@ -41,6 +41,7 @@
 #import <wtf/RunLoop.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/WorkQueue.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/text/Base64.h>
 #import <wtf/text/MakeString.h>
@@ -107,7 +108,7 @@ static void performAfterFirstUnlock(Function<void()>&& function)
     RELEASE_LOG(Push, "Device is locked. Delaying init until it unlocks for the first time.");
 
     if (notifyToken == NOTIFY_TOKEN_INVALID) {
-        notify_register_dispatch(kMobileKeyBagLockStatusNotifyToken, &notifyToken, dispatch_get_main_queue(), ^(int token) {
+        notify_register_dispatch(kMobileKeyBagLockStatusNotifyToken, &notifyToken, mainDispatchQueueSingleton(), ^(int token) {
             if (!notify_is_valid_token(token) || !hasUnlockedAtLeastOnce())
                 return;
             runFunctions();

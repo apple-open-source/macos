@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include "ResourceResponseBase.h"
+#include <WebCore/ResourceResponseBase.h>
 
 namespace WebCore {
 

@@ -32,6 +32,7 @@
 #include "Node.h"
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderLayer.h"
 #include "RenderTheme.h"
@@ -72,12 +73,6 @@ Ref<HTMLInputElement> RenderSlider::protectedElement() const
     return downcast<HTMLInputElement>(nodeForNonAnonymous());
 }
 
-LayoutUnit RenderSlider::baselinePosition(bool /*firstLine*/, LineDirectionMode, LinePositionMode) const
-{
-    // FIXME: Patch this function for writing-mode.
-    return height() + marginTop();
-}
-
 void RenderSlider::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
     if (shouldApplySizeOrInlineSizeContainment()) {
@@ -90,7 +85,7 @@ void RenderSlider::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, La
     maxLogicalWidth = defaultTrackLength * style().usedZoom();
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
-        minLogicalWidth = std::max(0_lu, Style::evaluate(logicalWidth, 0_lu));
+        minLogicalWidth = std::max(0_lu, Style::evaluate<LayoutUnit>(logicalWidth, 0_lu, Style::ZoomNeeded { }));
     else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }

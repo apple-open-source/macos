@@ -64,6 +64,8 @@ public:
 
     DECLARE_INFO;
 
+    DECLARE_VISIT_CHILDREN;
+
     enum class RequiredComponent : uint8_t { Date, Time, Any };
     enum class Defaults : uint8_t { Date, Time, All };
     void initializeDateTimeFormat(JSGlobalObject*, JSValue locales, JSValue options, RequiredComponent, Defaults);
@@ -84,13 +86,10 @@ public:
 private:
     IntlDateTimeFormat(VM&, Structure*);
     DECLARE_DEFAULT_FINISH_CREATION;
-    DECLARE_VISIT_CHILDREN;
 
     static Vector<String> localeData(const String&, RelevantExtensionKey);
 
     UDateIntervalFormat* createDateIntervalFormatIfNecessary(JSGlobalObject*);
-
-    static double handleDateTimeValue(JSGlobalObject*, JSValue);
 
     enum class Weekday : uint8_t { None, Narrow, Short, Long };
     enum class Era : uint8_t { None, Narrow, Short, Long };

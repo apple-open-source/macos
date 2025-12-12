@@ -26,6 +26,7 @@
 #include "config.h"
 #include "SessionState.h"
 
+#include "SessionStateConversion.h"
 #include <WebCore/BackForwardFrameItemIdentifier.h>
 #include <WebCore/BackForwardItemIdentifier.h>
 
@@ -181,6 +182,68 @@ void FrameState::replaceChildFrameState(Ref<FrameState>&& frameState)
         }
         child->replaceChildFrameState(frameState.copyRef());
     }
+}
+
+bool SessionState::isEqualForTesting(const SessionState& other) const
+{
+    if (!backForwardListState.isEqualForTesting(other.backForwardListState))
+        return false;
+
+    if (provisionalURL != other.provisionalURL)
+        return false;
+
+    if (isAppInitiated != other.isAppInitiated)
+        return false;
+
+    return true;
+}
+
+bool BackForwardListState::isEqualForTesting(const BackForwardListState& other) const
+{
+    if (items.size() != other.items.size())
+        return false;
+
+    for (size_t i = 0; i < items.size(); ++i) {
+        Ref item = items[i];
+        Ref otherItem = other.items[i];
+        if (!item->isEqualForTesting(otherItem.get()))
+            return false;
+    }
+
+    if (currentIndex != other.currentIndex)
+        return false;
+
+    return true;
+}
+
+bool FrameState::isEqualForTesting(const FrameState& other) const
+{
+    if (urlString != other.urlString)
+        return false;
+
+    if (originalURLString != other.originalURLString)
+        return false;
+
+    if (referrer != other.referrer)
+        return false;
+
+    if (target != other.target)
+        return false;
+
+    if (title != other.title)
+        return false;
+
+    if (children.size() != other.children.size())
+        return false;
+
+    for (size_t i = 0; i < children.size(); ++i) {
+        Ref child = children[i];
+        Ref otherChild = other.children[i];
+        if (!child->isEqualForTesting(otherChild.get()))
+            return false;
+    }
+
+    return true;
 }
 
 } // namespace WebKit

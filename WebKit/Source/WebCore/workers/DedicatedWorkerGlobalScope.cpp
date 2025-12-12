@@ -36,6 +36,7 @@
 #include "DedicatedWorkerThread.h"
 #include "EventNames.h"
 #include "EventTargetInterfaces.h"
+#include "ExceptionOr.h"
 #include "JSRTCRtpScriptTransformer.h"
 #include "LocalDOMWindow.h"
 #include "MessageEvent.h"
@@ -103,21 +104,21 @@ ExceptionOr<void> DedicatedWorkerGlobalScope::postMessage(JSC::JSGlobalObject& s
     if (channels.hasException())
         return channels.releaseException();
 
-    if (CheckedPtr workerObjectProxy = thread().workerObjectProxy())
+    if (CheckedPtr workerObjectProxy = thread()->workerObjectProxy())
         workerObjectProxy->postMessageToWorkerObject({ message.releaseReturnValue(), channels.releaseReturnValue() });
     return { };
 }
 
-DedicatedWorkerThread& DedicatedWorkerGlobalScope::thread()
+Ref<DedicatedWorkerThread> DedicatedWorkerGlobalScope::thread()
 {
-    return static_cast<DedicatedWorkerThread&>(Base::thread());
+    return downcast<DedicatedWorkerThread>(Base::thread());
 }
 
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
 CallbackId DedicatedWorkerGlobalScope::requestAnimationFrame(Ref<RequestAnimationFrameCallback>&& callback)
 {
     if (!m_workerAnimationController)
-        m_workerAnimationController = WorkerAnimationController::create(*this);
+        lazyInitialize(m_workerAnimationController, WorkerAnimationController::create(*this));
     return m_workerAnimationController->requestAnimationFrame(WTFMove(callback));
 }
 
@@ -144,7 +145,7 @@ RefPtr<RTCRtpScriptTransformer> DedicatedWorkerGlobalScope::createRTCRtpScriptTr
 NotificationClient* DedicatedWorkerGlobalScope::notificationClient()
 {
     if (!m_notificationClient)
-        m_notificationClient = WorkerNotificationClient::create(*this);
+        lazyInitialize(m_notificationClient, WorkerNotificationClient::create(*this));
     return m_notificationClient.get();
 }
 #endif

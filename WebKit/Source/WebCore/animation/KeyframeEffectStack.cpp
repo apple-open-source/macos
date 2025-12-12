@@ -36,6 +36,10 @@
 #include "ScaleTransformOperation.h"
 #include "Settings.h"
 #include "StyleInterpolation.h"
+#include "StyleRotate.h"
+#include "StyleScale.h"
+#include "StyleTransform.h"
+#include "StyleTranslate.h"
 #include "TransformOperations.h"
 #include "TranslateTransformOperation.h"
 #include "WebAnimation.h"
@@ -139,7 +143,7 @@ void KeyframeEffectStack::ensureEffectsAreSorted()
     m_isSorted = true;
 }
 
-void KeyframeEffectStack::setCSSAnimationList(RefPtr<const AnimationList>&& cssAnimationList)
+void KeyframeEffectStack::setCSSAnimationList(std::optional<Style::Animations>&& cssAnimationList)
 {
     m_cssAnimationList = WTFMove(cssAnimationList);
     // Since the list of animation names has changed, the sorting order of the animation effects may have changed as well.

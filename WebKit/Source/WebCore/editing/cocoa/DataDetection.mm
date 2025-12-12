@@ -34,10 +34,12 @@
 #import "ColorSerialization.h"
 #import "CommonAtomStrings.h"
 #import "DataDetectionResultsStorage.h"
+#import "DocumentView.h"
 #import "Editing.h"
 #import "ElementAncestorIteratorInlines.h"
 #import "ElementRareData.h"
 #import "ElementTraversal.h"
+#import "FrameDestructionObserverInlines.h"
 #import "HTMLAnchorElement.h"
 #import "HTMLDivElement.h"
 #import "HTMLNames.h"
@@ -146,7 +148,7 @@ std::optional<DetectedItem> DataDetection::detectItemAroundHitTestResult(const H
     std::optional<SimpleRange> contextRange;
 
     if (!is<HTMLTextFormControlElement>(*node)) {
-        position = renderer->positionForPoint(hitTestResult.localPoint(), HitTestSource::User, nullptr);
+        position = renderer->visiblePositionForPoint(hitTestResult.localPoint(), HitTestSource::User);
         if (position.isNull())
             position = firstPositionInOrBeforeNode(node);
 
@@ -456,7 +458,7 @@ void DataDetection::removeDataDetectedLinksInDocument(Document& document)
 
 std::optional<double> DataDetection::extractReferenceDate(NSDictionary *context)
 {
-    if (auto date = dynamic_objc_cast<NSDate>([context objectForKey:PAL::get_DataDetectorsUI_kDataDetectorsReferenceDateKey()]))
+    if (auto date = dynamic_objc_cast<NSDate>([context objectForKey:PAL::get_DataDetectorsUI_kDataDetectorsReferenceDateKeySingleton()]))
         return [date timeIntervalSince1970];
     return std::nullopt;
 }
@@ -549,7 +551,7 @@ static Vector<DDQueryFragmentCore> getFragmentsFromQuery(DDScanQueryRef scanQuer
 
 static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionSet<DataDetectorType> types, std::optional<double> referenceDateFromContext, DDScanQueryRef scanQuery, const SimpleRange& contextRange, const Vector<DDQueryFragmentCore>& oldFragments)
 {
-    RetainPtr scannerResults = adoptCF(PAL::softLink_DataDetectorsCore_DDScannerCopyResultsWithOptions(scanner, PAL::get_DataDetectorsCore_DDScannerCopyResultsOptionsForPassiveUse() | DDScannerCopyResultsOptionsCoalesceSignatures));
+    RetainPtr scannerResults = adoptCF(PAL::softLink_DataDetectorsCore_DDScannerCopyResultsWithOptions(scanner, PAL::get_DataDetectorsCore_DDScannerCopyResultsOptionsForPassiveUseSingleton() | DDScannerCopyResultsOptionsCoalesceSignatures));
 
     if (!scannerResults)
         return nil;
@@ -704,7 +706,7 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
     if (lastTextNodeToUpdate)
         lastTextNodeToUpdate->setData(lastNodeContent);
 
-    return [PAL::getDDScannerResultClass() resultsFromCoreResults:scannerResults.get()];
+    return [PAL::getDDScannerResultClassSingleton() resultsFromCoreResults:scannerResults.get()];
 }
 
 // This is the async version of `detectContentInRange` and should be preferred.

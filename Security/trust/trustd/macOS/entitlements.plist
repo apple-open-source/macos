@@ -36,5 +36,11 @@
 	<true/>
 	<key>com.apple.private.amfi.version-restriction</key>
 	<integer>1</integer>
+	<key>com.apple.private.biome.read-write</key>
+	<array>
+		<string>Device.Networking.TLS</string>
+	</array>
+	<key>com.apple.private.biome.client-identifier</key>
+	<string>com.apple.trustd</string>
 </dict>
 </plist>

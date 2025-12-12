@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
 #include "ReadableStreamSource.h"
+#include <WebCore/ActiveDOMObject.h>
 
 namespace JSC {
 class ArrayBuffer;

@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
-#include "MediaRecorderPrivateOptions.h"
-#include "RealtimeMediaSource.h"
+#include <WebCore/ExceptionOr.h>
+#include <WebCore/MediaRecorderPrivateOptions.h>
+#include <WebCore/RealtimeMediaSource.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>

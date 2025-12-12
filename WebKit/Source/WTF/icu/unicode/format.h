@@ -3,7 +3,7 @@
 /*
 ********************************************************************************
 * Copyright (C) 1997-2011, International Business Machines Corporation and others.
-* All rights reserved.
+* All Rights Reserved.
 ********************************************************************************
 *
 * File FORMAT.H

@@ -7,6 +7,10 @@
 // Image11.h: Implements the rx::Image11 class, which acts as the interface to
 // the actual underlying resources of a Texture
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "libANGLE/renderer/d3d/d3d11/Image11.h"
 
 #include "common/utilities.h"
@@ -277,16 +281,14 @@ angle::Result Image11::loadData(const gl::Context *context,
     Context11 *context11 = GetImplAs<Context11>(context);
 
     const gl::InternalFormat &formatInfo = gl::GetSizedInternalFormatInfo(mInternalFormat);
-    GLuint inputRowPitch                 = 0;
-    ANGLE_CHECK_GL_MATH(context11, formatInfo.computeRowPitch(type, area.width, unpack.alignment,
-                                                              unpack.rowLength, &inputRowPitch));
+
+    GLuint inputRowPitch   = 0;
     GLuint inputDepthPitch = 0;
-    ANGLE_CHECK_GL_MATH(context11, formatInfo.computeDepthPitch(area.height, unpack.imageHeight,
-                                                                inputRowPitch, &inputDepthPitch));
     GLuint inputSkipBytes = 0;
     ANGLE_CHECK_GL_MATH(context11,
-                        formatInfo.computeSkipBytes(type, inputRowPitch, inputDepthPitch, unpack,
-                                                    applySkipImages, &inputSkipBytes));
+                        formatInfo.computeRowDepthSkipBytes(
+                            type, gl::Extents{area.width, area.height, area.depth}, unpack,
+                            applySkipImages, &inputRowPitch, &inputDepthPitch, &inputSkipBytes));
 
     const d3d11::DXGIFormatSize &dxgiFormatInfo = d3d11::GetDXGIFormatSizeInfo(mDXGIFormat);
     GLuint outputPixelSize                      = dxgiFormatInfo.pixelBytes;

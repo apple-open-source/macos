@@ -138,6 +138,7 @@ XNU_ONLY_EXPORTS = \
 	arcade.h \
 	btlog.h \
 	cpc.h \
+	host_statistics.h \
 	iotrace.h \
 	ipc_kobject.h \
 	lock_ptr.h \

@@ -829,6 +829,27 @@ spec_write(struct vnop_write_args *ap)
 	return 0;
 }
 
+static void
+vnode_spec_revoke_wait(vnode_t vp)
+{
+	vnode_lock_spin(vp);
+	while (vp->v_specinfo->si_flags & SI_REVOKEWAIT) {
+		msleep(&vp->v_specinfo->si_flags, &vp->v_lock, PVFS | PSPIN,
+		    "vnode_spec_revokewait", 0);
+	}
+	vp->v_specinfo->si_flags |= SI_REVOKEWAIT;
+	vnode_unlock(vp);
+}
+
+static void
+vnode_spec_revoke_done(vnode_t vp)
+{
+	vnode_lock_spin(vp);
+	vp->v_specinfo->si_flags &= ~SI_REVOKEWAIT;
+	vnode_unlock(vp);
+	wakeup(&vp->v_specinfo->si_flags);
+}
+
 /*
  * Device ioctl operation.
  */
@@ -836,22 +857,51 @@ int
 spec_ioctl(struct vnop_ioctl_args *ap)
 {
 	proc_t p = vfs_context_proc(ap->a_context);
-	dev_t dev = ap->a_vp->v_rdev;
+	vnode_t vp = ap->a_vp;
+	dev_t dev = vp->v_rdev;
 	int     retval = 0;
+	bool revoke_done_needed = false;
 
 	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_IOCTL, 0) | DBG_FUNC_START,
-	    dev, ap->a_command, ap->a_fflag, ap->a_vp->v_type, 0);
+	    dev, ap->a_command, ap->a_fflag, vp->v_type, 0);
 
-	switch (ap->a_vp->v_type) {
+	switch (vp->v_type) {
 	case VCHR:
+		if (vnode_istty(vp) && (ap->a_command == TIOCREVOKE)) {
+			/*
+			 * TIOCREVOKE is called while revoking a tty vnode.
+			 * However, at the point where it is called, it is not
+			 * possible to detect whether the device is still open
+			 * or not to be able to make the call to the device
+			 * safely. We detect that here and serialize with a
+			 * close on the device through the revoke wait
+			 * flag (if needed).
+			 */
+			if (vp->v_specinfo->si_opencount == 0) {
+				goto out;
+			}
+			devsw_lock(dev, S_IFCHR);
+			if (vp->v_specinfo->si_opencount == 0) {
+				devsw_unlock(dev, S_IFCHR);
+				goto out;
+			}
+			vnode_spec_revoke_wait(vp);
+			devsw_unlock(dev, S_IFCHR);
+			revoke_done_needed = true;
+		}
+
 		retval = (*cdevsw[major(dev)].d_ioctl)(dev, ap->a_command, ap->a_data,
 		    ap->a_fflag, p);
+
+		if (revoke_done_needed) {
+			vnode_spec_revoke_done(vp);
+		}
 		break;
 
 	case VBLK:
 		retval = (*bdevsw[major(dev)].d_ioctl)(dev, ap->a_command, ap->a_data, ap->a_fflag, p);
 		if (!retval && ap->a_command == DKIOCSETBLOCKSIZE) {
-			ap->a_vp->v_specsize = *(uint32_t *)ap->a_data;
+			vp->v_specsize = *(uint32_t *)ap->a_data;
 		}
 		break;
 
@@ -859,6 +909,7 @@ spec_ioctl(struct vnop_ioctl_args *ap)
 		panic("spec_ioctl");
 		/* NOTREACHED */
 	}
+out:
 	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_IOCTL, 0) | DBG_FUNC_END,
 	    dev, ap->a_command, ap->a_fflag, retval, 0);
 
@@ -2838,7 +2889,18 @@ spec_close_internal(struct vnode *vp, dev_t dev, int flags, vfs_context_t ctx)
 		 * close on last reference or on vnode revoke call
 		 */
 		if (vcount(vp) == 0 || (flags & IO_REVOKE) != 0) {
+			bool revoke_done_needed = false;
+
+			if (vnode_istty(vp) && vnode_isrecycled(vp)) {
+				vnode_spec_revoke_wait(vp);
+				revoke_done_needed = true;
+			}
+
 			error = cdevsw[major(dev)].d_close(dev, flags, S_IFCHR, p);
+
+			if (revoke_done_needed) {
+				vnode_spec_revoke_done(vp);
+			}
 		}
 
 		devsw_unlock(dev, S_IFCHR);

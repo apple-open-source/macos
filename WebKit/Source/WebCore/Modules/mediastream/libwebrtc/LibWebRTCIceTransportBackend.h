@@ -27,18 +27,9 @@
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
 #include "LibWebRTCMacros.h"
+#include "LibWebRTCRefWrappers.h"
 #include "RTCIceTransportBackend.h"
 #include <wtf/TZoneMalloc.h>
-
-ALLOW_UNUSED_PARAMETERS_BEGIN
-
-#include <webrtc/api/scoped_refptr.h>
-
-ALLOW_UNUSED_PARAMETERS_END
-
-namespace webrtc {
-class IceTransportInterface;
-}
 
 namespace WebCore {
 
@@ -52,12 +43,12 @@ public:
 
 private:
     // RTCIceTransportBackend
-    const void* backend() const final { return m_backend.get(); }
+    const void* backend() const final { return m_backend.ptr(); }
     void registerClient(RTCIceTransportBackendClient&) final;
     void unregisterClient() final;
 
-    webrtc::scoped_refptr<webrtc::IceTransportInterface> m_backend;
-    RefPtr<LibWebRTCIceTransportBackendObserver> m_observer;
+    const Ref<webrtc::IceTransportInterface> m_backend;
+    const RefPtr<LibWebRTCIceTransportBackendObserver> m_observer;
 };
 
 } // namespace WebCore

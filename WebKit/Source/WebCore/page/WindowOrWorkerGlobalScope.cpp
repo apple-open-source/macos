@@ -46,7 +46,11 @@ ExceptionOr<String> WindowOrWorkerGlobalScope::btoa(const String& stringToEncode
     if (!stringToEncode.containsOnlyLatin1())
         return Exception { ExceptionCode::InvalidCharacterError };
 
-    return base64EncodeToString(byteCast<uint8_t>(stringToEncode.latin1().span()));
+    String encodedString = base64EncodeToStringReturnNullIfOverflow(stringToEncode.latin1());
+    if (!encodedString)
+        return Exception { ExceptionCode::OutOfMemoryError };
+
+    return encodedString;
 }
 
 ExceptionOr<String> WindowOrWorkerGlobalScope::atob(const String& encodedString)

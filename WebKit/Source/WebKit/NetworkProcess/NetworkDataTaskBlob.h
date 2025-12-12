@@ -32,7 +32,9 @@
 #pragma once
 
 #include "NetworkDataTask.h"
+#include <WebCore/BlobResourceHandle.h>
 #include <WebCore/FileStreamClient.h>
+#include <WebCore/HTTPParsers.h>
 #include <wtf/FileHandle.h>
 
 namespace WebCore {
@@ -46,7 +48,7 @@ namespace WebKit {
 
 class NetworkProcess;
 
-class NetworkDataTaskBlob final : public NetworkDataTask, public WebCore::FileStreamClient {
+class NetworkDataTaskBlob final : public NetworkDataTask, public WebCore::BlobResourceHandleBase, public WebCore::FileStreamClient {
 public:
     static Ref<NetworkDataTask> create(NetworkSession& session, NetworkDataTaskClient& client, const WebCore::ResourceRequest& request, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences, const RefPtr<WebCore::SecurityOrigin>& topOrigin)
     {
@@ -71,19 +73,9 @@ private:
     void didOpen(bool) override;
     void didRead(int) override;
 
-    enum class Error {
-        NoError = 0,
-        NotFoundError = 1,
-        SecurityError = 2,
-        RangeError = 3,
-        NotReadableError = 4,
-        MethodNotAllowed = 5
-    };
-
     void clearStream();
     void getSizeForNext();
     void dispatchDidReceiveResponse();
-    std::optional<Error> seek();
     bool consumeData(std::span<const uint8_t>);
     void read();
     bool readData(const WebCore::BlobDataItem&);
@@ -96,22 +88,11 @@ private:
     void didFail(Error);
     void didFinish();
 
-    enum { kPositionNotSpecified = -1 };
-
-    RefPtr<WebCore::BlobData> m_blobData;
     std::unique_ptr<WebCore::AsyncFileStream> m_stream; // For asynchronous loading.
     Vector<uint8_t> m_buffer;
-    Vector<long long> m_itemLengthList;
     State m_state { State::Suspended };
-    bool m_isRangeRequest { false };
-    long long m_rangeStart { kPositionNotSpecified };
-    long long m_rangeEnd { kPositionNotSpecified };
-    long long m_totalSize { 0 };
-    long long m_downloadBytesWritten { 0 };
-    long long m_totalRemainingSize { 0 };
-    long long m_currentItemReadSize { 0 };
+    uint64_t m_downloadBytesWritten { 0 };
     unsigned m_sizeItemCount { 0 };
-    unsigned m_readItemCount { 0 };
     bool m_fileOpened { false };
     FileSystem::FileHandle m_downloadFile;
 

@@ -1168,7 +1168,7 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 			}
 			lck_mtx_unlock(rnh_lock);
 			lck_mtx_lock(nd6_mutex);
-			pfxlist_onlink_check();
+			pfxlist_onlink_check(false);
 			lck_mtx_unlock(nd6_mutex);
 			RT_LOCK(rt);
 		}

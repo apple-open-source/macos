@@ -65,6 +65,7 @@ enum class SDKAlignedBehavior {
     HTMLDocumentSupportedPropertyNames,
     InitializeWebKit2MainThreadAssertion,
     InspectableDefaultsToDisabled,
+    JavaScriptEvaluationResultWithoutSerializedScriptValue,
     LazyGestureRecognizerInstallation,
     LinkPreviewEnabledByDefault,
     MainThreadReleaseAssertionInWebPageProxy,
@@ -115,7 +116,6 @@ enum class SDKAlignedBehavior {
     ThrowIfCanDeclareGlobalFunctionFails,
     ThrowOnKVCInstanceVariableAccess,
     LaxCookieSameSiteAttribute,
-    BlockOptionallyBlockableMixedContent,
     UseCFNetworkNetworkLoader,
     AutoLayoutInWKWebView,
     BlockCrossOriginRedirectDownloads,
@@ -128,6 +128,7 @@ enum class SDKAlignedBehavior {
     SupportGameControllerEventInteractionAPI,
     DidFailProvisionalNavigationWithErrorForFileURLNavigation,
     CrashWhenPreconnectingFromBackgroundThread,
+    ExecutionTimingChangeOfModuleScripts,
 
     NumberOfBehaviors
 };
@@ -153,7 +154,7 @@ WTF_EXPORT_PRIVATE void clearApplicationBundleIdentifierTestingOverride();
 namespace CocoaApplication {
 
 WTF_EXPORT_PRIVATE bool isAppleApplication();
-WTF_EXPORT_PRIVATE bool isIBooks();
+WTF_EXPORT_PRIVATE bool isAppleBooks();
 WTF_EXPORT_PRIVATE bool isDumpRenderTree();
 WTF_EXPORT_PRIVATE bool isWebkitTestRunner();
 WTF_EXPORT_PRIVATE bool shouldOSFaultLogForAppleApplicationUsingWebKit1();
@@ -199,7 +200,6 @@ WTF_EXPORT_PRIVATE bool isSafariViewService();
 WTF_EXPORT_PRIVATE bool isStocks();
 WTF_EXPORT_PRIVATE bool isWebBookmarksD();
 WTF_EXPORT_PRIVATE bool isWebProcess();
-WTF_EXPORT_PRIVATE bool isIBooksStorytime();
 WTF_EXPORT_PRIVATE bool isMobileStore();
 WTF_EXPORT_PRIVATE bool isUNIQLOApp();
 WTF_EXPORT_PRIVATE bool isDOFUSTouch();

@@ -27,6 +27,7 @@
 #include "IDBStorageManager.h"
 
 #include "IDBStorageRegistry.h"
+#include "Logging.h"
 #include <WebCore/IDBRequestData.h>
 #include <WebCore/IDBServer.h>
 #include <WebCore/MemoryIDBBackingStore.h>
@@ -251,18 +252,23 @@ WebCore::IDBServer::UniqueIDBDatabase& IDBStorageManager::getOrCreateUniqueIDBDa
 
 void IDBStorageManager::openDatabase(WebCore::IDBServer::IDBConnectionToClient& connectionToClient, const WebCore::IDBOpenRequestData& requestData)
 {
-    auto& database = getOrCreateUniqueIDBDatabase(requestData.databaseIdentifier());
-    database.openDatabaseConnection(connectionToClient, requestData);
+    CheckedRef database = getOrCreateUniqueIDBDatabase(requestData.databaseIdentifier());
+    database->openDatabaseConnection(connectionToClient, requestData);
 }
 
 void IDBStorageManager::deleteDatabase(WebCore::IDBServer::IDBConnectionToClient& connectionToClient, const WebCore::IDBOpenRequestData& requestData)
 {
-    auto& database = getOrCreateUniqueIDBDatabase(requestData.databaseIdentifier());
-    database.handleDelete(connectionToClient, requestData);
+    WebCore::IDBDatabaseIdentifier databaseIdentifier;
+    {
+        CheckedRef database = getOrCreateUniqueIDBDatabase(requestData.databaseIdentifier());
+        database->handleDelete(connectionToClient, requestData);
 
-    // This database is created for deletion.
-    if (database.tryClose())
-        m_databases.remove(database.identifier());
+        // This database is created for deletion.
+        if (!database->tryClose())
+            return;
+        databaseIdentifier = database->identifier();
+    }
+    m_databases.remove(databaseIdentifier);
 }
 
 Vector<WebCore::IDBDatabaseNameAndVersion> IDBStorageManager::getAllDatabaseNamesAndVersions()
@@ -294,15 +300,20 @@ Vector<WebCore::IDBDatabaseNameAndVersion> IDBStorageManager::getAllDatabaseName
 
 void IDBStorageManager::openDBRequestCancelled(const WebCore::IDBOpenRequestData& requestData)
 {
-    auto* database = m_databases.get(requestData.databaseIdentifier());
-    if (!database)
-        return;
+    WebCore::IDBDatabaseIdentifier databaseIdentifier;
+    {
+        CheckedPtr database = m_databases.get(requestData.databaseIdentifier());
+        if (!database)
+            return;
 
-    database->openDBRequestCancelled(requestData.requestIdentifier());
+        database->openDBRequestCancelled(requestData.requestIdentifier());
 
-    // Database becomes idle after request is cancelled.
-    if (database->tryClose())
-        m_databases.remove(database->identifier());
+        // Database becomes idle after request is cancelled.
+        if (!database->tryClose())
+            return;
+        databaseIdentifier = database->identifier();
+    }
+    m_databases.remove(databaseIdentifier);
 }
 
 void IDBStorageManager::registerConnection(WebCore::IDBServer::UniqueIDBDatabaseConnection& connection)
@@ -343,6 +354,18 @@ void IDBStorageManager::handleLowMemoryWarning()
 {
     for (auto& database : m_databases.values())
         database->handleLowMemoryWarning();
+}
+
+void IDBStorageManager::tryCloseDatabase(const WebCore::IDBDatabaseIdentifier& identifier)
+{
+    bool closed = false;
+    if (CheckedPtr database = m_databases.get(identifier))
+        closed = database->tryClose();
+
+    if (closed) {
+        RELEASE_LOG(IndexedDB, "%p - IDBStorageManager::tryCloseDatabase: Closed database", this);
+        m_databases.remove(identifier);
+    }
 }
 
 } // namespace WebKit

@@ -8,6 +8,7 @@
 #import <XCTest/XCTest.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecTrustSettings.h>
+#include <Security/SecTrustSettingsPriv.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecAppleAnchorPriv.h>
 
@@ -122,31 +123,41 @@
             continue;
         }
 
-        /* Determine which usage constraints we have*/
+        /* Determine which usage constraints we have */
         bool hasSystemConstraint = false;
         bool hasCustomConstraint = false;
+        bool isUnconstrained = false;
         NSMutableSet *policyConstraints = [NSMutableSet set];
         for (NSDictionary *setting in usageConstraints) {
             if (setting[(__bridge NSString*)kSecTrustSettingsPolicy] != nil) {
                 hasCustomConstraint = true;
                 [policyConstraints addObject:setting[(__bridge NSString*)kSecTrustSettingsPolicy]];
-            } else {
+            } else if (setting[(__bridge NSString*)kSecTrustSettingsPolicyOptions] != nil) {
                 hasSystemConstraint = true;
+            } else {
+                isUnconstrained = true;
             }
         }
 
+        // For when trust settings uses different policyIDs
+        NSArray *expectedTrustSettings = testCase[@"expectedTrustSettings"];
+        if (!expectedTrustSettings) {
+            expectedTrustSettings = testCase[@"oids"];
+        }
+        NSSet *expectedPolicies = [NSSet setWithArray:expectedTrustSettings];
         // Verify usage constraints we found against the expected constraints
         NSArray *expectedTypes = testCase[@"keyTypes"];
         if ([expectedTypes containsObject:@"system"]) {
             XCTAssert(hasSystemConstraint);
-            NSSet *expectedPolicies = [NSSet setWithArray:testCase[@"oids"]];
             if (expectedPolicies) {
                 XCTAssertEqualObjects(policyConstraints, expectedPolicies);
+                XCTAssertFalse(isUnconstrained);
+            } else {
+                XCTAssert(isUnconstrained);
             }
         }
         if ([expectedTypes containsObject:@"custom"]) {
             XCTAssert(hasCustomConstraint);
-            NSSet *expectedPolicies = [NSSet setWithArray:testCase[@"oids"]];
             XCTAssertEqualObjects(policyConstraints, expectedPolicies);
         }
     }

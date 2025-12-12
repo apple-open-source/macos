@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "UserStyleSheet.h"
+#include <WebCore/UserStyleSheet.h>
 #include <memory>
 #include <wtf/CheckedRef.h>
 #include <wtf/RefPtr.h>
@@ -38,7 +38,7 @@
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
-#include "ContentExtensionStyleSheet.h"
+#include <WebCore/ContentExtensionStyleSheet.h>
 #endif
 
 namespace WebCore {
@@ -63,6 +63,8 @@ public:
     const Vector<RefPtr<CSSStyleSheet>>& injectedUserStyleSheets() const;
     const Vector<RefPtr<CSSStyleSheet>>& injectedAuthorStyleSheets() const;
     const Vector<RefPtr<CSSStyleSheet>>& authorStyleSheetsForTesting() const { return m_authorStyleSheetsForTesting; }
+
+    bool hasCachedInjectedStyleSheets() const;
 
     void clearPageUserSheet();
     void updatePageUserSheet();

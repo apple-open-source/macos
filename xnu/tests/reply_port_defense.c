@@ -375,19 +375,13 @@ T_DECL(test_alloc_weak_reply_port,
     "1p is not allowed to create weak reply ports",
     T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
     T_META_CHECK_LEAKS(false)) {
-	if (ipc_hardening_disabled()) {
+	if (ipc_hardening_disabled() || sip_disabled()) {
 		T_SKIP("hardening disabled due to boot-args");
 	}
 
 	int test_num = 10;
-	mach_exception_data_type_t expected_exception_code;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_INVALID_MPO_ENTITLEMENT;
 	bool triggers_exception = true;
-
-#if TARGET_OS_OSX || TARGET_OS_BRIDGE
-	expected_exception_code = kGUARD_EXC_PROVISIONAL_REPLY_PORT;
-#else
-	expected_exception_code = kGUARD_EXC_INVALID_MPO_ENTITLEMENT;
-#endif /* TARGET_OS_OSX || TARGET_OS_BRIDGE */
 
 	/* rdar://136996362 (iOS+ telemetry for restricting 1P usage of provisional reply port) */
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);

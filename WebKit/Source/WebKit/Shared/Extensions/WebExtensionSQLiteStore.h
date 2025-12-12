@@ -71,7 +71,7 @@ protected:
     virtual URL databaseURL() = 0;
 
     DatabaseResult setDatabaseSchemaVersion(SchemaVersion newVersion);
-    SchemaVersion migrateToCurrentSchemaVersionIfNeeded();
+    virtual SchemaVersion migrateToCurrentSchemaVersionIfNeeded();
 
     WorkQueue& queue() { return m_queue; };
     RefPtr<WebExtensionSQLiteDatabase> database() { return m_database; };
@@ -95,6 +95,7 @@ private:
     RefPtr<WebExtensionSQLiteDatabase> m_database;
     const Ref<WorkQueue> m_queue;
     bool m_useInMemoryDatabase;
+    bool m_savepointsAreValid { true };
 };
 
 } // namespace WebKit

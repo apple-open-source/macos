@@ -32,6 +32,7 @@
 #include "config.h"
 #include "SearchInputType.h"
 
+#include "ContainerNodeInlines.h"
 #include "ElementInlines.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
@@ -40,8 +41,10 @@
 #include "KeyboardEvent.h"
 #include "NodeRenderStyle.h"
 #include "RenderSearchField.h"
+#include "RenderStyleInlines.h"
 #include "ScriptDisallowedScope.h"
 #include "ShadowRoot.h"
+#include "StylePreferredSize.h"
 #include "TextControlInnerElements.h"
 #include "UserAgentParts.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -198,12 +201,12 @@ float SearchInputType::decorationWidth(float) const
     if (RefPtr resultsButton = m_resultsButton; resultsButton && resultsButton->renderStyle()) {
         // FIXME: Document what invariant holds to allow only using fixed logical widths?
         if (auto fixedLogicalWidth = resultsButton->renderStyle()->logicalWidth().tryFixed())
-            width += fixedLogicalWidth->value;
+            width += fixedLogicalWidth->resolveZoom(Style::ZoomNeeded { });
     }
     if (RefPtr cancelButton = m_cancelButton; cancelButton && cancelButton->renderStyle()) {
         // FIXME: Document what invariant holds to allow only using fixed logical widths?
         if (auto fixedLogicalWidth = cancelButton->renderStyle()->logicalWidth().tryFixed())
-            width += fixedLogicalWidth->value;
+            width += fixedLogicalWidth->resolveZoom(Style::ZoomNeeded { });
     }
     return width;
 }

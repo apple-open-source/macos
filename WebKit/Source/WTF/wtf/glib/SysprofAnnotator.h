@@ -42,6 +42,11 @@ public:
         return s_annotator;
     }
 
+    static int64_t currentContinuousTime(Seconds timeDelta)
+    {
+        return SYSPROF_CAPTURE_CURRENT_TIME + timeDelta.microsecondsAs<int64_t>();
+    }
+
     void instantMark(std::span<const char> name, const char* description, ...) WTF_ATTRIBUTE_PRINTF(3, 4)
     {
         va_list args;
@@ -50,11 +55,11 @@ public:
         va_end(args);
     }
 
-    void mark(Seconds timeDelta, std::span<const char> name, const char* description, ...) WTF_ATTRIBUTE_PRINTF(4, 5)
+    void mark(int64_t time, std::span<const char> name, const char* description, ...) WTF_ATTRIBUTE_PRINTF(4, 5)
     {
         va_list args;
         va_start(args, description);
-        sysprof_collector_mark_vprintf(SYSPROF_CAPTURE_CURRENT_TIME, timeDelta.microsecondsAs<int64_t>(), m_processName, name.data(), description, args);
+        sysprof_collector_mark_vprintf(time, 0, m_processName, name.data(), description, args);
         va_end(args);
     }
 
@@ -62,11 +67,13 @@ public:
     {
         auto key = std::make_pair(pointer, static_cast<const void*>(name.data()));
 
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         Vector<char> buffer(1024);
         va_list args;
         va_start(args, description);
         vsnprintf(buffer.mutableSpan().data(), buffer.size(), description, args);
         va_end(args);
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         auto value = std::make_pair(SYSPROF_CAPTURE_CURRENT_TIME, WTFMove(buffer));
 
@@ -159,6 +166,8 @@ public:
         case WebXRCPFrameStartSubmissionStart:
         case WebXRCPFrameEndSubmissionStart:
         case WakeUpAndApplyDisplayListStart:
+        case ThreadTimersStart:
+        case TimerFiredStart:
             beginMark(nullptr, tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
             break;
 
@@ -222,6 +231,8 @@ public:
         case WebXRCPFrameStartSubmissionEnd:
         case WebXRCPFrameEndSubmissionEnd:
         case WakeUpAndApplyDisplayListEnd:
+        case ThreadTimersEnd:
+        case TimerFiredEnd:
             endMark(nullptr, tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
             break;
 
@@ -257,6 +268,12 @@ public:
             sysprof_collector_set_counters(&id.value(), &counterValue, 1);
         } else {
             unsigned newId = sysprof_collector_request_counters(1);
+
+            // Temporary workaround for libsysprof-capture providing conflicting IDs to threads.
+            static unsigned maxId = 0;
+            if (newId <= maxId)
+                newId = sysprof_collector_request_counters(maxId - newId + 1) + maxId - newId;
+            maxId = newId;
 
             m_counters.add(static_cast<const void*>(name.data()), newId);
 
@@ -397,6 +414,12 @@ private:
         case FixedContainerEdgeSamplingStart:
         case FixedContainerEdgeSamplingEnd:
             return "FixedContainerEdgeSampling"_s;
+        case ThreadTimersStart:
+        case ThreadTimersEnd:
+            return "WebCoreThreadTimers"_s;
+        case TimerFiredStart:
+        case TimerFiredEnd:
+            return "WebCoreTimerExecution"_s;
 
         case WebHTMLViewPaintStart:
         case WebHTMLViewPaintEnd:

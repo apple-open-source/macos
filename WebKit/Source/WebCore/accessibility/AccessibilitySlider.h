@@ -51,7 +51,7 @@ private:
     void addChildren() final;
 
     bool canSetValueAttribute() const final { return true; }
-    
+
     bool setValue(const String&) final;
     float valueForRange() const final;
     float maxValueForRange() const final;

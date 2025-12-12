@@ -53,11 +53,6 @@ void UndoItem::invalidate()
     m_document.clear();
 }
 
-bool UndoItem::isValid() const
-{
-    return !!m_undoManager;
-}
-
 Document* UndoItem::document() const
 {
     return m_document.get();

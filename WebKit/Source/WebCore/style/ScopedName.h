@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include "StyleScopeOrdinal.h"
-#include "StyleValueTypes.h"
+#include <WebCore/StyleScopeOrdinal.h>
+#include <WebCore/StyleValueTypes.h>
 #include <wtf/text/AtomString.h>
 
 namespace WebCore {
@@ -61,4 +61,4 @@ WTF::TextStream& operator<<(WTF::TextStream&, const ScopedName&);
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ScopedName> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::ScopedName)

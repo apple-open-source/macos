@@ -26,6 +26,7 @@
 #include "DecompressionStreamDecoder.h"
 
 #include "BufferSource.h"
+#include "ExceptionOr.h"
 #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>

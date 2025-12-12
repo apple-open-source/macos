@@ -35,6 +35,10 @@
 #include <wtf/FileSystem.h>
 #include <wtf/glib/Sandbox.h>
 
+#if PLATFORM(GTK)
+#include <gdk/gdk.h>
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 
@@ -84,6 +88,14 @@ void WebProcessProxy::platformResumeProcess()
 {
     // FIXME: https://webkit.org/b/280014
     notImplemented();
+}
+
+void WebProcessProxy::systemBeep()
+{
+#if PLATFORM(GTK)
+    if (auto* display = gdk_display_get_default())
+        gdk_display_beep(display);
+#endif
 }
 
 } // namespace WebKit

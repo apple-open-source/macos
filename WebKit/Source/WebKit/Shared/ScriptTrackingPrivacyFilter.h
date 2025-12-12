@@ -59,7 +59,7 @@ struct ScriptTrackingPrivacyRules {
 using HostToAllowedCategoriesMap = MemoryCompactRobinHoodHashMap<String, WebCore::ScriptTrackingPrivacyFlags>;
 
 class ScriptTrackingPrivacyFilter {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(ScriptTrackingPrivacyFilter);
     WTF_MAKE_NONCOPYABLE(ScriptTrackingPrivacyFilter);
 public:
     ScriptTrackingPrivacyFilter(ScriptTrackingPrivacyRules&&);

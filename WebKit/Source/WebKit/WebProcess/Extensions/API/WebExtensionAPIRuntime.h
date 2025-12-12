@@ -44,8 +44,8 @@ class WebExtensionAPIRuntime;
 
 class WebExtensionAPIRuntimeBase : public JSWebExtensionWrappable {
 public:
-    JSValue *reportError(NSString *errorMessage, JSGlobalContextRef, NOESCAPE const Function<void()>& = nullptr);
-    JSValue *reportError(NSString *errorMessage, WebExtensionCallbackHandler&);
+    JSValue *reportError(String errorMessage, JSGlobalContextRef, NOESCAPE const Function<void()>& = nullptr);
+    JSValue *reportError(const String& errorMessage, WebExtensionCallbackHandler&);
 
 private:
     friend class WebExtensionAPIRuntime;
@@ -66,8 +66,9 @@ public:
 #if PLATFORM(COCOA)
     bool isPropertyAllowed(const ASCIILiteral& propertyName, WebPage*);
 
-    NSURL *getURL(NSString *resourcePath, NSString **outExceptionString);
+    NSURL *getURL(const String& resourcePath, NSString **outExceptionString);
     NSDictionary *getManifest();
+    String getVersion();
     void getPlatformInfo(Ref<WebExtensionCallbackHandler>&&);
     void getBackgroundPage(Ref<WebExtensionCallbackHandler>&&);
     double getFrameId(JSValue *);
@@ -77,15 +78,15 @@ public:
     void openOptionsPage(Ref<WebExtensionCallbackHandler>&&);
     void reload();
 
-    NSString *runtimeIdentifier();
+    String runtimeIdentifier();
 
     JSValue *lastError();
 
-    void sendMessage(WebPageProxyIdentifier, WebFrame&, NSString *extensionID, NSString *messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
-    RefPtr<WebExtensionAPIPort> connect(WebPageProxyIdentifier, WebFrame&, JSContextRef, NSString *extensionID, NSDictionary *options, NSString **outExceptionString);
+    void sendMessage(WebPageProxyIdentifier, WebFrame&, const String& extensionID, const String& messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
+    RefPtr<WebExtensionAPIPort> connect(WebPageProxyIdentifier, WebFrame&, JSContextRef, const String& extensionID, NSDictionary *options, NSString **outExceptionString);
 
-    void sendNativeMessage(WebFrame&, NSString *applicationID, NSString *messageJSON, Ref<WebExtensionCallbackHandler>&&);
-    RefPtr<WebExtensionAPIPort> connectNative(WebPageProxyIdentifier, JSContextRef, NSString *applicationID);
+    void sendNativeMessage(WebFrame&, const String& applicationID, const String& messageJSON, Ref<WebExtensionCallbackHandler>&&);
+    RefPtr<WebExtensionAPIPort> connectNative(WebPageProxyIdentifier, JSContextRef, const String& applicationID);
 
     WebExtensionAPIEvent& onConnect();
     WebExtensionAPIEvent& onInstalled();
@@ -97,7 +98,7 @@ public:
 private:
     friend class WebExtensionAPIWebPageRuntime;
 
-    static bool parseConnectOptions(NSDictionary *, std::optional<String>& name, NSString *sourceKey, NSString **outExceptionString);
+    static bool parseConnectOptions(NSDictionary *, std::optional<String>& name, const String& sourceKey, NSString **outExceptionString);
 
     RefPtr<WebExtensionAPIEvent> m_onConnect;
     RefPtr<WebExtensionAPIEvent> m_onInstalled;
@@ -115,8 +116,8 @@ public:
     WebExtensionAPIWebPageRuntime& runtime() const final { return const_cast<WebExtensionAPIWebPageRuntime&>(*this); }
 
 #if PLATFORM(COCOA)
-    void sendMessage(WebPage&, WebFrame&, NSString *extensionID, NSString *messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
-    RefPtr<WebExtensionAPIPort> connect(WebPage&, WebFrame&, JSContextRef, NSString *extensionID, NSDictionary *options, NSString **outExceptionString);
+    void sendMessage(WebPage&, WebFrame&, const String& extensionID, const String& messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&&, NSString **outExceptionString);
+    RefPtr<WebExtensionAPIPort> connect(WebPage&, WebFrame&, JSContextRef, const String& extensionID, NSDictionary *options, NSString **outExceptionString);
 #endif
 };
 

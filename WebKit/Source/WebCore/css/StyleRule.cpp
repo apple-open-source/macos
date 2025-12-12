@@ -27,8 +27,11 @@
 #include "CSSFontFaceRule.h"
 #include "CSSFontFeatureValuesRule.h"
 #include "CSSFontPaletteValuesRule.h"
+#include "CSSFunctionDeclarations.h"
+#include "CSSFunctionRule.h"
 #include "CSSGroupingRule.h"
 #include "CSSImportRule.h"
+#include "CSSInternalBaseAppearanceRule.h"
 #include "CSSKeyframeRule.h"
 #include "CSSKeyframesRule.h"
 #include "CSSLayerBlockRule.h"
@@ -49,6 +52,7 @@
 #include "MutableStyleProperties.h"
 #include "StyleProperties.h"
 #include "StylePropertiesInlines.h"
+#include "StyleRuleFunction.h"
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
 
@@ -135,6 +139,12 @@ template<typename Visitor> constexpr decltype(auto) StyleRuleBase::visitDerived(
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleViewTransition>(*this));
     case StyleRuleType::PositionTry:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRulePositionTry>(*this));
+    case StyleRuleType::Function:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleFunction>(*this));
+    case StyleRuleType::FunctionDeclarations:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleFunctionDeclarations>(*this));
+    case StyleRuleType::InternalBaseAppearance:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleInternalBaseAppearance>(*this));
     case StyleRuleType::Margin:
         break;
     }
@@ -235,6 +245,15 @@ Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRu
         [&](StyleRulePositionTry& rule) -> Ref<CSSRule> {
             return CSSPositionTryRule::create(rule, parentSheet);
         },
+        [&](StyleRuleFunction& rule) -> Ref<CSSRule> {
+            return CSSFunctionRule::create(rule, parentSheet);
+        },
+        [&](StyleRuleFunctionDeclarations& rule) -> Ref<CSSRule> {
+            return CSSFunctionDeclarations::create(rule, parentSheet);
+        },
+        [&](StyleRuleInternalBaseAppearance& rule) -> Ref<CSSRule> {
+            return CSSInternalBaseAppearanceRule::create(rule, parentSheet);
+        },
         [](StyleRuleCharset&) -> Ref<CSSRule> {
             RELEASE_ASSERT_NOT_REACHED();
         },
@@ -295,7 +314,7 @@ MutableStyleProperties& StyleRule::mutableProperties()
     if (auto* mutableProperties = dynamicDowncast<MutableStyleProperties>(m_properties.get()))
         return *mutableProperties;
     Ref mutableProperties = m_properties->mutableCopy();
-    auto& mutablePropertiesRef = mutableProperties.get();
+    auto& mutablePropertiesRef = mutableProperties.unsafeGet();
     m_properties = WTFMove(mutableProperties);
     return mutablePropertiesRef;
 }
@@ -332,7 +351,7 @@ Vector<Ref<StyleRule>> StyleRule::splitIntoMultipleRulesWithMaximumSelectorCompo
 
     for (auto& selector : selectorList()) {
         Vector<const CSSSelector*, 8> componentsInThisSelector;
-        for (const CSSSelector* component = &selector; component; component = component->tagHistory())
+        for (const CSSSelector* component = &selector; component; component = component->precedingInComplexSelector())
             componentsInThisSelector.append(component);
 
         if (componentsInThisSelector.size() + componentsSinceLastSplit.size() > maxCount && !componentsSinceLastSplit.isEmpty()) {
@@ -446,7 +465,7 @@ MutableStyleProperties& StyleRulePage::mutableProperties()
     if (auto* mutableProperties = dynamicDowncast<MutableStyleProperties>(m_properties.get()))
         return *mutableProperties;
     Ref mutableProperties = m_properties->mutableCopy();
-    auto& mutablePropertiesRef = mutableProperties.get();
+    auto& mutablePropertiesRef = mutableProperties.unsafeGet();
     m_properties = WTFMove(mutableProperties);
     return mutablePropertiesRef;
 }
@@ -470,7 +489,7 @@ MutableStyleProperties& StyleRuleFontFace::mutableProperties()
     if (auto* mutableProperties = dynamicDowncast<MutableStyleProperties>(m_properties.get()))
         return *mutableProperties;
     Ref mutableProperties = m_properties->mutableCopy();
-    auto& mutablePropertiesRef = mutableProperties.get();
+    auto& mutablePropertiesRef = mutableProperties.unsafeGet();
     m_properties = WTFMove(mutableProperties);
     return mutablePropertiesRef;
 }
@@ -504,6 +523,16 @@ StyleRuleFontPaletteValues::StyleRuleFontPaletteValues(const AtomString& name, V
     , m_name(name)
     , m_fontFamilies(WTFMove(fontFamilies))
     , m_fontPaletteValues(basePalette, WTFMove(overrideColors))
+{
+}
+
+Ref<StyleRuleInternalBaseAppearance> StyleRuleInternalBaseAppearance::create(Vector<Ref<StyleRuleBase>>&& rules)
+{
+    return adoptRef(*new StyleRuleInternalBaseAppearance(WTFMove(rules)));
+}
+
+StyleRuleInternalBaseAppearance::StyleRuleInternalBaseAppearance(Vector<Ref<StyleRuleBase>>&& rules)
+    : StyleRuleGroup(StyleRuleType::InternalBaseAppearance, WTFMove(rules))
 {
 }
 

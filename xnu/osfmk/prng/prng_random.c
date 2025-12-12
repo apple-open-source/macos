@@ -41,113 +41,61 @@
 #include <corecrypto/ccdrbg.h>
 #include <corecrypto/cckprng.h>
 #include <corecrypto/ccsha2.h>
-#include <corecrypto/cchkdf.h>
+#include <corecrypto/cchmac.h>
 
 static struct cckprng_ctx *prng_ctx;
 
 static SECURITY_READ_ONLY_LATE(struct cckprng_funcs) prng_funcs;
 static SECURITY_READ_ONLY_LATE(int) prng_ready;
 
-#define SEED_SIZE (SHA256_BLOCK_LENGTH)
+#define SEED_SIZE SHA512_DIGEST_LENGTH
 
-// Seed sizes meant to trigger a compression in the underlying hash function
+#if defined(__x86_64__)
+	#define BOOTLOADER_ENTROPY_REQUEST_SIZE 64 // efiboot max
+#else
+	#define BOOTLOADER_ENTROPY_REQUEST_SIZE 4*SEED_SIZE
+#endif
+
+static uint8_t kprngseed[SEED_SIZE];
 static uint8_t earlyseed[SEED_SIZE];
-static uint8_t prngseed[SEED_SIZE];
-static uint8_t entropyseed[SHA512_BLOCK_LENGTH];
-
-// Instructions for deriving the above seeds
-typedef struct dsp {
-	size_t info_size;
-	size_t dst_size;
-	void *info;
-	void *dst;
-} derived_seed_param;
-
-// These are HKDF-Expand parameters for derived seeds. To add a new one, add a new struct here.
-static derived_seed_param seed_params[] = {
-	{
-		.info = "bootseed_init",
-		.info_size = 14,
-		.dst = earlyseed,
-		.dst_size = sizeof(earlyseed)
-	},
-	{
-		.info = "prngseed_init",
-		.info_size = 14,
-		.dst = prngseed,
-		.dst_size = sizeof(prngseed)
-	},
-	{
-		.info = "entropy_init",
-		.info_size = 13,
-		.dst = entropyseed,
-		.dst_size = sizeof(entropyseed)
-	}
-};
-
-// Hash the seed to ensure uniformity. But we have a limited-size digest available, so we make two invocations:
-// out[0:SHA256_DIGEST_LENGTH]          = H(seed || 0)
-// out[SHA256_DIGEST_LENGTH:SEED_SIZE]  = H(seed || 1)
-static void
-wide_hash(const struct ccdigest_info *di, uint8_t *dst, uint8_t *src)
-{
-	uint8_t counter;
-	ccdigest_di_decl(di, ectx_left);
-	ccdigest_init(di, ectx_left);
-	ccdigest_update(di, ectx_left, SEED_SIZE, src);
-	ccdigest_di_decl(di, ectx_right);
-	ccdigest_copy_state(di, ectx_right, ectx_left);
-
-	counter = 0;
-	ccdigest_update(di, ectx_left, sizeof(counter), &counter);
-	ccdigest_final(di, ectx_left, dst);
-
-	counter = 1;
-	ccdigest_update(di, ectx_right, sizeof(counter), &counter);
-	ccdigest_final(di, ectx_right, &dst[SEED_SIZE / 2]);
-
-	ccdigest_di_clear(di, ectx_left);
-	ccdigest_di_clear(di, ectx_right);
-}
+static uint8_t entropyseed[SEED_SIZE];
+static uint8_t kprng_reseed[SEED_SIZE];
 
 static void
-bootseed_init_bootloader(const struct ccdigest_info *di, uint8_t *dst)
+bootseed_init_bootloader(uint32_t request_size, uint8_t *dst)
 {
-	uint8_t seed[SEED_SIZE];
 	uint32_t n;
 
-	n = PE_get_random_seed(seed, SEED_SIZE);
-	if (n < SEED_SIZE) {
+	n = PE_get_random_seed(dst, request_size);
+	if (n < request_size) {
 		/*
 		 * Insufficient entropy is fatal.  We must fill the
 		 * entire entropy buffer during initializaton.
 		 */
-		panic("Expected %u seed bytes from bootloader, but got %u.", SEED_SIZE, n);
+		panic("Expected %u seed bytes from bootloader, but got %u.\n", request_size, n);
 	}
-
-	wide_hash(di, dst, seed);
-	cc_clear(SEED_SIZE, seed);
 }
 
 #if defined(__x86_64__)
 #include <i386/cpuid.h>
 
 static void
-bootseed_init_native(const struct ccdigest_info *di, uint8_t *dst)
+bootseed_init_native(uint32_t request_size, uint8_t *dst)
 {
-	uint8_t seed[SEED_SIZE];
 	uint64_t x;
 	uint8_t ok;
 	size_t i = 0;
 	size_t n;
 
+	assert3u(request_size % sizeof(x), ==, 0);
+
 	if (cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_RDSEED) {
-		n = SEED_SIZE / sizeof(x);
+		n = request_size / sizeof(x);
 
 		while (i < n) {
 			asm volatile ("rdseed %0; setc %1" : "=r"(x), "=qm"(ok) : : "cc");
 			if (ok) {
-				cc_memcpy(&seed[i * sizeof(x)], &x, sizeof(x));
+				cc_memcpy(&dst[i * sizeof(x)], &x, sizeof(x));
 				i += 1;
 			} else {
 				// Intel recommends to pause between unsuccessful rdseed attempts.
@@ -156,7 +104,7 @@ bootseed_init_native(const struct ccdigest_info *di, uint8_t *dst)
 		}
 	} else if (cpuid_features() & CPUID_FEATURE_RDRAND) {
 		// The Intel documentation guarantees a reseed every 512 rdrand calls.
-		n = (SEED_SIZE / sizeof(x)) * 512;
+		n = (request_size / sizeof(x)) * 512;
 
 		while (i < n) {
 			asm volatile ("rdrand %0; setc %1" : "=r"(x), "=qm"(ok) : : "cc");
@@ -171,19 +119,17 @@ bootseed_init_native(const struct ccdigest_info *di, uint8_t *dst)
 		}
 	}
 
-	wide_hash(di, dst, seed);
-	cc_clear(SEED_SIZE, seed);
 	cc_clear(sizeof(x), &x);
 }
 
 #else
 
 static void
-bootseed_init_native(__unused const struct ccdigest_info *di, uint8_t *dst)
+bootseed_init_native(uint32_t request_size, uint8_t *dst)
 {
 	// Even if we don't have any input, the second input needs to be a fixed input of the same size
 	// to maintain dual-PRF security for HKDF/HMAC. All zero is fine as long as it is fixed.
-	cc_clear(SEED_SIZE, dst);
+	cc_clear(request_size, dst);
 }
 
 #endif
@@ -191,53 +137,53 @@ bootseed_init_native(__unused const struct ccdigest_info *di, uint8_t *dst)
 static void
 bootseed_init(void)
 {
+	// Request our starting entropy from the bootloader
+	uint8_t bootloader_rand[4 * SEED_SIZE];
+	bootseed_init_bootloader(BOOTLOADER_ENTROPY_REQUEST_SIZE, bootloader_rand);
+
+	#if defined(__x86_64__) && BOOTLOADER_ENTROPY_REQUEST_SIZE == 64
+	// efiboot can only provide 64 bytes of entropy, so fill the rest of the buffer with zero.
+	// We compensate for this by sampling from RDRAND/RDSEED in bootseed_init_native.
+	cc_clear(sizeof(bootloader_rand) - BOOTLOADER_ENTROPY_REQUEST_SIZE, bootloader_rand + BOOTLOADER_ENTROPY_REQUEST_SIZE);
+	#endif
+
 	/*
-	 *  This is a key combiner. HKDF provides dual-PRF security as long as we sample inputs
-	 *  from a set of fixed-length, uniformly random inputs. Ideally those inputs will also
-	 *  be the block size of the underlying digest, which we specify here with SEED_SIZE.
-	 *
-	 *  See https://eprint.iacr.org/2023/861 for proof details. The overall construction goes:
-	 *
-	 *       H* : {0, 1}* -> {0, 1}^c where c is the block size of the digest underlying HKDF, here 64.
-	 *       n are long enough to require a compression in the underlying hash function.
-	 *       prk = HKDF-Extract(H*(bootloader), H*(native))
-	 *       earlyseed = HKDF-Expand(prk, "bootseed_init", n1)
-	 *       prngseed = HKDF-Expand(prk, "prngseed_init", n2)
-	 *		 entropyseed = HKDF-Expand(prk, "entropy_init", n3)
-	 *
+	 *  First, we copy out a direct seed for the kprng from the TRNG packet then clear it to prevent reuse.
+	 *   | BOOTLOADER_ENTROPY_REQUEST_SIZE |
+	 *   | KPRNG |     OPAQUE  ENTROPY     |
+	 *   | 00000 |     OPAQUE  ENTROPY     |
 	 */
-
-	const struct ccdigest_info * di = &ccsha256_ltc_di;
-	assert3u(SEED_SIZE, ==, di->block_size);
-
-	uint8_t bootloader_rand[SEED_SIZE];
-	uint8_t native_rand[SEED_SIZE];
-	uint8_t prk[SHA256_DIGEST_LENGTH];
-
-	// Sample the two input seeds from the devicetree and any available RDRAND instructions
-	bootseed_init_bootloader(di, bootloader_rand);
-	bootseed_init_native(di, native_rand);
-
-	// Combine the input seeds into one root seed of size di->output_size. Eventually we want to use a larger digest here:
-	// rdar://119642787 (Move boot seed derivations to a digest that preserves the full width of the devicetree seed)
-	int result = cchkdf_extract(di, SEED_SIZE, native_rand, SEED_SIZE, bootloader_rand, prk);
-	if (result != CCERR_OK) {
-		panic("Early boot random cchkdf_extract failed with err %d", result);
-	}
-
-	// Derive independent keys for each subsystem
-	int seeds_expected = sizeof(seed_params) / sizeof(seed_params[0]);
-	for (int i = 0; i < seeds_expected; i++) {
-		derived_seed_param sp = seed_params[i];
-		result = cchkdf_expand(di, di->output_size, prk, sp.info_size, sp.info, sp.dst_size, sp.dst);
-		if (result != CCERR_OK) {
-			panic("Early boot random cchkdf_expand %s failed with err %d", sp.info, result);
-		}
-	}
-
-	cc_clear(di->output_size, prk);
+	memcpy(kprngseed, bootloader_rand, SEED_SIZE);
 	cc_clear(SEED_SIZE, bootloader_rand);
-	cc_clear(SEED_SIZE, native_rand);
+
+	uint8_t native_rand[3 * SEED_SIZE];
+	bootseed_init_native(sizeof(native_rand), native_rand);
+
+	const struct ccdigest_info *di = &ccsha512_ltc_di;
+	assert3u(SEED_SIZE, <, di->block_size);
+
+	uint8_t zero_salt[SEED_SIZE] = {0};
+	uint8_t combined_input[2 * SEED_SIZE];
+
+	// First subkey: bootloader_rand[64-127] || native_rand[0-63]
+	memcpy(combined_input, &bootloader_rand[1 * SEED_SIZE], SEED_SIZE);
+	memcpy(&combined_input[SEED_SIZE], &native_rand[0 * SEED_SIZE], SEED_SIZE);
+	cchmac(di, SEED_SIZE, zero_salt, 2 * SEED_SIZE, combined_input, earlyseed);
+
+	// Second subkey: bootloader_rand[128-191] || native_rand[64-127]
+	memcpy(combined_input, &bootloader_rand[2 * SEED_SIZE], SEED_SIZE);
+	memcpy(&combined_input[SEED_SIZE], &native_rand[1 * SEED_SIZE], SEED_SIZE);
+	cchmac(di, SEED_SIZE, zero_salt, 2 * SEED_SIZE, combined_input, entropyseed);
+
+	// Third subkey: bootloader_rand[192-255] || native_rand[128-191]
+	memcpy(combined_input, &bootloader_rand[3 * SEED_SIZE], SEED_SIZE);
+	memcpy(&combined_input[SEED_SIZE], &native_rand[2 * SEED_SIZE], SEED_SIZE);
+	cchmac(di, SEED_SIZE, zero_salt, 2 * SEED_SIZE, combined_input, kprng_reseed);
+
+	cc_clear(sizeof(combined_input), combined_input);
+
+	cc_clear(BOOTLOADER_ENTROPY_REQUEST_SIZE, bootloader_rand);
+	cc_clear(BOOTLOADER_ENTROPY_REQUEST_SIZE, native_rand);
 }
 
 #define EARLY_RANDOM_STATE_STATIC_SIZE (264)
@@ -299,14 +245,13 @@ __static_testable void read_erandom(void * buf, size_t nbytes);
  *    are being built) early_random() calls ccdrbg_factory_hmac() to
  *    set-up a ccdbrg info structure.
  *
- *  - The boot seed (64 bytes) is hashed with a SHA256-based wide hash
- *    construction. Where available, hardware RNG outputs are mixed
- *    into the seed. (See bootseed_init.) The resulting seed is 64
- *    bytes.
+ *  - A 64-byte seed from the bootloader is hashed with HMAC-SHA512.
+ *    Where available, hardware RNG outputs are mixed into the seed.
+ *    (See bootseed_init.) The resulting seed is 64 bytes.
  *
  *  - The ccdrbg state structure is a statically allocated area which
  *    is then initialized by calling the ccdbrg_init method. The
- *    initial entropy is the 32-byte seed described above. The nonce
+ *    initial entropy is the 64-byte seed described above. The nonce
  *    is an 8-byte timestamp from ml_get_timebase(). The
  *    personalization data provided is a fixed string.
  *
@@ -395,12 +340,17 @@ register_and_init_prng(struct cckprng_ctx *ctx, const struct cckprng_funcs *func
 	prng_funcs = *funcs;
 
 	uint64_t nonce = ml_get_timebase();
-	prng_funcs.init_with_getentropy(prng_ctx, MAX_CPUS, sizeof(prngseed), prngseed, sizeof(nonce), &nonce, entropy_provide, NULL);
+	prng_funcs.init_with_getentropy(prng_ctx, MAX_CPUS, sizeof(kprngseed), kprngseed, sizeof(nonce), &nonce, entropy_provide, NULL);
 	prng_funcs.initgen(prng_ctx, master_cpu);
 	prng_ready = 1;
 
+	// Reseed with a key that has been securely combined with kernel-sourced platform randomness, where it was available.
+	// Otherwise this is just more randomness from the bootloader.
+	prng_funcs.reseed(prng_ctx, sizeof(kprng_reseed), kprng_reseed);
+
 	cc_clear(sizeof(entropyseed), entropyseed);
-	cc_clear(sizeof(prngseed), prngseed);
+	cc_clear(sizeof(kprngseed), kprngseed);
+	cc_clear(sizeof(kprng_reseed), kprng_reseed);
 	cc_clear(sizeof(erandom), &erandom);
 }
 

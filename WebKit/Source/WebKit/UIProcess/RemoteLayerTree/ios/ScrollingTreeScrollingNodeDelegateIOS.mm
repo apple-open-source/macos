@@ -40,6 +40,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIPanGestureRecognizer.h>
 #import <UIKit/UIScrollView.h>
+#import <WebCore/ColorCocoa.h>
 #import <WebCore/ScrollSnapOffsetsInfo.h>
 #import <WebCore/ScrollingStateOverflowScrollingNode.h>
 #import <WebCore/ScrollingTree.h>
@@ -408,6 +409,26 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         END_BLOCK_OBJC_EXCEPTIONS
     }
+
+#if HAVE(UIKIT_SCROLLBAR_COLOR_SPI)
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollbarColor)) {
+        auto scrollbarColor = scrollingStateNode.scrollbarColor();
+
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
+        RetainPtr scrollView = this->scrollView();
+
+        if (scrollbarColor) {
+            RetainPtr thumbColor = cocoaColor(scrollbarColor->thumbColor);
+            [scrollView _setHorizontalScrollIndicatorColor:thumbColor.get()];
+            [scrollView _setVerticalScrollIndicatorColor:thumbColor.get()];
+        } else {
+            [scrollView _setHorizontalScrollIndicatorColor:nil];
+            [scrollView _setVerticalScrollIndicatorColor:nil];
+        }
+
+        END_BLOCK_OBJC_EXCEPTIONS
+    }
+#endif
 }
 
 bool ScrollingTreeScrollingNodeDelegateIOS::startAnimatedScrollToPosition(FloatPoint scrollPosition)
@@ -455,9 +476,10 @@ void ScrollingTreeScrollingNodeDelegateIOS::scrollWillStart() const
     scrollingTree()->scrollingTreeNodeWillStartScroll(scrollingNode().scrollingNodeID());
 }
 
-void ScrollingTreeScrollingNodeDelegateIOS::scrollDidEnd() const
+void ScrollingTreeScrollingNodeDelegateIOS::scrollDidEnd()
 {
     scrollingTree()->scrollingTreeNodeDidEndScroll(scrollingNode().scrollingNodeID());
+    scrollingTree()->scrollingTreeNodeDidStopWheelEventScroll(scrollingNode());
 }
 
 void ScrollingTreeScrollingNodeDelegateIOS::scrollViewWillStartPanGesture() const

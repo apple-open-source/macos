@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "PathSegmentData.h"
+#include <WebCore/PathSegmentData.h>
 #include <wtf/Function.h>
 
 namespace WebCore {

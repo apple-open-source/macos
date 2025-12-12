@@ -113,6 +113,7 @@ private:
 
     Ref<WebGPU::RenderPassEncoder> m_backing;
     WeakPtr<WebGPU::Device> m_device;
+    std::optional<String> m_overrideLabel;
 };
 
 }

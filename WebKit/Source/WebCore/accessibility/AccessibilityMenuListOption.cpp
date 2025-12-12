@@ -26,8 +26,9 @@
 #include "config.h"
 #include "AccessibilityMenuListOption.h"
 
-#include "AXObjectCache.h"
+#include "AXObjectCacheInlines.h"
 #include "AccessibilityMenuListPopup.h"
+#include "AccessibilityObjectInlines.h"
 #include "Document.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
@@ -91,7 +92,7 @@ void AccessibilityMenuListOption::setSelected(bool selected)
 {
     if (!canSetSelectedAttribute())
         return;
-    
+
     if (RefPtr optionElement = this->optionElement())
         optionElement->setSelected(selected);
 }

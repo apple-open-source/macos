@@ -29,6 +29,7 @@
 #include "AnimationEffect.h"
 #include "AnimationPlaybackEvent.h"
 #include "AnimationTimeline.h"
+#include "ContainerNodeInlines.h"
 #include "CSSSerializationContext.h"
 #include "CSSStyleProperties.h"
 #include "CSSUnitValue.h"
@@ -36,9 +37,9 @@
 #include "CSSValuePool.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DOMPromiseProxy.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
 #include "DocumentTimeline.h"
 #include "Element.h"
 #include "EventLoop.h"
@@ -50,6 +51,7 @@
 #include "KeyframeEffectStack.h"
 #include "Logging.h"
 #include "RenderElement.h"
+#include "ScrollTimeline.h"
 #include "StyleExtractor.h"
 #include "StyleOriginatedAnimation.h"
 #include "StylePropertyShorthand.h"
@@ -109,6 +111,7 @@ WebAnimation::WebAnimation(Document& document)
     : ActiveDOMObject(document)
     , m_readyPromise(makeUniqueRef<ReadyPromise>(*this, &WebAnimation::readyPromiseResolve))
     , m_finishedPromise(makeUniqueRef<FinishedPromise>(*this, &WebAnimation::finishedPromiseResolve))
+    , m_timelineRange({ Style::SingleAnimationRangeStart { CSS::Keyword::Normal { } }, Style::SingleAnimationRangeEnd { CSS::Keyword::Normal { } } })
 {
     instances().add(this);
 }
@@ -119,6 +122,11 @@ WebAnimation::~WebAnimation()
 
     ASSERT(instances().contains(this));
     instances().remove(this);
+}
+
+ScriptExecutionContext* WebAnimation::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 void WebAnimation::contextDestroyed()
@@ -242,6 +250,11 @@ void WebAnimation::setEffectInternal(RefPtr<AnimationEffect>&& newEffect, bool d
     InspectorInstrumentation::didSetWebAnimationEffect(*this);
 }
 
+KeyframeEffect* WebAnimation::keyframeEffect() const
+{
+    return dynamicDowncast<KeyframeEffect>(m_effect.get());
+}
+
 void WebAnimation::setBindingsTimeline(RefPtr<AnimationTimeline>&& timeline)
 {
     setTimeline(WTFMove(timeline));
@@ -285,7 +298,7 @@ void WebAnimation::setTimeline(RefPtr<AnimationTimeline>&& timeline)
     auto toFiniteTimeline = timeline && !timeline->isMonotonic();
 
     // 8. Let the timeline of animation be new timeline.
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect)) {
+    if (RefPtr keyframeEffect = this->keyframeEffect()) {
         if (auto target = keyframeEffect->targetStyleable()) {
             // In the case of a dstyle-originated animation, we don't want to remove the animation from the relevant maps because
             // while the timeline was set via the API, the element still has a transition or animation set up and we must
@@ -867,7 +880,7 @@ void WebAnimation::cancel(Silently silently)
 
 void WebAnimation::willChangeRenderer()
 {
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect))
+    if (RefPtr keyframeEffect = this->keyframeEffect())
         keyframeEffect->willChangeRenderer();
 }
 
@@ -888,7 +901,7 @@ void WebAnimation::enqueueAnimationEvent(Ref<AnimationEventBase>&& event)
             if (RefPtr source = scrollTimeline->source())
                 return Ref { source->document() }->existingTimeline();
         }
-        if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect)) {
+        if (RefPtr keyframeEffect = this->keyframeEffect()) {
             if (RefPtr target = keyframeEffect->target())
                 return target->protectedDocument()->existingTimeline();
         }
@@ -1014,14 +1027,14 @@ void WebAnimation::timingDidChange(DidSeek didSeek, SynchronouslyNotify synchron
 
     if (silently == Silently::No && m_timeline)
         m_timeline->animationTimingDidChange(*this);
-};
+}
 
 void WebAnimation::invalidateEffect()
 {
     if (isEffectInvalidationSuspended())
         return;
 
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect))
+    if (RefPtr keyframeEffect = this->keyframeEffect())
         keyframeEffect->invalidate();
 }
 
@@ -1141,7 +1154,7 @@ void WebAnimation::finishNotificationSteps()
     }();
     enqueueAnimationPlaybackEvent(eventNames().finishEvent, currentTime(), scheduledTime);
 
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect)) {
+    if (RefPtr keyframeEffect = this->keyframeEffect()) {
         if (RefPtr target = keyframeEffect->target()) {
             if (RefPtr page = target->document().page())
                 page->chrome().client().animationDidFinishForElement(*target);
@@ -1574,14 +1587,22 @@ void WebAnimation::maybeMarkAsReady()
     m_pendingStartTime = std::nullopt;
 }
 
-OptionSet<AnimationImpact> WebAnimation::resolve(RenderStyle& targetStyle, const Style::ResolutionContext& resolutionContext)
+void WebAnimation::setPendingStartTime(WebAnimationTime pendingStartTime)
+{
+    m_pendingStartTime = pendingStartTime;
+
+    ASSERT(is<DocumentTimeline>(m_timeline));
+    Ref { downcast<DocumentTimeline>(*m_timeline) }->pendingStartTimeWasSetOnAnimation();
+}
+
+OptionSet<AnimationImpact> WebAnimation::resolve(RenderStyle& targetStyle, const Style::ResolutionContext& resolutionContext, EndpointInclusiveActiveInterval endpointInclusiveActiveInterval)
 {
     if (!m_shouldSkipUpdatingFinishedStateWhenResolving)
         updateFinishedState(DidSeek::No, SynchronouslyNotify::No);
     m_shouldSkipUpdatingFinishedStateWhenResolving = false;
 
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect))
-        return keyframeEffect->apply(targetStyle, resolutionContext);
+    if (RefPtr keyframeEffect = this->keyframeEffect())
+        return keyframeEffect->apply(targetStyle, resolutionContext, endpointInclusiveActiveInterval);
     return { };
 }
 
@@ -1638,7 +1659,7 @@ void WebAnimation::updateRelevance()
 {
     auto wasRelevant = std::exchange(m_isRelevant, computeRelevance());
     if (wasRelevant != m_isRelevant) {
-        if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect))
+        if (RefPtr keyframeEffect = this->keyframeEffect())
             keyframeEffect->animationRelevancyDidChange();
     }
 }
@@ -1721,7 +1742,7 @@ bool WebAnimation::isReplaceable() const
         return false;
 
     // The target effect has an associated target element.
-    RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect);
+    RefPtr keyframeEffect = this->keyframeEffect();
     if (!keyframeEffect || !keyframeEffect->target())
         return false;
 
@@ -1747,7 +1768,7 @@ ExceptionOr<void> WebAnimation::commitStyles()
     // https://drafts.csswg.org/web-animations-1/#commit-computed-styles
 
     // 1. Let targets be the set of all effect targets for animation effects associated with animation.
-    RefPtr effect = dynamicDowncast<KeyframeEffect>(m_effect);
+    RefPtr effect = keyframeEffect();
 
     // 2. For each target in targets:
     //
@@ -1786,40 +1807,58 @@ ExceptionOr<void> WebAnimation::commitStyles()
         return styleDeclaration->copyProperties();
     }();
 
-    auto& keyframeStack = styledElement->ensureKeyframeEffectStack({ });
+    // We cannot use the keyframe effect stack directly here since effects that aren't
+    // relevant will not be represented and since commitStyles() uses endpoint-inclusive
+    // active intervals, an animation that was just finished, or is about to become active,
+    // would be disregarded.
+    auto* unsortedAnimations = styledElement->animations({ });
+    ASSERT(unsortedAnimations && !unsortedAnimations->isEmpty());
+    auto sortedAnimations = WTF::compactMap(*unsortedAnimations, [](auto& animation) -> RefPtr<WebAnimation> {
+        if (animation->playState() != WebAnimation::PlayState::Idle)
+            return animation.ptr();
+        return nullptr;
+    });
+    std::ranges::stable_sort(sortedAnimations, [](auto& lhs, auto& rhs) {
+        return compareAnimationsByCompositeOrder(lhs.get(), rhs.get());
+    });
 
     auto commitProperty = [&](AnimatableCSSProperty property) {
         // 1. Let partialEffectStack be a copy of the effect stack for property on target.
         // 2. If animation's replace state is removed, add all animation effects associated with animation whose effect target is target and which include
         // property as a target property to partialEffectStack.
         // 3. Remove from partialEffectStack any animation effects whose associated animation has a higher composite order than animation.
-        // 4. Let effect value be the result of calculating the result of partialEffectStack for property using target's computed style (see § 5.4.3 Calculating
-        // the result of an effect stack).
+        // 4. Let effect value be the result of calculating the result of partialEffectStack for property using target’s computed style (see § 5.4.3 Calculating
+        // the result of an effect stack) and setting the endpoint-inclusive active interval flag to true when calculating the animation effect phase (see §
+        // 4.6.6 Animation effect phases and states).
         // 5. Set a CSS declaration property for effect value in inline style.
         // 6. Update style attribute for inline style.
 
-        // We actually perform those steps in a different way: instead of building a copy of the effect stack and then removing stuff, we iterate through the
-        // effect stack and stop when we've found this animation's effect or when we've found an effect associated with an animation with a higher composite order.
+        // We actually perform those steps in a different way: instead of building a copy of the sorted animation list and then removing stuff, we iterate through the
+        // sorted animation list and stop when we've found this animation's effect or when we've found an effect associated with an animation with a higher composite order.
         auto animatedStyle = RenderStyle::clonePtr(unanimatedStyle);
-        for (const auto& effectInStack : keyframeStack.sortedEffects()) {
+        for (const auto& animation : sortedAnimations) {
+            RefPtr effectInStack = animation->keyframeEffect();
+            if (!effectInStack)
+                continue;
             if (effectInStack->animation() != this && !compareAnimationsByCompositeOrder(*effectInStack->animation(), *this))
                 break;
             if (effectInStack->animatedProperties().contains(property))
-                effectInStack->animation()->resolve(*animatedStyle, { nullptr });
+                effectInStack->animation()->resolve(*animatedStyle, { nullptr }, EndpointInclusiveActiveInterval::Yes);
             if (effectInStack->animation() == this)
                 break;
         }
         if (m_replaceState == ReplaceState::Removed)
-            effect->animation()->resolve(*animatedStyle, { nullptr });
+            effect->animation()->resolve(*animatedStyle, { nullptr }, EndpointInclusiveActiveInterval::Yes);
         return WTF::switchOn(property,
             [&](CSSPropertyID propertyId) {
                 auto string = computedStyleExtractor.propertyValueSerializationInStyle(*animatedStyle, propertyId, CSS::defaultSerializationContext(), CSSValuePool::singleton(), nullptr, Style::ExtractorState::PropertyValueType::Computed);
-                if (!string.isEmpty())
-                    return inlineStyle->setProperty(propertyId, WTFMove(string), { styledElement->document() });
-                return false;
+                if (string.isEmpty())
+                    return false;
+                auto resolvedCSSProperty = CSSProperty::resolveDirectionAwareProperty(propertyId, animatedStyle->writingMode());
+                return inlineStyle->setProperty(resolvedCSSProperty, WTFMove(string), { styledElement->document() });
             },
             [&](const AtomString& customProperty) {
-                auto string = computedStyleExtractor.customPropertyValueSerialization(customProperty, CSS::defaultSerializationContext());
+                auto string = computedStyleExtractor.customPropertyValueSerializationInStyle(*animatedStyle, customProperty, CSS::defaultSerializationContext());
                 if (!string.isEmpty())
                     return inlineStyle->setCustomProperty(customProperty, WTFMove(string), { styledElement->document() });
                 return false;
@@ -1925,11 +1964,11 @@ std::optional<double> WebAnimation::overallProgress() const
 
 void WebAnimation::setBindingsRangeStart(TimelineRangeValue&& rangeStartValue)
 {
-    RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect);
+    RefPtr keyframeEffect = this->keyframeEffect();
     if (!keyframeEffect)
         return;
 
-    auto rangeStart = SingleTimelineRange::parse(WTFMove(rangeStartValue), keyframeEffect->target(), SingleTimelineRange::Type::Start);
+    auto rangeStart = convertToCSSValue(WTFMove(rangeStartValue), keyframeEffect->target(), Style::SingleAnimationRangeType::Start);
     if (m_specifiedRangeStart == rangeStart)
         return;
 
@@ -1940,11 +1979,11 @@ void WebAnimation::setBindingsRangeStart(TimelineRangeValue&& rangeStartValue)
 
 void WebAnimation::setBindingsRangeEnd(TimelineRangeValue&& rangeEndValue)
 {
-    RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect);
+    RefPtr keyframeEffect = this->keyframeEffect();
     if (!keyframeEffect)
         return;
 
-    auto rangeEnd = SingleTimelineRange::parse(WTFMove(rangeEndValue), keyframeEffect->target(), SingleTimelineRange::Type::End);
+    auto rangeEnd = convertToCSSValue(WTFMove(rangeEndValue), keyframeEffect->target(), Style::SingleAnimationRangeType::End);
     if (m_specifiedRangeEnd == rangeEnd)
         return;
 
@@ -1953,33 +1992,33 @@ void WebAnimation::setBindingsRangeEnd(TimelineRangeValue&& rangeEndValue)
         effect->animationRangeDidChange();
 }
 
-void WebAnimation::setRangeStart(SingleTimelineRange rangeStart)
+void WebAnimation::setRangeStart(Style::SingleAnimationRangeStart&& rangeStart)
 {
     if (m_timelineRange.start == rangeStart)
         return;
 
-    m_timelineRange.start = rangeStart;
+    m_timelineRange.start = WTFMove(rangeStart);
     if (RefPtr effect = this->effect())
         effect->animationRangeDidChange();
 }
 
-void WebAnimation::setRangeEnd(SingleTimelineRange rangeEnd)
+void WebAnimation::setRangeEnd(Style::SingleAnimationRangeEnd&& rangeEnd)
 {
     if (m_timelineRange.end == rangeEnd)
         return;
 
-    m_timelineRange.end = rangeEnd;
+    m_timelineRange.end = WTFMove(rangeEnd);
     if (RefPtr effect = this->effect())
         effect->animationRangeDidChange();
 }
 
-const TimelineRange& WebAnimation::range()
+const Style::SingleAnimationRange& WebAnimation::range()
 {
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect)) {
+    if (RefPtr keyframeEffect = this->keyframeEffect()) {
         if (m_specifiedRangeStart)
-            m_timelineRange.start = SingleTimelineRange::range(*m_specifiedRangeStart, SingleTimelineRange::Type::Start, nullptr, keyframeEffect->target());
+            m_timelineRange.start = Style::deprecatedToStyleFromCSSValue<Style::SingleAnimationRangeStart>(keyframeEffect->target(), *m_specifiedRangeStart).value_or(Style::SingleAnimationRangeStart { CSS::Keyword::Normal { } });
         if (m_specifiedRangeEnd)
-            m_timelineRange.end = SingleTimelineRange::range(*m_specifiedRangeEnd, SingleTimelineRange::Type::End, nullptr, keyframeEffect->target());
+            m_timelineRange.end = Style::deprecatedToStyleFromCSSValue<Style::SingleAnimationRangeEnd>(keyframeEffect->target(), *m_specifiedRangeEnd).value_or(Style::SingleAnimationRangeEnd { CSS::Keyword::Normal { } });
     }
 
     return m_timelineRange;

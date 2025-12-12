@@ -27,11 +27,10 @@
 #include "config.h"
 #include "Internals.h"
 
-#include "AXObjectCache.h"
-#include "AddEventListenerOptions.h"
+#include "AXObjectCacheInlines.h"
+#include "AddEventListenerOptionsInlines.h"
 #include "AnimationTimeline.h"
 #include "AnimationTimelinesController.h"
-#include "ApplicationCacheStorage.h"
 #include "AudioSession.h"
 #include "AudioTrackPrivateMediaStream.h"
 #include "Autofill.h"
@@ -50,7 +49,6 @@
 #include "CacheStorageConnection.h"
 #include "CacheStorageProvider.h"
 #include "CachedImage.h"
-#include "CachedResourceLoader.h"
 #include "CanvasBase.h"
 #include "CertificateInfo.h"
 #include "Chrome.h"
@@ -60,6 +58,7 @@
 #include "ColorSerialization.h"
 #include "ComposedTreeIterator.h"
 #include "ContainerNodeInlines.h"
+#include "ContextDestructionObserverInlines.h"
 #include "CookieJar.h"
 #include "CrossOriginPreflightResultCache.h"
 #include "Cursor.h"
@@ -72,12 +71,16 @@
 #include "DiagnosticLoggingClient.h"
 #include "DisabledAdaptations.h"
 #include "DisplayList.h"
-#include "Document.h"
 #include "DocumentFullscreen.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
+#include "DocumentMarkers.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
+#include "DocumentResourceLoader.h"
 #include "DocumentTimeline.h"
+#include "DocumentView.h"
 #include "Editor.h"
 #include "Element.h"
 #include "ElementRareData.h"
@@ -100,7 +103,7 @@
 #include "FrameMemoryMonitor.h"
 #include "FrameSnapshotting.h"
 #include "GCObservation.h"
-#include "GridPosition.h"
+#include "GraphicsLayer.h"
 #include "HEVCUtilities.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAttachmentElement.h"
@@ -187,7 +190,6 @@
 #include "PseudoElement.h"
 #include "PushSubscription.h"
 #include "PushSubscriptionData.h"
-#include "Quirks.h"
 #include "RTCController.h"
 #include "RTCNetworkManager.h"
 #include "RTCRtpSFrameTransform.h"
@@ -236,6 +238,7 @@
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
 #include "StringCallback.h"
+#include "StyleGridPosition.h"
 #include "StyleResolver.h"
 #include "StyleRule.h"
 #include "StyleScope.h"
@@ -392,6 +395,10 @@
 #include "VP9UtilitiesCocoa.h"
 #include <pal/spi/cf/CoreTextSPI.h>
 #include <wtf/spi/darwin/SandboxSPI.h>
+#endif
+
+#if PLATFORM(WPE)
+#include <wtf/glib/GResources.h>
 #endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -581,6 +588,7 @@ void Internals::resetToConsistentState(Page& page)
 
     page.setDefersLoading(false);
     page.setResourceCachingDisabledByWebInspector(false);
+    page.setConsoleMessageListenerForTesting(nullptr);
 
     RefPtr localMainFrame = page.localMainFrame();
     if (!localMainFrame)
@@ -614,21 +622,22 @@ void Internals::resetToConsistentState(Page& page)
     if (localMainFrame->editor().isOverwriteModeEnabled())
         localMainFrame->editor().toggleOverwriteModeEnabled();
     localMainFrame->loader().clearTestingOverrides();
-    if (auto* applicationCacheStorage = page.applicationCacheStorage())
-        applicationCacheStorage->setDefaultOriginQuota(ApplicationCacheStorage::noQuota());
+
+    RefPtr sessionManager = page.mediaSessionManager();
 #if ENABLE(VIDEO)
     page.group().ensureCaptionPreferences().setCaptionDisplayMode(CaptionUserPreferences::CaptionDisplayMode::ForcedOnly);
     page.group().ensureCaptionPreferences().setCaptionsStyleSheetOverride(emptyString());
-    PlatformMediaSessionManager::singleton().resetHaveEverRegisteredAsNowPlayingApplicationForTesting();
-    PlatformMediaSessionManager::singleton().resetRestrictions();
-    PlatformMediaSessionManager::singleton().resetSessionState();
-    PlatformMediaSessionManager::singleton().setWillIgnoreSystemInterruptions(true);
-    PlatformMediaSessionManager::singleton().applicationWillEnterForeground(false);
+
+    sessionManager->resetHaveEverRegisteredAsNowPlayingApplicationForTesting();
+    sessionManager->resetRestrictions();
+    sessionManager->resetSessionState();
+    sessionManager->setWillIgnoreSystemInterruptions(true);
+    sessionManager->applicationWillEnterForeground(false);
     if (page.mediaPlaybackIsSuspended())
         page.resumeAllMediaPlayback();
 #endif
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    PlatformMediaSessionManager::singleton().setIsPlayingToAutomotiveHeadUnit(false);
+    sessionManager->setIsPlayingToAutomotiveHeadUnit(false);
 #endif
     AXObjectCache::setEnhancedUserInterfaceAccessibility(false);
     AXObjectCache::disableAccessibility();
@@ -698,8 +707,8 @@ void Internals::resetToConsistentState(Page& page)
 #endif
 
 #if ENABLE(MEDIA_SESSION) && USE(GLIB)
-    auto& sessionManager = reinterpret_cast<MediaSessionManagerGLib&>(PlatformMediaSessionManager::singleton());
-    sessionManager.setDBusNotificationsEnabled(false);
+    MediaSessionManagerGLib* glibSessionManager = static_cast<MediaSessionManagerGLib*>(sessionManager.get());
+    glibSessionManager->setDBusNotificationsEnabled(false);
 #endif
 
 #if PLATFORM(COCOA)
@@ -709,9 +718,9 @@ void Internals::resetToConsistentState(Page& page)
     TextPainter::setForceUseGlyphDisplayListForTesting(false);
 
 #if USE(AUDIO_SESSION)
-    AudioSession::sharedSession().setCategoryOverride(AudioSessionCategory::None);
-    AudioSession::sharedSession().tryToSetActive(false);
-    AudioSession::sharedSession().endInterruptionForTesting();
+    AudioSession::singleton().setCategoryOverride(AudioSessionCategory::None);
+    AudioSession::singleton().tryToSetActive(false);
+    AudioSession::singleton().endInterruptionForTesting();
 #endif
 
 #if ENABLE(DAMAGE_TRACKING)
@@ -742,8 +751,6 @@ Internals::Internals(Document& document)
         setAutomaticLinkDetectionEnabled(false);
         setAutomaticTextReplacementEnabled(true);
     }
-
-    setConsoleMessageListener(nullptr);
 
 #if ENABLE(APPLE_PAY)
     auto* frame = document.frame();
@@ -943,7 +950,7 @@ static String responseSourceToString(const ResourceResponse& response)
         return "Memory cache"_s;
     case ResourceResponse::Source::MemoryCacheAfterValidation:
         return "Memory cache after validation"_s;
-    case ResourceResponse::Source::ApplicationCache:
+    case ResourceResponse::Source::LegacyApplicationCachePlaceholder:
         return "Application cache"_s;
     case ResourceResponse::Source::DOMCache:
         return "DOM cache"_s;
@@ -1286,7 +1293,7 @@ bool Internals::hasPendingActivity(const WebCodecsVideoDecoder& decoder) const
 
 void Internals::setGridMaxTracksLimit(unsigned maxTrackLimit)
 {
-    GridPosition::setMaxPositionForTesting(maxTrackLimit);
+    Style::GridPosition::setMaxPositionForTesting(maxTrackLimit);
 }
 
 void Internals::clearBackForwardCache()
@@ -1672,7 +1679,7 @@ void Internals::setCanShowPlaceholder(Element& element, bool canShowPlaceholder)
 Element* Internals::insertTextPlaceholder(int width, int height)
 {
     RefPtr localFrame = frame();
-    return localFrame ? localFrame->editor().insertTextPlaceholder(IntSize { width, height }).get() : nullptr;
+    return localFrame ? localFrame->editor().insertTextPlaceholder(IntSize { width, height }).unsafeGet() : nullptr;
 }
 
 void Internals::removeTextPlaceholder(Element& element)
@@ -2120,7 +2127,7 @@ ExceptionOr<RefPtr<ImageData>> Internals::snapshotNode(Node& node)
 
     document->updateLayoutIgnorePendingStylesheets();
 
-    SnapshotOptions options { { SnapshotFlags::DraggableElement }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() };
+    SnapshotOptions options { { SnapshotFlags::DraggableElement }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() };
 
     RefPtr imageBuffer = WebCore::snapshotNode(*document->frame(), node, WTFMove(options));
     if (!imageBuffer)
@@ -3241,12 +3248,12 @@ uint64_t Internals::storageAreaMapCount() const
 
 uint64_t Internals::elementIdentifier(Element& element) const
 {
-    return element.identifier().toUInt64();
+    return element.nodeIdentifier().toUInt64();
 }
 
 bool Internals::isElementAlive(uint64_t elementIdentifier) const
 {
-    return Element::fromIdentifier(ObjectIdentifier<ElementIdentifierType>(elementIdentifier));
+    return Node::fromIdentifier(ObjectIdentifier<NodeIdentifierType>(elementIdentifier));
 }
 
 uint64_t Internals::pageIdentifier(const Document& document) const
@@ -3278,6 +3285,10 @@ RefPtr<WindowProxy> Internals::openDummyInspectorFrontend(const String& url)
     RefPtr window = localMainFrame->document()->window();
     if (!window)
         return nullptr;
+
+#if PLATFORM(WPE)
+    WTF::registerInspectorResourceIfNeeded();
+#endif
 
     auto frontendWindowProxy = window->open(*window, *window, url, emptyAtom(), emptyString()).releaseReturnValue();
     m_inspectorFrontend = makeUnique<InspectorStubFrontend>(*inspectedPage, downcast<LocalDOMWindow>(frontendWindowProxy->window()));
@@ -4075,15 +4086,6 @@ bool Internals::doesCanvasHavePendingCanvasNoiseInjection(HTMLCanvasElement& ele
     return element.havePendingCanvasNoiseInjection();
 }
 
-void Internals::setApplicationCacheOriginQuota(unsigned long long quota)
-{
-    Document* document = contextDocument();
-    if (!document || !document->page())
-        return;
-    if (auto* applicationCacheStorage = document->page()->applicationCacheStorage())
-        applicationCacheStorage->storeUpdatedQuotaForOrigin(&document->securityOrigin(), quota);
-}
-
 void Internals::registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme)
 {
     LegacySchemeRegistry::registerURLSchemeAsBypassingContentSecurityPolicy(scheme);
@@ -4594,19 +4596,6 @@ void Internals::enterViewerMode(HTMLVideoElement& element)
     element.enterFullscreen(HTMLMediaElementEnums::VideoFullscreenModeInWindow);
 }
 
-
-void Internals::beginSimulatedHDCPError(HTMLMediaElement& element)
-{
-    if (RefPtr player = element.player())
-        player->beginSimulatedHDCPError();
-}
-
-void Internals::endSimulatedHDCPError(HTMLMediaElement& element)
-{
-    if (RefPtr player = element.player())
-        player->endSimulatedHDCPError();
-}
-
 ExceptionOr<bool> Internals::mediaPlayerRenderingCanBeAccelerated(HTMLMediaElement& element)
 {
     return element.mediaPlayerRenderingCanBeAccelerated();
@@ -4863,7 +4852,7 @@ void Internals::initializeMockMediaSource()
     if (!document || (!document->settings().mediaSourceEnabled() && !document->settings().managedMediaSourceEnabled()))
         return;
 
-    platformStrategies()->mediaStrategy().enableMockMediaSource();
+    platformStrategies()->mediaStrategy()->enableMockMediaSource();
 }
 
 void Internals::setMaximumSourceBufferSize(SourceBuffer& buffer, uint64_t maximumSize, DOMPromiseDeferred<void>&& promise)
@@ -4926,6 +4915,10 @@ void Internals::enableMockMediaCapabilities()
 
 ExceptionOr<void> Internals::beginMediaSessionInterruption(const String& interruptionString)
 {
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return Exception { ExceptionCode::InvalidAccessError };
+
     PlatformMediaSession::InterruptionType interruption = PlatformMediaSession::InterruptionType::SystemInterruption;
 
     if (equalLettersIgnoringASCIICase(interruptionString, "system"_s))
@@ -4939,7 +4932,7 @@ ExceptionOr<void> Internals::beginMediaSessionInterruption(const String& interru
     else
         return Exception { ExceptionCode::InvalidAccessError };
 
-    PlatformMediaSessionManager::singleton().beginInterruption(interruption);
+    manager->beginInterruption(interruption);
     return { };
 }
 
@@ -4950,27 +4943,32 @@ void Internals::endMediaSessionInterruption(const String& flagsString)
     if (equalLettersIgnoringASCIICase(flagsString, "mayresumeplaying"_s))
         flags = PlatformMediaSession::EndInterruptionFlags::MayResumePlaying;
 
-    PlatformMediaSessionManager::singleton().endInterruption(flags);
+    if (RefPtr manager = sessionManager())
+        manager->endInterruption(flags);
 }
 
 void Internals::applicationWillBecomeInactive()
 {
-    PlatformMediaSessionManager::singleton().applicationWillBecomeInactive();
+    if (RefPtr manager = sessionManager())
+        manager->applicationWillBecomeInactive();
 }
 
 void Internals::applicationDidBecomeActive()
 {
-    PlatformMediaSessionManager::singleton().applicationDidBecomeActive();
+    if (RefPtr manager = sessionManager())
+        manager->applicationDidBecomeActive();
 }
 
 void Internals::applicationWillEnterForeground(bool suspendedUnderLock) const
 {
-    PlatformMediaSessionManager::singleton().applicationWillEnterForeground(suspendedUnderLock);
+    if (RefPtr manager = sessionManager())
+        manager->applicationWillEnterForeground(suspendedUnderLock);
 }
 
 void Internals::applicationDidEnterBackground(bool suspendedUnderLock) const
 {
-    PlatformMediaSessionManager::singleton().applicationDidEnterBackground(suspendedUnderLock);
+    if (RefPtr manager = sessionManager())
+        manager->applicationDidEnterBackground(suspendedUnderLock);
 }
 
 static PlatformMediaSession::MediaType mediaTypeFromString(const String& mediaTypeString)
@@ -4993,8 +4991,12 @@ ExceptionOr<void> Internals::setMediaSessionRestrictions(const String& mediaType
     if (mediaType == PlatformMediaSession::MediaType::None)
         return Exception { ExceptionCode::InvalidAccessError };
 
-    auto restrictions = PlatformMediaSessionManager::singleton().restrictions(mediaType);
-    PlatformMediaSessionManager::singleton().removeRestriction(mediaType, restrictions);
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    auto restrictions = manager->restrictions(mediaType);
+    manager->removeRestriction(mediaType, restrictions);
 
     restrictions = MediaSessionRestriction::NoRestrictions;
 
@@ -5012,7 +5014,7 @@ ExceptionOr<void> Internals::setMediaSessionRestrictions(const String& mediaType
         if (equalLettersIgnoringASCIICase(restrictionString, "suspendedunderlockplaybackrestricted"_s))
             restrictions |= MediaSessionRestriction::SuspendedUnderLockPlaybackRestricted;
     }
-    PlatformMediaSessionManager::singleton().addRestriction(mediaType, restrictions);
+    manager->addRestriction(mediaType, restrictions);
     return { };
 }
 
@@ -5022,7 +5024,11 @@ ExceptionOr<String> Internals::mediaSessionRestrictions(const String& mediaTypeS
     if (mediaType == PlatformMediaSession::MediaType::None)
         return Exception { ExceptionCode::InvalidAccessError };
 
-    auto restrictions = PlatformMediaSessionManager::singleton().restrictions(mediaType);
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    auto restrictions = manager->restrictions(mediaType);
     if (restrictions == MediaSessionRestriction::NoRestrictions)
         return String();
 
@@ -5101,6 +5107,10 @@ void Internals::setMediaElementRestrictions(HTMLMediaElement& element, StringVie
 
 ExceptionOr<void> Internals::postRemoteControlCommand(const String& commandString, float argument)
 {
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return Exception { ExceptionCode::InvalidAccessError };
+
     PlatformMediaSession::RemoteControlCommandType command;
     PlatformMediaSession::RemoteCommandArgument parameter { argument, { } };
 
@@ -5129,7 +5139,7 @@ ExceptionOr<void> Internals::postRemoteControlCommand(const String& commandStrin
     else
         return Exception { ExceptionCode::InvalidAccessError };
 
-    PlatformMediaSessionManager::singleton().processDidReceiveRemoteControlCommand(command, parameter);
+    manager->processDidReceiveRemoteControlCommand(command, parameter);
     return { };
 }
 
@@ -5173,7 +5183,7 @@ void Internals::forceStereoDecoding(HTMLMediaElement& element)
 void Internals::beginAudioSessionInterruption()
 {
 #if USE(AUDIO_SESSION)
-    AudioSession::sharedSession().beginInterruptionForTesting();
+    AudioSession::singleton().beginInterruptionForTesting();
 #endif
 }
 
@@ -5181,14 +5191,14 @@ void Internals::beginAudioSessionInterruption()
 void Internals::endAudioSessionInterruption()
 {
 #if USE(AUDIO_SESSION)
-    AudioSession::sharedSession().endInterruptionForTesting();
+    AudioSession::singleton().endInterruptionForTesting();
 #endif
 }
 
 void Internals::clearAudioSessionInterruptionFlag()
 {
 #if USE(AUDIO_SESSION)
-    AudioSession::sharedSession().clearInterruptionFlagForTesting();
+    AudioSession::singleton().clearInterruptionFlagForTesting();
 #endif
 }
 
@@ -5261,35 +5271,46 @@ void Internals::useMockAudioDestinationCocoa()
 void Internals::simulateSystemSleep() const
 {
 #if ENABLE(VIDEO)
-    PlatformMediaSessionManager::singleton().processSystemWillSleep();
+    if (RefPtr manager = sessionManager())
+        manager->processSystemWillSleep();
 #endif
 }
 
 void Internals::simulateSystemWake() const
 {
 #if ENABLE(VIDEO)
-    PlatformMediaSessionManager::singleton().processSystemDidWake();
+    if (RefPtr manager = sessionManager())
+        manager->processSystemDidWake();
 #endif
 }
 
 std::optional<Internals::NowPlayingMetadata> Internals::nowPlayingMetadata() const
 {
-    if (auto nowPlayingInfo = PlatformMediaSessionManager::singleton().nowPlayingInfo())
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return std::nullopt;
+
+    if (auto nowPlayingInfo = manager->nowPlayingInfo())
         return nowPlayingInfo->metadata;
+
     return std::nullopt;
 }
 
 ExceptionOr<Internals::NowPlayingState> Internals::nowPlayingState() const
 {
 #if ENABLE(VIDEO)
-    auto lastUpdatedNowPlayingInfoUniqueIdentifier = PlatformMediaSessionManager::singleton().lastUpdatedNowPlayingInfoUniqueIdentifier();
-    return { { PlatformMediaSessionManager::singleton().lastUpdatedNowPlayingTitle(),
-        PlatformMediaSessionManager::singleton().lastUpdatedNowPlayingDuration(),
-        PlatformMediaSessionManager::singleton().lastUpdatedNowPlayingElapsedTime(),
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    auto lastUpdatedNowPlayingInfoUniqueIdentifier = manager->lastUpdatedNowPlayingInfoUniqueIdentifier();
+    return { { manager->lastUpdatedNowPlayingTitle(),
+        manager->lastUpdatedNowPlayingDuration(),
+        manager->lastUpdatedNowPlayingElapsedTime(),
         lastUpdatedNowPlayingInfoUniqueIdentifier ? lastUpdatedNowPlayingInfoUniqueIdentifier->toUInt64() : 0,
-        PlatformMediaSessionManager::singleton().hasActiveNowPlayingSession(),
-        PlatformMediaSessionManager::singleton().registeredAsNowPlayingApplication(),
-        PlatformMediaSessionManager::singleton().haveEverRegisteredAsNowPlayingApplication()
+        manager->hasActiveNowPlayingSession(),
+        manager->registeredAsNowPlayingApplication(),
+        manager->haveEverRegisteredAsNowPlayingApplication()
     } };
 #else
     return Exception { ExceptionCode::InvalidAccessError };
@@ -5299,7 +5320,11 @@ ExceptionOr<Internals::NowPlayingState> Internals::nowPlayingState() const
 #if ENABLE(VIDEO)
 RefPtr<HTMLMediaElement> Internals::bestMediaElementForRemoteControls(Internals::PlaybackControlsPurpose purpose)
 {
-    return HTMLMediaElement::bestMediaElementForRemoteControls(purpose);
+    RefPtr document = contextDocument();
+    if (!document || !document->page())
+        return nullptr;
+
+    return document->protectedPage()->bestMediaElementForRemoteControls(purpose, document.get());
 }
 
 Internals::MediaSessionState Internals::mediaSessionState(HTMLMediaElement& element)
@@ -5444,10 +5469,11 @@ void Internals::mockMediaPlaybackTargetPickerDismissPopup()
 bool Internals::isMonitoringWirelessRoutes() const
 {
 #if ENABLE(VIDEO)
-    return PlatformMediaSessionManager::singleton().isMonitoringWirelessTargets();
-#else
+    if (RefPtr manager = sessionManager())
+        return manager->isMonitoringWirelessTargets();
+#endif
+
     return false;
-#endif // ENABLE(VIDEO)
 }
 
 ExceptionOr<Ref<MockPageOverlay>> Internals::installMockPageOverlay(PageOverlayType type)
@@ -5776,11 +5802,6 @@ void Internals::systemBeep()
 
 #if ENABLE(VIDEO)
 
-String Internals::getCurrentMediaControlsStatusForElement(HTMLMediaElement& mediaElement)
-{
-    return mediaElement.getCurrentMediaControlsStatus();
-}
-
 void Internals::setMediaControlsMaximumRightContainerButtonCountOverride(HTMLMediaElement& mediaElement, size_t count)
 {
     mediaElement.setMediaControlsMaximumRightContainerButtonCountOverride(count);
@@ -5870,7 +5891,7 @@ JSValue Internals::cloneArrayBuffer(JSC::JSGlobalObject& lexicalGlobalObject, JS
 
 String Internals::resourceLoadStatisticsForURL(const DOMURL& url)
 {
-    return ResourceLoadObserver::shared().statisticsForURL(url.href());
+    return ResourceLoadObserver::singleton().statisticsForURL(url.href());
 }
 
 void Internals::setTrackingPreventionEnabled(bool enable)
@@ -6017,12 +6038,18 @@ double Internals::elementEffectivePlaybackRate(const HTMLMediaElement& media)
 {
     return media.effectivePlaybackRate();
 }
+
+double Internals::privatePlayerCurrentTime(HTMLMediaElement& media)
+{
+    return media.mediaPlayerCurrentTime();
+}
+
 #endif
 
 ExceptionOr<void> Internals::setIsPlayingToBluetoothOverride(std::optional<bool> isPlaying)
 {
 #if ENABLE(ROUTING_ARBITRATION)
-    AudioSession::sharedSession().setIsPlayingToBluetoothOverride(isPlaying);
+    AudioSession::singleton().setIsPlayingToBluetoothOverride(isPlaying);
     return { };
 #else
     UNUSED_PARAM(isPlaying);
@@ -6391,7 +6418,10 @@ const String& Internals::mediaStreamTrackPersistentId(const MediaStreamTrack& tr
 
 size_t Internals::audioCaptureSourceCount() const
 {
-    return PlatformMediaSessionManager::singleton().audioCaptureSourceCount();
+    if (RefPtr manager = sessionManager())
+        return manager->audioCaptureSourceCount();
+
+    return false;
 }
 
 bool Internals::isMediaStreamSourceInterrupted(MediaStreamTrack& track) const
@@ -6454,7 +6484,7 @@ bool Internals::supportsAudioSession() const
 auto Internals::audioSessionCategory() const -> AudioSessionCategory
 {
 #if USE(AUDIO_SESSION)
-    return AudioSession::sharedSession().category();
+    return AudioSession::singleton().category();
 #else
     return AudioSessionCategory::None;
 #endif
@@ -6463,7 +6493,7 @@ auto Internals::audioSessionCategory() const -> AudioSessionCategory
 auto Internals::audioSessionMode() const -> AudioSessionMode
 {
 #if USE(AUDIO_SESSION)
-    return AudioSession::sharedSession().mode();
+    return AudioSession::singleton().mode();
 #else
     return AudioSessionMode::Default;
 #endif
@@ -6472,7 +6502,7 @@ auto Internals::audioSessionMode() const -> AudioSessionMode
 auto Internals::routeSharingPolicy() const -> RouteSharingPolicy
 {
 #if USE(AUDIO_SESSION)
-    return AudioSession::sharedSession().routeSharingPolicy();
+    return AudioSession::singleton().routeSharingPolicy();
 #else
     return RouteSharingPolicy::Default;
 #endif
@@ -6504,7 +6534,7 @@ auto Internals::modeAtMostRecentPlayback(HTMLMediaElement& element) const -> Aud
 double Internals::preferredAudioBufferSize() const
 {
 #if USE(AUDIO_SESSION)
-    return AudioSession::sharedSession().preferredBufferSize();
+    return AudioSession::singleton().preferredBufferSize();
 #endif
     return 0;
 }
@@ -6512,7 +6542,7 @@ double Internals::preferredAudioBufferSize() const
 double Internals::currentAudioBufferSize() const
 {
 #if USE(AUDIO_SESSION)
-    return AudioSession::sharedSession().bufferSize();
+    return AudioSession::singleton().bufferSize();
 #endif
     return 0;
 }
@@ -6521,7 +6551,7 @@ double Internals::currentAudioBufferSize() const
 bool Internals::audioSessionActive() const
 {
 #if USE(AUDIO_SESSION)
-    return AudioSession::sharedSession().isActive();
+    return AudioSession::singleton().isActive();
 #endif
     return false;
 }
@@ -6619,7 +6649,8 @@ void Internals::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
     if (!contextDocument())
         return;
 
-    contextDocument()->setConsoleMessageListener(WTFMove(listener));
+    if (RefPtr page = contextDocument()->page())
+        page->setConsoleMessageListenerForTesting(WTFMove(listener));
 }
 
 void Internals::setResponseSizeWithPadding(FetchResponse& response, uint64_t size)
@@ -6750,7 +6781,7 @@ void Internals::installImageOverlay(Element& element, Vector<ImageOverlayLine>&&
             return TextRecognitionBlockData { block.text, getQuad(block) };
         })
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-        , TextRecognitionResult::encodeVKCImageAnalysis(fakeImageAnalysisResultForTesting(lines))
+        , TextRecognitionResult::extractAttributedString(fakeImageAnalysisResultForTesting(lines).get())
 #endif
     });
 #else
@@ -6887,7 +6918,7 @@ ExceptionOr<unsigned> Internals::pluginScrollPositionY(Element& element)
 
 void Internals::notifyResourceLoadObserver()
 {
-    ResourceLoadObserver::shared().updateCentralStatisticsStore([] { });
+    ResourceLoadObserver::singleton().updateCentralStatisticsStore([] { });
 }
 
 unsigned Internals::primaryScreenDisplayID()
@@ -7015,6 +7046,19 @@ auto Internals::getCookies() const -> Vector<CookieData>
     });
 }
 
+auto Internals::webDriverGetCookies(Document& document) const -> Vector<WebDriverCookieData>
+{
+    auto* page = document.page();
+    if (!page)
+        return { };
+
+    Vector<Cookie> cookies;
+    page->cookieJar().getRawCookies(document, document.cookieURL(), cookies);
+    return WTF::map(cookies, [](auto& cookie) {
+        return WebDriverCookieData { cookie };
+    });
+}
+
 void Internals::setAlwaysAllowLocalWebarchive(bool alwaysAllowLocalWebarchive)
 {
     auto* localFrame = frame();
@@ -7026,14 +7070,16 @@ void Internals::setAlwaysAllowLocalWebarchive(bool alwaysAllowLocalWebarchive)
 void Internals::processWillSuspend()
 {
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    PlatformMediaSessionManager::singleton().processWillSuspend();
+    if (RefPtr manager = sessionManager())
+        manager->processWillSuspend();
 #endif
 }
 
 void Internals::processDidResume()
 {
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    PlatformMediaSessionManager::singleton().processDidResume();
+    if (RefPtr manager = sessionManager())
+        manager->processDidResume();
 #endif
 }
 
@@ -7070,7 +7116,8 @@ void Internals::setTransientActivationDuration(double seconds)
 void Internals::setIsPlayingToAutomotiveHeadUnit(bool isPlaying)
 {
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    PlatformMediaSessionManager::singleton().setIsPlayingToAutomotiveHeadUnit(isPlaying);
+    if (RefPtr manager = sessionManager())
+        manager->setIsPlayingToAutomotiveHeadUnit(isPlaying);
 #else
     UNUSED_PARAM(isPlaying);
 #endif
@@ -7085,7 +7132,7 @@ String Internals::highlightPseudoElementColor(const AtomString& highlightName, E
     if (!parentStyle)
         return { };
 
-    auto resolvedStyle = styleResolver.styleForPseudoElement(element, { PseudoId::Highlight, highlightName }, { parentStyle });
+    auto resolvedStyle = styleResolver.styleForPseudoElement(element, { PseudoElementType::Highlight, highlightName }, { parentStyle });
     if (!resolvedStyle)
         return { };
 
@@ -7465,9 +7512,11 @@ void Internals::loadArtworkImage(String&& url, ArtworkImagePromise&& promise)
 
 ExceptionOr<Vector<String>> Internals::platformSupportedCommands() const
 {
-    if (!contextDocument())
+    RefPtr manager = sessionManager();
+    if (!manager || !contextDocument())
         return Exception { ExceptionCode::InvalidAccessError };
-    auto commands = PlatformMediaSessionManager::singleton().supportedCommands();
+
+    auto commands = manager->supportedCommands();
     Vector<String> commandStrings;
     for (auto command : commands)
         commandStrings.append(convertEnumerationToString(command));
@@ -7711,8 +7760,11 @@ AccessibilityObject* Internals::axObjectForElement(Element& element) const
         return nullptr;
     WebCore::AXObjectCache::enableAccessibility();
 
-    auto* cache = document->axObjectCache();
-    return cache ? cache->getOrCreate(element) : nullptr;
+    if (CheckedPtr cache = document->axObjectCache()) {
+        cache->performDeferredCacheUpdate(ForceLayout::No);
+        return cache->exportedGetOrCreate(element);
+    }
+    return nullptr;
 }
 
 String Internals::getComputedLabel(Element& element) const
@@ -7851,7 +7903,7 @@ std::optional<RenderingMode> Internals::getEffectiveRenderingModeOfNewlyCreatedA
     if (!document || !document->page())
         return std::nullopt;
 
-    if (RefPtr imageBuffer = ImageBuffer::create({ 100, 100 }, RenderingMode::Accelerated, RenderingPurpose::DOM, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8,  &document->page()->chrome())) {
+    if (RefPtr imageBuffer = ImageBuffer::create({ 100, 100 }, RenderingMode::Accelerated, RenderingPurpose::DOM, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8,  &document->page()->chrome())) {
         imageBuffer->ensureBackendCreated();
         if (imageBuffer->hasBackend())
             return imageBuffer->renderingMode();
@@ -7954,6 +8006,19 @@ ExceptionOr<Vector<Internals::FrameDamage>> Internals::getFrameDamageHistory() c
     return damageDetails;
 }
 #endif
+
+RefPtr<MediaSessionManagerInterface> Internals::sessionManager() const
+{
+    RefPtr document = contextDocument();
+    if (!document)
+        return nullptr;
+
+    RefPtr page = document->page();
+    if (!page)
+        return nullptr;
+
+    return page->mediaSessionManager();
+}
 
 #if ENABLE(MODEL_ELEMENT)
 void Internals::disableModelLoadDelaysForTesting()

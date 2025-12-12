@@ -39,9 +39,9 @@ NSString * const _WKTextManipulationTokenUserInfoVisibilityKey = @"_WKTextManipu
 
 - (void)dealloc
 {
-    [_identifier release];
+    SUPPRESS_UNRETAINED_ARG [_identifier release];
     _identifier = nil;
-    [_content release];
+    SUPPRESS_UNRETAINED_ARG [_content release];
     _content = nil;
 
     [super dealloc];

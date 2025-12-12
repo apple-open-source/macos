@@ -35,8 +35,10 @@
 #if ENABLE(VIDEO)
 
 #include "CommonAtomStrings.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DataCue.h"
 #include "Event.h"
+#include "ExceptionOr.h"
 #include "SourceBuffer.h"
 #include "TextTrackClient.h"
 #include "TextTrackCueList.h"
@@ -637,6 +639,11 @@ void TextTrack::newCuesAvailable(const TextTrackCueList& list)
     m_clients.forEach([&] (auto& client) {
         client.textTrackAddCues(*this, list);
     });
+}
+
+ScriptExecutionContext* TextTrack::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 } // namespace WebCore

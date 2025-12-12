@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "Event.h"
+#include <WebCore/Event.h>
 #include <wtf/Markable.h>
 
 namespace WebCore {

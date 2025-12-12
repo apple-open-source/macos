@@ -29,11 +29,11 @@
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
-#include "Integrity.h"
-#include "JSAPIValueWrapper.h"
-#include "JSCJSValue.h"
-#include "JSCJSValueInlines.h"
-#include "HeapCellInlines.h"
+#include <JavaScriptCore/HeapCellInlines.h>
+#include <JavaScriptCore/Integrity.h>
+#include <JavaScriptCore/JSAPIValueWrapper.h>
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/JSCJSValueInlines.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
@@ -165,7 +165,7 @@ inline JSValueRef toRef(JSC::JSGlobalObject* globalObject, JSC::JSValue v)
 }
 
 #if CPU(ADDRESS64)
-inline JSValueRef toRef(JSC::JSValue v)
+inline JSValueRef toRefWithoutGlobalObject(JSC::JSValue v)
 {
     return std::bit_cast<JSValueRef>(JSC::Integrity::audit(v));
 }

@@ -151,7 +151,7 @@ static const double kGravity = 9.80665;
         [m_motionManager setAccelerometerUpdateInterval:kMotionUpdateInterval];
 
     m_locationManager = adoptNS([allocCLLocationManagerInstance() init]);
-    m_headingAvailable = [getCLLocationManagerClass() headingAvailable];
+    m_headingAvailable = [getCLLocationManagerClassSingleton() headingAvailable];
 
     m_initialized = YES;
 

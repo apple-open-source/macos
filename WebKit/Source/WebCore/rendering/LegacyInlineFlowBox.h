@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include "LegacyInlineBox.h"
-#include "RenderOverflow.h"
+#include <WebCore/LegacyInlineBox.h>
+#include <WebCore/RenderOverflow.h>
 
 namespace WebCore {
 
@@ -152,7 +152,7 @@ protected:
     // The following members are only used by RootInlineBox but moved here to keep the bits packed.
 
     // Whether or not this line uses alphabetic or ideographic baselines by default.
-    unsigned m_baselineType : 1 { AlphabeticBaseline }; // FontBaseline
+    unsigned m_baselineType : 1 { enumToUnderlyingType(FontBaseline::Alphabetic) }; // FontBaseline
 
     unsigned m_lineBreakBidiStatusEor : 5; // UCharDirection
     unsigned m_lineBreakBidiStatusLastStrong : 5; // UCharDirection

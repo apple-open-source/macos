@@ -39,7 +39,7 @@ namespace WTF {
 // Class holding constants and methods that apply to all string search variants,
 // independently of subject and pattern char size.
 class AdaptiveStringSearcherBase {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(AdaptiveStringSearcherBase);
 public:
     // Cap on the maximal shift in the Boyer-Moore implementation. By setting a
     // limit, we can fix the size of tables. For a needle longer than this limit,
@@ -62,7 +62,7 @@ public:
     // to compensate for the algorithmic overhead compared to simple brute force.
     static constexpr int bmMinPatternLength = 7;
 
-    static constexpr bool exceedsOneByte(LChar) { return false; }
+    static constexpr bool exceedsOneByte(Latin1Character) { return false; }
     static constexpr bool exceedsOneByte(char16_t c) { return c > 0xff; }
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -95,7 +95,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 };
 
 class AdaptiveStringSearcherTables {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(AdaptiveStringSearcherTables);
 public:
     int* badCharShiftTable() { return m_badCharShiftTable.data(); }
     int* goodSuffixShiftTable() { return m_goodSuffixShiftTable.data(); }

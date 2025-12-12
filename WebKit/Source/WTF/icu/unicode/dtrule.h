@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 * Copyright (C) 2007-2008, International Business Machines Corporation and         *
-* others. All rights reserved.                                                *
+* others. All Rights Reserved.                                                *
 *******************************************************************************
 */
 #ifndef DTRULE_H

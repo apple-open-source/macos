@@ -28,7 +28,7 @@
 #include "BufferAndBackendInfo.h"
 #include "BufferIdentifierSet.h"
 #include "ImageBufferBackendHandle.h"
-#include "RemoteImageBufferSetIdentifier.h"
+#include "ImageBufferSetIdentifier.h"
 #include "RemoteImageBufferSetProxy.h"
 #include <WebCore/FloatRect.h>
 #include <WebCore/ImageBuffer.h>
@@ -67,12 +67,6 @@ enum class BackingStoreNeedsDisplayReason : uint8_t {
     FrontBufferIsVolatile,
     FrontBufferHasNoSharingHandle,
     HasDirtyRegion,
-};
-
-enum class LayerContentsType : uint8_t {
-    IOSurface,
-    CAMachPort,
-    CachedIOSurface,
 };
 
 class RemoteLayerBackingStore : public CanMakeWeakPtr<RemoteLayerBackingStore>, public CanMakeCheckedPtr<RemoteLayerBackingStore> {
@@ -140,7 +134,7 @@ public:
     float scale() const { return m_parameters.scale; }
     WebCore::ContentsFormat contentsFormat() const { return m_parameters.contentsFormat; }
     WebCore::DestinationColorSpace colorSpace() const { return m_parameters.colorSpace; }
-    WebCore::ImageBufferPixelFormat pixelFormat() const;
+    WebCore::PixelFormat pixelFormat() const;
     Type type() const { return m_parameters.type; }
     bool isOpaque() const { return m_parameters.isOpaque; }
     unsigned bytesPerPixel() const;
@@ -155,8 +149,6 @@ public:
 
     virtual bool hasFrontBuffer() const = 0;
     virtual bool frontBufferMayBeVolatile() const = 0;
-
-    virtual void encodeBufferAndBackendInfos(IPC::Encoder&) const = 0;
 
     Vector<std::unique_ptr<ThreadSafeImageBufferSetFlusher>> takePendingFlushers();
 
@@ -173,11 +165,10 @@ public:
 
     virtual void clearBackingStore();
 
-    virtual std::optional<ImageBufferBackendHandle> frontBufferHandle() const = 0;
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     virtual std::optional<WebCore::DynamicContentScalingDisplayList> displayListHandle() const  { return std::nullopt; }
 #endif
-    virtual std::optional<RemoteImageBufferSetIdentifier> bufferSetIdentifier() const { return std::nullopt; }
+    virtual std::optional<ImageBufferSetIdentifier> bufferSetIdentifier() const = 0;
 
     virtual void dump(WTF::TextStream&) const = 0;
 
@@ -227,32 +218,34 @@ class RemoteLayerBackingStoreProperties {
 public:
     RemoteLayerBackingStoreProperties() = default;
     RemoteLayerBackingStoreProperties(RemoteLayerBackingStoreProperties&&) = default;
-#if HAVE(SUPPORT_HDR_DISPLAY)
-    RemoteLayerBackingStoreProperties(ImageBufferBackendHandle&&, WebCore::RenderingResourceIdentifier, bool opaque, bool hasExtendedDynamicRangeContent);
-#else
     RemoteLayerBackingStoreProperties(ImageBufferBackendHandle&&, WebCore::RenderingResourceIdentifier, bool opaque);
-#endif
 
-    void applyBackingStoreToLayer(CALayer *, LayerContentsType, bool replayDynamicContentScalingDisplayListsIntoBackingStore, UIView * hostingView);
-    void updateCachedBuffers(RemoteLayerTreeNode&, LayerContentsType, UIView *);
+    void applyBackingStoreToNode(RemoteLayerTreeNode&, bool replayDynamicContentScalingDisplayListsIntoBackingStore, UIView* hostingView);
 
     const std::optional<ImageBufferBackendHandle>& bufferHandle() const { return m_bufferHandle; };
 
-    static RetainPtr<id> layerContentsBufferFromBackendHandle(ImageBufferBackendHandle&&, LayerContentsType, bool isDelegatedDisplay);
+    struct LayerContentsBufferInfo {
+        RetainPtr<id> buffer;
+        bool hasExtendedDynamicRange;
+    };
+
+    static LayerContentsBufferInfo layerContentsBufferFromBackendHandle(ImageBufferBackendHandle&&, bool isDelegatedDisplay);
 
     void dump(WTF::TextStream&) const;
 
-    std::optional<RemoteImageBufferSetIdentifier> bufferSetIdentifier() { return m_bufferSet; }
+    std::optional<ImageBufferSetIdentifier> bufferSetIdentifier() { return m_bufferSet; }
     void setBackendHandle(BufferSetBackendHandle&);
 
     std::optional<WebCore::RenderingResourceIdentifier> contentsRenderingResourceIdentifier() const { return m_contentsRenderingResourceIdentifier; };
 
 private:
     friend struct IPC::ArgumentCoder<RemoteLayerBackingStoreProperties, void>;
-    std::optional<ImageBufferBackendHandle> m_bufferHandle;
-    RetainPtr<id> m_contentsBuffer;
 
-    std::optional<RemoteImageBufferSetIdentifier> m_bufferSet;
+    LayerContentsBufferInfo lookupCachedBuffer(RemoteLayerTreeNode&);
+
+    std::optional<ImageBufferBackendHandle> m_bufferHandle;
+
+    std::optional<ImageBufferSetIdentifier> m_bufferSet;
 
     std::optional<BufferAndBackendInfo> m_frontBufferInfo;
     std::optional<BufferAndBackendInfo> m_backBufferInfo;
@@ -268,7 +261,6 @@ private:
     bool m_isOpaque { false };
     RemoteLayerBackingStore::Type m_type;
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    bool m_hasExtendedDynamicRange { false };
     float m_maxRequestedEDRHeadroom { 1 };
 #endif
 };

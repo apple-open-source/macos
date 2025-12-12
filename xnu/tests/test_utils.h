@@ -7,6 +7,12 @@
 /* Misc. utility functions for writing darwintests. */
 bool is_development_kernel(void);
 
+/* Returns true if the Secure Page Table Monitor (SPTM) is present on the system. */
+bool is_sptm_enabled(void);
+
+/* Returns true if system-wide codesigning policy allows programs to use MAP_JIT with mmap(). */
+bool is_map_jit_allowed(void);
+
 /*
  * Returns true if the process is translated according to sysctl.proc_translated.
  * For example, Rosetta processes are translated processes.

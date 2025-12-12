@@ -2831,6 +2831,11 @@ vm_shared_region_slide_mapping(
 	assert(VME_OFFSET(tmp_entry) == start);
 	assert(tmp_entry->vme_end - tmp_entry->vme_start == size);
 
+	/*
+	 * We trust that the contents of this object are not writable, so
+	 * we do not need to get a "copy" of it.
+	 */
+
 	/* create a "shared_region" sliding pager */
 	sr_pager = shared_region_pager_setup(VME_OBJECT(tmp_entry), VME_OFFSET(tmp_entry), si, 0);
 	if (sr_pager == MEMORY_OBJECT_NULL) {
@@ -2865,7 +2870,7 @@ vm_shared_region_slide_mapping(
 	    vmk_flags,
 	    (ipc_port_t)(uintptr_t) sr_pager,
 	    0,
-	    TRUE,
+	    TRUE, /* copy; to make sure this object stays "clean" */
 	    tmp_entry->protection,
 	    tmp_entry->max_protection,
 	    tmp_entry->inheritance);

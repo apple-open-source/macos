@@ -517,7 +517,7 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         if (properties.animations.size()) {
             [animationGroup setAnimations:createNSArray(properties.animations, [&] (auto& animationProperties) -> CAAnimation * {
                 if (PlatformCAAnimation::isValidKeyPath(properties.keyPath, properties.animationType))
-                    return createAnimation(layer, layerTreeHost, animationProperties).get();
+                    return createAnimation(layer, layerTreeHost, animationProperties).unsafeGet();
                 ASSERT_NOT_REACHED();
                 return nil;
             }).get()];
@@ -663,7 +663,7 @@ TextStream& operator<<(TextStream& ts, const PlatformCAAnimationRemote::Properti
     ts.dumpProperty("fillMode"_s, animation.fillMode);
     ts.dumpProperty("valueFunction"_s, animation.valueFunction);
     if (animation.timingFunction)
-        ts.dumpProperty<const TimingFunction&>("timing function", Ref { *animation.timingFunction });
+        ts.dumpProperty<const TimingFunction&>("timing function"_s, Ref { *animation.timingFunction });
 
     if (animation.autoReverses)
         ts.dumpProperty("autoReverses"_s, animation.autoReverses);
@@ -697,7 +697,7 @@ TextStream& operator<<(TextStream& ts, const PlatformCAAnimationRemote::Properti
             ts.dumpProperty("time"_s, animation.keyTimes[i]);
 
         if (i < animation.timingFunctions.size())
-            ts.dumpProperty<const TimingFunction&>("timing function", animation.timingFunctions[i]);
+            ts.dumpProperty<const TimingFunction&>("timing function"_s, animation.timingFunctions[i]);
 
         if (i < animation.keyValues.size()) {
             ts.startGroup();

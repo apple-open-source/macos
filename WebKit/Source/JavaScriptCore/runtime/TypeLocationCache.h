@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "SourceID.h"
-#include "TypeLocation.h"
+#include <JavaScriptCore/SourceID.h>
+#include <JavaScriptCore/TypeLocation.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/GenericHashKey.h>
 

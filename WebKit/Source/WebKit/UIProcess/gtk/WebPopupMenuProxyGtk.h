@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include "GUniquePtrGtk.h"
 #include "WebPopupMenuProxy.h"
-#include <WebCore/GUniquePtrGtk.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/text/WTFString.h>

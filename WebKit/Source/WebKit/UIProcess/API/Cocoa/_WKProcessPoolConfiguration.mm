@@ -423,6 +423,16 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 #endif
 }
 
+- (unsigned)prewarmedProcessCountLimitForTesting
+{
+    return _processPoolConfiguration->prewarmedProcessCountLimitForTesting();
+}
+
+- (void)setPrewarmedProcessCountLimitForTesting:(unsigned)limit
+{
+    _processPoolConfiguration->setPrewarmedProcessCountLimitForTesting(limit);
+}
+
 #pragma mark WKObject protocol implementation
 
 - (API::Object&)_apiObject

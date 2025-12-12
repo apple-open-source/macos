@@ -194,7 +194,7 @@ bool LocaleIDBuilder::setKeywordValue(ASCIILiteral key, StringView value)
 
     ASSERT(value.containsOnlyASCII());
     Vector<char, 32> rawValue(value.length() + 1);
-    value.getCharacters(byteCast<LChar>(rawValue.mutableSpan()));
+    value.getCharacters(byteCast<Latin1Character>(rawValue.mutableSpan()));
     rawValue[value.length()] = '\0';
 
     UErrorCode status = U_ZERO_ERROR;
@@ -535,7 +535,10 @@ const String& IntlLocale::language()
         Vector<char, 8> buffer;
         auto status = callBufferProducingFunction(uloc_getLanguage, m_localeID.data(), buffer);
         ASSERT_UNUSED(status, U_SUCCESS(status));
-        m_language = buffer.span();
+        if (!buffer.size())
+            m_language = "und"_s;
+        else
+            m_language = buffer.span();
     }
     return m_language;
 }
@@ -677,9 +680,13 @@ JSArray* IntlLocale::calendars(JSGlobalObject* globalObject)
     while ((pointer = uenum_next(calendars.get(), &length, &status)) && U_SUCCESS(status)) {
         String calendar(unsafeMakeSpan(pointer, static_cast<size_t>(length)));
         if (auto mapped = mapICUCalendarKeywordToBCP47(calendar))
-            elements.append(WTFMove(mapped.value()));
-        else
-            elements.append(WTFMove(calendar));
+            calendar = WTFMove(mapped.value());
+
+        // Skip if the obtained calendar code is not meeting Unicode Locale Identifier's `type` definition
+        // as whole ECMAScript's i18n is relying on Unicode Local Identifiers.
+        if (!isUnicodeLocaleIdentifierType(calendar))
+            continue;
+        elements.append(WTFMove(calendar));
     }
     if (!U_SUCCESS(status)) {
         throwTypeError(globalObject, scope, "invalid locale"_s);

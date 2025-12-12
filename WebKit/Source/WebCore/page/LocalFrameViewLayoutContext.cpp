@@ -28,6 +28,7 @@
 
 #include "DebugPageOverlays.h"
 #include "Document.h"
+#include "DocumentEnums.h"
 #include "InspectorInstrumentation.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutContext.h"
@@ -109,9 +110,9 @@ private:
 };
 #endif
 
-class LayoutScope {
+class LayoutFrameScope {
 public:
-    LayoutScope(LocalFrameViewLayoutContext& layoutContext)
+    LayoutFrameScope(LocalFrameViewLayoutContext& layoutContext)
         : m_view(layoutContext.view())
         , m_nestedState(layoutContext.m_layoutNestedState, layoutContext.m_layoutNestedState == LocalFrameViewLayoutContext::LayoutNestedState::NotInLayout ? LocalFrameViewLayoutContext::LayoutNestedState::NotNested : LocalFrameViewLayoutContext::LayoutNestedState::Nested)
         , m_schedulingIsEnabled(layoutContext.m_layoutSchedulingIsEnabled, false)
@@ -120,7 +121,7 @@ public:
         m_view->setCurrentScrollType(ScrollType::Programmatic);
     }
         
-    ~LayoutScope()
+    ~LayoutFrameScope()
     {
         m_view->setCurrentScrollType(m_previousScrollType);
     }
@@ -200,7 +201,7 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
         return;
     }
 
-    LayoutScope layoutScope(*this);
+    LayoutFrameScope layoutFrameScope(*this);
     TraceScope tracingScope(PerformLayoutStart, PerformLayoutEnd);
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
     InspectorInstrumentation::willLayout(frame);
@@ -674,7 +675,7 @@ void LocalFrameViewLayoutContext::addLayoutDelta(const LayoutSize& delta)
 
 bool LocalFrameViewLayoutContext::isSkippedContentForLayout(const RenderElement& renderer) const
 {
-    if (isVisiblityHiddenIgnored() || isVisiblityAutoIgnored()) {
+    if (isVisiblityHiddenIgnored() || isVisiblityAutoIgnored() || (isRevealedWhenFoundIgnored() && renderer.style().autoRevealsWhenFound())) {
         // In theory we should only descend into a hidden/auto subree when hidden/auto root is ignored (see isSkippedContentRootForLayout below).
         return false;
     }
@@ -691,6 +692,9 @@ bool LocalFrameViewLayoutContext::isSkippedContentRootForLayout(const RenderBox&
         return false;
 
     if (contentVisibility == ContentVisibility::Auto && isVisiblityAutoIgnored())
+        return false;
+
+    if (renderBox.style().autoRevealsWhenFound() && isRevealedWhenFoundIgnored())
         return false;
 
     return true;
@@ -725,7 +729,7 @@ bool LocalFrameViewLayoutContext::pushLayoutState(RenderBox& renderer, const Lay
     // We push LayoutState even if layoutState is disabled because it stores layoutDelta too.
     auto* layoutState = this->layoutState();
     if (!layoutState || !needsFullRepaint() || layoutState->isPaginated() || renderer.enclosingFragmentedFlow()
-        || layoutState->lineGrid() || (renderer.style().lineGrid() != RenderStyle::initialLineGrid() && renderer.isRenderBlockFlow())) {
+        || layoutState->lineGrid() || (!renderer.style().lineGrid().isNone() && renderer.isRenderBlockFlow())) {
         m_layoutStateStack.append(makeUnique<RenderLayoutState>(m_layoutStateStack
             , renderer
             , offset

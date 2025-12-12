@@ -232,7 +232,7 @@ JSValue JSTestConditionallyReadWrite::getConstructor(VM& vm, const JSGlobalObjec
 
 void JSTestConditionallyReadWrite::destroy(JSC::JSCell* cell)
 {
-    JSTestConditionallyReadWrite* thisObject = static_cast<JSTestConditionallyReadWrite*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestConditionallyReadWrite* thisObject = static_cast<JSTestConditionallyReadWrite*>(cell);
     thisObject->JSTestConditionallyReadWrite::~JSTestConditionallyReadWrite();
 }
 
@@ -485,7 +485,7 @@ bool JSTestConditionallyReadWriteOwner::isReachableFromOpaqueRoots(JSC::Handle<J
 
 void JSTestConditionallyReadWriteOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestConditionallyReadWrite = static_cast<JSTestConditionallyReadWrite*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestConditionallyReadWrite = static_cast<JSTestConditionallyReadWrite*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestConditionallyReadWrite->protectedWrapped().ptr(), jsTestConditionallyReadWrite);
 }
@@ -499,7 +499,7 @@ extern "C" { extern void (*const __identifier("??_7TestConditionallyReadWrite@We
 extern "C" { extern void* _ZTVN7WebCore26TestConditionallyReadWriteE[]; }
 #endif
 template<std::same_as<TestConditionallyReadWrite> T>
-static inline void verifyVTable(TestConditionallyReadWrite* ptr) 
+static inline void verifyVTable(TestConditionallyReadWrite* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -519,8 +519,9 @@ static inline void verifyVTable(TestConditionallyReadWrite* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestConditionallyReadWrite>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestConditionallyReadWrite>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestConditionallyReadWrite>(impl.ptr());
 #endif

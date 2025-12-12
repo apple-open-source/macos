@@ -61,7 +61,7 @@ static const char* defaultProcessPath(ProcessLauncher::ProcessType processType)
 
 void ProcessLauncher::launchProcess()
 {
-    IPC::SocketPair socketPair = IPC::createPlatformConnection(IPC::PlatformConnectionOptions::SetCloexecOnServer);
+    IPC::SocketPair socketPair = IPC::createPlatformConnection(SOCK_SEQPACKET, IPC::PlatformConnectionOptions::SetCloexecOnServer);
 
     int sendBufSize = 32 * 1024;
     setsockopt(socketPair.server.value(), SOL_SOCKET, SO_SNDBUF, &sendBufSize, 4);

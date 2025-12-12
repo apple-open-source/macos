@@ -47,9 +47,7 @@ WebServiceWorkerProvider& WebServiceWorkerProvider::singleton()
     return provider;
 }
 
-WebServiceWorkerProvider::WebServiceWorkerProvider()
-{
-}
+WebServiceWorkerProvider::WebServiceWorkerProvider() = default;
 
 WebCore::SWClientConnection& WebServiceWorkerProvider::serviceWorkerConnection()
 {

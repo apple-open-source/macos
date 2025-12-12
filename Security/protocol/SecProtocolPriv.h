@@ -380,6 +380,24 @@ SPI_AVAILABLE(macos(12.0), ios(15.0), tvos(15.0), watchos(8.0))
 void
 sec_protocol_options_clear_tls_application_protocols(sec_protocol_options_t options);
 
+#define SEC_PROTOCOL_OPTIONS_HAS_EPSK_AND_PAKE_GETTER 1
+/*!
+ * @function sec_protocol_options_get_pake_configured
+ * @abstract
+ *      Returns whether TLS configured with a PAKE credential or a PAKE challenge block.
+ *      May not actually be offered/accepted if other options are also set.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param enable
+ *      Whether these sec protocol options have been configured with a pake identity sec_protocol_options_get_pake_configured
+ *      or a pake challenge block.
+ */
+SPI_AVAILABLE(macos(26.2), ios(26.2), watchos(26.2), tvos(26.2), visionos(26.2))
+bool
+sec_protocol_options_get_pake_configured(sec_protocol_options_t options);
+
 /*!
  * @enum sec_protocol_transport_t
  *

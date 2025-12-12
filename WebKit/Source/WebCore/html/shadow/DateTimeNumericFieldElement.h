@@ -54,8 +54,8 @@ protected:
     bool hasValue() const final;
     void setEmptyValue(EventBehavior = DispatchNoEvent) final;
     void setValueAsInteger(int, EventBehavior = DispatchNoEvent) final;
-    void stepDown() final;
-    void stepUp() final;
+    void stepDown() override;
+    void stepUp() override;
     int valueAsInteger() const final { return m_hasValue ? m_value : -1; }
     int placeholderValueAsInteger() const final { return m_placeholderValue; }
 

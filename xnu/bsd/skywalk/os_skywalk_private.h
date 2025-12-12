@@ -224,13 +224,17 @@ enum SK_VERB_FLAGS {
 #include <pexpert/pexpert.h>
 #include <os/log.h>
 
+#if (XNU_TARGET_OS_WATCH || XNU_TARGET_OS_TV) && !(DEBUG || DEVELOPMENT)
+#define SK_LOG 0
+#else
+/* Enable for all internal and customer iOS/macOS */
 #define SK_LOG 1
+#endif
 
 #if SK_LOG
 extern uint64_t sk_verbose;
 extern os_log_t sk_log_handle;
 
-#define SK_KVA(p) (void *)VM_KERNEL_ADDRHIDE(p)
 #define SK_LOG_VAR(x) x
 
 #define _SK_LOG(_type, _flag, _fmt, ...) do { \
@@ -282,6 +286,25 @@ extern os_log_t sk_log_handle;
 #define SK_RDERR(_lps, _fmt, ...)       \
 	SK_RDF(SK_VERB_ERROR, _lps, _fmt, ##__VA_ARGS__)
 
+#else /* !SK_LOG */
+#define SK_LOG_VAR(x)
+#define SK_DF(_flag, _fmt, ...)         do { ((void)0); } while (0)
+#define SK_D(_fmt, ...)                 do { ((void)0); } while (0)
+#define SK_ERR(_fmt, ...)               do { ((void)0); } while (0)
+#define SK_DSC(_p, _fmt, ...)           do { ((void)0); } while (0)
+#define SK_RDF(_flag, _lps, _fmt, ...)  do { ((void)0); } while (0)
+#define SK_RD(_lps, _fmt, ...)          do { ((void)0); } while (0)
+#define SK_RDERR(_lps, _fmt, ...)       do { ((void)0); } while (0)
+#define SK_PDF(_flag, _p, _fmt, ...)    do { ((void)0); } while (0)
+#define SK_PERR(_p, _fmt, ...)          do { ((void)0); } while (0)
+#endif /* ! SK_LOG */
+
+#define SK_KVA(p) (void *)VM_KERNEL_ADDRHIDE(p)
+
+#define SK_INLINE_ATTRIBUTE     __attribute__((always_inline))
+#define SK_NO_INLINE_ATTRIBUTE  __attribute__((noinline))
+#define SK_LOG_ATTRIBUTE        __attribute__((noinline, cold, not_tail_called))
+
 /*
  * The compiler doesn't know that snprintf() supports %b format
  * specifier, so use our own wrapper to vsnprintf() here instead.
@@ -294,21 +317,6 @@ extern os_log_t sk_log_handle;
 	snprintf(str, size, format, ## __VA_ARGS__)                        \
 	_Pragma("clang diagnostic pop");                                   \
 })
-
-#else /* !SK_LOG */
-#define SK_LOG_VAR(x)
-#define SK_DF(_flag, _fmt, ...)         do { ((void)0); } while (0)
-#define SK_D(_fmt, ...)                 do { ((void)0); } while (0)
-#define SK_ERR(_fmt, ...)               do { ((void)0); } while (0)
-#define SK_DSC(_p, _fmt, ...)           do { ((void)0); } while (0)
-#define SK_RDF(_flag, _lps, _fmt, ...)  do { ((void)0); } while (0)
-#define SK_RD(_lps, _fmt, ...)          do { ((void)0); } while (0)
-#define SK_RDERR(_lps, _fmt, ...)       do { ((void)0); } while (0)
-#endif /* ! SK_LOG */
-
-#define SK_INLINE_ATTRIBUTE     __attribute__((always_inline))
-#define SK_NO_INLINE_ATTRIBUTE  __attribute__((noinline))
-#define SK_LOG_ATTRIBUTE        __attribute__((noinline, cold, not_tail_called))
 
 
 #ifdef BSD_KERNEL_PRIVATE

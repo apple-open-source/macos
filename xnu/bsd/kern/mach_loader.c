@@ -833,11 +833,22 @@ load_machfile(
 	case EXEC_SECURITY_INVALID_CONFIG:
 		imgp->ip_free_map = map;
 		return LOAD_BADMACHO;
-	case EXEC_SECURITY_ENTITLED:
-		result->is_hardened_process = true;
+	case EXEC_SECURITY_ENTITLED: {
+		/*
+		 * Set the latest version of the hardened process version entitlement
+		 * if not specified
+		 */
+		uint64_t value;
+		if (IOVnodeGetIntegerEntitlement(imgp->ip_vp,
+		    (int64_t)imgp->ip_arch_offset, HARDENED_PROCESS_VERSION, &value)) {
+			result->hardened_process_version = (uint8_t)value;
+		} else {
+			result->hardened_process_version = HARDENED_PROCESS_VERSION_LATEST;
+		}
 		break;
+	}
 	case EXEC_SECURITY_NOT_ENTITLED:
-		result->is_hardened_process = false;
+		result->hardened_process_version = HARDENED_PROCESS_DISABLED;
 		break;
 	}
 

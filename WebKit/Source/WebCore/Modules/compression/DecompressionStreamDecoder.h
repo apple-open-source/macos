@@ -26,6 +26,7 @@
 
 #include "BufferSource.h"
 #include "CompressionStream.h"
+#include "ExceptionOr.h"
 #include "Formats.h"
 #include "SharedBuffer.h"
 #include "ZStream.h"

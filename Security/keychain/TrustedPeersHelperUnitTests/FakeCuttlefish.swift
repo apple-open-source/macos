@@ -322,6 +322,8 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     var returnEscrowCheckError: Error?
     var returnEscrowCheckNeedsRepair: Bool = false
     var returnEscrowCheckNa: Bool = false
+    var returnEscrowCheckGraphNeedsRepair: Bool = false
+    var returnEscrowCheckPeerNotTrusted: Bool = false
     var returnEscrowCheckMoveRequest: Bool = false
     var returnEscrowCheckRepairDisabled: Bool = false
     var returnEscrowCheckRepairReason: EscrowRepairReason = .recordRepairReasonUnknown
@@ -348,6 +350,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     var performCKServerDataRemovalListener: ((RemoveUnreadableCKServerDataRequest) -> NSError?)?
     var fetchPolicyDocumentsListener: ((FetchPolicyDocumentsRequest) -> NSError?)?
     var fetchPolicyDocumentsReturnEmptyResponse: Bool = false
+    var expectRateLimitListener: ((GetEscrowCheckRequest) -> NSError?)?
 
     static let mapper = { (doc: TPPolicyDocument) in (doc.version.versionNumber, (doc.version.policyHash, doc.protobuf)) }
 
@@ -1182,6 +1185,15 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
 
     func getEscrowCheck(_ request: GetEscrowCheckRequest, completion: @escaping (Result<GetEscrowCheckResponse, Error>) -> Void) {
         print("FakeCuttlefish: getEscrowCheck called")
+
+        if let expectRateLimitListener = self.expectRateLimitListener {
+            let possibleError = expectRateLimitListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+        }
+
         if let error = self.returnEscrowCheckError {
             completion(.failure(error))
         } else if self.returnEscrowCheckNa {
@@ -1204,6 +1216,22 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
                     $0.repairDisabled = true
                 }
             }))
+        } else if self.returnEscrowCheckGraphNeedsRepair {
+            completion(.success(GetEscrowCheckResponse.with {
+                $0.escrowCheckResult = .escrowCheckGraphNeedsRepair
+                $0.escrowRepairReason = self.returnEscrowCheckRepairReason
+                if self.returnEscrowCheckRepairDisabled {
+                    $0.repairDisabled = true
+                }
+            }))
+        } else if self.returnEscrowCheckPeerNotTrusted {
+                completion(.success(GetEscrowCheckResponse.with {
+                    $0.escrowCheckResult = .escrowCheckNotTrusted
+                    $0.escrowRepairReason = self.returnEscrowCheckRepairReason
+                    if self.returnEscrowCheckRepairDisabled {
+                        $0.repairDisabled = true
+                    }
+                }))
         } else {
             completion(.success(GetEscrowCheckResponse.with {
                 $0.escrowCheckResult = .escrowCheckOk

@@ -36,6 +36,7 @@
 #include "JSHTMLElementWrapperFactory.h"
 #include "JSNodeCustom.h"
 #include "LocalDOMWindow.h"
+#include "NodeDocument.h"
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/InternalFunction.h>
 #include <JavaScriptCore/JSWithScope.h>

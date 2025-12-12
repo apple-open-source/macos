@@ -32,11 +32,11 @@
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
-#include "CachedBytecode.h"
-#include "CodeBlockHash.h"
-#include "CodeSpecializationKind.h"
-#include "SourceOrigin.h"
-#include "SourceTaintedOrigin.h"
+#include <JavaScriptCore/CachedBytecode.h>
+#include <JavaScriptCore/CodeBlockHash.h>
+#include <JavaScriptCore/CodeSpecializationKind.h>
+#include <JavaScriptCore/SourceOrigin.h>
+#include <JavaScriptCore/SourceTaintedOrigin.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/TextPosition.h>
 #include <wtf/text/WTFString.h>
@@ -74,7 +74,7 @@ public:
     virtual void updateCache(const UnlinkedFunctionExecutable*, const SourceCode&, CodeSpecializationKind, const UnlinkedFunctionCodeBlock*) const { }
     virtual void commitCachedBytecode() const { }
 
-    StringView getRange(int start, int end) const
+    StringView getRange(int start, int end) const LIFETIME_BOUND
     {
         return source().substring(start, end - start);
     }
@@ -90,6 +90,7 @@ public:
 
     TextPosition startPosition() const { return m_startPosition; }
     SourceProviderSourceType sourceType() const { return m_sourceType; }
+    bool isModuleType() const { return m_sourceType == SourceProviderSourceType::Module || m_sourceType == SourceProviderSourceType::JSON; }
 
     SourceID asID()
     {
@@ -130,7 +131,7 @@ private:
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StringSourceProvider);
 class StringSourceProvider : public SourceProvider {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StringSourceProvider);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StringSourceProvider, StringSourceProvider);
 public:
     static Ref<StringSourceProvider> create(const String& source, const SourceOrigin& sourceOrigin, String sourceURL, SourceTaintedOrigin taintedness, const TextPosition& startPosition = TextPosition(), SourceProviderSourceType sourceType = SourceProviderSourceType::Program)
     {

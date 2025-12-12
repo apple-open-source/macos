@@ -45,7 +45,7 @@ std::unique_ptr<SandboxExtensionImpl> SandboxExtensionImpl::create(const char* p
 }
 
 SandboxExtensionImpl::SandboxExtensionImpl(std::span<const uint8_t> serializedFormat)
-    : m_token { serializedFormat }
+    : m_token { byteCast<Latin1Character>(serializedFormat) }
 {
     ASSERT(!serializedFormat.empty());
 }
@@ -125,6 +125,11 @@ SandboxExtensionImpl::SandboxExtensionImpl(const char* path, SandboxExtension::T
 
 SandboxExtensionHandle::SandboxExtensionHandle()
 {
+}
+
+SandboxExtensionHandle::SandboxExtensionHandle(const SandboxExtensionHandle& handle)
+{
+    m_sandboxExtension = WTF::makeUnique<SandboxExtensionImpl>(handle.m_sandboxExtension->getSerializedFormat());
 }
 
 SandboxExtensionHandle::SandboxExtensionHandle(SandboxExtensionHandle&&) = default;

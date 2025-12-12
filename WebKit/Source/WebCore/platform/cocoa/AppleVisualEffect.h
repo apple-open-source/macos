@@ -27,7 +27,7 @@
 
 #if HAVE(CORE_MATERIAL)
 
-#include "FloatRoundedRect.h"
+#include <WebCore/FloatRoundedRect.h>
 
 namespace WTF {
 class TextStream;
@@ -44,6 +44,7 @@ enum class AppleVisualEffect : uint8_t {
     BlurChromeMaterial,
 #if HAVE(MATERIAL_HOSTING)
     GlassMaterial,
+    GlassClearMaterial,
     GlassSubduedMaterial,
     GlassMediaControlsMaterial,
     GlassSubduedMediaControlsMaterial,

@@ -121,20 +121,20 @@ void MockLibWebRTCPeerConnectionForIceCandidates::sendCandidates()
 
     // Let's gather candidates
     LibWebRTCProvider::callOnWebRTCSignalingThread([this]() {
-        MockLibWebRTCIceCandidate candidate("candidate:2013266431 1 udp 2013266432 e7588693-48a3-434d-a5e3-64159095e03b.local 38838 typ host generation 0", "1");
-        m_observer.OnIceCandidate(&candidate);
+        auto candidate = webrtc::IceCandidate::Create("1", 0, "candidate:2013266431 1 udp 2013266432 e7588693-48a3-434d-a5e3-64159095e03b.local 38838 typ host generation 0");
+        m_observer.OnIceCandidate(candidate.get());
     });
 
     LibWebRTCProvider::callOnWebRTCSignalingThread([this]() {
-        MockLibWebRTCIceCandidate candidate("candidate:1019216383 1 tcp 1019216384 d7588693-48a3-434d-a5e3-64159095e03b.local 9 typ host tcptype passive generation 0", "1");
-        m_observer.OnIceCandidate(&candidate);
-        MockLibWebRTCIceCandidate candidateSSLTcp("candidate:1019216384 1 ssltcp 1019216385 c7588693-48a3-434d-a5e3-64159095e03b.local 49888 typ host generation 0", "1");
-        m_observer.OnIceCandidate(&candidateSSLTcp);
+        auto candidate = webrtc::IceCandidate::Create("1", 0, "candidate:1019216383 1 tcp 1019216384 d7588693-48a3-434d-a5e3-64159095e03b.local 9 typ host tcptype passive generation 0");
+        m_observer.OnIceCandidate(candidate.get());
+        auto candidateSSLTcp = webrtc::IceCandidate::Create("1", 0, "candidate:1019216384 1 ssltcp 1019216385 c7588693-48a3-434d-a5e3-64159095e03b.local 49888 typ host generation 0");
+        m_observer.OnIceCandidate(candidateSSLTcp.get());
     });
 
     LibWebRTCProvider::callOnWebRTCSignalingThread([this]() {
-        MockLibWebRTCIceCandidate candidate("candidate:1677722111 1 tcp 1677722112 172.18.0.1 47989 typ srflx raddr 0.0.0.0 rport 0 generation 0", "1");
-        m_observer.OnIceCandidate(&candidate);
+        auto candidate = webrtc::IceCandidate::Create("1", 0, "candidate:1677722111 1 tcp 1677722112 172.18.0.1 47989 typ srflx raddr 0.0.0.0 rport 0 generation 0");
+        m_observer.OnIceCandidate(candidate.get());
     });
 
     LibWebRTCProvider::callOnWebRTCSignalingThread([this]() {

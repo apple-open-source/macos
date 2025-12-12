@@ -50,6 +50,7 @@ class AudioContext final
     , public MediaCanStartListener
     , private PlatformMediaSessionClient {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(AudioContext);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(AudioContext);
 public:
     // Create an AudioContext for rendering to the audio hardware.
     static ExceptionOr<Ref<AudioContext>> create(Document&, AudioContextOptions&&);
@@ -134,6 +135,7 @@ private:
 #endif
 
     // PlatformMediaSessionClient
+    RefPtr<MediaSessionManagerInterface> sessionManager() const final;
     PlatformMediaSession::MediaType mediaType() const final { return isSuspended() || isStopped() ? PlatformMediaSession::MediaType::None : PlatformMediaSession::MediaType::WebAudio; }
     PlatformMediaSession::MediaType presentationType() const final { return PlatformMediaSession::MediaType::WebAudio; }
     void mayResumePlayback(bool shouldResume) final;

@@ -23,8 +23,12 @@
 
 #pragma once
 
-#include "EventListener.h"
+#include <WebCore/EventListener.h>
+#include <wtf/Forward.h>
 #include <wtf/Ref.h>
+#include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 

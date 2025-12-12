@@ -28,6 +28,7 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "CompilationResult.h"
+#include "WasmIPIntTierUpCounter.h"
 #include "WasmJS.h"
 #include "WasmModuleInformation.h"
 #include "WasmOMGIRGenerator.h"
@@ -66,12 +67,7 @@ public:
     ALWAYS_INLINE MemoryMode mode() const { return m_mode; }
 
     String errorMessage() const { return crossThreadCopy(m_errorMessage); }
-    enum class Error : uint8_t {
-        Default = 0,
-        OutOfMemory,
-        Parse
-    };
-    Error error() const { return m_error; }
+    CompilationError error() const { return m_error; }
 
     bool WARN_UNUSED_RETURN failed() const { return !m_errorMessage.isNull(); }
     virtual bool hasWork() const = 0;
@@ -84,7 +80,7 @@ public:
 
 protected:
     void runCompletionTasks() WTF_REQUIRES_LOCK(m_lock);
-    void fail(String&& errorMessage, Error = Error::Default) WTF_REQUIRES_LOCK(m_lock);
+    void fail(String&& errorMessage, CompilationError = CompilationError::Default) WTF_REQUIRES_LOCK(m_lock);
 
     virtual bool isComplete() const = 0;
     virtual void complete() WTF_REQUIRES_LOCK(m_lock) = 0;
@@ -104,7 +100,7 @@ protected:
     Vector<std::pair<VM*, CompletionTask>, 1> m_completionTasks;
 
     String m_errorMessage;
-    Error m_error { Error::Default };
+    CompilationError m_error { CompilationError::Default };
 };
 
 

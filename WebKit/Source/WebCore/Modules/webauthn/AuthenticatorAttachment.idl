@@ -25,6 +25,7 @@
 
 [
     Conditional=WEB_AUTHN,
+    ExportMacro=WEBCORE_EXPORT,
     ImplementedAs=AuthenticatorAttachment
 ] enum AuthenticatorAttachment {
     "platform",

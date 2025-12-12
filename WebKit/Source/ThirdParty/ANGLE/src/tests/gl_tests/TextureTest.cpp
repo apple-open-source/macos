@@ -4,6 +4,10 @@
 // found in the LICENSE file.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "common/mathutil.h"
 #include "test_utils/ANGLETest.h"
 #include "test_utils/gl_raii.h"
@@ -3836,6 +3840,504 @@ TEST_P(Texture2DTestES3, Texture1UploadThenTexture2UploadThenTexture1Delete)
     ASSERT_GL_NO_ERROR();
 }
 
+// Test uploading packed data to RGB565 images of various sizes and binding them to a framebuffer.
+TEST_P(Texture2DTestES3, RGB565UploadPacked565Data)
+{
+    constexpr uint32_t kWidth1  = 4;
+    constexpr uint32_t kHeight1 = 4;
+    constexpr uint32_t kWidth2  = 3;
+    constexpr uint32_t kHeight2 = 6;
+    constexpr uint32_t kWidth3  = 19;
+    constexpr uint32_t kHeight3 = 13;
+
+    // Since the upload data for the textures is continuous, the unpack alignment should be set to 1
+    // (default is 4).
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    std::vector<GLushort> texColorYellow(kWidth1 * kHeight1, 0xFFE0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth1, kHeight1, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth1, kHeight1, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                    texColorYellow.data());
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth1, kHeight1, GLColor::yellow);
+
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLushort> texColorCyan(kWidth2 * kHeight2, 0x7FF);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth2, kHeight2, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth2, kHeight2, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                    texColorCyan.data());
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth2, kHeight2, GLColor::cyan);
+
+    GLTexture texture3;
+    glBindTexture(GL_TEXTURE_2D, texture3);
+    std::vector<GLushort> texColorRed(kWidth3 * kHeight3, 0xF800);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth3, kHeight3, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth3, kHeight3, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                    texColorRed.data());
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture3, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth3, kHeight3, GLColor::red);
+}
+
+// Test uploading byte data to RGB565 images of various sizes and binding them to a framebuffer.
+TEST_P(Texture2DTestES3, RGB565UploadByteData)
+{
+    constexpr uint32_t kWidth1  = 4;
+    constexpr uint32_t kHeight1 = 4;
+    constexpr uint32_t kWidth2  = 6;
+    constexpr uint32_t kHeight2 = 3;
+    constexpr uint32_t kWidth3  = 13;
+    constexpr uint32_t kHeight3 = 19;
+
+    // Since the upload data for the textures is continuous, the unpack alignment should be set to 1
+    // (default is 4).
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    std::vector<GLColorRGB> texColorRed(kWidth1 * kHeight1, GLColorRGB::red);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth1, kHeight1, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth1, kHeight1, GL_RGB, GL_UNSIGNED_BYTE,
+                    texColorRed.data());
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth1, kHeight1, GLColor::red);
+
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLColorRGB> texColorBlue(kWidth2 * kHeight2, GLColorRGB::blue);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth2, kHeight2, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth2, kHeight2, GL_RGB, GL_UNSIGNED_BYTE,
+                    texColorBlue.data());
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth2, kHeight2, GLColor::blue);
+
+    GLTexture texture3;
+    glBindTexture(GL_TEXTURE_2D, texture3);
+    std::vector<GLColorRGB> texColorYellow(kWidth3 * kHeight3, GLColorRGB::yellow);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth3, kHeight3, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth3, kHeight3, GL_RGB, GL_UNSIGNED_BYTE,
+                    texColorYellow.data());
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture3, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth3, kHeight3, GLColor::yellow);
+}
+
+// Test binding an RGB565 image to a framebuffer and rendering to it.
+TEST_P(Texture2DTestES3, RGB565RenderToFBO)
+{
+    constexpr uint32_t kWidth  = 5;
+    constexpr uint32_t kHeight = 9;
+
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    ANGLE_GL_PROGRAM(drawBlue, essl1_shaders::vs::Simple(), essl1_shaders::fs::Blue());
+    drawQuad(drawBlue, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::blue);
+}
+
+// Test binding an RGB565 image to a framebuffer, rendering to it, and sampling from it to render to
+// an RGBA image.
+TEST_P(Texture2DTestES3, RGB565RenderAndSampleToRenderToRGBA)
+{
+    constexpr uint32_t kWidth  = 9;
+    constexpr uint32_t kHeight = 5;
+
+    // Render into the RGB565 texture.
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    // Prepare the RGBA8 texture to be rendered into.
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLColor> texColorBlue(kWidth * kHeight, GLColor::blue);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kWidth, kHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 texColorBlue.data());
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::blue);
+
+    // Sample from the RGB565 to render into the RGBA8 texture.
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    ANGLE_GL_PROGRAM(drawTex, essl1_shaders::vs::Texture2D(), essl1_shaders::fs::Texture2D());
+    drawQuad(drawTex, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+}
+
+// Test uploading data from a PBO to an RGB565 image and rendering with it.
+TEST_P(Texture2DTestES3, RGB565UploadToPBOAndRender)
+{
+    constexpr uint32_t kWidth  = 16;
+    constexpr uint32_t kHeight = 16;
+
+    GLTexture texture;
+    const std::vector<GLushort> texDataYellow(kWidth * kHeight, 0xFFE0);
+    const std::vector<GLushort> texDataBlue(kWidth * kHeight, 0x001F);
+
+    glViewport(0, 0, kWidth, kHeight);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB565, kWidth, kHeight);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth, kHeight, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                    texDataYellow.data());
+    ASSERT_GL_NO_ERROR();
+
+    GLBuffer pbo;
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, 2 * kWidth * kHeight, texDataBlue.data(), GL_STATIC_DRAW);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kWidth, kHeight, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                    nullptr);
+    ASSERT_GL_NO_ERROR();
+
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Texture2D(), essl1_shaders::fs::Texture2D());
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.0f);
+    ASSERT_GL_NO_ERROR();
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::blue);
+}
+
+// Test rendering to an RGB565 image and reading its content to a PBO in the packed RGB565 format.
+TEST_P(Texture2DTestES3, RGB565RenderAndReadIntoRGB565PBO)
+{
+    constexpr uint32_t kWidth  = 7;
+    constexpr uint32_t kHeight = 5;
+
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    // The pack alignment is set to 1 to avoid alignment gaps in the read data (default is 4).
+    GLBuffer pbo;
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 2 * kWidth * kHeight, nullptr, GL_STREAM_READ);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glReadPixels(0, 0, kWidth, kHeight, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, nullptr);
+    glFinish();
+
+    auto pixels = reinterpret_cast<GLushort *>(
+        glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, 2 * kWidth * kHeight, GL_MAP_READ_BIT));
+    for (uint32_t i = 0; i < kWidth * kHeight; i++)
+    {
+        EXPECT_EQ(pixels[i], 0xF800);
+    }
+}
+
+// Test rendering to an RGB565 image and reading its content to a PBO in the RGBA8 format.
+TEST_P(Texture2DTestES3, RGB565RenderAndReadIntoRGBA8PBO)
+{
+    constexpr uint32_t kWidth  = 5;
+    constexpr uint32_t kHeight = 7;
+
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawBlue, essl1_shaders::vs::Simple(), essl1_shaders::fs::Blue());
+    drawQuad(drawBlue, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::blue);
+
+    // The pack alignment is set to 1 to avoid alignment gaps in the read data (default is 4).
+    GLBuffer pbo;
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 4 * kWidth * kHeight, nullptr, GL_STREAM_READ);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glFinish();
+
+    auto pixels = reinterpret_cast<GLubyte *>(
+        glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, 4 * kWidth * kHeight, GL_MAP_READ_BIT));
+    for (uint32_t i = 0; i < 4 * kWidth * kHeight; i += 4)
+    {
+        EXPECT_EQ(pixels[i + 0], 0);
+        EXPECT_EQ(pixels[i + 1], 0);
+        EXPECT_EQ(pixels[i + 2], 255);
+        EXPECT_EQ(pixels[i + 3], 255);
+    }
+}
+
+// Test rendering to an RGB565 image, and using glCopyTexSubImage2D() to copy the framebuffer to
+// another RGB565 image.
+TEST_P(Texture2DTestES3, RGB565RenderAndCopyTexSubImage)
+{
+    constexpr uint32_t kWidth  = 11;
+    constexpr uint32_t kHeight = 6;
+
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+
+    GLFramebuffer fbo1;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo1);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLushort> texColor(kWidth * kHeight, 0x7FF);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 texColor.data());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::cyan);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo1);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, kWidth, kHeight);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+}
+
+// Test rendering to an RGB565 image, and using glCopyTexImage2D() the framebuffer to another RGB565
+// image.
+TEST_P(Texture2DTestES3, RGB565RenderAndCopyTexImage)
+{
+    constexpr uint32_t kWidth  = 6;
+    constexpr uint32_t kHeight = 11;
+
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    std::vector<GLushort> texColor1(kWidth * kHeight, 0xF800);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 texColor1.data());
+
+    GLFramebuffer fbo1;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo1);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLushort> texColor2(kWidth * kHeight, 0x7FF);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 texColor2.data());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::cyan);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo1);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, 0, 0, kWidth, kHeight, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+}
+
+// Test rendering to an RGBA8 image, and blitting the framebuffer to another framebuffer bound to an
+// RGB565 image.
+TEST_P(Texture2DTestES3, RenderRGBA8AndBlitToRGB565)
+{
+    constexpr uint32_t kWidth  = 7;
+    constexpr uint32_t kHeight = 5;
+
+    // Render to the RGBA texture.
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kWidth, kHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 nullptr);
+
+    GLFramebuffer fbo1;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo1);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    // Prepare the RGB565 texture.
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLushort> texColor(kWidth * kHeight, 0x7FF);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 texColor.data());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::cyan);
+
+    // Blit the RGBA framebuffer into the RGB565 one.
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo1);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo2);
+    glBlitFramebuffer(0, 0, kWidth, kHeight, 0, 0, kWidth, kHeight, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+}
+
+// Test rendering to an RGB565 image, and blitting the framebuffer to another framebuffer bound to
+// an RGBA8 image.
+TEST_P(Texture2DTestES3, RenderRGB565AndBlitToRGBA8)
+{
+    constexpr uint32_t kWidth  = 5;
+    constexpr uint32_t kHeight = 7;
+
+    // Render to the RGB565 texture.
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+
+    GLFramebuffer fbo1;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo1);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawBlue, essl1_shaders::vs::Simple(), essl1_shaders::fs::Blue());
+    drawQuad(drawBlue, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::blue);
+
+    // Prepare the RGB565 texture.
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLColor> texColor(kWidth * kHeight, GLColor::yellow);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kWidth, kHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 texColor.data());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::yellow);
+
+    // Blit the RGB565 framebuffer into the RGBA one.
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo1);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo2);
+    glBlitFramebuffer(0, 0, kWidth, kHeight, 0, 0, kWidth, kHeight, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::blue);
+}
+
+// Test rendering to an RGB565 image, and blitting the framebuffer to another framebuffer bound to
+// another RGB565 image.
+TEST_P(Texture2DTestES3, RenderRGB565AndBlitToRGB565)
+{
+    constexpr uint32_t kWidth  = 5;
+    constexpr uint32_t kHeight = 5;
+
+    // Render to the first RGB565 texture.
+    GLTexture texture1;
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 nullptr);
+
+    GLFramebuffer fbo1;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo1);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    ANGLE_GL_PROGRAM(drawRed, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
+    drawQuad(drawRed, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+
+    // Prepare the second RGB565 texture.
+    GLTexture texture2;
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    std::vector<GLushort> texColor(kWidth * kHeight, 0x7FF);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, kWidth, kHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 texColor.data());
+
+    GLFramebuffer fbo2;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture2, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::cyan);
+
+    // Blit the first RGB565 framebuffer into the second one.
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo1);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo2);
+    glBlitFramebuffer(0, 0, kWidth, kHeight, 0, 0, kWidth, kHeight, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo2);
+    EXPECT_PIXEL_RECT_EQ(0, 0, kWidth, kHeight, GLColor::red);
+}
+
 // Test that the driver performs a flush when there is a large amount of image updates.
 TEST_P(Texture2DMemoryTestES3, TextureDataInLoopUntilFlush)
 {
@@ -4954,6 +5456,8 @@ TEST_P(Texture3DTestES2, CopySubImageAlpha)
 // Test that defining a 2D texture array fails with Texture3DOES on ES2.
 TEST_P(Texture3DTestES2, DefineTexture2DArrayShouldFail)
 {
+    ANGLE_SKIP_TEST_IF(getClientMajorVersion() > 2);
+
     ANGLE_SKIP_TEST_IF(!hasTexture3DExt());
 
     // http://anglebug.com/42264265
@@ -9733,6 +10237,35 @@ TEST_P(TextureBorderClampTest, TextureBorderClampUnorm8)
     EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor(128, 128, 128, 16), 1);
 }
 
+// Test GL_TEXTURE_BORDER_COLOR parameter with RGB565 with different colors.
+TEST_P(TextureBorderClampTest, TextureBorderClampRGB565)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_texture_border_clamp"));
+
+    GLColor32F kBorder1 = {1.0f, 0.0f, 0.0f, 1.0f};
+    GLColor32F kBorder2 = {0.0f, 1.0f, 0.0f, 1.0f};
+    GLColor32F kBorder3 = {0.0f, 0.0f, 1.0f, 1.0f};
+    GLColor32F kBorder4 = {1.0f, 1.0f, 0.0f, 1.0f};
+    GLColor32F kBorder5 = {0.0f, 1.0f, 1.0f, 1.0f};
+
+    setUpProgram();
+
+    testFormat(GL_RGB, GL_UNSIGNED_SHORT_5_6_5, kBorder1);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    testFormat(GL_RGB, GL_UNSIGNED_SHORT_5_6_5, kBorder2);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    testFormat(GL_RGB, GL_UNSIGNED_SHORT_5_6_5, kBorder3);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+
+    testFormat(GL_RGB, GL_UNSIGNED_SHORT_5_6_5, kBorder4);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::yellow);
+
+    testFormat(GL_RGB, GL_UNSIGNED_SHORT_5_6_5, kBorder5);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::cyan);
+}
+
 // Test GL_TEXTURE_BORDER_COLOR parameter with sRGB formats.
 TEST_P(TextureBorderClampTest, TextureBorderClampSrgb)
 {
@@ -12018,6 +12551,81 @@ TEST_P(Texture2DTestES3, UnpackSkipImages2D)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
+// Test that UNPACK_IMAGE_HEIGHT, GL_UNPACK_SKIP_IMAGES has no effect on TexImage2D.
+// Tests both PBO and pixel data variants.
+TEST_P(Texture2DTestES3, UnpackImageHeight2DDepth)
+{
+    const GLsizei width    = 1;
+    const GLsizei height   = 512;
+    const GLsizei dataSize = width * height;
+    std::vector<GLfloat> bufferData(3 * dataSize, 0);
+    for (GLsizei i = 0; i < dataSize; ++i)
+    {
+        bufferData[i] = 1.0f;
+    }
+    GLBuffer pbo;
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, bufferData.size() * sizeof(bufferData[0]),
+                 bufferData.data(), GL_STATIC_DRAW);
+
+    struct
+    {
+        bool useUnpackBuffer;
+        bool useImageHeight;
+        bool useSkipImages;
+    } subcases[]{{true, true, true},   {true, true, false}, {true, false, true},
+                 {true, false, false}, {false, true, true}, {false, true, false},
+                 {false, false, false}};
+    for (auto [useUnpackBuffer, useImageHeight, useSkipImages] : subcases)
+    {
+        SCOPED_TRACE(::testing::Message() << "unpackBuffer:" << useUnpackBuffer << " imageHeight:"
+                                          << useImageHeight << " skipImages:" << useSkipImages);
+
+        GLTexture texture;
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, useUnpackBuffer ? pbo : 0);
+        void *data = useUnpackBuffer ? nullptr : bufferData.data();
+
+        // This is being tested: UNPACK_IMAGE_HEIGHT does not affect the TexImage2D.
+        glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, useImageHeight ? 128 : 0);
+        glPixelStorei(GL_UNPACK_SKIP_IMAGES, useSkipImages ? 1 : 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT,
+                     GL_FLOAT, data);
+        EXPECT_GL_NO_ERROR();
+
+        // Verify: depth buffer got populated from depth data and contains 1.0f.
+        glViewport(0, 0, width, height);
+        GLFramebuffer fbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texture, 0);
+        GLTexture colorTexture;
+        glBindTexture(GL_TEXTURE_2D, colorTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     nullptr);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture,
+                               0);
+        ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+        EXPECT_GL_NO_ERROR();
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glEnable(GL_DEPTH_TEST);
+
+        // Verifies that depth test works. Buffer contains 1.0 elements, draw with depth test
+        // produces nothing.
+        glDepthFunc(GL_GREATER);
+        ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+        drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.95f);
+        EXPECT_PIXEL_RECT_EQ(0, 0, width, height, GLColor::transparentBlack);
+
+        // Verifies that TexImage2D worked. Buffer contains 1.0 elements, draw with depth test
+        // produces results.
+        glDepthFunc(GL_LESS);
+        drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.95f);
+        EXPECT_PIXEL_RECT_EQ(0, 0, width, height, GLColor::green);
+        EXPECT_GL_NO_ERROR();
+    }
+}
+
 // Test that skip defined in unpack parameters is taken into account when determining whether
 // unpacking source extends outside unpack buffer bounds.
 TEST_P(Texture2DTestES3, UnpackSkipPixelsOutOfBounds)
@@ -13319,6 +13927,100 @@ TEST_P(TextureCubeTestES3,
     incompatibleCubeFacesThenSingleFaceCompatibleUploadAndIncompatibleAgain(GL_ALPHA);
 }
 
+// Test that glCopyImageSubData works with GL_TEXTURE_CUBE_MAP_ARRAY layers unique to array cubes
+TEST_P(TextureCubeTestES32, CopyImageSubDataCubeMapArray)
+{
+    // Test copying from GL_TEXTURE_CUBE_MAP_ARRAY to GL_TEXTURE_CUBE_MAP_ARRAY
+    {
+        // Create source CubeMapArray with 3 cubes (18 layers total)
+        GLTexture srcCubeArray;
+        glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, srcCubeArray);
+        glTexStorage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 1, GL_RGBA8, 128, 128, 18);
+
+        std::vector<GLColor> redData(128 * 128, GLColor::red);
+        std::vector<GLColor> greenData(128 * 128, GLColor::green);
+        std::vector<GLColor> blueData(128 * 128, GLColor::blue);
+
+        // Fill layer 0 (first cube, first face)
+        glTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 0, 128, 128, 1, GL_RGBA,
+                        GL_UNSIGNED_BYTE, redData.data());
+        // Fill layer 7 (second cube, second face)
+        glTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 7, 128, 128, 1, GL_RGBA,
+                        GL_UNSIGNED_BYTE, greenData.data());
+        // Fill layer 15 (third cube, fourth face)
+        glTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 15, 128, 128, 1, GL_RGBA,
+                        GL_UNSIGNED_BYTE, blueData.data());
+
+        // Create destination CubeMapArray with 3 cubes
+        GLTexture dstCubeArray;
+        glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, dstCubeArray);
+        glTexStorage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 1, GL_RGBA8, 128, 128, 18);
+
+        // Copy from the source to the destination
+        glCopyImageSubData(srcCubeArray, GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 0, dstCubeArray,
+                           GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 0, 128, 128, 1);
+        glCopyImageSubData(srcCubeArray, GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 7, dstCubeArray,
+                           GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 7, 128, 128, 1);
+        glCopyImageSubData(srcCubeArray, GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 15, dstCubeArray,
+                           GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 15, 128, 128, 1);
+        ASSERT_GL_NO_ERROR();
+
+        // Verify the copied data
+        GLFramebuffer fbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+        // Check layer 0 (red)
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dstCubeArray, 0, 0);
+        ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+        // Check layer 7 (green)
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dstCubeArray, 0, 7);
+        ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+        // Check layer 15 (blue)
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dstCubeArray, 0, 15);
+        ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+    }
+
+    // Test copying from GL_RENDERBUFFER to GL_TEXTURE_CUBE_MAP_ARRAY
+    {
+        // Create a renderbuffer as source
+        GLRenderbuffer srcRenderbuffer;
+        glBindRenderbuffer(GL_RENDERBUFFER, srcRenderbuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, 128, 128);
+
+        // Fill renderbuffer with color using FBO
+        GLFramebuffer srcFbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, srcFbo);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                                  srcRenderbuffer);
+        ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+        glClearColor(1.0f, 0.0f, 1.0f, 1.0f);  // Set clear color to magenta
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Create destination CubeMapArray
+        GLTexture dstCubeArrayFromRB;
+        glBindTexture(GL_TEXTURE_CUBE_MAP_ARRAY, dstCubeArrayFromRB);
+        glTexStorage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 1, GL_RGBA8, 128, 128, 12);  // 2 cubes
+
+        // Copy from renderbuffer to CubeMapArray layer 8 (second cube, third face)
+        glCopyImageSubData(srcRenderbuffer, GL_RENDERBUFFER, 0, 0, 0, 0, dstCubeArrayFromRB,
+                           GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, 0, 8, 128, 128, 1);
+        ASSERT_GL_NO_ERROR();
+
+        // Verify the copied data
+        GLFramebuffer verifyFbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, verifyFbo);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dstCubeArrayFromRB, 0, 8);
+        ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+        EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::magenta);
+    }
+}
+
 // Test that the maximum texture layer can allocate enough memory.
 TEST_P(TextureCubeTestES32, MaxArrayTextureLayersVerify)
 {
@@ -14568,6 +15270,86 @@ TEST_P(Texture2DTestES3, RespecifyWithMoreMips)
         drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
         EXPECT_GL_NO_ERROR();
         EXPECT_PIXEL_COLOR_EQ(0, 0, getLevelData(mip - 1)[0]);
+    }
+}
+
+// Test to verify that reinitializing an image with incompatible mipmap levels, and enabling mipmap
+// filtering after it was disabled, does not cause a crash.
+TEST_P(Texture2DTestES3, ReinitIncompatibleLevelsNoMipmapThenMipmap)
+{
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mTexture2D);
+
+    constexpr const GLsizei kSize                         = 8;
+    const std::vector<std::vector<GLColor>> kMipLevelData = {
+        std::vector<GLColor>(8 * 8, GLColor::red), std::vector<GLColor>(4 * 4, GLColor::green),
+        std::vector<GLColor>(2 * 2, GLColor::blue), std::vector<GLColor>(1 * 1, GLColor::yellow)};
+    const std::vector<uint16_t> kSingleLevelData(4 * 4, 0x001f);
+
+    // Store an image with a level count of 4.
+    for (GLint mip = 0; mip < static_cast<GLint>(kMipLevelData.size()); ++mip)
+    {
+        GLint size = kSize >> mip;
+        glTexImage2D(GL_TEXTURE_2D, mip, GL_RGBA, size, size, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     kMipLevelData[mip].data());
+    }
+
+    // Use mipmap filtering.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    EXPECT_GL_NO_ERROR();
+
+    // Set up the lod program.
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Texture2DLod(), essl3_shaders::fs::Texture2DLod());
+    glUseProgram(program);
+    GLint textureLoc = glGetUniformLocation(program, essl3_shaders::Texture2DUniform());
+    GLint lodLoc     = glGetUniformLocation(program, essl3_shaders::LodUniform());
+    ASSERT_NE(-1, textureLoc);
+    ASSERT_NE(-1, lodLoc);
+    glUniform1i(textureLoc, 0);
+
+    // Set lod = 0.
+    glUniform1f(lodLoc, 0);
+
+    // Verify draw and the texture image will be stored.
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+    EXPECT_GL_NO_ERROR();
+
+    // Use GL_LINEAR filtering so that mipmap is not used.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    EXPECT_GL_NO_ERROR();
+
+    // Reinit image with a different sized internal format with a single level.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, 4, 4, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5,
+                 kSingleLevelData.data());
+    EXPECT_GL_NO_ERROR();
+
+    // Verify draw with mip level 0 and expect that the color matches kSingleLevelData.
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+    EXPECT_GL_NO_ERROR();
+
+    // Use mipmap filtering again.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    EXPECT_GL_NO_ERROR();
+
+    // Restore mip level 0 to the mipmap format and ensure all levels are included in the texture.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kSize, kSize, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 kMipLevelData[0].data());
+    EXPECT_GL_NO_ERROR();
+
+    // Verify that all the mips are still correct.
+    for (GLint mip = 0; mip < static_cast<GLint>(kMipLevelData.size()); ++mip)
+    {
+        glUniform1f(lodLoc, mip);
+
+        drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
+        EXPECT_PIXEL_COLOR_EQ(0, 0, kMipLevelData[mip].data()[0]);
+        EXPECT_GL_NO_ERROR();
+        ASSERT_GL_NO_ERROR();
     }
 }
 
@@ -17836,6 +18618,7 @@ ANGLE_INSTANTIATE_TEST(Texture2DTest,
                        ANGLE_ALL_TEST_PLATFORMS_ES2,
                        ES2_EMULATE_COPY_TEX_IMAGE_VIA_SUB(),
                        ES2_EMULATE_COPY_TEX_IMAGE(),
+                       ES2_OPENGLES().enable(Feature::ForcePassthroughShaders),
                        ES2_WEBGPU());
 ANGLE_INSTANTIATE_TEST_ES2(TextureCubeTest);
 ANGLE_INSTANTIATE_TEST_ES2(Texture2DTestWithDrawScale);

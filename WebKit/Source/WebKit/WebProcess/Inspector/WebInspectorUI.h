@@ -57,7 +57,7 @@ class WebInspectorUI final
     : public RefCounted<WebInspectorUI>
     , private IPC::Connection::Client
     , public WebCore::InspectorFrontendClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(WebInspectorUI);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebInspectorUI);
 public:
     static Ref<WebInspectorUI> create(WebPage&);
@@ -158,6 +158,9 @@ public:
 
     void setInspectorPageDeveloperExtrasEnabled(bool) override;
 
+    void setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor) override;
+    double pageZoomFactor() const override;
+
 #if ENABLE(INSPECTOR_TELEMETRY)
     bool supportsDiagnosticLogging() override;
     bool diagnosticLoggingAvailable() override { return m_diagnosticLoggingAvailable; }
@@ -223,6 +226,7 @@ private:
 
     DockSide m_dockSide { DockSide::Undocked };
     unsigned m_inspectionLevel { 1 };
+    double m_pageZoomFactor { 1.0 };
 };
 
 } // namespace WebKit

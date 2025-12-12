@@ -197,11 +197,11 @@ namespace WebCore {
 bool ScreenCaptureKitSharingSessionManager::isAvailable()
 {
 #if HAVE(SC_CONTENT_SHARING_PICKER)
-    if (PAL::getSCContentSharingPickerClass() && PAL::getSCContentSharingPickerConfigurationClass())
+    if (PAL::getSCContentSharingPickerClassSingleton() && PAL::getSCContentSharingPickerConfigurationClassSingleton())
         return true;
 #endif
 
-    return PAL::getSCContentSharingSessionClass();
+    return PAL::getSCContentSharingSessionClassSingleton();
 }
 
 bool ScreenCaptureKitSharingSessionManager::useSCContentSharingPicker()
@@ -255,7 +255,7 @@ void ScreenCaptureKitSharingSessionManager::cancelPicking()
 #if HAVE(SC_CONTENT_SHARING_PICKER)
     if (useSCContentSharingPicker()) {
         if (m_activeSources.isEmpty()) {
-            RetainPtr picker = [PAL::getSCContentSharingPickerClass() sharedPicker];
+            RetainPtr picker = [PAL::getSCContentSharingPickerClassSingleton() sharedPicker];
             [m_promptHelper stopObservingPicker:picker.get()];
         }
     }
@@ -467,7 +467,7 @@ bool ScreenCaptureKitSharingSessionManager::promptWithSCContentSharingPicker(Dis
         break;
     }
 
-    RetainPtr picker = [PAL::getSCContentSharingPickerClass() sharedPicker];
+    RetainPtr picker = [PAL::getSCContentSharingPickerClassSingleton() sharedPicker];
     [picker setDefaultConfiguration:configuration.get()];
     [picker setMaximumStreamCount:@(std::numeric_limits<unsigned>::max())];
     [m_promptHelper startObservingPicker:picker.get()];

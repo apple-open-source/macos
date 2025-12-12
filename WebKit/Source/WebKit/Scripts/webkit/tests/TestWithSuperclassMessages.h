@@ -248,5 +248,113 @@ private:
     bool m_value;
 };
 
+#if ENABLE(TEST_FEATURE)
+class TestAsyncMessageReply {
+public:
+    using Arguments = std::tuple<uint64_t>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    explicit TestAsyncMessageReply(uint64_t result)
+        : m_result(result)
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+        encoder << m_result;
+    }
+
+private:
+    uint64_t m_result;
+};
+#endif
+
+#if ENABLE(TEST_FEATURE)
+class TestAsyncMessageWithNoArgumentsReply {
+public:
+    using Arguments = std::tuple<>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithNoArgumentsReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    TestAsyncMessageWithNoArgumentsReply()
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+    }
+
+private:
+};
+#endif
+
+#if ENABLE(TEST_FEATURE)
+class TestAsyncMessageWithMultipleArgumentsReply {
+public:
+    using Arguments = std::tuple<bool, uint64_t>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithMultipleArgumentsReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    TestAsyncMessageWithMultipleArgumentsReply(bool flag, uint64_t value)
+        : m_flag(flag)
+        , m_value(value)
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+        encoder << m_flag;
+        encoder << m_value;
+    }
+
+private:
+    bool m_flag;
+    uint64_t m_value;
+};
+#endif
+
+#if ENABLE(TEST_FEATURE)
+class TestAsyncMessageWithConnectionReply {
+public:
+    using Arguments = std::tuple<bool>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithSuperclass_TestAsyncMessageWithConnectionReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    explicit TestAsyncMessageWithConnectionReply(bool flag)
+        : m_flag(flag)
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+        encoder << m_flag;
+    }
+
+private:
+    bool m_flag;
+};
+#endif
+
 } // namespace TestWithSuperclass
 } // namespace Messages

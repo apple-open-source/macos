@@ -36,6 +36,7 @@
 #include "InsertLineBreakCommand.h"
 #include "NodeName.h"
 #include "NodeTraversal.h"
+#include "PositionInlines.h"
 #include "RenderText.h"
 #include "Text.h"
 #include "VisibleUnits.h"
@@ -128,8 +129,8 @@ void InsertParagraphSeparatorCommand::getAncestorsInsideBlock(const Node* insert
     
     // Build up list of ancestors elements between the insertion node and the outer block.
     if (insertionNode != outerBlock) {
-        for (Element* n = insertionNode->parentElement(); n && n != outerBlock; n = n->parentElement())
-            ancestors.append(n);
+        for (RefPtr element = insertionNode->parentElement(); element && element != outerBlock; element = element->parentElement())
+            ancestors.append(element);
     }
 }
 
@@ -399,7 +400,7 @@ void InsertParagraphSeparatorCommand::doApply()
         insertionPosition = positionInParentAfterNode(br.ptr());
         // If the insertion point is a break element, there is nothing else
         // we need to do.
-        if (auto* renderer = visiblePos.deepEquivalent().anchorNode()->renderer(); renderer && renderer->isBR()) {
+        if (CheckedPtr renderer = visiblePos.deepEquivalent().anchorNode()->renderer(); renderer && renderer->isBR()) {
             setEndingSelection(VisibleSelection(VisiblePosition(insertionPosition, Affinity::Downstream), endingSelection().directionality()));
             return;
         }

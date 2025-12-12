@@ -50,8 +50,6 @@ let runTableForDefaultCommands: [(String, String?, Bool)] = [
 	("/usr/sbin/scutil -d -v -r 0.0.0.0", 				"reachability-info.txt",		false),
 	("/usr/sbin/scutil -d -v -r 169.254.0.0", 			"reachability-info.txt",		false),
 	("/usr/sbin/scutil --nc list", 					"nc-info.txt",				false),
-	("/usr/sbin/scutil --rank \"\"", 				"interface-rank-assertions.txt",	false),
-	("/usr/sbin/scutil --advisory \"\"",				"interface-advisories.txt",		false),
 	("/usr/sbin/scutil -p --snapshot /dev/stdout", 			"SCDynamicStore.plist",			false),
 	("/usr/sbin/scutil --nwi",					"network-information.txt",		true),
 	("/usr/bin/dig +time=2 -t any -c any www.apple.com", 		"dig-info.txt",				false),
@@ -106,6 +104,8 @@ let runTableForDefaultCommands: [(String, String?, Bool)] = [
 	// ("cat /var/run/racoon/*.conf | <redaction_script>",		"ipsec.txt",				false),
 	// ("cat /var/log/vpnd.log",					"vpnd.txt",				false),
 	// ("cat /var/log/racoon.log",					"racoon.txt",				false),
+	// ("/usr/sbin/scutil --rank \"\"",				"interface-rank-assertions.txt",	false),
+	// ("/usr/sbin/scutil --advisory \"\"",				"interface-advisories.txt",		false),
 
 ]
 

@@ -196,7 +196,7 @@
             return completion(nullptr);
 
         if (RefPtr bitmap = WebCore::ShareableBitmap::create(WTFMove(*imageHandle), WebCore::SharedMemory::Protection::ReadOnly))
-            return completion(bitmap->makeCGImage().get());
+            return completion(bitmap->createPlatformImage(WebCore::DontCopyBackingStore).get());
 
         completion(nullptr);
     });

@@ -28,13 +28,14 @@
 #include "LegacyRenderSVGResource.h"
 #include "MutableStyleProperties.h"
 #include "RenderSVGPath.h"
+#include "RenderStyleInlines.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGMPathElement.h"
 #include "SVGNames.h"
 #include "SVGPathUtilities.h"
 #include "SVGPoint.h"
-#include "SVGRenderStyle.h"
+#include "Settings.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
@@ -237,8 +238,8 @@ const SVGPathByteStream& SVGPathElement::pathByteStream() const
 {
     if (document().settings().cssDPropertyEnabled()) {
         if (CheckedPtr renderer = this->renderer()) {
-            if (RefPtr basicShapePath = renderer->style().d())
-                return basicShapePath->path()->data.byteStream;
+            if (auto& pathFunction = renderer->style().d().tryPath())
+                return pathFunction->parameters.data.byteStream;
             return SVGPathByteStream::empty();
         }
     }
@@ -250,8 +251,8 @@ Path SVGPathElement::path() const
 {
     if (document().settings().cssDPropertyEnabled()) {
         if (CheckedPtr renderer = this->renderer()) {
-            if (RefPtr basicShapePath = renderer->style().d())
-                return basicShapePath->path({ });
+            if (auto& pathFunction = renderer->style().d().tryPath())
+                return Style::path(pathFunction->parameters, FloatRect { });
             return { };
         }
     }

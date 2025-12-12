@@ -39,7 +39,6 @@ namespace WebKit {
 class IPCTesterReceiver final : public IPC::MessageReceiver, public RefCounted<IPCTesterReceiver> {
 public:
     static Ref<IPCTesterReceiver> create();
-    ~IPCTesterReceiver() = default;
 
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }

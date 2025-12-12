@@ -35,6 +35,7 @@
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "PathOperation.h"
+#include "RenderElementInlines.h"
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "SVGElementTypeHelpers.h"
@@ -42,6 +43,7 @@
 #include "SVGLengthContext.h"
 #include "SVGResources.h"
 #include "SVGResourcesCache.h"
+#include "Settings.h"
 #include <numbers>
 #include <wtf/MathExtras.h>
 
@@ -109,7 +111,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
     // Setup transparency layers before setting up SVG resources!
     bool isRenderingMask = isRenderingMaskImage(*m_renderer);
     // RenderLayer takes care of root opacity.
-    float opacity = (renderer.isLegacyRenderSVGRoot() || isRenderingMask) ? 1 : style.opacity();
+    float opacity = (renderer.isLegacyRenderSVGRoot() || isRenderingMask) ? 1 : style.opacity().value.value;
     bool hasBlendMode = style.hasBlendMode();
     bool hasIsolation = style.hasIsolation();
     bool isolateMaskForBlending = false;
@@ -147,7 +149,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
         resources = SVGResourcesCache::cachedResourcesForRenderer(*m_renderer);
 
     if (!resources) {
-        if (style.hasReferenceFilterOnly())
+        if (style.filter().isReferenceFilter())
             return;
 
         m_renderingFlags |= RenderingPrepared;

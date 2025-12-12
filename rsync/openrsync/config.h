@@ -34,11 +34,14 @@
 
 #include <stdint.h> /* C99 [u]int[nn]_t types */
 
+#ifndef INFTIM
 #define INFTIM (-1) /* poll.h */
+#endif
 
 /*
  * Results of configuration feature-testing.
  */
+#ifdef __APPLE__
 #define HAVE_ARC4RANDOM 1
 #define HAVE_B64_NTOP 1
 #define HAVE_CAPSICUM 0
@@ -106,6 +109,60 @@
 #define be64toh(x) OSSwapBigToHostInt64(x)
 #define le64toh(x) OSSwapLittleToHostInt64(x)
 
+#else
+
+#define HAVE_ARC4RANDOM 1
+#define HAVE_B64_NTOP 1
+#define HAVE_CAPSICUM 1
+#define HAVE_CRYPT 1
+#define HAVE_CRYPT_NEWHASH 0
+#define HAVE_DAEMON 1
+#define HAVE_ENDIAN_H 0
+#define HAVE_ERR 1
+#define HAVE_EXPLICIT_BZERO 1
+#define HAVE_FTS 1
+#define HAVE_GETEXECNAME 0
+#define HAVE_GETPROGNAME 1
+#define HAVE_INFTIM 1
+#define HAVE_LANDLOCK 0
+#define HAVE_MD5 1
+#define HAVE_MEMMEM 1
+#define HAVE_MEMRCHR 1
+#define HAVE_MEMSET_S 1
+#define HAVE_MKFIFOAT 1
+#define HAVE_MKNODAT 1
+#define HAVE_OSBYTEORDER_H 0
+#define HAVE_PATH_MAX 1
+#define HAVE_PLEDGE 0
+#define HAVE_PROGRAM_INVOCATION_SHORT_NAME 0
+#define HAVE_READPASSPHRASE 1
+#define HAVE_REALLOCARRAY 1
+#define HAVE_RECALLOCARRAY 0
+#define HAVE_SANDBOX_INIT 0
+#define HAVE_SCAN_SCALED 0
+#define HAVE_SECCOMP_FILTER 0
+#define HAVE_SETRESGID 1
+#define HAVE_SETRESUID 1
+#define HAVE_SHA2 0
+#define HAVE_SHA2_H 0
+#define HAVE_SOCK_NONBLOCK 1
+#define HAVE_STRLCAT 1
+#define HAVE_STRLCPY 1
+#define HAVE_STRNDUP 1
+#define HAVE_STRNLEN 1
+#define HAVE_STRTONUM 1
+#define HAVE_SYS_BYTEORDER_H 0
+#define HAVE_SYS_ENDIAN_H 1
+#define HAVE_SYS_MKDEV_H 0
+#define HAVE_SYS_QUEUE 1
+#define HAVE_SYS_SYSMACROS_H 0
+#define HAVE_SYS_TREE 1
+#define HAVE_SYSTRACE 0
+#define HAVE_UNVEIL 0
+#define HAVE_WAIT_ANY 1
+#define HAVE___PROGNAME 1
+#endif
+
 /*
  * Handle the various major()/minor() header files.
  * Use sys/mkdev.h before sys/sysmacros.h because SunOS
@@ -136,6 +193,7 @@
 # define COMPAT_ENDIAN_H <endian.h>
 #endif
 
+#ifdef __APPLE__
 /*
  * Compatibility for md4(3).
  */
@@ -155,6 +213,7 @@ extern void MD5Pad(MD5_CTX *);
 extern void MD5Transform(uint32_t [4], const uint8_t [MD5_BLOCK_LENGTH]);
 extern char *MD5End(MD5_CTX *, char *);
 extern void MD5Final(uint8_t [MD5_DIGEST_LENGTH], MD5_CTX *);
+#endif
 
 /*
  * Compatibility for sha2(3).
@@ -214,34 +273,42 @@ char *SHA512File(const char *, char *);
 char *SHA512FileChunk(const char *, char *, off_t, off_t);
 char *SHA512Data(const uint8_t *, size_t, char *);
 
+#ifdef __APPLE__
 /*
  * Compatibility for daemon(3).
  */
 extern int daemon(int, int);
+#endif
 
 #define	FMT_SCALED_STRSIZE	7 /* minus sign, 4 digits, suffix, null byte */
 int	fmt_scaled(long long, char *);
 int	scan_scaled(char *, long long *);
+
+#ifdef __APPLE__
 /*
  * Compatibility for explicit_bzero(3).
  */
 extern void explicit_bzero(void *, size_t);
+#endif
 
 /*
  * Compatibility for memrchr(3).
  */
 void *memrchr(const void *b, int, size_t);
 
+#ifdef __APPLE__
 /*
  * Compatibility for reallocarray(3).
  */
 extern void *reallocarray(void *, size_t, size_t);
+#endif
 
 /*
  * Compatibility for recallocarray(3).
  */
 extern void *recallocarray(void *, size_t, size_t, size_t);
 
+#ifdef __APPLE__
 /*
  * Compatibility for setresgid(2).
  */
@@ -251,7 +318,9 @@ int setresgid(gid_t rgid, gid_t egid, gid_t sgid);
  * Compatibility for setresuid(2).
  */
 int setresuid(uid_t ruid, uid_t euid, uid_t suid);
+#endif
 
+#ifdef __APPLE__
 /*
  * A compatible version of OpenBSD <sys/tree.h>.
  */
@@ -1000,4 +1069,5 @@ name##_RB_MINMAX(struct name *head, int val)				\
 	    ((x) != NULL) && ((y) = name##_RB_PREV(x), 1);		\
 	     (x) = (y))
 
+#endif /* __APPLE__ */
 #endif /*!OCONFIGURE_CONFIG_H*/

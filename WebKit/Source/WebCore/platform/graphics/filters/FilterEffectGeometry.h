@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "FloatRect.h"
+#include <WebCore/FloatRect.h>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Ref.h>

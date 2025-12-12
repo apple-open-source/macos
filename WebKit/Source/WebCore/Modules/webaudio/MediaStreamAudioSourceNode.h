@@ -77,4 +77,6 @@ private:
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_AUDIONODE(MediaStreamAudioSourceNode, NodeTypeMediaStreamAudioSource);
+
 #endif // ENABLE(WEB_AUDIO) && ENABLE(MEDIA_STREAM)

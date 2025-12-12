@@ -50,7 +50,7 @@ class SpeculativeLoad;
 
 namespace NetworkCache {
 
-class AsyncRevalidation : public RefCountedAndCanMakeWeakPtr<AsyncRevalidation> {
+class AsyncRevalidation final : public RefCountedAndCanMakeWeakPtr<AsyncRevalidation> {
     WTF_MAKE_TZONE_ALLOCATED(AsyncRevalidation);
 public:
     enum class Result {

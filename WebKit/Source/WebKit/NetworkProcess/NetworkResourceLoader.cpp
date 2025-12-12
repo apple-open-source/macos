@@ -105,7 +105,7 @@ namespace WebKit {
 using namespace WebCore;
 
 struct NetworkResourceLoader::SynchronousLoadData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(NetworkResourceLoader);
 
     SynchronousLoadData(CompletionHandler<void(const ResourceError&, const ResourceResponse, Vector<uint8_t>&&)>&& reply)
         : delayedReply(WTFMove(reply))
@@ -466,7 +466,7 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
         case ResourceResponse::Source::DiskCacheAfterValidation:
         case ResourceResponse::Source::MemoryCache:
         case ResourceResponse::Source::MemoryCacheAfterValidation:
-        case ResourceResponse::Source::ApplicationCache:
+        case ResourceResponse::Source::LegacyApplicationCachePlaceholder:
         case ResourceResponse::Source::DOMCache:
             return true;
         case ResourceResponse::Source::Unknown:
@@ -502,6 +502,8 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
         case WebCore::FetchOptions::Destination::Document:
         case WebCore::FetchOptions::Destination::Iframe:
             return ResourceLoadInfo::Type::Document;
+        case WebCore::FetchOptions::Destination::Json:
+            return ResourceLoadInfo::Type::Script;
         case WebCore::FetchOptions::Destination::Embed:
             return ResourceLoadInfo::Type::Object;
         case WebCore::FetchOptions::Destination::Environmentmap:
@@ -525,6 +527,8 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
         case WebCore::FetchOptions::Destination::Serviceworker:
             return ResourceLoadInfo::Type::Other;
         case WebCore::FetchOptions::Destination::Sharedworker:
+            return ResourceLoadInfo::Type::Other;
+        case WebCore::FetchOptions::Destination::Speculationrules:
             return ResourceLoadInfo::Type::Other;
         case WebCore::FetchOptions::Destination::Style:
             return ResourceLoadInfo::Type::Stylesheet;
@@ -1241,7 +1245,7 @@ std::optional<Seconds> NetworkResourceLoader::validateCacheEntryForMaxAgeCapVali
     
     if (!existingCacheEntryMatchesNewResponse) {
         if (CheckedPtr networkStorageSession = protectedConnectionToWebProcess()->networkProcess().storageSession(sessionID()))
-            return networkStorageSession->maxAgeCacheCap(request);
+            return networkStorageSession->maxAgeCacheCap(request, NetworkSession::isRequestToKnownCrossSiteTracker(request));
     }
     return std::nullopt;
 }
@@ -1984,7 +1988,7 @@ void NetworkResourceLoader::logCookieInformation(NetworkConnectionToWebProcess& 
 {
     ASSERT(shouldLogCookieInformation(connection, networkStorageSession.sessionID()));
 
-    if (networkStorageSession.shouldBlockCookies(firstParty, url, frameID, pageID, ShouldRelaxThirdPartyCookieBlocking::No))
+    if (networkStorageSession.shouldBlockCookies(firstParty, url, frameID, pageID, ShouldRelaxThirdPartyCookieBlocking::No, IsKnownCrossSiteTracker::No))
         logBlockedCookieInformation(connection, label, loggedObject, networkStorageSession, firstParty, sameSiteInfo, url, referrer, frameID, pageID, identifier);
     else
         logCookieInformationInternal(connection, label, loggedObject, networkStorageSession, firstParty, sameSiteInfo, url, referrer, frameID, pageID, identifier);
@@ -2010,7 +2014,7 @@ void NetworkResourceLoader::logSlowCacheRetrieveIfNeeded(const NetworkCache::Cac
     if (duration < 1_s)
         return;
     LOADER_RELEASE_LOG("logSlowCacheRetrieveIfNeeded: Took %.0fms, priority %d", duration.milliseconds(), info.priority);
-    if (info.wasSpeculativeLoad)
+    if (info.speculativeLoadDecision && *info.speculativeLoadDecision == NetworkCache::SpeculativeLoadDecision::Yes)
         LOADER_RELEASE_LOG("logSlowCacheRetrieveIfNeeded: Was speculative load");
     if (!info.storageTimings.startTime)
         return;
@@ -2166,19 +2170,19 @@ void NetworkResourceLoader::dataReceivedThroughContentFilter(const SharedBuffer&
     sendDidReceiveDataMessage(buffer);
 }
 
-WebCore::ResourceError NetworkResourceLoader::contentFilterDidBlock(WebCore::ContentFilterUnblockHandler unblockHandler, String&& unblockRequestDeniedScript)
+WebCore::ResourceError NetworkResourceLoader::contentFilterDidBlock(WebCore::ContentFilterUnblockHandler&& unblockHandler, String&& unblockRequestDeniedScript)
 {
     auto error = WebKit::blockedByContentFilterError(m_parameters.request);
     CheckedPtr contentFilter = m_contentFilter.get();
 
-    m_unblockHandler = unblockHandler;
+    m_unblockHandler = WTFMove(unblockHandler);
     m_unblockRequestDeniedScript = unblockRequestDeniedScript;
     
-    if (unblockHandler.needsUIProcess()) {
+    if (m_unblockHandler.needsUIProcess()) {
         contentFilter->setBlockedError(error);
         contentFilter->handleProvisionalLoadFailure(error);
     } else {
-        unblockHandler.requestUnblockAsync([this, protectedThis = Ref { *this }, contentFilter](bool unblocked) mutable {
+        m_unblockHandler.requestUnblockAsync([this, protectedThis = Ref { *this }, contentFilter](bool unblocked) mutable {
             m_unblockHandler.setUnblockedAfterRequest(unblocked);
 
             ResourceRequest request;

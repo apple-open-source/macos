@@ -34,6 +34,7 @@
 #define _HAS_mcf_service_path_for_service_type  1
 #endif
 
+#include <os/log.h>
 /*
  * Possibly missing network definitions...
  */
@@ -798,6 +799,11 @@ cupsdReadConfiguration(void)
   * Read the cups-files.conf file...
   */
 
+#if CUPS_FILES_LOCKDOWN
+  // Use the compiled defaults instead of reading CupsFilesFile.
+  os_log(OS_LOG_DEFAULT, "%s: File path lockdown: ignoring %s", __func__, CupsFilesFile ? CupsFilesFile : "");
+  
+#else
   if ((fp = cupsFileOpen(CupsFilesFile, "r")) != NULL)
   {
     status = read_cups_files_conf(fp);
@@ -830,6 +836,8 @@ cupsdReadConfiguration(void)
 
     return (0);
   }
+
+#endif /* CUPS_FILES_LOCKDOWN */
 
   if (!ErrorLog)
     cupsdSetString(&ErrorLog, CUPS_LOGDIR "/error_log");

@@ -26,13 +26,15 @@
 #include "config.h"
 #include "PlatformMediaSessionInterface.h"
 
+#include "MediaSessionManagerInterface.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 class EmptyPlatformMediaSessionClient final : public PlatformMediaSessionClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(EmptyPlatformMediaSessionClient);
 public:
+    RefPtr<MediaSessionManagerInterface> sessionManager() const final { return nullptr; }
     PlatformMediaSessionMediaType mediaType() const final { return PlatformMediaSessionMediaType::None; }
     PlatformMediaSessionMediaType presentationType() const final { return PlatformMediaSessionMediaType::None; }
     void mayResumePlayback(bool) final { }
@@ -55,5 +57,7 @@ PlatformMediaSessionClient& emptyPlatformMediaSessionClient()
     static NeverDestroyed<EmptyPlatformMediaSessionClient> client { };
     return client;
 }
+
+PlatformMediaSessionClient::~PlatformMediaSessionClient() = default;
 
 }

@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "StyleLengthWrapper.h"
+#include <WebCore/StyleLengthWrapper.h>
 
 namespace WebCore {
 namespace Style {
@@ -42,4 +42,4 @@ using PaddingBox = MinimallySerializingSpaceSeparatedRectEdges<PaddingEdge>;
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::PaddingEdge> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::PaddingEdge)

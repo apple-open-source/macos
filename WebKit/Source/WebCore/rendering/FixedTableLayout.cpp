@@ -27,6 +27,7 @@
 #include "RenderTableCol.h"
 #include "RenderTableInlines.h"
 #include "RenderTableSection.h"
+#include "StylePreferredSize.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 
 /*
@@ -99,8 +100,8 @@ float FixedTableLayout::calcWidthArray()
 
         auto colStyleLogicalWidth = col->style().logicalWidth();
         float effectiveColWidth = 0;
-        if (auto fixedColStyleLogicalWidth = colStyleLogicalWidth.tryFixed(); fixedColStyleLogicalWidth && fixedColStyleLogicalWidth->value > 0)
-            effectiveColWidth = fixedColStyleLogicalWidth->value;
+        if (auto fixedColStyleLogicalWidth = colStyleLogicalWidth.tryFixed(); fixedColStyleLogicalWidth && fixedColStyleLogicalWidth->isPositive())
+            effectiveColWidth = fixedColStyleLogicalWidth->resolveZoom(Style::ZoomNeeded { });
         else if (colStyleLogicalWidth.isCalculated())
             colStyleLogicalWidth = CSS::Keyword::Auto { };
 
@@ -110,18 +111,18 @@ float FixedTableLayout::calcWidthArray()
             if (currentEffectiveColumn >= nEffCols) {
                 m_table->appendColumn(span);
                 nEffCols++;
-                m_width.append(Length());
+                m_width.append(CSS::Keyword::Auto { });
                 spanInCurrentEffectiveColumn = span;
             } else {
                 if (span < m_table->spanOfEffCol(currentEffectiveColumn)) {
                     m_table->splitColumn(currentEffectiveColumn, span);
                     nEffCols++;
-                    m_width.append(Length());
+                    m_width.append(CSS::Keyword::Auto { });
                 }
                 spanInCurrentEffectiveColumn = m_table->spanOfEffCol(currentEffectiveColumn);
             }
-            if (auto fixedColStyleLogicalWidth = colStyleLogicalWidth.tryFixed(); fixedColStyleLogicalWidth && fixedColStyleLogicalWidth->value > 0) {
-                m_width[currentEffectiveColumn] = Style::PreferredSize::Fixed { fixedColStyleLogicalWidth->value * spanInCurrentEffectiveColumn };
+            if (auto fixedColStyleLogicalWidth = colStyleLogicalWidth.tryFixed(); fixedColStyleLogicalWidth && fixedColStyleLogicalWidth->isPositive()) {
+                m_width[currentEffectiveColumn] = Style::PreferredSize::Fixed { fixedColStyleLogicalWidth->resolveZoom(Style::ZoomNeeded { }) * spanInCurrentEffectiveColumn };
                 usedWidth += effectiveColWidth * spanInCurrentEffectiveColumn;
             } else if (auto percentageColStyleLogicalWidth = colStyleLogicalWidth.tryPercentage(); percentageColStyleLogicalWidth && percentageColStyleLogicalWidth->value > 0) {
                 m_width[currentEffectiveColumn] = Style::PreferredSize::Percentage { percentageColStyleLogicalWidth->value * spanInCurrentEffectiveColumn };
@@ -146,7 +147,7 @@ float FixedTableLayout::calcWidthArray()
         float fixedBorderBoxLogicalWidth = 0;
         // FIXME: Support other length types. If the width is non-auto, it should probably just use
         // RenderBox::computeLogicalWidthInFragmentUsing to compute the width.
-        if (auto fixedLogicalWidth = logicalWidth.tryFixed(); fixedLogicalWidth && fixedLogicalWidth->value > 0) {
+        if (auto fixedLogicalWidth = logicalWidth.tryFixed(); fixedLogicalWidth && fixedLogicalWidth->isPositive()) {
             fixedBorderBoxLogicalWidth = cell->adjustBorderBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
             logicalWidth = Style::PreferredSize::Fixed { fixedBorderBoxLogicalWidth };
         } else if (logicalWidth.isCalculated())
@@ -158,7 +159,7 @@ float FixedTableLayout::calcWidthArray()
             // Only set if no col element has already set it.
             if (m_width[currentColumn].isAuto() && !logicalWidth.isAuto()) {
                 if (auto fixedLogicalWidth = logicalWidth.tryFixed())
-                    m_width[currentColumn] = Style::PreferredSize::Fixed { fixedLogicalWidth->value * eSpan / span };
+                    m_width[currentColumn] = Style::PreferredSize::Fixed { fixedLogicalWidth->resolveZoom(Style::ZoomNeeded { }) * eSpan / span };
                 else if (auto percentageLogicalWidth = logicalWidth.tryPercentage())
                     m_width[currentColumn] = Style::PreferredSize::Percentage { percentageLogicalWidth->value * eSpan / span };
                 usedWidth += fixedBorderBoxLogicalWidth * eSpan / span;
@@ -185,8 +186,8 @@ void FixedTableLayout::computeIntrinsicLogicalWidths(LayoutUnit& minWidth, Layou
 void FixedTableLayout::applyPreferredLogicalWidthQuirks(LayoutUnit& minWidth, LayoutUnit& maxWidth) const
 {
     auto& tableLogicalWidth = m_table->style().logicalWidth();
-    if (auto fixedTableLogicalWidth = tableLogicalWidth.tryFixed(); fixedTableLogicalWidth && fixedTableLogicalWidth->value > 0)
-        minWidth = maxWidth = std::max(minWidth, LayoutUnit(fixedTableLogicalWidth->value) - m_table->bordersPaddingAndSpacingInRowDirection());
+    if (auto fixedTableLogicalWidth = tableLogicalWidth.tryFixed(); fixedTableLogicalWidth && fixedTableLogicalWidth->isPositive())
+        minWidth = maxWidth = std::max(minWidth, LayoutUnit(fixedTableLogicalWidth->resolveZoom(Style::ZoomNeeded { })) - m_table->bordersPaddingAndSpacingInRowDirection());
 
     /*
         <table style="width:100%; background-color:red"><tr><td>
@@ -231,10 +232,10 @@ void FixedTableLayout::layout()
     // to 10px here, and will scale up to 20px in the final (80px, 20px).
     for (unsigned i = 0; i < nEffCols; i++) {
         if (auto fixedWidth = m_width[i].tryFixed()) {
-            calcWidth[i] = fixedWidth->value;
+            calcWidth[i] = Style::evaluate<float>(*fixedWidth, Style::ZoomNeeded { });
             totalFixedWidth += calcWidth[i];
         } else if (auto percentageWidth = m_width[i].tryPercentage()) {
-            calcWidth[i] = Style::evaluate(*percentageWidth, tableLogicalWidth);
+            calcWidth[i] = Style::evaluate<float>(*percentageWidth, tableLogicalWidth);
             totalPercentWidth += calcWidth[i];
             totalPercent += percentageWidth->value;
         } else if (m_width[i].isAuto()) {

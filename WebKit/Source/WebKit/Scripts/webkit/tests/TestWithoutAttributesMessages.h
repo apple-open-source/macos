@@ -675,6 +675,105 @@ private:
 };
 #endif
 
+class CreatePluginReply {
+public:
+    using Arguments = std::tuple<bool>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithoutAttributes_CreatePluginReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    explicit CreatePluginReply(bool result)
+        : m_result(result)
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+        encoder << m_result;
+    }
+
+private:
+    bool m_result;
+};
+
+class RunJavaScriptAlertReply {
+public:
+    using Arguments = std::tuple<>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithoutAttributes_RunJavaScriptAlertReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    RunJavaScriptAlertReply()
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+    }
+
+private:
+};
+
+class GetPluginsReply {
+public:
+    using Arguments = std::tuple<Vector<WebCore::PluginInfo>>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithoutAttributes_GetPluginsReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    explicit GetPluginsReply(const Vector<WebCore::PluginInfo>& plugins)
+        : m_plugins(plugins)
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_plugins;
+    }
+
+private:
+    SUPPRESS_FORWARD_DECL_MEMBER const Vector<WebCore::PluginInfo>& m_plugins;
+};
+
+#if PLATFORM(MAC)
+class InterpretKeyEventReply {
+public:
+    using Arguments = std::tuple<Vector<WebCore::KeypressCommand>>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithoutAttributes_InterpretKeyEventReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    explicit InterpretKeyEventReply(const Vector<WebCore::KeypressCommand>& commandName)
+        : m_commandName(commandName)
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_commandName;
+    }
+
+private:
+    SUPPRESS_FORWARD_DECL_MEMBER const Vector<WebCore::KeypressCommand>& m_commandName;
+};
+#endif
+
 } // namespace TestWithoutAttributes
 } // namespace Messages
 

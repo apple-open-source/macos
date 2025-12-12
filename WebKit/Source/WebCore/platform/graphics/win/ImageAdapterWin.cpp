@@ -42,7 +42,7 @@ Ref<Image> ImageAdapter::loadPlatformResource(const char *name)
     auto data = FileSystem::readEntireFile(path);
     auto img = BitmapImage::create();
     if (data)
-        img->setData(FragmentedSharedBuffer::create(WTFMove(*data)), true);
+        img->setData(SharedBuffer::create(WTFMove(*data)), true);
     return img;
 }
 

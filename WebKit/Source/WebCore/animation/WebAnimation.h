@@ -25,19 +25,19 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "AnimationFrameRate.h"
-#include "AnimationFrameRatePreset.h"
-#include "CSSKeywordValue.h"
-#include "CSSNumericValue.h"
-#include "ContextDestructionObserverInlines.h"
-#include "EventTarget.h"
-#include "EventTargetInterfaces.h"
-#include "ExceptionOr.h"
-#include "IDLTypes.h"
-#include "Styleable.h"
-#include "TimelineRange.h"
-#include "WebAnimationTypes.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/AnimationFrameRate.h>
+#include <WebCore/AnimationFrameRatePreset.h>
+#include <WebCore/CSSKeywordValue.h>
+#include <WebCore/CSSNumericValue.h>
+#include <WebCore/EventTarget.h>
+#include <WebCore/EventTargetInterfaces.h>
+#include <WebCore/ExceptionOr.h>
+#include <WebCore/IDLTypes.h>
+#include <WebCore/StyleSingleAnimationRange.h>
+#include <WebCore/Styleable.h>
+#include <WebCore/TimelineRangeValue.h>
+#include <WebCore/WebAnimationTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/Markable.h>
 #include <wtf/RefCounted.h>
@@ -51,6 +51,7 @@ class AnimationEffect;
 class AnimationEventBase;
 class AnimationTimeline;
 class Document;
+class KeyframeEffect;
 class RenderStyle;
 
 template<typename IDLType> class DOMPromiseProxyWithResolveCallback;
@@ -84,6 +85,7 @@ public:
     virtual void setBindingsEffect(RefPtr<AnimationEffect>&&);
     AnimationEffect* effect() const { return m_effect.get(); }
     void setEffect(RefPtr<AnimationEffect>&&);
+    KeyframeEffect* keyframeEffect() const;
 
     virtual AnimationTimeline* bindingsTimeline() const { return timeline(); }
     virtual void setBindingsTimeline(RefPtr<AnimationTimeline>&&);
@@ -138,24 +140,24 @@ public:
     virtual ExceptionOr<void> bindingsPause() { return pause(); }
     std::optional<WebAnimationTime> holdTime() const { return m_holdTime; }
 
-    void setPendingStartTime(WebAnimationTime pendingStartTime) { m_pendingStartTime = pendingStartTime; }
+    void setPendingStartTime(WebAnimationTime);
 
     virtual Variant<FramesPerSecond, AnimationFrameRatePreset> bindingsFrameRate() const { return m_bindingsFrameRate; }
     virtual void setBindingsFrameRate(Variant<FramesPerSecond, AnimationFrameRatePreset>&&);
     std::optional<FramesPerSecond> frameRate() const { return m_effectiveFrameRate; }
 
-    TimelineRangeValue bindingsRangeStart() const { return m_timelineRange.start.serialize(); }
-    TimelineRangeValue bindingsRangeEnd() const { return m_timelineRange.end.serialize(); }
+    TimelineRangeValue bindingsRangeStart() const { return m_timelineRange.start.toTimelineRangeValue(); }
+    TimelineRangeValue bindingsRangeEnd() const { return m_timelineRange.end.toTimelineRangeValue(); }
     virtual void setBindingsRangeStart(TimelineRangeValue&&);
     virtual void setBindingsRangeEnd(TimelineRangeValue&&);
-    void setRangeStart(SingleTimelineRange);
-    void setRangeEnd(SingleTimelineRange);
-    const TimelineRange& range();
+    void setRangeStart(Style::SingleAnimationRangeStart&&);
+    void setRangeEnd(Style::SingleAnimationRangeEnd&&);
+    const Style::SingleAnimationRange& range();
 
     bool needsTick() const;
     virtual void tick();
     WEBCORE_EXPORT Seconds timeToNextTick() const;
-    virtual OptionSet<AnimationImpact> resolve(RenderStyle& targetStyle, const Style::ResolutionContext&);
+    virtual OptionSet<AnimationImpact> resolve(RenderStyle& targetStyle, const Style::ResolutionContext&, EndpointInclusiveActiveInterval = EndpointInclusiveActiveInterval::No);
     void effectTargetDidChange(const std::optional<const Styleable>& previousTarget, const std::optional<const Styleable>& newTarget);
     void acceleratedStateDidChange();
     void willChangeRenderer();
@@ -182,7 +184,8 @@ public:
     void progressBasedTimelineSourceDidChangeMetrics();
 
     // ContextDestructionObserver.
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
+    using ActiveDOMObject::protectedScriptExecutionContext;
     void contextDestroyed() final;
 
 protected:
@@ -264,7 +267,7 @@ private:
     TimeToRunPendingTask m_timeToRunPendingPauseTask { TimeToRunPendingTask::NotScheduled };
     ReplaceState m_replaceState { ReplaceState::Active };
     uint64_t m_globalPosition { 0 };
-    TimelineRange m_timelineRange;
+    Style::SingleAnimationRange m_timelineRange;
 };
 
 } // namespace WebCore

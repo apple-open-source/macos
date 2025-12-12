@@ -77,7 +77,7 @@ public:
     GstElement* makeElement(ASCIILiteral factoryName)
     {
         static Atomic<uint32_t> elementId;
-        auto name = makeString(ASCIILiteral::fromLiteralUnsafe(Name()), "-dec-"_s, factoryName, "-"_s, elementId.exchangeAdd(1));
+        auto name = makeString(unsafeSpan(Name()), "-dec-"_s, factoryName, "-"_s, elementId.exchangeAdd(1));
         return makeGStreamerElement(factoryName, name);
     }
 

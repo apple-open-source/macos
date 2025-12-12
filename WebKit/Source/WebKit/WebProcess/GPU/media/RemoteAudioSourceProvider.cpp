@@ -66,9 +66,7 @@ RemoteAudioSourceProvider::RemoteAudioSourceProvider(MediaPlayerIdentifier ident
 #endif
 }
 
-RemoteAudioSourceProvider::~RemoteAudioSourceProvider()
-{
-}
+RemoteAudioSourceProvider::~RemoteAudioSourceProvider() = default;
 
 void RemoteAudioSourceProvider::close()
 {

@@ -2419,16 +2419,11 @@ memorystatus_demote_frozen_processes_using_demote_list(bool urgent_mode)
 			&memorystatus_global_demote_list,
 			i,
 			&memorystatus_freezer_stats.mfs_demote_pid_mismatches);
-		if (p != NULL && memorystatus_freeze_proc_is_refreeze_eligible(p)) {
+		if (p != NULL) {
 			memorystatus_demote_frozen_process(p, urgent_mode);
 			/* Remove this entry now that it's been demoted. */
 			memorystatus_global_demote_list.mfcl_list[i].pid = NO_PID;
 			demoted_proc_count++;
-			/*
-			 * We only demote one proc at a time in this mode.
-			 * This gives jetsam a chance to kill the recently demoted processes.
-			 */
-			break;
 		}
 	}
 
@@ -2935,8 +2930,8 @@ memorystatus_freeze_thread(void *param __unused, wait_result_t wr __unused)
 
 	lck_mtx_lock(&freezer_mutex);
 	if (memorystatus_freeze_enabled) {
-		if (memorystatus_freezer_use_demotion_list && memorystatus_refreeze_eligible_count > 0) {
-			memorystatus_demote_frozen_processes(false); /* Normal mode. Consider demoting thawed processes. */
+		if (memorystatus_freezer_use_demotion_list) {
+			memorystatus_demote_frozen_processes(false); /* Normal mode. Demote all in list. */
 		}
 		while (num_frozen < max_to_freeze &&
 		    memorystatus_can_freeze(&memorystatus_freeze_swap_low) &&
@@ -3220,7 +3215,11 @@ memorystatus_cmd_grp_set_freeze_list(user_addr_t buffer, size_t buffer_size)
 errno_t
 memorystatus_cmd_grp_set_demote_list(user_addr_t buffer, size_t buffer_size)
 {
-	return set_freezer_candidate_list(buffer, buffer_size, &memorystatus_global_demote_list);
+	errno_t ret = set_freezer_candidate_list(buffer, buffer_size, &memorystatus_global_demote_list);
+	if (ret == 0) {
+		thread_wakeup((event_t)&memorystatus_freeze_wakeup);
+	}
+	return ret;
 }
 
 void

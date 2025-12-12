@@ -163,7 +163,7 @@
     if (RefPtr plugin = _pdfPlugin.get()) {
         if (RefPtr activeAnnotation = plugin->activeAnnotation()) {
             if (CheckedPtr existingCache = plugin->axObjectCache()) {
-                if (RefPtr object = existingCache->getOrCreate(activeAnnotation->protectedElement().get())) {
+                if (RefPtr object = existingCache->exportedGetOrCreate(activeAnnotation->protectedElement().get())) {
                 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
                     return [object->wrapper() accessibilityAttributeValue:@"_AXAssociatedPluginParent"];
                 ALLOW_DEPRECATED_DECLARATIONS_END
@@ -225,12 +225,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!protectedSelf->_parent) {
         callOnMainRunLoopAndWait([protectedSelf] {
             if (CheckedPtr axObjectCache = protectedSelf->_pdfPlugin.get()->axObjectCache()) {
-                if (RefPtr pluginAxObject = axObjectCache->getOrCreate(RefPtr { protectedSelf->_pluginElement.get() }.get()))
+                if (RefPtr pluginAxObject = axObjectCache->exportedGetOrCreate(RefPtr { protectedSelf->_pluginElement.get() }.get()))
                     protectedSelf->_parent = pluginAxObject->wrapper();
             }
         });
     }
-    return protectedSelf->_parent.get().get();
+    return protectedSelf->_parent.get().unsafeGet();
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -326,7 +326,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             return;
 
         if (CheckedPtr axObjectCache = protectedSelf->_pdfPlugin.get()->axObjectCache()) {
-            if (RefPtr annotationElementAxObject = axObjectCache->getOrCreate(activeAnnotation->protectedElement().get()))
+            if (RefPtr annotationElementAxObject = axObjectCache->exportedGetOrCreate(activeAnnotation->protectedElement().get()))
                 wrapper = annotationElementAxObject->wrapper();
         }
     });

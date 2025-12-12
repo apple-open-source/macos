@@ -4,7 +4,7 @@
 *******************************************************************************
 *
 *   Copyright (C) 1999-2001, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
 *   file name:  utf32.h

@@ -40,6 +40,8 @@
 #include <WebCore/NotificationData.h>
 #include <WebCore/SecurityOriginData.h>
 #include <ranges>
+#include <wtf/NeverDestroyed.h>
+#include <wtf/Ref.h>
 
 namespace WebKit {
 using namespace WebCore;

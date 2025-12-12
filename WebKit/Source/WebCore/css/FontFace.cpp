@@ -67,7 +67,7 @@ Ref<FontFace> FontFace::create(ScriptExecutionContext& context, const String& fa
 #endif
     bool dataRequiresAsynchronousLoading = true;
 
-    auto setFamilyResult = result->setFamily(context, family);
+    auto setFamilyResult = result->setFamily(family);
     if (setFamilyResult.hasException()) {
         result->setErrorState();
         return result;
@@ -179,13 +179,12 @@ FontFace::~FontFace()
     m_backing->removeClient(*this);
 }
 
-ExceptionOr<void> FontFace::setFamily(ScriptExecutionContext& context, const String& family)
+ExceptionOr<void> FontFace::setFamily(const String& family)
 {
-    if (auto value = CSSPropertyParserHelpers::parseFontFaceFontFamily(family, context)) {
-        m_backing->setFamily(*value);
-        return { };
-    }
-    return Exception { ExceptionCode::SyntaxError };
+    if (family.isEmpty())
+        return Exception { ExceptionCode::SyntaxError };
+    m_backing->setFamily(CSSPrimitiveValue::createFontFamily(family));
+    return { };
 }
 
 ExceptionOr<void> FontFace::setStyle(ScriptExecutionContext& context, const String& style)

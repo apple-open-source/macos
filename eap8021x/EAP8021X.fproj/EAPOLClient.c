@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2021, 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,6 @@
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 #include <CoreFoundation/CFMachPort.h>
-#include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "eapolcontroller.h"
@@ -42,8 +41,9 @@
 #include "EAPLog.h"
 
 struct EAPOLClient_s {
-    CFMachPortRef		notify_cfport;
-    CFRunLoopSourceRef		rls;
+    mach_port_t 		notify_port; // Mach port for notifications
+    dispatch_source_t		notify_source; // Dispatch source for notify_port
+    Boolean  			notify_source_suspended; // suspension status of notify_source
     mach_port_t			session_port;
     EAPOLClientCallBackRef	callback_func;
     void *			callback_arg;
@@ -53,83 +53,27 @@ struct EAPOLClient_s {
 static void
 EAPOLClientInvalidate(EAPOLClientRef client, boolean_t remove_send_right)
 {
-    if (client->notify_cfport != NULL) {
-	mach_port_t	port;
-
-	port = CFMachPortGetPort(client->notify_cfport);
-	CFMachPortInvalidate(client->notify_cfport);
-	mach_port_mod_refs(mach_task_self(), port,
-			   MACH_PORT_RIGHT_RECEIVE, -1);
-	if (remove_send_right) {
-	    mach_port_deallocate(mach_task_self(), port);
+    if (client->notify_source != NULL) {
+	dispatch_source_cancel(client->notify_source);
+	if (client->notify_source_suspended == FALSE) {
+	    /* dispatch source can be released only in unsuspended state */
+	    dispatch_release(client->notify_source);
 	}
-	my_CFRelease(&client->notify_cfport);
+	client->notify_source = NULL;
     }
-    if (client->rls != NULL) {
-	CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
-			      client->rls, kCFRunLoopDefaultMode);
-	my_CFRelease(&client->rls);
+    if (client->notify_port != MACH_PORT_NULL) {
+	mach_port_mod_refs(mach_task_self(), client->notify_port,
+			  MACH_PORT_RIGHT_RECEIVE, -1);
+	if (remove_send_right) {
+	    mach_port_deallocate(mach_task_self(), client->notify_port);
+	}
+	client->notify_port = MACH_PORT_NULL;
     }
     if (client->session_port != MACH_PORT_NULL) {
 	(void)mach_port_deallocate(mach_task_self(), client->session_port);
 	client->session_port = MACH_PORT_NULL;
     }
     return;
-}
-
-static void
-EAPOLClientHandleMessage(CFMachPortRef port, void * msg, 
-			 CFIndex size, void * info)
-{
-    EAPOLClientRef		client = (EAPOLClientRef)info;
-    mach_msg_empty_rcv_t *	buf = msg;
-    mach_msg_id_t		msgid = buf->header.msgh_id;
-    Boolean			server_died = FALSE;
-
-    if (msgid == MACH_NOTIFY_NO_SENDERS) {
-	EAPLOG_FL(LOG_NOTICE, "EAPOLController server died");
-	server_died = TRUE;
-	EAPOLClientInvalidate(client, FALSE);
-    }
-    (*client->callback_func)(client, server_died, client->callback_arg);
-    return;
-}
-
-static CFMachPortRef
-_EAPOLClientCFMachPortCreate(CFMachPortCallBack callout,
-			     CFMachPortContext * context)
-{
-    CFMachPortRef	cf_port;
-    Boolean		have_send_right = FALSE;
-    mach_port_t 	port = MACH_PORT_NULL;
-    kern_return_t 	status;
-
-    status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE,
-				&port);
-    if (status != KERN_SUCCESS) {
-	goto failed;
-    }
-    status = mach_port_insert_right(mach_task_self(), port, port, 
-				    MACH_MSG_TYPE_MAKE_SEND);
-    if (status != KERN_SUCCESS) {
-	goto failed;
-    }
-    have_send_right = TRUE;
-    cf_port = _SC_CFMachPortCreateWithPort("EAPOLClient",
-					   port, callout, context);
-    if (cf_port != NULL) {
-	/* _SC_CFMachPortCreateWithPort already logged the failure */
-	return (cf_port);
-    }
- failed:
-    if (port != MACH_PORT_NULL) {
-	mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
-	if (have_send_right) {
-	    mach_port_deallocate(mach_task_self(), port);
-	}
-    }
-    return NULL;
-
 }
 
 Boolean
@@ -173,18 +117,120 @@ EAPOLClientEstablishSession(const char * interface_name)
     return (session_established);
 }
 
+/* handler for mach messages received on the notify port */
+static void
+EAPOLClientHandleMachMessage(EAPOLClientRef client)
+{
+    /* the union data type to resolve MACH_RCV_TOO_LARGE error */
+    union {
+        mach_msg_header_t 		header;
+        mach_no_senders_notification_t 	no_senders;
+        uint8_t 			buffer[1024];
+    } msg;
+    kern_return_t		kr;
+    Boolean			server_died = FALSE;
+
+    /* receive the message from the port */
+    kr = mach_msg(&msg.header, MACH_RCV_MSG | MACH_RCV_TIMEOUT,
+		  0, sizeof(msg), client->notify_port,
+		  0, MACH_PORT_NULL);
+
+    if (kr != KERN_SUCCESS) {
+	EAPLOG_FL(LOG_NOTICE, "mach_msg receive failed: %s",
+		  mach_error_string(kr));
+	return;
+    }
+    if (msg.header.msgh_id == MACH_NOTIFY_NO_SENDERS) {
+	EAPLOG_FL(LOG_NOTICE, "EAPOLController server died");
+	server_died = TRUE;
+    }
+    (*client->callback_func)(client, server_died, client->callback_arg);
+}
+
+/* function that creates a dispatch source for MACH_RECV events */
+static dispatch_source_t
+EAPOLClientDispatchSourceCreate(EAPOLClientRef client, dispatch_queue_t queue)
+{
+    dispatch_source_t	source;
+    kern_return_t	status;
+
+    /* allocate receive port */
+    status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE,
+			       &client->notify_port);
+    if (status != KERN_SUCCESS) {
+	EAPLOG_FL(LOG_NOTICE, "mach_port_allocate failed: %s",
+		  mach_error_string(status));
+	return NULL;
+    }
+
+    /* insert send right for the port */
+    status = mach_port_insert_right(mach_task_self(), client->notify_port,
+				   client->notify_port, MACH_MSG_TYPE_MAKE_SEND);
+    if (status != KERN_SUCCESS) {
+	EAPLOG_FL(LOG_NOTICE, "mach_port_insert_right failed: %s",
+		  mach_error_string(status));
+	mach_port_mod_refs(mach_task_self(), client->notify_port,
+			  MACH_PORT_RIGHT_RECEIVE, -1);
+	client->notify_port = MACH_PORT_NULL;
+	return NULL;
+    }
+
+    /* create dispatch source with DISPATCH_SOURCE_TYPE_MACH_RECV */
+    source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
+				    client->notify_port, 0,
+				    queue);
+    if (source == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "dispatch_source_create failed");
+	mach_port_mod_refs(mach_task_self(), client->notify_port,
+			  MACH_PORT_RIGHT_RECEIVE, -1);
+	mach_port_deallocate(mach_task_self(), client->notify_port);
+	client->notify_port = MACH_PORT_NULL;
+	return NULL;
+    }
+
+    dispatch_set_context(source, (void *)client);
+
+    /* dispatch sources are created in a suspended state */
+    client->notify_source_suspended = TRUE;
+
+    /* event handler - called on arrival of mach messages */
+    dispatch_source_set_event_handler(source, ^{
+	EAPOLClientRef client = (EAPOLClientRef)dispatch_get_context(source);
+	EAPOLClientHandleMachMessage(client);
+    });
+    return source;
+}
+
+void
+EAPOLClientActivate(EAPOLClientRef client)
+{
+    if (client != NULL && client->notify_source != NULL) {
+	/* activate the dispatch source to start receiving messages */
+	dispatch_activate(client->notify_source);
+	client->notify_source_suspended = FALSE;
+    }
+}
+
+void
+EAPOLClientCancel(EAPOLClientRef client)
+{
+    if (client != NULL && client->notify_source != NULL) {
+	/* cancel the dispatch source to stop receiving messages */
+	dispatch_source_cancel(client->notify_source);
+    }
+}
+
 EAPOLClientRef
-EAPOLClientAttach(const char * interface_name, 
-		  EAPOLClientCallBack callback_func, 
-		  void * callback_arg, 
+EAPOLClientAttach(const char * interface_name,
+		  EAPOLClientCallBack callback_func,
+		  void * callback_arg,
+		  dispatch_queue_t queue,
 		  CFDictionaryRef * control_dict, 
 		  int * result_p)
 {
     EAPOLClientRef		client = NULL;
     xmlDataOut_t		control = NULL;
     unsigned int		control_len = 0;
-    CFMachPortContext		context = {0, NULL, NULL, NULL, NULL};
-    mach_port_t			port;
     mach_port_t			port_old;
     boolean_t			remove_send_right = TRUE;
     int				result = 0;
@@ -208,31 +254,29 @@ EAPOLClientAttach(const char * interface_name,
     client = malloc(sizeof(*client));
     bzero(client, sizeof(*client));
     strlcpy(client->if_name, interface_name, sizeof(client->if_name));
-    context.info = client;
-    client->notify_cfport 
-	= _EAPOLClientCFMachPortCreate(EAPOLClientHandleMessage, &context);
-    if (client->notify_cfport == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "_EAPOLClientCFMachPortCreate failed");
+    client->notify_source = EAPOLClientDispatchSourceCreate(client, queue);
+    if (client->notify_source == NULL) {
+	EAPLOG_FL(LOG_ERR, "EAPOLClientDispatchSourceCreate failed");
 	result = errno;
 	goto failed;
     }
-    port = CFMachPortGetPort(client->notify_cfport);
     status = mach_port_request_notification(mach_task_self(),
-					    port,
+					    client->notify_port,
 					    MACH_NOTIFY_NO_SENDERS,
 					    1,
-					    port,
+					    client->notify_port,
 					    MACH_MSG_TYPE_MAKE_SEND_ONCE,
 					    &port_old);
     if (status != KERN_SUCCESS) {
 	EAPLOG_FL(LOG_NOTICE, "mach_port_request_notification(): %s", 
 		  mach_error_string(status));
+	result = ENXIO;
 	goto failed;
     }
     remove_send_right = FALSE;
     status = eapolcontroller_client_attach(server,
 					   client->if_name,
-					   port, &client->session_port,
+					   client->notify_port, &client->session_port,
 					   &control, &control_len, &result);
     if (status != KERN_SUCCESS) {
 	if (status == MACH_SEND_INVALID_DEST) {
@@ -261,19 +305,14 @@ EAPOLClientAttach(const char * interface_name,
     }
     client->callback_func = callback_func;
     client->callback_arg = callback_arg;
-    client->rls = CFMachPortCreateRunLoopSource(NULL, client->notify_cfport, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(),
-		       client->rls, kCFRunLoopDefaultMode);
     return (client);
 
  failed:
     if (client != NULL) {
 	EAPOLClientInvalidate(client, remove_send_right);
-    }
-    my_CFRelease(control_dict);
-    if (client != NULL) {
 	free(client);
     }
+    my_CFRelease(control_dict);
     *result_p = result;
     return (NULL);
 }

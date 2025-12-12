@@ -49,7 +49,7 @@
 #include "PowerManagementSignposts.h"
 
 
-#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
 #include <MobileKeyBag/MobileKeyBag.h>
 #include <CoreFoundation/CFPreferences_Private.h>
 #endif
@@ -2856,29 +2856,6 @@ static bool isSupportedCapacityMonitoring(void)
     return batteryCapacityMonitor_isCapacityQmaxAware();
 }
 
-TARGET_OS_XR_UNUSED static int getNominalChargeCapacityPercent(NSDictionary *batteryProps, IOPSBatteryHealthServiceFlags *svcFlags)
-{
-    int ncc = 0;
-    int designCap = 0;
-
-    ncc = [batteryProps[@kAsbNominalChargeCapacityKey] intValue];
-    designCap = [batteryProps[@kIOPMPSDesignCapacityKey] intValue];
-
-    if (ncc == 0 || designCap == 0) {
-        ERROR_LOG("Invalid inputs. ncc: %d designCap: %d\n", ncc, designCap);
-        *svcFlags |= kBHSvcFlagNCCNotDet;
-        return 0;
-    }
-
-    int nccp = rawToNominal(ncc, designCap);
-    if (!IS_IN_NOMINAL_RANGE(nccp)) {
-        ERROR_LOG("Failed to calculate Nominal Capacity percentage. NominalCapacity:%d DesignCapacity:%d\n",
-                ncc, designCap);
-        *svcFlags |= kBHSvcFlagNCCNotDet;
-    }
-
-    return nccp;
-}
 
 void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
         IOPSBatteryHealthServiceFlags *svcFlags)
@@ -3486,8 +3463,25 @@ static CFMutableDictionaryRef createPersistentStorage(IOPMBattery *b, IOPSBatter
         goto out;
     }
 
-    fccp = rawToNominal(rawMaxCap, designCap) + rawToNominal(kSmartBattReserve_mAh, designCap);
-    CFDictionarySetIntValue(dict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), fccp);
+    if (isSupportedNominalCapacityInGauge()) {
+        int cycleCount = -1;
+        CFDictionaryGetIntValue(batteryProps, CFSTR(kIOPMPSCycleCountKey), cycleCount);
+        if (cycleCount == -1) {
+            ERROR_LOG("Failed to read cycle count in props");
+            svcFlags |= kBHSvcFlagNCCNotDet;
+            goto out;
+        } else {
+            CFDictionarySetIntValue(dict, CFSTR(kIOPMPSCycleCountKey), cycleCount);
+        }
+        int nccp = getNominalChargeCapacityPercent((__bridge NSMutableDictionary *)batteryProps, &svcFlags);
+        if (cycleCount > -1 && cycleCount <= kTrueNCCCycleCountThreshold) {
+            nccp = kInitialNominalCapacityPercentage;
+        }
+        CFDictionarySetIntValue(dict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), nccp);
+    } else {
+        fccp = rawToNominal(rawMaxCap, designCap) + rawToNominal(kSmartBattReserve_mAh, designCap);
+        CFDictionarySetIntValue(dict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), fccp);
+    }
     CFDictionarySetIntValue(dict, CFSTR(kFccAvgHistoryCount), val);
     CFDictionarySetIntValue(dict, CFSTR(kFccDaySampleCount), val);
     CFDictionarySetIntValue(dict, CFSTR(kMitigatedFccDaySampleAvg), val);
@@ -3775,120 +3769,160 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
     CFDictionaryGetIntValue(batteryProps, CFSTR(kIOPMPSCycleCountKey), cycleCount);
     if (cycleCount == -1) {
         ERROR_LOG("Invalid cycle count received");
-    }
-
-    memset(&params, 0, sizeof(params));
-    CFDictionaryGetIntValue(dict, CFSTR(kFccDaySampleCount), params.fccDaySampleCount);
-    CFDictionaryGetIntValue(dict, CFSTR(kFccAvgHistoryCount), params.fccAvgHistoryCount);
-    for (int i = 0; i < vactModesCount; i++) {
-        struct capacitySample *vactSample = &params.sample[i];
-        for (int j =0; j < ARRAY_SIZE(capacityKeys[i]); ) {
-            CFDictionaryGetIntValue(dict, capacityKeys[i][j++], vactSample->nccpMonotonic);
-            CFDictionaryGetIntValue(dict, capacityKeys[i][j++], vactSample->ncc);
-            CFDictionaryGetIntValue(dict, capacityKeys[i][j++], vactSample->fccDaySampleAvg);
-        }
-    }
-
-    params.designCapacity = designCap;
-    params.fcc = rawMaxCap;
-    CFDictionaryGetIntValue(batteryProps, CFSTR(kIOPMPSBatteryTemperatureKey), params.temperature);
-    CFDictionaryGetIntValue(batteryProps, CFSTR(kAsbInstantAmperageKey), params.current);
-
-    batteryData = CFDictionaryGetValue(batteryProps, CFSTR(kAsbBatteryDataKey));
-    if (batteryData) {
-        CFDictionaryGetIntValue(batteryData, CFSTR(kAsbFccComp1Key), params.sample[vactModeDisabled].fcc);
-        CFDictionaryGetIntValue(batteryData, CFSTR(kAsbFccComp2Key), params.sample[vactModeEnabled].fcc);
-    }
-
-    /*
-     * Fallback to gauge reading if scaled FCC is missing. (pre-gibraltar)
-     */
-    if (!params.sample[vactModeDisabled].fcc || !params.sample[vactModeEnabled].fcc) {
-        params.sample[vactModeEnabled].fcc = params.sample[vactModeDisabled].fcc = params.fcc;
-    }
-
-    DEBUG_LOG("fccGG:%d T:%d I:%d vact:%d fccU:%d fccM:%d CC:%d\n", params.fcc, params.temperature, params.current, getVactState(), params.sample[vactModeDisabled].fcc,
-        params.sample[vactModeEnabled].fcc, cycleCount);
-
-    params.cycleCount = cycleCount;
-    uint64_t ts = 0;
-    CFDictionaryGetInt64Value(dict, CFSTR("ts"), ts);
-    if (ts == 0) {
-        ts = getTimeInSecsSinceEpoch();
-        CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
-        INFO_LOG("init health ts with %llu\n", ts);
-    } else {
-        INFO_LOG("stored ts %llu, current ts %llu\n", ts, getTimeInSecsSinceEpoch());
-    }
-    params.ts = ts;
-
-    calculateNominalCapacity(&params);
-    if (params.significantChange) {
-        for (int i = 0; i < vactModesCount; i++) {
-            if (!params.sample[i].nccpMonotonic) {
-                params.sample[i].nccpMonotonic = rawToNominal(params.sample[i].ncc, designCap);
-            } else {
-                if (waitForFC && i == vactModeDisabled) {
-                    params.sample[i].nccpMonotonic = rawToNominal(params.sample[i].ncc, designCap);
-                } else {
-                    params.sample[i].nccpMonotonic = MIN(params.sample[i].nccpMonotonic, rawToNominal(params.sample[i].ncc, designCap));
-                }
-            }
-        }
-    }
-
-    if (params.significantChange & CAPACITY_SEED_CHANGE) {
-        INFO_LOG("Seed change detected: %d %d\n", params.sample[0].ncc, params.sample[1].ncc);
-        CFDictionarySetIntValue(dict, CFSTR("seed0"), params.sample[0].ncc);
-        CFDictionarySetIntValue(dict, CFSTR("seed1"), params.sample[1].ncc);
-        CFDictionarySetInt64Value(dict, CFSTR("seedTs"), params.ts);
-    }
-
-    if (params.significantChange & CAPACITY_SAMPLING_EPOCH_CHANGE) {
-        CFDictionarySetInt64Value(dict, CFSTR("tsPrev"), ts);
-        ts = params.ts;
-        CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
-        INFO_LOG("new epoch start: %llu\n", ts);
-    }
-
-    if (params.debug & NEGATIVE_TS) {
-        uint64_t ts;
-        ts = getTimeInSecsSinceEpoch();
-        ERROR_LOG("Negative time delta encountered (%llu), reset clock (%llu)\n", params.ts, ts);
-        CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
-    }
-    
-    if (!IS_IN_NOMINAL_RANGE(params.sample[vactModeEnabled].nccpMonotonic) && !IS_IN_NOMINAL_RANGE(params.sample[vactModeDisabled].nccpMonotonic)) {
-        ERROR_LOG("Failed to calculate NCC\n");
-        *svcFlags |= kBHSvcFlagNCCNotDet;
         goto out;
     }
 
-    CFDictionarySetIntValue(dict, CFSTR(kFccDaySampleCount), params.fccDaySampleCount);
-    CFDictionarySetIntValue(dict, CFSTR(kFccAvgHistoryCount), params.fccAvgHistoryCount);
-    for (int i = 0; i < vactModesCount; i++) {
-        struct capacitySample *vactSample = &params.sample[i];
-        for (int j =0; j < ARRAY_SIZE(capacityKeys[i]); ) {
-            CFDictionarySetIntValue(dict, capacityKeys[i][j++], vactSample->nccpMonotonic);
-            CFDictionarySetIntValue(dict, capacityKeys[i][j++], vactSample->ncc);
-            CFDictionarySetIntValue(dict, capacityKeys[i][j++], vactSample->fccDaySampleAvg);
+    if (isSupportedNominalCapacityInGauge()) {
+        int prevMaxCap= -1;
+        int prevCycleCount = -1;
+        int nccp = getNominalChargeCapacityPercent((__bridge NSMutableDictionary *)batteryProps, svcFlags);
+        if (!IS_IN_NOMINAL_RANGE(nccp)) {
+            ERROR_LOG("Nominal charge capacity out of range: %d\n", nccp);
+            *svcFlags |= kBHSvcFlagNCCNotDet;
+            goto out;
         }
-        DEBUG_LOG("[%d] fccAvgHistoryCount:%d fccDaySampleCount:%d fccDaySampleAvg:%d nccAvg:%d nccpMono:%d svcFlagsNew:0x%x\n",
-                i, params.fccAvgHistoryCount, params.fccDaySampleCount, vactSample->fccDaySampleAvg, vactSample->ncc, vactSample->nccpMonotonic,
-                *svcFlags);
-    }
 
-    nccService = params.sample[vactModeEnabled].nccpMonotonic + rawToNominal(kSmartBattReserve_mAh, designCap);
-    capacityUI = vactModeEnabled == getVactState() ? params.sample[vactModeEnabled].nccpMonotonic : params.sample[vactModeDisabled].nccpMonotonic;
-    capacityUI += rawToNominal(kSmartBattReserve_mAh, designCap);
-    CFDictionarySetIntValue(dict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), capacityUI);
+        CFDictionaryGetIntValue(dict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), prevMaxCap);
+        if (prevMaxCap == -1) {
+            // should have been found set already in createPeresistentStorage, so if not found here, it is unexpected.
+            ERROR_LOG("Could not read maximum capacity from persistent storage\n");
+            *svcFlags |= kBHSvcFlagNCCNotDet;
+            goto out;
+        }
+
+        CFDictionaryGetIntValue(dict, CFSTR(kIOPMPSCycleCountKey), prevCycleCount);
+        if (prevCycleCount == -1) {
+            ERROR_LOG("Could not read cycle count from persistent storage, storing now");
+            CFDictionarySetIntValue(dict, CFSTR(kIOPMPSCycleCountKey), cycleCount);
+            prevCycleCount = cycleCount;
+        }
+        if ((cycleCount - prevCycleCount >= kNCCMinCycleCountChange) && (prevMaxCap - nccp >= kNCCChangeLimit)) {
+            // NCCP can only decrease from previous value.
+            // NCCP can be reduced by utmost kNCCChangeLimit after cycle count has gone up by kNCCMinCycleCountChange.
+            nccp = prevMaxCap - kNCCChangeLimit;
+            INFO_LOG("Changing NCCP from %d -> %d after cycle count change(%d->%d). NCC:%d DesignCap:%d\n",
+                    prevMaxCap, nccp, prevCycleCount, cycleCount, nccp, designCap);
+        } else {
+            nccp = prevMaxCap;
+            cycleCount = prevCycleCount;
+        }
+        nccService = nccp;
+        CFDictionarySetIntValue(dict, CFSTR(kIOPMPSCycleCountKey), cycleCount);
+        CFDictionarySetIntValue(dict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), nccService);
+    } else {
+        memset(&params, 0, sizeof(params));
+        CFDictionaryGetIntValue(dict, CFSTR(kFccDaySampleCount), params.fccDaySampleCount);
+        CFDictionaryGetIntValue(dict, CFSTR(kFccAvgHistoryCount), params.fccAvgHistoryCount);
+        for (int i = 0; i < vactModesCount; i++) {
+            struct capacitySample *vactSample = &params.sample[i];
+            for (int j =0; j < ARRAY_SIZE(capacityKeys[i]); ) {
+                CFDictionaryGetIntValue(dict, capacityKeys[i][j++], vactSample->nccpMonotonic);
+                CFDictionaryGetIntValue(dict, capacityKeys[i][j++], vactSample->ncc);
+                CFDictionaryGetIntValue(dict, capacityKeys[i][j++], vactSample->fccDaySampleAvg);
+            }
+        }
+
+        params.designCapacity = designCap;
+        params.fcc = rawMaxCap;
+        CFDictionaryGetIntValue(batteryProps, CFSTR(kIOPMPSBatteryTemperatureKey), params.temperature);
+        CFDictionaryGetIntValue(batteryProps, CFSTR(kAsbInstantAmperageKey), params.current);
+
+        batteryData = CFDictionaryGetValue(batteryProps, CFSTR(kAsbBatteryDataKey));
+        if (batteryData) {
+            CFDictionaryGetIntValue(batteryData, CFSTR(kAsbFccComp1Key), params.sample[vactModeDisabled].fcc);
+            CFDictionaryGetIntValue(batteryData, CFSTR(kAsbFccComp2Key), params.sample[vactModeEnabled].fcc);
+        }
+
+        /*
+        * Fallback to gauge reading if scaled FCC is missing. (pre-gibraltar)
+        */
+        if (!params.sample[vactModeDisabled].fcc || !params.sample[vactModeEnabled].fcc) {
+            params.sample[vactModeEnabled].fcc = params.sample[vactModeDisabled].fcc = params.fcc;
+        }
+
+        DEBUG_LOG("fccGG:%d T:%d I:%d vact:%d fccU:%d fccM:%d CC:%d\n", params.fcc, params.temperature, params.current, getVactState(), params.sample[vactModeDisabled].fcc,
+            params.sample[vactModeEnabled].fcc, cycleCount);
+
+        params.cycleCount = cycleCount;
+        uint64_t ts = 0;
+        CFDictionaryGetInt64Value(dict, CFSTR("ts"), ts);
+        if (ts == 0) {
+            ts = getTimeInSecsSinceEpoch();
+            CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
+            INFO_LOG("init health ts with %llu\n", ts);
+        } else {
+            INFO_LOG("stored ts %llu, current ts %llu\n", ts, getTimeInSecsSinceEpoch());
+        }
+        params.ts = ts;
+
+        calculateNominalCapacity(&params);
+        if (params.significantChange) {
+            for (int i = 0; i < vactModesCount; i++) {
+                if (!params.sample[i].nccpMonotonic) {
+                    params.sample[i].nccpMonotonic = rawToNominal(params.sample[i].ncc, designCap);
+                } else {
+                    if (waitForFC && i == vactModeDisabled) {
+                        params.sample[i].nccpMonotonic = rawToNominal(params.sample[i].ncc, designCap);
+                    } else {
+                        params.sample[i].nccpMonotonic = MIN(params.sample[i].nccpMonotonic, rawToNominal(params.sample[i].ncc, designCap));
+                    }
+                }
+            }
+        }
+
+        if (params.significantChange & CAPACITY_SEED_CHANGE) {
+            INFO_LOG("Seed change detected: %d %d\n", params.sample[0].ncc, params.sample[1].ncc);
+            CFDictionarySetIntValue(dict, CFSTR("seed0"), params.sample[0].ncc);
+            CFDictionarySetIntValue(dict, CFSTR("seed1"), params.sample[1].ncc);
+            CFDictionarySetInt64Value(dict, CFSTR("seedTs"), params.ts);
+        }
+
+        if (params.significantChange & CAPACITY_SAMPLING_EPOCH_CHANGE) {
+            CFDictionarySetInt64Value(dict, CFSTR("tsPrev"), ts);
+            ts = params.ts;
+            CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
+            INFO_LOG("new epoch start: %llu\n", ts);
+        }
+
+        if (params.debug & NEGATIVE_TS) {
+            uint64_t ts;
+            ts = getTimeInSecsSinceEpoch();
+            ERROR_LOG("Negative time delta encountered (%llu), reset clock (%llu)\n", params.ts, ts);
+            CFDictionarySetInt64Value(dict, CFSTR("ts"), ts);
+        }
+        
+        if (!IS_IN_NOMINAL_RANGE(params.sample[vactModeEnabled].nccpMonotonic) && !IS_IN_NOMINAL_RANGE(params.sample[vactModeDisabled].nccpMonotonic)) {
+            ERROR_LOG("Failed to calculate NCC\n");
+            *svcFlags |= kBHSvcFlagNCCNotDet;
+            goto out;
+        }
+
+        CFDictionarySetIntValue(dict, CFSTR(kFccDaySampleCount), params.fccDaySampleCount);
+        CFDictionarySetIntValue(dict, CFSTR(kFccAvgHistoryCount), params.fccAvgHistoryCount);
+        for (int i = 0; i < vactModesCount; i++) {
+            struct capacitySample *vactSample = &params.sample[i];
+            for (int j =0; j < ARRAY_SIZE(capacityKeys[i]); ) {
+                CFDictionarySetIntValue(dict, capacityKeys[i][j++], vactSample->nccpMonotonic);
+                CFDictionarySetIntValue(dict, capacityKeys[i][j++], vactSample->ncc);
+                CFDictionarySetIntValue(dict, capacityKeys[i][j++], vactSample->fccDaySampleAvg);
+            }
+            DEBUG_LOG("[%d] fccAvgHistoryCount:%d fccDaySampleCount:%d fccDaySampleAvg:%d nccAvg:%d nccpMono:%d svcFlagsNew:0x%x\n",
+                    i, params.fccAvgHistoryCount, params.fccDaySampleCount, vactSample->fccDaySampleAvg, vactSample->ncc, vactSample->nccpMonotonic,
+                    *svcFlags);
+        }
+
+        nccService = params.sample[vactModeEnabled].nccpMonotonic + rawToNominal(kSmartBattReserve_mAh, designCap);
+        capacityUI = vactModeEnabled == getVactState() ? params.sample[vactModeEnabled].nccpMonotonic : params.sample[vactModeDisabled].nccpMonotonic;
+        capacityUI += rawToNominal(kSmartBattReserve_mAh, designCap);
+        CFDictionarySetIntValue(dict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), capacityUI);
+        DEBUG_LOG("nccService: %d capacityUI:%d nccU:%d nccM:%d vactMode:%d waitForFC:%d sigChange:0x%x\n", nccService, capacityUI, params.sample[vactModeDisabled].nccpMonotonic, params.sample[vactModeEnabled].nccpMonotonic, getVactState(), waitForFC, params.significantChange);
+    }
     // A low capacity service flag depends only on VACT enabled NCC value (default)
     if (nccService < kNominalCapacityPercentageThreshold) {
         *svcFlags |= kBHSvcFlagNCC;
-        INFO_LOG("Nominal Capacity percentage(%d) is less than the threshold(%d)\n", params.sample[vactModeEnabled].ncc, kNominalCapacityPercentageThreshold);
+        INFO_LOG("Nominal Capacity percentage(%d) is less than the threshold(%d)\n", nccService, kNominalCapacityPercentageThreshold);
     }
 
-    DEBUG_LOG("nccService: %d capacityUI:%d nccU:%d nccM:%d vactMode:%d waitForFC:%d sigChange:0x%x\n", nccService, capacityUI, params.sample[vactModeDisabled].nccpMonotonic, params.sample[vactModeEnabled].nccpMonotonic, getVactState(), waitForFC, params.significantChange);
 out:
     return;
 }

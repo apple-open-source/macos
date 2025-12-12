@@ -30,6 +30,7 @@
 
 #include "DOMRectReadOnly.h"
 #include "ExceptionOr.h"
+#include "ScriptWrappableInlines.h"
 #include "VideoColorSpace.h"
 
 namespace WebCore {

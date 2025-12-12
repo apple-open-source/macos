@@ -69,10 +69,9 @@ additional_forward_declaration: typedef struct CF_BRIDGED_TYPE(id) __SecKeychain
 #endif
 
 additional_forward_declaration: typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef
-[WebKitPlatform, CustomHeader,  AdditionalEncoder=StreamConnectionEncoder, ToCFMethod=result->toCF()] CVPixelBufferRef wrapped by WebKit::CoreIPCCVPixelBufferRef {
+[WebKitPlatform, CustomHeader, ToCFMethod=result->toCF()] CVPixelBufferRef wrapped by WebKit::CoreIPCCVPixelBufferRef {
 }
 
-additional_forward_declaration: typedef struct CF_BRIDGED_TYPE(id) __SecTrust *SecTrustRef
 [WebKitPlatform, CustomHeader, AdditionalEncoder=StreamConnectionEncoder, ToCFMethod=result->createSecTrust()] SecTrustRef wrapped by WebKit::CoreIPCSecTrust {
 }
 

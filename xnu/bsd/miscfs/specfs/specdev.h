@@ -108,6 +108,7 @@ struct specinfo {
 #define SI_MOUNTEDON    0x0001  /* block special device is mounted on */
 #define SI_ALIASED      0x0002  /* multiple active vnodes refer to this device */
 #define SI_MOUNTING     0x0004  /* block special device is getting mounted on */
+#define SI_REVOKEWAIT   0x0008  /* Flag to serialize revoke and close for ttys */
 
 /*
  * Special device management

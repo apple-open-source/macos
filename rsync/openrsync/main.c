@@ -55,8 +55,8 @@ extern struct cleanup_ctx *cleanup_ctx;
 
 int quiet;
 int verbose;
-#ifdef __APPLE__
 int syslog_trace;
+#ifdef __APPLE__
 os_log_t syslog_trace_obj;
 #endif
 int poll_contimeout;
@@ -277,6 +277,8 @@ fargs_parse(size_t argc, char *argv[], struct opts *opts)
 		sinkarg = argc - 1;
 		f->sourcesz = 0;
 	} else {
+		if (argc == 1)
+			opts->list_only = 2;
 		sinkarg = argc;
 		f->sourcesz = 1;
 	}
@@ -2183,7 +2185,7 @@ main(int argc, char *argv[])
 		/* Implied --list-only */
 		if (fargs->sink == NULL) {
 			assert(fargs->mode == FARGS_RECEIVER);
-			opts.list_only = 1;
+			assert(opts.list_only != 0);
 			fargs->sink = strdup(".");
 			if (fargs->sink == NULL)
 				errx(ERR_NOMEM, NULL);

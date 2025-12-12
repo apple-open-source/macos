@@ -39,13 +39,16 @@
 #include "CSSPropertyNames.h"
 #include "CSSValuePool.h"
 #include "CachedCSSStyleSheet.h"
-#include "CachedResourceLoader.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "DocumentLoader.h"
+#include "DocumentQuirks.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentSyncClient.h"
 #include "DocumentType.h"
+#include "DocumentView.h"
 #include "Editing.h"
 #include "Editor.h"
 #include "EditorClient.h"
@@ -55,7 +58,9 @@
 #include "EventNames.h"
 #include "FloatQuad.h"
 #include "FocusController.h"
+#include "FrameConsoleClient.h"
 #include "FrameDestructionObserver.h"
+#include "FrameInspectorController.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "GraphicsContext.h"
@@ -85,10 +90,10 @@
 #include "NodeTraversal.h"
 #include "Page.h"
 #include "PaymentSession.h"
-#include "ProcessSyncClient.h"
 #include "ProcessWarming.h"
 #include "RemoteFrame.h"
 #include "RenderLayerCompositor.h"
+#include "RenderStyleInlines.h"
 #include "RenderTableCell.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
@@ -102,6 +107,7 @@
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScrollingCoordinator.h"
+#include "SecurityOrigin.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "Settings.h"
 #include "StyleProperties.h"
@@ -119,8 +125,8 @@
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/RegularExpression.h>
 #include <wtf/HexNumber.h>
-#include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextStream.h>
@@ -144,10 +150,8 @@ using namespace HTMLNames;
 static const Seconds scrollFrequency { 1000_s / 60. };
 #endif
 
-DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, frameCounter, ("Frame"));
-
 struct OverrideScreenSize {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(OverrideScreenSize);
 
     FloatSize size;
 };
@@ -177,7 +181,7 @@ static const LocalFrame& rootFrame(const LocalFrame& frame, Frame* parent)
     return frame;
 }
 
-LocalFrame::LocalFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags sandboxFlags, std::optional<ScrollbarMode> scrollingMode, HTMLFrameOwnerElement* ownerElement, Frame* parent, Frame* opener, Ref<FrameTreeSyncData>&& frameTreeSyncData, AddToFrameTree addToFrameTree)
+LocalFrame::LocalFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags sandboxFlags, ReferrerPolicy referrerPolicy, std::optional<ScrollbarMode> scrollingMode, HTMLFrameOwnerElement* ownerElement, Frame* parent, Frame* opener, Ref<FrameTreeSyncData>&& frameTreeSyncData, AddToFrameTree addToFrameTree)
     : Frame(page, identifier, FrameType::Local, ownerElement, parent, opener, WTFMove(frameTreeSyncData), addToFrameTree)
     , m_loader(makeUniqueRefWithoutRefCountedCheck<FrameLoader>(*this, WTFMove(clientCreator)))
     , m_script(makeUniqueRef<ScriptController>(*this))
@@ -190,17 +194,16 @@ LocalFrame::LocalFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifie
     , m_textZoomFactor(parentTextZoomFactor(this))
     , m_rootFrame(WebCore::rootFrame(*this, parent))
     , m_sandboxFlags(sandboxFlags)
+    , m_parentFrameOrOpenerReferrerPolicy(referrerPolicy)
     , m_eventHandler(makeUniqueRef<EventHandler>(*this))
+    , m_inspectorController(makeUniqueRefWithoutRefCountedCheck<FrameInspectorController>(*this))
+    , m_consoleClient(makeUniqueRef<FrameConsoleClient>(*this))
 {
     ProcessWarming::initializeNames();
     StaticCSSValuePool::init();
 
     if (RefPtr localMainFrame = this->localMainFrame(); localMainFrame && parent)
         localMainFrame->selfOnlyRef();
-
-#ifndef NDEBUG
-    frameCounter.increment();
-#endif
 
     ASSERT(scrollingMode.has_value() ^ !!ownerElement);
     m_scrollingMode = scrollingMode ? *scrollingMode : ownerElement->scrollingMode();
@@ -220,24 +223,26 @@ void LocalFrame::init()
     loader().init();
 }
 
-Ref<LocalFrame> LocalFrame::createMainFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags effectiveSandboxFlags, Frame* opener, Ref<FrameTreeSyncData>&& frameTreeSyncData)
+Ref<LocalFrame> LocalFrame::createMainFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags effectiveSandboxFlags, ReferrerPolicy effectiveReferrerPolicy, Frame* opener, Ref<FrameTreeSyncData>&& frameTreeSyncData)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, effectiveSandboxFlags, ScrollbarMode::Auto, nullptr, nullptr, opener, WTFMove(frameTreeSyncData)));
+    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, effectiveSandboxFlags, effectiveReferrerPolicy, ScrollbarMode::Auto, nullptr, nullptr, opener, WTFMove(frameTreeSyncData)));
 }
 
-Ref<LocalFrame> LocalFrame::createSubframe(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags effectiveSandboxFlags, HTMLFrameOwnerElement& ownerElement, Ref<FrameTreeSyncData>&& frameTreeSyncData)
+Ref<LocalFrame> LocalFrame::createSubframe(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags effectiveSandboxFlags, ReferrerPolicy effectiveReferrerPolicy, HTMLFrameOwnerElement& ownerElement, Ref<FrameTreeSyncData>&& frameTreeSyncData)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, effectiveSandboxFlags, std::nullopt, &ownerElement, ownerElement.document().frame(), nullptr, WTFMove(frameTreeSyncData)));
+    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, effectiveSandboxFlags, effectiveReferrerPolicy, std::nullopt, &ownerElement, ownerElement.document().frame(), nullptr, WTFMove(frameTreeSyncData)));
 }
 
-Ref<LocalFrame> LocalFrame::createProvisionalSubframe(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags effectiveSandboxFlags, ScrollbarMode scrollingMode, Frame& parent, Ref<FrameTreeSyncData>&& frameTreeSyncData)
+Ref<LocalFrame> LocalFrame::createProvisionalSubframe(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, SandboxFlags effectiveSandboxFlags, ReferrerPolicy effectiveReferrerPolicy, ScrollbarMode scrollingMode, Frame& parent, Ref<FrameTreeSyncData>&& frameTreeSyncData)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, effectiveSandboxFlags, scrollingMode, nullptr, &parent, nullptr, WTFMove(frameTreeSyncData), AddToFrameTree::No));
+    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, effectiveSandboxFlags, effectiveReferrerPolicy, scrollingMode, nullptr, &parent, nullptr, WTFMove(frameTreeSyncData), AddToFrameTree::No));
 }
 
 LocalFrame::~LocalFrame()
 {
     setView(nullptr);
+
+    m_inspectorController->inspectedFrameDestroyed();
 
     Ref loader = this->loader();
     if (!loader->isComplete())
@@ -247,10 +252,6 @@ LocalFrame::~LocalFrame()
     checkedScript()->updatePlatformScriptObjects();
 
     // FIXME: We should not be doing all this work inside the destructor
-
-#ifndef NDEBUG
-    frameCounter.decrement();
-#endif
 
     disconnectOwnerElement();
 
@@ -383,6 +384,11 @@ bool LocalFrame::preventsParentFromBeingComplete() const
 void LocalFrame::changeLocation(FrameLoadRequest&& request)
 {
     loader().changeLocation(WTFMove(request));
+}
+
+void LocalFrame::loadFrameRequest(FrameLoadRequest&& request, Event* event)
+{
+    loader().loadFrameRequest(WTFMove(request), event, { });
 }
 
 void LocalFrame::didFinishLoadInAnotherProcess()
@@ -676,10 +682,12 @@ bool LocalFrame::requestDOMPasteAccess(DOMPasteAccessCategory pasteAccessCategor
     return false;
 }
 
-void LocalFrame::setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio, AdjustViewSize shouldAdjustViewSize)
+void LocalFrame::setPrinting(bool printing, FloatSize pageSize, FloatSize originalPageSize, float maximumShrinkRatio, AdjustViewSize shouldAdjustViewSize, NotifyUIProcess notifyUIProcess)
 {
     if (!view() || !document())
         return;
+
+    Frame::setPrinting(printing, pageSize, originalPageSize, maximumShrinkRatio, shouldAdjustViewSize, notifyUIProcess);
 
     RefPtr document = m_doc;
     // In setting printing, we should not validate resources already cached for the document.
@@ -705,18 +713,15 @@ void LocalFrame::setPrinting(bool printing, const FloatSize& pageSize, const Flo
     }
 
     // Subframes of the one we're printing don't lay out to the page size.
-    for (RefPtr child = tree().firstChild(); child; child = child->tree().nextSibling()) {
-        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(child.get()))
-            localFrame->setPrinting(printing, FloatSize(), FloatSize(), 0, shouldAdjustViewSize);
-    }
+    for (RefPtr child = tree().firstChild(); child; child = child->tree().nextSibling())
+        child->setPrinting(printing, FloatSize(), FloatSize(), 0, shouldAdjustViewSize);
 }
 
 bool LocalFrame::shouldUsePrintingLayout() const
 {
     // Only top frame being printed should be fit to page size.
     // Subframes should be constrained by parents only.
-    SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(tree().parent());
-    return m_doc->printing() && (!parent || !parent->m_doc->printing());
+    return isPrinting() && (!tree().parent() || !tree().parent()->isPrinting());
 }
 
 FloatSize LocalFrame::resizePageRectsKeepingRatio(const FloatSize& originalSize, const FloatSize& expectedSize)
@@ -739,16 +744,43 @@ FloatSize LocalFrame::resizePageRectsKeepingRatio(const FloatSize& originalSize,
     return resultSize;
 }
 
+const UserContentProvider* LocalFrame::userContentProvider() const
+{
+    RefPtr document = this->document();
+    RefPtr documentLoader = document ? document->loader() : nullptr;
+    if (RefPtr userContentProvider = documentLoader ? documentLoader->preferences().userContentProvider : nullptr)
+        return userContentProvider.unsafeGet();
+    if (RefPtr page = this->page())
+        return page->protectedUserContentProviderForFrame().unsafePtr();
+    return nullptr;
+}
+
+UserContentProvider* LocalFrame::userContentProvider()
+{
+    RefPtr document = this->document();
+    RefPtr documentLoader = document ? document->loader() : nullptr;
+    if (RefPtr userContentProvider = documentLoader ? documentLoader->preferences().userContentProvider : nullptr)
+        return userContentProvider.unsafeGet();
+    if (RefPtr page = this->page())
+        return page->protectedUserContentProviderForFrame().unsafePtr();
+    return nullptr;
+}
+
+bool LocalFrame::hasUserContentProvider(const UserContentProvider& provider)
+{
+    return userContentProvider() == &provider;
+}
+
 void LocalFrame::injectUserScripts(UserScriptInjectionTime injectionTime)
 {
-    if (!page())
-        return;
-
     if (loader().stateMachine().creatingInitialEmptyDocument() && !settings().shouldInjectUserScriptsInInitialEmptyDocument())
         return;
 
-    RefPtr page = this->page();
-    page->protectedUserContentProvider()->forEachUserScript([this, injectionTime](DOMWrapperWorld& world, const UserScript& script) {
+    RefPtr userContentProvider = this->userContentProvider();
+    if (!userContentProvider)
+        return;
+
+    userContentProvider->forEachUserScript([this, injectionTime](DOMWrapperWorld& world, const UserScript& script) {
         if (script.injectionTime() == injectionTime)
             injectUserScriptImmediately(world, script);
     });
@@ -805,7 +837,9 @@ void LocalFrame::injectUserScriptImmediately(DOMWrapperWorld& world, const UserS
     page->setHasInjectedUserScript();
     loader->client().willInjectUserScript(world);
 
+    WTFBeginSignpost(this, UserScript, "injectUserScript: %" PRIVATE_LOG_STRING " (%u bytes, top frame only %d, doc start %d)", script.debugDescription().ascii().data(), script.source().length(), script.injectedFrames() == UserContentInjectedFrames::InjectInTopFrameOnly, script.injectionTime() == UserScriptInjectionTime::DocumentStart);
     checkedScript()->evaluateInWorldIgnoringException(ScriptSourceCode(script.source(), JSC::SourceTaintedOrigin::Untainted, URL(script.url())), world);
+    WTFEndSignpost(this, UserScript);
 }
 
 RenderView* LocalFrame::contentRenderer() const
@@ -896,7 +930,7 @@ VisiblePosition LocalFrame::visiblePositionForPoint(const IntPoint& framePoint) 
     CheckedPtr renderer = node->renderer();
     if (!renderer)
         return VisiblePosition();
-    VisiblePosition visiblePos = renderer->positionForPoint(result.localPoint(), HitTestSource::User, nullptr);
+    auto visiblePos = renderer->visiblePositionForPoint(result.localPoint(), HitTestSource::User);
     if (visiblePos.isNull())
         visiblePos = firstPositionInOrBeforeNode(node.get());
     return visiblePos;
@@ -1406,6 +1440,21 @@ void LocalFrame::updateSandboxFlags(SandboxFlags flags, NotifyUIProcess notifyUI
     m_sandboxFlags = flags;
 }
 
+ReferrerPolicy LocalFrame::effectiveReferrerPolicy() const
+{
+    // Policy will be the one passed in from parent frame or opener.
+    // Otherwise, use default.
+    if (m_parentFrameOrOpenerReferrerPolicy != ReferrerPolicy::EmptyString)
+        return m_parentFrameOrOpenerReferrerPolicy;
+    return ReferrerPolicy::Default;
+}
+
+void LocalFrame::updateReferrerPolicy(ReferrerPolicy referrerPolicy)
+{
+    m_parentFrameOrOpenerReferrerPolicy = referrerPolicy;
+    m_doc->setReferrerPolicy(referrerPolicy);
+}
+
 void LocalFrame::updateScrollingMode()
 {
     if (!ownerElement())
@@ -1420,6 +1469,26 @@ void LocalFrame::setScrollingMode(ScrollbarMode scrollingMode)
     m_scrollingMode = scrollingMode;
     if (RefPtr view = this->view())
         view->setCanHaveScrollbars(m_scrollingMode != ScrollbarMode::AlwaysOff);
+}
+
+void LocalFrame::reportMixedContentViolation(bool blocked, const URL& target) const
+{
+    RefPtr document = this->document();
+    if (!document)
+        return;
+
+    auto isUpgradingLocalhostDisabled = !document->settings().iPAddressAndLocalhostMixedContentUpgradeTestingEnabled() && shouldTreatAsPotentiallyTrustworthy(target);
+    ASCIILiteral errorString = [&] {
+        if (blocked)
+            return "blocked and must"_s;
+        if (isUpgradingLocalhostDisabled)
+            return "not upgraded to HTTPS and must be served from the local host."_s;
+        return "automatically upgraded and should"_s;
+    }();
+
+    auto message = makeString((!blocked ? ""_s : "[blocked] "_s), "The page at "_s, document->url().stringCenterEllipsizedToLength(), " requested insecure content from "_s, target.stringCenterEllipsizedToLength(), ". This content was "_s, errorString, !isUpgradingLocalhostDisabled ? " be served over HTTPS.\n"_s : "\n"_s);
+
+    document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, message);
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -1597,6 +1666,19 @@ RefPtr<SecurityOrigin> LocalFrame::frameDocumentSecurityOrigin() const
         return &document->securityOrigin();
 
     return nullptr;
+}
+
+Ref<FrameInspectorController> LocalFrame::protectedInspectorController() const
+{
+    return m_inspectorController.get();
+}
+
+String LocalFrame::frameURLProtocol() const
+{
+    if (RefPtr document = this->document())
+        return document->url().protocol().toString();
+
+    return ""_s;
 }
 
 } // namespace WebCore

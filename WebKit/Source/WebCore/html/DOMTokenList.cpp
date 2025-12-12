@@ -27,6 +27,8 @@
 #include "DOMTokenList.h"
 
 #include "ExceptionOr.h"
+#include "NodeDocument.h"
+#include "NodeInlines.h"
 #include "SpaceSplitString.h"
 #include <wtf/HashSet.h>
 #include <wtf/SetForScope.h>
@@ -47,7 +49,7 @@ DOMTokenList::DOMTokenList(Element& element, const QualifiedName& attributeName,
 
 static inline bool tokenContainsHTMLSpace(StringView token)
 {
-    return token.find(isASCIIWhitespace<UChar>) != notFound;
+    return token.find(isASCIIWhitespace<char16_t>) != notFound;
 }
 
 ExceptionOr<void> DOMTokenList::validateToken(StringView token)
@@ -209,7 +211,7 @@ ExceptionOr<bool> DOMTokenList::supports(StringView token)
 {
     if (!m_isSupportedToken)
         return Exception { ExceptionCode::TypeError };
-    return m_isSupportedToken(m_element->document(), token);
+    return m_isSupportedToken(m_element->protectedDocument(), token);
 }
 
 // https://dom.spec.whatwg.org/#dom-domtokenlist-value

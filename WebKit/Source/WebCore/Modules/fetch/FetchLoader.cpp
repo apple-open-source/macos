@@ -49,6 +49,7 @@
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FetchLoaderClient);
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(FetchLoader);
 
 void FetchLoader::start(ScriptExecutionContext& context, const Blob& blob)
 {

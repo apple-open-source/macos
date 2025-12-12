@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 * Copyright (c) 2014-2016, International Business Machines
-* Corporation and others.  All rights reserved.
+* Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
 #ifndef SCINUMBERFORMATTER_H
@@ -196,7 +196,7 @@ public:
             UErrorCode &status);
 
     ScientificNumberFormatter(const ScientificNumberFormatter &other);
-    ScientificNumberFormatter &operator=(const ScientificNumberFormatter &);
+    ScientificNumberFormatter &operator=(const ScientificNumberFormatter &) = delete;
 
     static void getPreExponent(
             const DecimalFormatSymbols &dfs, UnicodeString &preExponent);

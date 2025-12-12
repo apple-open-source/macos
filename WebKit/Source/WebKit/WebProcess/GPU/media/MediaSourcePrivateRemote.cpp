@@ -279,17 +279,6 @@ void MediaSourcePrivateRemote::MessageReceiver::proxyWaitForTarget(const WebCore
     completionHandler(makeUnexpected(PlatformMediaError::ClientDisconnected));
 }
 
-void MediaSourcePrivateRemote::MessageReceiver::proxySeekToTime(const MediaTime& time, CompletionHandler<void(MediaPromise::Result&&)>&& completionHandler)
-{
-    assertIsCurrent(MediaSourcePrivateRemote::queueSingleton());
-
-    if (auto client = this->client()) {
-        client->seekToTime(time)->whenSettled(MediaSourcePrivateRemote::queueSingleton(), WTFMove(completionHandler));
-        return;
-    }
-    completionHandler(makeUnexpected(PlatformMediaError::SourceRemoved));
-}
-
 MediaSourcePrivateRemote::MessageReceiver::MessageReceiver(MediaSourcePrivateRemote& parent)
     : m_parent(parent)
 {

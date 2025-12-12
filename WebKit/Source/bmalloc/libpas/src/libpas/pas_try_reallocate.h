@@ -30,6 +30,7 @@
 #include "pas_deallocate.h"
 #include "pas_large_map.h"
 #include "pas_malloc_stack_logging.h"
+#include "pas_mte.h"
 #include "pas_reallocate_free_mode.h"
 #include "pas_reallocate_heap_teleport_rule.h"
 #include "pas_try_allocate.h"
@@ -102,6 +103,7 @@ pas_try_allocate_for_reallocate_and_copy(
         if (verbose)
             pas_log("copying size %zu from %p to %p\n", copy_size, old_ptr, (void*)result.begin);
         PAS_PROFILE(TRY_REALLOCATE_AND_COPY, result.begin, old_ptr, copy_size);
+        PAS_MTE_HANDLE(TRY_REALLOCATE_AND_COPY, result.begin, old_ptr, copy_size);
         memcpy((void*)result.begin, old_ptr, copy_size);
         if (verbose)
             pas_log("\t...done copying size %zu from %p to %p\n", copy_size, old_ptr, (void*)result.begin);
@@ -353,6 +355,7 @@ pas_try_reallocate(void* old_ptr,
         }
 
         PAS_PROFILE(LARGE_MAP_FOUND_ENTRY, &config, entry.begin, entry.end);
+        PAS_MTE_HANDLE(LARGE_MAP_FOUND_ENTRY, &config, entry.begin, entry.end);
         PAS_ASSERT(entry.begin == begin);
         PAS_ASSERT(entry.end > begin);
         PAS_ASSERT(entry.heap);

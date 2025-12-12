@@ -66,4 +66,6 @@ private:
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_AUDIONODE(StereoPannerNode, NodeTypeStereoPanner);
+
 #endif // ENABLE(WEB_AUDIO)

@@ -38,10 +38,11 @@ class GraphicsLayer;
 class CoordinatedBackingStoreProxy final : public ThreadSafeRefCounted<CoordinatedBackingStoreProxy> {
     WTF_MAKE_TZONE_ALLOCATED(CoordinatedBackingStoreProxy);
 public:
-    static Ref<CoordinatedBackingStoreProxy> create(float contentsScale, std::optional<IntSize> tileSize = std::nullopt);
-    ~CoordinatedBackingStoreProxy();
+    static Ref<CoordinatedBackingStoreProxy> create();
+    ~CoordinatedBackingStoreProxy() = default;
 
-    bool setContentsScale(float);
+    static constexpr int s_defaultCPUTileSize = 256;
+
     const IntRect& coverRect() const { return m_coverRect; }
 
     class Update {
@@ -77,7 +78,7 @@ public:
         TilesPending = 1 << 1,
         TilesChanged = 1 << 2
     };
-    OptionSet<UpdateResult> updateIfNeeded(const IntRect& unscaledVisibleRect, const IntRect& unscaledContentsRect, bool shouldCreateAndDestroyTiles, const Vector<IntRect, 1>&, CoordinatedPlatformLayer&);
+    OptionSet<UpdateResult> updateIfNeeded(const IntRect& unscaledVisibleRect, const IntRect& unscaledContentsRect, float contentsScale, bool shouldCreateAndDestroyTiles, const Vector<IntRect, 1>&, CoordinatedPlatformLayer&);
     Update takePendingUpdate();
 
     void waitUntilPaintingComplete();
@@ -126,13 +127,12 @@ private:
         IntRect dirtyRect;
     };
 
-    CoordinatedBackingStoreProxy(float contentsScale, const IntSize& tileSize);
+    CoordinatedBackingStoreProxy() = default;
 
-    void reset();
     void invalidateRegion(const Vector<IntRect, 1>&);
-    void createOrDestroyTiles(const IntRect& visibleRect, const IntRect& scaledContentsRect, float coverAreaMultiplier, Vector<uint32_t>& tilesToCreate, Vector<uint32_t>& tilesToRemove);
+    void createOrDestroyTiles(const IntRect& unscaledVisibleRect, const IntRect& unscaledContentsRect, const IntSize& unscaledViewportSize, float contentsScale, int maxTextureSize, Vector<uint32_t>& tilesToCreate, Vector<uint32_t>& tilesToRemove);
+    IntSize computeTileSize(const IntSize& viewportSize, int maxTextureSize) const;
     std::pair<IntRect, IntRect> computeCoverAndKeepRect() const;
-
     void adjustForContentsRect(IntRect&) const;
 
     IntRect mapToContents(const IntRect&) const;

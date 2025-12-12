@@ -1950,6 +1950,7 @@ kr_externalize_metadata(struct __kern_channel_ring *kring,
 	kr_externalize_metadata_internal(kring, maxfrags, kqum, p);
 }
 
+#if SK_LOG
 SK_NO_INLINE_ATTRIBUTE
 char *
 kr2str(const struct __kern_channel_ring *kr, char *__counted_by(dsz)dst,
@@ -1961,3 +1962,4 @@ kr2str(const struct __kern_channel_ring *kr, char *__counted_by(dsz)dst,
 
 	return dst;
 }
+#endif

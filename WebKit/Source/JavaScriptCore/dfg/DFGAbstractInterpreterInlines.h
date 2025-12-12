@@ -42,8 +42,8 @@
 #include "HashMapHelper.h"
 #include "JITOperations.h"
 #include "JSAsyncGenerator.h"
+#include "JSCellButterfly.h"
 #include "JSGenerator.h"
-#include "JSImmutableButterfly.h"
 #include "JSInternalPromise.h"
 #include "JSInternalPromiseConstructor.h"
 #include "JSPromiseConstructor.h"
@@ -163,27 +163,13 @@ void AbstractInterpreter<AbstractStateType>::startExecuting()
 }
 
 template<typename AbstractStateType>
-class AbstractInterpreterExecuteEdgesFunc {
-public:
-    AbstractInterpreterExecuteEdgesFunc(AbstractInterpreter<AbstractStateType>& interpreter)
-        : m_interpreter(interpreter)
-    {
-    }
-    
-    // This func is manually written out so that we can put ALWAYS_INLINE on it.
-    ALWAYS_INLINE void operator()(Edge& edge) const
-    {
-        m_interpreter.filterEdgeByUse(edge);
-    }
-    
-private:
-    AbstractInterpreter<AbstractStateType>& m_interpreter;
-};
-
-template<typename AbstractStateType>
 void AbstractInterpreter<AbstractStateType>::executeEdges(Node* node)
 {
-    m_graph.doToChildren(node, AbstractInterpreterExecuteEdgesFunc<AbstractStateType>(*this));
+    m_graph.doToChildren(
+        node,
+        [&](Edge& edge) {
+            filterEdgeByUse(edge);
+        });
 }
 
 template<typename AbstractStateType>
@@ -196,7 +182,7 @@ void AbstractInterpreter<AbstractStateType>::executeKnownEdgeTypes(Node* node)
     // and FTL backends may emit checks in a node that lacks a valid exit origin.
     m_graph.doToChildren(
         node,
-        [&] (Edge& edge) {
+        [&](Edge& edge) {
             if (mayHaveTypeCheck(edge.useKind()))
                 return;
             
@@ -205,15 +191,18 @@ void AbstractInterpreter<AbstractStateType>::executeKnownEdgeTypes(Node* node)
 }
 
 template<typename AbstractStateType>
-ALWAYS_INLINE void AbstractInterpreter<AbstractStateType>::filterByType(Edge& edge, SpeculatedType type)
+ALWAYS_INLINE FiltrationResult AbstractInterpreter<AbstractStateType>::filterByType(Edge& edge, SpeculatedType type)
 {
     AbstractValue& value = m_state.forNodeWithoutFastForward(edge);
     if (value.isType(type)) {
         m_state.setProofStatus(edge, IsProved);
-        return;
+        return FiltrationOK;
     }
     m_state.setProofStatus(edge, NeedsCheck);
-    m_state.fastForwardAndFilterUnproven(value, type);
+    if (m_state.fastForwardAndFilterUnproven(value, type) == FiltrationOK)
+        return FiltrationOK;
+    m_state.setIsValid(false);
+    return Contradiction;
 }
 
 template<typename AbstractStateType>
@@ -2394,6 +2383,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 || node->isBinaryUseKind(StringIdentUse)
                 || (node->op() == CompareEq && node->isBinaryUseKind(ObjectUse))
                 || (node->op() == CompareEq && node->isSymmetricBinaryUseKind(ObjectUse, ObjectOrOtherUse))
+                || (node->op() == CompareEq && value.isType(SpecObject))
                 || value.isType(SpecInt32Only)
                 || value.isType(SpecInt52Any)
                 || value.isType(SpecAnyIntAsDouble)
@@ -2401,15 +2391,25 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 || value.isType(SpecString)
                 || value.isType(SpecBoolean)
                 || value.isType(SpecSymbol)
-                || (node->op() == CompareEq && value.isType(SpecObject))
                 || value.isType(SpecOther)) {
                 switch (node->op()) {
                 case CompareLess:
                 case CompareGreater:
+                    // symbol < symbol, symbol > symbol throws TypeError
+                    if (value.isType(SpecSymbol))
+                        break;
                     setConstant(node, jsBoolean(false));
                     break;
                 case CompareLessEq:
-                case CompareGreaterEq:
+                case CompareGreaterEq: {
+                    // null <= null is true, but undefined <= undefined is false.
+                    if (value.isType(SpecOther))
+                        break;
+                    // symbol <= symbol, symbol >= symbol throws TypeError
+                    if (value.isType(SpecSymbol))
+                        break;
+                    [[fallthrough]];
+                }
                 case CompareEq:
                     setConstant(node, jsBoolean(true));
                     break;
@@ -2702,7 +2702,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
                 // Check that the early StructureID is not nuked, get the butterfly, and check the late StructureID again.
                 // And we check the indexing mode of the structure. If the indexing mode is CoW, the butterfly is
-                // definitely JSImmutableButterfly.
+                // definitely a JSCellButterfly and immutable.
                 StructureID structureIDEarly = array->structureID();
                 if (structureIDEarly.isNuked())
                     return false;
@@ -2731,7 +2731,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                     }
                     ASSERT(isCopyOnWrite(structure->indexingMode()));
 
-                    JSImmutableButterfly* immutableButterfly = JSImmutableButterfly::fromButterfly(butterfly);
+                    JSCellButterfly* immutableButterfly = JSCellButterfly::fromButterfly(butterfly);
                     if (index < immutableButterfly->length()) {
                         JSValue value = immutableButterfly->get(index);
                         ASSERT(value);
@@ -3623,7 +3623,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         }
 
         clobberWorld();
-        makeHeapTopForNode(node);
+        setTypeForNode(node, SpecObject);
         break;
     }
 
@@ -3671,7 +3671,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             break;
         }
 
-        setForNode(node, m_vm.immutableButterflyStructure(CopyOnWriteArrayWithContiguous));
+        setForNode(node, m_vm.cellButterflyStructure(CopyOnWriteArrayWithContiguous));
         break;
         
     case NewArrayBuffer:
@@ -3721,6 +3721,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
 
     case MaterializeNewArrayWithButterfly: {
+#if ASSERT_ENABLED
         SpeculatedType validTypes = [&]() {
             switch (node->indexingType()) {
             // We can get JSValue() (aka SpecEmpty) when the property hasn't been initialized yet and is still a hole.
@@ -3732,8 +3733,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             RELEASE_ASSERT_NOT_REACHED();
         }();
         for (unsigned i = 2; i < node->numChildren(); ++i)
-            DFG_ASSERT(m_graph, node, isSubtypeSpeculation(forNode(m_graph.varArgChild(node, i)).m_type, validTypes));
-
+            ASSERT(isSubtypeSpeculation(forNode(m_graph.varArgChild(node, i)).m_type, validTypes));
+#endif
         [[fallthrough]];
     }
     case NewArrayWithButterfly: {
@@ -5505,7 +5506,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         makeHeapTopForNode(node);
         break;
 
-    case CallWasm: {
+    case CallWasm:
+    case TailCallInlinedCallerWasm: {
 #if ENABLE(WEBASSEMBLY)
         clobberWorld();
 
@@ -5721,7 +5723,99 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case DataViewSet: {
         break;
     }
-        
+
+    case ResolvePromiseFirstResolving:
+    case RejectPromiseFirstResolving:
+    case FulfillPromiseFirstResolving: {
+        clobberWorld();
+        break;
+    }
+
+    case PromiseResolve: {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+        if (JSValue constructor = forNode(node->child1()).m_value) {
+            if (constructor == globalObject->promiseConstructor()) {
+                auto& argument = forNode(node->child2());
+                if (argument.isType(~SpecObject)) {
+                    didFoldClobberWorld();
+                    setForNode(node, globalObject->promiseStructure());
+                    break;
+                }
+
+                if (argument.isType(SpecPromiseObject)) {
+                    if (m_graph.isWatchingPromiseSpeciesWatchpoint(node)) {
+                        didFoldClobberWorld();
+                        forNode(node) = argument;
+                        break;
+                    }
+                }
+
+                if (argument.isType(~SpecPromiseObject)) {
+                    // SpecObject | something.
+                    // Only for types having structures, we check "then" existence.
+                    auto& structureSet = argument.m_structure;
+                    if (structureSet.isFinite() && structureSet.size() == 1) {
+                        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+                        auto conditionSet = m_graph.tryEnsureAbsence(globalObject, structureSet.toStructureSet(), CacheableIdentifier::createFromImmortalIdentifier(m_graph.m_vm.propertyNames->then.impl()));
+                        if (conditionSet.isValid()) {
+                            if (m_graph.watchConditions(conditionSet)) {
+                                didFoldClobberWorld();
+                                setForNode(node, globalObject->promiseStructure());
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                clobberWorld();
+                setTypeForNode(node, SpecPromiseObject);
+                break;
+            }
+        }
+
+        clobberWorld();
+        setTypeForNode(node, SpecObject);
+        break;
+    }
+
+    case PromiseReject: {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+        if (JSValue constructor = forNode(node->child1()).m_value) {
+            if (constructor == globalObject->promiseConstructor()) {
+                clobberWorld();
+                setForNode(node, globalObject->promiseStructure());
+                break;
+            }
+        }
+
+        clobberWorld();
+        setTypeForNode(node, SpecObject);
+        break;
+    }
+
+    case PromiseThen: {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+        auto& promise = forNode(node->child1());
+        if (promise.isType(SpecPromiseObject)) {
+            auto& structureSet = promise.m_structure;
+            if (structureSet.isFinite()) {
+                if (auto structure = structureSet.onlyStructure()) {
+                    if (structure.get() == globalObject->promiseStructure()) {
+                        if (m_graph.isWatchingPromiseSpeciesWatchpoint(node)) {
+                            clobberWorld();
+                            setForNode(node, globalObject->promiseStructure());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        clobberWorld();
+        setTypeForNode(node, SpecObject);
+        break;
+    }
+
     case Unreachable:
         // It may be that during a previous run of AI we proved that something was unreachable, but
         // during this run of AI we forget that it's unreachable. AI's proofs don't have to get

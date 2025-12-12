@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(LOCKDOWN_MODE_API)
 
 namespace PAL {

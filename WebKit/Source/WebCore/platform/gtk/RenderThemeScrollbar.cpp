@@ -28,7 +28,6 @@
 
 #if !USE(GTK4) && USE(CAIRO)
 
-#include "GtkUtilities.h"
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -36,6 +35,12 @@
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderThemeScrollbar);
+
+static bool shouldUseOverlayScrollbars()
+{
+    static const char* gtkOverlayScrolling = getenv("GTK_OVERLAY_SCROLLING");
+    return !gtkOverlayScrolling || *gtkOverlayScrolling == '0';
+}
 
 static HashMap<unsigned, std::unique_ptr<RenderThemeScrollbar>>& widgetMap()
 {

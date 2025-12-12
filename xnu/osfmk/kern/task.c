@@ -10040,6 +10040,7 @@ task_get_security_config(task_t task)
 
 TASK_SECURITY_CONFIG_HELPER_DEFINE(hardened_heap, true)
 TASK_SECURITY_CONFIG_HELPER_DEFINE(tpro, true)
+TASK_SECURITY_CONFIG_HELPER_DEFINE(guard_objects, true)
 
 uint8_t
 task_get_platform_restrictions_version(task_t task)

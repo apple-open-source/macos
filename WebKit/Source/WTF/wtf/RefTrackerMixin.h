@@ -48,18 +48,15 @@ struct RefTrackerLoggingDisabledScope {
 };
 
 struct RefTracker {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(RefTracker);
 public:
-    RefTracker() = default;
-    ~RefTracker() = default;
-
     // NEVER_INLINE to make skipping frames more predictable.
     WTF_EXPORT_PRIVATE void reportLive(void*);
     WTF_EXPORT_PRIVATE void reportDead(void*);
     WTF_EXPORT_PRIVATE void logAllLiveReferences();
 
     Lock lock { };
-    UncheckedKeyHashMap<void*, std::unique_ptr<StackShot>> map WTF_GUARDED_BY_LOCK(lock) { };
+    HashMap<void*, std::unique_ptr<StackShot>> map WTF_GUARDED_BY_LOCK(lock) { };
     std::atomic<int> loggingDisabledDepth { };
 };
 

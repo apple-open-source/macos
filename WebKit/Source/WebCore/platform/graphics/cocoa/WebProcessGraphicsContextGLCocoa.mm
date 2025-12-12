@@ -113,7 +113,7 @@ public:
         }
         if (m_displayBuffer && displayBuffer->surface() == m_displayBuffer->surface())
             return;
-        m_displayBuffer = IOSurface::createFromSurface(displayBuffer->surface(), { });
+        m_displayBuffer = IOSurface::createFromSurface(displayBuffer->protectedSurface().get(), { });
         m_finishedFence = WTFMove(finishedFence);
     }
 
@@ -131,7 +131,7 @@ private:
 // GraphicsContextGL type that is used when WebGL is run in-process in WebContent process.
 class WebProcessGraphicsContextGLCocoa final : public GraphicsContextGLCocoa
 {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(WebProcessGraphicsContextGLCocoa);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebProcessGraphicsContextGLCocoa);
 public:
     ~WebProcessGraphicsContextGLCocoa();

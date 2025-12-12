@@ -41,7 +41,7 @@
 #import "GraphicsContext.h"
 #import "GraphicsLayer.h"
 #import "GraphicsLayerCA.h"
-#import "LocalFrame.h"
+#import "LocalFrameInlines.h"
 #import "LocalFrameView.h"
 #import "Logging.h"
 #import "MouseEventTypes.h"
@@ -589,7 +589,7 @@ void ServicesOverlayController::determineActiveHighlight(bool& mouseIsOverActive
 
 bool ServicesOverlayController::mouseEvent(PageOverlay&, const PlatformMouseEvent& event)
 {
-    m_mousePosition = m_page->mainFrame().virtualView()->windowToContents(event.position());
+    m_mousePosition = m_page->mainFrame().virtualView()->windowToContents(flooredIntPoint(event.position()));
 
     bool mouseIsOverActiveHighlightButton = false;
     determineActiveHighlight(mouseIsOverActiveHighlightButton);

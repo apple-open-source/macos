@@ -58,14 +58,14 @@ InspectorShaderProgram::InspectorShaderProgram(WebGLProgram& program, InspectorC
     ASSERT(is<WebGLRenderingContextBase>(m_canvas.canvasContext()));
 }
 
-static WebGLShader* shaderForType(WebGLProgram& program, Inspector::Protocol::Canvas::ShaderType shaderType)
+static RefPtr<WebGLShader> shaderForType(WebGLProgram& program, Inspector::Protocol::Canvas::ShaderType shaderType)
 {
     switch (shaderType) {
     case Inspector::Protocol::Canvas::ShaderType::Fragment:
-        return program.getAttachedShader(GraphicsContextGL::FRAGMENT_SHADER);
+        return program.fragmentShader();
 
     case Inspector::Protocol::Canvas::ShaderType::Vertex:
-        return program.getAttachedShader(GraphicsContextGL::VERTEX_SHADER);
+        return program.vertexShader();
 
     // Compute shaders are a WebGPU concept.
     case Inspector::Protocol::Canvas::ShaderType::Compute:
@@ -78,7 +78,7 @@ static WebGLShader* shaderForType(WebGLProgram& program, Inspector::Protocol::Ca
 
 String InspectorShaderProgram::requestShaderSource(Inspector::Protocol::Canvas::ShaderType shaderType)
 {
-    auto* shader = shaderForType(m_program, shaderType);
+    RefPtr shader = shaderForType(m_program, shaderType);
     if (!shader)
         return String();
     return shader->getSource();
@@ -86,7 +86,7 @@ String InspectorShaderProgram::requestShaderSource(Inspector::Protocol::Canvas::
 
 bool InspectorShaderProgram::updateShader(Inspector::Protocol::Canvas::ShaderType shaderType, const String& source)
 {
-    auto* shader = shaderForType(m_program, shaderType);
+    RefPtr shader = shaderForType(m_program, shaderType);
     if (!shader)
         return false;
     auto* context = dynamicDowncast<WebGLRenderingContextBase>(m_canvas.canvasContext());
@@ -101,7 +101,7 @@ bool InspectorShaderProgram::updateShader(Inspector::Protocol::Canvas::ShaderTyp
         context->linkProgramWithoutInvalidatingAttribLocations(m_program);
     else {
         auto errors = context->getShaderInfoLog(*shader);
-        auto* scriptContext = m_canvas.scriptExecutionContext();
+        RefPtr scriptContext = m_canvas.scriptExecutionContext();
         for (auto error : StringView(errors).split('\n')) {
             auto message = makeString("WebGL: "_s, error);
             scriptContext->addConsoleMessage(makeUnique<ConsoleMessage>(MessageSource::Rendering, MessageType::Log, MessageLevel::Error, message));

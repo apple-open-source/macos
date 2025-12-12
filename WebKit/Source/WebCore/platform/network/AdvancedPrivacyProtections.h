@@ -41,6 +41,7 @@ enum class AdvancedPrivacyProtections : uint16_t {
     LinkDecorationFiltering = 1 << 8,
     ScriptTrackingPrivacy = 1 << 9,
     FailClosedForAllHosts = 1 << 10,
+    StrictFailClosed = 1 << 11,
 };
 
 }

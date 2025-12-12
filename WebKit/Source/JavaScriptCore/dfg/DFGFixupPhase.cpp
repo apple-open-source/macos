@@ -3482,6 +3482,7 @@ private:
         case TailCallForwardVarargs:
         case TailCallForwardVarargsInlinedCaller:
         case CallWasm:
+        case TailCallInlinedCallerWasm:
         case ProfileControlFlow:
         case NewObject:
         case NewGenerator:
@@ -3548,6 +3549,12 @@ private:
         case CallCustomAccessorSetter:
         case MultiGetByVal:
         case MultiPutByVal:
+        case ResolvePromiseFirstResolving:
+        case RejectPromiseFirstResolving:
+        case FulfillPromiseFirstResolving:
+        case PromiseResolve:
+        case PromiseReject:
+        case PromiseThen:
             break;
 #else // not ASSERT_ENABLED
         default:

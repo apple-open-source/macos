@@ -80,7 +80,7 @@ inline Node* EventPath::eventTargetRespectingTargetRules(Node& referenceNode)
     // Events sent to elements inside an SVG use element's shadow tree go to the use element.
     if (auto* svgElement = dynamicDowncast<SVGElement>(referenceNode)) {
         if (auto useElement = svgElement->correspondingUseElement())
-            return useElement.get();
+            return useElement.unsafeGet();
     }
 
     return &referenceNode;

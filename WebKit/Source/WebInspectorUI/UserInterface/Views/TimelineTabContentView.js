@@ -213,10 +213,12 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
                 return WI.TimelineRecordTreeElement.PaintRecordIconStyleClass;
             case WI.LayoutTimelineRecord.EventType.Composite:
                 return WI.TimelineRecordTreeElement.CompositeRecordIconStyleClass;
+            case WI.LayoutTimelineRecord.EventType.FirstContentfulPaint:
+            case WI.LayoutTimelineRecord.EventType.LargestContentfulPaint:
+                return WI.TimelineRecordTreeElement.PerformanceEntryIconStyleClass;
             default:
                 console.error("Unknown LayoutTimelineRecord eventType: " + timelineRecord.eventType, timelineRecord);
             }
-
             break;
 
         case WI.TimelineRecord.Type.Script:

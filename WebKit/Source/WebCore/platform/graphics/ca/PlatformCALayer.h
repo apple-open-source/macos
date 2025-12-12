@@ -25,8 +25,14 @@
 
 #pragma once
 
-#include "FloatRoundedRect.h"
-#include "GraphicsLayer.h"
+#include <WebCore/Color.h>
+#include <WebCore/FloatPoint3D.h>
+#include <WebCore/FloatRoundedRect.h>
+#include <WebCore/LayerHostingContextIdentifier.h>
+#include <WebCore/PlatformLayer.h>
+#include <WebCore/PlatformLayerIdentifier.h>
+#include <WebCore/ScrollingNodeID.h>
+#include <wtf/Platform.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/TypeCasts.h>
@@ -38,17 +44,25 @@ typedef struct CGContext *CGContextRef;
 
 namespace WebCore {
 
+class AcceleratedEffect;
+class EventRegion;
+class FilterOperations;
+class GraphicsContext;
+class GraphicsLayer;
 class LayerPool;
 class PlatformCALayer;
 class PlatformCAAnimation;
 class PlatformCALayerClient;
+class TiledBacking;
 
+struct AppleVisualEffectData;
 struct PlatformCALayerDelegatedContents;
 struct PlatformCALayerDelegatedContentsFinishedEvent;
 struct PlatformCALayerInProcessDelegatedContents;
 struct PlatformCALayerInProcessDelegatedContentsFinishedEvent;
 
 typedef Vector<RefPtr<PlatformCALayer>> PlatformCALayerList;
+using AcceleratedEffects = Vector<Ref<AcceleratedEffect>>;
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
 class AcceleratedEffect;
@@ -56,8 +70,13 @@ struct AcceleratedEffectValues;
 #endif
 
 enum class AppleVisualEffect : uint8_t;
-enum class MediaPlayerVideoGravity : uint8_t;
+enum class BlendMode : uint8_t;
 enum class ContentsFormat : uint8_t;
+enum class GraphicsLayerCustomAppearance : bool;
+enum class GraphicsLayerPaintBehavior : uint8_t;
+enum class MediaPlayerVideoGravity : uint8_t;
+enum class PlatformLayerTreeAsTextFlags : uint8_t;
+enum class WindRule : bool;
 
 enum class PlatformCALayerFilterType : uint8_t {
     Linear,
@@ -297,8 +316,8 @@ public:
     virtual void setScrollingNodeID(std::optional<ScrollingNodeID>) { }
 #endif
 
-    virtual GraphicsLayer::CustomAppearance customAppearance() const = 0;
-    virtual void updateCustomAppearance(GraphicsLayer::CustomAppearance) = 0;
+    virtual GraphicsLayerCustomAppearance customAppearance() const = 0;
+    virtual void updateCustomAppearance(GraphicsLayerCustomAppearance) = 0;
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
     virtual bool setNeedsDisplayIfEDRHeadroomExceeds(float);

@@ -27,18 +27,19 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "CanvasBase.h"
-#include "Document.h"
-#include "FloatRect.h"
-#include "GraphicsTypes.h"
-#include "HTMLElement.h"
-#include "PlatformDynamicRangeLimit.h"
+#include <JavaScriptCore/JSCJSValue.h>
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/CanvasBase.h>
+#include <WebCore/Document.h>
+#include <WebCore/FloatRect.h>
+#include <WebCore/GraphicsTypes.h>
+#include <WebCore/HTMLElement.h>
+#include <WebCore/PlatformDynamicRangeLimit.h>
 #include <memory>
 #include <wtf/Forward.h>
 
 #if ENABLE(WEBGL)
-#include "WebGLContextAttributes.h"
+#include <WebCore/WebGLContextAttributes.h>
 #endif
 
 namespace WebCore {
@@ -71,6 +72,8 @@ public:
     static Ref<HTMLCanvasElement> create(Document&);
     static Ref<HTMLCanvasElement> create(const QualifiedName&, Document&);
     virtual ~HTMLCanvasElement();
+
+    using HTMLElement::protectedScriptExecutionContext;
 
     WEBCORE_EXPORT ExceptionOr<void> setWidth(unsigned);
     WEBCORE_EXPORT ExceptionOr<void> setHeight(unsigned);
@@ -167,7 +170,7 @@ private:
     bool hasPresentationalHintsForAttribute(const QualifiedName&) const final;
     void collectPresentationalHintsForAttribute(const QualifiedName&, const AtomString&, MutableStyleProperties&) final;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
-    bool isReplaced(const RenderStyle&) const final;
+    bool isReplaced(const RenderStyle* = nullptr) const final;
 
     bool canContainRangeEndPoint() const final;
     bool canStartSelection() const final;
@@ -182,8 +185,11 @@ private:
     bool usesContentsAsLayerContents() const;
 
     ScriptExecutionContext* canvasBaseScriptExecutionContext() const final { return HTMLElement::scriptExecutionContext(); }
+    RefPtr<ScriptExecutionContext> protectedCanvasBaseScriptExecutionContext() const { return canvasBaseScriptExecutionContext(); }
 
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) final;
+
+    std::optional<FloatRect> computeDirtyRectangleIfNeeded(const std::optional<FloatRect>&) const;
 
     bool m_ignoreReset { false };
     mutable bool m_didClearImageBuffer { false };

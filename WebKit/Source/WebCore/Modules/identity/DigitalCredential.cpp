@@ -31,15 +31,14 @@
 #include "Chrome.h"
 #include "CredentialRequestCoordinator.h"
 #include "CredentialRequestOptions.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
 #include "ExceptionOr.h"
+#include "FrameDestructionObserverInlines.h"
 #include "IDLTypes.h"
 #include "IdentityCredentialProtocol.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
 #include "MediationRequirement.h"
-#include "Page.h"
 #include "PermissionsPolicy.h"
 #include "VisibilityState.h"
 #include <Logging.h>
@@ -113,7 +112,7 @@ void DigitalCredential::discoverFromExternalSource(const Document& document, Cre
 {
     ASSERT(options.digital);
 
-    if (options.mediation != MediationRequirement::Required) {
+    if (options.mediation() != MediationRequirement::Required) {
         promise.reject(Exception { ExceptionCode::TypeError, "User mediation is required for DigitalCredential."_s });
         return;
     }

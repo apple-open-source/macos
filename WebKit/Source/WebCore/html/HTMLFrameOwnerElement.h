@@ -21,11 +21,11 @@
 
 #pragma once
 
-#include "Document.h"
-#include "Frame.h"
-#include "HTMLElement.h"
-#include "ReferrerPolicy.h"
-#include "SecurityContext.h"
+#include <WebCore/Document.h>
+#include <WebCore/Frame.h>
+#include <WebCore/HTMLElement.h>
+#include <WebCore/ReferrerPolicy.h>
+#include <WebCore/SecurityContext.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/NeverDestroyed.h>
 

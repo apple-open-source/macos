@@ -75,6 +75,7 @@
 #include "WebsiteDataType.h"
 #include <WebCore/ClientOrigin.h>
 #include <WebCore/CommonAtomStrings.h>
+#include <WebCore/ContentFilterUnblockHandler.h>
 #include <WebCore/CookieJar.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
 #include <WebCore/DNS.h>
@@ -129,6 +130,10 @@
 
 #if USE(CURL)
 #include <WebCore/CurlContext.h>
+#endif
+
+#if HAVE(WEBCONTENTRESTRICTIONS)
+#include <WebCore/ParentalControlsURLFilter.h>
 #endif
 
 namespace WebKit {
@@ -1372,6 +1377,23 @@ void NetworkProcess::grantStorageAccessForTesting(PAL::SessionID sessionID, Vect
     completionHandler();
 }
 
+void NetworkProcess::setStorageAccessPermissionForTesting(PAL::SessionID sessionID, bool granted, WebPageProxyIdentifier webPageProxyID, RegistrableDomain&& topFrameDomain, RegistrableDomain&& subFrameDomain, CompletionHandler<void()>&& completionHandler)
+{
+    if (CheckedPtr session = networkSession(sessionID)) {
+        if (RefPtr resourceLoadStatistics = session->resourceLoadStatistics())
+            return resourceLoadStatistics->setStorageAccessPermissionForTesting(granted, webPageProxyID, WTFMove(topFrameDomain), WTFMove(subFrameDomain), WTFMove(completionHandler));
+    } else
+        ASSERT_NOT_REACHED();
+    completionHandler();
+}
+
+void NetworkProcess::clearStorageAccessForTesting(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+{
+    if (CheckedPtr networkStorageSession = storageSession(sessionID))
+        networkStorageSession->removeAllStorageAccess();
+    completionHandler();
+}
+
 void NetworkProcess::hasIsolatedSession(PAL::SessionID sessionID, const WebCore::RegistrableDomain& domain, CompletionHandler<void(bool)>&& completionHandler) const
 {
     bool result = false;
@@ -1524,7 +1546,7 @@ void NetworkProcess::setShouldSendPrivateTokenIPCForTesting(PAL::SessionID sessi
         session->setShouldSendPrivateTokenIPCForTesting(enabled);
 }
 
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
 void NetworkProcess::setOptInCookiePartitioningEnabled(PAL::SessionID sessionID, bool enabled) const
 {
     if (CheckedPtr session = networkSession(sessionID))
@@ -1592,6 +1614,20 @@ void NetworkProcess::setSessionIsControlledByAutomation(PAL::SessionID sessionID
         m_sessionsControlledByAutomation.add(sessionID);
     else
         m_sessionsControlledByAutomation.remove(sessionID);
+}
+
+void NetworkProcess::fetchWebsitesWithUserInteractions(PAL::SessionID sessionID, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&& completionHandler)
+{
+    CheckedPtr session = networkSession(sessionID);
+    ASSERT(session);
+    if (!session)
+        return completionHandler({ });
+
+    RefPtr resourceLoadStatistics = session->resourceLoadStatistics();
+    if (!resourceLoadStatistics)
+        return completionHandler({ });
+
+    resourceLoadStatistics->loadWebsitesWithUserInteraction(WTFMove(completionHandler));
 }
 
 void NetworkProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, OptionSet<WebsiteDataFetchOption> fetchOptions, CompletionHandler<void(WebsiteData&&)>&& completionHandler)
@@ -2388,6 +2424,15 @@ void NetworkProcess::runningOrTerminatingServiceWorkerCountForTesting(PAL::Sessi
     completionHandler(session->ensureSWServer().runningOrTerminatingCount());
 }
 
+void NetworkProcess::isStorageSuspendedForTesting(PAL::SessionID sessionID, CompletionHandler<void(bool)>&& completionHandler)
+{
+    CheckedPtr session = networkSession(sessionID);
+    if (!session)
+        return completionHandler(true);
+
+    completionHandler(session->storageManager().isSuspended());
+}
+
 void NetworkProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime, CompletionHandler<void()>&& completionHandler)
 {
 #if !RELEASE_LOG_DISABLED
@@ -2990,7 +3035,7 @@ RefPtr<NetworkConnectionToWebProcess> NetworkProcess::protectedWebProcessConnect
 {
     for (Ref webProcessConnection : m_webProcessConnections.values()) {
         if (webProcessConnection->connection().uniqueID() == connection.uniqueID())
-            return webProcessConnection.get();
+            return webProcessConnection.unsafePtr();
     }
     return nullptr;
 }
@@ -3119,7 +3164,7 @@ RTCDataChannelRemoteManagerProxy& NetworkProcess::rtcDataChannelProxy()
 {
     ASSERT(isMainRunLoop());
     if (!m_rtcDataChannelProxy)
-        m_rtcDataChannelProxy = RTCDataChannelRemoteManagerProxy::create();
+        m_rtcDataChannelProxy = RTCDataChannelRemoteManagerProxy::create(*this);
     return *m_rtcDataChannelProxy;
 }
 
@@ -3144,8 +3189,10 @@ void NetworkProcess::removeWebPageNetworkParameters(PAL::SessionID sessionID, We
     session->removeWebPageNetworkParameters(pageID);
     session->storageManager().clearStorageForWebPage(pageID);
 
-    if (RefPtr resourceLoadStatistics = session->resourceLoadStatistics())
+    if (RefPtr resourceLoadStatistics = session->resourceLoadStatistics()) {
         resourceLoadStatistics->clearFrameLoadRecordsForStorageAccess(pageID);
+        resourceLoadStatistics->wasRevokedStorageAccessPermissionInPage(pageID);
+    }
 
     m_pagesWithRelaxedThirdPartyCookieBlocking.remove(pageID);
 }
@@ -3285,5 +3332,12 @@ void NetworkProcess::setDefaultRequestTimeoutInterval(double timeoutInterval)
 {
     ResourceRequestBase::setDefaultTimeoutInterval(timeoutInterval);
 }
+
+#if HAVE(WEBCONTENTRESTRICTIONS)
+void NetworkProcess::allowEvaluatedURL(const WebCore::ParentalControlsURLFilterParameters& parameters, CompletionHandler<void(bool)>&& completionHandler)
+{
+    WebCore::ParentalControlsURLFilter::allowURL(parameters, WTFMove(completionHandler));
+}
+#endif
 
 } // namespace WebKit

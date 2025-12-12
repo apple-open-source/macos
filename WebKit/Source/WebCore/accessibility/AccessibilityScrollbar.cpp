@@ -30,9 +30,10 @@
 #include "AccessibilityScrollbar.h"
 
 #include "AXObjectCache.h"
+#include "AccessibilityObjectInlines.h"
 #include "LocalFrameView.h"
 #include "ScrollView.h"
-#include "Scrollbar.h"
+#include "ScrollbarInlines.h"
 
 namespace WebCore {
 
@@ -46,12 +47,12 @@ Ref<AccessibilityScrollbar> AccessibilityScrollbar::create(AXID axID, Scrollbar&
 {
     return adoptRef(*new AccessibilityScrollbar(axID, scrollbar, cache));
 }
-    
+
 LayoutRect AccessibilityScrollbar::elementRect() const
 {
     return m_scrollbar->frameRect();
 }
-    
+
 Document* AccessibilityScrollbar::document() const
 {
     RefPtr parent = parentObject();
@@ -73,7 +74,7 @@ bool AccessibilityScrollbar::isEnabled() const
 {
     return m_scrollbar->enabled();
 }
-    
+
 float AccessibilityScrollbar::valueForRange() const
 {
     return m_scrollbar->currentPos() / m_scrollbar->maximum();
@@ -82,8 +83,8 @@ float AccessibilityScrollbar::valueForRange() const
 bool AccessibilityScrollbar::setValue(float value)
 {
     float newValue = value * m_scrollbar->maximum();
-    m_scrollbar->scrollableArea().scrollToOffsetWithoutAnimation(m_scrollbar->orientation(), newValue);
+    m_scrollbar->checkedScrollableArea()->scrollToOffsetWithoutAnimation(m_scrollbar->orientation(), newValue);
     return true;
 }
-    
+
 } // namespace WebCore

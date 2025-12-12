@@ -6823,7 +6823,6 @@ void
 vnode_reclaim_internal(struct vnode * vp, int locked, int reuse, int flags)
 {
 	int isfifo = 0;
-	bool clear_tty_revoke = false;
 
 	if (!locked) {
 		vnode_lock(vp);
@@ -6846,17 +6845,10 @@ vnode_reclaim_internal(struct vnode * vp, int locked, int reuse, int flags)
 	if (vnode_istty(vp) && (flags & REVOKEALL) && (vp->v_iocount > 1)) {
 		vnode_unlock(vp);
 		VNOP_IOCTL(vp, TIOCREVOKE, (caddr_t)NULL, 0, vfs_context_kernel());
-		clear_tty_revoke = true;
 		vnode_lock(vp);
 	}
 
 	vnode_drain(vp);
-
-	if (clear_tty_revoke) {
-		vnode_unlock(vp);
-		VNOP_IOCTL(vp, TIOCREVOKECLEAR, (caddr_t)NULL, 0, vfs_context_kernel());
-		vnode_lock(vp);
-	}
 
 #if CONFIG_FILE_LEASES
 	/*

@@ -312,25 +312,7 @@ DEFINE_VISIT_CHILDREN(JSFunction);
 
 CallData JSFunction::getCallData(JSCell* cell)
 {
-    // Keep this function OK for invocation from concurrent compilers.
-    CallData callData;
-
-    JSFunction* thisObject = jsCast<JSFunction*>(cell);
-    if (thisObject->isHostFunction()) {
-        callData.type = CallData::Type::Native;
-        callData.native.function = thisObject->nativeFunction();
-        callData.native.isBoundFunction = thisObject->inherits<JSBoundFunction>();
-        callData.native.isWasm = false;
-#if ENABLE(WEBASSEMBLY)
-        callData.native.isWasm = thisObject->inherits<WebAssemblyFunction>();
-#endif
-    } else {
-        callData.type = CallData::Type::JS;
-        callData.js.functionExecutable = thisObject->jsExecutable();
-        callData.js.scope = thisObject->scope();
-    }
-
-    return callData;
+    return getCallDataInline(cell);
 }
 
 static constexpr unsigned prototypeAttributesForNonClass = PropertyAttribute::DontEnum | PropertyAttribute::DontDelete;

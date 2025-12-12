@@ -39,6 +39,7 @@
 #include "CSSValuePool.h"
 #include "CommonAtomStrings.h"
 #include "DocumentFragment.h"
+#include "DocumentPage.h"
 #include "ElementInlines.h"
 #include "Event.h"
 #include "HTMLDivElement.h"
@@ -247,11 +248,6 @@ void VTTCueBox::applyCSSProperties()
     // Section 7.4 states that the text track display should be abolustely positioned,
     // unless if it is the child of a region, then it is to be relatively positioned.
     setInlineStyleProperty(CSSPropertyPosition, CSSValueAbsolute);
-
-    // The font shorthand property on the (root) list of WebVTT Node Objects
-    // must be set to 5vh sans-serif. [CSS-VALUES]
-    // NOTE: We use 'cqh' rather than 'vh' as the video element is not a proper viewport.
-    setInlineStyleProperty(CSSPropertyFontSize, cue->fontSize(), CSSUnitType::CSS_CQMIN, cue->fontSizeIsImportant() ? IsImportant::Yes : IsImportant::No);
 
     if (!cue->snapToLines()) {
         setInlineStyleProperty(CSSPropertyWhiteSpaceCollapse, CSSValuePreserve);
@@ -644,7 +640,7 @@ int VTTCue::calculateComputedLinePosition() const
     return n;
 }
 
-static bool isCueParagraphSeparator(UChar character)
+static bool isCueParagraphSeparator(char16_t character)
 {
     // Within a cue, paragraph boundaries are only denoted by Type B characters,
     // such as U+000A LINE FEED (LF), U+0085 NEXT LINE (NEL), and U+2029 PARAGRAPH SEPARATOR.
@@ -676,11 +672,11 @@ void VTTCue::determineTextDirection()
         return;
 
     for (size_t i = 0; i < paragraph.length(); ++i) {
-        UChar current = paragraph[i];
+        char16_t current = paragraph[i];
         if (!current || isCueParagraphSeparator(current))
             return;
 
-        if (UChar current = paragraph[i]) {
+        if (char16_t current = paragraph[i]) {
             UCharDirection charDirection = u_charDirection(current);
             if (charDirection == U_LEFT_TO_RIGHT) {
                 m_displayDirection = CSSValueLtr;
@@ -951,6 +947,13 @@ void VTTCue::obtainCSSBoxes()
 
     // Note: This is contained by default in m_cueHighlightBox.
     displayTree->setUserAgentPart(UserAgentParts::cue());
+
+    if (!id().isEmpty())
+        displayTree->setAttributeWithoutSynchronization(HTMLNames::idAttr, id());
+
+    if (!track()->language().isEmpty())
+        displayTree->setAttributeWithoutSynchronization(HTMLNames::langAttr, track()->language());
+
     m_cueHighlightBox->setUserAgentPart(UserAgentParts::internalCueBackground());
 
     m_cueBackdropBox->setUserAgentPart(UserAgentParts::webkitMediaTextTrackDisplayBackdrop());

@@ -2037,6 +2037,7 @@ skmem_arena_mib_get_sysctl SYSCTL_HANDLER_ARGS
 	return error;
 }
 
+#if SK_LOG
 SK_NO_INLINE_ATTRIBUTE
 char *
 ar2str(const struct skmem_arena *ar, char *__counted_by(dsz)dst,
@@ -2047,3 +2048,4 @@ ar2str(const struct skmem_arena *ar, char *__counted_by(dsz)dst,
 
 	return dst;
 }
+#endif

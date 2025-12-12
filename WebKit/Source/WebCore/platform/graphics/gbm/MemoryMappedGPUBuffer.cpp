@@ -28,7 +28,7 @@
 
 #if USE(GBM)
 #include "DRMDeviceManager.h"
-#include "DRMDeviceNode.h"
+#include "GBMDevice.h"
 #include "GBMVersioning.h"
 #include "IntRect.h"
 #include "Logging.h"
@@ -66,22 +66,16 @@ std::unique_ptr<MemoryMappedGPUBuffer> MemoryMappedGPUBuffer::create(const IntSi
     auto& manager = WebCore::DRMDeviceManager::singleton();
     ASSERT(manager.isInitialized());
 
-    auto deviceNode = manager.mainDeviceNode(WebCore::DRMDeviceManager::NodeType::Render);
-    if (!deviceNode) {
+    auto gbmDevice = manager.mainGBMDevice(WebCore::DRMDeviceManager::NodeType::Render);
+    if (!gbmDevice) {
         LOG_ERROR("MemoryMappedGPUBuffer::create(), failed to get GBM render device node");
         return nullptr;
     }
 
-    auto* device = deviceNode->gbmDevice();
-    if (!device) {
-        LOG_ERROR("MemoryMappedGPUBuffer::create(), failed to get GBM device");
-        return nullptr;
-    }
+    constexpr FourCC preferredDMABufFormat = DRM_FORMAT_ABGR8888;
 
-    constexpr uint32_t preferredDMABufFormat = DRM_FORMAT_ABGR8888;
-
-    auto negotiateBufferFormat = [&]() -> std::optional<GLDisplay::DMABufFormat> {
-        const auto& supportedFormats = PlatformDisplay::sharedDisplay().dmabufFormats();
+    auto negotiateBufferFormat = [&]() -> std::optional<GLDisplay::BufferFormat> {
+        const auto& supportedFormats = PlatformDisplay::sharedDisplay().bufferFormats();
         for (const auto& format : supportedFormats) {
             if (format.fourcc != preferredDMABufFormat)
                 continue;
@@ -101,13 +95,19 @@ std::unique_ptr<MemoryMappedGPUBuffer> MemoryMappedGPUBuffer::create(const IntSi
     };
 
     auto bufferFormat = negotiateBufferFormat();
+
+    if (flags.contains(BufferFlag::ForceLinear) && (!bufferFormat.has_value() || !bufferFormat->modifiers.contains(DRM_FORMAT_MOD_LINEAR))) {
+        WTFLogAlways("ERROR: ForceLinear flag set but DRM_FORMAT_MOD_LINEAR not supported by the negotiated buffer format. Aborting ..."); // NOLINT
+        CRASH();
+    }
+
     if (!bufferFormat.has_value()) {
         LOG_ERROR("MemoryMappedGPUBuffer::create(), failed to negotiate buffer format");
         return nullptr;
     }
 
     auto buffer = std::unique_ptr<MemoryMappedGPUBuffer>(new MemoryMappedGPUBuffer(size, flags));
-    if (!buffer->allocate(device, bufferFormat.value())) {
+    if (!buffer->allocate(gbmDevice->device(), bufferFormat.value())) {
         LOG_ERROR("MemoryMappedGPUBuffer::create(), failed to create GBM buffer of size %dx%d: %s", size.width(), size.height(), safeStrerror(errno).data());
         return nullptr;
     }
@@ -120,16 +120,16 @@ std::unique_ptr<MemoryMappedGPUBuffer> MemoryMappedGPUBuffer::create(const IntSi
     return buffer;
 }
 
-bool MemoryMappedGPUBuffer::allocate(struct gbm_device* device, const GLDisplay::DMABufFormat& bufferFormat)
+bool MemoryMappedGPUBuffer::allocate(struct gbm_device* device, const GLDisplay::BufferFormat& bufferFormat)
 {
     m_modifier = DRM_FORMAT_MOD_INVALID;
     if (!bufferFormat.modifiers.isEmpty())
-        m_bo = gbm_bo_create_with_modifiers2(device, m_size.width(), m_size.height(), bufferFormat.fourcc, bufferFormat.modifiers.span().data(), bufferFormat.modifiers.size(), GBM_BO_USE_RENDERING);
+        m_bo = gbm_bo_create_with_modifiers2(device, m_size.width(), m_size.height(), bufferFormat.fourcc.value, bufferFormat.modifiers.span().data(), bufferFormat.modifiers.size(), GBM_BO_USE_RENDERING);
 
     if (m_bo)
         m_modifier = gbm_bo_get_modifier(m_bo);
     else {
-        m_bo = gbm_bo_create(device, m_size.width(), m_size.height(), bufferFormat.fourcc, GBM_BO_USE_LINEAR);
+        m_bo = gbm_bo_create(device, m_size.width(), m_size.height(), bufferFormat.fourcc.value, GBM_BO_USE_LINEAR);
         m_modifier = DRM_FORMAT_MOD_INVALID;
     }
 
@@ -292,6 +292,7 @@ void MemoryMappedGPUBuffer::updateContents(AccessScope& scope, const MemoryMappe
     updateContents(scope, srcBuffer.m_mappedData, targetRect, srcBuffer.primaryPlaneDmaBufStride());
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 void MemoryMappedGPUBuffer::updateContents(AccessScope& scope, const void* srcData, const IntRect& targetRect, unsigned bytesPerLine)
 {
     ASSERT_UNUSED(scope, &scope.buffer() == this);
@@ -317,13 +318,16 @@ void MemoryMappedGPUBuffer::updateContents(AccessScope& scope, const void* srcDa
     for (int32_t y = 0; y < targetRect.height(); ++y)
         memcpySpan(dstPixelSpan.subspan(y * dstPitch, dstPitch - targetRect.x()), srcPixelSpan.subspan(y * srcPitch, srcPitch));
 }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 std::span<uint32_t> MemoryMappedGPUBuffer::mappedDataSpan(AccessScope& scope) const
 {
     ASSERT_UNUSED(scope, &scope.buffer() == this);
     ASSERT(isMapped());
     ASSERT(isLinear());
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return { static_cast<uint32_t*>(m_mappedData), primaryPlaneDmaBufStride() / 4 };
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 MemoryMappedGPUBuffer::AccessScope::AccessScope(MemoryMappedGPUBuffer& buffer, AccessScope::Mode mode)

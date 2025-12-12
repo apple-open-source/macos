@@ -49,7 +49,7 @@ bool isLockdownModeEnabled()
 {
 #if HAVE(LOCKDOWN_MODE_FRAMEWORK)
     if (LockdownModeLibrary())
-        return [(LockdownModeManager *)[getLockdownModeManagerClass() shared] enabled];
+        return [(LockdownModeManager *)[getLockdownModeManagerClassSingleton() shared] enabled];
 #endif
 
     // FIXME(<rdar://108208100>): Remove this fallback once recoveryOS includes the framework.

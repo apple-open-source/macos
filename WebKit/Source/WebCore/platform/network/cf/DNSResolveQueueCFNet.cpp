@@ -41,10 +41,13 @@
 #include <wtf/URL.h>
 #include <wtf/cf/VectorCF.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#include <wtf/darwin/DispatchExtras.h>
 #include <wtf/posix/SocketPOSIX.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(DNSResolveQueueCFNet);
 
 DNSResolveQueueCFNet::DNSResolveQueueCFNet() = default;
 
@@ -136,7 +139,7 @@ void DNSResolveQueueCFNet::performDNSLookup(const String& hostname, Ref<Completi
     });
     timeoutTimer->startOneShot(timeoutForDNSResolution);
 
-    nw_resolver_set_update_handler(resolver.get(), dispatch_get_main_queue(), makeBlockPtr([resolver = WTFMove(resolver), completionHandler = WTFMove(completionHandler), timeoutTimer = WTFMove(timeoutTimer)] (nw_resolver_status_t status, nw_array_t resolvedEndpoints) mutable {
+    nw_resolver_set_update_handler(resolver.get(), mainDispatchQueueSingleton(), makeBlockPtr([resolver = WTFMove(resolver), completionHandler = WTFMove(completionHandler), timeoutTimer = WTFMove(timeoutTimer)] (nw_resolver_status_t status, nw_array_t resolvedEndpoints) mutable {
         if (status != nw_resolver_status_complete)
             return;
 

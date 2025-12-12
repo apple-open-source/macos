@@ -60,8 +60,9 @@ static void accessWorkerScriptLoaderMap(CompletionHandler<void(HashMap<ScriptExe
     callback(map.get());
 }
 
-WorkerScriptLoader::WorkerScriptLoader()
+WorkerScriptLoader::WorkerScriptLoader(AlwaysUseUTF8 alwaysUseUTF8)
     : m_script(ScriptBuffer::empty())
+    , m_alwaysUseUTF8(alwaysUseUTF8 == AlwaysUseUTF8::Yes)
 {
 }
 
@@ -264,18 +265,16 @@ void WorkerScriptLoader::didReceiveResponse(ScriptExecutionContextIdentifier mai
             if (registrationData && registrationData->activeWorker)
                 setControllingServiceWorker(WTFMove(*registrationData->activeWorker));
 
-            if (!m_client)
-                return;
-
-            m_client->didReceiveResponse(mainContext, identifier, response);
-            if (m_client && m_finishing)
-                m_client->notifyFinished(mainContext);
+            if (RefPtr client = m_client.get())
+                client->didReceiveResponse(mainContext, identifier, response);
+            if (RefPtr client = m_client.get(); client && m_finishing)
+                client->notifyFinished(mainContext);
         });
         return;
     }
 
-    if (m_client)
-        m_client->didReceiveResponse(mainContext, identifier, response);
+    if (RefPtr client = m_client.get())
+        client->didReceiveResponse(mainContext, identifier, response);
 }
 
 void WorkerScriptLoader::didReceiveData(const SharedBuffer& buffer)
@@ -290,8 +289,13 @@ void WorkerScriptLoader::didReceiveData(const SharedBuffer& buffer)
     }
 #endif
 
-    if (!m_decoder)
-        lazyInitialize(m_decoder, TextResourceDecoder::create("text/javascript"_s, "UTF-8"_s));
+    if (!m_decoder) {
+        // FIXME: Share more code with CachedScript / CachedScriptSourceProvider.
+        Ref decoder = TextResourceDecoder::create("text/javascript"_s, "UTF-8"_s);
+        if (m_alwaysUseUTF8)
+            decoder->setAlwaysUseUTF8();
+        lazyInitialize(m_decoder, WTFMove(decoder));
+    }
 
     if (buffer.isEmpty())
         return;
@@ -330,14 +334,15 @@ void WorkerScriptLoader::notifyError(std::optional<ScriptExecutionContextIdentif
 void WorkerScriptLoader::notifyFinished(std::optional<ScriptExecutionContextIdentifier> mainContext)
 {
     m_threadableLoader = nullptr;
-    if (!m_client || m_finishing)
+    RefPtr client = m_client.get();
+    if (!client || m_finishing)
         return;
 
     m_finishing = true;
     if (m_isMatchingServiceWorkerRegistration)
         return;
 
-    m_client->notifyFinished(mainContext);
+    client->notifyFinished(mainContext);
 }
 
 void WorkerScriptLoader::cancel()

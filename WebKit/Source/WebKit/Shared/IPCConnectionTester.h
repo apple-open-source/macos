@@ -41,7 +41,7 @@ namespace WebKit {
 
 // Interface to test various IPC::Connection related activities.
 class IPCConnectionTester final : public RefCounted<IPCConnectionTester>, private IPC::Connection::Client {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(IPCConnectionTester);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(IPCConnectionTester);
 public:
     ~IPCConnectionTester();
@@ -58,7 +58,7 @@ private:
 
     // IPC::Connection::Client overrides.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
-    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
     void didClose(IPC::Connection&) final;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) final;
 

@@ -178,7 +178,7 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapGetOrInsertComputed, (JSGlobalObject* g
         return throwVMTypeError(globalObject, scope, WeakMapInvalidKeyError);
 
     JSValue valueCallback = callFrame->argument(1);
-    auto callData = JSC::getCallData(valueCallback);
+    auto callData = JSC::getCallDataInline(valueCallback);
     if (callData.type == CallData::Type::None) [[unlikely]]
         return throwVMTypeError(globalObject, scope, "WeakMap.prototype.getOrInsertComputed requires the callback argument to be callable."_s);
 

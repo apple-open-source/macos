@@ -169,6 +169,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     AccountTypeDuringRPD _accountType;
     BOOL _accountIsW;
     AppleKeyStorePasscodeCacheReason _contextType;
+    NSData* _escrowSigningSPKI;
 }
 
 @property SecLaunchSequence* launchSequence;
@@ -603,9 +604,61 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     [self.stateMachine handleFlag:OctagonFlagCheckTrustState];
 }
 
+- (BOOL)fetchEscrowContentWithActiveAccount:(TPSpecificUser*)activeAccount
+                       cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
+                                    entropy:(NSData**)entropy
+                                   bottleID:(NSString**)bottleID
+                          escrowSigningSPKI:(NSData**)escrowSigningSPKI
+                                      error:(NSError**)error
+{
+    __block NSString *localBottleID = nil;
+    __block NSData *localEntropy = nil;
+    __block NSData* localEscrowedSPKIKey = nil;
+    __block NSError* fetchError = nil;
+
+    [cuttlefishXPCWrapper fetchEscrowContentsWithSpecificUser:activeAccount
+                                                        reply:^(NSData * _Nullable entropy,
+                                                                NSString * _Nullable bottleID,
+                                                                NSData * _Nullable signingPublicKey,
+                                                                NSError * _Nullable returnError) {
+        if (returnError) {
+            secerror("Failed to get escrow contents: %@", returnError.localizedDescription);
+            fetchError = returnError;
+        } else {
+            secnotice("octagon-escrow-repair", "Received bottle entropy for ID %@", bottleID);
+            localEscrowedSPKIKey = signingPublicKey;
+            localBottleID = bottleID;
+            localEntropy = entropy;
+        }
+    }];
+
+    if (fetchError || !localBottleID || !localEntropy || !localEscrowedSPKIKey) {
+        if(error) {
+            if (fetchError) {
+                *error = fetchError;
+            } else {
+                *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorFailedToFetchEscrowContent description:@"Failed to fetch escrow content"];
+            }
+        }
+        return NO;
+    }
+
+    if (entropy) {
+        *entropy = localEntropy;
+    }
+    if (bottleID) {
+        *bottleID = localBottleID;
+    }
+    if (escrowSigningSPKI) {
+        *escrowSigningSPKI = localEscrowedSPKIKey;
+    }
+    return YES;
+}
+
 - (void)passcodeStashAvailable:(NSNumber*)aksEventContext
 {
     WEAKIFY(self);
+
     OTOperationConfiguration *configuration = [[OTOperationConfiguration alloc] init];
     [self rpcTrustStatus:configuration reply:^(CliqueStatus status,
                                                NSString* __unused peerID,
@@ -617,14 +670,46 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
         self->_contextType = AppleKeyStorePasscodeCacheReasonUnknown;
 
+        bool shouldPostEvent = false;
         cache_flow_enabled_context_t contextType = (cache_flow_enabled_context_t)[aksEventContext unsignedCharValue];
 
         if (status == CliqueStatusIn) {
+
+            NSData* entropy = nil;
+            NSString* bottleID = nil;
+            NSData* escrowSigningSPKI = nil;
+            NSError* localError = nil;
+
+            [self fetchEscrowContentWithActiveAccount:self.activeAccount
+                                 cuttlefishXPCWrapper:self.cuttlefishXPCWrapper
+                                              entropy:&entropy
+                                             bottleID:&bottleID
+                                    escrowSigningSPKI:&escrowSigningSPKI
+                                                error:&localError];
 #if !TARGET_OS_SIMULATOR
             switch(contextType) {
                 case cache_flow_enabled_passcode_changed:
                 {
                     secnotice("octagon", "cache flow enabled passcode changed");
+                    if(!entropy || !bottleID || !escrowSigningSPKI || localError) {
+                        secerror("octagon: failed to fetch escrow content, %@", localError);
+                        NSString* localFlowID = self.sessionMetrics.flowID;
+                        NSString* localDeviceSessionID = self.sessionMetrics.deviceSessionID;
+                        AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                                    altDSID:self.activeAccount.altDSID
+                                                                                                                     flowID:localFlowID
+                                                                                                            deviceSessionID:localDeviceSessionID
+                                                                                                                  eventName:kSecurityRTCEventNameEscrowRepairOperationPasscodeChanged
+                                                                                                            testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                             canSendMetrics:YES
+                                                                                                                   category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                        [event sendMetricWithResult:NO error:localError];
+                        return;
+                    }
+                    self->_entropy = entropy;
+                    self->_bottleID = bottleID;
+                    self->_escrowSigningSPKI = escrowSigningSPKI;
+
                     self->_contextType = AppleKeyStorePasscodeCacheReasonPasscodeChanged;
                     // reset the rate limit time stamp
                     NSError* localError = nil;
@@ -645,6 +730,26 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                 {
                     // just proceed with OctagonFlagPasscodeStashAvailable
                     secnotice("octagon", "cache flow enabled passcode unlocked");
+                    if(!entropy || !bottleID || !escrowSigningSPKI || localError) {
+                        secerror("octagon: failed to fetch escrow content, %@", localError);
+                        NSString* localFlowID = self.sessionMetrics.flowID;
+                        NSString* localDeviceSessionID = self.sessionMetrics.deviceSessionID;
+                        AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                                    altDSID:self.activeAccount.altDSID
+                                                                                                                     flowID:localFlowID
+                                                                                                            deviceSessionID:localDeviceSessionID
+                                                                                                                  eventName:kSecurityRTCEventNameEscrowRepairOperationPasscodeUnlocked
+                                                                                                            testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                             canSendMetrics:YES
+                                                                                                                   category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                        [event sendMetricWithResult:NO error:localError];
+                        return;
+                    }
+                    self->_entropy = entropy;
+                    self->_bottleID = bottleID;
+                    self->_escrowSigningSPKI = escrowSigningSPKI;
+
+                    shouldPostEvent = true;
                     self->_contextType = AppleKeyStorePasscodeCacheReasonPasscodeUnlocked;
                     break;
                 }
@@ -657,16 +762,18 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 #endif // !TARGET_OS_SIMULATOR
             [self.stateMachine handleFlag:OctagonFlagPasscodeStashAvailable];
 
-            __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
-            AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
-                                                                                                        altDSID:self.activeAccount.altDSID
-                                                                                                         flowID:localSessionMetrics.flowID
-                                                                                                deviceSessionID:localSessionMetrics.deviceSessionID
-                                                                                                      eventName:kSecurityRTCEventNameEscrowPasscodeCacheAvailable
-                                                                                                testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                                 canSendMetrics:YES
-                                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-            [event sendMetricWithResult:YES error:nil];
+            if (shouldPostEvent) {
+                __strong OTMetricsSessionData* localSessionMetrics = self.sessionMetrics;
+                AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                            altDSID:self.activeAccount.altDSID
+                                                                                                             flowID:localSessionMetrics.flowID
+                                                                                                    deviceSessionID:localSessionMetrics.deviceSessionID
+                                                                                                          eventName:kSecurityRTCEventNameEscrowPasscodeCacheAvailable
+                                                                                                    testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                     canSendMetrics:YES
+                                                                                                           category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+                [event sendMetricWithResult:YES error:nil];
+            }
         } else {
             secnotice("octagon", "not in clique, discarding passcode stash");
             [self.laContextAdapter discardPasscodeStashSecret:contextType];
@@ -1760,7 +1867,10 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                                            intendedState:OctagonStateReady
                                                               errorState:OctagonStateReady
                                                          followupHandler:self.followupHandler
-                                                             contextType:_contextType];
+                                                             contextType:_contextType
+                                                                 entropy:_entropy
+                                                                bottleID:_bottleID
+                                                       escrowSigningSPKI:_escrowSigningSPKI];
         }
 
         if([flags _onqueueContains:OctagonFlagAttemptSOSUpdatePreapprovals]) {
@@ -5418,6 +5528,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     self.inheritanceKey = nil;
     self.custodianRecoveryKey = nil;
     _healthCheckResults = nil;
+    _escrowSigningSPKI = nil;
 }
 
 - (BOOL)checkAllStateCleared

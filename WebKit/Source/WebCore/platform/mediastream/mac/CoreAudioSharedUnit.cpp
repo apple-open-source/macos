@@ -97,7 +97,7 @@ static Expected<CoreAudioSharedUnit::StoredAudioUnit, OSStatus> createAudioUnit(
     if (name) {
         String ioUnitName = name;
         CFRelease(name);
-        RELEASE_LOG(WebRTC, "CoreAudioSharedInternalUnit created \"%{private}s\" component", ioUnitName.utf8().data());
+        RELEASE_LOG(WebRTC, "CoreAudioSharedInternalUnit created \"%" PRIVATE_LOG_STRING "\" component", ioUnitName.utf8().data());
     }
 #endif
 
@@ -254,7 +254,7 @@ CoreAudioSharedUnit::StoredAudioUnit CoreAudioSharedUnit::takeStoredVPIOUnit()
 
 void CoreAudioSharedUnit::resetSampleRate()
 {
-    setSampleRate(m_getSampleRateCallback ? m_getSampleRateCallback() : AudioSession::protectedSharedSession()->sampleRate());
+    setSampleRate(m_getSampleRateCallback ? m_getSampleRateCallback() : AudioSession::singleton().sampleRate());
 }
 
 void CoreAudioSharedUnit::captureDeviceChanged()
@@ -269,7 +269,7 @@ void CoreAudioSharedUnit::captureDeviceChanged()
 
 size_t CoreAudioSharedUnit::preferredIOBufferSize()
 {
-    return AudioSession::protectedSharedSession()->bufferSize();
+    return AudioSession::singleton().bufferSize();
 }
 
 OSStatus CoreAudioSharedUnit::setupAudioUnit()

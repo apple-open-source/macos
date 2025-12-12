@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "Structure.h"
-#include "WasmTypeDefinition.h"
+#include <JavaScriptCore/Structure.h>
+#include <JavaScriptCore/WasmTypeDefinition.h>
 #include <wtf/ReferenceWrapperVector.h>
 
 #if ENABLE(WEBASSEMBLY)
@@ -48,7 +48,7 @@ namespace JSC {
 // to ensure all relevant type definitions live for at least as long as itself.
 class WebAssemblyGCStructureTypeDependencies {
     public:
-        WebAssemblyGCStructureTypeDependencies(const Wasm::TypeDefinition& unexpandedType);
+        WebAssemblyGCStructureTypeDependencies(Ref<const Wasm::TypeDefinition>&& unexpandedType);
 
     private:
         using WorkList = ReferenceWrapperVector<const Wasm::TypeDefinition>;
@@ -62,9 +62,11 @@ class WebAssemblyGCStructureTypeDependencies {
 // FIXME: It seems like almost all the fields of a Structure are useless to a wasm GC "object" since they can't have dynamic fields
 // e.g. PropertyTables, Transitions, SeenProperties, Prototype, etc.
 class WebAssemblyGCStructure final : public Structure {
-    typedef Structure Base;
+    using Base = Structure;
 public:
     friend class Structure;
+
+    static constexpr unsigned inlinedTypeDisplaySize = 6;
 
     template<typename CellType, SubspaceAccess>
     static GCClient::IsoSubspace* subspaceFor(VM& vm)
@@ -78,6 +80,7 @@ public:
     static WebAssemblyGCStructure* create(VM&, JSGlobalObject*, const TypeInfo&, const ClassInfo*, Ref<const Wasm::TypeDefinition>&& unexpandedType, Ref<const Wasm::TypeDefinition>&& expandedType, Ref<const Wasm::RTT>&&);
 
     static constexpr ptrdiff_t offsetOfRTT() { return OBJECT_OFFSETOF(WebAssemblyGCStructure, m_rtt); }
+    static constexpr ptrdiff_t offsetOfInlinedTypeDisplay() { return OBJECT_OFFSETOF(WebAssemblyGCStructure, m_inlinedTypeDisplay); }
 
 private:
     WebAssemblyGCStructure(VM&, JSGlobalObject*, const TypeInfo&, const ClassInfo*, Ref<const Wasm::TypeDefinition>&& unexpandedType, Ref<const Wasm::TypeDefinition>&& expandedType, Ref<const Wasm::RTT>&&);
@@ -85,6 +88,7 @@ private:
 
     Ref<const Wasm::RTT> m_rtt;
     Ref<const Wasm::TypeDefinition> m_type;
+    std::array<RefPtr<const Wasm::RTT>, inlinedTypeDisplaySize> m_inlinedTypeDisplay { };
     WebAssemblyGCStructureTypeDependencies m_typeDependencies;
 };
 

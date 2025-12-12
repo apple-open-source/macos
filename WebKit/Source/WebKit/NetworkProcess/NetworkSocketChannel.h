@@ -27,6 +27,7 @@
 
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/PageIdentifier.h>
@@ -67,6 +68,8 @@ public:
     void deref() const final { RefCounted::deref(); }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
+
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 
     friend class WebSocketTask;
 

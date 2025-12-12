@@ -66,7 +66,6 @@ public:
     >;
 
     static ExceptionOr<Ref<XRWebGLBinding>> create(Ref<WebXRSession>&&, WebXRWebGLRenderingContext&&);
-    ~XRWebGLBinding() = default;
 
     double nativeProjectionScaleFactor() const { RELEASE_ASSERT_NOT_REACHED(); }
     bool usesDepthValues() const { RELEASE_ASSERT_NOT_REACHED(); }

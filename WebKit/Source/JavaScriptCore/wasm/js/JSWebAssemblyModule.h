@@ -27,11 +27,11 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "CallLinkInfo.h"
-#include "JSDestructibleObject.h"
-#include "JSObject.h"
-#include "MemoryMode.h"
-#include "WasmFormat.h"
+#include <JavaScriptCore/CallLinkInfo.h>
+#include <JavaScriptCore/JSDestructibleObject.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/MemoryMode.h>
+#include <JavaScriptCore/WasmFormat.h>
 #include <wtf/Bag.h>
 #include <wtf/Expected.h>
 #include <wtf/Forward.h>
@@ -63,6 +63,8 @@ public:
 
     DECLARE_EXPORT_INFO;
 
+    DECLARE_VISIT_CHILDREN;
+
     JS_EXPORT_PRIVATE static JSWebAssemblyModule* create(VM&, Structure*, Ref<Wasm::Module>&&);
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
@@ -75,7 +77,6 @@ public:
 private:
     JSWebAssemblyModule(VM&, Structure*, Ref<Wasm::Module>&&);
     void finishCreation(VM&);
-    DECLARE_VISIT_CHILDREN;
 
     const Ref<Wasm::Module> m_module;
     WriteBarrier<SymbolTable> m_exportSymbolTable;

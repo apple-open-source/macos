@@ -38,6 +38,7 @@
 #include "pas_enumerator_region.h"
 #include "pas_ptr_hash_set.h"
 #include "pas_root.h"
+#include "pas_zero_memory.h"
 
 static void* allocate(size_t size, const char* name, pas_allocation_kind allocation_kind, void* arg)
 {

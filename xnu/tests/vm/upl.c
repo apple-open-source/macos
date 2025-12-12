@@ -35,6 +35,9 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
+#include <mach/mach.h>
+#include <mach/mach_vm.h>
+
 #include <System/machine/cpu_capabilities.h>
 
 #include "exc_guard_helper.h"
@@ -227,16 +230,6 @@ T_DECL(vm_upl_rw_on_ro,
 	munmap(buf, buf_size);
 }
 
-static bool
-sptm_enabled(void)
-{
-	int page_protection_type, err;
-	size_t size = sizeof(page_protection_type);
-	err = sysctlbyname("kern.page_protection_type", &page_protection_type, &size, NULL, 0);
-	T_ASSERT_POSIX_SUCCESS(err, "sysctl(\"kern.page_protection_type\");");
-	return page_protection_type == 2;
-}
-
 T_DECL(vm_upl_ro_on_rx,
     "Generate RO UPL against RX memory region")
 {
@@ -247,7 +240,7 @@ T_DECL(vm_upl_ro_on_rx,
 	 * For MacOS, a copy should only be produced if the SPTM is enabled, due to the SPTM's stricter requirements
 	 * for DMA mappings of executable frame types.
 	 */
-	if (!sptm_enabled()) {
+	if (!is_sptm_enabled()) {
 		copy_expected = false;
 	}
 #endif /* TARGET_OS_OSX */
@@ -290,12 +283,15 @@ T_DECL(vm_upl_rw_on_rx,
 T_DECL(vm_upl_ro_on_jit,
     "Generate RO UPL against JIT memory region")
 {
+	if (!is_map_jit_allowed()) {
+		T_SKIP("MAP_JIT not allowed for this system configuration");
+	}
 	/**
 	 * Direct RO UPLs against JIT pages should be allowed for non-SPTM targets.
 	 * For SPTM targets, a copy is expected due to the SPTM's stricter requirements for DMA
 	 * mappings of executable frame types.
 	 */
-	bool copy_expected = sptm_enabled();
+	bool copy_expected = is_sptm_enabled();
 	const size_t buf_size = 10 * PAGE_SIZE;
 	unsigned int *buf = mmap(NULL, buf_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE | MAP_JIT, -1, 0);
 	T_QUIET; T_ASSERT_NE_PTR(buf, MAP_FAILED, "map buffer");
@@ -339,22 +335,25 @@ T_DECL(vm_upl_rw_on_jit,
 		/* TODO: Remove this once rdar://142438840 is fixed. */
 		T_SKIP("Guard exception handling does not work correctly with Rosetta (rdar://142438840), skipping...");
 	}
+	if (!is_map_jit_allowed()) {
+		T_SKIP("MAP_JIT not allowed for this system configuration");
+	}
 	const size_t buf_size = 10 * PAGE_SIZE;
 	/**
 	 * Direct RW UPLs against JIT pages should be allowed for non-SPTM targets.
 	 * For SPTM targets, UPL creation should fail due to the SPTM's stricter requirements for DMA
 	 * mappings of executable frame types.
 	 */
-	bool should_fail = sptm_enabled();
+	bool should_fail = is_sptm_enabled();
 	unsigned int *buf = mmap(NULL, buf_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE | MAP_JIT, -1, 0);
 	T_QUIET; T_ASSERT_NE_PTR(buf, MAP_FAILED, "map buffer");
 
 	upl_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .test_pattern = 'b',
 		               .copy_expected = false, .should_fail = should_fail, .upl_rw = true };
 
-	int64_t addr = (int64_t)&args;
-	int64_t result = 0;
-	size_t s = sizeof(result);
+	__block int64_t addr = (int64_t)&args;
+	__block int64_t result = 0;
+	__block size_t s = sizeof(result);
 
 	/* Ensure that guard exceptions will not be fatal to the test process. */
 	enable_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY);
@@ -471,12 +470,15 @@ T_DECL(vm_upl_rw_on_exec_object,
 	 * true on SPTM-enabled devices because all of them use xPRR, but may not hold true
 	 * in general.
 	 */
-	if (!sptm_enabled()) {
+	if (!is_sptm_enabled()) {
 		T_SKIP("Exec object test only supported on SPTM-enabled devices, skipping...");
 	}
 	if (process_is_translated()) {
 		/* TODO: Remove this once rdar://142438840 is fixed. */
 		T_SKIP("Guard exception handling does not work correctly with Rosetta (rdar://142438840), skipping...");
+	}
+	if (!is_map_jit_allowed()) {
+		T_SKIP("MAP_JIT not allowed for this system configuration");
 	}
 
 	const size_t buf_size = 10 * PAGE_SIZE;
@@ -496,9 +498,9 @@ T_DECL(vm_upl_rw_on_exec_object,
 
 	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = true, .should_fail = true, .fault_prot = VM_PROT_NONE };
 
-	int64_t addr = (int64_t)&args;
-	int64_t result = 0;
-	size_t s = sizeof(result);
+	__block int64_t addr = (int64_t)&args;
+	__block int64_t result = 0;
+	__block size_t s = sizeof(result);
 	exc_guard_helper_info_t exc_info;
 	bool caught_exception =
 	    block_raised_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY, &exc_info, ^{
@@ -523,12 +525,15 @@ T_DECL(vm_upl_ro_with_exec_fault,
 	/**
 	 * This test is meant to exercise functionality that is currently SPTM-specific.
 	 */
-	if (!sptm_enabled()) {
+	if (!is_sptm_enabled()) {
 		T_SKIP("Exec-fault test only supported on SPTM-enabled devices, skipping...");
 	}
 	if (process_is_translated()) {
 		/* TODO: Remove this once rdar://142438840 is fixed. */
 		T_SKIP("Guard exception handling does not work correctly with Rosetta (rdar://142438840), skipping...");
+	}
+	if (!is_map_jit_allowed()) {
+		T_SKIP("MAP_JIT not allowed for this system configuration");
 	}
 
 	const size_t buf_size = 10 * PAGE_SIZE;
@@ -551,9 +556,9 @@ T_DECL(vm_upl_ro_with_exec_fault,
 	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = false, .should_fail = false,
 		                      .fault_prot = VM_PROT_EXECUTE | VM_PROT_READ };
 
-	int64_t addr = (int64_t)&args;
-	int64_t result = 0;
-	size_t s = sizeof(result);
+	__block int64_t addr = (int64_t)&args;
+	__block int64_t result = 0;
+	__block size_t s = sizeof(result);
 	exc_guard_helper_info_t exc_info;
 	bool caught_exception =
 	    block_raised_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY, &exc_info, ^{
@@ -583,7 +588,7 @@ T_DECL(vm_upl_ro_with_write_fault_on_exec_file,
 	/**
 	 * This test is meant to exercise functionality that is currently SPTM-specific.
 	 */
-	if (!sptm_enabled()) {
+	if (!is_sptm_enabled()) {
 		T_SKIP("Write-fault-on-exec test only supported on SPTM-enabled devices, skipping...");
 	}
 
@@ -603,7 +608,7 @@ T_DECL(vm_upl_ro_with_write_fault_on_exec_file,
 
 	ssize_t nbytes;
 	int fd;
-	const char tmp_file_name[PATH_MAX] = "/tmp/vm_upl_data.XXXXXXXX";
+	char tmp_file_name[PATH_MAX] = "/tmp/vm_upl_data.XXXXXXXX";
 	T_ASSERT_NOTNULL(mktemp(tmp_file_name), "create temporary file name");
 	T_WITH_ERRNO; T_QUIET; T_ASSERT_GE(fd = open(tmp_file_name, O_CREAT | O_RDWR),
 	    0, "create temp file");
@@ -619,10 +624,10 @@ T_DECL(vm_upl_ro_with_write_fault_on_exec_file,
 	 * Twiddle the mapping permissions between RX and RW.  This will mark the mapping as "user debug",
 	 * which will induce a retype when the backing pages are faulted in.
 	 */
-	kern_return_t kr = mach_vm_protect(mach_task_self(), buf, buf_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+	kern_return_t kr = mach_vm_protect(mach_task_self(), (mach_vm_address_t)buf, buf_size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_protect(RX)");
 
-	kr = mach_vm_protect(mach_task_self(), buf, buf_size, FALSE, VM_PROT_READ | VM_PROT_WRITE);
+	kr = mach_vm_protect(mach_task_self(), (mach_vm_address_t)buf, buf_size, FALSE, VM_PROT_READ | VM_PROT_WRITE);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_protect(RW)");
 
 	/* Ensure that guard exceptions will not be fatal to the test process. */
@@ -631,9 +636,9 @@ T_DECL(vm_upl_ro_with_write_fault_on_exec_file,
 	upl_object_test_args args = { .ptr = (uint64_t)buf, .size = buf_size, .upl_rw = false, .should_fail = false,
 		                      .fault_prot = VM_PROT_WRITE | VM_PROT_READ };
 
-	int64_t addr = (int64_t)&args;
-	int64_t result = 0;
-	size_t s = sizeof(result);
+	__block int64_t addr = (int64_t)&args;
+	__block int64_t result = 0;
+	__block size_t s = sizeof(result);
 	exc_guard_helper_info_t exc_info;
 	bool caught_exception =
 	    block_raised_exc_guard_of_type(GUARD_TYPE_VIRT_MEMORY, &exc_info, ^{

@@ -74,7 +74,6 @@ set(webrtc_SOURCES
     Source/third_party/abseil-cpp/absl/flags/usage_config.cc
     Source/third_party/abseil-cpp/absl/hash/internal/city.cc
     Source/third_party/abseil-cpp/absl/hash/internal/hash.cc
-    Source/third_party/abseil-cpp/absl/hash/internal/low_level_hash.cc
     Source/third_party/abseil-cpp/absl/hash/internal/print_hash_of.cc
     Source/third_party/abseil-cpp/absl/numeric/int128.cc
     Source/third_party/abseil-cpp/absl/profiling/internal/exponential_biased.cc
@@ -586,7 +585,6 @@ list(APPEND webrtc_SOURCES
     Source/webrtc/modules/audio_coding/neteq/tools/neteq_rtpplay.cc
     Source/webrtc/modules/audio_coding/neteq/tools/neteq_stats_getter.cc
     Source/webrtc/modules/audio_coding/neteq/tools/neteq_stats_plotter.cc
-    Source/webrtc/modules/audio_coding/neteq/tools/packet.cc
     Source/webrtc/modules/audio_coding/neteq/tools/packet_source.cc
     Source/webrtc/modules/audio_coding/neteq/tools/resample_input_audio_file.cc
     Source/webrtc/modules/audio_coding/neteq/tools/rtp_analyze.cc
@@ -767,7 +765,6 @@ list(APPEND webrtc_SOURCES
     Source/webrtc/modules/congestion_controller/goog_cc/goog_cc_network_control.cc
     Source/webrtc/modules/congestion_controller/goog_cc/inter_arrival_delta.cc
     Source/webrtc/modules/congestion_controller/goog_cc/link_capacity_estimator.cc
-    Source/webrtc/modules/congestion_controller/goog_cc/loss_based_bandwidth_estimation.cc
     Source/webrtc/modules/congestion_controller/goog_cc/loss_based_bwe_v2.cc
     Source/webrtc/modules/congestion_controller/goog_cc/probe_bitrate_estimator.cc
     Source/webrtc/modules/congestion_controller/goog_cc/probe_controller.cc
@@ -1084,7 +1081,6 @@ list(APPEND webrtc_SOURCES
     Source/webrtc/p2p/base/port.cc
     Source/webrtc/p2p/base/port_allocator.cc
     Source/webrtc/p2p/base/port_interface.cc
-    Source/webrtc/p2p/base/pseudo_tcp.cc
     Source/webrtc/p2p/base/regathering_controller.cc
     Source/webrtc/p2p/base/stun_dictionary.cc
     Source/webrtc/p2p/base/stun_port.cc
@@ -1201,7 +1197,6 @@ list(APPEND webrtc_SOURCES
     Source/webrtc/rtc_base/experiments/quality_scaler_settings.cc
     Source/webrtc/rtc_base/experiments/quality_scaling_experiment.cc
     Source/webrtc/rtc_base/experiments/rate_control_settings.cc
-    Source/webrtc/rtc_base/experiments/stable_target_rate_experiment.cc
     Source/webrtc/rtc_base/experiments/struct_parameters_parser.cc
     Source/webrtc/rtc_base/fake_clock.cc
     Source/webrtc/rtc_base/fake_ssl_identity.cc
@@ -1294,8 +1289,6 @@ list(APPEND webrtc_SOURCES
     Source/webrtc/stats/rtc_stats_report.cc
     Source/webrtc/stats/rtcstats_objects.cc
     Source/webrtc/system_wrappers/source/clock.cc
-    Source/webrtc/system_wrappers/source/cpu_features.cc
-    Source/webrtc/system_wrappers/source/cpu_features_linux.cc
     Source/webrtc/system_wrappers/source/field_trial.cc
     Source/webrtc/system_wrappers/source/metrics.cc
     Source/webrtc/video/adaptation/balanced_constraint.cc
@@ -1322,6 +1315,7 @@ list(APPEND webrtc_SOURCES
     Source/webrtc/video/corruption_detection/halton_frame_sampler.cc
     Source/webrtc/video/corruption_detection/halton_sequence.cc
     Source/webrtc/video/corruption_detection/utils.cc
+    Source/webrtc/video/corruption_detection/video_frame_sampler.cc
     Source/webrtc/video/decode_synchronizer.cc
     Source/webrtc/video/encoder_bitrate_adjuster.cc
     Source/webrtc/video/encoder_overshoot_detector.cc
@@ -1341,17 +1335,13 @@ list(APPEND webrtc_SOURCES
     Source/webrtc/video/report_block_stats.cc
     Source/webrtc/video/rtp_streams_synchronizer2.cc
     Source/webrtc/video/rtp_video_stream_receiver2.cc
-    Source/webrtc/video/screenshare_loopback.cc
     Source/webrtc/video/send_delay_stats.cc
     Source/webrtc/video/send_statistics_proxy.cc
     Source/webrtc/video/stats_counter.cc
     Source/webrtc/video/stream_synchronization.cc
-    Source/webrtc/video/sv_loopback.cc
     Source/webrtc/video/task_queue_frame_decode_scheduler.cc
     Source/webrtc/video/transport_adapter.cc
     Source/webrtc/video/unique_timestamp_counter.cc
-    Source/webrtc/video/video_analyzer.cc
-    Source/webrtc/video/video_loopback.cc
     Source/webrtc/video/video_loopback_main.cc
     Source/webrtc/video/video_quality_observer2.cc
     Source/webrtc/video/video_receive_stream2.cc
@@ -1455,7 +1445,6 @@ list(APPEND webrtc_SOURCES
 
 # Boringssl.
 list(APPEND webrtc_SOURCES
-    Source/third_party/boringssl/err_data.cc
     Source/third_party/boringssl/src/crypto/aes/aes.cc
     Source/third_party/boringssl/src/crypto/asn1/a_bitstr.cc
     Source/third_party/boringssl/src/crypto/asn1/a_bool.cc
@@ -2243,7 +2232,6 @@ else ()
 
             Source/webrtc/modules/video_coding/codecs/h264/h264_encoder_impl.cc
 
-            Source/webrtc/system_wrappers/source/cpu_features_linux.cc
         )
         set(WEBKIT_LIBWEBRTC_OPENH264_ENCODER 1)
     endif ()
@@ -2427,8 +2415,10 @@ set(libsrtp_SOURCES
     Source/third_party/libsrtp/crypto/cipher/aes_gcm_ossl.c
     Source/third_party/libsrtp/crypto/cipher/aes_icm_ossl.c
     Source/third_party/libsrtp/crypto/cipher/cipher.c
+    Source/third_party/libsrtp/crypto/cipher/cipher_test_cases.c
     Source/third_party/libsrtp/crypto/cipher/null_cipher.c
     Source/third_party/libsrtp/crypto/hash/auth.c
+    Source/third_party/libsrtp/crypto/hash/auth_test_cases.c
     Source/third_party/libsrtp/crypto/hash/hmac_ossl.c
     Source/third_party/libsrtp/crypto/hash/null_auth.c
     Source/third_party/libsrtp/crypto/kernel/alloc.c
@@ -2436,10 +2426,8 @@ set(libsrtp_SOURCES
     Source/third_party/libsrtp/crypto/kernel/err.c
     Source/third_party/libsrtp/crypto/kernel/key.c
     Source/third_party/libsrtp/crypto/math/datatypes.c
-    Source/third_party/libsrtp/crypto/math/stat.c
     Source/third_party/libsrtp/crypto/replay/rdb.c
     Source/third_party/libsrtp/crypto/replay/rdbx.c
-    Source/third_party/libsrtp/srtp/ekt.c
     Source/third_party/libsrtp/srtp/srtp.c
 )
 

@@ -29,12 +29,14 @@
 #import "ArchiveResource.h"
 #import "Blob.h"
 #import "BlobURL.h"
-#import "CachedResourceLoader.h"
 #import "DOMURL.h"
 #import "DeprecatedGlobalSettings.h"
-#import "Document.h"
 #import "DocumentFragment.h"
 #import "DocumentLoader.h"
+#import "DocumentPage.h"
+#import "DocumentQuirks.h"
+#import "DocumentResourceLoader.h"
+#import "DocumentView.h"
 #import "Editor.h"
 #import "EditorClient.h"
 #import "ElementInlines.h"
@@ -51,10 +53,9 @@
 #import "HTMLPictureElement.h"
 #import "HTMLSourceElement.h"
 #import "LegacyWebArchive.h"
-#import "LocalFrame.h"
+#import "LocalFrameInlines.h"
 #import "LocalFrameLoaderClient.h"
 #import "MIMETypeRegistry.h"
-#import "Page.h"
 #import "PublicURLManager.h"
 #import "Quirks.h"
 #import "Range.h"
@@ -151,7 +152,7 @@ static FragmentAndResources createFragmentInternal(LocalFrame& frame, NSAttribut
 
     Ref fragment = DocumentFragment::create(document.get());
     Ref dummyBodyToForceInBodyInsertionMode = HTMLBodyElement::create(document.get());
-    auto markup = fragmentCreationOptions.contains(FragmentCreationOptions::SanitizeMarkup) ? sanitizeMarkup(fragmentString) : String(fragmentString);
+    auto markup = fragmentCreationOptions.contains(FragmentCreationOptions::SanitizeMarkup) ? sanitizeMarkup(fragmentString, document.ptr()) : String(fragmentString);
     fragment->parseHTML(markup, dummyBodyToForceInBodyInsertionMode, { });
 
     result.fragment = WTFMove(fragment);
@@ -386,7 +387,7 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
         // See `HTMLConverter.mm` for more details.
         if (info.fileName.startsWith(WebContentReader::placeholderAttachmentFilenamePrefix)) {
             RefPtr document = frame.document();
-            if (RefPtr existingAttachment = document->attachmentForIdentifier({ info.data->span() })) {
+            if (RefPtr existingAttachment = document->attachmentForIdentifier({ byteCast<Latin1Character>(info.data->span()) })) {
                 parent->replaceChild(*existingAttachment.get(), WTFMove(originalElement));
                 continue;
             }
@@ -533,7 +534,7 @@ static std::optional<MarkupAndArchive> extractMarkupAndArchive(SharedBuffer& buf
 
 static String sanitizeMarkupWithArchive(LocalFrame& frame, Document& destinationDocument, MarkupAndArchive& markupAndArchive, MSOListQuirks msoListQuirks, const std::function<bool(const String)>& canShowMIMETypeAsHTML)
 {
-    Ref page = createPageForSanitizingWebContent();
+    Ref page = createPageForSanitizingWebContent(&destinationDocument);
     RefPtr stagingDocument = page->localTopDocument();
     if (!stagingDocument)
         return String();
@@ -670,7 +671,7 @@ bool WebContentReader::readHTML(const String& string)
 
     String markup;
     if (DeprecatedGlobalSettings::customPasteboardDataEnabled() && shouldSanitize()) {
-        markup = sanitizeMarkup(stringOmittingMicrosoftPrefix, msoListQuirksForMarkup(), WTF::Function<void (DocumentFragment&)> { [] (DocumentFragment& fragment) {
+        markup = sanitizeMarkup(stringOmittingMicrosoftPrefix, document.ptr(), msoListQuirksForMarkup(), WTF::Function<void (DocumentFragment&)> { [] (DocumentFragment& fragment) {
             removeSubresourceURLAttributes(fragment, [](auto& url) {
                 return url.protocolIsFile();
             });
@@ -689,7 +690,7 @@ bool WebContentMarkupReader::readHTML(const String& string)
 
     String rawHTML = stripMicrosoftPrefix(string);
     if (shouldSanitize()) {
-        m_markup = sanitizeMarkup(rawHTML, msoListQuirksForMarkup(), WTF::Function<void (DocumentFragment&)> { [] (DocumentFragment& fragment) {
+        m_markup = sanitizeMarkup(rawHTML, frame().document(), msoListQuirksForMarkup(), WTF::Function<void (DocumentFragment&)> { [] (DocumentFragment& fragment) {
             removeSubresourceURLAttributes(fragment, [](auto& url) {
                 return url.protocolIsFile();
             });
@@ -777,9 +778,6 @@ bool WebContentReader::readImage(Ref<FragmentedSharedBuffer>&& buffer, const Str
     ASSERT(frame().document());
     Ref frame = this->frame();
     Ref document = *frame->document();
-    if (document->quirks().shouldAvoidPastingImagesAsWebContent())
-        return false;
-
     if (shouldReplaceRichContentWithAttachments())
         addFragment(createFragmentForImageAttachment(frame, document, WTFMove(buffer), type, preferredPresentationSize));
     else

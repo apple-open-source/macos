@@ -28,7 +28,7 @@
 #if ENABLE(MEDIA_STREAM)
 
 #if USE(LIBWEBRTC)
-#include "LibWebRTCAudioModule.h"
+#include <WebCore/LibWebRTCAudioModule.h>
 #endif
 
 #include <wtf/Function.h>

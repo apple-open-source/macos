@@ -33,8 +33,9 @@
 #include "CachedResource.h"
 #include "CachedSVGDocument.h"
 #include "Document.h"
+#include "ExceptionOr.h"
 #include "FrameDestructionObserverInlines.h"
-#include "InspectorPageAgent.h"
+#include "InspectorResourceUtilities.h"
 #include <wtf/Vector.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
@@ -68,7 +69,7 @@ ExceptionOr<Vector<InspectorAuditResourcesObject::Resource>> InspectorAuditResou
     if (!frame)
         return Exception { ExceptionCode::NotAllowedError, "Cannot be called with a detached document"_s };
 
-    for (auto* cachedResource : InspectorPageAgent::cachedResourcesForFrame(frame)) {
+    for (auto* cachedResource : ResourceUtilities::cachedResourcesForFrame(frame)) {
         Resource resource;
         resource.url = cachedResource->url().string();
         resource.mimeType = cachedResource->mimeType();
@@ -108,7 +109,7 @@ ExceptionOr<InspectorAuditResourcesObject::ResourceContent> InspectorAuditResour
 
     Inspector::Protocol::ErrorString errorString;
     ResourceContent resourceContent;
-    InspectorPageAgent::resourceContent(errorString, frame, cachedResource->url(), &resourceContent.data, &resourceContent.base64Encoded);
+    ResourceUtilities::resourceContent(errorString, frame, cachedResource->url(), &resourceContent.data, &resourceContent.base64Encoded);
     if (!errorString.isEmpty())
         return Exception { ExceptionCode::NotFoundError, errorString };
 

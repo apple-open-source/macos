@@ -29,6 +29,7 @@
 #include "Document.h"
 #include "Editing.h"
 #include "ElementInlines.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameSelection.h"
 #include "HTMLOListElement.h"
 #include "HTMLUListElement.h"
@@ -80,9 +81,9 @@ static bool getStartEndListChildren(const VisibleSelection& selection, RefPtr<No
     
     // if the selection ends on a list item with a sublist, include the entire sublist
     if (endListChild->renderer()->isRenderListItem()) {
-        RenderObject* r = endListChild->renderer()->nextSibling();
-        if (r && isListHTMLElement(r->node()) && r->node()->parentNode() == startListChild->parentNode())
-            endListChild = r->node();
+        CheckedPtr renderer = endListChild->renderer()->nextSibling();
+        if (renderer && isListHTMLElement(renderer->node()) && renderer->node()->parentNode() == startListChild->parentNode())
+            endListChild = renderer->node();
     }
 
     start = WTFMove(startListChild);

@@ -158,6 +158,7 @@ xcpm_idle.o_CWARNFLAGS_ADD += -Wno-atomic-implicit-seq-cst
 # -Wno-cast-align
 bsd_i386.o_CWARNFLAGS_ADD += -Wno-cast-align
 ccdigest_final_64be.o_CWARNFLAGS_ADD += -Wno-cast-align
+ccsha512_ltc_compress.o_CWARNFLAGS_ADD += -Wno-cast-align
 ccdigest_init.o_CWARNFLAGS_ADD += -Wno-cast-align
 ccdigest_update.o_CWARNFLAGS_ADD += -Wno-cast-align
 cchmac_final.o_CWARNFLAGS_ADD += -Wno-cast-align

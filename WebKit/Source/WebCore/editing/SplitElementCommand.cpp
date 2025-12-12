@@ -81,7 +81,7 @@ void SplitElementCommand::doUnapply()
         return;
 
     Vector<Ref<Node>> children;
-    for (Node* node = element1->firstChild(); node; node = node->nextSibling())
+    for (RefPtr node = element1->firstChild(); node; node = node->nextSibling())
         children.append(*node);
 
     RefPtr<Node> refChild = element2->firstChild();

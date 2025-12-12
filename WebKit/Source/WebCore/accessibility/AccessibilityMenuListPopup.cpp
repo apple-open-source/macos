@@ -26,9 +26,12 @@
 #include "config.h"
 #include "AccessibilityMenuListPopup.h"
 
-#include "AXObjectCache.h"
+#include "AXNotifications.h"
+#include "AXObjectCacheInlines.h"
 #include "AccessibilityMenuList.h"
 #include "AccessibilityMenuListOption.h"
+#include "AccessibilityObjectInlines.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
@@ -52,7 +55,7 @@ bool AccessibilityMenuListPopup::isOffScreen() const
 {
     if (!m_parent)
         return true;
-    
+
     return m_parent->isCollapsed();
 }
 
@@ -60,7 +63,7 @@ bool AccessibilityMenuListPopup::isEnabled() const
 {
     if (!m_parent)
         return false;
-    
+
     return m_parent->isEnabled();
 }
 
@@ -81,7 +84,7 @@ bool AccessibilityMenuListPopup::press()
 {
     if (!m_parent)
         return false;
-    
+
     m_parent->press();
     return true;
 }

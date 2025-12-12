@@ -66,7 +66,7 @@ bool FEComponentTransfer::operator==(const FEComponentTransfer& other) const
     return FilterEffect::operator==(other) && m_functions == other.m_functions;
 }
 
-OptionSet<FilterRenderingMode> FEComponentTransfer::supportedFilterRenderingModes() const
+OptionSet<FilterRenderingMode> FEComponentTransfer::supportedFilterRenderingModes(OptionSet<FilterRenderingMode> preferredFilterRenderingModes) const
 {
     OptionSet<FilterRenderingMode> modes = FilterRenderingMode::Software;
 #if USE(SKIA)
@@ -76,7 +76,7 @@ OptionSet<FilterRenderingMode> FEComponentTransfer::supportedFilterRenderingMode
     if (FEComponentTransferCoreImageApplier::supportsCoreImageRendering(*this))
         modes.add(FilterRenderingMode::Accelerated);
 #endif
-    return modes;
+    return modes & preferredFilterRenderingModes;
 }
 
 std::unique_ptr<FilterEffectApplier> FEComponentTransfer::createAcceleratedApplier() const

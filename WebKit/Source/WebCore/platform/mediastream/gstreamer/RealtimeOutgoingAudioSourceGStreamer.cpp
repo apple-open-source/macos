@@ -69,14 +69,14 @@ void RealtimeOutgoingAudioSourceGStreamer::initialize()
 void RealtimeOutgoingAudioSourceGStreamer::setInitialParameters(GUniquePtr<GstStructure>&& parameters)
 {
     for (const auto& codec : gstStructureGetList<const GstStructure*>(parameters.get(), "codecs"_s)) {
-        auto encodingName = gstStructureGetString(codec, "mime-type");
+        auto encodingName = gstStructureGetString(codec, "mime-type"_s);
         if (encodingName.isEmpty() || encodingName.isNull())
             continue;
 
         if (encodingName != "audio/telephone-event"_s)
             continue;
 
-        auto pt = gstStructureGet<unsigned>(codec, "pt");
+        auto pt = gstStructureGet<unsigned>(codec, "pt"_s);
         if (!pt) [[unlikely]]
             continue;
 

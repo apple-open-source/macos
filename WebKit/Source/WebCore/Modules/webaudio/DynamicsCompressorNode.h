@@ -62,7 +62,7 @@ public:
 
 protected:
     explicit DynamicsCompressorNode(BaseAudioContext&, const DynamicsCompressorOptions& = { });
-    virtual void setReduction(float reduction) { m_reduction = reduction; }
+    void setReduction(float reduction) { m_reduction = reduction; }
 
 private:
     double tailTime() const final;
@@ -81,3 +81,5 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_AUDIONODE(DynamicsCompressorNode, NodeTypeDynamicsCompressor);

@@ -1,0 +1,59 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst ref
+
+# make the copy-from-here tree
+mkdir src
+(cd src && generate_tree_1)
+
+# make the tree we want to compare to
+cp -a src ref
+
+echo
+echo "Test 1: List files on source and check that source files were not deleted"
+rsync -ai --remove-source-files -- src/ > out
+
+echo "Test 1.1: Compare ref/ to src/"
+compare_trees ref src
+
+echo "Test 1.2: Compare count of files in ref/ to rsync list output"
+nref=$(find ref | wc -l)
+
+# list-mode supercedes itemization mode:
+#
+nout=$(grep -c '^[bcdlps-]rw[x-]' out)
+
+if [ "${nref}" -ne "${nout}" ] ; then
+	1>&2 echo "implicit list mode failed to list all files (${nref} ${nout})"
+	1>&2 cat out
+	exit 1
+fi
+
+
+echo
+echo "Test 2: Sync files from src/ to dst/ and verify that all files in src/ were deleted"
+rsync -ai --remove-source-files -- src/ dst/ > out
+
+echo "Test 2.1: Compare ref/ to dst/"
+compare_trees ref dst
+
+echo "Test 2.2: Check that src/ is empty (except for directories)"
+nsrc=$(find src ! -type d | wc -l)
+
+if [ "${nsrc}" -ne 0 ] ; then
+	1>&2 echo "failed to delete all files from src/ ($Y)"
+	1>&2 ls -Rl src
+	exit 1
+fi
+
+echo "Test 2.3: Check that all files appear in rsync itemized output"
+nout=$(grep -c '^.[dfLS][+.]' out)
+
+if [ "${nref}" -ne "${nout}" ] ; then
+	1>&2 echo "rsync failed to list all files (${nref} ${nout})"
+	1>&2 cat out
+	exit 1
+fi

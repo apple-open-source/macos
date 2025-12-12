@@ -83,7 +83,7 @@ JSValue JSTestNamespaceConst::getConstructor(VM& vm, const JSGlobalObject* globa
 
 void JSTestNamespaceConst::destroy(JSC::JSCell* cell)
 {
-    JSTestNamespaceConst* thisObject = static_cast<JSTestNamespaceConst*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestNamespaceConst* thisObject = static_cast<JSTestNamespaceConst*>(cell);
     thisObject->JSTestNamespaceConst::~JSTestNamespaceConst();
 }
 

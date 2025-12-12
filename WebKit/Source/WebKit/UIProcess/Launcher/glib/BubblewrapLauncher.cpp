@@ -291,6 +291,9 @@ static void bindPulse(Vector<CString>& args)
     bindIfExists(args, pulseHomeConfigDir.get());
     bindIfExists(args, asoundHomeConfigDir.get());
 
+    // Pulseaudio service ran as system daemon, allows multi-user setups
+    bindIfExists(args, "/run/pulse", BindFlags::ReadWrite);
+
     // This is the ultimate fallback to raw ALSA
     bindIfExists(args, "/dev/snd", BindFlags::Device);
 }

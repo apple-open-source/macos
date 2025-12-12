@@ -145,6 +145,78 @@ bool _SecTrustRemoveOldSystemAnchorSource(void)
 }
 
 typedef enum {
+    SecTrustUseCRLite_DEFAULT,
+    SecTrustUseCRLite_OVERRIDE_TRUE,
+    SecTrustUseCRLite_OVERRIDE_FALSE,
+} SecTrustUseCRLiteFlag;
+
+static SecTrustUseCRLiteFlag gSecTrustUseCRLiteFlag = SecTrustUseCRLite_DEFAULT;
+
+bool _SecTrustUseCRLite(void)
+{
+    if (gSecTrustUseCRLiteFlag != SecTrustUseCRLite_DEFAULT) {
+        return gSecTrustUseCRLiteFlag == SecTrustUseCRLite_OVERRIDE_TRUE;
+    }
+
+    static bool ffSecTrustUseCRLiteFlag = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ffSecTrustUseCRLiteFlag = os_feature_enabled(Security, UseCRLite);
+        _SecTrustShowFeatureStatus("UseCRLite", ffSecTrustUseCRLiteFlag);
+    });
+
+    return ffSecTrustUseCRLiteFlag;
+}
+
+void _SecTrustUseCRLiteSetOverride(bool value)
+{
+    gSecTrustUseCRLiteFlag = value ? SecTrustUseCRLite_OVERRIDE_TRUE : SecTrustUseCRLite_OVERRIDE_FALSE;
+    secnotice("trust", "CRLite usage overridden to %s", value ? "enabled" : "disabled");
+}
+
+void _SecTrustUseCRLiteClearOverride(void)
+{
+    gSecTrustUseCRLiteFlag = SecTrustUseCRLite_DEFAULT;
+    secnotice("trust", "CRLite usage override removed");
+}
+
+typedef enum {
+    SecTrustUseCRLiteEnforcement_DEFAULT,
+    SecTrustUseCRLiteEnforcement_OVERRIDE_TRUE,
+    SecTrustUseCRLiteEnforcement_OVERRIDE_FALSE,
+} SecTrustUseCRLiteEnforcementFlag;
+
+static SecTrustUseCRLiteEnforcementFlag gSecTrustUseCRLiteEnforcementFlag = SecTrustUseCRLiteEnforcement_DEFAULT;
+
+bool _SecTrustUseCRLiteEnforcement(void)
+{
+    if (gSecTrustUseCRLiteEnforcementFlag != SecTrustUseCRLiteEnforcement_DEFAULT) {
+        return gSecTrustUseCRLiteEnforcementFlag == SecTrustUseCRLiteEnforcement_OVERRIDE_TRUE;
+    }
+
+    static bool ffSecTrustUseCRLiteEnforcementFlag = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ffSecTrustUseCRLiteEnforcementFlag = os_feature_enabled(Security, UseCRLiteEnforcement);
+        _SecTrustShowFeatureStatus("UseCRLiteEnforcement", ffSecTrustUseCRLiteEnforcementFlag);
+    });
+
+    return ffSecTrustUseCRLiteEnforcementFlag;
+}
+
+void _SecTrustUseCRLiteEnforcementSetOverride(bool value)
+{
+    gSecTrustUseCRLiteEnforcementFlag = value ? SecTrustUseCRLiteEnforcement_OVERRIDE_TRUE : SecTrustUseCRLiteEnforcement_OVERRIDE_FALSE;
+    secnotice("trust", "CRLiteEnforcement usage overridden to %s", value ? "enabled" : "disabled");
+}
+
+void _SecTrustUseCRLiteEnforcementClearOverride(void)
+{
+    gSecTrustUseCRLiteEnforcementFlag = SecTrustUseCRLiteEnforcement_DEFAULT;
+    secnotice("trust", "CRLiteEnforcement usage override removed");
+}
+
+typedef enum {
     SecDbVerboseDatabaseLogging_DEFAULT,
     SecDbVerboseDatabaseLogging_OVERRIDE_TRUE,
     SecDbVerboseDatabaseLogging_OVERRIDE_FALSE,

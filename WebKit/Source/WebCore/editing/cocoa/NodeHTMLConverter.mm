@@ -39,15 +39,17 @@
 #import "CommonAtomStrings.h"
 #import "ComposedTreeIterator.h"
 #import "ContainerNodeInlines.h"
-#import "Document.h"
 #import "DocumentLoader.h"
+#import "DocumentQuirks.h"
 #import "Editing.h"
 #import "ElementChildIteratorInlines.h"
 #import "ElementInlines.h"
 #import "ElementRareData.h"
 #import "ElementTraversal.h"
 #import "File.h"
+#import "FontAttributes.h"
 #import "FontCascade.h"
+#import "FrameDestructionObserverInlines.h"
 #import "FrameLoader.h"
 #import "HTMLAttachmentElement.h"
 #import "HTMLConverter.h"
@@ -66,8 +68,8 @@
 #import "LocalFrame.h"
 #import "LocalizedStrings.h"
 #import "NodeName.h"
-#import "Quirks.h"
 #import "RenderImage.h"
+#import "RenderStyleInlines.h"
 #import "RenderText.h"
 #import "StyleExtractor.h"
 #import "StyleProperties.h"
@@ -175,7 +177,7 @@ public:
 private:
     Position m_start;
     Position m_end;
-    DocumentLoader* m_dataSource { nullptr };
+    SingleThreadWeakPtr<DocumentLoader> m_dataSource;
 
     HashMap<RefPtr<Element>, RetainPtr<NSDictionary>> m_attributesForElements;
     HashMap<RetainPtr<CFTypeRef>, RefPtr<Element>> m_textTableFooters;
@@ -480,7 +482,7 @@ static bool stringFromCSSValue(CSSValue& value, String& result)
                 return true;
             }
         }
-    } else if (value.isValueList() || value.isAppleColorFilterPropertyValue() || value.isFilterPropertyValue() || value.isTextShadowPropertyValue() || value.isBoxShadowPropertyValue() || value.isURL()) {
+    } else if (value.isValueList() || value.isAppleColorFilterValue() || value.isFilterValue() || value.isTextShadowPropertyValue() || value.isBoxShadowPropertyValue() || value.isURL()) {
         result = value.cssText(CSS::defaultSerializationContext());
         return true;
     }
@@ -793,7 +795,7 @@ Element* HTMLConverter::_blockLevelElementForNode(Node* node)
         element = node->parentElement();
     if (element && !_caches->isBlockElement(*element))
         element = _blockLevelElementForNode(element->parentInComposedTree());
-    return element.get();
+    return element.unsafeGet();
 }
 
 static Color normalizedColor(Color color, bool ignoreDefaultColor, Element& element)
@@ -876,7 +878,7 @@ static PlatformFont *_font(Element& element)
     Ref primaryFont = renderer->style().fontCascade().primaryFont();
     if (primaryFont->attributes().origin == FontOrigin::Remote)
         return [PlatformFontClass systemFontOfSize:defaultFontSize];
-    return (__bridge PlatformFont *)primaryFont->getCTFont();
+    return (__bridge PlatformFont *)primaryFont->ctFont();
 }
 
 NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)
@@ -1138,7 +1140,7 @@ NSDictionary* HTMLConverter::aggregatedAttributesForElementAndItsAncestors(Eleme
     [attributesForAncestors addEntriesFromDictionary:attributesForCurrentElement];
     m_aggregatedAttributesForElements.set(&element, attributesForAncestors);
 
-    return attributesForAncestors.get();
+    return attributesForAncestors.unsafeGet();
 }
 
 void HTMLConverter::_newParagraphForElement(Element& element, NSString *tag, BOOL flag, BOOL suppressTrailingSpace)
@@ -1193,7 +1195,7 @@ void HTMLConverter::_newTabForElement(Element& element)
     _flags.isSoft = YES;
 }
 
-static Class _WebMessageDocumentClass()
+static Class _WebMessageDocumentClassSingleton()
 {
     static Class _WebMessageDocumentClass = Nil;
     static BOOL lookedUpClass = NO;
@@ -1273,7 +1275,7 @@ BOOL HTMLConverter::_addAttachmentForElement(Element& element, NSURL *url, BOOL 
             fileWrapper = nil;
     }
     if (!fileWrapper && !notFound) {
-        fileWrapper = fileWrapperForURL(m_dataSource, url);
+        fileWrapper = fileWrapperForURL(m_dataSource.get(), url);
         if (usePlaceholder && fileWrapper && [[[[fileWrapper preferredFilename] pathExtension] lowercaseString] hasPrefix:@"htm"])
             notFound = YES;
         if (notFound)
@@ -1282,7 +1284,7 @@ BOOL HTMLConverter::_addAttachmentForElement(Element& element, NSURL *url, BOOL 
 #endif
     if (!fileWrapper && !notFound && url) {
         // Special handling for Mail attachments, until WebKit provides a standard way to get the data.
-        Class WebMessageDocumentClass = _WebMessageDocumentClass();
+        Class WebMessageDocumentClass = _WebMessageDocumentClassSingleton();
         if (WebMessageDocumentClass) {
             NSTextAttachment *mimeTextAttachment = nil;
             [WebMessageDocumentClass document:NULL attachment:&mimeTextAttachment forURL:url];
@@ -1859,23 +1861,26 @@ BOOL HTMLConverter::_processElement(Element& element, NSInteger depth)
                 _newParagraphForElement(element, element.tagName().createNSString().get(), YES, NO);
         }
     } else if (element.hasTagName(ulTag)) {
-        RetainPtr<NSTextList> list;
-        String listStyleType = _caches->propertyValueForNode(element, CSSPropertyListStyleType);
-        if (!listStyleType.length())
-            listStyleType = @"disc";
-        list = adoptNS([[PlatformNSTextList alloc] initWithMarkerFormat:makeString("{"_s, listStyleType, "}"_s).createNSString().get() options:0]);
-        [_textLists addObject:list.get()];
+        TextList textList;
+        textList.ordered = false;
+
+        if (CheckedPtr renderer = element.renderer())
+            textList.styleType = renderer->style().listStyleType();
+
+        [_textLists addObject:textList.createTextList().get()];
     } else if (element.hasTagName(olTag)) {
-        RetainPtr<NSTextList> list;
-        String listStyleType = _caches->propertyValueForNode(element, CSSPropertyListStyleType);
-        if (!listStyleType.length())
-            listStyleType = "decimal"_s;
-        list = adoptNS([[PlatformNSTextList alloc] initWithMarkerFormat:makeString('{', listStyleType, '}').createNSString().get() options:0]);
-        if (RefPtr olElement = dynamicDowncast<HTMLOListElement>(element)) {
-            auto startingItemNumber = olElement->start();
-            [list setStartingItemNumber:startingItemNumber];
-        }
-        [_textLists addObject:list.get()];
+        TextList textList;
+        textList.ordered = true;
+
+        if (CheckedPtr renderer = element.renderer())
+            textList.styleType = renderer->style().listStyleType();
+
+        if (RefPtr olElement = dynamicDowncast<HTMLOListElement>(element))
+            textList.startingItemNumber = olElement->start();
+        else
+            textList.startingItemNumber = 1;
+
+        [_textLists addObject:textList.createTextList().get()];
     } else if (element.hasTagName(qTag)) {
         _addQuoteForElement(element, YES, _quoteLevel++);
     } else if (element.hasTagName(inputTag)) {
@@ -2135,9 +2140,9 @@ void HTMLConverter::_processText(Text& text)
         unsigned count = originalString.length();
         bool wasLeading = true;
         StringBuilder builder;
-        LChar noBreakSpaceRepresentation = 0;
+        Latin1Character noBreakSpaceRepresentation = 0;
         for (unsigned i = 0; i < count; i++) {
-            UChar c = originalString.characterAt(i);
+            char16_t c = originalString.characterAt(i);
             bool isWhitespace = c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == 0xc || c == 0x200b;
             if (isWhitespace)
                 wasSpace = (!wasLeading || !suppressLeadingSpace);

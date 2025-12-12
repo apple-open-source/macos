@@ -25,19 +25,26 @@
 
 #pragma once
 
-#include "ColorConversion.h"
-#include "ColorSpace.h"
-#include "ColorUtilities.h"
-#include "DestinationColorSpace.h"
+#include <WebCore/ColorConversion.h>
+#include <WebCore/ColorSpace.h>
+#include <WebCore/ColorUtilities.h>
+#include <WebCore/DestinationColorSpace.h>
+#include <bit>
 #include <functional>
+#include <utility>
+#include <wtf/Assertions.h>
+#include <wtf/Compiler.h>
 #include <wtf/Forward.h>
+#include <wtf/GetPtr.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/Hasher.h>
 #include <wtf/OptionSet.h>
+#include <wtf/Platform.h>
 #include <wtf/Ref.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/Variant.h>
 
 #if USE(SKIA)
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
@@ -47,10 +54,6 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 #if USE(CG)
 typedef struct CGColor* CGColorRef;
-#endif
-
-#if PLATFORM(GTK)
-typedef struct _GdkRGBA GdkRGBA;
 #endif
 
 namespace WebCore {
@@ -159,11 +162,6 @@ public:
     std::optional<PackedColor::RGBA> tryGetAsPackedInline() const;
     std::optional<SRGBA<uint8_t>> tryGetAsSRGBABytes() const;
 
-#if PLATFORM(GTK)
-    Color(const GdkRGBA&);
-    operator GdkRGBA() const;
-#endif
-
 #if USE(SKIA)
     Color(const SkColor&);
     WEBCORE_EXPORT operator SkColor() const;
@@ -217,7 +215,7 @@ private:
     friend void add(Hasher&, const Color&);
 
     class OutOfLineComponents : public ThreadSafeRefCounted<OutOfLineComponents> {
-        WTF_MAKE_FAST_COMPACT_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_COMPACT_ALLOCATED(OutOfLineComponents);
     public:
         static Ref<OutOfLineComponents> create(ColorComponents<float, 4>&& components)
         {

@@ -25,14 +25,14 @@
 
 #pragma once
 
-#include "ResourceLoaderIdentifier.h"
-#include "ResourceResponse.h"
-#include "ScriptExecutionContextIdentifier.h"
-#include "ServiceWorkerJobClient.h"
-#include "ServiceWorkerJobData.h"
-#include "ServiceWorkerTypes.h"
-#include "WorkerScriptLoader.h"
-#include "WorkerScriptLoaderClient.h"
+#include <WebCore/ResourceLoaderIdentifier.h>
+#include <WebCore/ResourceResponse.h>
+#include <WebCore/ScriptExecutionContextIdentifier.h>
+#include <WebCore/ServiceWorkerJobClient.h>
+#include <WebCore/ServiceWorkerJobData.h>
+#include <WebCore/ServiceWorkerTypes.h>
+#include <WebCore/WorkerScriptLoader.h>
+#include <WebCore/WorkerScriptLoaderClient.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
@@ -48,11 +48,14 @@ class ScriptExecutionContext;
 enum class ServiceWorkerJobType : uint8_t;
 struct ServiceWorkerRegistrationData;
 
-class ServiceWorkerJob : public WorkerScriptLoaderClient {
+class ServiceWorkerJob final : public RefCounted<ServiceWorkerJob>, public WorkerScriptLoaderClient {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(ServiceWorkerJob, WEBCORE_EXPORT);
 public:
-    ServiceWorkerJob(ServiceWorkerJobClient&, RefPtr<DeferredPromise>&&, ServiceWorkerJobData&&);
+    static Ref<ServiceWorkerJob> create(ServiceWorkerJobClient&, RefPtr<DeferredPromise>&&, ServiceWorkerJobData&&);
     WEBCORE_EXPORT ~ServiceWorkerJob();
+
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     void failedWithException(const Exception&);
     void resolvedWithRegistration(ServiceWorkerRegistrationData&&, ShouldNotifyWhenResolved);
@@ -77,11 +80,13 @@ public:
     bool isRegistering() const;
 
 private:
+    ServiceWorkerJob(ServiceWorkerJobClient&, RefPtr<DeferredPromise>&&, ServiceWorkerJobData&&);
+
     // WorkerScriptLoaderClient
     void didReceiveResponse(ScriptExecutionContextIdentifier, std::optional<ResourceLoaderIdentifier>, const ResourceResponse&) final;
     void notifyFinished(std::optional<ScriptExecutionContextIdentifier>) final;
 
-    ServiceWorkerJobClient& m_client;
+    WeakPtr<ServiceWorkerJobClient> m_client;
     ServiceWorkerJobData m_jobData;
     RefPtr<DeferredPromise> m_promise;
 

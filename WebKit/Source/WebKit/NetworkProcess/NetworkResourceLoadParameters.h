@@ -128,6 +128,7 @@ struct NetworkResourceLoadParameters {
     bool shouldRecordFrameLoadForStorageAccess { false };
 
     bool isInitiatorPrefetch { false };
+    bool isInitiatedByDedicatedWorker { false };
 };
 
 } // namespace WebKit

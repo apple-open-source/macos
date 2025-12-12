@@ -63,19 +63,19 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
 
 - (void)dealloc
 {
-    [_version release];
-    [_webClipIdentifier release];
-    [_type release];
+    SUPPRESS_UNRETAINED_ARG [_version release];
+    SUPPRESS_UNRETAINED_ARG [_webClipIdentifier release];
+    SUPPRESS_UNRETAINED_ARG [_type release];
     [super dealloc];
 }
 
 + (_WKWebPushAction *)webPushActionWithDictionary:(NSDictionary *)dictionary
 {
-    NSNumber *version = dictionary[WebKit::WebPushD::pushActionVersionKey()];
+    NSNumber *version = dictionary[WebKit::WebPushD::pushActionVersionKeySingleton()];
     if (!version || ![version isKindOfClass:[NSNumber class]])
         return nil;
 
-    NSString *pushPartition = dictionary[WebKit::WebPushD::pushActionPartitionKey()];
+    NSString *pushPartition = dictionary[WebKit::WebPushD::pushActionPartitionKeySingleton()];
     if (!pushPartition || ![pushPartition isKindOfClass:[NSString class]])
         return nil;
 
@@ -83,7 +83,7 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
     if (!uuid)
         return nil;
 
-    NSString *type = dictionary[WebKit::WebPushD::pushActionTypeKey()];
+    NSString *type = dictionary[WebKit::WebPushD::pushActionTypeKeySingleton()];
     if (!type || ![type isKindOfClass:[NSString class]])
         return nil;
 
@@ -132,11 +132,12 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
 
 - (NSString *)_nameForBackgroundTaskAndLogging
 {
-    if ([_type isEqualToString:_WKWebPushActionTypePushEvent])
+    RetainPtr type = _type;
+    if ([type isEqualToString:_WKWebPushActionTypePushEvent])
         return @"Web Push Event";
-    if ([_type isEqualToString:_WKWebPushActionTypeNotificationClick])
+    if ([type isEqualToString:_WKWebPushActionTypeNotificationClick])
         return @"Web Notification Click";
-    if ([_type isEqualToString:_WKWebPushActionTypeNotificationClose])
+    if ([type isEqualToString:_WKWebPushActionTypeNotificationClose])
         return @"Web Notification Close";
 
     return @"Unknown Web Push event";

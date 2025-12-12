@@ -94,7 +94,6 @@ enum class TapHandlingResult : uint8_t;
 - (void)_didFinishLoadingDataForCustomContentProviderWithSuggestedFilename:(const WTF::String&)suggestedFilename data:(NSData *)data;
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-- (void)_updateOverlayRegionsForCustomContentView;
 - (void)_updateOverlayRegions;
 #endif
 
@@ -195,8 +194,6 @@ enum class TapHandlingResult : uint8_t;
 
 - (UIColor *)_insertionPointColor;
 
-- (BOOL)_tryToHandleKeyEventInCustomContentView:(UIPressesEvent *)event;
-
 @property (nonatomic, readonly) WKPasswordView *_passwordView;
 @property (nonatomic, readonly) WKWebViewContentProviderRegistry *_contentProviderRegistry;
 @property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity WK_API_DEPRECATED("This property is ignored; selection granularity is always `character`.", ios(8.0, 11.0), visionos(1.0, 1.0));
@@ -237,7 +234,6 @@ enum class TapHandlingResult : uint8_t;
 
 #if ENABLE(MODEL_PROCESS)
 - (void)_willInvalidateDraggedModelWithContainerView:(UIView *)containerView;
-- (void)_setWebViewTransform3DForModel:(CGFloat)newScale;
 #endif
 
 - (BOOL)_isInStableState:(UIScrollView *)scrollView;

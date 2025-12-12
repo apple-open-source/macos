@@ -56,11 +56,13 @@ ImageTransferSessionVT::ImageTransferSessionVT(uint32_t pixelFormat, bool should
     if (status != kCVReturnSuccess)
         RELEASE_LOG(Media, "ImageTransferSessionVT::ImageTransferSessionVT: VTSessionSetProperty(kVTPixelTransferPropertyKey_ScalingMode) failed with error %d", static_cast<int>(status));
 
-    status = VTSessionSetProperty(transferSession, kVTPixelTransferPropertyKey_EnableHighSpeedTransfer, @YES);
+    // FIXME: This is a safer cpp false positive (rdar://160851489).
+    SUPPRESS_UNRETAINED_ARG status = VTSessionSetProperty(transferSession, kVTPixelTransferPropertyKey_EnableHighSpeedTransfer, @YES);
     if (status != kCVReturnSuccess)
         RELEASE_LOG(Media, "ImageTransferSessionVT::ImageTransferSessionVT: VTSessionSetProperty(kVTPixelTransferPropertyKey_EnableHighSpeedTransfer) failed with error %d", static_cast<int>(status));
 
-    status = VTSessionSetProperty(transferSession, kVTPixelTransferPropertyKey_RealTime, @YES);
+    // FIXME: This is a safer cpp false positive (rdar://160851489).
+    SUPPRESS_UNRETAINED_ARG status = VTSessionSetProperty(transferSession, kVTPixelTransferPropertyKey_RealTime, @YES);
     if (status != kCVReturnSuccess)
         RELEASE_LOG(Media, "ImageTransferSessionVT::ImageTransferSessionVT: VTSessionSetProperty(kVTPixelTransferPropertyKey_RealTime) failed with error %d", static_cast<int>(status));
 
@@ -73,23 +75,34 @@ ImageTransferSessionVT::ImageTransferSessionVT(uint32_t pixelFormat, bool should
     m_pixelFormat = pixelFormat;
 }
 
-void ImageTransferSessionVT::setCroppingRectangle(std::optional<FloatRect> rectangle)
+void ImageTransferSessionVT::setCroppingRectangle(std::optional<FloatRect> rectangle, FloatSize size)
 {
-    if (m_croppingRectangle == rectangle)
-        return;
-
-    m_croppingRectangle = rectangle;
-
-    if (!m_croppingRectangle) {
+    if (!rectangle) {
         m_sourceCroppingDictionary = { };
         return;
     }
 
+    auto width = rectangle->width();
+    auto height = rectangle->height();
+    // Offsets are relative from center of image buffer
+    auto horizontalOffset = rectangle->x() - size.width() / 2 + width / 2;
+    auto verticalOffset = rectangle->y() - size.height() / 2 + height / 2;
+
+    FloatRect apertureRectangle {
+        FloatPoint { horizontalOffset, verticalOffset },
+        FloatSize { width, height }
+    };
+
+    if (m_croppingRectangle == apertureRectangle)
+        return;
+
+    m_croppingRectangle = apertureRectangle;
+
     m_sourceCroppingDictionary = @{
-        (__bridge NSString *)kCVImageBufferCleanApertureWidthKey: @(rectangle->width()),
-        (__bridge NSString *)kCVImageBufferCleanApertureHeightKey: @(rectangle->height()),
-        (__bridge NSString *)kCVImageBufferCleanApertureVerticalOffsetKey: @(rectangle->x()),
-        (__bridge NSString *)kCVImageBufferCleanApertureHorizontalOffsetKey: @(rectangle->y()),
+        (__bridge NSString *)kCVImageBufferCleanApertureWidthKey: @(apertureRectangle.width()),
+        (__bridge NSString *)kCVImageBufferCleanApertureHeightKey: @(apertureRectangle.height()),
+        (__bridge NSString *)kCVImageBufferCleanApertureVerticalOffsetKey: @(apertureRectangle.y()),
+        (__bridge NSString *)kCVImageBufferCleanApertureHorizontalOffsetKey: @(apertureRectangle.x()),
     };
 }
 
@@ -140,16 +153,16 @@ RetainPtr<CMSampleBufferRef> ImageTransferSessionVT::convertCMSampleBuffer(CMSam
     if (!sourceBuffer)
         return nullptr;
 
-    auto description = PAL::CMSampleBufferGetFormatDescription(sourceBuffer);
-    auto sourceSize = FloatSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(description, true, true));
-    auto pixelBuffer = static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(sourceBuffer));
-    if (size == expandedIntSize(sourceSize) && m_pixelFormat == CVPixelBufferGetPixelFormatType(pixelBuffer))
+    RetainPtr description = PAL::CMSampleBufferGetFormatDescription(sourceBuffer);
+    auto sourceSize = FloatSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(description.get(), true, true));
+    RetainPtr pixelBuffer = static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(sourceBuffer));
+    if (size == expandedIntSize(sourceSize) && m_pixelFormat == CVPixelBufferGetPixelFormatType(pixelBuffer.get()))
         return retainPtr(sourceBuffer);
 
     if (!setSize(size))
         return nullptr;
 
-    auto convertedPixelBuffer = convertPixelBuffer(pixelBuffer, size);
+    auto convertedPixelBuffer = convertPixelBuffer(pixelBuffer.get(), size);
     if (!convertedPixelBuffer)
         return nullptr;
 
@@ -286,7 +299,7 @@ RefPtr<VideoFrame> ImageTransferSessionVT::convertVideoFrame(VideoFrame& videoFr
     if (size == expandedIntSize(videoFrame.presentationSize()))
         return &videoFrame;
 
-    auto resizedBuffer = convertPixelBuffer(videoFrame.pixelBuffer(), size);
+    auto resizedBuffer = convertPixelBuffer(videoFrame.protectedPixelBuffer().get(), size);
     if (!resizedBuffer)
         return nullptr;
 

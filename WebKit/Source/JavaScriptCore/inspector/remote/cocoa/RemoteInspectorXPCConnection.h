@@ -56,7 +56,7 @@ public:
     void sendMessage(NSString *messageName, NSDictionary *userInfo);
 
 private:
-    NSDictionary *deserializeMessage(xpc_object_t);
+    RetainPtr<NSDictionary> deserializeMessage(xpc_object_t);
     void handleEvent(xpc_object_t);
     void closeOnQueue();
 

@@ -30,7 +30,8 @@
 
 #if ENABLE(GEOLOCATION)
 
-#include "Document.h"
+#include "ContextDestructionObserverInlines.h"
+#include "DocumentPage.h"
 #include "EventLoop.h"
 #include "GeoNotifier.h"
 #include "GeolocationController.h"
@@ -40,9 +41,9 @@
 #include "GeolocationPositionData.h"
 #include "LocalFrame.h"
 #include "Navigator.h"
-#include "Page.h"
 #include "PermissionsPolicy.h"
 #include "ScriptExecutionContextInlines.h"
+#include "ScriptWrappableInlines.h"
 #include "SecurityOrigin.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/Ref.h>
@@ -354,9 +355,9 @@ int Geolocation::watchPosition(Ref<PositionCallback>&& successCallback, RefPtr<P
     return watchID;
 }
 
-static void logError(const String& target, const bool isSecure, const bool isMixedContent, Document* document)
+static void logError(const String& target, const bool isSecure, Document* document)
 {
-    if (isSecure && !isMixedContent)
+    if (isSecure)
         return;
 
     auto message = makeString("[blocked] Access to geolocation was blocked over"_s,
@@ -372,14 +373,13 @@ bool Geolocation::shouldBlockGeolocationRequests()
         return true;
 
     bool isSecure = SecurityOrigin::isSecure(document->url()) || document->isSecureContext();
-    bool hasMixedContent = !document->foundMixedContent().isEmpty();
     bool isLocalOrigin = securityOrigin()->isLocal();
     if (document->canAccessResource(ScriptExecutionContext::ResourceType::Geolocation) != ScriptExecutionContext::HasResourceAccess::No) {
-        if (isLocalOrigin || (isSecure && !hasMixedContent))
+        if (isLocalOrigin || isSecure)
             return false;
     }
 
-    logError(protectedSecurityOrigin()->toString(), isSecure, hasMixedContent, document.get());
+    logError(protectedSecurityOrigin()->toString(), isSecure, document.get());
     return true;
 }
 

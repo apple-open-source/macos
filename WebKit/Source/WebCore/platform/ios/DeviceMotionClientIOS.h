@@ -41,11 +41,12 @@ namespace WebCore {
 
 class DeviceMotionClientIOS : public DeviceMotionClient, public MotionManagerClient {
     WTF_MAKE_TZONE_ALLOCATED(DeviceMotionClientIOS);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DeviceMotionClientIOS);
 public:
     DeviceMotionClientIOS(RefPtr<DeviceOrientationUpdateProvider>&&);
     ~DeviceMotionClientIOS() override;
     void setController(DeviceMotionController*) override;
-    void startUpdating(const SecurityOriginData&) override;
+    void startUpdating() override;
     void stopUpdating() override;
     DeviceMotionData* lastMotion() const override;
     void deviceMotionControllerDestroyed() override;

@@ -29,6 +29,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "AudioMediaStreamTrackRendererInternalUnitManager.h"
+#include "AudioVideoRendererRemoteMessageReceiverMessages.h"
 #include "GPUConnectionToWebProcessMessages.h"
 #include "GPUProcessConnectionInfo.h"
 #include "GPUProcessConnectionMessages.h"
@@ -54,7 +55,7 @@
 #include "WebPageMessages.h"
 #include "WebProcess.h"
 #include "WebProcessProxyMessages.h"
-#include <WebCore/PlatformMediaSessionManager.h>
+#include <WebCore/PlatformMediaSession.h>
 #include <WebCore/RenderingMode.h>
 #include <WebCore/SharedBuffer.h>
 
@@ -93,6 +94,10 @@
 
 #if ENABLE(VP9) && PLATFORM(COCOA)
 #include <WebCore/VP9UtilitiesCocoa.h>
+#endif
+
+#if (ENABLE(OPUS) || ENABLE(VORBIS)) && PLATFORM(COCOA)
+#include <WebCore/WebMAudioUtilitiesCocoa.h>
 #endif
 
 #if ENABLE(ROUTING_ARBITRATION)
@@ -248,6 +253,12 @@ bool GPUProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Dec
         WebProcess::singleton().protectedRemoteMediaPlayerManager()->didReceivePlayerMessage(connection, decoder);
         return true;
     }
+
+    if (decoder.messageReceiverName() == Messages::AudioVideoRendererRemoteMessageReceiver::messageReceiverName()) {
+        RELEASE_LOG_ERROR(Media, "The AudioVideoRendererRemoteMessageReceiver object has beed destroyed");
+        return true;
+    }
+
 #endif
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
@@ -319,12 +330,23 @@ void GPUProcessConnection::didInitialize(std::optional<GPUProcessConnectionInfo>
     m_hasInitialized = true;
     RELEASE_LOG(Process, "%p - GPUProcessConnection::didInitialize", this);
 
-#if USE(LIBWEBRTC) && PLATFORM(COCOA)
+#if PLATFORM(COCOA)
+#if USE(LIBWEBRTC)
 #if ENABLE(VP9)
-    WebProcess::singleton().libWebRTCCodecs().setVP9VTBSupport(info->hasVP9HardwareDecoder);
+    WebProcess::singleton().libWebRTCCodecs().setVP9VTBSupport(info->mediaCodecCapabilities.hasVP9HardwareDecoder);
 #endif
 #if ENABLE(AV1)
-    WebProcess::singleton().protectedLibWebRTCCodecs()->setHasAV1HardwareDecoder(info->hasAV1HardwareDecoder);
+    WebProcess::singleton().protectedLibWebRTCCodecs()->setHasAV1HardwareDecoder(info->mediaCodecCapabilities.hasAV1HardwareDecoder);
+#endif
+#endif
+#if ENABLE(VP9)
+    VP9TestingOverrides::singleton().setVP9HardwareDecoderEnabledOverride(info->mediaCodecCapabilities.hasVP9HardwareDecoder);
+#endif
+#if ENABLE(OPUS)
+    WebCore::setHasOpusDecoder(info->mediaCodecCapabilities.hasOpusDecoder);
+#endif
+#if ENABLE(VORBIS)
+    WebCore::setHasVorbisDecoder(info->mediaCodecCapabilities.hasVorbisDecoder);
 #endif
 #endif
 }
@@ -345,7 +367,7 @@ bool GPUProcessConnection::waitForDidInitialize()
 void GPUProcessConnection::didReceiveRemoteCommand(PlatformMediaSession::RemoteControlCommandType type, const PlatformMediaSession::RemoteCommandArgument& argument)
 {
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    PlatformMediaSessionManager::singleton().processDidReceiveRemoteControlCommand(type, argument);
+    WebProcess::singleton().didReceiveRemoteCommand(type, argument);
 #endif
 }
 
@@ -429,29 +451,29 @@ void GPUProcessConnection::setMediaEnvironment(WebCore::PageIdentifier pageIdent
 }
 #endif
 
-void GPUProcessConnection::createRenderingBackend(RenderingBackendIdentifier identifier, IPC::StreamServerConnection::Handle&& serverHandle)
+void GPUProcessConnection::createRenderingBackend(RemoteRenderingBackendIdentifier identifier, IPC::StreamServerConnection::Handle&& serverHandle)
 {
     m_connection->send(Messages::GPUConnectionToWebProcess::CreateRenderingBackend(identifier, WTFMove(serverHandle)), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
-void GPUProcessConnection::releaseRenderingBackend(RenderingBackendIdentifier identifier)
+void GPUProcessConnection::releaseRenderingBackend(RemoteRenderingBackendIdentifier identifier)
 {
     m_connection->send(Messages::GPUConnectionToWebProcess::ReleaseRenderingBackend(identifier), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 #if ENABLE(WEBGL)
-void GPUProcessConnection::createGraphicsContextGL(GraphicsContextGLIdentifier identifier, const GraphicsContextGLAttributes& contextAttributes, RenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& serverHandle)
+void GPUProcessConnection::createGraphicsContextGL(RemoteGraphicsContextGLIdentifier identifier, const GraphicsContextGLAttributes& contextAttributes, RemoteRenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& serverHandle)
 {
     m_connection->send(Messages::GPUConnectionToWebProcess::CreateGraphicsContextGL(identifier, contextAttributes, renderingBackendIdentifier, WTFMove(serverHandle)), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
-void GPUProcessConnection::releaseGraphicsContextGL(GraphicsContextGLIdentifier identifier)
+void GPUProcessConnection::releaseGraphicsContextGL(RemoteGraphicsContextGLIdentifier identifier)
 {
     m_connection->send(Messages::GPUConnectionToWebProcess::ReleaseGraphicsContextGL(identifier), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 #endif
 
-void GPUProcessConnection::createGPU(WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& serverHandle)
+void GPUProcessConnection::createGPU(WebGPUIdentifier identifier, RemoteRenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& serverHandle)
 {
     m_connection->send(Messages::GPUConnectionToWebProcess::CreateGPU(identifier, renderingBackendIdentifier, WTFMove(serverHandle)), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }

@@ -51,7 +51,7 @@ header: <WebCore/TextRecognitionResult.h>
 #endif
     Vector<WebCore::TextRecognitionBlockData> blocks;
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    RetainPtr<NSData> imageAnalysisData;
+    std::optional<WebCore::AttributedString> imageAnalysisData;
 #endifs
 };
 

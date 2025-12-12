@@ -42,8 +42,12 @@
 #include <wtf/Unexpected.h>
 #include <wtf/WallTime.h>
 
+#if OS(ANDROID)
+#include "ArgumentCodersAndroid.h"
+#endif
 #if USE(GLIB)
 #include "ArgumentCodersGlib.h"
+#include "RendererBufferFormat.h"
 #endif
 #if USE(UNIX_DOMAIN_SOCKETS)
 #include "ArgumentCodersUnix.h"
@@ -182,7 +186,7 @@ template<typename T> struct ArgumentCoder<std::optional<T>> {
         }
 
         encoder << true;
-        encoder << std::forward<U>(optional).value();
+        SUPPRESS_UNCHECKED_ARG encoder << std::forward<U>(optional).value();
     }
 
     template<typename Decoder>
@@ -195,7 +199,7 @@ template<typename T> struct ArgumentCoder<std::optional<T>> {
             auto value = decoder.template decode<T>();
             if (!value)
                 return std::nullopt;
-            return std::optional<std::optional<T>>(WTFMove(*value));
+            SUPPRESS_UNCHECKED_ARG return std::optional<std::optional<T>>(WTFMove(*value));
         }
         return std::optional<std::optional<T>>(std::optional<T>(std::nullopt));
     }
@@ -235,7 +239,7 @@ template<typename T, typename U> struct ArgumentCoder<std::pair<T, U>> {
     static void encode(Encoder& encoder, V&& pair)
     {
         static_assert(std::is_same_v<std::remove_cvref_t<V>, std::pair<T, U>>);
-        encoder << std::get<0>(std::forward<V>(pair)) << std::get<1>(std::forward<V>(pair));
+        SUPPRESS_UNCHECKED_ARG encoder << std::get<0>(std::forward<V>(pair)) << std::get<1>(std::forward<V>(pair));
     }
 
     template<typename Decoder>
@@ -249,7 +253,7 @@ template<typename T, typename U> struct ArgumentCoder<std::pair<T, U>> {
         if (!second)
             return std::nullopt;
 
-        return std::make_optional<std::pair<T, U>>(WTFMove(*first), WTFMove(*second));
+        SUPPRESS_UNCHECKED_ARG return std::make_optional<std::pair<T, U>>(WTFMove(*first), WTFMove(*second));
     }
 };
 
@@ -258,7 +262,7 @@ template<typename T> struct ArgumentCoder<RefPtr<T>> {
     static void encode(Encoder& encoder, const RefPtr<U>& object)
     {
         if (object)
-            encoder << true << *object;
+            SUPPRESS_FORWARD_DECL_ARG encoder << true << *object;
         else
             encoder << false;
     }
@@ -274,7 +278,7 @@ template<typename T> struct ArgumentCoder<RefPtr<T>> {
         // Decoders of U held with RefPtr do not return std::optional<U> but
         // std::optional<RefPtr<U>>. We cannot use `decoder.template decode<U>()`
         // Currently expect "modern decoder" -like decode function.
-        return ArgumentCoder<U>::decode(decoder);
+        return ArgumentCoder<std::remove_const_t<U>>::decode(decoder);
     }
 };
 
@@ -282,7 +286,7 @@ template<typename T> struct ArgumentCoder<Ref<T>> {
     template<typename Encoder, typename U = T>
     static void encode(Encoder& encoder, const Ref<U>& object)
     {
-        encoder << object.get();
+        SUPPRESS_FORWARD_DECL_ARG encoder << object.get();
     }
 
     template<typename Decoder, typename U = T>
@@ -303,7 +307,7 @@ template<typename T> struct ArgumentCoder<std::unique_ptr<T>> {
         static_assert(std::is_same_v<std::remove_cvref_t<U>, std::unique_ptr<T>>);
 
         if (object)
-            encoder << true << WTF::forward_like<U>(*object);
+            SUPPRESS_UNCHECKED_ARG encoder << true << WTF::forward_like<U>(*object);
         else
             encoder << false;
     }
@@ -319,7 +323,7 @@ template<typename T> struct ArgumentCoder<std::unique_ptr<T>> {
             auto object = decoder.template decode<T>();
             if (!object)
                 return std::nullopt;
-            return std::make_optional<std::unique_ptr<T>>(makeUnique<T>(WTFMove(*object)));
+            SUPPRESS_UNCHECKED_ARG return std::make_optional<std::unique_ptr<T>>(makeUnique<T>(WTFMove(*object)));
         }
         return std::make_optional<std::unique_ptr<T>>();
     }
@@ -372,7 +376,7 @@ template<typename... Elements> struct ArgumentCoder<std::tuple<Elements...>> {
             return decode(decoder, WTFMove(decodedObjects)..., WTFMove(optional));
         } else {
             static_assert((std::is_same_v<DecodedTypes, Elements> && ...));
-            return std::make_optional<std::tuple<Elements...>>(*WTFMove(decodedObjects)...);
+            SUPPRESS_UNCHECKED_ARG return std::make_optional<std::tuple<Elements...>>(*WTFMove(decodedObjects)...);
         }
     }
 };
@@ -457,8 +461,8 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
         static_assert(std::is_same_v<std::remove_cvref_t<U>, Vector<T, inlineCapacity, OverflowHandler, minCapacity>>);
 
         encoder << static_cast<uint64_t>(vector.size());
-        for (auto&& item : vector)
-            encoder << WTF::forward_like<U>(item);
+        SUPPRESS_UNCHECKED_LOCAL for (auto&& item : vector)
+            SUPPRESS_UNCHECKED_ARG encoder << WTF::forward_like<U>(item);
     }
 
     template<typename Decoder>
@@ -487,7 +491,7 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
             auto element = decoder.template decode<T>();
             if (!element)
                 return std::nullopt;
-            vector.append(WTFMove(*element));
+            SUPPRESS_UNCHECKED_ARG vector.append(WTFMove(*element));
         }
         vector.shrinkToFit();
         return vector;

@@ -42,7 +42,6 @@
 #include "WebErrors.h"
 #include <WebCore/AsyncFileStream.h>
 #include <WebCore/BlobRegistryImpl.h>
-#include <WebCore/HTTPParsers.h>
 #include <WebCore/ParsedContentRange.h>
 #include <WebCore/PolicyContainer.h>
 #include <WebCore/ResourceError.h>
@@ -63,7 +62,7 @@ static constexpr auto httpPartialContentText = "Partial Content"_s;
 static constexpr auto webKitBlobResourceDomain = "WebKitBlobResource"_s;
 
 NetworkDataTaskBlob::NetworkDataTaskBlob(NetworkSession& session, NetworkDataTaskClient& client, const ResourceRequest& request, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences, const RefPtr<SecurityOrigin>& topOrigin)
-    : NetworkDataTask(session, client, request, StoredCredentialsPolicy::DoNotUse, false, false)
+    : NetworkDataTask(session, client, request, StoredCredentialsPolicy::DoNotUse, false, false, false)
     , m_stream(makeUnique<AsyncFileStream>(*this))
     , m_fileReferences(fileReferences)
     , m_networkProcess(session.networkProcess())
@@ -131,11 +130,13 @@ void NetworkDataTaskBlob::resume()
         }
 
         // Parse the "Range" header we care about.
-        String range = m_firstRequest.httpHeaderField(HTTPHeaderName::Range);
-        m_isRangeRequest = !range.isNull();
-        if (m_isRangeRequest && !parseRange(range, RangeAllowWhitespace::Yes, m_rangeStart, m_rangeEnd)) {
-            didFail(Error::RangeError);
-            return;
+        if (String range = m_firstRequest.httpHeaderField(HTTPHeaderName::Range); !range.isNull()) {
+            m_range = parseRange(range, RangeAllowWhitespace::Yes);
+            if (!m_range) {
+                didFail(Error::RangeError);
+                return;
+            }
+            m_isRangeRequest = true;
         }
 
         getSizeForNext();
@@ -210,52 +211,18 @@ void NetworkDataTaskBlob::didGetSize(long long size)
 
     // The size passed back is the size of the whole file. If the underlying item is a sliced file, we need to use the slice length.
     const BlobDataItem& item = m_blobData->items().at(m_sizeItemCount);
-    size = item.length();
+    uint64_t updatedSize = static_cast<uint64_t>(item.length());
 
     // Cache the size.
-    m_itemLengthList.append(size);
+    m_itemLengthList.append(updatedSize);
 
     // Count the size.
-    m_totalSize += size;
-    m_totalRemainingSize += size;
-    m_sizeItemCount++;
+    m_totalSize += updatedSize;
+    m_totalRemainingSize += updatedSize;
+    ++m_sizeItemCount;
 
     // Continue with the next item.
     getSizeForNext();
-}
-
-auto NetworkDataTaskBlob::seek() -> std::optional<Error>
-{
-    ASSERT(RunLoop::isMain());
-
-    // Bail out if the range is not provided.
-    if (!m_isRangeRequest)
-        return std::nullopt;
-
-    // Adjust m_rangeStart / m_rangeEnd
-    if (m_rangeStart == kPositionNotSpecified) {
-        m_rangeStart = m_totalSize - m_rangeEnd;
-        m_rangeEnd = m_rangeStart + m_rangeEnd - 1;
-    } else {
-        if (m_rangeStart >= m_totalSize)
-            return Error::RangeError;
-        if (m_rangeEnd == kPositionNotSpecified || m_rangeEnd >= m_totalSize)
-            m_rangeEnd = m_totalSize - 1;
-    }
-
-    // Skip the initial items that are not in the range.
-    long long offset = m_rangeStart;
-    for (m_readItemCount = 0; m_readItemCount < m_blobData->items().size() && offset >= m_itemLengthList[m_readItemCount]; ++m_readItemCount)
-        offset -= m_itemLengthList[m_readItemCount];
-
-    // Set the offset that need to jump to for the first item in the range.
-    m_currentItemReadSize = offset;
-
-    // Adjust the total remaining size in order not to go beyond the range.
-    long long rangeSize = m_rangeEnd - m_rangeStart + 1;
-    if (m_totalRemainingSize > rangeSize)
-        m_totalRemainingSize = rangeSize;
-    return std::nullopt;
 }
 
 void NetworkDataTaskBlob::dispatchDidReceiveResponse()
@@ -273,7 +240,7 @@ void NetworkDataTaskBlob::dispatchDidReceiveResponse()
     addPolicyContainerHeaders(response, m_blobData->policyContainer());
 
     if (m_isRangeRequest)
-        response.setHTTPHeaderField(HTTPHeaderName::ContentRange, ParsedContentRange(m_rangeStart, m_rangeEnd, m_totalSize).headerValue());
+        response.setHTTPHeaderField(HTTPHeaderName::ContentRange, ParsedContentRange(*m_range->start, *m_range->end, m_totalSize).headerValue());
 
     // FIXME: If a resource identified with a blob: URL is a File object, user agents must use that file's name attribute,
     // as if the response had a Content-Disposition header with the filename parameter set to the File's name attribute.
@@ -327,13 +294,13 @@ bool NetworkDataTaskBlob::readData(const BlobDataItem& item)
 {
     ASSERT(item.data());
 
-    long long bytesToRead = item.length() - m_currentItemReadSize;
-    ASSERT(bytesToRead >= 0);
+    ASSERT(m_currentItemReadSize <= static_cast<uint64_t>(item.length()));
+    uint64_t bytesToRead = item.length() - m_currentItemReadSize;
     if (bytesToRead > m_totalRemainingSize)
         bytesToRead = m_totalRemainingSize;
 
     RefPtr data = item.data();
-    auto dataSpan = data->span().subspan(item.offset() + m_currentItemReadSize, static_cast<size_t>(bytesToRead));
+    auto dataSpan = data->span().subspan(item.offset() + m_currentItemReadSize, static_cast<uint64_t>(bytesToRead));
     m_currentItemReadSize = 0;
 
     return consumeData(dataSpan);
@@ -348,7 +315,7 @@ void NetworkDataTaskBlob::readFile(const BlobDataItem& item)
         return;
     }
 
-    long long bytesToRead = m_itemLengthList[m_readItemCount] - m_currentItemReadSize;
+    uint64_t bytesToRead = m_itemLengthList[m_readItemCount] - m_currentItemReadSize;
     if (bytesToRead > m_totalRemainingSize)
         bytesToRead = static_cast<int>(m_totalRemainingSize);
     m_stream->openForRead(item.protectedFile()->path(), item.offset() + m_currentItemReadSize, bytesToRead);

@@ -25,14 +25,14 @@
 
 #pragma once
 
-#include "Blob.h"
-#include "Document.h"
-#include "ExceptionCode.h"
-#include "FileReaderLoader.h"
-#include "FileReaderLoaderClient.h"
-#include "Logging.h"
-#include "SharedBuffer.h"
 #include <JavaScriptCore/ArrayBuffer.h>
+#include <WebCore/Blob.h>
+#include <WebCore/Document.h>
+#include <WebCore/ExceptionCode.h>
+#include <WebCore/FileReaderLoader.h>
+#include <WebCore/FileReaderLoaderClient.h>
+#include <WebCore/Logging.h>
+#include <WebCore/SharedBuffer.h>
 #include <wtf/CompletionHandler.h>
 
 namespace WebCore {

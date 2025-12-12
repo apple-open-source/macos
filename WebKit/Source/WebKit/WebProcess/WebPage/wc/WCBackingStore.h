@@ -36,7 +36,7 @@ namespace WebKit {
 class WCBackingStore {
     WTF_MAKE_TZONE_ALLOCATED(WCBackingStore);
 public:
-    WCBackingStore() { }
+    WCBackingStore() = default;
     WebCore::ImageBuffer* imageBuffer() { return m_imageBuffer.get(); }
     void setImageBuffer(RefPtr<WebCore::ImageBuffer>&& image) { m_imageBuffer = WTFMove(image); }
     WebCore::ShareableBitmap* bitmap() const { return m_bitmap.get(); }

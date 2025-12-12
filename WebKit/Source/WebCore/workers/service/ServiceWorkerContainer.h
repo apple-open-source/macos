@@ -26,7 +26,6 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
-#include "AddEventListenerOptions.h"
 #include "EventTarget.h"
 #include "EventTargetInterfaces.h"
 #include "IDLTypes.h"
@@ -126,7 +125,7 @@ private:
 
     bool addEventListener(const AtomString& eventType, Ref<EventListener>&&, const AddEventListenerOptions& = { }) final;
 
-    void scheduleJob(std::unique_ptr<ServiceWorkerJob>&&);
+    void scheduleJob(Ref<ServiceWorkerJob>&&);
 
     void jobFailedWithException(ServiceWorkerJob&, const Exception&) final;
     void jobResolvedWithRegistration(ServiceWorkerJob&, ServiceWorkerRegistrationData&&, ShouldNotifyWhenResolved) final;
@@ -145,7 +144,8 @@ private:
     SWClientConnection& ensureSWClientConnection();
     Ref<SWClientConnection> ensureProtectedSWClientConnection();
 
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
+    using ActiveDOMObject::protectedScriptExecutionContext;
     enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::ServiceWorkerContainer; }
     void refEventTarget() final;
     void derefEventTarget() final;
@@ -162,7 +162,7 @@ private:
     RefPtr<SWClientConnection> m_swConnection;
 
     struct OngoingJob {
-        std::unique_ptr<ServiceWorkerJob> job;
+        RefPtr<ServiceWorkerJob> job;
         RefPtr<PendingActivity<ServiceWorkerContainer>> pendingActivity;
     };
     HashMap<ServiceWorkerJobIdentifier, OngoingJob> m_jobMap;

@@ -30,6 +30,7 @@
 
 #include "CSSStyleImageValue.h"
 #include "CachedImage.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DOMRectReadOnly.h"
 #include "ExceptionOr.h"
 #include "HTMLCanvasElement.h"

@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "EpochTimeStamp.h"
-#include "GeolocationCoordinates.h"
+#include <WebCore/EpochTimeStamp.h>
+#include <WebCore/GeolocationCoordinates.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 

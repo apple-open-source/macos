@@ -31,8 +31,8 @@
 #include "AudioContextOptions.h"
 #include "AudioTimestamp.h"
 #include "DOMAudioSession.h"
-#include "DocumentInlines.h"
-#include "FrameInlines.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
 #include "JSDOMPromiseDeferred.h"
 #include "LocalDOMWindow.h"
 #include "Logging.h"
@@ -44,7 +44,7 @@
 #include "PageInlines.h"
 #include "Performance.h"
 #include "PlatformMediaSessionManager.h"
-#include "Quirks.h"
+#include "Settings.h"
 #include <wtf/MediaTime.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -699,8 +699,9 @@ bool AudioContext::shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSess
 void AudioContext::defaultDestinationWillBecomeConnected()
 {
     // We might need to interrupt if we previously overrode a background interruption.
-    if (!PlatformMediaSessionManager::singleton().isApplicationInBackground() || m_mediaSession->state() == PlatformMediaSession::State::Interrupted) {
-        PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary();
+    RefPtr manager = sessionManager();
+    if (manager && (!manager->isApplicationInBackground() || m_mediaSession->state() == PlatformMediaSession::State::Interrupted)) {
+        manager->updateNowPlayingInfoIfNecessary();
         return;
     }
 
@@ -760,6 +761,11 @@ ExceptionOr<Ref<MediaStreamAudioDestinationNode>> AudioContext::createMediaStrea
 bool AudioContext::virtualHasPendingActivity() const
 {
     return !isClosed();
+}
+
+RefPtr<MediaSessionManagerInterface> AudioContext::sessionManager() const
+{
+    return BaseAudioContext::mediaSessionManager();
 }
 
 } // namespace WebCore

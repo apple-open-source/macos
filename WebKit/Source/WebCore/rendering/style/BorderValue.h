@@ -25,8 +25,9 @@
 
 #pragma once
 
-#include "RenderStyleConstants.h"
-#include "StyleColor.h"
+#include <WebCore/RenderStyleConstants.h>
+#include <WebCore/StyleColor.h>
+#include <WebCore/StyleLineWidth.h>
 
 namespace WebCore {
 
@@ -41,7 +42,7 @@ public:
     }
 
     const Style::Color& color() const { return m_color; }
-    float width() const { return m_width; }
+    Style::LineWidth width() const { return m_width; }
     BorderStyle style() const { return static_cast<BorderStyle>(m_style); }
 
     bool isVisible() const;
@@ -52,7 +53,7 @@ public:
 
 protected:
     Style::Color m_color { Style::Color::currentColor() };
-    float m_width { 3 };
+    Style::LineWidth m_width { CSS::Keyword::Medium { } };
     PREFERRED_TYPE(BorderStyle) unsigned m_style : 4;
 };
 

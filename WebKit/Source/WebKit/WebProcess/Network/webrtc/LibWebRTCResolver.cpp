@@ -50,7 +50,7 @@ void LibWebRTCResolver::sendOnMainThread(Function<void(IPC::Connection&)>&& call
 
 LibWebRTCResolver::~LibWebRTCResolver()
 {
-    WebProcess::singleton().libWebRTCNetwork().socketFactory().removeResolver(identifier());
+    WebProcess::singleton().libWebRTCNetwork().checkedSocketFactory()->removeResolver(identifier());
     sendOnMainThread([identifier = this->identifier()](IPC::Connection& connection) {
         connection.send(Messages::NetworkRTCProvider::StopResolver(identifier), 0);
     });

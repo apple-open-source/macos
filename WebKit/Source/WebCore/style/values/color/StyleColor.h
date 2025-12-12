@@ -32,13 +32,13 @@
 
 #pragma once
 
-#include "CSSColor.h"
-#include "CSSColorDescriptors.h"
-#include "CSSColorType.h"
-#include "CSSValueKeywords.h"
-#include "StyleColorOptions.h"
-#include "StyleCurrentColor.h"
-#include "StyleResolvedColor.h"
+#include <WebCore/CSSColor.h>
+#include <WebCore/CSSColorDescriptors.h>
+#include <WebCore/CSSColorType.h>
+#include <WebCore/CSSValueKeywords.h>
+#include <WebCore/StyleColorOptions.h>
+#include <WebCore/StyleCurrentColor.h>
+#include <WebCore/StyleResolvedColor.h>
 #include <wtf/Markable.h>
 #include <wtf/OptionSet.h>
 #include <wtf/UniqueRef.h>
@@ -83,6 +83,7 @@ private:
         UniqueRef<RelativeColor<OKLCHFunction>>,
         UniqueRef<RelativeColor<ColorRGBFunction<ExtendedA98RGB<float>>>>,
         UniqueRef<RelativeColor<ColorRGBFunction<ExtendedDisplayP3<float>>>>,
+        UniqueRef<RelativeColor<ColorRGBFunction<ExtendedLinearDisplayP3<float>>>>,
         UniqueRef<RelativeColor<ColorRGBFunction<ExtendedProPhotoRGB<float>>>>,
         UniqueRef<RelativeColor<ColorRGBFunction<ExtendedRec2020<float>>>>,
         UniqueRef<RelativeColor<ColorRGBFunction<ExtendedSRGBA<float>>>>,
@@ -98,6 +99,7 @@ public:
     // The default constructor initializes to Style::CurrentColor to preserve old behavior,
     // we might want to remove it entirely at some point.
     Color();
+    Color(CSS::Keyword::Currentcolor);
 
     // Convenience constructors that create Style::ResolvedColor.
     Color(WebCore::Color);
@@ -117,6 +119,7 @@ public:
     Color(RelativeColor<OKLCHFunction>&&);
     Color(RelativeColor<ColorRGBFunction<ExtendedA98RGB<float>>>&&);
     Color(RelativeColor<ColorRGBFunction<ExtendedDisplayP3<float>>>&&);
+    Color(RelativeColor<ColorRGBFunction<ExtendedLinearDisplayP3<float>>>&&);
     Color(RelativeColor<ColorRGBFunction<ExtendedProPhotoRGB<float>>>&&);
     Color(RelativeColor<ColorRGBFunction<ExtendedRec2020<float>>>&&);
     Color(RelativeColor<ColorRGBFunction<ExtendedSRGBA<float>>>&&);
@@ -134,7 +137,7 @@ public:
 
     bool operator==(const Color&) const;
 
-    static Color currentColor();
+    static const Color& currentColor();
 
     bool containsCurrentColor() const;
     bool isCurrentColor() const;
@@ -177,6 +180,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, const Color&);
 
 Color toStyleColor(const CSS::Color&, ColorResolutionState&);
 Color toStyleColor(const CSS::Color&, Ref<const Document>, const RenderStyle&, const CSSToLengthConversionData&, ForVisitedLink);
+Color toStyleColor(const CSS::Color&, const BuilderState&, ForVisitedLink);
 
 template<> struct ToCSS<Color> {
     auto operator()(const Color&, const RenderStyle&) -> CSS::Color;
@@ -188,6 +192,7 @@ template<> struct ToStyle<CSS::Color> {
 
 template<> struct CSSValueConversion<Color> {
     auto operator()(BuilderState&, const CSSValue&, ForVisitedLink) -> Color;
+    auto operator()(BuilderState&, const CSSValue&) -> Color;
 };
 template<> struct CSSValueCreation<Color> {
     auto operator()(CSSValuePool&, const RenderStyle&, const Color&) -> Ref<CSSValue>;
@@ -238,4 +243,4 @@ struct MarkableTraits<WebCore::Style::Color> {
 
 }
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::Color> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::Color)

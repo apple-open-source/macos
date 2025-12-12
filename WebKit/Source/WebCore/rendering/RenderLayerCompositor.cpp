@@ -33,6 +33,7 @@
 #include "CanvasRenderingContext.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "ContainerNodeInlines.h"
 #include "DocumentFullscreen.h"
 #include "GraphicsLayer.h"
 #include "HTMLCanvasElement.h"
@@ -1017,6 +1018,10 @@ void RenderLayerCompositor::updateEventRegionsRecursive(RenderLayer& layer)
 
 void RenderLayerCompositor::updateEventRegions()
 {
+    bool isProhibitedFrame = m_renderView.document().ownerElement() && !m_renderView.document().ownerElement()->renderer();
+    if (isProhibitedFrame)
+        return;
+
     updateEventRegionsRecursive(*m_renderView.layer());
     m_renderView.setNeedsEventRegionUpdateForNonCompositedFrame(false);
 }
@@ -1240,7 +1245,7 @@ static bool canSkipComputeCompositingRequirementsForSubtree(const RenderLayer& l
 
 bool RenderLayerCompositor::allowBackingStoreDetachingForFixedPosition(RenderLayer& layer, const LayoutRect& absoluteBounds)
 {
-    ASSERT_UNUSED(layer, layer.behavesAsFixed() || layer.behavesAsSticky());
+    ASSERT_UNUSED(layer, layer.behavesAsFixed());
 
     // We'll allow detaching if the layer is outside the layout viewport. Fixed layers inside
     // the layout viewport can be revealed by async scrolling, so we want to pin their backing store.
@@ -1386,7 +1391,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* ancestor
         layerWillComposite();
         currentState.subtreeIsCompositing = true;
         becameCompositedAfterDescendantTraversal = true;
-        if (layer.behavesAsFixed() || layer.behavesAsSticky())
+        if (layer.behavesAsFixed())
             allowsBackingStoreDetachingForFixed = allowBackingStoreDetachingForFixedPosition(layer, layerExtent.bounds);
     };
 
@@ -1396,7 +1401,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* ancestor
         computeExtent(overlapMap, layer, layerExtent);
         currentState.ancestorHasTransformAnimation |= layerExtent.hasTransformAnimation;
 
-        if (!allowsBackingStoreDetachingForFixed && (layer.behavesAsFixed() || layer.behavesAsSticky()))
+        if (!allowsBackingStoreDetachingForFixed && layer.behavesAsFixed())
             currentState.ancestorAllowsBackingStoreDetachingForFixed = allowsBackingStoreDetachingForFixed = allowBackingStoreDetachingForFixedPosition(layer, layerExtent.bounds);
 
         // Too hard to compute animated bounds if both us and some ancestor is animating transform.
@@ -1675,7 +1680,7 @@ void RenderLayerCompositor::traverseUnchangedSubtree(RenderLayer* ancestorLayer,
 
 void RenderLayerCompositor::collectViewTransitionNewContentLayers(RenderLayer& layer, Vector<Ref<GraphicsLayer>>& childList)
 {
-    if (layer.renderer().style().pseudoElementType() != PseudoId::ViewTransitionNew || !layer.hasVisibleContent())
+    if (layer.renderer().style().pseudoElementType() != PseudoElementType::ViewTransitionNew || !layer.hasVisibleContent())
         return;
 
     if (!downcast<RenderViewTransitionCapture>(layer.renderer()).canUseExistingLayers())
@@ -2080,8 +2085,8 @@ void RenderLayerCompositor::logLayerInfo(const RenderLayer& layer, ASCIILiteral 
     StringBuilder logString;
     logString.append(pad(' ', 12 + depth * 2, hex(reinterpret_cast<uintptr_t>(&layer), Lowercase)), " id "_s, backing->graphicsLayer()->primaryLayerID() ? backing->graphicsLayer()->primaryLayerID()->object().toUInt64() : 0, " ("_s, absoluteBounds.x().toFloat(), ',', absoluteBounds.y().toFloat(), '-', absoluteBounds.maxX().toFloat(), ',', absoluteBounds.maxY().toFloat(), ") "_s, FormattedNumber::fixedWidth(backing->backingStoreMemoryEstimate() / 1024, 2), "KB"_s);
 
-    if (!layer.renderer().style().hasAutoUsedZIndex())
-        logString.append(" z-index: "_s, layer.renderer().style().usedZIndex());
+    if (auto value = layer.renderer().style().usedZIndex().tryValue())
+        logString.append(" z-index: "_s, value->value);
 
     logString.append(" ("_s, logOneReasonForCompositing(layer), ") "_s);
 
@@ -2123,8 +2128,9 @@ void RenderLayerCompositor::logLayerInfo(const RenderLayer& layer, ASCIILiteral 
 
 static bool clippingChanged(const RenderStyle& oldStyle, const RenderStyle& newStyle)
 {
-    return oldStyle.overflowX() != newStyle.overflowX() || oldStyle.overflowY() != newStyle.overflowY()
-        || oldStyle.hasClip() != newStyle.hasClip() || oldStyle.clip() != newStyle.clip();
+    return oldStyle.overflowX() != newStyle.overflowX()
+        || oldStyle.overflowY() != newStyle.overflowY()
+        || oldStyle.clip() != newStyle.clip();
 }
 
 static bool styleAffectsLayerGeometry(const RenderStyle& style)
@@ -2144,8 +2150,7 @@ static bool recompositeChangeRequiresGeometryUpdate(const RenderStyle& oldStyle,
         || oldStyle.transformOriginZ() != newStyle.transformOriginZ()
         || oldStyle.usedTransformStyle3D() != newStyle.usedTransformStyle3D()
         || oldStyle.perspective() != newStyle.perspective()
-        || oldStyle.perspectiveOriginX() != newStyle.perspectiveOriginX()
-        || oldStyle.perspectiveOriginY() != newStyle.perspectiveOriginY()
+        || oldStyle.perspectiveOrigin() != newStyle.perspectiveOrigin()
         || oldStyle.backfaceVisibility() != newStyle.backfaceVisibility()
         || oldStyle.offsetPath() != newStyle.offsetPath()
         || oldStyle.offsetAnchor() != newStyle.offsetAnchor()
@@ -2292,7 +2297,7 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
             }
             // If we're changing to/from 0 opacity, then we need to reconfigure the layer since we try to
             // skip backing store allocation for opacity:0.
-            if (oldStyle && oldStyle->opacity() != newStyle.opacity() && (!oldStyle->opacity() || !newStyle.opacity()))
+            if (oldStyle && oldStyle->opacity() != newStyle.opacity() && (oldStyle->opacity().isTransparent() || newStyle.opacity().isTransparent()))
                 layer.setNeedsCompositingConfigurationUpdate();
         }
         if (oldStyle && recompositeChangeRequiresGeometryUpdate(*oldStyle, newStyle)) {
@@ -2577,6 +2582,22 @@ void RenderLayerCompositor::computeExtent(const LayerOverlapMap& overlapMap, con
     if (extent.extentComputed)
         return;
 
+    auto markExtentAsComputed = WTF::makeScopeExit([&]() {
+        extent.extentComputed = true;
+    });
+
+    RenderLayerModelObject& renderer = layer.renderer();
+    if (renderer.isStickilyPositioned()) {
+        // Use rectangle that represents union of all possible sticky element positions,
+        // because it could be moved around without re-computing overlap.
+        auto const& box = downcast<RenderBoxModelObject>(renderer);
+        StickyPositionViewportConstraints constraints;
+        auto constrainingRectForStickyPosition = box.constrainingRectForStickyPosition();
+        box.computeStickyPositionConstraints(constraints, constrainingRectForStickyPosition);
+        extent.bounds = LayoutRect(constraints.computeStickyExtent());
+        return;
+    }
+
     LayoutRect layerBounds;
     if (extent.hasTransformAnimation)
         extent.animationCausesExtentUncertainty = !layer.getOverlapBoundsIncludingChildrenAccountingForTransformAnimations(layerBounds);
@@ -2591,15 +2612,11 @@ void RenderLayerCompositor::computeExtent(const LayerOverlapMap& overlapMap, con
     if (extent.bounds.isEmpty())
         extent.bounds.setSize(LayoutSize(1, 1));
 
-    RenderLayerModelObject& renderer = layer.renderer();
     if (renderer.isFixedPositioned() && renderer.container() == &m_renderView) {
         // Because fixed elements get moved around without re-computing overlap, we have to compute an overlap
         // rect that covers all the locations that the fixed element could move to.
-        // FIXME: need to handle sticky too.
         extent.bounds = m_renderView.frameView().fixedScrollableAreaBoundsInflatedForScrolling(extent.bounds);
     }
-
-    extent.extentComputed = true;
 }
 
 enum class AncestorTraversal { Continue, Stop };
@@ -3778,7 +3795,7 @@ bool RenderLayerCompositor::clipsCompositingDescendants(const RenderLayer& layer
 {
     // View transition new always has composited descendants in the graphics layer
     // tree due to hosting (but not in the RenderLayer tree).
-    if (layer.renderer().style().pseudoElementType() == PseudoId::ViewTransitionNew && layer.renderer().hasClipOrNonVisibleOverflow())
+    if (layer.renderer().style().pseudoElementType() == PseudoElementType::ViewTransitionNew && layer.renderer().hasClipOrNonVisibleOverflow())
         return true;
 
     if (!(layer.hasCompositingDescendant() && layer.renderer().hasClipOrNonVisibleOverflow()))
@@ -3916,11 +3933,16 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderLayerModelObject&
     if (!renderer.isRenderHTMLCanvas())
         return false;
 
-    bool isCanvasLargeEnoughToForceCompositing = true;
+    bool isCanvasLargeEnoughOrHDRToForceCompositing = true;
 #if !USE(COMPOSITING_FOR_SMALL_CANVASES)
     RefPtr canvas = downcast<HTMLCanvasElement>(renderer.element());
     auto canvasArea = canvas->size().area<RecordOverflow>();
-    isCanvasLargeEnoughToForceCompositing = !canvasArea.hasOverflowed() && canvasArea >= canvasAreaThresholdRequiringCompositing;
+    if (canvasArea.hasOverflowed() || canvasArea < canvasAreaThresholdRequiringCompositing) {
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+        if (RefPtr renderingContext = canvas->renderingContext(); !renderingContext || !renderingContext->isHDR())
+#endif
+            isCanvasLargeEnoughOrHDRToForceCompositing = false;
+    }
 #endif
 
     CanvasCompositingStrategy compositingStrategy = canvasCompositingStrategy(renderer);
@@ -3928,7 +3950,7 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderLayerModelObject&
         return true;
 
     if (m_compositingPolicy == CompositingPolicy::Normal)
-        return compositingStrategy == CanvasPaintedToLayer && isCanvasLargeEnoughToForceCompositing;
+        return compositingStrategy == CanvasPaintedToLayer && isCanvasLargeEnoughOrHDRToForceCompositing;
 
     return false;
 }
@@ -4884,8 +4906,8 @@ void RenderLayerCompositor::rootOrBodyStyleChanged(RenderElement& renderer, cons
     if (oldBackgroundColor != renderer.style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor))
         rootBackgroundColorOrTransparencyChanged();
 
-    bool hadFixedBackground = oldStyle && oldStyle->hasEntirelyFixedBackground();
-    if (hadFixedBackground != renderer.style().hasEntirelyFixedBackground())
+    bool hadFixedBackground = oldStyle && oldStyle->backgroundLayers().hasEntirelyFixedBackground();
+    if (hadFixedBackground != renderer.style().backgroundLayers().hasEntirelyFixedBackground())
         rootLayerConfigurationChanged();
     
     if (oldStyle && (oldStyle->overscrollBehaviorX() != renderer.style().overscrollBehaviorX() || oldStyle->overscrollBehaviorY() != renderer.style().overscrollBehaviorY())) {

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "InternalObserverInspect.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "InternalObserver.h"
 #include "JSSubscriptionObserverCallback.h"
 #include "Observable.h"

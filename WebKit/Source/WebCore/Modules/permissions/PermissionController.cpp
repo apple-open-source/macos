@@ -36,17 +36,12 @@ static RefPtr<PermissionController>& sharedController()
     return controller;
 }
 
-PermissionController& PermissionController::shared()
+PermissionController& PermissionController::singleton()
 {
     auto& controller = sharedController();
     if (!controller)
         controller = DummyPermissionController::create();
     return *controller;
-}
-
-Ref<PermissionController> PermissionController::protectedShared()
-{
-    return shared();
 }
 
 void PermissionController::setSharedController(Ref<PermissionController>&& controller)

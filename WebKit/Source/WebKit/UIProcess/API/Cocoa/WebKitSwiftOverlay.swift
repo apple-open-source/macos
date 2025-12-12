@@ -47,8 +47,8 @@ extension WKWebView {
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @preconcurrency
     public func callAsyncJavaScript(
-        _ functionBody: String,
-        arguments: [String: Any] = [:],
+        _ functionBody: Swift.String,
+        arguments: [Swift.String: Any] = [:],
         in frame: WKFrameInfo? = nil,
         in contentWorld: WKContentWorld,
         completionHandler: (@MainActor (Result<Any, Error>) -> Void)? = nil
@@ -78,7 +78,7 @@ extension WKWebView {
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @preconcurrency
     public func evaluateJavaScript(
-        _ javaScript: String,
+        _ javaScript: Swift.String,
         in frame: WKFrameInfo? = nil,
         in contentWorld: WKContentWorld,
         completionHandler: (@MainActor (Result<Any, Error>) -> Void)? = nil
@@ -91,7 +91,7 @@ extension WKWebView {
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @preconcurrency
     public func find(
-        _ string: String,
+        _ string: Swift.String,
         configuration: WKFindConfiguration = .init(),
         completionHandler: @MainActor @escaping (WKFindResult) -> Void
     ) {
@@ -104,8 +104,8 @@ extension WKWebView {
     // This is pre-existing API whose documentation does not use the source code.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public func callAsyncJavaScript(
-        _ functionBody: String,
-        arguments: [String: Any] = [:],
+        _ functionBody: Swift.String,
+        arguments: [Swift.String: Any] = [:],
         in frame: WKFrameInfo? = nil,
         contentWorld: WKContentWorld
     ) async throws -> Any? {
@@ -120,13 +120,17 @@ extension WKWebView {
 
     // This is pre-existing API whose documentation does not use the source code.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    public func evaluateJavaScript(_ javaScript: String, in frame: WKFrameInfo? = nil, contentWorld: WKContentWorld) async throws -> Any? {
+    public func evaluateJavaScript(
+        _ javaScript: Swift.String,
+        in frame: WKFrameInfo? = nil,
+        contentWorld: WKContentWorld
+    ) async throws -> Any? {
         try await __evaluateJavaScript(javaScript, inFrame: frame, in: contentWorld)
     }
 
     // This is pre-existing API whose documentation does not use the source code.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-    public func find(_ string: String, configuration: WKFindConfiguration = .init()) async throws -> WKFindResult {
+    public func find(_ string: Swift.String, configuration: WKFindConfiguration = .init()) async throws -> WKFindResult {
         await __find(string, with: configuration)
     }
 }
@@ -155,7 +159,7 @@ extension WKWebExtension {
     ///
     /// - Parameter resourceBaseURL: The file URL to use for the new web extension.
     /// - Throws: An error if the manifest is invalid or missing, or the URL points to an unsupported format or invalid archive.
-    public convenience init(resourceBaseURL: URL) async throws {
+    public convenience init(resourceBaseURL: Foundation.URL) async throws {
         // FIXME: <https://webkit.org/b/276194> Make the WebExtension class load data on a background thread.
         try self.init(appExtensionBundle: nil, resourceBaseURL: resourceBaseURL)
     }

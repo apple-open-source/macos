@@ -62,7 +62,7 @@ public:
     RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() override;
     bool needsPreparationForDisplay() const override { return true; }
     void prepareForDisplay() override;
-    ImageBufferPixelFormat pixelFormat() const override;
+    PixelFormat pixelFormat() const override;
     bool isOpaque() const override;
     void reshape() override;
 

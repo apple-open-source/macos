@@ -22,8 +22,8 @@
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
 
-#include "JSDOMWrapper.h"
 #include "TestLegacyNoInterfaceObject.h"
+#include <WebCore/JSDOMWrapper.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {

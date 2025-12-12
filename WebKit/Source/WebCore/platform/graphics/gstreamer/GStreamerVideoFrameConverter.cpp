@@ -214,9 +214,9 @@ IGNORE_WARNINGS_END
     auto structure = gst_caps_get_structure(destinationCaps.get(), 0);
     auto width = gstStructureGet<int>(structure, "width"_s);
     auto height = gstStructureGet<int>(structure, "height"_s);
-    auto formatStringView = gstStructureGetString(structure, "format"_s);
-    if (width && height && !formatStringView.isEmpty()) {
-        auto format = gst_video_format_from_string(formatStringView.toStringWithoutCopying().ascii().data());
+    auto formatString = gstStructureGetString(structure, "format"_s);
+    if (width && height && !formatString.isEmpty()) {
+        auto format = gst_video_format_from_string(formatString.utf8());
         gst_buffer_add_video_meta(writableBuffer.get(), GST_VIDEO_FRAME_FLAG_NONE, format, *width, *height);
     }
     gst_sample_set_buffer(convertedSample.get(), writableBuffer.get());

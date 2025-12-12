@@ -563,7 +563,7 @@ void ScrollingTree::removeAllNodes()
 {
     auto nodes = std::exchange(m_nodeMap, { });
     for (auto iter : nodes)
-        iter.value->willBeDestroyed();
+        Ref { *iter.value }->willBeDestroyed();
 
     m_nodeMap.clear();
     {
@@ -683,6 +683,12 @@ ScrollbarWidth ScrollingTree::mainFrameScrollbarWidth() const
     return m_rootNode ? m_rootNode->scrollbarWidthStyle() : ScrollbarWidth::Auto;
 }
 
+std::optional<ScrollbarColor> ScrollingTree::mainFrameScrollbarColor() const
+{
+    Locker locker { m_treeLock };
+    return m_rootNode ? m_rootNode->scrollbarColorStyle() : std::nullopt;
+}
+
 OverscrollBehavior ScrollingTree::mainFrameVerticalOverscrollBehavior() const
 {
     Locker locker { m_treeLock };
@@ -728,22 +734,22 @@ FloatRect ScrollingTree::layoutViewport() const
 void ScrollingTree::viewWillStartLiveResize()
 {
     Locker locker { m_treeLock };
-    if (m_rootNode)
-        m_rootNode->viewWillStartLiveResize();
+    if (RefPtr rootNode = m_rootNode)
+        rootNode->viewWillStartLiveResize();
 }
 
 void ScrollingTree::viewWillEndLiveResize()
 {
     Locker locker { m_treeLock };
-    if (m_rootNode)
-        m_rootNode->viewWillEndLiveResize();
+    if (RefPtr rootNode = m_rootNode)
+        rootNode->viewWillEndLiveResize();
 }
 
 void ScrollingTree::viewSizeDidChange()
 {
     Locker locker { m_treeLock };
-    if (m_rootNode)
-        m_rootNode->viewSizeDidChange();
+    if (RefPtr rootNode = m_rootNode)
+        rootNode->viewSizeDidChange();
 }
 
 void ScrollingTree::setGestureState(std::optional<WheelScrollGestureState> gestureState)

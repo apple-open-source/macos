@@ -30,6 +30,7 @@
 
 #if ENABLE(MATHML)
 
+#include "ContainerNodeInlines.h"
 #include "HTTPParsers.h"
 #include "MathMLNames.h"
 #include "RenderMathMLToken.h"
@@ -76,17 +77,6 @@ bool MathMLTokenElement::childShouldCreateRenderer(const Node& child) const
 {
     // The HTML specification defines <mi>, <mo>, <mn>, <ms> and <mtext> as insertion points.
     return StyledElement::childShouldCreateRenderer(child);
-}
-
-std::optional<char32_t> MathMLTokenElement::convertToSingleCodePoint(StringView string)
-{
-    auto codePoints = string.trim(isASCIIWhitespaceWithoutFF<UChar>).codePoints();
-    auto iterator = codePoints.begin();
-    if (iterator == codePoints.end())
-        return std::nullopt;
-    std::optional<char32_t> character = *iterator;
-    ++iterator;
-    return iterator == codePoints.end() ? character : std::nullopt;
 }
 
 }

@@ -172,7 +172,7 @@ JSValue JSTestOperationConditional::getConstructor(VM& vm, const JSGlobalObject*
 
 void JSTestOperationConditional::destroy(JSC::JSCell* cell)
 {
-    JSTestOperationConditional* thisObject = static_cast<JSTestOperationConditional*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestOperationConditional* thisObject = static_cast<JSTestOperationConditional*>(cell);
     thisObject->JSTestOperationConditional::~JSTestOperationConditional();
 }
 
@@ -251,7 +251,7 @@ bool JSTestOperationConditionalOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC
 
 void JSTestOperationConditionalOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestOperationConditional = static_cast<JSTestOperationConditional*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestOperationConditional = static_cast<JSTestOperationConditional*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestOperationConditional->protectedWrapped().ptr(), jsTestOperationConditional);
 }
@@ -265,7 +265,7 @@ extern "C" { extern void (*const __identifier("??_7TestOperationConditional@WebC
 extern "C" { extern void* _ZTVN7WebCore24TestOperationConditionalE[]; }
 #endif
 template<std::same_as<TestOperationConditional> T>
-static inline void verifyVTable(TestOperationConditional* ptr) 
+static inline void verifyVTable(TestOperationConditional* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -285,8 +285,9 @@ static inline void verifyVTable(TestOperationConditional* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestOperationConditional>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestOperationConditional>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestOperationConditional>(impl.ptr());
 #endif

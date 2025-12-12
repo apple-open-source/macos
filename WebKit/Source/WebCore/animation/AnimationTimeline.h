@@ -26,8 +26,7 @@
 
 #pragma once
 
-#include "TimelineRange.h"
-#include "WebAnimationTypes.h"
+#include <WebCore/WebAnimationTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
@@ -36,6 +35,10 @@ namespace WebCore {
 
 class AnimationTimelinesController;
 class WebAnimation;
+
+namespace Style {
+struct SingleAnimationRange;
+}
 
 class AnimationTimeline : public RefCountedAndCanMakeWeakPtr<AnimationTimeline> {
 public:
@@ -67,15 +70,16 @@ public:
 
     virtual AnimationTimelinesController* controller() const { return nullptr; }
 
-    virtual TimelineRange defaultRange() const { return { }; }
+    virtual Style::SingleAnimationRange defaultRange() const;
+
     static void updateGlobalPosition(WebAnimation&);
+
 protected:
     AnimationTimeline(std::optional<WebAnimationTime> = std::nullopt);
 
     AnimationCollection m_animations;
 
 private:
-
     std::optional<WebAnimationTime> m_currentTime;
     std::optional<WebAnimationTime> m_duration;
 };

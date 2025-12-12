@@ -27,7 +27,7 @@
 
 #if ENABLE(SHAREABLE_RESOURCE)
 
-#include "SharedMemory.h"
+#include <WebCore/SharedMemory.h>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>

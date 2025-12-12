@@ -27,9 +27,9 @@
 #include "config.h"
 #include "SVGUseElement.h"
 
-#include "CachedResourceLoader.h"
 #include "CachedSVGDocument.h"
 #include "ContainerNodeInlines.h"
+#include "DocumentResourceLoader.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementChildIteratorInlines.h"
 #include "Event.h"
@@ -46,6 +46,7 @@
 #include "SVGSVGElement.h"
 #include "SVGSymbolElement.h"
 #include "ScriptDisallowedScope.h"
+#include "Settings.h"
 #include "ShadowRoot.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "XLinkNames.h"

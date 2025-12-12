@@ -44,9 +44,7 @@ WebPopupMenu::WebPopupMenu(WebPage* page, PopupMenuClient* client)
 {
 }
 
-WebPopupMenu::~WebPopupMenu()
-{
-}
+WebPopupMenu::~WebPopupMenu() = default;
 
 WebPage* WebPopupMenu::page()
 {

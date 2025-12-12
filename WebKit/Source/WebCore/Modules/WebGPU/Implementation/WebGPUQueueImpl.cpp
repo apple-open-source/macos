@@ -110,7 +110,6 @@ void QueueImpl::writeTexture(
     Ref convertToBackingContext = m_convertToBackingContext;
 
     WGPUImageCopyTexture backingDestination {
-        .nextInChain = nullptr,
         .texture = convertToBackingContext->convertToBacking(destination.protectedTexture().get()),
         .mipLevel = destination.mipLevel,
         .origin = destination.origin ? convertToBackingContext->convertToBacking(*destination.origin) : WGPUOrigin3D { 0, 0, 0 },
@@ -118,7 +117,6 @@ void QueueImpl::writeTexture(
     };
 
     WGPUTextureDataLayout backingDataLayout {
-        .nextInChain = nullptr,
         .offset = dataLayout.offset,
         .bytesPerRow = dataLayout.bytesPerRow.value_or(WGPU_COPY_STRIDE_UNDEFINED),
         .rowsPerImage = dataLayout.rowsPerImage.value_or(WGPU_COPY_STRIDE_UNDEFINED),

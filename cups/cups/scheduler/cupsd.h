@@ -83,6 +83,13 @@ extern const char *cups_hstrerror(int);
 #define DEFAULT_TIMEOUT		300	/* Timeout during requests/updates */
 #define DEFAULT_KEEPALIVE	30	/* Timeout between requests */
 
+#ifdef __APPLE__
+  // For security reasons (rdar://157744252) use our compiled defaults
+  // instead of the file paths provided in cups-files.conf.
+  #define CUPS_FILES_LOCKDOWN 1
+#else
+  #define CUPS_FILES_LOCKDOWN 0
+#endif
 
 /*
  * Global variable macros...

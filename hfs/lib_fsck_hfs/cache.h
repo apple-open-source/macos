@@ -146,8 +146,10 @@ typedef struct Cache_t
 	uint32_t	HashSize;	/* Size of the hash table */
 	uint32_t	BlockSize;	/* Size of the cache page */
 
-	void *		FreeHead;	/* Head of the free list */
-	uint32_t	FreeSize;	/* Size of the free list */
+	void *		CacheBlocks;/* Allocated space for the cache */
+	void **		FreeBlockPtrs;	/* Pointers to free cache blocks */
+	uint32_t	TotalBlocks;	/* Number of cache blocks */
+	uint32_t	ActiveBlocks;	/* Number of blocks in use */
 
 	Buf_t *		ActiveBufs;	/* List of active buffers */
 	Buf_t *		FreeBufs;	/* List of free buffers */

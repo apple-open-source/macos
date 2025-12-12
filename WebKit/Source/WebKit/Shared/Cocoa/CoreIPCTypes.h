@@ -34,7 +34,6 @@
 #import "CoreIPCDateComponents.h"
 #import "CoreIPCDictionary.h"
 #import "CoreIPCError.h"
-#import "CoreIPCFont.h"
 #import "CoreIPCLocale.h"
 #import "CoreIPCNSShadow.h"
 #import "CoreIPCNSValue.h"

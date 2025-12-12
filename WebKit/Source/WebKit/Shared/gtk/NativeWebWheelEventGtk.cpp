@@ -26,8 +26,8 @@
 #include "config.h"
 #include "NativeWebWheelEvent.h"
 
+#include "GtkVersioning.h"
 #include "WebEventFactory.h"
-#include <WebCore/GtkVersioning.h>
 
 #if USE(GTK4)
 #define constructNativeEvent(event) event

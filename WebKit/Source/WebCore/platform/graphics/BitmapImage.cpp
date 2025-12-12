@@ -123,15 +123,20 @@ ImageDrawResult BitmapImage::draw(GraphicsContext& context, const FloatRect& des
         if (orientation == ImageOrientation::Orientation::FromImage)
             orientation = currentFrameOrientation();
 
-        auto headroom = options.headroom();
+#if !HAVE(SUPPORT_HDR_DISPLAY_APIS)
         if (hasHDRContentForTesting() && options.dynamicRangeLimit() != PlatformDynamicRangeLimit::standard())
-            fillWithSolidColor(context, destinationRect, Color::gold, options.compositeOperator());
+            fillWithSolidColor(context, destinationRect, Color::green, options.compositeOperator());
         else {
+#endif
+            auto headroom = options.headroom();
+
             if (headroom == Headroom::FromImage)
                 headroom = currentFrameHeadroom(shouldDecodeToHDR);
 
             context.drawNativeImage(*nativeImage, destinationRect, adjustedSourceRect, { options, orientation, headroom });
+#if !HAVE(SUPPORT_HDR_DISPLAY_APIS)
         }
+#endif
     }
 
     if (auto observer = imageObserver())

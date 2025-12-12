@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "HeapObserver.h"
-#include "HeapSnapshotBuilder.h"
-#include "InspectorAgentBase.h"
-#include "InspectorBackendDispatchers.h"
-#include "InspectorFrontendDispatchers.h"
+#include <JavaScriptCore/HeapObserver.h>
+#include <JavaScriptCore/HeapSnapshotBuilder.h>
+#include <JavaScriptCore/InspectorAgentBase.h>
+#include <JavaScriptCore/InspectorBackendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendDispatchers.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Seconds.h>
@@ -46,6 +46,7 @@ class InjectedScriptManager;
 class JS_EXPORT_PRIVATE InspectorHeapAgent : public InspectorAgentBase, public HeapBackendDispatcherHandler, public JSC::HeapObserver, public JSC::HeapSnapshotBuilder::Client {
     WTF_MAKE_NONCOPYABLE(InspectorHeapAgent);
     WTF_MAKE_TZONE_ALLOCATED(InspectorHeapAgent);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(InspectorHeapAgent);
 public:
     InspectorHeapAgent(AgentContext&);
     ~InspectorHeapAgent() override;

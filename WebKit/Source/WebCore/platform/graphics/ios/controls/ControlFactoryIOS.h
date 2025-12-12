@@ -55,8 +55,13 @@ private:
     std::unique_ptr<PlatformControl> createPlatformTextArea(TextAreaPart&) final;
     std::unique_ptr<PlatformControl> createPlatformTextField(TextFieldPart&) final;
     std::unique_ptr<PlatformControl> createPlatformToggleButton(ToggleButtonPart&) final;
+    Type type() const final { return Type::IOS; }
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ControlFactoryIOS)
+    static bool isType(const WebCore::ControlFactory& factory) { return factory.type() == WebCore::ControlFactory::Type::IOS; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // PLATFORM(IOS_FAMILY)

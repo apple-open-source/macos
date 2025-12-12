@@ -3,7 +3,7 @@
 /*
 *****************************************************************************************
 * Copyright (C) 2016, International Business Machines
-* Corporation and others. All rights reserved.
+* Corporation and others. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -12,7 +12,7 @@
 
 #include "unicode/utypes.h"
 
-#if !UCONFIG_NO_FORMATTING && !UCONFIG_NO_BREAK_ITERATION
+#if !UCONFIG_NO_FORMATTING
 
 #include "unicode/unum.h"
 #include "unicode/udisplaycontext.h"
@@ -505,6 +505,6 @@ ureldatefmt_combineDateAndTime( const URelativeDateTimeFormatter* reldatefmt,
                     int32_t           resultCapacity,
                     UErrorCode*       status );
 
-#endif /* !UCONFIG_NO_FORMATTING && !UCONFIG_NO_BREAK_ITERATION */
+#endif /* !UCONFIG_NO_FORMATTING */
 
 #endif

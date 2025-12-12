@@ -26,10 +26,11 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(IOS_FAMILY)
 
-#include "CSSValueKey.h"
-#include "RenderThemeCocoa.h"
+#include <WebCore/CSSValueKey.h>
+#include <WebCore/RenderThemeCocoa.h>
 
 OBJC_CLASS UIImage;
 
@@ -63,7 +64,7 @@ public:
     WEBCORE_EXPORT static IconAndSize iconForAttachment(const String& fileName, const String& attachmentType, const String& title);
 
 private:
-    bool canCreateControlPartForRenderer(const RenderObject&) const final;
+    bool canCreateControlPartForRenderer(const RenderElement&) const final;
 
     Style::PaddingBox popupInternalPaddingBox(const RenderStyle&) const override;
 
@@ -91,7 +92,7 @@ private:
     void paintMenuListButtonDecorations(const RenderBox&, const PaintInfo&, const FloatRect&) override;
 
     void adjustSliderTrackStyle(RenderStyle&, const Element*) const override;
-    bool paintSliderTrack(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    bool paintSliderTrack(const RenderElement&, const PaintInfo&, const FloatRect&) override;
 
     void adjustSliderThumbSize(RenderStyle&, const Element*) const override;
 
@@ -101,7 +102,7 @@ private:
     bool hasSwitchHapticFeedback(SwitchTrigger) const final { return true; }
 #endif
 
-    bool paintProgressBar(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    bool paintProgressBar(const RenderElement&, const PaintInfo&, const FloatRect&) override;
 
     IntSize sliderTickSize() const override;
     int sliderTickOffsetFromTrackCenter() const override;
@@ -114,22 +115,22 @@ private:
     RefPtr<Gradient> checkboxRadioBackgroundGradient(const FloatRect&, OptionSet<ControlStyle::State>);
     Color checkboxRadioIndicatorColor(OptionSet<ControlStyle::State>, OptionSet<StyleColorOptions>);
 
-    bool paintCheckbox(const RenderObject&, const PaintInfo&, const FloatRect&) override;
-    bool paintRadio(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    bool paintCheckbox(const RenderElement&, const PaintInfo&, const FloatRect&) override;
+    bool paintRadio(const RenderElement&, const PaintInfo&, const FloatRect&) override;
 
     void paintCheckboxRadioInnerShadow(const PaintInfo&, const FloatRoundedRect&, OptionSet<ControlStyle::State>);
 
     bool supportsMeter(StyleAppearance) const final;
-    bool paintMeter(const RenderObject&, const PaintInfo&, const FloatRect&) final;
+    bool paintMeter(const RenderElement&, const PaintInfo&, const FloatRect&) final;
 
-    bool paintListButton(const RenderObject&, const PaintInfo&, const FloatRect&) final;
+    bool paintListButton(const RenderElement&, const PaintInfo&, const FloatRect&) final;
 
-    void paintSliderTicks(const RenderObject&, const PaintInfo&, const FloatRect&) final;
+    void paintSliderTicks(const RenderElement&, const PaintInfo&, const FloatRect&) final;
 
-    void paintColorWellDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) final;
+    void paintColorWellDecorations(const RenderElement&, const PaintInfo&, const FloatRect&) final;
 
     void adjustSearchFieldDecorationPartStyle(RenderStyle&, const Element*) const final;
-    bool paintSearchFieldDecorationPart(const RenderObject&, const PaintInfo&, const FloatRect&) final;
+    bool paintSearchFieldDecorationPart(const RenderElement&, const PaintInfo&, const FloatRect&) final;
 
     void adjustSearchFieldResultsDecorationPartStyle(RenderStyle&, const Element*) const final;
     bool paintSearchFieldResultsDecorationPart(const RenderBox&, const PaintInfo&, const FloatRect&) final;
@@ -137,7 +138,7 @@ private:
     void adjustSearchFieldResultsButtonStyle(RenderStyle&, const Element*) const final;
     bool paintSearchFieldResultsButton(const RenderBox&, const PaintInfo&, const FloatRect&) final;
 
-    bool supportsFocusRing(const RenderObject&, const RenderStyle&) const final;
+    bool supportsFocusRing(const RenderElement&, const RenderStyle&) const final;
 
     bool supportsBoxShadow(const RenderStyle&) const final;
 
@@ -149,7 +150,7 @@ private:
     Color platformInactiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const override;
     Color platformFocusRingColor(OptionSet<StyleColorOptions>) const final;
 
-    Color platformAnnotationHighlightColor(OptionSet<StyleColorOptions>) const final;
+    Color platformAnnotationHighlightBackgroundColor(OptionSet<StyleColorOptions>) const final;
 
 #if ENABLE(TOUCH_EVENTS)
     Color platformTapHighlightColor() const override { return SRGBA<uint8_t> { 26, 26, 26, 77 } ; }
@@ -161,7 +162,7 @@ private:
     LayoutSize attachmentIntrinsicSize(const RenderAttachment&) const override;
     bool attachmentShouldAllowWidthToShrink(const RenderAttachment&) const override { return true; }
     String attachmentStyleSheet() const final;
-    bool paintAttachment(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    bool paintAttachment(const RenderElement&, const PaintInfo&, const IntRect&) override;
 #endif
 
 private:
@@ -176,7 +177,7 @@ private:
 
     Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const override;
 
-    Color pictureFrameColor(const RenderObject&) override;
+    Color pictureFrameColor(const RenderElement&) override;
 
     void adjustMinimumIntrinsicSizeForAppearance(StyleAppearance, RenderStyle&) const;
 };

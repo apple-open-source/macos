@@ -45,6 +45,7 @@
 
 #include <stdio.h>
 #import <sqlite3.h>
+#include <sys/stat.h>
 
 
 @interface NSString (FileOutput)
@@ -519,11 +520,92 @@ static void db_table_sizes(void) {
     [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
 }
 
+static NSString* formatFileSize(off_t fileSize) {
+    if (fileSize >= 1073741824) {
+        // GB
+        return [NSString stringWithFormat:@"%.2f GB", fileSize / 1073741824.0];
+    } else if (fileSize >= 1048576) {
+        // MB
+        return [NSString stringWithFormat:@"%.2f MB", fileSize / 1048576.0];
+    } else if (fileSize >= 1024) {
+        // KB
+        return [NSString stringWithFormat:@"%.2f KB", fileSize / 1024.0];
+    } else {
+        // bytes
+        return [NSString stringWithFormat:@"%lld bytes", fileSize];
+    }
+}
+
+static void printFileSizeInfo(NSString* filePath, NSString* label) {
+    struct stat fileStat;
+    if (stat([filePath UTF8String], &fileStat) == 0) {
+        off_t fileSize = fileStat.st_size;
+        NSString *formattedSize = formatFileSize(fileSize);
+
+        [[NSString stringWithFormat:@"\n%@:\n", label] writeToStdOut];
+        [[NSString stringWithFormat:@"  Path: %@\n", filePath] writeToStdOut];
+        [[NSString stringWithFormat:@"  File Size: %@ (%lld bytes)\n", formattedSize, fileSize] writeToStdOut];
+        [[NSString stringWithFormat:@"  Blocks Allocated: %lld\n", fileStat.st_blocks] writeToStdOut];
+        [[NSString stringWithFormat:@"  Block Size: %d bytes\n", fileStat.st_blksize] writeToStdOut];
+    } else {
+        [[NSString stringWithFormat:@"\n%@:\n", label] writeToStdOut];
+        [[NSString stringWithFormat:@"  Path: %@\n", filePath] writeToStdOut];
+        [[NSString stringWithFormat:@"  Status: File not found or inaccessible (errno: %d)\n", errno] writeToStdOut];
+    }
+}
+
+static void db_file_size_info(void) {
+    [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+    [[NSString stringWithFormat:@"\n Keychain Database File Size Information \n"] writeToStdOut];
+    [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+
+    CFErrorRef error = NULL;
+    NSString* dbPath = CFBridgingRelease(SecKeychainCopyDatabasePath(&error));
+    if (error != NULL || dbPath == NULL) {
+        NSError *err = (NSError *)CFBridgingRelease(error);
+        [[NSString stringWithFormat:@"\nError: Failed to get Keychain DB Path %@ \n", err] writeToStdErr];
+        return;
+    }
+
+    // Calculate sizes for main DB file
+    printFileSizeInfo(dbPath, @"Main Database");
+
+    // Calculate sizes for WAL (Write-Ahead Log) file
+    NSString* walPath = [dbPath stringByAppendingString:@"-wal"];
+    printFileSizeInfo(walPath, @"WAL File");
+
+    // Calculate sizes for SHM (Shared Memory) file
+    NSString* shmPath = [dbPath stringByAppendingString:@"-shm"];
+    printFileSizeInfo(shmPath, @"Shared Memory File");
+
+    // Calculate total size
+    struct stat mainStat, walStat, shmStat;
+    off_t totalSize = 0;
+
+    if (stat([dbPath UTF8String], &mainStat) == 0) {
+        totalSize += mainStat.st_size;
+    }
+    if (stat([walPath UTF8String], &walStat) == 0) {
+        totalSize += walStat.st_size;
+    }
+    if (stat([shmPath UTF8String], &shmStat) == 0) {
+        totalSize += shmStat.st_size;
+    }
+
+    if (totalSize > 0) {
+        NSString *formattedTotal = formatFileSize(totalSize);
+        [[NSString stringWithFormat:@"\nTotal Size (all files): %@ (%lld bytes)\n", formattedTotal, totalSize] writeToStdOut];
+    }
+
+    [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+}
+
 int main(int argc, const char ** argv)
 {
     @autoreleasepool {
         printf("sysdiagnose keychain\n");
 
+        db_file_size_info();
         circle_sysdiagnose();
         engine_sysdiagnose();
         homekit_sysdiagnose();

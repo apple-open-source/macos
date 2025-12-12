@@ -27,12 +27,12 @@
 
 #if ENABLE(SPEECH_SYNTHESIS)
 
-#include "ActiveDOMObject.h"
-#include "ContextDestructionObserver.h"
-#include "EventTarget.h"
-#include "PlatformSpeechSynthesisUtterance.h"
-#include "SpeechSynthesisErrorCode.h"
-#include "SpeechSynthesisVoice.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/ContextDestructionObserver.h>
+#include <WebCore/EventTarget.h>
+#include <WebCore/PlatformSpeechSynthesisUtterance.h>
+#include <WebCore/SpeechSynthesisErrorCode.h>
+#include <WebCore/SpeechSynthesisVoice.h>
 #include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 

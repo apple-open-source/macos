@@ -48,7 +48,6 @@ public:
 
     static std::unique_ptr<Crtc> create(int, drmModeCrtc*, unsigned);
     Crtc(drmModeCrtc*, unsigned, Properties&&);
-    ~Crtc() = default;
 
     uint32_t id() const { return m_id; }
     unsigned index() const { return m_index; }
@@ -56,10 +55,12 @@ public:
     uint32_t y() const { return m_y; }
     uint32_t width() const { return m_width; }
     uint32_t height() const { return m_height; }
+    uint32_t bufferID() const { return m_bufferID; }
     const std::optional<drmModeModeInfo>& currentMode() const { return m_currentMode; }
     const Properties& properties() const { return m_properties; }
 
     bool modeIsCurrent(drmModeModeInfo*) const;
+    void setCurrentMode(drmModeModeInfo*);
 
 private:
     uint32_t m_id { 0 };
@@ -68,6 +69,7 @@ private:
     uint32_t m_y { 0 };
     uint32_t m_width { 0 };
     uint32_t m_height { 0 };
+    uint32_t m_bufferID { 0 };
     std::optional<drmModeModeInfo> m_currentMode;
     Properties m_properties;
 };
@@ -83,7 +85,6 @@ public:
 
     static std::unique_ptr<Connector> create(int, drmModeConnector*);
     Connector(drmModeConnector*, Properties&&);
-    ~Connector() = default;
 
     uint32_t id() const { return m_id; }
     uint32_t encoderID() const { return m_encoderID; }
@@ -133,7 +134,6 @@ public:
 
     static std::unique_ptr<Plane> create(int, Type, drmModePlane*, bool);
     Plane(drmModePlane*, Vector<Format>&&, Properties&&);
-    ~Plane() = default;
 
     uint32_t id() const { return m_id; }
     const Properties& properties() const { return m_properties; }

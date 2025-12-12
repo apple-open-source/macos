@@ -33,6 +33,7 @@
 
 #include "ColorBlending.h"
 #include "Document.h"
+#include "DocumentView.h"
 #include "FloatRect.h"
 #include "FrameSelection.h"
 #include "GeometryUtilities.h"
@@ -40,6 +41,7 @@
 #include "HostWindow.h"
 #include "ImageBuffer.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "Page.h"
 #include "RenderAncestorIterator.h"

@@ -24,13 +24,13 @@
 
 #pragma once
 
-#include "StyleProperties.h"
+#include <WebCore/StyleProperties.h>
 
 namespace WebCore {
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ImmutableStyleProperties);
 class ImmutableStyleProperties final : public StyleProperties {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ImmutableStyleProperties);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ImmutableStyleProperties, ImmutableStyleProperties);
 public:
     inline void deref() const;
 

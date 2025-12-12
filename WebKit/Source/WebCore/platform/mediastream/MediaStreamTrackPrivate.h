@@ -29,8 +29,8 @@
 
 #if ENABLE(MEDIA_STREAM)
 
-#include "MediaStreamTrackHintValue.h"
-#include "RealtimeMediaSource.h"
+#include <WebCore/MediaStreamTrackHintValue.h>
+#include <WebCore/RealtimeMediaSource.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakHashSet.h>

@@ -60,6 +60,10 @@
 
 namespace WTF {
 
+#if USE(GLIB_EVENT_LOOP)
+class ActivityObserver;
+#endif
+
 #if USE(COCOA_EVENT_LOOP)
 class SchedulePair;
 struct SchedulePairHash;
@@ -114,11 +118,27 @@ public:
 
     WTF_EXPORT_PRIVATE void threadWillExit();
 
+    enum class Activity : uint8_t {
+        BeforeWaiting   = 1 << 0,
+        Entry           = 1 << 1,
+        Exit            = 1 << 2,
+        AfterWaiting    = 1 << 3
+    };
+
 #if USE(GLIB_EVENT_LOOP)
     WTF_EXPORT_PRIVATE GMainContext* mainContext() const { return m_mainContext.get(); }
-    enum class Event { WillDispatch, DidDispatch };
-    using Observer = WTF::Observer<void(Event, const String&)>;
-    WTF_EXPORT_PRIVATE void observe(const Observer&);
+
+    // Event observers (only used for PageTimelineAgent)
+    enum class Event : bool {
+        WillDispatch,
+        DidDispatch
+    };
+
+    using EventObserver = Observer<void(Event, const String&)>;
+    WTF_EXPORT_PRIVATE void observeEvent(const EventObserver&);
+
+    WTF_EXPORT_PRIVATE void observeActivity(const Ref<ActivityObserver>&);
+    WTF_EXPORT_PRIVATE void unobserveActivity(const Ref<ActivityObserver>&);
 #endif
 
 #if USE(GENERIC_EVENT_LOOP) || USE(WINDOWS_EVENT_LOOP)
@@ -145,7 +165,6 @@ public:
         virtual void fired() = 0;
 
 #if USE(GLIB_EVENT_LOOP)
-        WTF_EXPORT_PRIVATE void setName(ASCIILiteral);
         WTF_EXPORT_PRIVATE void setPriority(int);
 #endif
 
@@ -181,7 +200,7 @@ public:
     };
 
     class Timer : public TimerBase {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(Timer);
     public:
         template <typename TimerFiredClass>
         requires (WTF::HasRefPtrMemberFunctions<TimerFiredClass>::value)
@@ -227,7 +246,7 @@ public:
     };
 
     class DispatchTimer final : public TimerBase, public ThreadSafeRefCounted<DispatchTimer> {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(DispatchTimer);
     public:
         DispatchTimer(RunLoop& runLoop)
             : TimerBase(runLoop, "DispatchTimer"_s)
@@ -282,13 +301,30 @@ private:
     const RetainPtr<CFRunLoopRef> m_runLoop;
     const RetainPtr<CFRunLoopSourceRef> m_runLoopSource;
 #elif USE(GLIB_EVENT_LOOP)
-    void notify(Event, const char*);
+    void notifyEvent(Event, const char*);
+    void notifyActivity(Activity);
+
+    void runGLibMainLoop();
+
+    enum class MayBlock { Yes, No };
+    void runGLibMainLoopIteration(MayBlock);
 
     static GSourceFuncs s_runLoopSourceFunctions;
     GRefPtr<GMainContext> m_mainContext;
-    Vector<GRefPtr<GMainLoop>> m_mainLoops;
     GRefPtr<GSource> m_source;
-    WeakHashSet<Observer> m_observers;
+
+    Lock m_eventObserversLock;
+    WeakHashSet<EventObserver> m_eventObservers WTF_GUARDED_BY_LOCK(m_eventObserversLock);
+
+    using ActivityObservers = Vector<Ref<ActivityObserver>, 4>;
+    Lock m_activityObserversLock;
+    ActivityObservers m_activityObservers WTF_GUARDED_BY_LOCK(m_activityObserversLock);
+
+    static constexpr size_t s_pollFDsCapacity = 64;
+    Vector<GPollFD, s_pollFDsCapacity> m_pollFDs;
+
+    int m_nestedLoopLevel { 0 };
+    std::atomic<bool> m_shouldStop { false };
 #elif USE(GENERIC_EVENT_LOOP)
     void scheduleWithLock(TimerBase::ScheduledTask&) WTF_REQUIRES_LOCK(m_loopLock);
     void unscheduleWithLock(TimerBase::ScheduledTask&) WTF_REQUIRES_LOCK(m_loopLock);

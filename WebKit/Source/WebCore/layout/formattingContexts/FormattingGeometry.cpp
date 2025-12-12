@@ -32,7 +32,6 @@
 #include "LayoutContainingBlockChainIterator.h"
 #include "LayoutContext.h"
 #include "LayoutInitialContainingBlock.h"
-#include "LengthFunctions.h"
 #include "Logging.h"
 #include "PlacedFloats.h"
 #include "RenderStyleInlines.h"
@@ -88,7 +87,7 @@ template<FormattingGeometry::HeightType heightType> std::optional<LayoutUnit> Fo
             return { };
     }
     if (auto fixedHeight = height.tryFixed())
-        return LayoutUnit { fixedHeight->value };
+        return LayoutUnit { fixedHeight->resolveZoom(Style::ZoomNeeded { }) };
 
     if (!containingBlockHeight) {
         if (layoutState().inQuirksMode()) {
@@ -114,7 +113,7 @@ template<FormattingGeometry::HeightType heightType> std::optional<LayoutUnit> Fo
     if (!containingBlockHeight)
         return { };
 
-    return Style::evaluate(height, *containingBlockHeight);
+    return Style::evaluate<LayoutUnit>(height, *containingBlockHeight, Style::ZoomNeeded { });
 }
 
 std::optional<LayoutUnit> FormattingGeometry::computedHeight(const Box& layoutBox, std::optional<LayoutUnit> containingBlockHeight) const
@@ -178,7 +177,7 @@ std::optional<LayoutUnit> FormattingGeometry::computedWidth(const Box& layoutBox
     if (auto computedWidth = computedWidthValue<WidthType::Normal>(layoutBox, containingBlockWidth)) {
         auto& style = layoutBox.style();
         // Non-quantitative values such as auto and min-content are not influenced by the box-sizing property.
-        if (style.boxSizing() == BoxSizing::ContentBox || style.width().isIntrinsicOrLegacyIntrinsicOrAuto())
+        if (style.boxSizing() == BoxSizing::ContentBox || !style.width().isSpecified())
             return computedWidth;
         auto& boxGeometry = formattingContext().geometryForBox(layoutBox);
         return *computedWidth - boxGeometry.horizontalBorderAndPadding();
@@ -197,96 +196,6 @@ LayoutUnit FormattingGeometry::contentHeightForFormattingContextRoot(const Eleme
     if (hasContent && !shouldIgnoreContent)
         usedContentHeight = LayoutContext::createFormattingContext(formattingContextRoot, const_cast<LayoutState&>(layoutState()))->usedContentHeight();
     return usedContentHeight;
-}
-
-std::optional<LayoutUnit> FormattingGeometry::computedValue(const Style::InsetEdge& geometryProperty, LayoutUnit containingBlockWidth) const
-{
-    //  In general, the computed value resolves the specified value as far as possible without laying out the content.
-    if (!geometryProperty.isAuto())
-        return Style::evaluate(geometryProperty, containingBlockWidth);
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::computedValue(const Style::MarginEdge& geometryProperty, LayoutUnit containingBlockWidth) const
-{
-    //  In general, the computed value resolves the specified value as far as possible without laying out the content.
-    if (!geometryProperty.isAuto())
-        return Style::evaluate(geometryProperty, containingBlockWidth);
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::computedValue(const Style::PreferredSize& geometryProperty, LayoutUnit containingBlockWidth) const
-{
-    //  In general, the computed value resolves the specified value as far as possible without laying out the content.
-    if (geometryProperty.isSpecified())
-        return Style::evaluate(geometryProperty, containingBlockWidth);
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::computedValue(const Style::MinimumSize& geometryProperty, LayoutUnit containingBlockWidth) const
-{
-    //  In general, the computed value resolves the specified value as far as possible without laying out the content.
-    if (geometryProperty.isSpecified())
-        return Style::evaluate(geometryProperty, containingBlockWidth);
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::computedValue(const Style::MaximumSize& geometryProperty, LayoutUnit containingBlockWidth) const
-{
-    //  In general, the computed value resolves the specified value as far as possible without laying out the content.
-    if (geometryProperty.isSpecified())
-        return Style::evaluate(geometryProperty, containingBlockWidth);
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::computedValue(const Length& geometryProperty, LayoutUnit containingBlockWidth) const
-{
-    //  In general, the computed value resolves the specified value as far as possible without laying out the content.
-    if (geometryProperty.isSpecified())
-        return valueForLength(geometryProperty, containingBlockWidth);
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::fixedValue(const Style::MarginEdge& geometryProperty) const
-{
-    if (auto fixed = geometryProperty.tryFixed())
-        return LayoutUnit { fixed->value };
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::fixedValue(const Style::PaddingEdge& geometryProperty) const
-{
-    if (auto fixed = geometryProperty.tryFixed())
-        return LayoutUnit { fixed->value };
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::fixedValue(const Style::PreferredSize& geometryProperty) const
-{
-    if (auto fixed = geometryProperty.tryFixed())
-        return LayoutUnit { fixed->value };
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::fixedValue(const Style::MinimumSize& geometryProperty) const
-{
-    if (auto fixed = geometryProperty.tryFixed())
-        return LayoutUnit { fixed->value };
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::fixedValue(const Style::MaximumSize& geometryProperty) const
-{
-    if (auto fixed = geometryProperty.tryFixed())
-        return LayoutUnit { fixed->value };
-    return { };
-}
-
-std::optional<LayoutUnit> FormattingGeometry::fixedValue(const Length& geometryProperty) const
-{
-    if (auto fixed = geometryProperty.tryFixed())
-        return LayoutUnit { fixed->value };
-    return { };
 }
 
 // https://www.w3.org/TR/CSS22/visudet.html#min-max-heights
@@ -1175,8 +1084,14 @@ BoxGeometry::Edges FormattingGeometry::computedBorder(const Box& layoutBox) cons
     auto& style = layoutBox.style();
     LOG_WITH_STREAM(FormattingContextLayout, stream << "[Border] -> layoutBox: " << &layoutBox);
     return {
-        { LayoutUnit(style.borderLeftWidth()), LayoutUnit(style.borderRightWidth()) },
-        { LayoutUnit(style.borderTopWidth()), LayoutUnit(style.borderBottomWidth()) }
+        {
+            Style::evaluate<LayoutUnit>(style.borderLeftWidth(), Style::ZoomNeeded { }),
+            Style::evaluate<LayoutUnit>(style.borderRightWidth(), Style::ZoomNeeded { })
+        },
+        {
+            Style::evaluate<LayoutUnit>(style.borderTopWidth(), Style::ZoomNeeded { }),
+            Style::evaluate<LayoutUnit>(style.borderBottomWidth(), Style::ZoomNeeded { })
+        },
     };
 }
 
@@ -1188,8 +1103,13 @@ BoxGeometry::Edges FormattingGeometry::computedPadding(const Box& layoutBox, con
     auto& style = layoutBox.style();
     LOG_WITH_STREAM(FormattingContextLayout, stream << "[Padding] -> layoutBox: " << &layoutBox);
     return {
-        { Style::evaluate(style.paddingStart(), containingBlockWidth), Style::evaluate(style.paddingEnd(), containingBlockWidth) },
-        { Style::evaluate(style.paddingBefore(), containingBlockWidth), Style::evaluate(style.paddingAfter(), containingBlockWidth) }
+        {
+            Style::evaluate<LayoutUnit>(style.paddingStart(), containingBlockWidth, Style::ZoomNeeded { }),
+            Style::evaluate<LayoutUnit>(style.paddingEnd(), containingBlockWidth, Style::ZoomNeeded { }) },
+        {
+            Style::evaluate<LayoutUnit>(style.paddingBefore(), containingBlockWidth, Style::ZoomNeeded { }),
+            Style::evaluate<LayoutUnit>(style.paddingAfter(), containingBlockWidth, Style::ZoomNeeded { })
+        }
     };
 }
 

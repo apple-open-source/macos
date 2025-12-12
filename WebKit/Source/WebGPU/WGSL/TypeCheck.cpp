@@ -430,6 +430,30 @@ Result<void> TypeChecker::declareBuiltins()
     CHECK(introduceValue(AST::Identifier::make("rgba8uint"_s), m_types.texelFormatType()));
     CHECK(introduceValue(AST::Identifier::make("rgba8unorm"_s), m_types.texelFormatType()));
 
+    CHECK(introduceValue(AST::Identifier::make("r16float"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r16sint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r16uint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r8sint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r8snorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r8uint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r8unorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg16float"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg8sint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg8snorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg8uint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg8unorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rgb10a2uint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rgb10a2unorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg16sint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg16uint"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg11b10ufloat"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r16unorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("r16snorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg16snorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rg16unorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rgba16snorm"_s), m_types.texelFormatType()));
+    CHECK(introduceValue(AST::Identifier::make("rgba16unorm"_s), m_types.texelFormatType()));
+
     CHECK(introduceValue(AST::Identifier::make("function"_s), m_types.addressSpaceType()));
     CHECK(introduceValue(AST::Identifier::make("private"_s), m_types.addressSpaceType()));
     CHECK(introduceValue(AST::Identifier::make("workgroup"_s), m_types.addressSpaceType()));

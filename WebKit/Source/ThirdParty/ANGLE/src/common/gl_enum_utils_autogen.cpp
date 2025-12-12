@@ -2126,6 +2126,8 @@ const char *GLenumToString(GLESEnum enumGroup, unsigned int value)
                     return "GL_FRAGMENT_SHADER_FRAMEBUFFER_FETCH_MRT_ARM";
                 case 0x8F69:
                     return "GL_TEXTURE_ASTC_DECODE_PRECISION_EXT";
+                case 0x8F6A:
+                    return "GL_TEXTURE_UNNORMALIZED_COORDINATES_ARM";
                 case 0x8F6E:
                     return "GL_NUM_SURFACE_COMPRESSION_FIXED_RATES_EXT";
                 case 0x8F6F:
@@ -5391,6 +5393,8 @@ const char *GLenumToString(GLESEnum enumGroup, unsigned int value)
                     return "GL_NORMAL_MAP_OES";
                 case 0x8512:
                     return "GL_REFLECTION_MAP_OES";
+                case 0x8F6A:
+                    return "GL_TEXTURE_UNNORMALIZED_COORDINATES_ARM";
                 case 0x96C0:
                     return "GL_SURFACE_COMPRESSION_EXT";
                 default:
@@ -6992,6 +6996,8 @@ const char *GLenumToString(GLESEnum enumGroup, unsigned int value)
                     return "GL_TEXTURE_MIN_LOD";
                 case 0x813B:
                     return "GL_TEXTURE_MAX_LOD";
+                case 0x8F6A:
+                    return "GL_TEXTURE_UNNORMALIZED_COORDINATES_ARM";
                 default:
                     return UnknownEnumToString(value);
             }
@@ -7015,6 +7021,8 @@ const char *GLenumToString(GLESEnum enumGroup, unsigned int value)
                     return "GL_TEXTURE_COMPARE_MODE";
                 case 0x884D:
                     return "GL_TEXTURE_COMPARE_FUNC";
+                case 0x8F6A:
+                    return "GL_TEXTURE_UNNORMALIZED_COORDINATES_ARM";
                 default:
                     return UnknownEnumToString(value);
             }
@@ -7948,6 +7956,8 @@ const char *GLenumToString(GLESEnum enumGroup, unsigned int value)
                     return "GL_TEXTURE_SWIZZLE_B";
                 case 0x8E45:
                     return "GL_TEXTURE_SWIZZLE_A";
+                case 0x8F6A:
+                    return "GL_TEXTURE_UNNORMALIZED_COORDINATES_ARM";
                 case 0x90EA:
                     return "GL_DEPTH_STENCIL_TEXTURE_MODE";
                 case 0x9580:

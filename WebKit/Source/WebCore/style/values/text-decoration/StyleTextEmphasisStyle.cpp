@@ -41,9 +41,7 @@ static TextEmphasisMark defaultTextEmphasisMark(WritingMode mode)
 {
     // "If only filled or open is specified, the shape keyword computes to circle in horizontal typographic modes and sesame in vertical typographic modes." - https://drafts.csswg.org/css-text-decor/#propdef-text-emphasis-style
 
-    // FIXME: The spec states we should use `circle`, not `dot` for horizontal typographic modes here - https://bugs.webkit.org/show_bug.cgi?id=295641.
-
-    return mode.isVerticalTypographic() ? TextEmphasisMark::Sesame : TextEmphasisMark::Dot;
+    return mode.isVerticalTypographic() ? TextEmphasisMark::Sesame : TextEmphasisMark::Circle;
 }
 
 static TextEmphasisStyle::Shape defaultTextEmphasisShape(WritingMode writingMode, TextEmphasisFill fill)

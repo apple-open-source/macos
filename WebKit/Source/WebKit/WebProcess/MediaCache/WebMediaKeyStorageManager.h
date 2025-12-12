@@ -44,7 +44,7 @@ class WebMediaKeyStorageManager : public WebProcessSupplement {
     WTF_MAKE_NONCOPYABLE(WebMediaKeyStorageManager);
 public:
     explicit WebMediaKeyStorageManager(WebProcess&) { }
-    virtual ~WebMediaKeyStorageManager() { }
+    virtual ~WebMediaKeyStorageManager() = default;
 
     static ASCIILiteral supplementName();
 

@@ -76,6 +76,7 @@ public:
         virtual bool isCompositionRequiredOrOngoing() const = 0;
         virtual void requestComposition() = 0;
         virtual RunLoop* compositingRunLoop() const = 0;
+        virtual int maxTextureSize() const = 0;
     };
 
     static Ref<CoordinatedPlatformLayer> create();
@@ -98,6 +99,7 @@ public:
 
 #if ENABLE(DAMAGE_TRACKING)
     void setDamagePropagationEnabled(bool enabled) { m_damagePropagationEnabled = enabled; }
+    void setDamageInGlobalCoordinateSpace(std::shared_ptr<Damage> damage) { m_damageInGlobalCoordinateSpace = WTFMove(damage); }
 #endif
 
     void setPosition(FloatPoint&&);
@@ -122,6 +124,7 @@ public:
     void didUpdateLayerTransform();
 
     void setVisibleRect(const FloatRect&);
+    const FloatRect& visibleRect() const;
     void setTransformedVisibleRect(IntRect&& visibleRect, IntRect&& visibleRectIncludingFuture);
 
 #if ENABLE(SCROLLING_THREAD)
@@ -143,7 +146,7 @@ public:
     void setContentsClippingRect(const FloatRoundedRect&);
     void setContentsScale(float);
     enum class RequireComposition : bool { No, Yes };
-    void setContentsBuffer(std::unique_ptr<CoordinatedPlatformLayerBuffer>&&, RequireComposition = RequireComposition::Yes);
+    void setContentsBuffer(std::unique_ptr<CoordinatedPlatformLayerBuffer>&&, std::optional<Damage>&& = std::nullopt, RequireComposition = RequireComposition::Yes);
 #if ENABLE(VIDEO) && USE(GSTREAMER)
     void replaceCurrentContentsBufferWithCopy();
 #endif
@@ -180,6 +183,7 @@ public:
     bool isCompositionRequiredOrOngoing() const;
     void requestComposition();
     RunLoop* compositingRunLoop() const;
+    int maxTextureSize() const;
 
     Ref<CoordinatedTileBuffer> paint(const IntRect&);
 #if USE(SKIA)
@@ -195,6 +199,10 @@ private:
 
     bool needsBackingStore() const;
     void purgeBackingStores();
+
+#if ENABLE(DAMAGE_TRACKING)
+    void addDamage(Damage&&);
+#endif
 
     enum class Change : uint32_t {
         Position                     = 1 << 0,
@@ -246,6 +254,7 @@ private:
 
 #if ENABLE(DAMAGE_TRACKING)
     bool m_damagePropagationEnabled { false };
+    std::shared_ptr<Damage> m_damageInGlobalCoordinateSpace;
 #endif
 
     Lock m_lock;

@@ -23,6 +23,7 @@
 #include "mcomp.h"
 #include "firstpass.h"
 #include "vpx_dsp/psnr.h"
+#include "vpx_dsp/vpx_dsp_common.h"
 #include "vpx_scale/vpx_scale.h"
 #include "vp8/common/extend.h"
 #include "ratectrl.h"
@@ -1261,9 +1262,16 @@ int vp8_reverse_trans(int x) {
 
   return 63;
 }
-void vp8_new_framerate(VP8_COMP *cpi, double framerate) {
-  if (framerate < .1) framerate = 30;
 
+static double clamp_framerate(double framerate) {
+  if (framerate < .1)
+    return 30.0;
+  else
+    return framerate;
+}
+
+void vp8_new_framerate(VP8_COMP *cpi, double framerate) {
+  framerate = clamp_framerate(framerate);
   cpi->framerate = framerate;
   cpi->output_framerate = framerate;
   const double per_frame_bandwidth =
@@ -1874,8 +1882,7 @@ struct VP8_COMP *vp8_create_compressor(const VP8_CONFIG *oxcf) {
             ? (2 * (cpi->common.mb_rows * cpi->common.mb_cols) /
                cpi->cyclic_refresh_mode_max_mbs_perframe)
             : 10;
-    cpi->gf_interval_onepass_cbr =
-        VPXMIN(40, VPXMAX(6, cpi->gf_interval_onepass_cbr));
+    cpi->gf_interval_onepass_cbr = clamp(cpi->gf_interval_onepass_cbr, 6, 40);
     cpi->baseline_gf_interval = cpi->gf_interval_onepass_cbr;
   }
 
@@ -4983,6 +4990,7 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags,
         }
       }
 #endif
+      cpi->ref_framerate = clamp_framerate(cpi->ref_framerate);
       if (cpi->oxcf.number_of_layers > 1) {
         unsigned int i;
 

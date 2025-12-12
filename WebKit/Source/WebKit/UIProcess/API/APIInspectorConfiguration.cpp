@@ -48,9 +48,9 @@ WebKit::WebProcessPool* InspectorConfiguration::processPool()
     return m_processPool.get();
 }
 
-void InspectorConfiguration::setProcessPool(WebKit::WebProcessPool* processPool)
+void InspectorConfiguration::setProcessPool(RefPtr<WebKit::WebProcessPool>&& processPool)
 {
-    m_processPool = processPool;
+    m_processPool = WTFMove(processPool);
 }
 
 } // namespace API

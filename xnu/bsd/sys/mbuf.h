@@ -447,6 +447,7 @@ struct pkthdr {
 #define bufstatus_sndbuf        _pkt_bsr.sndbuf_data
 	};
 	u_int64_t pkt_timestamp;        /* TX: enqueue time, RX: receive timestamp */
+	u_int64_t pkt_deadline;         /* In Mach time. */
 
 	/*
 	 * Tags (external and built-in)

@@ -84,15 +84,16 @@ run_options_test(int iterations)
 			// For maximum size = 8M, make size up to align*8
 			size = align * (((opt_rand >> 4) & 0x7) + 1);
 		} else {
+			align = MALLOC_ZONE_MALLOC_DEFAULT_ALIGN;
+
 			// size anywhere from 0 to 8M
 			size = (opt_rand & 0x7fffff) + 1;
 		}
 
-
 		free(pointers[index]);
 		if (opt_rand % 2) {
-			pointers[index] = malloc_zone_malloc_with_options(NULL, align, size,
-				options);
+			pointers[index] = malloc_zone_malloc_with_options(NULL, align,
+					size, options);
 		} else {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"

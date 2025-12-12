@@ -91,8 +91,6 @@ public:
     explicit WebExtensionMatchPattern(const String& pattern, RefPtr<API::Error>&);
     explicit WebExtensionMatchPattern(const String& scheme, const String& host, const String& path, RefPtr<API::Error>&);
 
-    ~WebExtensionMatchPattern() = default;
-
     static URLSchemeSet& extensionSchemes();
     static URLSchemeSet& validSchemes();
     static URLSchemeSet& supportedSchemes();

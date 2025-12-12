@@ -49,9 +49,12 @@ public:
     virtual ~DateTimeEditElementEditControlOwner();
     virtual void didBlurFromControl() = 0;
     virtual void didChangeValueFromControl() = 0;
+    virtual void didReceiveSpaceKeyFromControl() = 0;
     virtual String formatDateTimeFieldsState(const DateTimeFieldsState&) const = 0;
     virtual bool isEditControlOwnerDisabled() const = 0;
     virtual bool isEditControlOwnerReadOnly() const = 0;
+    virtual bool didEditControlOwnerTransferFocusToPicker() = 0;
+    virtual void didSuppressBlurDueToPickerFocusTransfer() = 0;
     virtual AtomString localeIdentifier() const = 0;
 };
 
@@ -104,6 +107,8 @@ private:
     void layout(const LayoutParameters&);
     DateTimeFieldsState valueAsDateTimeFieldsState(DateTimePlaceholderIfNoValue = DateTimePlaceholderIfNoValue::No) const;
 
+    void defaultEventHandler(Event&) final;
+
     bool focusOnNextFocusableField(size_t startIndex);
 
     // DateTimeFieldElementFieldOwner functions:
@@ -114,6 +119,8 @@ private:
     bool isFieldOwnerDisabled() const final;
     bool isFieldOwnerReadOnly() const final;
     bool isFieldOwnerHorizontal() const final;
+    bool didFieldOwnerTransferFocusToPicker() final;
+    void didSuppressBlurDueToPickerFocusTransfer() final;
     AtomString localeIdentifier() const final;
     const GregorianDateTime& placeholderDate() const final;
 

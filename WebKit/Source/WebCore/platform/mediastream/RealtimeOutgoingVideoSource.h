@@ -31,23 +31,17 @@
 #if USE(LIBWEBRTC)
 
 #include "LibWebRTCMacros.h"
+#include "LibWebRTCRefWrappers.h"
 #include "MediaStreamTrackPrivate.h"
 #include "Timer.h"
 #include <wtf/Lock.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-
-#include <webrtc/api/media_stream_interface.h>
-
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
-
 #include <wtf/LoggerHelper.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
 
 class RealtimeOutgoingVideoSource
-    : public ThreadSafeRefCounted<RealtimeOutgoingVideoSource, WTF::DestructionThread::Main>
+    : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<RealtimeOutgoingVideoSource, WTF::DestructionThread::Main>
     , public webrtc::VideoTrackSourceInterface
     , private MediaStreamTrackPrivateObserver
     , private RealtimeMediaSource::VideoFrameObserver
@@ -142,7 +136,7 @@ private:
 
     Ref<MediaStreamTrackPrivate> m_videoSource;
     Timer m_blackFrameTimer;
-    webrtc::scoped_refptr<webrtc::VideoFrameBuffer> m_blackFrame;
+    RefPtr<webrtc::VideoFrameBuffer> m_blackFrame;
 
     mutable Lock m_sinksLock;
     HashSet<webrtc::VideoSinkInterface<webrtc::VideoFrame>*> m_sinks WTF_GUARDED_BY_LOCK(m_sinksLock);

@@ -36,7 +36,9 @@
 #include <WebCore/ShareableResource.h>
 #include <pal/SessionID.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/CrossThreadCopier.h>
 #include <wtf/Hasher.h>
+#include <wtf/Markable.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Seconds.h>
@@ -122,6 +124,12 @@ enum class RetrieveDecision {
     NoDueToStreamingMedia
 };
 
+enum class SpeculativeLoadDecision {
+    Yes,
+    NoDueToVaryingHeaderMismatch,
+    NoDueToCannotUse,
+};
+
 enum class StoreDecision {
     Yes,
     NoDueToProtocol,
@@ -162,13 +170,38 @@ public:
 
     // Completion handler may get called back synchronously on failure.
     struct RetrieveInfo {
+        WTF_MAKE_STRUCT_TZONE_ALLOCATED(RetrieveInfo);
+
+        URL url;
         MonotonicTime startTime;
         MonotonicTime completionTime;
         unsigned priority;
         Storage::Timings storageTimings;
-        bool wasSpeculativeLoad { false };
+        Markable<RetrieveDecision> retrieveDecision;
+        Markable<SpeculativeLoadDecision> speculativeLoadDecision;
+        Markable<UseDecision> useDecision;
 
-        WTF_MAKE_TZONE_ALLOCATED(RetrieveInfo);
+        RetrieveInfo isolatedCopy() && { return {
+            crossThreadCopy(WTFMove(url)),
+            startTime,
+            completionTime,
+            priority,
+            storageTimings,
+            retrieveDecision,
+            speculativeLoadDecision,
+            useDecision
+        }; }
+
+        RetrieveInfo isolatedCopy() const & { return {
+            crossThreadCopy(url),
+            startTime,
+            completionTime,
+            priority,
+            storageTimings,
+            retrieveDecision,
+            speculativeLoadDecision,
+            useDecision
+        }; }
     };
     using RetrieveCompletionHandler = Function<void(std::unique_ptr<Entry>, const RetrieveInfo&)>;
     void retrieve(const WebCore::ResourceRequest&, std::optional<GlobalFrameID>, std::optional<NavigatingToAppBoundDomain>, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections>, RetrieveCompletionHandler&&);

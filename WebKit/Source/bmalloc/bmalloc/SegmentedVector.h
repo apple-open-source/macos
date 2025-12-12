@@ -49,8 +49,6 @@ public:
     using pointer = T*;
     using reference = T&;
 
-    ~SegmentedVectorIterator() { }
-
     T& operator*() const { return m_vector.at(m_index); }
     T* operator->() const { return &m_vector.at(m_index); }
 

@@ -1,6 +1,7 @@
 #include <dispatch/dispatch.h>
 #include <mach-o/dyld.h>
 #include <signal.h>
+#include <sys/code_signing.h>
 #include <sys/kern_sysctl.h>
 #include <sys/sysctl.h>
 #include <sys/kern_memorystatus.h>
@@ -29,6 +30,42 @@ is_development_kernel(void)
 	return is_development;
 }
 
+bool
+is_sptm_enabled(void)
+{
+	static dispatch_once_t is_sptm_enabled_once;
+	static bool is_sptm_enabled;
+
+	dispatch_once(&is_sptm_enabled_once, ^{
+		int page_protection_type;
+		size_t size = sizeof(page_protection_type);
+		int err = sysctlbyname("kern.page_protection_type", &page_protection_type, &size, NULL, 0);
+		T_ASSERT_POSIX_SUCCESS(err, "sysctl(\"kern.page_protection_type\");");
+		is_sptm_enabled = (page_protection_type == 2);
+	});
+
+	return is_sptm_enabled;
+}
+
+bool
+is_map_jit_allowed(void)
+{
+	static dispatch_once_t is_map_jit_allowed_once;
+	static bool is_map_jit_allowed;
+
+	dispatch_once(&is_map_jit_allowed_once, ^{
+		code_signing_config_t cs_config = 0;
+		size_t cs_config_size = sizeof(cs_config);
+
+		/* Query the code signing configuration information */
+		int err = sysctlbyname("security.codesigning.config", &cs_config, &cs_config_size, NULL, 0);
+		T_ASSERT_POSIX_SUCCESS(err, "sysctl(\"security.codesigning.config\");");
+
+		is_map_jit_allowed = !!(cs_config & CS_CONFIG_MAP_JIT);
+	});
+
+	return is_map_jit_allowed;
+}
 
 bool
 process_is_translated()

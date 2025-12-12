@@ -25,8 +25,9 @@
 
 #pragma once
 
-#include "RenderStyleConstants.h"
-#include "StyleColor.h"
+#include <WebCore/RenderStyleConstants.h>
+#include <WebCore/StyleColor.h>
+#include <WebCore/StyleLineWidth.h>
 
 namespace WebCore {
 
@@ -41,8 +42,8 @@ public:
     }
 
     const Style::Color& color() const { return m_color; }
-    float width() const { return m_width; }
-    float offset() const { return m_offset; }
+    Style::LineWidth width() const { return m_width; }
+    Style::Length<> offset() const { return m_offset; }
     OutlineStyle style() const { return static_cast<OutlineStyle>(m_style); }
 
     bool isVisible() const;
@@ -53,8 +54,8 @@ public:
 
 private:
     Style::Color m_color { Style::Color::currentColor() };
-    float m_width { 3 };
-    float m_offset { 0 };
+    Style::LineWidth m_width { CSS::Keyword::Medium { } };
+    Style::Length<> m_offset { 0 };
     PREFERRED_TYPE(OutlineStyle) unsigned m_style : 4;
 };
 

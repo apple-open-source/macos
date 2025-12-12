@@ -69,7 +69,7 @@ template<typename CharacterType, typename DelimiterType> bool skipExactly(String
     return false;
 }
 
-template<bool characterPredicate(LChar)> bool skipExactly(StringParsingBuffer<LChar>& buffer)
+template<bool characterPredicate(Latin1Character)> bool skipExactly(StringParsingBuffer<Latin1Character>& buffer)
 {
     if (buffer.hasCharactersRemaining() && characterPredicate(*buffer)) {
         ++buffer;
@@ -87,7 +87,7 @@ template<bool characterPredicate(char16_t)> bool skipExactly(StringParsingBuffer
     return false;
 }
 
-template<bool characterPredicate(LChar), typename CharacterType> bool skipExactly(std::span<CharacterType>& buffer) requires(std::is_same_v<std::remove_const_t<CharacterType>, LChar>)
+template<bool characterPredicate(Latin1Character), typename CharacterType> bool skipExactly(std::span<CharacterType>& buffer) requires(std::is_same_v<std::remove_const_t<CharacterType>, Latin1Character>)
 {
     if (!buffer.empty() && characterPredicate(buffer[0])) {
         skip(buffer, 1);
@@ -119,7 +119,7 @@ template<typename CharacterType, typename DelimiterType> void skipUntil(std::spa
     skip(buffer, index);
 }
 
-template<bool characterPredicate(LChar), typename CharacterType> void skipUntil(std::span<CharacterType>& data) requires(std::is_same_v<std::remove_const_t<CharacterType>, LChar>)
+template<bool characterPredicate(Latin1Character), typename CharacterType> void skipUntil(std::span<CharacterType>& data) requires(std::is_same_v<std::remove_const_t<CharacterType>, Latin1Character>)
 {
     size_t index = 0;
     while (index < data.size() && !characterPredicate(data[index]))
@@ -135,7 +135,7 @@ template<bool characterPredicate(char16_t), typename CharacterType> void skipUnt
     skip(data, index);
 }
 
-template<bool characterPredicate(LChar)> void skipUntil(StringParsingBuffer<LChar>& buffer)
+template<bool characterPredicate(Latin1Character)> void skipUntil(StringParsingBuffer<Latin1Character>& buffer)
 {
     while (buffer.hasCharactersRemaining() && !characterPredicate(*buffer))
         ++buffer;
@@ -161,7 +161,7 @@ template<typename CharacterType, typename DelimiterType> void skipWhile(std::spa
     skip(buffer, index);
 }
 
-template<bool characterPredicate(LChar), typename CharacterType> void skipWhile(std::span<CharacterType>& data) requires(std::is_same_v<std::remove_const_t<CharacterType>, LChar>)
+template<bool characterPredicate(Latin1Character), typename CharacterType> void skipWhile(std::span<CharacterType>& data) requires(std::is_same_v<std::remove_const_t<CharacterType>, Latin1Character>)
 {
     size_t index = 0;
     while (index < data.size() && characterPredicate(data[index]))
@@ -177,7 +177,7 @@ template<bool characterPredicate(char16_t), typename CharacterType> void skipWhi
     skip(data, index);
 }
 
-template<bool characterPredicate(LChar)> void skipWhile(StringParsingBuffer<LChar>& buffer)
+template<bool characterPredicate(Latin1Character)> void skipWhile(StringParsingBuffer<Latin1Character>& buffer)
 {
     while (buffer.hasCharactersRemaining() && characterPredicate(*buffer))
         ++buffer;
@@ -240,13 +240,13 @@ template<typename CharacterType, std::size_t Extent> constexpr bool skipCharacte
     return true;
 }
 
-// Adapt a char16_t-predicate to an LChar-predicate.
+// Adapt a char16_t-predicate to an Latin1Character-predicate.
 template<bool characterPredicate(char16_t)>
-static inline bool LCharPredicateAdapter(LChar c) { return characterPredicate(c); }
+static inline bool Latin1CharacterPredicateAdapter(Latin1Character c) { return characterPredicate(c); }
 
 } // namespace WTF
 
-using WTF::LCharPredicateAdapter;
+using WTF::Latin1CharacterPredicateAdapter;
 using WTF::isNotASCIISpace;
 using WTF::skipCharactersExactly;
 using WTF::skipExactly;

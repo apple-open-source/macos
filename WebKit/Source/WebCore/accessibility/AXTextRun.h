@@ -27,10 +27,10 @@
 
 #if ENABLE(AX_THREAD_TEXT_APIS)
 
-#include "FloatRect.h"
-#include "TextAffinity.h"
-#include "TextFlags.h"
 #include <CoreText/CTFont.h>
+#include <WebCore/FloatRect.h>
+#include <WebCore/TextAffinity.h>
+#include <WebCore/TextFlags.h>
 #include <wtf/FixedVector.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>

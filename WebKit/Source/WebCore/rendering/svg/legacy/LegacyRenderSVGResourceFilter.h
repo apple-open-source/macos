@@ -26,7 +26,7 @@
 #include "FilterResults.h"
 #include "GraphicsContextSwitcher.h"
 #include "LegacyRenderSVGResourceContainer.h"
-#include "SVGFilter.h"
+#include "SVGFilterRenderer.h"
 #include "SVGUnitTypes.h"
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>
@@ -44,7 +44,7 @@ public:
 
     FilterData() = default;
 
-    RefPtr<SVGFilter> filter;
+    RefPtr<SVGFilterRenderer> filter;
 
     std::unique_ptr<GraphicsContextSwitcher> targetSwitcher;
     FloatRect sourceImageRect;

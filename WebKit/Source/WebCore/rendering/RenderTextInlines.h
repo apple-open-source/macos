@@ -26,8 +26,8 @@
 
 namespace WebCore {
 
-inline LayoutUnit RenderText::marginLeft() const { return Style::evaluateMinimum(style().marginLeft(), 0_lu); }
-inline LayoutUnit RenderText::marginRight() const { return Style::evaluateMinimum(style().marginRight(), 0_lu); }
+inline LayoutUnit RenderText::marginLeft() const { return Style::evaluateMinimum<LayoutUnit>(style().marginLeft(), 0_lu, Style::ZoomNeeded { }); }
+inline LayoutUnit RenderText::marginRight() const { return Style::evaluateMinimum<LayoutUnit>(style().marginRight(), 0_lu, Style::ZoomNeeded { }); }
 
 template <typename MeasureTextCallback>
 float RenderText::measureTextConsideringPossibleTrailingSpace(bool currentCharacterIsSpace, unsigned startIndex, unsigned wordLength, WordTrailingSpace& wordTrailingSpace, SingleThreadWeakHashSet<const Font>& fallbackFonts, MeasureTextCallback&& callback)

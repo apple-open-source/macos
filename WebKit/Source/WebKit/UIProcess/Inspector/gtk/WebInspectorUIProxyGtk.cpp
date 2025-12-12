@@ -31,6 +31,8 @@
 
 #include "APINavigation.h"
 #include "APINavigationAction.h"
+#include "GtkUtilities.h"
+#include "GtkVersioning.h"
 #include "WKAPICast.h"
 #include "WKArray.h"
 #include "WKContextMenuItem.h"
@@ -46,8 +48,6 @@
 #include "WebProcessProxy.h"
 #include "WebsiteDataStore.h"
 #include <WebCore/CertificateInfo.h>
-#include <WebCore/GtkUtilities.h>
-#include <WebCore/GtkVersioning.h>
 #include <WebCore/InspectorDebuggableType.h>
 #include <WebCore/NotImplemented.h>
 #include <wtf/FileSystem.h>
@@ -87,7 +87,7 @@ static void runOpenPanel(WKPageRef pageRef, WKFrameRef, WKOpenPanelParametersRef
     WebInspectorUIProxy* inspector = static_cast<WebInspectorUIProxy*>(const_cast<void*>(clientInfo));
 
     GtkWidget* parent = gtk_widget_get_toplevel(gtk_widget_get_toplevel(inspector->inspectorView()));
-    if (!WebCore::widgetIsOnscreenToplevelWindow(parent))
+    if (!widgetIsOnscreenToplevelWindow(parent))
         return;
 
     GRefPtr<GtkFileChooserNative> dialog = adoptGRef(gtk_file_chooser_native_new("Load File",
@@ -365,7 +365,7 @@ void WebInspectorUIProxy::platformBringToFront()
         return;
 
     GtkWidget* parent = gtk_widget_get_toplevel(m_inspectorView.get());
-    if (WebCore::widgetIsOnscreenToplevelWindow(parent))
+    if (widgetIsOnscreenToplevelWindow(parent))
         gtk_window_present(GTK_WINDOW(parent));
 }
 
@@ -377,7 +377,7 @@ void WebInspectorUIProxy::platformBringInspectedPageToFront()
 bool WebInspectorUIProxy::platformIsFront()
 {
     GtkWidget* parent = gtk_widget_get_toplevel(m_inspectorView.get());
-    if (WebCore::widgetIsOnscreenToplevelWindow(parent))
+    if (widgetIsOnscreenToplevelWindow(parent))
         return m_isVisible && gtk_window_is_active(GTK_WINDOW(parent));
     return false;
 }
@@ -541,7 +541,7 @@ void WebInspectorUIProxy::platformSave(Vector<WebCore::InspectorFrontendClient::
     UNUSED_PARAM(forceSaveAs);
 
     GtkWidget* parent = gtk_widget_get_toplevel(m_inspectorView.get());
-    if (!WebCore::widgetIsOnscreenToplevelWindow(parent))
+    if (!widgetIsOnscreenToplevelWindow(parent))
         return;
 
     GRefPtr<GtkFileChooserNative> dialog = adoptGRef(gtk_file_chooser_native_new("Save File",

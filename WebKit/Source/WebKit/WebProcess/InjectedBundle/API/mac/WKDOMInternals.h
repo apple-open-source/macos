@@ -59,10 +59,6 @@ namespace WebKit {
 template<typename WebCoreType, typename WKDOMType>
 class DOMCache {
 public:
-    DOMCache()
-    {
-    }
-
     void add(WebCoreType core, WKDOMType kit)
     {
         m_map.add(core, kit);

@@ -183,6 +183,12 @@ typedef CF_OPTIONS(uint8_t, TAValidStatus) {
     TAValidPolicyConstrainedDenied = 1 << 7,
 };
 
+typedef CF_OPTIONS(uint8_t, TACRLiteStatus) {
+    TACRLiteDefinitelyOK = 1 << 0,
+    TACRLiteDefinitelyRevoked = 1 << 1,
+    TACRLiteEnforced = 1 << 2
+};
+
 typedef struct {
     uint64_t start_time;
     bool suspected_mitm;
@@ -216,6 +222,10 @@ typedef struct {
     bool valid_require_ct;
     bool valid_known_intermediates_only;
     bool valid_unknown_intermediate;
+    // CRLite
+    TACRLiteStatus crlite_status;
+    uint32_t crlite_generation_used;
+    uint32_t crlite_version_used;
 } TrustAnalyticsBuilder;
 
 TrustAnalyticsBuilder *SecPathBuilderGetAnalyticsData(SecPathBuilderRef builder);

@@ -40,18 +40,10 @@
 #include "SVGPathStringViewSource.h"
 #include "SVGVKernElement.h"
 #include <ranges>
+#include <wtf/CheckedRef.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/text/StringView.h>
-
-namespace WebCore {
-class SVGToOTFFontConverter;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::SVGToOTFFontConverter> : std::true_type { };
-}
 
 namespace WebCore {
 
@@ -64,7 +56,9 @@ static inline void append32(V& result, uint32_t value)
     result.append(value);
 }
 
-class SVGToOTFFontConverter : public CanMakeWeakPtr<SVGToOTFFontConverter> {
+class SVGToOTFFontConverter : public CanMakeCheckedPtr<SVGToOTFFontConverter> {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(SVGToOTFFontConverter);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGToOTFFontConverter);
 public:
     SVGToOTFFontConverter(const SVGFontElement&);
     bool convertSVGToOTFFont();
@@ -135,7 +129,7 @@ private:
         }
 
     private:
-        WeakRef<SVGToOTFFontConverter> m_converter;
+        const CheckedRef<SVGToOTFFontConverter> m_converter;
         const size_t m_baseOfOffset;
         const size_t m_location;
 #if ASSERT_ENABLED
@@ -1007,11 +1001,11 @@ void SVGToOTFFontConverter::appendVMTXTable()
 
 static String codepointToString(char32_t codepoint)
 {
-    std::array<UChar, 2> buffer;
+    std::array<char16_t, 2> buffer;
     uint8_t length = 0;
     UBool error = false;
     U16_APPEND(buffer, length, 2, codepoint, error);
-    return error ? String() : String(std::span<UChar> { buffer }.first(length));
+    return error ? String() : String(std::span<char16_t> { buffer }.first(length));
 }
 
 Vector<Glyph, 1> SVGToOTFFontConverter::glyphsForCodepoint(char32_t codepoint) const
@@ -1566,12 +1560,12 @@ bool SVGToOTFFontConverter::convertSVGToOTFFont()
 
 std::optional<Vector<uint8_t>> convertSVGToOTFFont(const SVGFontElement& element)
 {
-    SVGToOTFFontConverter converter(element);
-    if (converter.error())
+    auto converter = makeUnique<SVGToOTFFontConverter>(element);
+    if (converter->error())
         return std::nullopt;
-    if (!converter.convertSVGToOTFFont())
+    if (!converter->convertSVGToOTFFont())
         return std::nullopt;
-    return converter.releaseResult();
+    return converter->releaseResult();
 }
 
 }

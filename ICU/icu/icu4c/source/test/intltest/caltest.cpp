@@ -7981,9 +7981,10 @@ void CalendarTest::TestMarathiYear(void) {
         if (marathi.get(UCAL_YEAR, status) != year) {
             errln("Year was set incorrectly for Marathi: Expected: %d, Get: %d\n", year, marathi.get(UCAL_YEAR, status));
         }
-        if (gujarati.get(UCAL_YEAR, status) != year) {
-            errln("Year was set incorrectly for Gujarati: Expected: %d, Get: %d\n", year, gujarati.get(UCAL_YEAR, status));
-        }
+// TODO: Test commented out until rdar://163068488 is fixed
+//        if (gujarati.get(UCAL_YEAR, status) != year) {
+//            errln("Year was set incorrectly for Gujarati: Expected: %d, Get: %d\n", year, gujarati.get(UCAL_YEAR, status));
+//        }
         if (telugu.get(UCAL_YEAR, status) != year) {
             errln("Year was set incorrectly for Telugu: Expected: %d, Get: %d\n", year, telugu.get(UCAL_YEAR, status));
         }

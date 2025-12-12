@@ -68,10 +68,10 @@ void XMLHttpRequestProgressEventThrottle::updateProgress(bool isAsync, bool leng
 
         dispatchEventWhenPossible(XMLHttpRequestProgressEvent::create(eventNames().progressEvent, lengthComputable, loaded, total));
         m_dispatchThrottledProgressEventTimer = target->protectedScriptExecutionContext()->checkedEventLoop()->scheduleRepeatingTask(
-            minimumProgressEventDispatchingInterval, minimumProgressEventDispatchingInterval, TaskSource::Networking, [weakThis = WeakPtr { *this }] {
-                if (weakThis)
-                    weakThis->dispatchThrottledProgressEventTimerFired();
-            });
+            minimumProgressEventDispatchingInterval, minimumProgressEventDispatchingInterval, TaskSource::Networking, [weakTarget = WeakPtr { m_target.get() }] {
+            if (RefPtr protectedTarget = weakTarget.get())
+                protectedTarget->dispatchThrottledProgressEventIfNeeded();
+        });
         m_hasPendingThrottledProgressEvent = false;
         return;
     }
@@ -131,7 +131,7 @@ void XMLHttpRequestProgressEventThrottle::flushProgressEvent()
     dispatchEventWhenPossible(XMLHttpRequestProgressEvent::create(eventNames().progressEvent, m_lengthComputable, m_loaded, m_total));
 }
 
-void XMLHttpRequestProgressEventThrottle::dispatchThrottledProgressEventTimerFired()
+void XMLHttpRequestProgressEventThrottle::dispatchThrottledProgressEventIfNeeded()
 {
     ASSERT(m_dispatchThrottledProgressEventTimer);
     if (!m_hasPendingThrottledProgressEvent) {
@@ -160,6 +160,11 @@ void XMLHttpRequestProgressEventThrottle::resume()
     ActiveDOMObject::queueTaskKeepingObjectAlive(protectedTarget().get(), TaskSource::Networking, [this](auto&) {
         m_shouldDeferEventsDueToSuspension = false;
     });
+}
+
+Ref<XMLHttpRequest> XMLHttpRequestProgressEventThrottle::protectedTarget()
+{
+    return m_target.get();
 }
 
 } // namespace WebCore

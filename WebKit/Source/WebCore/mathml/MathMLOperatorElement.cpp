@@ -29,6 +29,7 @@
 
 #if ENABLE(MATHML)
 
+#include "ContainerNodeInlines.h"
 #include "ElementInlines.h"
 #include "NodeName.h"
 #include "RenderMathMLOperator.h"
@@ -55,8 +56,9 @@ Ref<MathMLOperatorElement> MathMLOperatorElement::create(const QualifiedName& ta
 MathMLOperatorElement::OperatorChar MathMLOperatorElement::parseOperatorChar(const String& string)
 {
     OperatorChar operatorChar;
+    StringView view = string;
     // FIXME: This operator dictionary does not accept multiple characters (https://webkit.org/b/124828).
-    if (auto codePoint = convertToSingleCodePoint(string)) {
+    if (auto codePoint = view.trim(isASCIIWhitespaceWithoutFF<char16_t>).convertToSingleCodePoint()) {
         auto character = codePoint.value();
         // The minus sign renders better than the hyphen sign used in some MathML formulas.
         if (character == hyphenMinus)

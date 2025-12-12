@@ -40,6 +40,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier;
 
+- (NSString*)fetchPETForUsername:(NSString*)username error:(NSError**)error;
+
 @end
 
 @interface OTAuthKitActualAdapter : NSObject <OTAuthKitAdapter>

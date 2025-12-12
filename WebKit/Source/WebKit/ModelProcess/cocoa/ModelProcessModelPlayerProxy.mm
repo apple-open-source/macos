@@ -56,6 +56,7 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/WeakPtr.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/text/TextStream.h>
 
 #import "WebKitSwiftSoftLink.h"
@@ -197,7 +198,7 @@ void RKModelLoaderUSD::load(CompletionHandler<void()>&& completionHandler)
     RetainPtr<NSString> attributionID;
     if (m_attributionTaskID.has_value())
         attributionID = m_attributionTaskID.value().createNSString();
-    [getWKRKEntityClass() loadFromData:m_model->data()->createNSData().get() withAttributionTaskID:attributionID.get() entityMemoryLimit:(m_entityMemoryLimit ? *m_entityMemoryLimit : 0) completionHandler:makeBlockPtr([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (WKRKEntity *entity) mutable {
+    [getWKRKEntityClassSingleton() loadFromData:m_model->data()->createNSData().get() withAttributionTaskID:attributionID.get() entityMemoryLimit:(m_entityMemoryLimit ? *m_entityMemoryLimit : 0) completionHandler:makeBlockPtr([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (WKRKEntity *entity) mutable {
         completionHandler();
 
         RefPtr protectedThis = weakThis.get();
@@ -237,7 +238,7 @@ Ref<REModelLoader> RKUSDModelLoadScheduler::scheduleModelLoad(Model& model, cons
 {
     auto loader = RKModelLoaderUSD::create(model, attributionTaskID, entityMemoryLimit, client);
 
-    dispatch_async(dispatch_get_main_queue(), [this, loader] () mutable {
+    dispatch_async(mainDispatchQueueSingleton(), [this, loader] () mutable {
         m_pendingLoads.append(loader);
         loadNextModel();
     });
@@ -247,7 +248,7 @@ Ref<REModelLoader> RKUSDModelLoadScheduler::scheduleModelLoad(Model& model, cons
 
 void RKUSDModelLoadScheduler::loadNextModel()
 {
-    dispatch_assert_queue(dispatch_get_main_queue());
+    dispatch_assert_queue(mainDispatchQueueSingleton());
 
     static const size_t maxLimitOnParallelLoads = 3;
     if (m_inProgressLoadsCount >= maxLimitOnParallelLoads)
@@ -264,7 +265,7 @@ void RKUSDModelLoadScheduler::loadNextModel()
 
     m_inProgressLoadsCount++;
     nextLoad->load([this] {
-        dispatch_assert_queue(dispatch_get_main_queue());
+        dispatch_assert_queue(mainDispatchQueueSingleton());
         ASSERT(m_inProgressLoadsCount > 0);
         m_inProgressLoadsCount--;
         loadNextModel();
@@ -336,7 +337,7 @@ ALWAYS_INLINE void ModelProcessModelPlayerProxy::send(T&& message)
 
 void ModelProcessModelPlayerProxy::createLayer()
 {
-    dispatch_assert_queue(dispatch_get_main_queue());
+    dispatch_assert_queue(mainDispatchQueueSingleton());
     ASSERT(!m_layer);
 
     m_layer = adoptNS([[WKModelProcessModelLayer alloc] init]);
@@ -582,10 +583,10 @@ static RECALayerService *webDefaultLayerService(void)
 
 void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& loader, Ref<WebCore::REModel> model)
 {
-    dispatch_assert_queue(dispatch_get_main_queue());
+    dispatch_assert_queue(mainDispatchQueueSingleton());
     ASSERT(&loader == m_loader.get());
 
-    bool canLoadWithRealityKit = [getWKRKEntityClass() isLoadFromDataAvailable];
+    bool canLoadWithRealityKit = [getWKRKEntityClassSingleton() isLoadFromDataAvailable];
 
     m_loader = nullptr;
     if (canLoadWithRealityKit)
@@ -634,6 +635,7 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
 
     if (m_entityTransformToRestore) {
         setEntityTransform(*m_entityTransformToRestore);
+        notifyModelPlayerOfEntityTransformChange();
         m_entityTransformToRestore = std::nullopt;
     } else {
         computeTransform(true);
@@ -656,7 +658,7 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
 
 void ModelProcessModelPlayerProxy::didFailLoading(WebCore::REModelLoader& loader, const WebCore::ResourceError& error)
 {
-    dispatch_assert_queue(dispatch_get_main_queue());
+    dispatch_assert_queue(mainDispatchQueueSingleton());
     ASSERT(&loader == m_loader.get());
 
     m_loader = nullptr;
@@ -672,14 +674,14 @@ static int defaultEntityMemoryLimit = 100; // MB
 
 void ModelProcessModelPlayerProxy::load(WebCore::Model& model, WebCore::LayoutSize layoutSize)
 {
-    dispatch_assert_queue(dispatch_get_main_queue());
+    dispatch_assert_queue(mainDispatchQueueSingleton());
 
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy::load size=%zu id=%" PRIu64, this, model.data()->size(), m_id.toUInt64());
     sizeDidChange(layoutSize);
 
-    WKREEngine::shared().runWithSharedScene([this, protectedThis = Ref { *this }, model = Ref { model }] (RESceneRef scene) {
+    WKREEngine::singleton().runWithSharedScene([this, protectedThis = Ref { *this }, model = Ref { model }] (RESceneRef scene) {
         m_scene = scene;
-        if ([getWKRKEntityClass() isLoadFromDataAvailable])
+        if ([getWKRKEntityClassSingleton() isLoadFromDataAvailable])
             m_loader = RKUSDModelLoadScheduler::singleton().scheduleModelLoad(model.get(), m_attributionTaskID, m_debugEntityMemoryLimit ? *m_debugEntityMemoryLimit : defaultEntityMemoryLimit, *this);
         else
             m_loader = WebCore::loadREModel(model.get(), *this);
@@ -803,7 +805,7 @@ void ModelProcessModelPlayerProxy::setIsMuted(bool isMuted, CompletionHandler<vo
     completionHandler(false);
 }
 
-Vector<RetainPtr<id>> ModelProcessModelPlayerProxy::accessibilityChildren()
+WebCore::ModelPlayerAccessibilityChildren ModelProcessModelPlayerProxy::accessibilityChildren()
 {
     return { };
 }

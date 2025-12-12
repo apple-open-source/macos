@@ -2391,6 +2391,17 @@ mach_port_construct_check_service_port(
 	return KERN_SUCCESS;
 }
 
+static bool
+mach_port_should_enforce_prp_entitlement(void)
+{
+#if XNU_TARGET_OS_OSX && CONFIG_CSR
+	/* In macOS, only enforce if SIP is on */
+	return csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0;
+#endif
+	/* default return true */
+	return true;
+}
+
 /*
  *	Routine:	mach_port_construct [kernel call]
  *	Purpose:
@@ -2511,25 +2522,11 @@ mach_port_construct(
 	    !IOCurrentTaskHasEntitlement(port_policy_entitlement)) {
 		/*
 		 * enforce the policy construct entitlement on all
-		 * port types, besides provisional reply port (yet).
+		 * port types, besides provisional reply port which
+		 * requires an extra check.
 		 */
-		if (!(options->flags & MPO_PROVISIONAL_REPLY_PORT)) {
-			mach_port_guard_exception(options->flags, 0,
-			    kGUARD_EXC_INVALID_MPO_ENTITLEMENT);
-			return KERN_DENIED;
-		}
-
-		/* emit telemetry if needed */
-		if (ipcpv_telemetry_enabled &&
-#if XNU_TARGET_OS_OSX && CONFIG_CSR
-		    (csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0) && /* SIP enabled */
-#endif /* XNU_TARGET_OS_OSX && CONFIG_CSR */
-		    !ipc_space_has_telemetry_type(space, IS_HAS_CREATE_PRP_TELEMETRY)) {
-			mach_port_guard_exception(0, 0, kGUARD_EXC_PROVISIONAL_REPLY_PORT);
-		}
-
-		/* If we have enforcement */
-		if (prp_enforcement_enabled) {
+		if (!(options->flags & MPO_PROVISIONAL_REPLY_PORT) ||
+		    mach_port_should_enforce_prp_entitlement()) {
 			mach_port_guard_exception(options->flags, 0,
 			    kGUARD_EXC_INVALID_MPO_ENTITLEMENT);
 			return KERN_DENIED;

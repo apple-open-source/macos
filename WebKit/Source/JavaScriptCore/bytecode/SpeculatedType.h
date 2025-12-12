@@ -28,9 +28,9 @@
 
 #pragma once
 
-#include "CPU.h"
-#include "JSCJSValue.h"
-#include "TypedArrayType.h"
+#include <JavaScriptCore/CPU.h>
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/TypedArrayType.h>
 #include <wtf/PrintStream.h>
 
 namespace JSC {

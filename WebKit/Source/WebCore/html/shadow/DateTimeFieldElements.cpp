@@ -364,4 +364,29 @@ void DateTimeYearFieldElement::setValueAsDate(const DateComponents& date)
     setValueAsInteger(date.fullYear());
 }
 
+static int currentYear()
+{
+    GregorianDateTime date;
+    date.setToCurrentLocalTime();
+    return date.year();
+}
+
+void DateTimeYearFieldElement::stepDown()
+{
+    if (!hasValue()) {
+        setValueAsInteger(currentYear());
+        return;
+    }
+    DateTimeNumericFieldElement::stepDown();
+}
+
+void DateTimeYearFieldElement::stepUp()
+{
+    if (!hasValue()) {
+        setValueAsInteger(currentYear());
+        return;
+    }
+    DateTimeNumericFieldElement::stepUp();
+}
+
 } // namespace WebCore

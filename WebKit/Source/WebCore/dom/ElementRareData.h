@@ -33,6 +33,7 @@
 #include "FormAssociatedCustomElement.h"
 #include "IntersectionObserver.h"
 #include "KeyframeEffectStack.h"
+#include "LargestContentfulPaintData.h"
 #include "NamedNodeMap.h"
 #include "NodeRareData.h"
 #include "PopoverData.h"
@@ -125,6 +126,9 @@ public:
 
     ResizeObserverData* resizeObserverData() { return m_resizeObserverData.get(); }
     void setResizeObserverData(std::unique_ptr<ResizeObserverData>&& data) { m_resizeObserverData = WTFMove(data); }
+
+    ElementLargestContentfulPaintData* largestContentfulPaintData() { return m_largestContentfulPaintData.get(); }
+    void setLargestContentfulPaintData(std::unique_ptr<ElementLargestContentfulPaintData>&& data) { m_largestContentfulPaintData = WTFMove(data); }
 
     std::optional<LayoutUnit> lastRememberedLogicalWidth() const { return m_lastRememberedLogicalWidth; }
     std::optional<LayoutUnit> lastRememberedLogicalHeight() const { return m_lastRememberedLogicalHeight; }
@@ -246,8 +250,8 @@ private:
     const std::unique_ptr<NamedNodeMap> m_attributeMap;
 
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
-
     std::unique_ptr<ResizeObserverData> m_resizeObserverData;
+    std::unique_ptr<ElementLargestContentfulPaintData> m_largestContentfulPaintData;
 
     Markable<LayoutUnit> m_lastRememberedLogicalWidth;
     Markable<LayoutUnit> m_lastRememberedLogicalHeight;

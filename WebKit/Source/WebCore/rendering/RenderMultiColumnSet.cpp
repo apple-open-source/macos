@@ -445,7 +445,7 @@ LayoutUnit RenderMultiColumnSet::columnGap() const
     auto& parentBlockGap = parentBlock.style().columnGap();
     if (parentBlockGap.isNormal())
         return LayoutUnit(parentBlock.style().fontDescription().computedSize()); // "1em" is recommended as the normal gap setting. Matches <p> margins.
-    return Style::evaluate(parentBlockGap, parentBlock.contentBoxLogicalWidth());
+    return Style::evaluate<LayoutUnit>(parentBlockGap, parentBlock.contentBoxLogicalWidth(), Style::ZoomNeeded { });
 }
 
 unsigned RenderMultiColumnSet::columnCount() const
@@ -605,7 +605,7 @@ LayoutRect RenderMultiColumnSet::fragmentedFlowPortionOverflowRect(const LayoutR
     // top/bottom unless it's the first/last column.
     LayoutRect overflowRect = overflowRectForFragmentedFlowPortion(portionRect, isFirstColumn && isFirstFragment(), isLastColumn && isLastFragment());
 
-    // For RenderViews only (i.e., iBooks), avoid overflowing into neighboring columns, by clipping in the middle of adjacent column gaps. Also make sure that we avoid rounding errors.
+    // For RenderViews only (i.e., Apple Books), avoid overflowing into neighboring columns, by clipping in the middle of adjacent column gaps. Also make sure that we avoid rounding errors.
     if (&view() == parent()) {
         if (isHorizontalWritingMode()) {
             if (!isLeftmostColumn)
@@ -631,9 +631,9 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
     const RenderStyle& blockStyle = parent()->style();
     const Color& ruleColor = blockStyle.visitedDependentColorWithColorFilter(CSSPropertyColumnRuleColor);
     bool ruleTransparent = blockStyle.columnRuleIsTransparent();
-    BorderStyle ruleStyle = collapsedBorderStyle(blockStyle.columnRuleStyle());
-    LayoutUnit ruleThickness { blockStyle.columnRuleWidth() };
-    LayoutUnit colGap = columnGap();
+    auto ruleStyle = collapsedBorderStyle(blockStyle.columnRuleStyle());
+    auto ruleThickness = Style::evaluate<LayoutUnit>(blockStyle.columnRuleWidth(), Style::ZoomNeeded { });
+    auto colGap = columnGap();
     bool renderRule = ruleStyle > BorderStyle::Hidden && !ruleTransparent;
     if (!renderRule)
         return;
@@ -959,8 +959,10 @@ LayoutPoint RenderMultiColumnSet::columnTranslationForOffset(const LayoutUnit& o
     return translationOffset;
 }
 
-void RenderMultiColumnSet::addOverflowFromChildren()
+void RenderMultiColumnSet::addOverflowFromInFlowChildren(OptionSet<ComputeOverflowOptions> options)
 {
+    UNUSED_PARAM(options);
+
     // FIXME: Need to do much better here.
     unsigned colCount = columnCount();
     if (!colCount)
@@ -970,9 +972,11 @@ void RenderMultiColumnSet::addOverflowFromChildren()
     addLayoutOverflow(lastRect);
     if (!hasNonVisibleOverflow())
         addVisualOverflow(lastRect);
+    if (hasRenderOverflow())
+        m_overflow->addContentOverflow(lastRect);
 }
 
-VisiblePosition RenderMultiColumnSet::positionForPoint(const LayoutPoint& logicalPoint, HitTestSource source, const RenderFragmentContainer*)
+PositionWithAffinity RenderMultiColumnSet::positionForPoint(const LayoutPoint& logicalPoint, HitTestSource source, const RenderFragmentContainer*)
 {
     return multiColumnFlow()->positionForPoint(translateFragmentPointToFragmentedFlow(logicalPoint, ClampHitTestTranslationToColumns), source, this);
 }

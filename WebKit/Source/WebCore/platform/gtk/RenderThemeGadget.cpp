@@ -30,8 +30,12 @@
 #if !USE(GTK4) && USE(CAIRO)
 
 #include "FloatRect.h"
-#include "GRefPtrGtk.h"
+#include <wtf/glib/GRefPtr.h>
 #include <wtf/TZoneMallocInlines.h>
+
+namespace WTF {
+WTF_DEFINE_GREF_TRAITS_INLINE(GtkWidgetPath, gtk_widget_path_ref, gtk_widget_path_unref)
+}
 
 namespace WebCore {
 
@@ -115,11 +119,16 @@ GtkBorder RenderThemeGadget::contentsBox() const
     return padding;
 }
 
+static inline Color gdkRGBAToColor(const GdkRGBA& color)
+{
+    return convertColor<SRGBA<uint8_t>>(SRGBA<float> { static_cast<float>(color.red), static_cast<float>(color.green), static_cast<float>(color.blue), static_cast<float>(color.alpha) });
+}
+
 Color RenderThemeGadget::color() const
 {
     GdkRGBA returnValue;
     gtk_style_context_get_color(m_context.get(), gtk_style_context_get_state(m_context.get()), &returnValue);
-    return returnValue;
+    return gdkRGBAToColor(returnValue);
 }
 
 Color RenderThemeGadget::backgroundColor() const
@@ -130,7 +139,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     gtk_style_context_get_background_color(m_context.get(), gtk_style_context_get_state(m_context.get()), &returnValue);
 ALLOW_DEPRECATED_DECLARATIONS_END
 
-    return returnValue;
+    return gdkRGBAToColor(returnValue);
 }
 
 double RenderThemeGadget::opacity() const

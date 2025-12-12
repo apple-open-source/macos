@@ -27,7 +27,7 @@
 #pragma once
 
 #include "EditingRange.h"
-#include "RendererBufferFormat.h"
+#include "RendererBufferDescription.h"
 #include "UserMessage.h"
 #include "WebContextMenuItemData.h"
 #include "WebEvent.h"
@@ -115,8 +115,8 @@ void webkitWebViewDidChangePageID(WebKitWebView*);
 void webkitWebViewDidReceiveUserMessage(WebKitWebView*, WebKit::UserMessage&&, CompletionHandler<void(WebKit::UserMessage&&)>&&);
 
 #if ENABLE(POINTER_LOCK)
-void webkitWebViewRequestPointerLock(WebKitWebView*);
-void webkitWebViewDenyPointerLockRequest(WebKitWebView*);
+void webkitWebViewRequestPointerLock(WebKitWebView*, CompletionHandler<void(bool)>&&);
+void webkitWebViewDenyPointerLockRequest(CompletionHandler<void(bool)>&&);
 void webkitWebViewDidLosePointerLock(WebKitWebView*);
 #endif
 
@@ -130,5 +130,9 @@ guint createShowOptionMenuSignal(WebKitWebViewClass*);
 guint createContextMenuSignal(WebKitWebViewClass*);
 
 #if PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))
-WebKit::RendererBufferFormat webkitWebViewGetRendererBufferFormat(WebKitWebView*);
+WebKit::RendererBufferDescription webkitWebViewGetRendererBufferDescription(WebKitWebView*);
+#endif
+
+#if ENABLE(WEBXR) && USE(OPENXR)
+void webkitWebViewSetIsImmersiveModeEnabled(WebKitWebView*, bool);
 #endif

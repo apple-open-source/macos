@@ -145,14 +145,14 @@ void NetscapePlugInStreamLoader::didReceiveResponse(ResourceResponse&& response,
     });
 }
 
-void NetscapePlugInStreamLoader::didReceiveData(const SharedBuffer& buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
+void NetscapePlugInStreamLoader::didReceiveBuffer(const FragmentedSharedBuffer& buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
 {
     Ref protectedThis { *this };
 
     if (m_client)
-        m_client->didReceiveData(this, buffer);
+        m_client->didReceiveData(this, buffer.makeContiguous());
 
-    ResourceLoader::didReceiveData(buffer, encodedDataLength, dataPayloadType);
+    ResourceLoader::didReceiveBuffer(buffer, encodedDataLength, dataPayloadType);
 }
 
 void NetscapePlugInStreamLoader::didFinishLoading(const NetworkLoadMetrics& networkLoadMetrics)

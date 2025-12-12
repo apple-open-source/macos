@@ -370,7 +370,9 @@ bool NetworkLoadChecker::isAllowedByContentSecurityPolicy(const ResourceRequest&
     case FetchOptions::Destination::Serviceworker:
     case FetchOptions::Destination::Sharedworker:
         return contentSecurityPolicy->allowWorkerFromSource(request.url(), redirectResponseReceived, preRedirectURL);
+    case FetchOptions::Destination::Json:
     case FetchOptions::Destination::Script:
+    case FetchOptions::Destination::Speculationrules:
         if (request.requester() == ResourceRequestRequester::ImportScripts && !contentSecurityPolicy->allowScriptFromSource(request.url(), redirectResponseReceived, preRedirectURL))
             return false;
         // FIXME: Check CSP for non-importScripts() initiated loads.

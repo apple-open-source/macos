@@ -425,8 +425,8 @@ compare_trees ()
 
     # Check to see if find supports -xattr:
     #
-    if ! find . -depth 0 -xattr ; then
-        continue
+    if ! find . -depth 0 -xattr 2>/dev/null ; then
+        return 0
     fi
 
     # Check for any xattrs; note that this won't do the right thing if we have

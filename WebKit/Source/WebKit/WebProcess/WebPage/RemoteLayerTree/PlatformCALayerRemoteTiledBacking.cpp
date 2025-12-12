@@ -41,9 +41,7 @@ PlatformCALayerRemoteTiledBacking::PlatformCALayerRemoteTiledBacking(LayerType l
     PlatformCALayerRemote::setContentsScale(m_tileController->contentsScale());
 }
 
-PlatformCALayerRemoteTiledBacking::~PlatformCALayerRemoteTiledBacking()
-{
-}
+PlatformCALayerRemoteTiledBacking::~PlatformCALayerRemoteTiledBacking() = default;
 
 void PlatformCALayerRemoteTiledBacking::setNeedsDisplayInRect(const FloatRect& dirtyRect)
 {

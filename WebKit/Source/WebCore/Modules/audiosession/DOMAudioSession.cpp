@@ -30,13 +30,12 @@
 
 #include "AudioSession.h"
 #include "ContextDestructionObserverInlines.h"
-#include "Document.h"
+#include "DocumentPage.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
 #include "EventTargetInterfaces.h"
 #include "ExceptionOr.h"
-#include "Page.h"
 #include "PermissionsPolicy.h"
 #include "PlatformMediaSessionManager.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -77,12 +76,12 @@ Ref<DOMAudioSession> DOMAudioSession::create(ScriptExecutionContext* context)
 DOMAudioSession::DOMAudioSession(ScriptExecutionContext* context)
     : ActiveDOMObject(context)
 {
-    AudioSession::protectedSharedSession()->addInterruptionObserver(*this);
+    AudioSession::addInterruptionObserver(*this);
 }
 
 DOMAudioSession::~DOMAudioSession()
 {
-    AudioSession::protectedSharedSession()->removeInterruptionObserver(*this);
+    AudioSession::removeInterruptionObserver(*this);
 }
 
 ExceptionOr<void> DOMAudioSession::setType(Type type)
@@ -101,10 +100,12 @@ ExceptionOr<void> DOMAudioSession::setType(Type type)
     page->setAudioSessionType(type);
 
     auto categoryOverride = fromDOMAudioSessionType(type);
-    AudioSession::protectedSharedSession()->setCategoryOverride(categoryOverride);
+    AudioSession::singleton().setCategoryOverride(categoryOverride);
 
-    if (categoryOverride == AudioSessionCategory::None)
-        PlatformMediaSessionManager::updateAudioSessionCategoryIfNecessary();
+    if (categoryOverride == AudioSessionCategory::None) {
+        if (RefPtr manager = page->mediaSessionManager())
+            manager->updateAudioSessionCategoryIfNecessary();
+    }
 
     return { };
 }
@@ -126,10 +127,10 @@ DOMAudioSession::Type DOMAudioSession::type() const
 
 static DOMAudioSession::State computeAudioSessionState()
 {
-    if (AudioSession::sharedSession().isInterrupted())
+    if (AudioSession::singleton().isInterrupted())
         return DOMAudioSession::State::Interrupted;
 
-    if (!AudioSession::sharedSession().isActive())
+    if (!AudioSession::singleton().isActive())
         return DOMAudioSession::State::Inactive;
 
     return DOMAudioSession::State::Active;

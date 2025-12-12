@@ -26,19 +26,16 @@
 
 #pragma once
 
-#include "FloatPoint.h"
-#include "LengthBox.h"
+#include <WebCore/BoxExtents.h>
+#include <WebCore/FloatPoint.h>
+#include <wtf/Platform.h>
 
 #if USE(CG)
 typedef struct CGRect CGRect;
 #endif
 
 #if PLATFORM(MAC)
-#ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
 typedef struct CGRect NSRect;
-#else
-typedef struct _NSRect NSRect;
-#endif
 #endif // PLATFORM(MAC)
 
 #if USE(CAIRO)
@@ -124,6 +121,13 @@ public:
         m_size.expand(-(box.left() + box.right()), -(box.top() + box.bottom()));
     }
     void contract(float dw, float dh) { m_size.expand(-dw, -dh); }
+
+    void shiftEdgesTo(float left, float top, float right, float bottom)
+    {
+        m_location.set(left, top);
+        m_size.setWidth(right - left);
+        m_size.setHeight(bottom - top);
+    }
 
     void shiftXEdgeTo(float edge)
     {
@@ -222,11 +226,6 @@ public:
     WEBCORE_EXPORT operator CGRect() const;
 #endif
 
-#if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
-    WEBCORE_EXPORT FloatRect(const NSRect&);
-    WEBCORE_EXPORT operator NSRect() const;
-#endif
-
 #if USE(SKIA)
     FloatRect(const SkRect&);
     operator SkRect() const;
@@ -258,13 +257,6 @@ public:
 private:
     FloatPoint m_location;
     FloatSize m_size;
-
-    void setLocationAndSizeFromEdges(float left, float top, float right, float bottom)
-    {
-        m_location.set(left, top);
-        m_size.setWidth(right - left);
-        m_size.setHeight(bottom - top);
-    }
 };
 
 inline FloatRect intersection(const FloatRect& a, const FloatRect& b)

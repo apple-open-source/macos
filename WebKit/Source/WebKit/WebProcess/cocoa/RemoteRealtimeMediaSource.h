@@ -69,7 +69,7 @@ protected:
     void createRemoteMediaSource();
 
     RemoteRealtimeMediaSourceProxy& proxy() { return m_proxy; }
-    UserMediaCaptureManager& manager();
+    inline UserMediaCaptureManager& manager(); // Defined in RemoteRealtimeMediaSourceInlines.h.
 
     void setCapabilities(WebCore::RealtimeMediaSourceCapabilities&&);
 

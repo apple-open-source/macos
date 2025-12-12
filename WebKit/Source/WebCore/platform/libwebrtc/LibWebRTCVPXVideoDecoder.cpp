@@ -32,6 +32,7 @@
 #include "CVUtilities.h"
 #include "IOSurface.h"
 #include "LibWebRTCDav1dDecoder.h"
+#include "LibWebRTCRefWrappers.h"
 #include "Logging.h"
 #include "VP9Utilities.h"
 #include "VideoFrameLibWebRTC.h"
@@ -260,7 +261,7 @@ int32_t LibWebRTCVPXInternalVideoDecoder::Decoded(webrtc::VideoFrame& frame)
     bool isFullRange = (m_configuration && m_configuration->videoFullRangeFlag == VPConfigurationRange::FullRange) || (m_colorSpace && m_colorSpace->fullRange.value_or(false));
     auto colorSpace = m_colorSpace ? m_colorSpace : m_configuration ? colorSpaceFromVPCodecConfigurationRecord(*m_configuration) : VideoFrameLibWebRTC::colorSpaceFromFrame(frame);
 
-    auto videoFrame = VideoFrameLibWebRTC::create({ }, false, VideoFrame::Rotation::None, VideoFrameLibWebRTC::colorSpaceFromFrame(frame), frame.video_frame_buffer(), [protectedThis = Ref { *this }, colorSpace, isFullRange] (auto& buffer) {
+    auto videoFrame = VideoFrameLibWebRTC::create({ }, false, VideoFrame::Rotation::None, VideoFrameLibWebRTC::colorSpaceFromFrame(frame), toRef(frame.video_frame_buffer()), [protectedThis = Ref { *this }, colorSpace, isFullRange] (auto& buffer) {
         return adoptCF(webrtc::createPixelBufferFromFrameBuffer(buffer, [protectedThis, colorSpace, isFullRange](size_t width, size_t height, webrtc::BufferType bufferType) -> CVPixelBufferRef {
             auto pixelBuffer = protectedThis->createPixelBuffer(width, height, bufferType, isFullRange);
             if (colorSpace)

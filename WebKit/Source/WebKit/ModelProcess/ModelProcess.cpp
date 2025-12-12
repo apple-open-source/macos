@@ -93,7 +93,7 @@ void ModelProcess::createModelConnectionToWebProcess(
         return;
 
 #if PLATFORM(VISION) && ENABLE(GPU_PROCESS)
-    WKREEngine::shared().initializeWithSharedSimulationConnectionGetterIfNeeded([identifier, weakThis = WeakPtr { *this }] (CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&& completionHandler) {
+    WKREEngine::singleton().initializeWithSharedSimulationConnectionGetterIfNeeded([identifier, weakThis = WeakPtr { *this }] (CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&& completionHandler) {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis) {
             completionHandler(std::nullopt);

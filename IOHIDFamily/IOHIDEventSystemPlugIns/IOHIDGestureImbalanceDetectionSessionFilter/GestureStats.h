@@ -15,7 +15,7 @@
 @property(nonatomic, nonnull) NSMutableDictionary<NSNumber*, GesturePhase*>* children;
 @property(readonly, nonnull) NSDictionary* debug;
 
-- (nullable instancetype)init NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
 - (nullable instancetype)initWithType:(IOHIDEventType)type;
 
 @end
@@ -31,7 +31,7 @@
 @property(nonatomic, nonnull) NSMutableArray<NSDictionary*>* gestureImbalances;
 @property(readonly, nonnull) NSDictionary* debug;
 
-- (nullable instancetype)init NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
 - (nullable instancetype)initWithServiceID:(nonnull NSNumber*)serviceID;
 - (void)handleHIDEvent:(nonnull HIDEvent*)event;
 

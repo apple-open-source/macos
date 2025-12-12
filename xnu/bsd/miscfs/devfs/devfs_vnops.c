@@ -205,6 +205,7 @@ devfs_is_name_protected(struct vnode *dvp, const char *name)
 	    (strcmp("tty", name) == 0) ||
 	    (strcmp("null", name) == 0) ||
 	    (strcmp("zero", name) == 0) ||
+	    (strcmp("fd", name) == 0) ||
 	    (strcmp("klog", name) == 0)) {
 		return TRUE;
 	}

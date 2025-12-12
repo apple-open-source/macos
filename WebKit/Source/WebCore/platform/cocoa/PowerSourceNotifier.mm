@@ -31,6 +31,7 @@
 #import <pal/spi/cocoa/IOPSLibSPI.h>
 #import <wtf/RunLoop.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/darwin/DispatchExtras.h>
 
 namespace WebCore {
 
@@ -40,9 +41,9 @@ PowerSourceNotifier::PowerSourceNotifier(PowerSourceNotifierCallback&& callback)
     : m_callback(WTFMove(callback))
 {
     int token = 0;
-    auto status = notify_register_dispatch(kIOPSNotifyPowerSource, &token, dispatch_get_main_queue(), [weakThis = WeakPtr { *this }] (int) {
-        if (weakThis)
-            weakThis->notifyPowerSourceChanged();
+    auto status = notify_register_dispatch(kIOPSNotifyPowerSource, &token, mainDispatchQueueSingleton(), [weakThis = WeakPtr { *this }] (int) {
+        if (CheckedPtr checkedThis = weakThis.get())
+            checkedThis->notifyPowerSourceChanged();
     });
     if (status == NOTIFY_STATUS_OK)
         m_tokenID = token;
@@ -50,8 +51,8 @@ PowerSourceNotifier::PowerSourceNotifier(PowerSourceNotifierCallback&& callback)
     // If the current value of systemHasAC() is uncached, force a notification.
     if (!cachedSystemHasAC()) {
         RunLoop::mainSingleton().dispatch([weakThis = WeakPtr { *this }] {
-            if (weakThis)
-                weakThis->notifyPowerSourceChanged();
+            if (CheckedPtr checkedThis = weakThis.get())
+                checkedThis->notifyPowerSourceChanged();
         });
     }
 }

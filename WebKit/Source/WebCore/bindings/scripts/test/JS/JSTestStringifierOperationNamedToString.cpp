@@ -151,7 +151,7 @@ JSValue JSTestStringifierOperationNamedToString::getConstructor(VM& vm, const JS
 
 void JSTestStringifierOperationNamedToString::destroy(JSC::JSCell* cell)
 {
-    JSTestStringifierOperationNamedToString* thisObject = static_cast<JSTestStringifierOperationNamedToString*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestStringifierOperationNamedToString* thisObject = static_cast<JSTestStringifierOperationNamedToString*>(cell);
     thisObject->JSTestStringifierOperationNamedToString::~JSTestStringifierOperationNamedToString();
 }
 
@@ -209,7 +209,7 @@ bool JSTestStringifierOperationNamedToStringOwner::isReachableFromOpaqueRoots(JS
 
 void JSTestStringifierOperationNamedToStringOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestStringifierOperationNamedToString = static_cast<JSTestStringifierOperationNamedToString*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestStringifierOperationNamedToString = static_cast<JSTestStringifierOperationNamedToString*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestStringifierOperationNamedToString->protectedWrapped().ptr(), jsTestStringifierOperationNamedToString);
 }
@@ -223,7 +223,7 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierOperationNamed
 extern "C" { extern void* _ZTVN7WebCore37TestStringifierOperationNamedToStringE[]; }
 #endif
 template<std::same_as<TestStringifierOperationNamedToString> T>
-static inline void verifyVTable(TestStringifierOperationNamedToString* ptr) 
+static inline void verifyVTable(TestStringifierOperationNamedToString* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -243,8 +243,9 @@ static inline void verifyVTable(TestStringifierOperationNamedToString* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestStringifierOperationNamedToString>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestStringifierOperationNamedToString>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestStringifierOperationNamedToString>(impl.ptr());
 #endif

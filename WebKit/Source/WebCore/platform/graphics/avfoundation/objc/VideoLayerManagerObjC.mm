@@ -75,7 +75,7 @@ void VideoLayerManagerObjC::setVideoLayer(PlatformLayer *videoLayer, FloatSize c
     [m_videoInlineLayer setName:@"WebVideoContainerLayer"];
     [m_videoInlineLayer setFrame:CGRectMake(0, 0, contentSize.width(), contentSize.height())];
     [m_videoInlineLayer setContentsGravity:kCAGravityResizeAspect];
-    if (PAL::isAVFoundationFrameworkAvailable() && [videoLayer isKindOfClass:PAL::getAVPlayerLayerClass()])
+    if (PAL::isAVFoundationFrameworkAvailable() && [videoLayer isKindOfClass:PAL::getAVPlayerLayerClassSingleton()])
         [m_videoInlineLayer setPlayerLayer:(AVPlayerLayer *)videoLayer];
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
@@ -88,6 +88,11 @@ void VideoLayerManagerObjC::setVideoLayer(PlatformLayer *videoLayer, FloatSize c
         [m_videoLayer setFrame:m_videoInlineLayer.get().bounds];
         [m_videoInlineLayer insertSublayer:m_videoLayer.get() atIndex:0];
     }
+}
+
+void VideoLayerManagerObjC::setPresentationSize(FloatSize contentSize)
+{
+    [m_videoInlineLayer setFrame:CGRectMake(0, 0, contentSize.width(), contentSize.height())];
 }
 
 void VideoLayerManagerObjC::didDestroyVideoLayer()

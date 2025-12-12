@@ -200,7 +200,7 @@ inline static WARN_UNUSED_RETURN size_t decodeHexImpl(std::span<CharacterType> s
     return WTF::notFound;
 }
 
-WARN_UNUSED_RETURN size_t decodeHex(std::span<const LChar> span, std::span<uint8_t> result)
+WARN_UNUSED_RETURN size_t decodeHex(std::span<const Latin1Character> span, std::span<uint8_t> result)
 {
     return decodeHexImpl(span, result);
 }

@@ -26,10 +26,10 @@
 #include "config.h"
 #include "RemoteImageBufferSet.h"
 
-#include "GPUConnectionToWebProcess.h"
 #include "ImageBufferBackendHandleSharing.h"
 #include "Logging.h"
-#include "RemoteDisplayListRecorder.h"
+#include "RemoteGraphicsContext.h"
+#include "RemoteImageBufferGraphicsContext.h"
 #include "RemoteImageBufferSetMessages.h"
 #include "RemoteImageBufferSetProxyMessages.h"
 #include "RemoteRenderingBackend.h"
@@ -40,19 +40,19 @@
 
 #if ENABLE(GPU_PROCESS)
 
-#define MESSAGE_CHECK(assertion, message) MESSAGE_CHECK_WITH_MESSAGE_BASE(assertion, &m_renderingBackend->gpuConnectionToWebProcess().connection(), message)
+#define MESSAGE_CHECK(assertion, message) MESSAGE_CHECK_WITH_MESSAGE_BASE(assertion, &m_renderingBackend->streamConnection(), message)
 
 namespace WebKit {
 
-Ref<RemoteImageBufferSet> RemoteImageBufferSet::create(RemoteImageBufferSetIdentifier identifier, RemoteDisplayListRecorderIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
+Ref<RemoteImageBufferSet> RemoteImageBufferSet::create(ImageBufferSetIdentifier identifier, RemoteGraphicsContextIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
 {
     auto instance = adoptRef(*new RemoteImageBufferSet(identifier, contextIdentifier, renderingBackend));
     instance->startListeningForIPC();
     return instance;
 }
 
-RemoteImageBufferSet::RemoteImageBufferSet(RemoteImageBufferSetIdentifier identifier, RemoteDisplayListRecorderIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
-    : m_identifier(identifier)
+RemoteImageBufferSet::RemoteImageBufferSet(ImageBufferSetIdentifier identifier, RemoteGraphicsContextIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
+    : ImageBufferSet(identifier)
     , m_contextIdentifier(contextIdentifier)
     , m_renderingBackend(renderingBackend)
 {
@@ -75,12 +75,12 @@ RemoteImageBufferSet::~RemoteImageBufferSet()
 
 void RemoteImageBufferSet::startListeningForIPC()
 {
-    m_renderingBackend->protectedStreamConnection()->startReceivingMessages(*this, Messages::RemoteImageBufferSet::messageReceiverName(), m_identifier.toUInt64());
+    m_renderingBackend->streamConnection().startReceivingMessages(*this, Messages::RemoteImageBufferSet::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteImageBufferSet::stopListeningForIPC()
 {
-    m_renderingBackend->protectedStreamConnection()->stopReceivingMessages(Messages::RemoteImageBufferSet::messageReceiverName(), m_identifier.toUInt64());
+    m_renderingBackend->streamConnection().stopReceivingMessages(Messages::RemoteImageBufferSet::messageReceiverName(), m_identifier.toUInt64());
 }
 
 IPC::StreamConnectionWorkQueue& RemoteImageBufferSet::workQueue() const
@@ -116,7 +116,7 @@ void RemoteImageBufferSet::endPrepareForDisplay(RenderingUpdateID renderingUpdat
     }
 
     outputData.bufferCacheIdentifiers = BufferIdentifierSet { bufferIdentifier(frontBuffer), bufferIdentifier(m_backBuffer), bufferIdentifier(m_secondaryBackBuffer) };
-    m_renderingBackend->protectedStreamConnection()->send(Messages::RemoteImageBufferSetProxy::DidPrepareForDisplay(WTFMove(outputData), renderingUpdateID), m_identifier);
+    m_renderingBackend->streamConnection().send(Messages::RemoteImageBufferSetProxy::DidPrepareForDisplay(WTFMove(outputData), renderingUpdateID), m_identifier);
 #endif
 }
 
@@ -152,10 +152,10 @@ void RemoteImageBufferSet::ensureBufferForDisplay(ImageBufferSetPrepareBufferFor
     if (displayRequirement != SwapBuffersDisplayRequirement::NeedsNoDisplay) {
         RefPtr imageBuffer = m_frontBuffer;
         if (!imageBuffer) {
-            imageBuffer = WebCore::ImageBuffer::create<WebCore::NullImageBufferBackend>({ 0, 0 }, 1, WebCore::DestinationColorSpace::SRGB(), { WebCore::ImageBufferPixelFormat::BGRA8 }, WebCore::RenderingPurpose::Unspecified, { });
+            imageBuffer = WebCore::ImageBuffer::create<WebCore::NullImageBufferBackend>({ 0, 0 }, 1, WebCore::DestinationColorSpace::SRGB(), { WebCore::PixelFormat::BGRA8 }, WebCore::RenderingPurpose::Unspecified, { });
             RELEASE_ASSERT(imageBuffer);
         }
-        m_context = RemoteDisplayListRecorder::create(*imageBuffer, m_contextIdentifier, m_renderingBackend);
+        m_context = RemoteImageBufferGraphicsContext::create(*imageBuffer, m_contextIdentifier, m_renderingBackend);
     }
 }
 

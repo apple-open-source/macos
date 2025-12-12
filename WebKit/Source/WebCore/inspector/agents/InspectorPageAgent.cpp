@@ -33,14 +33,16 @@
 #include "InspectorPageAgent.h"
 
 #include "CachedResource.h"
-#include "CachedResourceLoader.h"
 #include "Cookie.h"
 #include "CookieJar.h"
 #include "DOMWrapperWorld.h"
-#include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentView.h"
 #include "ElementInlines.h"
+#include "EventTargetInlines.h"
 #include "ForcedAccessibilityValue.h"
+#include "FrameInlines.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
 #include "FrameSnapshotting.h"
@@ -51,6 +53,7 @@
 #include "InspectorDOMAgent.h"
 #include "InspectorNetworkAgent.h"
 #include "InspectorOverlay.h"
+#include "InspectorResourceUtilities.h"
 #include "InstrumentingAgents.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
@@ -96,251 +99,9 @@ using namespace Inspector;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorPageAgent);
 
-static bool decodeBuffer(std::span<const uint8_t> buffer, const String& textEncodingName, String* result)
-{
-    if (buffer.data()) {
-        PAL::TextEncoding encoding(textEncodingName);
-        if (!encoding.isValid())
-            encoding = PAL::WindowsLatin1Encoding();
-        *result = encoding.decode(buffer);
-        return true;
-    }
-    return false;
-}
-
-bool InspectorPageAgent::mainResourceContent(LocalFrame* frame, bool withBase64Encode, String* result)
-{
-    RefPtr<FragmentedSharedBuffer> buffer = frame->loader().documentLoader()->mainResourceData();
-    if (!buffer)
-        return false;
-    return InspectorPageAgent::dataContent(buffer->makeContiguous()->span(), frame->document()->encoding(), withBase64Encode, result);
-}
-
-
 Ref<InspectorOverlay> InspectorPageAgent::protectedOverlay() const
 {
     return m_overlay.get();
-}
-
-bool InspectorPageAgent::sharedBufferContent(RefPtr<FragmentedSharedBuffer>&& buffer, const String& textEncodingName, bool withBase64Encode, String* result)
-{
-    return dataContent(buffer ? buffer->makeContiguous()->span() : std::span<const uint8_t> { }, textEncodingName, withBase64Encode, result);
-}
-
-bool InspectorPageAgent::dataContent(std::span<const uint8_t> data, const String& textEncodingName, bool withBase64Encode, String* result)
-{
-    if (withBase64Encode) {
-        *result = base64EncodeToString(data);
-        return true;
-    }
-
-    return decodeBuffer(data, textEncodingName, result);
-}
-
-Vector<CachedResource*> InspectorPageAgent::cachedResourcesForFrame(LocalFrame* frame)
-{
-    Vector<CachedResource*> result;
-
-    for (auto& cachedResourceHandle : frame->document()->cachedResourceLoader().allCachedResources().values()) {
-        auto* cachedResource = cachedResourceHandle.get();
-        if (cachedResource->resourceRequest().hiddenFromInspector())
-            continue;
-
-        switch (cachedResource->type()) {
-        case CachedResource::Type::ImageResource:
-            // Skip images that were not auto loaded (images disabled in the user agent).
-        case CachedResource::Type::SVGFontResource:
-        case CachedResource::Type::FontResource:
-            // Skip fonts that were referenced in CSS but never used/downloaded.
-            if (cachedResource->stillNeedsLoad())
-                continue;
-            break;
-        default:
-            // All other CachedResource types download immediately.
-            break;
-        }
-
-        result.append(cachedResource);
-    }
-
-    return result;
-}
-
-void InspectorPageAgent::resourceContent(Inspector::Protocol::ErrorString& errorString, LocalFrame* frame, const URL& url, String* result, bool* base64Encoded)
-{
-    DocumentLoader* loader = assertDocumentLoader(errorString, frame);
-    if (!loader)
-        return;
-
-    RefPtr<FragmentedSharedBuffer> buffer;
-    bool success = false;
-    if (equalIgnoringFragmentIdentifier(url, loader->url())) {
-        *base64Encoded = false;
-        success = mainResourceContent(frame, *base64Encoded, result);
-    }
-
-    if (!success) {
-        if (auto* resource = cachedResource(frame, url))
-            success = InspectorNetworkAgent::cachedResourceContent(*resource, result, base64Encoded);
-    }
-
-    if (!success)
-        errorString = "Missing resource for given url"_s;
-}
-
-String InspectorPageAgent::sourceMapURLForResource(CachedResource* cachedResource)
-{
-    if (!cachedResource)
-        return String();
-
-    // Scripts are handled in a separate path.
-    if (cachedResource->type() != CachedResource::Type::CSSStyleSheet)
-        return String();
-
-    String sourceMapHeader = cachedResource->response().httpHeaderField(HTTPHeaderName::SourceMap);
-    if (!sourceMapHeader.isEmpty())
-        return sourceMapHeader;
-
-    sourceMapHeader = cachedResource->response().httpHeaderField(HTTPHeaderName::XSourceMap);
-    if (!sourceMapHeader.isEmpty())
-        return sourceMapHeader;
-
-    String content;
-    bool base64Encoded;
-    if (InspectorNetworkAgent::cachedResourceContent(*cachedResource, &content, &base64Encoded) && !base64Encoded)
-        return ContentSearchUtilities::findStylesheetSourceMapURL(content);
-
-    return String();
-}
-
-CachedResource* InspectorPageAgent::cachedResource(const LocalFrame* frame, const URL& url)
-{
-    if (url.isNull())
-        return nullptr;
-
-    CachedResource* cachedResource = frame->document()->cachedResourceLoader().cachedResource(MemoryCache::removeFragmentIdentifierIfNeeded(url));
-    if (!cachedResource) {
-        ResourceRequest request(URL { url });
-        request.setDomainForCachePartition(frame->document()->domainForCachePartition());
-        cachedResource = MemoryCache::singleton().resourceForRequest(request, frame->page()->sessionID());
-    }
-
-    return cachedResource;
-}
-
-Inspector::Protocol::Page::ResourceType InspectorPageAgent::resourceTypeJSON(InspectorPageAgent::ResourceType resourceType)
-{
-    switch (resourceType) {
-    case DocumentResource:
-        return Inspector::Protocol::Page::ResourceType::Document;
-    case ImageResource:
-        return Inspector::Protocol::Page::ResourceType::Image;
-    case FontResource:
-        return Inspector::Protocol::Page::ResourceType::Font;
-    case StyleSheetResource:
-        return Inspector::Protocol::Page::ResourceType::StyleSheet;
-    case ScriptResource:
-        return Inspector::Protocol::Page::ResourceType::Script;
-    case XHRResource:
-        return Inspector::Protocol::Page::ResourceType::XHR;
-    case FetchResource:
-        return Inspector::Protocol::Page::ResourceType::Fetch;
-    case PingResource:
-        return Inspector::Protocol::Page::ResourceType::Ping;
-    case BeaconResource:
-        return Inspector::Protocol::Page::ResourceType::Beacon;
-    case WebSocketResource:
-        return Inspector::Protocol::Page::ResourceType::WebSocket;
-    case EventSourceResource:
-        return Inspector::Protocol::Page::ResourceType::EventSource;
-    case OtherResource:
-        return Inspector::Protocol::Page::ResourceType::Other;
-#if ENABLE(APPLICATION_MANIFEST)
-    case ApplicationManifestResource:
-        break;
-#endif
-    }
-    return Inspector::Protocol::Page::ResourceType::Other;
-}
-
-InspectorPageAgent::ResourceType InspectorPageAgent::inspectorResourceType(CachedResource::Type type)
-{
-    switch (type) {
-    case CachedResource::Type::ImageResource:
-        return InspectorPageAgent::ImageResource;
-    case CachedResource::Type::SVGFontResource:
-    case CachedResource::Type::FontResource:
-        return InspectorPageAgent::FontResource;
-#if ENABLE(XSLT)
-    case CachedResource::Type::XSLStyleSheet:
-#endif
-    case CachedResource::Type::CSSStyleSheet:
-        return InspectorPageAgent::StyleSheetResource;
-    case CachedResource::Type::Script:
-        return InspectorPageAgent::ScriptResource;
-    case CachedResource::Type::MainResource:
-        return InspectorPageAgent::DocumentResource;
-    case CachedResource::Type::Beacon:
-        return InspectorPageAgent::BeaconResource;
-#if ENABLE(APPLICATION_MANIFEST)
-    case CachedResource::Type::ApplicationManifest:
-        return InspectorPageAgent::ApplicationManifestResource;
-#endif
-    case CachedResource::Type::Ping:
-        return InspectorPageAgent::PingResource;
-    case CachedResource::Type::MediaResource:
-    case CachedResource::Type::Icon:
-    case CachedResource::Type::RawResource:
-    default:
-        return InspectorPageAgent::OtherResource;
-    }
-}
-
-InspectorPageAgent::ResourceType InspectorPageAgent::inspectorResourceType(const CachedResource& cachedResource)
-{
-    if (cachedResource.type() == CachedResource::Type::MainResource && MIMETypeRegistry::isSupportedImageMIMEType(cachedResource.mimeType()))
-        return InspectorPageAgent::ImageResource;
-
-    if (cachedResource.type() == CachedResource::Type::RawResource) {
-        switch (cachedResource.resourceRequest().requester()) {
-        case ResourceRequestRequester::Fetch:
-            return InspectorPageAgent::FetchResource;
-        case ResourceRequestRequester::Main:
-            return InspectorPageAgent::DocumentResource;
-        case ResourceRequestRequester::EventSource:
-            return InspectorPageAgent::EventSourceResource;
-        default:
-            return InspectorPageAgent::XHRResource;
-        }
-    }
-
-    return inspectorResourceType(cachedResource.type());
-}
-
-Inspector::Protocol::Page::ResourceType InspectorPageAgent::cachedResourceTypeJSON(const CachedResource& cachedResource)
-{
-    return resourceTypeJSON(inspectorResourceType(cachedResource));
-}
-
-LocalFrame* InspectorPageAgent::findFrameWithSecurityOrigin(Page& page, const String& originRawString)
-{
-    for (Frame* frame = &page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
-        if (!localFrame)
-            continue;
-        if (localFrame->document()->securityOrigin().toRawString() == originRawString)
-            return localFrame;
-    }
-    return nullptr;
-}
-
-DocumentLoader* InspectorPageAgent::assertDocumentLoader(Inspector::Protocol::ErrorString& errorString, LocalFrame* frame)
-{
-    FrameLoader& frameLoader = frame->loader();
-    DocumentLoader* documentLoader = frameLoader.documentLoader();
-    if (!documentLoader)
-        errorString = "Missing document loader for given frame"_s;
-    return documentLoader;
 }
 
 InspectorPageAgent::InspectorPageAgent(PageAgentContext& context, InspectorBackendClient* client, InspectorOverlay& overlay)
@@ -366,10 +127,11 @@ void InspectorPageAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReas
 
 Inspector::Protocol::ErrorStringOr<void> InspectorPageAgent::enable()
 {
-    if (m_instrumentingAgents.enabledPageAgent() == this)
+    Ref agents = m_instrumentingAgents.get();
+    if (agents->enabledPageAgent() == this)
         return makeUnexpected("Page domain already enabled"_s);
 
-    m_instrumentingAgents.setEnabledPageAgent(this);
+    agents->setEnabledPageAgent(this);
 
     auto& stopwatch = m_environment.executionStopwatch();
     stopwatch.reset();
@@ -382,7 +144,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorPageAgent::enable()
 
 Inspector::Protocol::ErrorStringOr<void> InspectorPageAgent::disable()
 {
-    m_instrumentingAgents.setEnabledPageAgent(nullptr);
+    Ref { m_instrumentingAgents.get() }->setEnabledPageAgent(nullptr);
 
     setShowPaintRects(false);
 #if !PLATFORM(IOS_FAMILY)
@@ -630,7 +392,7 @@ static Vector<URL> allResourcesURLsForFrame(LocalFrame* frame)
 
     result.append(frame->loader().documentLoader()->url());
 
-    for (auto* cachedResource : InspectorPageAgent::cachedResourcesForFrame(frame))
+    for (auto* cachedResource : ResourceUtilities::cachedResourcesForFrame(frame))
         result.append(cachedResource->url());
 
     return result;
@@ -806,7 +568,7 @@ Inspector::Protocol::ErrorStringOr<std::tuple<String, bool /* base64Encoded */>>
     String content;
     bool base64Encoded;
 
-    resourceContent(errorString, frame, URL({ }, url), &content, &base64Encoded);
+    ResourceUtilities::resourceContent(errorString, frame, URL({ }, url), &content, &base64Encoded);
 
     return { { content, base64Encoded } };
 }
@@ -823,7 +585,7 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::Generi
     Inspector::Protocol::ErrorString errorString;
 
     if (!!requestId) {
-        if (auto* networkAgent = m_instrumentingAgents.enabledNetworkAgent()) {
+        if (auto* networkAgent = Ref { m_instrumentingAgents.get() }->enabledNetworkAgent()) {
             RefPtr<JSON::ArrayOf<Inspector::Protocol::GenericTypes::SearchMatch>> result;
             networkAgent->searchInRequest(errorString, requestId, query, caseSensitive && *caseSensitive, isRegex && *isRegex, result);
             if (!result)
@@ -836,7 +598,7 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::Generi
     if (!frame)
         return makeUnexpected(errorString);
 
-    DocumentLoader* loader = assertDocumentLoader(errorString, frame);
+    DocumentLoader* loader = ResourceUtilities::assertDocumentLoader(errorString, frame);
     if (!loader)
         return makeUnexpected(errorString);
 
@@ -845,11 +607,11 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::Generi
     String content;
     bool success = false;
     if (equalIgnoringFragmentIdentifier(kurl, loader->url()))
-        success = mainResourceContent(frame, false, &content);
+        success = ResourceUtilities::mainResourceContent(frame, false, &content);
 
     if (!success) {
-        if (auto* resource = cachedResource(frame, kurl)) {
-            if (auto textContent = InspectorNetworkAgent::textContentForCachedResource(*resource)) {
+        if (auto* resource = ResourceUtilities::cachedResource(frame, kurl)) {
+            if (auto textContent = ResourceUtilities::textContentForCachedResource(*resource)) {
                 content = *textContent;
                 success = true;
             }
@@ -879,12 +641,13 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::Page::
     auto searchCaseSensitive = (caseSensitive && *caseSensitive) ? ContentSearchUtilities::SearchCaseSensitive::Yes : ContentSearchUtilities::SearchCaseSensitive::No;
     auto regex = ContentSearchUtilities::createRegularExpressionForString(text, searchType, searchCaseSensitive);
 
+    // FIXME: rework this frame tree traversal as it won't work with Site Isolation enabled.
     for (Frame* frame = &m_inspectedPage->mainFrame(); frame; frame = frame->tree().traverseNext()) {
         auto* localFrame = dynamicDowncast<LocalFrame>(frame);
         if (!localFrame)
             continue;
-        for (auto* cachedResource : cachedResourcesForFrame(localFrame)) {
-            if (auto textContent = InspectorNetworkAgent::textContentForCachedResource(*cachedResource)) {
+        for (auto* cachedResource : ResourceUtilities::cachedResourcesForFrame(localFrame)) {
+            if (auto textContent = ResourceUtilities::textContentForCachedResource(*cachedResource)) {
                 int matchesCount = ContentSearchUtilities::countRegularExpressionMatches(regex, *textContent);
                 if (matchesCount)
                     result->addItem(buildObjectForSearchResult(frameId(localFrame), cachedResource->url().string(), matchesCount));
@@ -892,7 +655,7 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::Page::
         }
     }
 
-    if (auto* networkAgent = m_instrumentingAgents.enabledNetworkAgent())
+    if (auto* networkAgent = Ref { m_instrumentingAgents.get() }->enabledNetworkAgent())
         networkAgent->searchOtherRequests(regex, result);
 
     return result;
@@ -981,26 +744,6 @@ LocalFrame* InspectorPageAgent::assertFrame(Inspector::Protocol::ErrorString& er
 void InspectorPageAgent::loaderDetachedFromFrame(DocumentLoader& loader)
 {
     m_loaderToIdentifier.remove(&loader);
-}
-
-void InspectorPageAgent::frameStartedLoading(LocalFrame& frame)
-{
-    m_frontendDispatcher->frameStartedLoading(frameId(&frame));
-}
-
-void InspectorPageAgent::frameStoppedLoading(LocalFrame& frame)
-{
-    m_frontendDispatcher->frameStoppedLoading(frameId(&frame));
-}
-
-void InspectorPageAgent::frameScheduledNavigation(Frame& frame, Seconds delay)
-{
-    m_frontendDispatcher->frameScheduledNavigation(frameId(&frame), delay.value());
-}
-
-void InspectorPageAgent::frameClearedScheduledNavigation(Frame& frame)
-{
-    m_frontendDispatcher->frameClearedScheduledNavigation(frameId(&frame));
 }
 
 void InspectorPageAgent::accessibilitySettingsDidChange()
@@ -1136,17 +879,17 @@ Ref<Inspector::Protocol::Page::FrameResourceTree> InspectorPageAgent::buildObjec
         .setResources(subresources.copyRef())
         .release();
 
-    for (auto* cachedResource : cachedResourcesForFrame(frame)) {
+    for (auto* cachedResource : ResourceUtilities::cachedResourcesForFrame(frame)) {
         auto resourceObject = Inspector::Protocol::Page::FrameResource::create()
             .setUrl(cachedResource->url().string())
-            .setType(cachedResourceTypeJSON(*cachedResource))
+            .setType(ResourceUtilities::cachedResourceTypeToProtocol(*cachedResource))
             .setMimeType(cachedResource->response().mimeType())
             .release();
         if (cachedResource->wasCanceled())
             resourceObject->setCanceled(true);
         else if (cachedResource->status() == CachedResource::LoadError || cachedResource->status() == CachedResource::DecodeError)
             resourceObject->setFailed(true);
-        String sourceMappingURL = InspectorPageAgent::sourceMapURLForResource(cachedResource);
+        String sourceMappingURL = ResourceUtilities::sourceMapURLForResource(cachedResource);
         if (!sourceMappingURL.isEmpty())
             resourceObject->setSourceMapURL(sourceMappingURL);
         String targetId = cachedResource->resourceRequest().initiatorIdentifier();
@@ -1205,7 +948,7 @@ Inspector::Protocol::ErrorStringOr<String> InspectorPageAgent::snapshotNode(Insp
 {
     Inspector::Protocol::ErrorString errorString;
 
-    InspectorDOMAgent* domAgent = m_instrumentingAgents.persistentDOMAgent();
+    InspectorDOMAgent* domAgent = Ref { m_instrumentingAgents.get() }->persistentDOMAgent();
     ASSERT(domAgent);
     Node* node = domAgent->assertNode(errorString, nodeId);
     if (!node)
@@ -1215,7 +958,7 @@ Inspector::Protocol::ErrorStringOr<String> InspectorPageAgent::snapshotNode(Insp
     if (!localMainFrame)
         return makeUnexpected("Main frame isn't local"_s);
 
-    auto snapshot = WebCore::snapshotNode(*localMainFrame, *node, { { }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() });
+    auto snapshot = WebCore::snapshotNode(*localMainFrame, *node, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
     if (!snapshot)
         return makeUnexpected("Could not capture snapshot"_s);
 
@@ -1224,7 +967,7 @@ Inspector::Protocol::ErrorStringOr<String> InspectorPageAgent::snapshotNode(Insp
 
 Inspector::Protocol::ErrorStringOr<String> InspectorPageAgent::snapshotRect(int x, int y, int width, int height, Inspector::Protocol::Page::CoordinateSystem coordinateSystem)
 {
-    SnapshotOptions options { { }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() };
+    SnapshotOptions options { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() };
     if (coordinateSystem == Inspector::Protocol::Page::CoordinateSystem::Viewport)
         options.flags.add(SnapshotFlags::InViewCoordinates);
 

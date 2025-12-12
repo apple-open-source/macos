@@ -37,16 +37,22 @@
 #include "FrameTracers.h"
 #include "InlineCallFrame.h"
 #include "JSArrayIterator.h"
+#include "JSAsyncFromSyncIterator.h"
 #include "JSAsyncFunction.h"
 #include "JSAsyncGeneratorFunction.h"
+#include "JSCellButterfly.h"
 #include "JSCInlines.h"
 #include "JSGeneratorFunction.h"
-#include "JSImmutableButterfly.h"
 #include "JSInternalPromise.h"
 #include "JSIteratorHelper.h"
 #include "JSLexicalEnvironment.h"
 #include "JSMapIterator.h"
+#include "JSPromiseAllContext.h"
+#include "JSPromiseAllGlobalContext.h"
+#include "JSPromiseReaction.h"
+#include "JSRegExpStringIterator.h"
 #include "JSSetIterator.h"
+#include "JSWrapForValidIterator.h"
 #include "RegExpObject.h"
 #include "ResourceExhaustion.h"
 #include "VMTrapsInlines.h"
@@ -177,6 +183,21 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationPopulateObjectInOSR, void, (JSGlobalO
         case JSIteratorHelperType:
             materialize(jsCast<JSIteratorHelper*>(target));
             break;
+        case JSWrapForValidIteratorType:
+            materialize(jsCast<JSWrapForValidIterator*>(target));
+            break;
+        case JSAsyncFromSyncIteratorType:
+            materialize(jsCast<JSAsyncFromSyncIterator*>(target));
+            break;
+        case JSPromiseAllContextType:
+            materialize(jsCast<JSPromiseAllContext*>(target));
+            break;
+        case JSPromiseAllGlobalContextType:
+            materialize(jsCast<JSPromiseAllGlobalContext*>(target));
+            break;
+        case JSRegExpStringIteratorType:
+            materialize(jsCast<JSRegExpStringIterator*>(target));
+            break;
         case JSPromiseType:
             if (target->classInfo() == JSInternalPromise::info())
                 materialize(jsCast<JSInternalPromise*>(target));
@@ -255,6 +276,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
             throwOutOfMemoryError(globalObject, scope);
             OPERATION_RETURN(scope, nullptr);
         }
+        Butterfly::clearRange(materialization->indexingType(), result, 0, size);
 
         return std::bit_cast<HeapCell*>(result);
     }
@@ -451,38 +473,36 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
         // The real values will be put subsequently by
         // operationPopulateNewObjectInOSR. See the PhantomNewObject
         // case for details.
+        auto create = [&]<typename T>() -> T* {
+            auto* result = T::createWithInitialValues(vm, structure);
+            RELEASE_ASSERT(materialization->properties().size() - 1 == T::numberOfInternalFields);
+            return result;
+        };
+
         switch (structure->typeInfo().type()) {
-        case JSArrayIteratorType: {
-            JSArrayIterator* result = JSArrayIterator::createWithInitialValues(vm, structure);
-            RELEASE_ASSERT(materialization->properties().size() - 1 == JSArrayIterator::numberOfInternalFields);
-            return result;
-        }
-        case JSMapIteratorType: {
-            JSMapIterator* result = JSMapIterator::createWithInitialValues(vm, structure);
-            RELEASE_ASSERT(materialization->properties().size() - 1 == JSMapIterator::numberOfInternalFields);
-            return result;
-        }
-        case JSSetIteratorType: {
-            JSSetIterator* result = JSSetIterator::createWithInitialValues(vm, structure);
-            RELEASE_ASSERT(materialization->properties().size() - 1 == JSSetIterator::numberOfInternalFields);
-            return result;
-        }
-        case JSIteratorHelperType: {
-            JSIteratorHelper* result = JSIteratorHelper::createWithInitialValues(vm, structure);
-            RELEASE_ASSERT(materialization->properties().size() - 1 == JSIteratorHelper::numberOfInternalFields);
-            return result;
-        }
-        case JSPromiseType: {
-            if (structure->classInfoForCells() == JSInternalPromise::info()) {
-                JSInternalPromise* result = JSInternalPromise::createWithInitialValues(vm, structure);
-                RELEASE_ASSERT(materialization->properties().size() - 1 == JSInternalPromise::numberOfInternalFields);
-                return result;
-            }
+        case JSArrayIteratorType:
+            return create.operator()<JSArrayIterator>();
+        case JSMapIteratorType:
+            return create.operator()<JSMapIterator>();
+        case JSSetIteratorType:
+            return create.operator()<JSSetIterator>();
+        case JSIteratorHelperType:
+            return create.operator()<JSIteratorHelper>();
+        case JSWrapForValidIteratorType:
+            return create.operator()<JSWrapForValidIterator>();
+        case JSAsyncFromSyncIteratorType:
+            return create.operator()<JSAsyncFromSyncIterator>();
+        case JSPromiseAllContextType:
+            return create.operator()<JSPromiseAllContext>();
+        case JSPromiseAllGlobalContextType:
+            return create.operator()<JSPromiseAllGlobalContext>();
+        case JSRegExpStringIteratorType:
+            return create.operator()<JSRegExpStringIterator>();
+        case JSPromiseType:
+            if (structure->classInfoForCells() == JSInternalPromise::info())
+                return create.operator()<JSInternalPromise>();
             ASSERT(structure->classInfoForCells() == JSPromise::info());
-            JSPromise* result = JSPromise::createWithInitialValues(vm, structure);
-            RELEASE_ASSERT(materialization->properties().size() - 1 == JSPromise::numberOfInternalFields);
-            return result;
-        }
+            return create.operator()<JSPromise>();
         default:
             RELEASE_ASSERT_NOT_REACHED();
             return nullptr;
@@ -669,21 +689,21 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
         }
         RELEASE_ASSERT(array);
 
-        // Note: it is sound for JSImmutableButterfly::createFromArray to call getDirectIndex here
+        // Note: it is sound for JSCellButterfly::createFromArray to call getDirectIndex here
         // because we're guaranteed we won't be calling any getters. The reason for this is
         // that we only support PhantomSpread over CreateRest, which is an array we create.
         // Any attempts to put a getter on any indices on the rest array will escape the array.
-        auto* fixedArray = JSImmutableButterfly::createFromArray(globalObject, vm, array);
+        auto* fixedArray = JSCellButterfly::createFromArray(globalObject, vm, array);
         RELEASE_ASSERT(fixedArray);
         return fixedArray;
     }
 
     case PhantomNewArrayBuffer: {
-        JSImmutableButterfly* immutableButterfly = nullptr;
+        JSCellButterfly* immutableButterfly = nullptr;
         for (unsigned i = materialization->properties().size(); i--;) {
             const ExitPropertyValue& property = materialization->properties()[i];
             if (property.location().kind() == NewArrayBufferPLoc) {
-                immutableButterfly = jsCast<JSImmutableButterfly*>(JSValue::decode(values[i]));
+                immutableButterfly = jsCast<JSCellButterfly*>(JSValue::decode(values[i]));
                 break;
             }
         }
@@ -709,7 +729,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
         ASSERT(!structure->outOfLineCapacity());
 
         if (immutableButterfly->indexingMode() != indexingMode) [[unlikely]] {
-            auto* newButterfly = JSImmutableButterfly::create(vm, indexingMode, immutableButterfly->length());
+            auto* newButterfly = JSCellButterfly::create(vm, indexingMode, immutableButterfly->length());
             for (unsigned i = 0; i < immutableButterfly->length(); ++i)
                 newButterfly->setIndex(vm, i, immutableButterfly->get(i));
             immutableButterfly = newButterfly;
@@ -740,7 +760,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
             if (property.location().kind() == NewArrayWithSpreadArgumentPLoc) {
                 ++numProperties;
                 JSValue value = JSValue::decode(values[i]);
-                if (JSImmutableButterfly* immutableButterfly = jsDynamicCast<JSImmutableButterfly*>(value))
+                if (JSCellButterfly* immutableButterfly = jsDynamicCast<JSCellButterfly*>(value))
                     checkedArraySize += immutableButterfly->publicLength();
                 else
                     checkedArraySize += 1;
@@ -782,7 +802,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
 
         unsigned arrayIndex = 0;
         for (JSValue value : arguments) {
-            if (JSImmutableButterfly* immutableButterfly = jsDynamicCast<JSImmutableButterfly*>(value)) {
+            if (JSCellButterfly* immutableButterfly = jsDynamicCast<JSCellButterfly*>(value)) {
                 for (unsigned i = 0; i < immutableButterfly->publicLength(); i++) {
                     ASSERT(immutableButterfly->get(i));
                     result->putDirectIndex(globalObject, arrayIndex, immutableButterfly->get(i));

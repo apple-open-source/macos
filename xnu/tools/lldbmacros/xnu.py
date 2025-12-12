@@ -16,6 +16,11 @@ from core.kernelcore import *
 from utils import *
 from core.lazytarget import *
 
+if os.environ.get('DEBUG_LLDB_PYTHON'):
+    import debugpy
+    debugpy.listen(5678, in_process_debug_adapter=True)
+    debugpy.wait_for_client()
+
 MODULE_NAME=__name__
 
 """ Kernel Debugging macros for lldb.

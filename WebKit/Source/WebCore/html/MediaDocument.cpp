@@ -31,6 +31,8 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DocumentLoader.h"
+#include "DocumentSettingsValues.h"
+#include "DocumentView.h"
 #include "EventNames.h"
 #include "FrameLoader.h"
 #include "HTMLBodyElement.h"

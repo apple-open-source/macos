@@ -26,6 +26,7 @@
 #include "config.h"
 #include "ImageBufferRemoteDisplayListBackend.h"
 
+#include <WebCore/NativeImage.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
@@ -43,9 +44,7 @@ ImageBufferRemoteDisplayListBackend::ImageBufferRemoteDisplayListBackend(const P
 {
 }
 
-ImageBufferRemoteDisplayListBackend::~ImageBufferRemoteDisplayListBackend()
-{
-}
+ImageBufferRemoteDisplayListBackend::~ImageBufferRemoteDisplayListBackend() = default;
 
 RefPtr<NativeImage> ImageBufferRemoteDisplayListBackend::createNativeImageReference()
 {

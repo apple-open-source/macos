@@ -149,7 +149,7 @@ JSValue JSTestGenerateAddOpaqueRoot::getConstructor(VM& vm, const JSGlobalObject
 
 void JSTestGenerateAddOpaqueRoot::destroy(JSC::JSCell* cell)
 {
-    JSTestGenerateAddOpaqueRoot* thisObject = static_cast<JSTestGenerateAddOpaqueRoot*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestGenerateAddOpaqueRoot* thisObject = static_cast<JSTestGenerateAddOpaqueRoot*>(cell);
     thisObject->JSTestGenerateAddOpaqueRoot::~JSTestGenerateAddOpaqueRoot();
 }
 
@@ -216,7 +216,7 @@ bool JSTestGenerateAddOpaqueRootOwner::isReachableFromOpaqueRoots(JSC::Handle<JS
 
 void JSTestGenerateAddOpaqueRootOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestGenerateAddOpaqueRoot = static_cast<JSTestGenerateAddOpaqueRoot*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestGenerateAddOpaqueRoot = static_cast<JSTestGenerateAddOpaqueRoot*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestGenerateAddOpaqueRoot->protectedWrapped().ptr(), jsTestGenerateAddOpaqueRoot);
 }
@@ -230,7 +230,7 @@ extern "C" { extern void (*const __identifier("??_7TestGenerateAddOpaqueRoot@Web
 extern "C" { extern void* _ZTVN7WebCore25TestGenerateAddOpaqueRootE[]; }
 #endif
 template<std::same_as<TestGenerateAddOpaqueRoot> T>
-static inline void verifyVTable(TestGenerateAddOpaqueRoot* ptr) 
+static inline void verifyVTable(TestGenerateAddOpaqueRoot* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -250,8 +250,9 @@ static inline void verifyVTable(TestGenerateAddOpaqueRoot* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestGenerateAddOpaqueRoot>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestGenerateAddOpaqueRoot>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestGenerateAddOpaqueRoot>(impl.ptr());
 #endif

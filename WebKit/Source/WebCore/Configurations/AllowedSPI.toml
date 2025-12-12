@@ -1,41 +1,82 @@
+# SPI used by WebCore on iOS.
+# More info: https://github.com/WebKit/WebKit/wiki/Using-SPI-on-Apple-platforms
 
-[accessibility."rdar://141698311"]
+[[temporary-usage]]
+request = "rdar://141698311"
+cleanup = "rdar://157890302"
 classes = ["AXRemoteElement"]
+selectors = [
+    { name = "setOnClientSide:", class = "?" },
+    { name = "initWithUUID:andRemotePid:andContextId:", class = "?" },
+]
 
-[materials.not-web-essential]
+[[not-web-essential]]
+request = "rdar://157890384"
 classes = ["MTMaterialLayer"]
 symbols = [
-    "_MTCoreMaterialRecipeNone",
-    "_MTCoreMaterialRecipePlatformChromeDark",
-    "_MTCoreMaterialRecipePlatformChromeLight",
-    "_MTCoreMaterialRecipePlatformContentDark",
-    "_MTCoreMaterialRecipePlatformContentLight",
-    "_MTCoreMaterialRecipePlatformContentThickDark",
-    "_MTCoreMaterialRecipePlatformContentThickLight",
-    "_MTCoreMaterialRecipePlatformContentThinDark",
-    "_MTCoreMaterialRecipePlatformContentThinLight",
-    "_MTCoreMaterialRecipePlatformContentUltraThinDark",
-    "_MTCoreMaterialRecipePlatformContentUltraThinLight",
-    "_MTCoreMaterialVisualStyleCategoryFill",
-    "_MTCoreMaterialVisualStyleCategoryStroke",
-    "_MTCoreMaterialVisualStyleNone",
-    "_MTCoreMaterialVisualStylePrimary",
-    "_MTCoreMaterialVisualStyleQuaternary",
-    "_MTCoreMaterialVisualStyleSecondary",
-    "_MTCoreMaterialVisualStyleSeparator",
-    "_MTCoreMaterialVisualStyleTertiary",
-    "_MTVisualStylingCreateDictionaryRepresentation",
+    "MTCoreMaterialRecipeNone",
+    "MTCoreMaterialRecipePlatformChromeDark",
+    "MTCoreMaterialRecipePlatformChromeLight",
+    "MTCoreMaterialRecipePlatformContentDark",
+    "MTCoreMaterialRecipePlatformContentLight",
+    "MTCoreMaterialRecipePlatformContentThickDark",
+    "MTCoreMaterialRecipePlatformContentThickLight",
+    "MTCoreMaterialRecipePlatformContentThinDark",
+    "MTCoreMaterialRecipePlatformContentThinLight",
+    "MTCoreMaterialRecipePlatformContentUltraThinDark",
+    "MTCoreMaterialRecipePlatformContentUltraThinLight",
+    "MTCoreMaterialVisualStyleCategoryFill",
+    "MTCoreMaterialVisualStyleCategoryStroke",
+    "MTCoreMaterialVisualStyleNone",
+    "MTCoreMaterialVisualStylePrimary",
+    "MTCoreMaterialVisualStyleQuaternary",
+    "MTCoreMaterialVisualStyleSecondary",
+    "MTCoreMaterialVisualStyleSeparator",
+    "MTCoreMaterialVisualStyleTertiary",
+    "MTVisualStylingCreateDictionaryRepresentation",
 ]
 
-[network.not-web-essential]
+[[not-web-essential]]
+request = "rdar://157890562"
 symbols = [
     # Only used for benchmarking, see 293525@main.
-    "_nw_parameters_set_source_application_by_bundle_id",
+    "nw_parameters_set_source_application_by_bundle_id",
 ]
 
-[fonts."rdar://161402565"]
+[[temporary-usage]]
+request = "rdar://157890014"
+cleanup = "rdar://157890142"
+symbols = [
+    "nw_path_create_evaluator_for_endpoint",
+    "nw_path_evaluator_copy_path",
+    "nw_resolver_create_with_path",
+]
+
+[[temporary-usage]]
+request = "rdar://159806937"
+cleanup = "rdar://159806845"
+symbols = [
+    "CGDataProviderCreateWithCopyOfData",
+]
+
+[[temporary-usage]]
+request = "rdar://159947920"
+cleanup = "rdar://159948141"
+selectors = [
+    { name = "_enumerateAllDeclaredTypesUsingBlock:", class = "UTType" },
+    { name = "_parentTypes", class = "UTType" },
+]
+
+[[temporary-usage]]
+request = "rdar://161241270"
+cleanup = "rdar://161241477"
+symbols = [
+    "CTFontDescriptorCreateMatchingFontDescriptorsWithOptions",
+]
+
+[[temporary-usage]]
 request = "rdar://161402565"
 cleanup = "rdar://161402756"
 symbols = [
-    "_FPFontCreateMemorySafeFontsFromData",
+    "FPFontCreateMemorySafeFontsFromData",
 ]

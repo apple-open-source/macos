@@ -24,16 +24,20 @@
 
 #include "CSSStyleSheet.h"
 #include "CachedCSSStyleSheet.h"
-#include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
 #include "CachedXSLStyleSheet.h"
 #include "CommonAtomStrings.h"
 #include "DocumentInlines.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentView.h"
 #include "FrameLoader.h"
 #include "LocalFrame.h"
 #include "MediaQueryParser.h"
 #include "MediaQueryParserContext.h"
+#include "NodeDocument.h"
 #include "NodeInlines.h"
+#include "SerializedNode.h"
+#include "Settings.h"
 #include "StyleScope.h"
 #include "StyleSheetContents.h"
 #include "XMLDocumentParser.h"
@@ -73,11 +77,16 @@ String ProcessingInstruction::nodeName() const
     return m_target;
 }
 
-Ref<Node> ProcessingInstruction::cloneNodeInternal(Document& document, CloningOperation, CustomElementRegistry*)
+Ref<Node> ProcessingInstruction::cloneNodeInternal(Document& document, CloningOperation, CustomElementRegistry*) const
 {
     // FIXME: Is it a problem that this does not copy m_localHref?
     // What about other data members?
     return create(document, String { m_target }, String { data() });
+}
+
+SerializedNode ProcessingInstruction::serializeNode(CloningOperation) const
+{
+    return { SerializedNode::ProcessingInstruction { { data() }, m_target } };
 }
 
 void ProcessingInstruction::checkStyleSheet()
@@ -94,7 +103,8 @@ void ProcessingInstruction::checkStyleSheet()
 
         m_isCSS = type.isEmpty() || type == cssContentTypeAtom();
 #if ENABLE(XSLT)
-        m_isXSL = type == "text/xml"_s || type == "text/xsl"_s || type == "application/xml"_s || type == "application/xhtml+xml"_s || type == "application/rss+xml"_s || type == "application/atom+xml"_s;
+        bool isXSLTSupported = document->settings().isXSLTEnabled();
+        m_isXSL = isXSLTSupported && (type == "text/xml"_s || type == "text/xsl"_s || type == "application/xml"_s || type == "application/xhtml+xml"_s || type == "application/rss+xml"_s || type == "application/atom+xml"_s);
         if (!m_isCSS && !m_isXSL)
 #else
         if (!m_isCSS)

@@ -184,6 +184,12 @@ daemon_finish_handshake(struct sess *sess)
 		return 0;
 	}
 
+	if (sess->opts != NULL && sess->opts->sender &&
+	    sess->opts->remove_source && !sess->opts->read_batch) {
+		LOG2("daemon read multiplexing enabled");
+		sess->mplex_reads = 1;
+	}
+
 	sess->mplex_writes = 1;
 	role->dstate = DSTATE_RUNNING;
 	/* XXX LOG2("write multiplexing enabled"); */

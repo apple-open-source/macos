@@ -101,7 +101,8 @@ for arch in archs:
         f'-D{name}'
         for name, value in definitions.items()
         if value == 1 and (name.startswith('HAVE_') or name.startswith('USE_') or
-                           name.startswith('ENABLE_') or name.startswith('WTF_PLATFORM'))
+                           name.startswith('ENABLE_') or name.startswith('WTF_PLATFORM') or
+                           name.startswith('ASSERT_'))
     )
     print(f'{output_file}:\t', swift_args.replace('\n', ' '))
     open(output_file, 'w').write(swift_args)

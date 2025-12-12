@@ -28,7 +28,7 @@
 
 #include <WebCore/BoundaryPointInlines.h>
 #include <WebCore/FrameSelection.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/RangeBoundaryPointInlines.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/VisibleUnits.h>

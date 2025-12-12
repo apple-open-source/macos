@@ -155,7 +155,7 @@ JSValue JSTestStringifierReadWriteAttribute::getConstructor(VM& vm, const JSGlob
 
 void JSTestStringifierReadWriteAttribute::destroy(JSC::JSCell* cell)
 {
-    JSTestStringifierReadWriteAttribute* thisObject = static_cast<JSTestStringifierReadWriteAttribute*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestStringifierReadWriteAttribute* thisObject = static_cast<JSTestStringifierReadWriteAttribute*>(cell);
     thisObject->JSTestStringifierReadWriteAttribute::~JSTestStringifierReadWriteAttribute();
 }
 
@@ -246,7 +246,7 @@ bool JSTestStringifierReadWriteAttributeOwner::isReachableFromOpaqueRoots(JSC::H
 
 void JSTestStringifierReadWriteAttributeOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestStringifierReadWriteAttribute = static_cast<JSTestStringifierReadWriteAttribute*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestStringifierReadWriteAttribute = static_cast<JSTestStringifierReadWriteAttribute*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestStringifierReadWriteAttribute->protectedWrapped().ptr(), jsTestStringifierReadWriteAttribute);
 }
@@ -260,7 +260,7 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierReadWriteAttri
 extern "C" { extern void* _ZTVN7WebCore33TestStringifierReadWriteAttributeE[]; }
 #endif
 template<std::same_as<TestStringifierReadWriteAttribute> T>
-static inline void verifyVTable(TestStringifierReadWriteAttribute* ptr) 
+static inline void verifyVTable(TestStringifierReadWriteAttribute* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -280,8 +280,9 @@ static inline void verifyVTable(TestStringifierReadWriteAttribute* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestStringifierReadWriteAttribute>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestStringifierReadWriteAttribute>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestStringifierReadWriteAttribute>(impl.ptr());
 #endif

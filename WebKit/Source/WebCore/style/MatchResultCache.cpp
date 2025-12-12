@@ -67,7 +67,7 @@ struct MatchResultCache::Entry : CanMakeCheckedPtr<MatchResultCache::Entry> {
     }
 
     WTF_STRUCT_OVERRIDE_DELETE_FOR_CHECKED_PTR(Entry);
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(MatchResultCache);
 };
 
 MatchResultCache::MatchResultCache() = default;

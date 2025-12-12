@@ -40,7 +40,7 @@ namespace WebKit {
 
 class StorageAreaImpl;
 
-class StorageAreaSync : public ThreadSafeRefCounted<StorageAreaSync, WTF::DestructionThread::Main> {
+class StorageAreaSync : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<StorageAreaSync, WTF::DestructionThread::Main> {
 public:
     static Ref<StorageAreaSync> create(RefPtr<WebCore::StorageSyncManager>&&, Ref<StorageAreaImpl>&&, const String& databaseIdentifier);
     ~StorageAreaSync();

@@ -82,7 +82,7 @@ __enum_decl(exec_security_mitigation_entitlement_t, uint8_t, {
  * For performance reasons, userland allocators are not required to tag pure data regions. This is
  * mostly a libmalloc xzone concept, which has separated zones for pointer-containing vs pure-data
  * allocations. We consider the former more "security-interesting" and therefore focus our
- * protection on them. This allows to save on perforfmance, although for certain processes we
+ * protection on them. This allows to save on performance, although for certain processes we
  * can swallow the trade-off (both in stability and perf) and enable the extra feature.
  */
 	CHECKED_ALLOCATIONS_PURE_DATA,
@@ -99,6 +99,30 @@ __enum_decl(exec_security_mitigation_entitlement_t, uint8_t, {
  */
 	CHECKED_ALLOCATIONS_SOFT_MODE,
 #endif /* HAS_MTE */
+/*
+ * Guard objects.
+ *
+ * This mitigation indicates that userland and kernel VM allocations may not be replaced with guard
+ * objects on deallocation.
+ */
+	NO_GUARD_OBJECTS,
+});
+
+/*
+ * Version number for enhanced security
+ * Currently stored with 3 bits in `hardened_process_version`
+ */
+#define HARDENED_PROCESS_VERSION "com.apple.security.hardened-process.enhanced-security-version"
+
+__enum_decl(hardened_process_version_t, uint8_t, {
+	/* Not hardened process */
+	HARDENED_PROCESS_DISABLED = 0,
+	/* Initial version */
+	HARDENED_PROCESS_VERSION_ONE = 1,
+	/* Implies guard objects */
+	HARDENED_PROCESS_VERSION_TWO = 2,
+	/* Must be set to latest version */
+	HARDENED_PROCESS_VERSION_LATEST = HARDENED_PROCESS_VERSION_TWO,
 });
 
 /*

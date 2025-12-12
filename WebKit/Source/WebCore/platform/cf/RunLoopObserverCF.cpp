@@ -76,11 +76,10 @@ void RunLoopObserver::runLoopObserverFired(CFRunLoopObserverRef, CFRunLoopActivi
 
 void RunLoopObserver::schedule(PlatformRunLoop runLoop, OptionSet<Activity> activity)
 {
-    if (!runLoop)
-        runLoop = CFRunLoopGetCurrent();
+    RetainPtr effectiveRunLoop = runLoop ? runLoop : CFRunLoopGetCurrent();
 
     // Make sure we wake up the loop or the observer could be delayed until some other source fires.
-    CFRunLoopWakeUp(runLoop);
+    CFRunLoopWakeUp(effectiveRunLoop.get());
 
     if (m_runLoopObserver)
         return;
@@ -88,7 +87,7 @@ void RunLoopObserver::schedule(PlatformRunLoop runLoop, OptionSet<Activity> acti
     CFRunLoopObserverContext context = { 0, this, 0, 0, 0 };
     m_runLoopObserver = adoptCF(CFRunLoopObserverCreate(kCFAllocatorDefault, cfRunLoopActivity(activity), isRepeating(), cfRunLoopOrder(m_order), runLoopObserverFired, &context));
 
-    CFRunLoopAddObserver(runLoop, m_runLoopObserver.get(), kCFRunLoopCommonModes);
+    CFRunLoopAddObserver(effectiveRunLoop.get(), m_runLoopObserver.get(), kCFRunLoopCommonModes);
 }
 
 void RunLoopObserver::invalidate()

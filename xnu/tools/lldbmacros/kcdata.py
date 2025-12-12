@@ -139,6 +139,7 @@ kcdata_type_def = {
     'STACKSHOT_KCTYPE_LATENCY_INFO_CPU': 0x956,
     'STACKSHOT_KCTYPE_TASK_EXEC_META': 0x957,
     'STACKSHOT_KCTYPE_TASK_MEMORYSTATUS': 0x958,
+    'STACKSHOT_KCTYPE_MTEINFO_CELL': 0x959,
     'STACKSHOT_KCTYPE_LATENCY_INFO_BUFFER': 0x95a,
     'KCDATA_TYPE_BUFFER_END':      0xF19158ED,
 
@@ -1563,6 +1564,15 @@ KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_TASK_MEMORYSTATUS')] = K
         KCSubTypeElement.FromBasicCtype('tms_assertionpriority', KCSUBTYPE_TYPE.KC_ST_INT32, 12),
     ), 'task_memorystatus')
 
+KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_MTEINFO_CELL')] = KCTypeDescription(GetTypeForName('STACKSHOT_KCTYPE_MTEINFO_CELL'),
+    (
+        KCSubTypeElement.FromBasicCtype('mic_state', KCSUBTYPE_TYPE.KC_ST_UINT8, 0),
+        KCSubTypeElement.FromBasicCtype('mic_tagged_count', KCSUBTYPE_TYPE.KC_ST_UINT8, 1),
+        KCSubTypeElement.FromBasicCtype('mic_free_count', KCSUBTYPE_TYPE.KC_ST_UINT8, 2),
+        KCSubTypeElement.FromBasicCtype('mic_wired_count', KCSUBTYPE_TYPE.KC_ST_UINT8, 3),
+        KCSubTypeElement.FromBasicCtype('mic_wired_tagged_count', KCSUBTYPE_TYPE.KC_ST_UINT8, 4),
+        KCSubTypeElement.FromBasicCtype('mic_kernel_wired_tagged_count', KCSUBTYPE_TYPE.KC_ST_UINT8, 5),
+    ), 'mte_info_cell')
 
 def GetSecondsFromMATime(mat, tb):
     return (float(long(mat) * tb['numer']) / tb['denom']) / 1e9

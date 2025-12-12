@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "CSSValue.h"
+#include <WebCore/CSSValue.h>
 
 namespace WebCore {
 

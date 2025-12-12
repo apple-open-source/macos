@@ -25,12 +25,14 @@
 
 #include "ContainerNodeInlines.h"
 #include "RenderElement.h"
+#include "RenderObjectDocument.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGraphicsElement.h"
 #include "SVGImageElement.h"
 #include "SVGLayerTransformComputation.h"
 #include "SVGMatrix.h"
 #include "SVGNames.h"
+#include "Settings.h"
 #include "TransformState.h"
 
 namespace WebCore {

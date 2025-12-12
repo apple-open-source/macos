@@ -61,7 +61,7 @@ OptionSet<Change> determineChanges(const RenderStyle& s1, const RenderStyle& s2)
     auto needsRendererUpdate = [&] {
         if (s1.display() != s2.display())
             return true;
-        if (s1.hasPseudoStyle(PseudoId::FirstLetter) != s2.hasPseudoStyle(PseudoId::FirstLetter))
+        if (s1.hasPseudoStyle(PseudoElementType::FirstLetter) != s2.hasPseudoStyle(PseudoElementType::FirstLetter))
             return true;
         if (columnSpanNeedsNewRenderer())
             return true;
@@ -69,7 +69,7 @@ OptionSet<Change> determineChanges(const RenderStyle& s1, const RenderStyle& s2)
         // https://bugs.webkit.org/show_bug.cgi?id=55069
         if (s1.hasTextCombine() != s2.hasTextCombine())
             return true;
-        if (!s1.contentDataEquivalent(s2))
+        if (s1.content() != s2.content())
             return true;
         return false;
     };

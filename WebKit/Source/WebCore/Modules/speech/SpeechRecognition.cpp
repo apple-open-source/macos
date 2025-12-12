@@ -27,12 +27,12 @@
 #include "SpeechRecognition.h"
 
 #include "ClientOrigin.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "ContextDestructionObserverInlines.h"
+#include "DocumentPage.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
+#include "ExceptionOr.h"
 #include "FrameDestructionObserverInlines.h"
-#include "Page.h"
 #include "PermissionsPolicy.h"
 #include "SpeechRecognitionError.h"
 #include "SpeechRecognitionErrorEvent.h"
@@ -209,6 +209,11 @@ void SpeechRecognition::didEnd()
 }
 
 SpeechRecognition::~SpeechRecognition() = default;
+
+ScriptExecutionContext* SpeechRecognition::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
+}
 
 bool SpeechRecognition::virtualHasPendingActivity() const
 {

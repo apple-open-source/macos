@@ -99,7 +99,7 @@ JSObject* ProxyObject::getHandlerTrap(JSGlobalObject* globalObject, JSObject* ha
         if (value.isUndefinedOrNull())
             return nullptr;
 
-        callData = JSC::getCallData(value);
+        callData = JSC::getCallDataInline(value);
         if (callData.type == CallData::Type::None) {
             throwTypeError(globalObject, scope, makeString('\'', String(ident.impl()), "' property of a Proxy's handler should be callable"_s));
             return nullptr;
@@ -620,7 +620,7 @@ JSC_DEFINE_HOST_FUNCTION(performProxyCall, (JSGlobalObject* globalObject, CallFr
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     JSObject* target = proxy->target();
     if (applyMethod.isUndefined()) {
-        auto callData = JSC::getCallData(target);
+        auto callData = JSC::getCallDataInline(target);
         RELEASE_ASSERT(callData.type != CallData::Type::None);
         RELEASE_AND_RETURN(scope, JSValue::encode(call(globalObject, target, callData, callFrame->thisValue(), ArgList(callFrame))));
     }

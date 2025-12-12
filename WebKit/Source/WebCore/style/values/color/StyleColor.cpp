@@ -70,6 +70,11 @@ Color::Color()
 {
 }
 
+Color::Color(CSS::Keyword::Currentcolor)
+    : value { CurrentColor { } }
+{
+}
+
 Color::Color(WebCore::Color color)
     : value { ResolvedColor { WTFMove(color) } }
 {
@@ -150,6 +155,11 @@ Color::Color(RelativeColor<ColorRGBFunction<ExtendedDisplayP3<float>>>&& relativ
 {
 }
 
+Color::Color(RelativeColor<ColorRGBFunction<ExtendedLinearDisplayP3<float>>>&& relative)
+    : value { makeIndirectColor(WTFMove(relative)) }
+{
+}
+
 Color::Color(RelativeColor<ColorRGBFunction<ExtendedProPhotoRGB<float>>>&& relative)
     : value { makeIndirectColor(WTFMove(relative)) }
 {
@@ -198,9 +208,10 @@ Color::~Color() = default;
 
 bool Color::operator==(const Color& other) const = default;
 
-Color Color::currentColor()
+const Color& Color::currentColor()
 {
-    return Color { CurrentColor { } };
+    static NeverDestroyed<Style::Color> color { CurrentColor { } };
+    return color.get();
 }
 
 Color::ColorKind Color::copy(const Color::ColorKind& other)
@@ -258,6 +269,7 @@ bool Color::isRelativeColor() const
         || std::holds_alternative<UniqueRef<RelativeColor<OKLCHFunction>>>(value)
         || std::holds_alternative<UniqueRef<RelativeColor<ColorRGBFunction<ExtendedA98RGB<float>>>>>(value)
         || std::holds_alternative<UniqueRef<RelativeColor<ColorRGBFunction<ExtendedDisplayP3<float>>>>>(value)
+        || std::holds_alternative<UniqueRef<RelativeColor<ColorRGBFunction<ExtendedLinearDisplayP3<float>>>>>(value)
         || std::holds_alternative<UniqueRef<RelativeColor<ColorRGBFunction<ExtendedProPhotoRGB<float>>>>>(value)
         || std::holds_alternative<UniqueRef<RelativeColor<ColorRGBFunction<ExtendedRec2020<float>>>>>(value)
         || std::holds_alternative<UniqueRef<RelativeColor<ColorRGBFunction<ExtendedSRGBA<float>>>>>(value)
@@ -339,6 +351,11 @@ Color toStyleColor(const CSS::Color& value, Ref<const Document> document, const 
     return toStyleColor(value, resolutionState);
 }
 
+Color toStyleColor(const CSS::Color& value, const BuilderState& builderState, ForVisitedLink forVisitedLink)
+{
+    return toStyleColor(value, builderState.document(), builderState.style(), builderState.cssToLengthConversionData(), forVisitedLink);
+}
+
 auto ToCSS<Color>::operator()(const Color& value, const RenderStyle& style) -> CSS::Color
 {
     return CSS::Color { CSS::ResolvedColor { style.colorResolvingCurrentColor(value) } };
@@ -362,6 +379,11 @@ auto CSSValueConversion<Color>::operator()(BuilderState& builderState, const CSS
     if (RefPtr color = dynamicDowncast<CSSColorValue>(value))
         return toStyle(color->color(), builderState, forVisitedLink);
     return toStyle(CSS::Color { CSS::KeywordColor { value.valueID() } }, builderState, forVisitedLink);
+}
+
+auto CSSValueConversion<Color>::operator()(BuilderState& builderState, const CSSValue& value) -> Color
+{
+    return this->operator()(builderState, value, ForVisitedLink::No);
 }
 
 Ref<CSSValue> CSSValueCreation<Color>::operator()(CSSValuePool& pool, const RenderStyle& style, const Color& value)

@@ -31,7 +31,7 @@
 #include "AccessibilityMockObject.h"
 
 namespace WebCore {
-    
+
 class RenderTableSection;
 
 class AccessibilityTableColumn final : public AccessibilityMockObject {
@@ -51,14 +51,14 @@ public:
 
 private:
     explicit AccessibilityTableColumn(AXID, AXObjectCache&);
-    
+
     bool computeIsIgnored() const final;
 
     bool isAccessibilityTableColumnInstance() const final { return true; }
     unsigned m_columnIndex;
 };
 
-} // namespace WebCore 
+} // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::AccessibilityTableColumn) \
     static bool isType(const WebCore::AccessibilityObject& object) { return object.isAccessibilityTableColumnInstance(); } \

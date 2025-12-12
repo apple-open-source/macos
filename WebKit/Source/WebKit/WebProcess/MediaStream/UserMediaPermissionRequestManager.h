@@ -48,7 +48,6 @@ public:
     USING_CAN_MAKE_WEAKPTR(WebCore::MediaCanStartListener);
 
     explicit UserMediaPermissionRequestManager(WebPage&);
-    ~UserMediaPermissionRequestManager() = default;
 
     void ref() const final;
     void deref() const final;

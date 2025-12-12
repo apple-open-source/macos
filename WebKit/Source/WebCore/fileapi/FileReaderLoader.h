@@ -30,10 +30,11 @@
 
 #pragma once
 
-#include "BlobResourceHandle.h"
-#include "ExceptionCode.h"
-#include "ThreadableLoaderClient.h"
-#include "URLKeepingBlobAlive.h"
+#include <JavaScriptCore/ArrayBuffer.h>
+#include <WebCore/BlobResourceHandle.h>
+#include <WebCore/ExceptionCode.h>
+#include <WebCore/ThreadableLoaderClient.h>
+#include <WebCore/URLKeepingBlobAlive.h>
 #include <pal/text/TextEncoding.h>
 #include <wtf/Forward.h>
 #include <wtf/URL.h>
@@ -52,8 +53,9 @@ class ScriptExecutionContext;
 class TextResourceDecoder;
 class ThreadableLoader;
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(FileReaderLoader);
 class FileReaderLoader final : public ThreadableLoaderClient {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FileReaderLoader, FileReaderLoader);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FileReaderLoader);
 public:
     enum ReadType {

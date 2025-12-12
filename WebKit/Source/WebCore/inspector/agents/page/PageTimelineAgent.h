@@ -83,7 +83,7 @@ private:
     std::unique_ptr<WebCore::RunLoopObserver> m_frameStopObserver;
     int m_runLoopNestingLevel { 0 };
 #elif USE(GLIB_EVENT_LOOP)
-    std::unique_ptr<RunLoop::Observer> m_runLoopObserver;
+    std::unique_ptr<RunLoop::EventObserver> m_runLoopObserver;
 #endif
     bool m_startedComposite { false };
     bool m_isCapturingScreenshot { false };

@@ -42,6 +42,8 @@ public:
 
     static Ref<BarProp> create(LocalDOMWindow& window, Type type) { return adoptRef(*new BarProp(window, type)); }
 
+    ~BarProp();
+
     bool visible() const;
 
 private:

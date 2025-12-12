@@ -25,9 +25,10 @@
 
 #pragma once
 
-#include "BoxSides.h"
-#include "WritingMode.h"
+#include <WebCore/BoxSides.h>
+#include <WebCore/WritingMode.h>
 #include <array>
+#include <concepts>
 #include <wtf/OptionSet.h>
 #include <wtf/text/TextStream.h>
 
@@ -58,6 +59,17 @@ public:
     RectEdges(const RectEdges<U>& other)
         : RectEdges(other.top(), other.right(), other.bottom(), other.left())
     {
+    }
+
+    template<typename U, typename Mapper>
+    static RectEdges<T> map(RectEdges<U>&& other, NOESCAPE Mapper&& mapper)
+    {
+        return RectEdges<T> {
+            mapper(other.top()),
+            mapper(other.right()),
+            mapper(other.bottom()),
+            mapper(other.left()),
+        };
     }
 
     T& at(BoxSide side) { return m_sides[static_cast<size_t>(side)]; }

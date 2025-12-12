@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HTMLElement.h"
 
+#include "AXObjectCache.h"
 #include "CSSMarkup.h"
 #include "CSSParserFastPaths.h"
 #include "CSSPropertyNames.h"
@@ -38,9 +39,10 @@
 #include "CommonAtomStrings.h"
 #include "CustomElementReactionQueue.h"
 #include "DOMTokenList.h"
-#include "Document.h"
 #include "DocumentFragment.h"
 #include "DocumentInlines.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
 #include "Editor.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementChildIteratorInlines.h"
@@ -82,10 +84,10 @@
 #include "NodeTraversal.h"
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
-#include "Quirks.h"
 #include "RenderElement.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
+#include "Settings.h"
 #include "ShadowRoot.h"
 #include "SimulatedClick.h"
 #include "StyleProperties.h"
@@ -434,7 +436,7 @@ static Ref<DocumentFragment> textToFragment(Document& document, const String& te
 
     for (unsigned start = 0, length = text.length(); start < length; ) {
         // Find next line break.
-        UChar c = 0;
+        char16_t c = 0;
         unsigned i;
         for (i = start; i < length; i++) {
             c = text[i];
@@ -486,7 +488,7 @@ ExceptionOr<void> HTMLElement::setInnerText(String&& text)
 {
     // FIXME: This doesn't take whitespace collapsing into account at all.
 
-    if (!text.contains([](UChar c) { return c == '\n' || c == '\r'; })) {
+    if (!text.contains([](char16_t c) { return c == '\n' || c == '\r'; })) {
         stringReplaceAll(WTFMove(text));
         return { };
     }
@@ -520,7 +522,7 @@ ExceptionOr<void> HTMLElement::setOuterText(String&& text)
     RefPtr<Node> newChild;
 
     // Convert text to fragment with <br> tags instead of linebreaks if needed.
-    if (text.contains([](UChar c) { return c == '\n' || c == '\r'; }))
+    if (text.contains([](char16_t c) { return c == '\n' || c == '\r'; }))
         newChild = textToFragment(protectedDocument(), WTFMove(text));
     else
         newChild = Text::create(protectedDocument(), WTFMove(text));
@@ -824,7 +826,7 @@ std::optional<SRGBA<uint8_t>> HTMLElement::parseLegacyColorValue(StringView stri
     if (string.isEmpty())
         return std::nullopt;
 
-    string = string.trim(isASCIIWhitespace<UChar>);
+    string = string.trim(isASCIIWhitespace<char16_t>);
     if (string.isEmpty())
         return Color::black;
 

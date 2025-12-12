@@ -106,6 +106,7 @@ private:
 
     HashMap<WebFoundTextRange, std::optional<WebCore::WeakSimpleRange>> m_cachedFoundRanges;
     HashMap<WebFoundTextRange, FindDecorationStyle> m_decoratedRanges;
+    HashSet<WebFoundTextRange> m_unhighlightedFoundRanges;
 
     RefPtr<WebCore::TextIndicator> m_textIndicator;
 };

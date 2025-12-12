@@ -30,6 +30,7 @@
 #include "MediaReorderQueue.h"
 #include "ProcessIdentity.h"
 #include "SampleMap.h"
+#include "WebAVSampleBufferListener.h"
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
@@ -57,12 +58,14 @@ class EffectiveRateChangedListener;
 class MediaSample;
 class WebCoreDecompressionSession;
 
-class VideoMediaSampleRenderer final : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<VideoMediaSampleRenderer, WTF::DestructionThread::Main> {
+class VideoMediaSampleRenderer final
+    : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<VideoMediaSampleRenderer, WTF::DestructionThread::Main>
+    , public WebAVSampleBufferListenerClient {
 public:
     static Ref<VideoMediaSampleRenderer> create(WebSampleBufferVideoRendering *renderer) { return adoptRef(*new VideoMediaSampleRenderer(renderer)); }
     ~VideoMediaSampleRenderer();
 
-    using Preferences = VideoMediaSampleRendererPreferences;
+    using Preferences = VideoRendererPreferences;
     bool prefersDecompressionSession() const;
     void setPreferences(Preferences);
     bool isUsingDecompressionSession() const { return m_isUsingDecompressionSession; }
@@ -77,7 +80,7 @@ public:
 
     void notifyFirstFrameAvailable(Function<void(const MediaTime&, double)>&&);
     void notifyWhenHasAvailableVideoFrame(Function<void(const MediaTime&, double)>&&);
-    void notifyWhenDecodingErrorOccurred(Function<void(OSStatus)>&&);
+    void notifyWhenDecodingErrorOccurred(Function<void(NSError *)>&&);
     void notifyWhenVideoRendererRequiresFlushToResumeDecoding(Function<void()>&&);
 
 #if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
@@ -85,6 +88,7 @@ public:
 #endif
 
     void flush();
+    void shutdown();
 
     void expectMinimumUpcomingSampleBufferPresentationTime(const MediaTime&);
 
@@ -157,11 +161,12 @@ private:
 
     void assignResourceOwner(const MediaSample&);
     bool areSamplesQueuesReadyForMoreMediaData(size_t waterMark) const;
+    size_t compressedSamplesCount() const;
     void maybeBecomeReadyForMoreMediaData();
     bool shouldDecodeSample(const MediaSample&);
 
     void notifyHasAvailableVideoFrame(const MediaTime&, double, FlushId);
-    void notifyErrorHasOccurred(OSStatus);
+    void notifyErrorHasOccurred(NSError *);
     void notifyVideoRendererRequiresFlushToResumeDecoding();
 
     Ref<GuaranteedSerialFunctionDispatcher> dispatcher() const;
@@ -172,6 +177,12 @@ private:
     bool useDecompressionSessionForProtectedFallback() const;
     bool useDecompressionSessionForProtectedContent() const;
     bool useStereoDecoding() const;
+
+    // WebAVSampleBufferListenerClient
+    void videoRendererDidReceiveError(WebSampleBufferVideoRendering *, NSError *) final;
+    void videoRendererRequiresFlushToResumeDecodingChanged(WebSampleBufferVideoRendering *, bool) final;
+    void videoRendererReadyForDisplayChanged(WebSampleBufferVideoRendering *, bool) final;
+    void outputObscuredDueToInsufficientExternalProtectionChanged(bool) final;
 
     const bool m_rendererIsThreadSafe { false };
     RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer WTF_GUARDED_BY_CAPABILITY(mainThread);
@@ -185,6 +196,7 @@ private:
     std::atomic<FlushId> m_flushId { 0 };
     Deque<std::tuple<Ref<const MediaSample>, MediaTime, FlushId, bool>> m_compressedSampleQueue WTF_GUARDED_BY_CAPABILITY(dispatcher().get());
     std::atomic<uint32_t> m_compressedSamplesCount { 0 };
+    std::atomic<uint32_t> m_pendingSamplesCount { 0 };
     MediaSampleReorderQueue m_decodedSampleQueue WTF_GUARDED_BY_CAPABILITY(dispatcher().get());
     RefPtr<WebCoreDecompressionSession> m_decompressionSession WTF_GUARDED_BY_LOCK(m_lock);
     bool m_decompressionSessionBlocked WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
@@ -199,6 +211,7 @@ private:
 
     bool m_notifiedFirstFrameAvailable WTF_GUARDED_BY_CAPABILITY(dispatcher().get()) { false };
     bool m_waitingForMoreMediaData WTF_GUARDED_BY_CAPABILITY(dispatcher().get()) { false };
+    std::atomic<bool> m_waitingForMoreMediaDataPending { false };
     Function<void()> m_readyForMoreMediaDataFunction WTF_GUARDED_BY_CAPABILITY(mainThread);
     Preferences m_preferences;
     std::optional<uint32_t> m_currentCodec;
@@ -213,6 +226,7 @@ private:
     unsigned m_droppedVideoFramesOffset WTF_GUARDED_BY_CAPABILITY(mainThread) { 0 };
     std::atomic<unsigned> m_corruptedVideoFrames { 0 };
     std::atomic<unsigned> m_presentedVideoFrames { 0 };
+    mutable unsigned m_sampleCount WTF_GUARDED_BY_CAPABILITY(mainThread) { 0 };
     MediaTime m_totalFrameDelay { MediaTime::zeroTime() };
 
     // Protected samples
@@ -221,9 +235,10 @@ private:
     Function<void(const MediaTime&, double)> m_hasFirstFrameAvailableCallback WTF_GUARDED_BY_CAPABILITY(mainThread);
     Function<void(const MediaTime&, double)> m_hasAvailableFrameCallback WTF_GUARDED_BY_CAPABILITY(mainThread);
     std::atomic<bool> m_notifyWhenHasAvailableVideoFrame { false };
-    Function<void(OSStatus)> m_errorOccurredFunction WTF_GUARDED_BY_CAPABILITY(mainThread);
+    Function<void(NSError *)> m_errorOccurredFunction WTF_GUARDED_BY_CAPABILITY(mainThread);
     Function<void()> m_rendererNeedsFlushFunction WTF_GUARDED_BY_CAPABILITY(mainThread);
     ProcessIdentity m_resourceOwner;
+    const Ref<WebAVSampleBufferListener> m_listener;
     MonotonicTime m_startupTime;
     MonotonicTime m_timeSinceLastDecode;
     FrameRateMonitor m_frameRateMonitor;

@@ -36,6 +36,7 @@ class RadioButtonGroups {
 public:
     RadioButtonGroups();
     ~RadioButtonGroups();
+    void clear();
     void addButton(HTMLInputElement&);
     void updateCheckedState(HTMLInputElement&);
     void requiredStateChanged(HTMLInputElement&);

@@ -41,35 +41,30 @@
 #include "Logging.h"
 #include "PlatformWheelEvent.h"
 #include "ScrollAnimator.h"
-#include "ScrollbarColor.h"
-#include "ScrollbarGutter.h"
 #include "ScrollbarTheme.h"
 #include "ScrollbarsControllerMock.h"
+#include "StyleScrollbarGutter.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
-
-namespace WebCore {
-struct SameSizeAsScrollableArea;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::SameSizeAsScrollableArea> : std::true_type { };
-}
 
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ScrollableArea);
 
-struct SameSizeAsScrollableArea final : public CanMakeWeakPtr<SameSizeAsScrollableArea> {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+struct SameSizeAsScrollableArea : public CanMakeWeakPtr<SameSizeAsScrollableArea>, public AbstractCanMakeCheckedPtr {
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(SameSizeAsScrollableArea);
 
-    ~SameSizeAsScrollableArea() { }
+    virtual ~SameSizeAsScrollableArea() { }
     SameSizeAsScrollableArea() { }
-    void* pointer[3];
-    IntPoint origin;
-    Markable<ScrollingNodeID> testID;
-    bool bytes[9];
+    void* pointer[2];
+    IntPoint scrollOrigin;
+    bool scrollClamping;
+    uint8_t scrollElasticity[2];
+    uint8_t scrollbarOverlayStyle;
+    bool currentScrollType;
+    uint8_t scrollAnimationStatus;
+    bool bytes[4];
+    Markable<ScrollingNodeID> scrollingNodeIDForTesting;
 };
 
 #if CPU(ADDRESS64)
@@ -552,9 +547,9 @@ Color ScrollableArea::scrollbarTrackColorStyle() const
     return { };
 }
 
-ScrollbarGutter ScrollableArea::scrollbarGutterStyle() const
+Style::ScrollbarGutter ScrollableArea::scrollbarGutterStyle() const
 {
-    return { };
+    return CSS::Keyword::Auto { };
 }
 
 const LayoutScrollSnapOffsetsInfo* ScrollableArea::snapOffsetsInfo() const
@@ -1025,6 +1020,11 @@ ScrollingNodeID ScrollableArea::scrollingNodeIDForTesting()
     if (!testingNodeID)
         m_scrollingNodeIDForTesting = testingNodeID = ScrollingNodeID::generate();
     return *testingNodeID;
+}
+
+void ScrollableArea::scrollbarColorDidChange(std::optional<ScrollbarColor> scrollbarColor)
+{
+    scrollbarsController().scrollbarColorChanged(scrollbarColor);
 }
 
 } // namespace WebCore

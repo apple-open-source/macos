@@ -27,9 +27,9 @@
 
 #if ENABLE(MEDIA_STREAM)
 
-#include "Exception.h"
-#include "Page.h"
-#include "UserMediaClient.h"
+#include <WebCore/Exception.h>
+#include <WebCore/Page.h>
+#include <WebCore/UserMediaClient.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
@@ -64,9 +64,11 @@ public:
     void voiceActivityDetected();
 
     WEBCORE_EXPORT static ASCIILiteral supplementName();
-    static UserMediaController* from(Page* page) { return static_cast<UserMediaController*>(Supplement<Page>::from(page, supplementName())); }
+    static UserMediaController* from(Page* page) { return downcast<UserMediaController>(Supplement<Page>::from(page, supplementName())); }
 
 private:
+    bool isUserMediaController() const final { return true; }
+
     RefPtr<UserMediaClient> m_client;
 
     WeakHashSet<Document, WeakPtrImplWithEventTargetData> m_voiceActivityDocuments;
@@ -91,7 +93,6 @@ inline void UserMediaController::enumerateMediaDevices(Document& document, UserM
         mediaClient->enumerateMediaDevices(document, WTFMove(completionHandler));
 }
 
-
 inline UserMediaClient::DeviceChangeObserverToken UserMediaController::addDeviceChangeObserver(Function<void()>&& observer)
 {
     if (RefPtr mediaClient = m_client)
@@ -112,5 +113,9 @@ inline void UserMediaController::updateCaptureState(const Document& document, bo
 }
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::UserMediaController)
+    static bool isType(const WebCore::SupplementBase& supplement) { return supplement.isUserMediaController(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(MEDIA_STREAM)

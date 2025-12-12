@@ -30,11 +30,15 @@
 #include "GetterSetter.h"
 #include "JSCBuiltins.h"
 #include "JSCInlines.h"
+#include "JSPromise.h"
 #include "JSPromisePrototype.h"
 
 namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSPromiseConstructor);
+static JSC_DECLARE_HOST_FUNCTION(promiseConstructorFuncResolve);
+static JSC_DECLARE_HOST_FUNCTION(promiseConstructorFuncReject);
+static JSC_DECLARE_HOST_FUNCTION(promiseConstructorFuncWithResolvers);
 
 }
 
@@ -46,12 +50,13 @@ const ClassInfo JSPromiseConstructor::s_info = { "Function"_s, &Base::s_info, &p
 
 /* Source for JSPromiseConstructor.lut.h
 @begin promiseConstructorTable
-  resolve         JSBuiltin             DontEnum|Function 1
-  reject          JSBuiltin             DontEnum|Function 1
-  race            JSBuiltin             DontEnum|Function 1
-  all             JSBuiltin             DontEnum|Function 1
-  allSettled      JSBuiltin             DontEnum|Function 1
-  any             JSBuiltin             DontEnum|Function 1
+  resolve         promiseConstructorFuncResolve        DontEnum|Function 1 PromiseConstructorResolveIntrinsic
+  reject          promiseConstructorFuncReject         DontEnum|Function 1 PromiseConstructorRejectIntrinsic
+  race            JSBuiltin                            DontEnum|Function 1
+  all             JSBuiltin                            DontEnum|Function 1
+  allSettled      JSBuiltin                            DontEnum|Function 1
+  any             JSBuiltin                            DontEnum|Function 1
+  withResolvers   promiseConstructorFuncWithResolvers  DontEnum|Function 0
 @end
 */
 
@@ -61,7 +66,6 @@ JSPromiseConstructor* JSPromiseConstructor::create(VM& vm, Structure* structure,
     FunctionExecutable* executable = promiseConstructorPromiseConstructorCodeGenerator(vm);
     JSPromiseConstructor* constructor = new (NotNull, allocateCell<JSPromiseConstructor>(vm)) JSPromiseConstructor(vm, executable, globalObject, structure);
     constructor->finishCreation(vm, promisePrototype);
-    constructor->addOwnInternalSlots(vm, globalObject);
     return constructor;
 }
 
@@ -83,16 +87,42 @@ void JSPromiseConstructor::finishCreation(VM& vm, JSPromisePrototype* promisePro
 
     JSGlobalObject* globalObject = this->globalObject();
 
-    GetterSetter* speciesGetterSetter = GetterSetter::create(vm, globalObject, JSFunction::create(vm, globalObject, 0, "get [Symbol.species]"_s, globalFuncSpeciesGetter, ImplementationVisibility::Public, SpeciesGetterIntrinsic), nullptr);
-    putDirectNonIndexAccessorWithoutTransition(vm, vm.propertyNames->speciesSymbol, speciesGetterSetter, PropertyAttribute::Accessor | PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
-    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().withResolversPublicName(), promiseConstructorWithResolversCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    putDirectNonIndexAccessorWithoutTransition(vm, vm.propertyNames->speciesSymbol, globalObject->promiseSpeciesGetterSetter(), PropertyAttribute::Accessor | PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->tryKeyword, promiseConstructorTryCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 }
 
-void JSPromiseConstructor::addOwnInternalSlots(VM& vm, JSGlobalObject* globalObject)
+JSC_DEFINE_HOST_FUNCTION(promiseConstructorFuncResolve, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
-    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().resolvePrivateName(), promiseConstructorResolveCodeGenerator, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
-    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().rejectPrivateName(), promiseConstructorRejectCodeGenerator, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue thisValue = callFrame->thisValue().toThis(globalObject, ECMAMode::strict());
+    JSValue argument = callFrame->argument(0);
+
+    if (!thisValue.isObject()) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "|this| is not an object"_s);
+
+    RELEASE_AND_RETURN(scope, JSValue::encode(JSPromise::promiseResolve(globalObject, asObject(thisValue), argument)));
+}
+
+JSC_DEFINE_HOST_FUNCTION(promiseConstructorFuncReject, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue thisValue = callFrame->thisValue().toThis(globalObject, ECMAMode::strict());
+    JSValue argument = callFrame->argument(0);
+
+    if (!thisValue.isObject()) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "|this| is not an object"_s);
+
+    RELEASE_AND_RETURN(scope, JSValue::encode(JSPromise::promiseReject(globalObject, asObject(thisValue), argument)));
+}
+
+JSC_DEFINE_HOST_FUNCTION(promiseConstructorFuncWithResolvers, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    JSValue thisValue = callFrame->thisValue().toThis(globalObject, ECMAMode::strict());
+    return JSValue::encode(JSPromise::createNewPromiseCapability(globalObject, thisValue));
 }
 
 } // namespace JSC

@@ -26,9 +26,7 @@ G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
 
 namespace WebKit {
 
-GObjectXPathNSResolver::~GObjectXPathNSResolver()
-{
-}
+GObjectXPathNSResolver::~GObjectXPathNSResolver() = default;
 
 AtomString GObjectXPathNSResolver::lookupNamespaceURI(const AtomString& prefix)
 {

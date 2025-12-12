@@ -67,6 +67,7 @@
  * Version 2.0.
  */
 
+#include <stdint.h>
 #define _IP_VHL
 
 #include "tcp_includes.h"
@@ -81,6 +82,7 @@
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <os/ptrtools.h>
+#include <kern/clock.h>
 
 #include <net/route.h>
 #include <net/ntstat.h>
@@ -441,6 +443,64 @@ tcp_send_ecn_flags_on_syn(struct tcpcb *tp)
 
 	return !(tp->ecn_flags & (TE_SETUPSENT | TE_ACE_SETUPSENT)) || send_on_first_retrans;
 }
+
+/*
+ * Returns the RTO deadline as future Mach time value
+ * based on the TCPT_REXMT timer, if set.
+ */
+static uint64_t
+tcp_calculate_rto_deadline(const struct tcpcb *tp, uint32_t local_tcp_now)
+{
+	uint64_t rto_val = tp->t_timer[TCPT_REXMT];
+	uint64_t rto_deadline_hz;
+	uint64_t rto_offset_hz;
+	uint64_t rto_offset_nano;
+	uint64_t rto_deadline_mach;
+	int      sojourn_factor = tcp_rto_sojourn_factor;
+
+	/*
+	 * Check whether the TCPT_REXMT timer is set.
+	 */
+	if (rto_val == 0) {
+		DTRACE_TCP3(rto_deadline, struct tcpcb *, tp, uint32_t, local_tcp_now, uint64_t, 0);
+		return 0;
+	}
+
+	/*
+	 * Check whether the TCPT_REXMT timer has already expired.
+	 */
+	rto_deadline_hz = tp->tentry.te_timer_start + rto_val;
+	if (rto_deadline_hz < local_tcp_now) {
+		DTRACE_TCP3(rto_deadline, struct tcpcb *, tp, uint32_t, local_tcp_now, uint64_t, 0);
+		return 0;
+	}
+
+	/*
+	 * Sanity check the sojourn factor
+	 */
+	if (sojourn_factor < 25) {
+		sojourn_factor = 25;
+	} else if (125 <= sojourn_factor) {
+		sojourn_factor = 125; /* For testing */
+	}
+
+	/*
+	 * Convert the retransmit timer to Mach deadline in the future.
+	 * This is done in two steps:
+	 * 1. Convert the timer value from the TCP RETRANSHZ units to
+	 *    a wall-clock timestamp (in nanosecond resolution).
+	 * 2. Convert the wall-clock timestamp to a Mach timestamp.
+	 */
+	rto_offset_hz = rto_deadline_hz - local_tcp_now;
+	rto_offset_hz = (uint64_t)((rto_offset_hz * sojourn_factor) / 100);
+	rto_offset_nano = rto_offset_hz * TCP_RETRANSHZ_TO_USEC * NSEC_PER_USEC;
+	nanoseconds_to_deadline(rto_offset_nano, &rto_deadline_mach);
+
+	DTRACE_TCP3(rto_deadline, struct tcpcb *, tp, uint32_t, local_tcp_now, uint64_t, rto_deadline_mach);
+
+	return rto_deadline_mach;
+}
+
 
 void
 tcp_set_l4s(struct tcpcb *tp, struct ifnet *ifp)
@@ -3506,6 +3566,51 @@ out:
 }
 
 static int
+tcp_set_rto_deadline(struct tcpcb *tp, struct mbuf *pkt, int isipv6, uint32_t tcp_now_local)
+{
+	struct tcphdr *th;
+	int th_offset = isipv6 ? sizeof(struct ip6_hdr) : sizeof(struct ip);
+
+	/*
+	 * Determine whether the RTO should be set
+	 */
+	if (tp->t_timer[TCPT_REXMT] == 0) {
+		/*
+		 * RTO is not set for the TP, can not set
+		 * the deadline.
+		 */
+		return ENOENT;
+	}
+
+	/*
+	 * RTO deadline is not applicable to pure ACK packets,
+	 * as well as to the SYN/RST/FIN packets.
+	 */
+	th = (struct tcphdr *)(void*)(mtod(pkt, caddr_t) + th_offset);
+
+	/*
+	 * Check whether the packet has any TCP payload, or is a pure ACK.
+	 */
+	if (pkt->m_pkthdr.len <= th_offset + (th->th_off << 2)) {
+		return ENOENT;
+	}
+
+	/*
+	 * Check whether this is an SYN/RST/FIN packet
+	 */
+	if ((th->th_flags & (TH_SYN | TH_RST | TH_FIN)) != 0) {
+		return ENOENT;
+	}
+
+	/*
+	 * Set the deadline.
+	 */
+	pkt->m_pkthdr.pkt_deadline = tcp_calculate_rto_deadline(tp, tcp_now_local);
+
+	return 0;
+}
+
+static int
 tcp_ip_output(struct socket *so, struct tcpcb *tp, struct mbuf *pkt,
     int cnt, struct mbuf *opt, int flags, int sack_in_progress, boolean_t isipv6)
 {
@@ -3517,6 +3622,7 @@ tcp_ip_output(struct socket *so, struct tcpcb *tp, struct mbuf *pkt,
 	struct ifnet *__single outif = NULL;
 	bool check_qos_marking_again = (so->so_flags1 & SOF1_QOSMARKING_POLICY_OVERRIDE) ? FALSE : TRUE;
 	bool fadv_congested = FALSE;
+	uint32_t tcp_now_local = os_access_once(tcp_now);
 
 	union {
 		struct route _ro;
@@ -3692,6 +3798,13 @@ tcp_ip_output(struct socket *so, struct tcpcb *tp, struct mbuf *pkt,
 
 	while (pkt != NULL) {
 		struct mbuf *npkt = pkt->m_nextpkt;
+
+		/*
+		 * If enabled, set the RTO deadline for the packet.
+		 */
+		if (tcp_use_rto_deadline) {
+			tcp_set_rto_deadline(tp, pkt, isipv6, tcp_now_local);
+		}
 
 		if (!chain) {
 			pkt->m_nextpkt = NULL;

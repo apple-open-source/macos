@@ -106,7 +106,7 @@ private:
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
-    void contentFilterDidBlockLoad(const WebCore::ContentFilterUnblockHandler&, String&& unblockRequestDeniedScript, const WebCore::ResourceError&, const URL& blockedPageURL, WebCore::SubstituteData&&);
+    void contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler&&, String&& unblockRequestDeniedScript, const WebCore::ResourceError&, const URL& blockedPageURL, WebCore::SubstituteData&&);
 #endif
 
     size_t calculateBytesTransferredOverNetworkDelta(size_t bytesTransferredOverNetwork);

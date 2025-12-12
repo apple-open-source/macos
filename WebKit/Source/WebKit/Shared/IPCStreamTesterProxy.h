@@ -43,8 +43,6 @@ namespace WebKit {
 // compile the IPCStreamTesterProxyMessageReceiver.cpp, so this class definition is needed.
 class IPCStreamTesterProxy final : public IPC::MessageReceiver, public RefCounted<IPCStreamTesterProxy> {
 public:
-    ~IPCStreamTesterProxy() = default;
-
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
 

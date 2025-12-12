@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 *   Copyright (C) 1999-2009, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 **********************************************************************
  *
  *
@@ -12,7 +12,7 @@
 
 /**
  * \file
- * \brief C UConverter predefined error callbacks
+ * \brief C API: UConverter predefined error callbacks
  *
  *  <h2>Error Behaviour Functions</h2>
  *  Defines some error behaviour functions called by ucnv_{from,to}Unicode

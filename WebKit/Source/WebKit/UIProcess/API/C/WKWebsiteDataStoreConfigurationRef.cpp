@@ -44,16 +44,6 @@ WKWebsiteDataStoreConfigurationRef WKWebsiteDataStoreConfigurationCreate()
     return toAPILeakingRef(WTFMove(configuration));
 }
 
-WKStringRef WKWebsiteDataStoreConfigurationCopyApplicationCacheDirectory(WKWebsiteDataStoreConfigurationRef configuration)
-{
-    return WebKit::toCopiedAPI(WebKit::toImpl(configuration)->applicationCacheDirectory());
-}
-
-void WKWebsiteDataStoreConfigurationSetApplicationCacheDirectory(WKWebsiteDataStoreConfigurationRef configuration, WKStringRef directory)
-{
-    WebKit::toImpl(configuration)->setApplicationCacheDirectory(WebKit::toProtectedImpl(directory)->string());
-}
-
 WKStringRef WKWebsiteDataStoreConfigurationCopyNetworkCacheDirectory(WKWebsiteDataStoreConfigurationRef configuration)
 {
     return WebKit::toCopiedAPI(WebKit::toImpl(configuration)->networkCacheDirectory());

@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "InspectorFrontendRouter.h"
-#include "InspectorProtocolTypes.h"
+#include <JavaScriptCore/InspectorFrontendRouter.h>
+#include <JavaScriptCore/InspectorProtocolTypes.h>
 #include <functional>
 #include <wtf/Function.h>
 #include <wtf/RefCounted.h>

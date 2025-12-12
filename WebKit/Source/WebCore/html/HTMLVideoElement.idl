@@ -35,7 +35,7 @@
     [CEReactions=NotNeeded, Reflect] attribute unsigned long height;
     readonly attribute unsigned long videoWidth;
     readonly attribute unsigned long videoHeight;
-    [CEReactions=NotNeeded, Reflect, URL] attribute USVString poster;
+    [CEReactions=NotNeeded, ReflectURL] attribute USVString poster;
     [CEReactions=NotNeeded, Reflect] attribute boolean playsInline;
 
     // Non-standard

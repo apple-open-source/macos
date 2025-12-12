@@ -90,7 +90,7 @@ String formatLocalizedString(const char* format, ...)
 #endif
 
 #if PLATFORM(COCOA)
-static CFBundleRef webCoreBundle()
+static CFBundleRef webCoreBundleSingleton()
 {
     static LazyNeverDestroyed<RetainPtr<CFBundleRef>> bundle;
     static std::once_flag flag;
@@ -105,7 +105,7 @@ RetainPtr<CFStringRef> copyLocalizedString(CFStringRef key)
 {
     static CFStringRef notFound = CFSTR("localized string not found");
 
-    auto result = adoptCF(CFBundleCopyLocalizedString(webCoreBundle(), key, notFound, nullptr));
+    auto result = adoptCF(CFBundleCopyLocalizedString(webCoreBundleSingleton(), key, notFound, nullptr));
 
 #if ASSERT_ENABLED
     if (result.get() == notFound) {
@@ -1485,7 +1485,7 @@ String addAudioTrackKindCommentarySuffix(const String& text)
 
 String contextMenuItemTagShowMediaStats()
 {
-    return WEB_UI_STRING("Show Media Stats", "Media stats context menu item");
+    return WEB_UI_STRING("Show Media Statistics", "Media statistics context menu item");
 }
 
 #endif // ENABLE(VIDEO)
@@ -1619,6 +1619,18 @@ String fullscreenControllerViewSpatial()
 String fullscreenControllerViewImmersive()
 {
     return WEB_UI_STRING("View Immersive", "Title for View Immersive action button while in fullscreen");
+}
+#endif
+
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+String imageControlsLabelSpatial()
+{
+    return WEB_UI_STRING("SPATIAL", "Label for Spatial Photos with image controls next to spatial glyph");
+}
+
+String imageControlsLabelPanorama()
+{
+    return WEB_UI_STRING("PANORAMA", "Label for panorama photos with image controls next to pano glyph");
 }
 #endif
 

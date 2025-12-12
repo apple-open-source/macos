@@ -132,7 +132,7 @@ DisplayRefreshMonitor* DisplayRefreshMonitorManager::monitorForClient(DisplayRef
     if (monitor)
         monitor->addClient(client);
 
-    return monitor.get();
+    return monitor.unsafeGet();
 }
 
 DisplayRefreshMonitor* DisplayRefreshMonitorManager::monitorForDisplayID(PlatformDisplayID displayID) const

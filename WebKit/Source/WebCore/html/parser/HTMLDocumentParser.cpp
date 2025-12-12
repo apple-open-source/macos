@@ -41,11 +41,18 @@
 #include "JSCustomElementInterface.h"
 #include "LinkLoader.h"
 #include "LocalFrame.h"
+#include "Microtasks.h"
 #include "NavigationScheduler.h"
+#include "NodeDocument.h"
 #include "ScriptElement.h"
+#include "TaskSource.h"
 #include "ThrowOnDynamicMarkupInsertionCountIncrementer.h"
 
 #include <wtf/SystemTracing.h>
+
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
 
 namespace WebCore {
 
@@ -579,6 +586,17 @@ void HTMLDocumentParser::appendCurrentInputStreamToPreloadScannerAndScan()
     m_preloadScanner->scan(*m_preloader, *protectedDocument());
 }
 
+static ALWAYS_INLINE bool canChangeModuleScriptsExecutionTiming()
+{
+#if PLATFORM(COCOA)
+    // https://bugs.webkit.org/show_bug.cgi?id=300905
+    static const bool caChangeTiming = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ExecutionTimingChangeOfModuleScripts);
+    return caChangeTiming;
+#else
+    return true;
+#endif
+}
+
 void HTMLDocumentParser::notifyFinished(PendingScript& pendingScript)
 {
     // pumpTokenizer can cause this parser to be detached from the Document,
@@ -592,6 +610,19 @@ void HTMLDocumentParser::notifyFinished(PendingScript& pendingScript)
     ASSERT(m_scriptRunner);
     ASSERT(!isExecutingScript());
     if (isStopping()) {
+        if (canChangeModuleScriptsExecutionTiming()) [[likely]] {
+            // If we're currently in a microtask checkpoint, schedule end() as a regular task.
+            // This ensures it runs after ALL microtasks (including any created during execution) complete.
+            RefPtr document = this->document();
+            if (document->eventLoop().microtaskQueue().isPerformingCheckpoint()) {
+                document->eventLoop().queueTask(TaskSource::InternalAsyncTask, [protectedThis = Ref { *this }] {
+                    if (protectedThis->isStopped())
+                        return;
+                    protectedThis->attemptToRunDeferredScriptsAndEnd();
+                });
+                return;
+            }
+        }
         attemptToRunDeferredScriptsAndEnd();
         return;
     }

@@ -69,6 +69,13 @@
 #import "WKGeolocationProviderIOS.h"
 #endif
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+static Ref<WebKit::WebProcessPool> protectedProcessPool(WKProcessPool *processPool)
+{
+    return *processPool->_processPool;
+}
+ALLOW_DEPRECATED_DECLARATIONS_END
+
 @interface _WKProcessInfo()
 - (instancetype)initWithTaskInfo:(const WebKit::AuxiliaryProcessProxy::TaskInfo&)info;
 @end
@@ -106,7 +113,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<WebKit::WebProcessPool>(self, *configuration->_processPoolConfiguration);
+    API::Object::constructInWrapper<WebKit::WebProcessPool>(self, Ref { *configuration->_processPoolConfiguration });
 
     return self;
 }
@@ -122,7 +129,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKProcessPool.class, self))
         return;
 
-    _processPool->~WebProcessPool();
+    SUPPRESS_UNRETAINED_ARG _processPool->~WebProcessPool();
 
     [super dealloc];
 }
@@ -156,7 +163,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %p; configuration = %@>", NSStringFromClass(self.class), self, wrapper(_processPool->configuration())];
+    return [NSString stringWithFormat:@"<%@: %p; configuration = %@>", RetainPtr { NSStringFromClass(self.class) }.get(), self, protectedWrapper(_processPool->configuration()).get()];
 }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -225,22 +232,22 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)_registerURLSchemeAsCanDisplayOnlyIfCanRequest:(NSString *)scheme
 {
-    _processPool->registerURLSchemeAsCanDisplayOnlyIfCanRequest(scheme);
+    protectedProcessPool(self)->registerURLSchemeAsCanDisplayOnlyIfCanRequest(scheme);
 }
 
 - (void)_registerURLSchemeAsSecure:(NSString *)scheme
 {
-    _processPool->registerURLSchemeAsSecure(scheme);
+    protectedProcessPool(self)->registerURLSchemeAsSecure(scheme);
 }
 
 - (void)_registerURLSchemeAsBypassingContentSecurityPolicy:(NSString *)scheme
 {
-    _processPool->registerURLSchemeAsBypassingContentSecurityPolicy(scheme);
+    protectedProcessPool(self)->registerURLSchemeAsBypassingContentSecurityPolicy(scheme);
 }
 
 - (void)_setDomainRelaxationForbiddenForURLScheme:(NSString *)scheme
 {
-    _processPool->setDomainRelaxationForbiddenForURLScheme(scheme);
+    protectedProcessPool(self)->setDomainRelaxationForbiddenForURLScheme(scheme);
 }
 
 - (void)_setCanHandleHTTPSServerTrustEvaluation:(BOOL)value
@@ -249,7 +256,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (id)_objectForBundleParameter:(NSString *)parameter
 {
-    return [_processPool->bundleParameters() objectForKey:parameter];
+    return [protectedProcessPool(self)->protectedBundleParameters() objectForKey:parameter];
 }
 
 - (void)_setObject:(id <NSCopying, NSSecureCoding>)object forBundleParameter:(NSString *)parameter
@@ -264,13 +271,14 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         LOG_ERROR("Failed to encode bundle parameter: %@", exception);
     }
 
+    Ref processPool = *_processPool;
     if (copy)
-        [_processPool->ensureBundleParameters() setObject:copy.get() forKey:parameter];
+        [processPool->ensureProtectedBundleParameters() setObject:copy.get() forKey:parameter];
     else
-        [_processPool->ensureBundleParameters() removeObjectForKey:parameter];
+        [processPool->ensureProtectedBundleParameters() removeObjectForKey:parameter];
 
     auto data = keyedArchiver.get().encodedData;
-    _processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameter(parameter, span(data)));
+    processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameter(parameter, span(data)));
 }
 
 - (void)_setObjectsForBundleParametersWithDictionary:(NSDictionary *)dictionary
@@ -285,10 +293,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         LOG_ERROR("Failed to encode bundle parameters: %@", exception);
     }
 
-    [_processPool->ensureBundleParameters() setValuesForKeysWithDictionary:copy.get()];
+    Ref processPool = *_processPool;
+    [processPool->ensureProtectedBundleParameters() setValuesForKeysWithDictionary:copy.get()];
 
     auto data = keyedArchiver.get().encodedData;
-    _processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameters(span(data)));
+    processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameters(span(data)));
 }
 
 #if !TARGET_OS_IPHONE
@@ -312,7 +321,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_setDownloadDelegate:(id <_WKDownloadDelegate>)downloadDelegate
 {
     _downloadDelegate = downloadDelegate;
-    _processPool->setLegacyDownloadClient(adoptRef(*new WebKit::LegacyDownloadClient(downloadDelegate)));
+    protectedProcessPool(self)->setLegacyDownloadClient(adoptRef(*new WebKit::LegacyDownloadClient(downloadDelegate)));
 }
 
 - (id <_WKAutomationDelegate>)_automationDelegate
@@ -323,23 +332,23 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_setAutomationDelegate:(id <_WKAutomationDelegate>)automationDelegate
 {
     _automationDelegate = automationDelegate;
-    _processPool->setAutomationClient(makeUnique<WebKit::AutomationClient>(self, automationDelegate));
+    protectedProcessPool(self)->setAutomationClient(makeUnique<WebKit::AutomationClient>(self, automationDelegate));
 }
 
 - (void)_warmInitialProcess
 {
-    _processPool->prewarmProcess();
+    protectedProcessPool(self)->prewarmProcess();
 }
 
 - (void)_automationCapabilitiesDidChange
 {
-    _processPool->updateAutomationCapabilities();
+    protectedProcessPool(self)->updateAutomationCapabilities();
 }
 
 - (void)_setAutomationSession:(_WKAutomationSession *)automationSession
 {
     _automationSession = automationSession;
-    _processPool->setAutomationSession(automationSession ? automationSession->_session.get() : nullptr);
+    protectedProcessPool(self)->setAutomationSession(automationSession ? automationSession->_session.get() : nullptr);
 }
 
 - (NSURL *)_javaScriptConfigurationDirectory
@@ -363,17 +372,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     for (NSString *extension in nsExtensions)
         extensions.add(extension);
 
-    _processPool->addSupportedPlugin(domain, name, WTFMove(mimeTypes), WTFMove(extensions));
+    protectedProcessPool(self)->addSupportedPlugin(domain, name, WTFMove(mimeTypes), WTFMove(extensions));
 }
 
 - (void)_clearSupportedPlugins
 {
-    _processPool->clearSupportedPlugins();
+    protectedProcessPool(self)->clearSupportedPlugins();
 }
 
 - (void)_terminateServiceWorkers
 {
-    _processPool->terminateServiceWorkers();
+    protectedProcessPool(self)->terminateServiceWorkers();
 }
 
 - (void)_setUseSeparateServiceWorkerProcess:(BOOL)useSeparateServiceWorkerProcess
@@ -381,15 +390,29 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     WebKit::WebProcessPool::setUseSeparateServiceWorkerProcess(useSeparateServiceWorkerProcess);
 }
 
-- (pid_t)_prewarmedProcessIdentifier
+- (NSSet<NSNumber *> *)_prewarmedProcessIdentifiersForTesting
 {
-    return _processPool->prewarmedProcessID();
+    auto result = adoptNS([[NSMutableSet alloc] init]);
+    for (auto pid : protectedProcessPool(self)->prewarmedProcessIdentifiers())
+        [result addObject:@(pid)];
+    return result.autorelease();
 }
 
+- (void)_countWebPagesInAllProcessesForTesting:(void(^)(unsigned))completionHandler
+{
+    protectedProcessPool(self)->countWebPagesInAllProcessesForTesting([completionHandler = makeBlockPtr(completionHandler)] (unsigned result) {
+        completionHandler(result);
+    });
+}
 
 - (void)_clearWebProcessCache
 {
     _processPool->webProcessCache().clear();
+}
+
+- (void)_setCachedProcessLifetimeForTesting:(NSTimeInterval)lifetime
+{
+    _processPool->webProcessCache().setCachedProcessLifetimeForTesting(Seconds { lifetime });
 }
 
 - (size_t)_webProcessCount
@@ -464,7 +487,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     auto result = _processPool->processes().size();
     if (_processPool->useSeparateServiceWorkerProcess())
-        result -= _processPool->serviceWorkerProxiesCount();
+        result -= protectedProcessPool(self)->serviceWorkerProxiesCount();
     return result;
 }
 
@@ -494,12 +517,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (size_t)_serviceWorkerProcessCount
 {
-    return _processPool->serviceWorkerProxiesCount();
+    return protectedProcessPool(self)->serviceWorkerProxiesCount();
 }
 
 - (void)_isJITDisabledInAllRemoteWorkerProcesses:(void(^)(BOOL))completionHandler
 {
-    _processPool->isJITDisabledInAllRemoteWorkerProcesses([completionHandler = makeBlockPtr(completionHandler)] (bool result) {
+    protectedProcessPool(self)->isJITDisabledInAllRemoteWorkerProcesses([completionHandler = makeBlockPtr(completionHandler)] (bool result) {
         completionHandler(result);
     });
 }
@@ -529,6 +552,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 + (void)_setLinkedOnOrAfterEverything
 {
     enableAllSDKAlignedBehaviors();
+}
+
+- (void)_setPLTResourceDelayIntervalForTesting:(NSTimeInterval)interval
+{
+    _processPool->setPLTResourceDelayInterval(Seconds(interval));
 }
 
 + (void)_setCaptivePortalModeEnabledGloballyForTesting:(BOOL)isEnabled
@@ -577,7 +605,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)_setCookieStoragePartitioningEnabled:(BOOL)enabled
 {
-    _processPool->setCookieStoragePartitioningEnabled(enabled);
+    protectedProcessPool(self)->setCookieStoragePartitioningEnabled(enabled);
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -597,19 +625,19 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)_getActivePagesOriginsInWebProcessForTesting:(pid_t)pid completionHandler:(void(^)(NSArray<NSString *> *))completionHandler
 {
-    _processPool->activePagesOriginsInWebProcessForTesting(pid, [completionHandler = makeBlockPtr(completionHandler)] (Vector<String>&& activePagesOrigins) {
+    protectedProcessPool(self)->activePagesOriginsInWebProcessForTesting(pid, [completionHandler = makeBlockPtr(completionHandler)] (Vector<String>&& activePagesOrigins) {
         completionHandler(createNSArray(activePagesOrigins).get());
     });
 }
 
 - (void)_clearPermanentCredentialsForProtectionSpace:(NSURLProtectionSpace *)protectionSpace
 {
-    _processPool->clearPermanentCredentialsForProtectionSpace(WebCore::ProtectionSpace(protectionSpace));
+    protectedProcessPool(self)->clearPermanentCredentialsForProtectionSpace(WebCore::ProtectionSpace(protectionSpace));
 }
 
 - (void)_seedResourceLoadStatisticsForTestingWithFirstParty:(NSURL *)firstPartyURL thirdParty:(NSURL *)thirdPartyURL shouldScheduleNotification:(BOOL)shouldScheduleNotification completionHandler:(void(^)(void))completionHandler
 {
-    _processPool->seedResourceLoadStatisticsForTesting(WebCore::RegistrableDomain { firstPartyURL }, WebCore::RegistrableDomain { thirdPartyURL }, shouldScheduleNotification, [completionHandler = makeBlockPtr(completionHandler)] () {
+    protectedProcessPool(self)->seedResourceLoadStatisticsForTesting(WebCore::RegistrableDomain { firstPartyURL }, WebCore::RegistrableDomain { thirdPartyURL }, shouldScheduleNotification, [completionHandler = makeBlockPtr(completionHandler)] () {
         completionHandler();
     });
 }
@@ -621,37 +649,37 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)_garbageCollectJavaScriptObjectsForTesting
 {
-    _processPool->garbageCollectJavaScriptObjects();
+    protectedProcessPool(self)->garbageCollectJavaScriptObjects();
 }
 
 - (size_t)_numberOfConnectedGamepadsForTesting
 {
-    return _processPool->numberOfConnectedGamepadsForTesting(WebKit::WebProcessPool::GamepadType::All);
+    return protectedProcessPool(self)->numberOfConnectedGamepadsForTesting(WebKit::WebProcessPool::GamepadType::All);
 }
 
 - (size_t)_numberOfConnectedHIDGamepadsForTesting
 {
-    return _processPool->numberOfConnectedGamepadsForTesting(WebKit::WebProcessPool::GamepadType::HID);
+    return protectedProcessPool(self)->numberOfConnectedGamepadsForTesting(WebKit::WebProcessPool::GamepadType::HID);
 }
 
 - (size_t)_numberOfConnectedGameControllerFrameworkGamepadsForTesting
 {
-    return _processPool->numberOfConnectedGamepadsForTesting(WebKit::WebProcessPool::GamepadType::GameControllerFramework);
+    return protectedProcessPool(self)->numberOfConnectedGamepadsForTesting(WebKit::WebProcessPool::GamepadType::GameControllerFramework);
 }
 
 - (void)_setUsesOnlyHIDGamepadProviderForTesting:(BOOL)usesHIDProvider
 {
-    _processPool->setUsesOnlyHIDGamepadProviderForTesting(usesHIDProvider);
+    protectedProcessPool(self)->setUsesOnlyHIDGamepadProviderForTesting(usesHIDProvider);
 }
 
 - (void)_terminateAllWebContentProcesses
 {
-    _processPool->terminateAllWebContentProcesses(WebKit::ProcessTerminationReason::RequestedByClient);
+    protectedProcessPool(self)->terminateAllWebContentProcesses(WebKit::ProcessTerminationReason::RequestedByClient);
 }
 
 - (WKNotificationManagerRef)_notificationManagerForTesting
 {
-    return WebKit::toAPI(_processPool->supplement<WebKit::WebNotificationManagerProxy>());
+    return WebKit::toAPI(protectedProcessPool(self)->protectedSupplement<WebKit::WebNotificationManagerProxy>().get());
 }
 
 + (_WKProcessInfo *)_gpuProcessInfo
@@ -695,7 +723,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 #if PLATFORM(MAC)
 - (void)_registerAdditionalFonts:(NSArray<NSString *> *)fontNames
 {
-    _processPool->registerAdditionalFonts(fontNames);
+    protectedProcessPool(self)->registerAdditionalFonts(fontNames);
 }
 #endif
 

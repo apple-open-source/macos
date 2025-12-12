@@ -25,16 +25,17 @@
 
 #pragma once
 
-#include "WebGPUComputePipeline.h"
-#include "WebGPUDeviceLostInfo.h"
-#include "WebGPUError.h"
-#include "WebGPUErrorFilter.h"
-#include "WebGPURenderPipeline.h"
-#include "WebGPUSupportedFeatures.h"
-#include "WebGPUSupportedLimits.h"
+#include <WebCore/WebGPUComputePipeline.h>
+#include <WebCore/WebGPUDeviceLostInfo.h>
+#include <WebCore/WebGPUError.h>
+#include <WebCore/WebGPUErrorFilter.h>
+#include <WebCore/WebGPURenderPipeline.h>
+#include <WebCore/WebGPUSupportedFeatures.h>
+#include <WebCore/WebGPUSupportedLimits.h>
 #include <optional>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashSet.h>
+#include <wtf/Platform.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>

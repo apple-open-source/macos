@@ -36,6 +36,7 @@
 #include "BufferSource.h"
 #include "CurrentUserDetailsOptions.h"
 #include "Document.h"
+#include "DocumentPage.h"
 #include "JSAuthenticatorAttachment.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSPublicKeyCredentialCreationOptions.h"
@@ -137,8 +138,9 @@ static ExceptionOr<PublicKeyCredentialDescriptor> fromJSON(PublicKeyCredentialDe
     else
         return Exception { ExceptionCode::EncodingError, makeString("Invalid encoding of credential ID: "_s, jsonOptions.id, " (It should be Base64URL encoded.)"_s) };
     for (auto transportString : jsonOptions.transports) {
-        if (auto transport = convertStringToAuthenticatorTransport(transportString))
-            descriptor.transports.append(*transport);
+        // Validate the transport string is recognized, then keep the string
+        if (convertStringToAuthenticatorTransport(transportString))
+            descriptor.transports.append(transportString);
     }
     return descriptor;
 }
@@ -261,8 +263,7 @@ ExceptionOr<PublicKeyCredentialCreationOptions> PublicKeyCredential::parseCreati
     options.excludeCredentials = excludeCredentials.releaseReturnValue();
 
     options.authenticatorSelection = jsonOptions.authenticatorSelection;
-    if (auto attestation = parseEnumerationFromString<AttestationConveyancePreference>(jsonOptions.attestation))
-        options.attestation = *attestation;
+    options.attestationString = jsonOptions.attestation;
     if (jsonOptions.extensions) {
         auto extensions = fromJSON(WTFMove(*jsonOptions.extensions));
         if (extensions.hasException())
@@ -286,8 +287,7 @@ ExceptionOr<PublicKeyCredentialRequestOptions> PublicKeyCredential::parseRequest
     if (allowCredentials.hasException())
         return allowCredentials.releaseException();
     options.allowCredentials = allowCredentials.releaseReturnValue();
-    if (auto userVerification = parseEnumerationFromString<UserVerificationRequirement>(jsonOptions.userVerification))
-        options.userVerification = *userVerification;
+    options.userVerificationString = jsonOptions.userVerification;
     if (jsonOptions.extensions) {
         auto extensions = fromJSON(WTFMove(*jsonOptions.extensions));
         if (extensions.hasException())

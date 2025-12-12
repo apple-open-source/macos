@@ -25,27 +25,28 @@
 
 #pragma once
 
-#include "Cursor.h"
-#include "DragActions.h"
-#include "ElementIdentifier.h"
-#include "FocusDirection.h"
-#include "HitTestRequest.h"
-#include "ImmediateActionStage.h"
-#include "IntPointHash.h"
-#include "LayoutPoint.h"
-#include "PlatformMouseEvent.h"
-#include "RenderObject.h"
-#include "ScrollTypes.h"
-#include "SimpleRange.h"
-#include "TextEventInputType.h"
-#include "TextGranularity.h"
-#include "Timer.h"
+#include <WebCore/Cursor.h>
+#include <WebCore/DragActions.h>
+#include <WebCore/FocusDirection.h>
+#include <WebCore/HitTestRequest.h>
+#include <WebCore/ImmediateActionStage.h>
+#include <WebCore/IntPointHash.h>
+#include <WebCore/LayoutPoint.h>
+#include <WebCore/NodeIdentifier.h>
+#include <WebCore/PlatformMouseEvent.h>
+#include <WebCore/RenderObject.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/SimpleRange.h>
+#include <WebCore/TextEventInputType.h>
+#include <WebCore/TextGranularity.h>
+#include <WebCore/Timer.h>
 #include <memory>
 #include <utility>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/Platform.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
@@ -63,7 +64,7 @@ OBJC_CLASS NSEvent;
 #endif
 
 #if PLATFORM(IOS_FAMILY) && defined(__OBJC__)
-#include "WAKAppKitStubs.h"
+#include <WebCore/WAKAppKitStubs.h>
 #endif
 
 namespace WebCore {
@@ -103,11 +104,12 @@ class Scrollbar;
 class TextEvent;
 class Touch;
 class TouchEvent;
+class VisiblePosition;
 class VisibleSelection;
 class WheelEvent;
 class Widget;
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE_INTERACTION)
 class HTMLModelElement;
 #endif
 
@@ -200,8 +202,8 @@ public:
     void resizeLayerDestroyed();
 
     // FIXME: Each Frame has an EventHandler, and not every event goes to all frames, so this position can be stale. It should probably be stored on Page.
-    IntPoint lastKnownMousePosition() const;
-    IntPoint lastKnownMouseGlobalPosition() const { return m_lastKnownMouseGlobalPosition; }
+    DoublePoint lastKnownMousePosition() const;
+    DoublePoint lastKnownMouseGlobalPosition() const { return m_lastKnownMouseGlobalPosition; }
     Cursor currentMouseCursor() const { return m_currentMouseCursor; }
 
     IntPoint targetPositionInWindowForSelectionAutoscroll() const;
@@ -235,7 +237,7 @@ public:
     void defaultWheelEventHandler(Node*, WheelEvent&);
     void wheelEventWasProcessedByMainThread(const PlatformWheelEvent&, OptionSet<EventHandling>);
 
-    WEBCORE_EXPORT void setLastKnownMousePosition(IntPoint position, IntPoint globalPosition);
+    WEBCORE_EXPORT void setLastKnownMousePosition(DoublePoint position, DoublePoint globalPosition);
 
     bool handlePasteGlobalSelection();
 
@@ -251,7 +253,7 @@ public:
 #if ENABLE(IOS_TOUCH_EVENTS)
     enum class InTouchEventHandling : bool { No, Yes };
     enum class InMotion : bool { No, Yes };
-    void updateTouchLastGlobalPositionAndDelta(PointerID, const IntPoint&, InTouchEventHandling, InMotion);
+    void updateTouchLastGlobalPositionAndDelta(PointerID, const DoublePoint&, InTouchEventHandling, InMotion);
     bool dispatchTouchEvent(const PlatformTouchEvent&, const AtomString&, const EventTargetTouchArrayMap&, float, float);
     WEBCORE_EXPORT bool dispatchSimulatedTouchEvent(IntPoint location);
     Frame* touchEventTargetSubframe() const { return m_touchEventTargetSubframe.get(); }
@@ -363,10 +365,10 @@ public:
 
     static Widget* widgetForEventTarget(Element* eventTarget);
 
-#if ENABLE(MODEL_PROCESS)
-    WEBCORE_EXPORT std::optional<ElementIdentifier> requestInteractiveModelElementAtPoint(const IntPoint& clientPosition);
-    WEBCORE_EXPORT void stageModeSessionDidUpdate(std::optional<ElementIdentifier>, const TransformationMatrix&);
-    WEBCORE_EXPORT void stageModeSessionDidEnd(std::optional<ElementIdentifier>);
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE_INTERACTION)
+    WEBCORE_EXPORT std::optional<NodeIdentifier> requestInteractiveModelElementAtPoint(const IntPoint& clientPosition);
+    WEBCORE_EXPORT void stageModeSessionDidUpdate(std::optional<NodeIdentifier>, const TransformationMatrix&);
+    WEBCORE_EXPORT void stageModeSessionDidEnd(std::optional<NodeIdentifier>);
 #endif
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
@@ -402,6 +404,11 @@ public:
 
     bool keyboardScrollRecursively(std::optional<ScrollDirection>, std::optional<ScrollGranularity>, Node*, bool isKeyRepeat);
     WEBCORE_EXPORT bool shouldUseSmoothKeyboardScrollingForFocusedScrollableArea();
+
+    std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
+
+    WEBCORE_EXPORT void updateMouseEventTargetAfterLayoutIfNeeded();
+    WEBCORE_EXPORT void scheduleMouseEventTargetUpdateAfterLayout();
 
 private:
 #if ENABLE(DRAG_SUPPORT)
@@ -478,6 +485,7 @@ private:
 
     MouseEventWithHitTestResults prepareMouseEvent(const HitTestRequest&, const PlatformMouseEvent&);
 
+    bool dispatchAnyClickEvent(const AtomString& eventType, Node* target, int clickCount, const PlatformMouseEvent&);
     bool dispatchMouseEvent(const AtomString& eventType, Node* target, int clickCount, const PlatformMouseEvent&, FireMouseOverOut);
 
     enum class IgnoreAncestorNodesForClickEvent : bool { No, Yes };
@@ -609,6 +617,7 @@ private:
 
 #if ENABLE(FULLSCREEN_API)
     bool isKeyEventAllowedInFullScreen(const PlatformKeyboardEvent&) const;
+    void holdEscKeyEventTimerFired();
 #endif
 
 #if ENABLE(CURSOR_VISIBILITY)
@@ -620,12 +629,13 @@ private:
     void clearLatchedState();
     void clearElementUnderMouse();
 
+    bool isElementAnAncestorOfLastElementUnderMouse(Element*) const;
+
     bool shouldSendMouseEventsToInactiveWindows() const;
 
     bool canMouseDownStartSelect(const MouseEventWithHitTestResults&);
     bool mouseDownMayStartSelect() const;
 
-    std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
     std::optional<RemoteFrameGeometryTransformer> geometryTransformerForRemoteFrame(RemoteFrame*);
 
     bool isCapturingMouseEventsElement() const { return m_capturingMouseEventsElement || m_isCapturingRootElementForMouseEvents; }
@@ -639,6 +649,8 @@ private:
 #if ENABLE(IMAGE_ANALYSIS)
     DeferrableOneShotTimer m_textRecognitionHoverTimer;
 #endif
+    Timer m_mouseEventTargetUpdateTimer;
+    Timer m_mouseEventTargetFinalUpdateTimer;
     const UniqueRef<AutoscrollController> m_autoscrollController;
     SingleThreadWeakPtr<RenderLayer> m_resizeLayer;
 
@@ -667,22 +679,25 @@ private:
     RefPtr<Element> m_capturingMouseEventsElement;
     RefPtr<Element> m_elementUnderMouse;
     RefPtr<Element> m_lastElementUnderMouse;
+    WeakPtr<Element, WeakPtrImplWithEventTargetData> m_mouseMoveTargetOverride;
+    Vector<WeakPtr<Element, WeakPtrImplWithEventTargetData>, 31> m_ancestorsOfLastElementUnderMouse;
     RefPtr<LocalFrame> m_lastMouseMoveEventSubframe;
     SingleThreadWeakPtr<Scrollbar> m_lastScrollbarUnderMouse;
     Cursor m_currentMouseCursor;
 
     RefPtr<Node> m_lastTouchedNode;
     RefPtr<Node> m_clickNode;
+    RefPtr<Element> m_clickCaptureElement;
     RefPtr<HTMLFrameSetElement> m_frameSetBeingResized;
 
     LayoutSize m_offsetFromResizeCorner; // In the coords of m_resizeLayer.
     
     int m_clickCount { 0 };
 
-    std::optional<IntPoint> m_lastKnownMousePosition; // Same coordinates as PlatformMouseEvent::position().
-    IntPoint m_lastKnownMouseGlobalPosition;
+    std::optional<DoublePoint> m_lastKnownMousePosition; // Same coordinates as PlatformMouseEvent::position().
+    DoublePoint m_lastKnownMouseGlobalPosition;
     IntPoint m_mouseDownContentsPosition;
-    WallTime m_mouseDownTimestamp;
+    MonotonicTime m_mouseDownTimestamp;
     PlatformMouseEvent m_mouseDownEvent;
     PlatformMouseEvent m_lastPlatformMouseEvent;
 
@@ -692,6 +707,10 @@ private:
 
 #if ENABLE(CURSOR_VISIBILITY)
     Timer m_autoHideCursorTimer;
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    Timer m_holdEscKeyEventTimer;
 #endif
 
 #if ENABLE(DRAG_SUPPORT)
@@ -737,7 +756,7 @@ private:
 
     TouchArray m_touches;
     RefPtr<Frame> m_touchEventTargetSubframe;
-    HashMap<PointerID, std::pair<IntPoint, IntPoint>, WTF::IntHash<PointerID>, WTF::UnsignedWithZeroKeyHashTraits<PointerID>> m_touchLastGlobalPositionAndDeltaMap;
+    HashMap<PointerID, std::pair<DoublePoint, DoublePoint>, WTF::IntHash<PointerID>, WTF::UnsignedWithZeroKeyHashTraits<PointerID>> m_touchLastGlobalPositionAndDeltaMap;
 #endif
 
 #if PLATFORM(COCOA)

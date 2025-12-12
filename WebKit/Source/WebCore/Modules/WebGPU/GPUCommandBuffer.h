@@ -46,6 +46,7 @@ public:
 
     String label() const;
     void setLabel(String&&);
+    void setOverrideLabel(String&&);
 
     WebGPU::CommandBuffer& backing() { return m_backing; }
     const WebGPU::CommandBuffer& backing() const { return m_backing; }
@@ -60,6 +61,7 @@ private:
 
     Ref<WebGPU::CommandBuffer> m_backing;
     const Ref<GPUCommandEncoder> m_encoder;
+    std::optional<String> m_overrideLabel;
 };
 
 }

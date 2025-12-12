@@ -151,7 +151,7 @@ JSValue JSTestStringifier::getConstructor(VM& vm, const JSGlobalObject* globalOb
 
 void JSTestStringifier::destroy(JSC::JSCell* cell)
 {
-    JSTestStringifier* thisObject = static_cast<JSTestStringifier*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestStringifier* thisObject = static_cast<JSTestStringifier*>(cell);
     thisObject->JSTestStringifier::~JSTestStringifier();
 }
 
@@ -209,7 +209,7 @@ bool JSTestStringifierOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown
 
 void JSTestStringifierOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestStringifier = static_cast<JSTestStringifier*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestStringifier = static_cast<JSTestStringifier*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestStringifier->protectedWrapped().ptr(), jsTestStringifier);
 }
@@ -223,7 +223,7 @@ extern "C" { extern void (*const __identifier("??_7TestStringifier@WebCore@@6B@"
 extern "C" { extern void* _ZTVN7WebCore15TestStringifierE[]; }
 #endif
 template<std::same_as<TestStringifier> T>
-static inline void verifyVTable(TestStringifier* ptr) 
+static inline void verifyVTable(TestStringifier* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -243,8 +243,9 @@ static inline void verifyVTable(TestStringifier* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestStringifier>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestStringifier>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestStringifier>(impl.ptr());
 #endif

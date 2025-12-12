@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "CanvasActivityRecord.h"
-#include "RegistrableDomain.h"
+#include <WebCore/CanvasActivityRecord.h>
+#include <WebCore/RegistrableDomain.h>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
@@ -60,7 +60,7 @@ enum class ScreenAPIsAccessed : uint64_t {
 };
 
 struct ResourceLoadStatistics {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ResourceLoadStatistics);
     explicit ResourceLoadStatistics(const RegistrableDomain& domain)
         : registrableDomain { domain }
     {

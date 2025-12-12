@@ -47,12 +47,10 @@ static RealtimeMediaSourceSupportedConstraints supportedRealtimeIncomingVideoSou
     return constraints;
 }
 
-RealtimeIncomingVideoSource::RealtimeIncomingVideoSource(webrtc::scoped_refptr<webrtc::VideoTrackInterface>&& videoTrack, String&& videoTrackId)
+RealtimeIncomingVideoSource::RealtimeIncomingVideoSource(Ref<webrtc::VideoTrackInterface>&& videoTrack, String&& videoTrackId)
     : RealtimeMediaSource(CaptureDevice { WTFMove(videoTrackId), CaptureDevice::DeviceType::Camera, "remote video"_s })
     , m_videoTrack(WTFMove(videoTrack))
 {
-    ASSERT(m_videoTrack);
-
     m_currentSettings = RealtimeMediaSourceSettings { };
     m_currentSettings->setSupportedConstraints(supportedRealtimeIncomingVideoSourceSettingConstraints());
 

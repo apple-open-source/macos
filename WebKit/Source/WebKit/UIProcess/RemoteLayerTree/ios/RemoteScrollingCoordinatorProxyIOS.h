@@ -30,6 +30,10 @@
 #include "RemoteScrollingCoordinatorProxy.h"
 #include <wtf/TZoneMalloc.h>
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#import "RemoteAnimationTimeline.h"
+#endif
+
 OBJC_CLASS UIScrollView;
 OBJC_CLASS WKBaseScrollView;
 
@@ -47,7 +51,6 @@ class RemoteScrollingCoordinatorProxyIOS final : public RemoteScrollingCoordinat
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteScrollingCoordinatorProxyIOS);
 public:
     explicit RemoteScrollingCoordinatorProxyIOS(WebPageProxy&);
-    ~RemoteScrollingCoordinatorProxyIOS() = default;
 
     UIScrollView *scrollViewForScrollingNodeID(std::optional<WebCore::ScrollingNodeID>) const;
 
@@ -72,6 +75,8 @@ public:
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     void animationsWereAddedToNode(RemoteLayerTreeNode&) override WTF_IGNORES_THREAD_SAFETY_ANALYSIS;
     void animationsWereRemovedFromNode(RemoteLayerTreeNode&) override;
+    void registerTimelineIfNecessary(WebCore::ProcessIdentifier, Seconds, MonotonicTime) override;
+    const RemoteAnimationTimeline* timeline(WebCore::ProcessIdentifier) const override;
     void updateAnimations();
 #endif
 
@@ -101,6 +106,7 @@ private:
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     HashSet<WebCore::PlatformLayerIdentifier> m_animatedNodeLayerIDs;
+    HashMap<WebCore::ProcessIdentifier, Ref<RemoteAnimationTimeline>> m_timelines;
 #endif
 };
 

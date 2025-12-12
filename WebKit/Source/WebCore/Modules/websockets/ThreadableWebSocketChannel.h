@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "WebSocketIdentifier.h"
+#include <WebCore/WebSocketIdentifier.h>
 #include <wtf/Forward.h>
 #include <wtf/Identified.h>
 #include <wtf/Noncopyable.h>

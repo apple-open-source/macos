@@ -39,6 +39,9 @@ struct SystemSettingsState {
     std::optional<String> themeName;
     std::optional<bool> darkMode;
     std::optional<String> fontName;
+    std::optional<String> fontFamily;
+    std::optional<float> fontSize;
+    std::optional<int> fontWeight;
     std::optional<int> xftAntialias;
     std::optional<int> xftHinting;
     std::optional<String> xftHintStyle;
@@ -70,6 +73,9 @@ public:
     std::optional<String> themeName() const { return m_state.themeName; }
     std::optional<bool> darkMode() const { return m_state.darkMode; }
     std::optional<String> fontName() const { return m_state.fontName; }
+    std::optional<String> fontFamily() const { return m_state.fontFamily; }
+    std::optional<float> fontSize() const { return m_state.fontSize; }
+    std::optional<int> fontWeight() const { return m_state.fontWeight; }
     std::optional<bool> cursorBlink() const { return m_state.cursorBlink; }
     std::optional<int> cursorBlinkTime() const { return m_state.cursorBlinkTime; }
     std::optional<int> xftDPI() const { return m_state.xftDPI; }

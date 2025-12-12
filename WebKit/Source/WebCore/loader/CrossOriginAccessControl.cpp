@@ -30,8 +30,8 @@
 #include "CachedResourceRequest.h"
 #include "CrossOriginEmbedderPolicy.h"
 #include "CrossOriginPreflightResultCache.h"
-#include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentSecurityOrigin.h"
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "LegacySchemeRegistry.h"
@@ -184,7 +184,7 @@ CachedResourceRequest createPotentialAccessControlRequest(ResourceRequest&& requ
     }
 
     CachedResourceRequest cachedRequest { WTFMove(request), WTFMove(options) };
-    updateRequestForAccessControl(cachedRequest.resourceRequest(), document.securityOrigin(), options.storedCredentialsPolicy);
+    updateRequestForAccessControl(cachedRequest.resourceRequest(), document.protectedSecurityOrigin().get(), options.storedCredentialsPolicy);
     return cachedRequest;
 }
 

@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "ControlStyle.h"
-#include "FloatRect.h"
+#include <WebCore/ControlStyle.h>
+#include <WebCore/FloatRect.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {

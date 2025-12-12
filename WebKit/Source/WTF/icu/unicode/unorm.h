@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 * Copyright (c) 1996-2016, International Business Machines Corporation
-*               and others. All rights reserved.
+*               and others. All Rights Reserved.
 *******************************************************************************
 * File unorm.h
 *

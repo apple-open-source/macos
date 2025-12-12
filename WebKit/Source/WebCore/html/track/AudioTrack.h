@@ -28,8 +28,8 @@
 
 #if ENABLE(VIDEO)
 
-#include "AudioTrackPrivateClient.h"
-#include "TrackBase.h"
+#include <WebCore/AudioTrackPrivateClient.h>
+#include <WebCore/TrackBase.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
 

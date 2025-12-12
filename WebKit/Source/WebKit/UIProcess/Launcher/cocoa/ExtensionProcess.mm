@@ -31,6 +31,7 @@
 #import "ExtensionCapability.h"
 #import "ExtensionKitSPI.h"
 #import <BrowserEngineKit/BrowserEngineKit.h>
+#import <wtf/CrossThreadCopier.h>
 
 #if __has_include(<WebKitAdditions/BEKAdditions.h>)
 #import <WebKitAdditions/BEKAdditions.h>
@@ -50,6 +51,11 @@ ExtensionProcess::ExtensionProcess(BENetworkingProcess *process)
 
 ExtensionProcess::ExtensionProcess(BERenderingProcess *process)
     : m_process(process)
+{
+}
+
+ExtensionProcess::ExtensionProcess(ExtensionProcessVariant&& process)
+    : m_process(WTFMove(process))
 {
 }
 
@@ -94,6 +100,11 @@ RetainPtr<UIInteraction> ExtensionProcess::createVisibilityPropagationInteractio
     }, [] (auto& process) {
     });
     return interaction;
+}
+
+ExtensionProcess ExtensionProcess::isolatedCopy() &&
+{
+    return ExtensionProcess { crossThreadCopy(WTFMove(m_process)) };
 }
 
 } // namespace WebKit

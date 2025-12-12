@@ -153,7 +153,7 @@ JSValue JSTestStringifierOperationImplementedAs::getConstructor(VM& vm, const JS
 
 void JSTestStringifierOperationImplementedAs::destroy(JSC::JSCell* cell)
 {
-    JSTestStringifierOperationImplementedAs* thisObject = static_cast<JSTestStringifierOperationImplementedAs*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestStringifierOperationImplementedAs* thisObject = static_cast<JSTestStringifierOperationImplementedAs*>(cell);
     thisObject->JSTestStringifierOperationImplementedAs::~JSTestStringifierOperationImplementedAs();
 }
 
@@ -226,7 +226,7 @@ bool JSTestStringifierOperationImplementedAsOwner::isReachableFromOpaqueRoots(JS
 
 void JSTestStringifierOperationImplementedAsOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestStringifierOperationImplementedAs = static_cast<JSTestStringifierOperationImplementedAs*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestStringifierOperationImplementedAs = static_cast<JSTestStringifierOperationImplementedAs*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestStringifierOperationImplementedAs->protectedWrapped().ptr(), jsTestStringifierOperationImplementedAs);
 }
@@ -240,7 +240,7 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierOperationImple
 extern "C" { extern void* _ZTVN7WebCore37TestStringifierOperationImplementedAsE[]; }
 #endif
 template<std::same_as<TestStringifierOperationImplementedAs> T>
-static inline void verifyVTable(TestStringifierOperationImplementedAs* ptr) 
+static inline void verifyVTable(TestStringifierOperationImplementedAs* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -260,8 +260,9 @@ static inline void verifyVTable(TestStringifierOperationImplementedAs* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestStringifierOperationImplementedAs>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestStringifierOperationImplementedAs>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestStringifierOperationImplementedAs>(impl.ptr());
 #endif

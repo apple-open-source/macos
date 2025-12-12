@@ -27,6 +27,7 @@
 #import "WebPasteboardProxy.h"
 
 #import "Connection.h"
+#import "LegacyWebArchiveCallbackAggregator.h"
 #import "NetworkProcessMessages.h"
 #import "PageLoadState.h"
 #import "PasteboardAccessIntent.h"
@@ -36,6 +37,7 @@
 #import "WebPreferences.h"
 #import "WebProcessMessages.h"
 #import "WebProcessProxy.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <WebCore/Color.h>
 #import <WebCore/DataOwnerType.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
@@ -83,7 +85,7 @@ std::optional<IPC::AsyncReplyID> WebPasteboardProxy::grantAccessToCurrentData(We
     }
 #if PLATFORM(MAC)
     if (!paths.size())
-        pasteboard.getPathnamesForType(paths, legacyFilenamesPasteboardType());
+        pasteboard.getPathnamesForType(paths, legacyFilenamesPasteboardTypeSingleton());
 #endif
 
     if (!paths.size()) {
@@ -212,7 +214,7 @@ void WebPasteboardProxy::getPasteboardPathnamesForType(IPC::Connection& connecti
             PlatformPasteboard(pasteboardName).getPathnamesForType(pathnames, pasteboardType);
             // On iOS, files are copied into app's container upon paste.
 #if PLATFORM(MAC)
-            bool needsExtensions = pasteboardType == String(WebCore::legacyFilenamesPasteboardType());
+            bool needsExtensions = pasteboardType == String(WebCore::legacyFilenamesPasteboardTypeSingleton());
             sandboxExtensions = pathnames.map([needsExtensions](auto& filename) {
                 if (!needsExtensions || ![[NSFileManager defaultManager] fileExistsAtPath:filename.createNSString().get()])
                     return SandboxExtension::Handle { };
@@ -611,10 +613,8 @@ void WebPasteboardProxy::writeURLToPasteboard(IPC::Connection& connection, const
     });
 }
 
-void WebPasteboardProxy::writeWebContentToPasteboard(IPC::Connection& connection, const WebCore::PasteboardWebContent& content, const String& pasteboardName, std::optional<WebPageProxyIdentifier> pageID)
+void WebPasteboardProxy::writeWebContentToPasteboardInternal(IPC::Connection& connection, const WebCore::PasteboardWebContent& content, const String& pasteboardName, std::optional<WebPageProxyIdentifier> pageID)
 {
-    MESSAGE_CHECK(!pasteboardName.isEmpty(), connection);
-
     auto dataOwner = determineDataOwner(connection, pasteboardName, pageID, PasteboardAccessIntent::Write);
     MESSAGE_CHECK(dataOwner, connection);
 
@@ -624,6 +624,34 @@ void WebPasteboardProxy::writeWebContentToPasteboard(IPC::Connection& connection
         didModifyContentsOfPasteboard(connection, pasteboardName, previousChangeCount, PlatformPasteboard(pasteboardName).changeCount());
         if (auto process = webProcessProxyForConnection(connection))
             process->send(Messages::WebProcess::DidWriteToPasteboardAsynchronously(pasteboardName), 0);
+    });
+}
+
+void WebPasteboardProxy::writeWebContentToPasteboard(IPC::Connection& connection, const WebCore::PasteboardWebContent& content, const String& pasteboardName, std::optional<WebPageProxyIdentifier> pageID)
+{
+    MESSAGE_CHECK(!pasteboardName.isEmpty(), connection);
+
+    RefPtr webArchive = content.webArchive;
+    if (!webArchive) {
+        writeWebContentToPasteboardInternal(connection, content, pasteboardName, pageID);
+        return;
+    }
+
+    auto rootFrameIdentifier = webArchive->frameIdentifier();
+    if (!rootFrameIdentifier) {
+        writeWebContentToPasteboardInternal(connection, content, pasteboardName, pageID);
+        return;
+    }
+
+    Ref senderProcess = WebProcessProxy::fromConnection(connection);
+    auto localFrameArchives = content.localFrameArchives;
+    createOneWebArchiveFromFrames(senderProcess.get(), *rootFrameIdentifier, WTFMove(localFrameArchives), content.remoteFrameIdentifiers, [connection = Ref { connection }, content, pasteboardName, pageID](auto result) mutable {
+        auto updatedContent = content;
+        if (result) {
+            if (auto data = result->rawDataRepresentation())
+                updatedContent.dataInWebArchiveFormat = WebCore::SharedBuffer::create(data.get()).ptr();
+        }
+        WebPasteboardProxy::singleton().writeWebContentToPasteboardInternal(connection, updatedContent, pasteboardName, pageID);
     });
 }
 
@@ -725,6 +753,79 @@ std::optional<WebPasteboardProxy::PasteboardAccessType> WebPasteboardProxy::Past
     return processes[matchIndex].second;
 }
 
+void WebPasteboardProxy::writeWebArchiveToPasteBoard(IPC::Connection& connection, const String& pasteboardName, WebCore::FrameIdentifier rootFrameIdentifier, HashMap<FrameIdentifier, Ref<LegacyWebArchive>>&& localFrameArchives, const Vector<FrameIdentifier>& remoteFrameIdentifiers, CompletionHandler<void(int64_t)>&& completionHandler)
+{
+    MESSAGE_CHECK_COMPLETION(!pasteboardName.isEmpty(), connection, completionHandler(0));
+
+    Ref senderProcess = WebProcessProxy::fromConnection(connection);
+    RefPtr webFrame = WebFrameProxy::webFrame(rootFrameIdentifier);
+    if (!webFrame)
+        return completionHandler(0);
+
+    RefPtr webPage = webFrame->page();
+    if (!webPage)
+        return completionHandler(0);
+
+    createOneWebArchiveFromFrames(senderProcess.get(), rootFrameIdentifier, WTFMove(localFrameArchives), remoteFrameIdentifiers, [connection = Ref { connection }, pasteboardName, pageIdentifier = webPage->identifier(), completionHandler = WTFMove(completionHandler)](auto result) mutable {
+        if (!result)
+            return completionHandler(0);
+
+        RetainPtr data = result->rawDataRepresentation();
+        if (!data)
+            return completionHandler(0);
+
+        RefPtr buffer = SharedBuffer::create(data.get());
+        WebPasteboardProxy::singleton().setPasteboardBufferForType(connection.get(), pasteboardName, String { WebCore::WebArchivePboardType }, RefPtr { buffer }, pageIdentifier, [connection, pasteboardName, pageIdentifier, buffer, completionHandler = WTFMove(completionHandler)](auto) mutable {
+            WebPasteboardProxy::singleton().setPasteboardBufferForType(connection.get(), pasteboardName, UTTypeWebArchive.identifier, WTFMove(buffer), pageIdentifier, WTFMove(completionHandler));
+        });
+    });
+}
+
+void WebPasteboardProxy::createOneWebArchiveFromFrames(WebProcessProxy& requestedProcess, FrameIdentifier rootFrameIdentifier, HashMap<FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&& localFrameArchives, const Vector<FrameIdentifier>& remoteFrameIdentifiers, CompletionHandler<void(RefPtr<LegacyWebArchive>&&)>&& completionHandler)
+{
+    RefPtr webFrame = WebFrameProxy::webFrame(rootFrameIdentifier);
+    if (!webFrame)
+        return completionHandler(nullptr);
+
+    if (&webFrame->process() != &requestedProcess)
+        return completionHandler(nullptr);
+
+    RefPtr webPage = webFrame->page();
+    if (!webPage)
+        return completionHandler(nullptr);
+
+    auto callbackAggregator = LegacyWebArchiveCallbackAggregator::create(rootFrameIdentifier, WTFMove(localFrameArchives), WTFMove(completionHandler));
+    HashMap<Ref<WebProcessProxy>, Vector<WebCore::FrameIdentifier>> frameByProcess;
+    for (auto frameIdentifier : remoteFrameIdentifiers) {
+        RefPtr currentFrame = WebFrameProxy::webFrame(frameIdentifier);
+        if (!currentFrame)
+            continue;
+
+        if (&currentFrame->process() == &requestedProcess) {
+            // The frame is not remote to the sender process.
+            // This is sync message so we must ensure no dead lock.
+            continue;
+        }
+
+        if (currentFrame->page() != webPage) {
+            // The frame is not on the same page as the root frame.
+            continue;
+        }
+
+        frameByProcess.ensure(currentFrame->protectedProcess(), [&] {
+            return Vector<WebCore::FrameIdentifier> { };
+        }).iterator->value.append(frameIdentifier);
+    }
+
+    for (auto& [process, frameIDs] : frameByProcess) {
+        Ref { process }->sendWithAsyncReply(Messages::WebPage::GetWebArchivesForFrames(frameIDs), [frameIDs, callbackAggregator](auto&& result) {
+            if (result.size() > frameIDs.size())
+                return;
+            callbackAggregator->addResult(WTFMove(result));
+        }, webPage->webPageIDInProcess(process.get()));
+    }
+}
+
 #if ENABLE(IPC_TESTING_API)
 void WebPasteboardProxy::testIPCSharedMemory(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, SharedMemory::Handle&& handle, std::optional<WebPageProxyIdentifier> pageID, CompletionHandler<void(int64_t, String)>&& completionHandler)
 {
@@ -737,7 +838,7 @@ void WebPasteboardProxy::testIPCSharedMemory(IPC::Connection& connection, const 
         return;
     }
 
-    completionHandler(sharedMemoryBuffer->size(), sharedMemoryBuffer->span());
+    completionHandler(sharedMemoryBuffer->size(), byteCast<Latin1Character>(sharedMemoryBuffer->span()));
 }
 #endif
 

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ScriptExecutionContextIdentifier.h"
+#include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <span>
 #include <wtf/Function.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
@@ -36,6 +36,7 @@
 namespace WebCore {
 
 class BlobLoader;
+class Exception;
 class FormData;
 class ScriptExecutionContext;
 template<typename> class ExceptionOr;

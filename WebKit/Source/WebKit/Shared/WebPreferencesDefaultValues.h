@@ -37,7 +37,7 @@
 #if defined(ENABLE_WEBGPU_BY_DEFAULT) && ENABLE_WEBGPU_BY_DEFAULT
 #define Webgpu_feature_status Stable
 #else
-#define Webgpu_feature_status Preview
+#define Webgpu_feature_status Unstable
 #endif
 
 #if defined(ENABLE_WEBGPU_BY_DEFAULT) && ENABLE_WEBGPU_BY_DEFAULT && defined(HAVE_SUPPORT_HDR_DISPLAY) && HAVE_SUPPORT_HDR_DISPLAY
@@ -52,24 +52,12 @@
 #define Supporthdrdisplay_feature_status Testable
 #endif
 
-#if defined(ENABLE_WEBXR_WEBGPU_BY_DEFAULT) && ENABLE_WEBXR_WEBGPU_BY_DEFAULT && PLATFORM(VISION)
-#define Webxr_layers_feature_status Stable
-#else
 #define Webxr_layers_feature_status Unstable
-#endif
 
-#if defined(ENABLE_WEBXR_WEBGPU_BY_DEFAULT) && ENABLE_WEBXR_WEBGPU_BY_DEFAULT && PLATFORM(VISION)
+#if defined(ENABLE_WEBXR_WEBGPU) && ENABLE_WEBXR_WEBGPU && PLATFORM(VISION)
 #define Webgpu_webxr_feature_status Stable
 #else
 #define Webgpu_webxr_feature_status Unstable
-#endif
-
-#if defined(ENABLE_UNIFIED_PDF_BY_DEFAULT) && ENABLE_UNIFIED_PDF_BY_DEFAULT && PLATFORM(MAC)
-#define Unifiedpdf_feature_status Mature
-#elif defined(ENABLE_UNIFIED_PDF_AS_PREVIEW) && ENABLE_UNIFIED_PDF_AS_PREVIEW
-#define Unifiedpdf_feature_status Preview
-#else
-#define Unifiedpdf_feature_status Internal
 #endif
 
 #if defined(ENABLE_UNPREFIXED_BACKDROP_FILTER) && ENABLE_UNPREFIXED_BACKDROP_FILTER
@@ -115,6 +103,7 @@ bool defaultAppleMailPaginationQuirkEnabled();
 #if ENABLE(MEDIA_STREAM)
 bool defaultCaptureAudioInGPUProcessEnabled();
 bool defaultManageCaptureStatusBarInGPUProcessEnabled();
+double defaultInactiveMediaCaptureStreamRepromptWithoutUserGestureIntervalInMinutes();
 #endif
 
 #if ENABLE(MEDIA_SOURCE) && PLATFORM(IOS_FAMILY)
@@ -205,5 +194,11 @@ bool defaultHostedBlurMaterialInMediaControlsEnabled();
 #endif
 
 bool defaultIOSurfaceLosslessCompressionEnabled();
+
+#if ENABLE(UNIFIED_PDF)
+bool defaultUnifiedPDFEnabled();
+#endif
+
+bool defaultScrollbarColorEnabled();
 
 } // namespace WebKit

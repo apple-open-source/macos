@@ -218,12 +218,21 @@ static SDKAlignedBehaviors computeSDKAlignedBehaviors()
         disableBehavior(SDKAlignedBehavior::FullySuspendsBackgroundContentImmediately);
         disableBehavior(SDKAlignedBehavior::ApplicationStateTrackerDoesNotObserveWindow);
         disableBehavior(SDKAlignedBehavior::ThrowOnKVCInstanceVariableAccess);
-        disableBehavior(SDKAlignedBehavior::BlockOptionallyBlockableMixedContent);
         disableBehavior(SDKAlignedBehavior::LaxCookieSameSiteAttribute);
         disableBehavior(SDKAlignedBehavior::UseCFNetworkNetworkLoader);
         disableBehavior(SDKAlignedBehavior::BlocksConnectionsToAddressWithOnlyZeros);
         disableBehavior(SDKAlignedBehavior::BlockCrossOriginRedirectDownloads);
         disableBehavior(SDKAlignedBehavior::SupportGameControllerEventInteractionAPI);
+    }
+
+    if (linkedBefore(dyld_2024_SU_C_os_versions, DYLD_IOS_VERSION_18_2, DYLD_MACOSX_VERSION_15_2))
+        disableBehavior(SDKAlignedBehavior::BlobFileAccessEnforcementAndNetworkProcessRoundTrip);
+
+    if (linkedBefore(dyld_2024_SU_E_os_versions, DYLD_IOS_VERSION_18_4, DYLD_MACOSX_VERSION_15_4)) {
+        disableBehavior(SDKAlignedBehavior::DevolvableWidgets);
+        disableBehavior(SDKAlignedBehavior::SetSelectionRangeCachesSelectionIfNotFocusedOrSelected);
+        disableBehavior(SDKAlignedBehavior::DispatchFocusEventBeforeNotifyingClient);
+        disableBehavior(SDKAlignedBehavior::BlobFileAccessEnforcement);
     }
 
     if (linkedBefore(dyld_2024_SU_F_os_versions, DYLD_IOS_VERSION_18_5, DYLD_MACOSX_VERSION_15_5))
@@ -355,10 +364,10 @@ static bool applicationBundleIsEqualTo(const String& bundleIdentifierString)
     return applicationBundleIdentifier() == bundleIdentifierString;
 }
 
-bool CocoaApplication::isIBooks()
+bool CocoaApplication::isAppleBooks()
 {
-    static bool isIBooks = applicationBundleIsEqualTo("com.apple.iBooksX"_s) || applicationBundleIsEqualTo("com.apple.iBooks"_s);
-    return isIBooks;
+    static bool isAppleBooks = applicationBundleIsEqualTo("com.apple.iBooksX"_s) || applicationBundleIsEqualTo("com.apple.iBooks"_s);
+    return isAppleBooks;
 }
 
 bool CocoaApplication::isWebkitTestRunner()
@@ -524,12 +533,6 @@ bool IOSApplication::isMobileStore()
 bool IOSApplication::isWebProcess()
 {
     return isInWebProcess();
-}
-
-bool IOSApplication::isIBooksStorytime()
-{
-    static bool isIBooksStorytime = applicationBundleIsEqualTo("com.apple.TVBooks"_s);
-    return isIBooksStorytime;
 }
 
 bool IOSApplication::isHoYoLAB()

@@ -27,7 +27,7 @@
 
 #if ENABLE(DATA_DETECTION)
 
-#include "ImageOverlayDataDetectionResultIdentifier.h"
+#include <WebCore/ImageOverlayDataDetectionResultIdentifier.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
@@ -47,7 +47,7 @@ public:
     void setDocumentLevelResults(NSArray *results) { m_documentLevelResults = results; }
     NSArray *documentLevelResults() const { return m_documentLevelResults.get(); }
 
-    DDScannerResult *imageOverlayDataDetectionResult(ImageOverlayDataDetectionResultIdentifier identifier) { return m_imageOverlayResults.get(identifier).get(); }
+    DDScannerResult *imageOverlayDataDetectionResult(ImageOverlayDataDetectionResultIdentifier identifier) { return m_imageOverlayResults.get(identifier).unsafeGet(); }
     ImageOverlayDataDetectionResultIdentifier addImageOverlayDataDetectionResult(DDScannerResult *result)
     {
         auto newIdentifier = ImageOverlayDataDetectionResultIdentifier::generate();

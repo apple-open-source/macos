@@ -61,10 +61,10 @@ void DeviceOrientationController::suspendUpdates()
     m_client->stopUpdating();
 }
 
-void DeviceOrientationController::resumeUpdates(const SecurityOriginData& origin)
+void DeviceOrientationController::resumeUpdates()
 {
     if (hasListeners())
-        m_client->startUpdating(origin);
+        m_client->startUpdating();
 }
 
 #else

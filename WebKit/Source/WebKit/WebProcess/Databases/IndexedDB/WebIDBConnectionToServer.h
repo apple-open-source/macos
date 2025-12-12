@@ -48,6 +48,9 @@ public:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
     void connectionToServerLost();
 
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
 private:
     WebIDBConnectionToServer(PAL::SessionID);
 
@@ -110,7 +113,7 @@ private:
     void notifyOpenDBRequestBlocked(const WebCore::IDBResourceIdentifier& requestIdentifier, uint64_t oldVersion, uint64_t newVersion);
     void didGetAllDatabaseNamesAndVersions(const WebCore::IDBResourceIdentifier&, Vector<WebCore::IDBDatabaseNameAndVersion>&&);
 
-    const Ref<WebCore::IDBClient::IDBConnectionToServer> m_connectionToServer;
+    const RefPtr<WebCore::IDBClient::IDBConnectionToServer> m_connectionToServer;
 };
 
 } // namespace WebKit

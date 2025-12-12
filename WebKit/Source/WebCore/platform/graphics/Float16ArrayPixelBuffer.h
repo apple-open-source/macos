@@ -27,8 +27,8 @@
 
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
 
-#include "PixelBuffer.h"
 #include <JavaScriptCore/Float16Array.h>
+#include <WebCore/PixelBuffer.h>
 
 namespace WebCore {
 

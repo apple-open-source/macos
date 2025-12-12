@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "FileSystemWritableFileStreamIdentifier.h"
-#include "WritableStreamSink.h"
+#include <WebCore/FileSystemWritableFileStreamIdentifier.h>
+#include <WebCore/WritableStreamSink.h>
 
 namespace WebCore {
 class FileSystemFileHandle;

@@ -48,6 +48,7 @@
 #include "WebContextMenu.h"
 #include "WebEventConversion.h"
 #include "WebEventFactory.h"
+#include "WebFrameInspectorTarget.h"
 #include "WebFrameProxyMessages.h"
 #include "WebImage.h"
 #include "WebPage.h"
@@ -60,17 +61,27 @@
 #include <JavaScriptCore/JSGlobalObjectInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSValueRef.h>
+#include <WebCore/AXObjectCache.h>
 #include <WebCore/ArchiveResource.h>
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/Chrome.h>
 #include <WebCore/ContextMenuController.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/DocumentPage.h>
+#include <WebCore/DocumentQuirks.h>
+#include <WebCore/DocumentSecurityOrigin.h>
+#include <WebCore/DocumentView.h>
+#include <WebCore/DocumentWindow.h>
 #include <WebCore/Editor.h>
 #include <WebCore/ElementChildIteratorInlines.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/File.h>
 #include <WebCore/FocusController.h>
+#include <WebCore/FocusControllerTypes.h>
 #include <WebCore/FocusEventData.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
+#include <WebCore/FrameInlines.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameSnapshotting.h>
 #include <WebCore/HTMLFormElement.h>
@@ -84,13 +95,15 @@
 #include <WebCore/JSCSSStyleDeclaration.h>
 #include <WebCore/JSElement.h>
 #include <WebCore/JSFile.h>
+#include <WebCore/JSNode.h>
 #include <WebCore/JSRange.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/MouseEventTypes.h>
 #include <WebCore/OriginAccessPatterns.h>
-#include <WebCore/Page.h>
 #include <WebCore/PluginDocument.h>
+#include <WebCore/PointerCaptureController.h>
+#include <WebCore/ReferrerPolicy.h>
 #include <WebCore/RemoteDOMWindow.h>
 #include <WebCore/RemoteFrame.h>
 #include <WebCore/RemoteFrameView.h>
@@ -100,9 +113,12 @@
 #include <WebCore/RenderView.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/ShareableBitmapHandle.h>
+#include <WebCore/SharedMemory.h>
 #include <WebCore/SubresourceLoader.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/TextResourceDecoder.h>
+#include <WebCore/WebKitJSHandle.h>
 #include <wtf/CoroutineUtilities.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -111,15 +127,9 @@
 #include <WebCore/LegacyWebArchive.h>
 #endif
 
-#ifndef NDEBUG
-#include <wtf/RefCountedLeakCounter.h>
-#endif
-
 namespace WebKit {
 using namespace JSC;
 using namespace WebCore;
-
-DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, webFrameCounter, ("WebFrame"));
 
 static uint64_t generateListenerID()
 {
@@ -140,16 +150,19 @@ Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const At
     auto effectiveSandboxFlags = ownerElement.sandboxFlags();
     if (RefPtr parentLocalFrame = parent.coreLocalFrame())
         effectiveSandboxFlags.add(parentLocalFrame->effectiveSandboxFlags());
+    auto effectiveReferrerPolicy = ownerElement.referrerPolicy();
+    if (RefPtr localTopDocument = page.localTopDocument(); effectiveReferrerPolicy == ReferrerPolicy::EmptyString && localTopDocument)
+        effectiveReferrerPolicy = localTopDocument->referrerPolicy();
 
     auto frameID = WebCore::generateFrameIdentifier();
     auto frame = create(page, frameID);
     ASSERT(page.corePage());
     auto coreFrame = LocalFrame::createSubframe(*page.protectedCorePage(), [frame] (auto& localFrame, auto& frameLoader) {
         return makeUniqueRefWithoutRefCountedCheck<WebLocalFrameLoaderClient>(localFrame, frameLoader, frame.get(), frame->makeInvalidator());
-    }, frameID, effectiveSandboxFlags, ownerElement, WebCore::FrameTreeSyncData::create());
+    }, frameID, effectiveSandboxFlags, effectiveReferrerPolicy, ownerElement, WebCore::FrameTreeSyncData::create());
     frame->m_coreFrame = coreFrame.get();
 
-    page.send(Messages::WebPageProxy::DidCreateSubframe(parent.frameID(), coreFrame->frameID(), frameName, effectiveSandboxFlags, ownerElement.scrollingMode()));
+    page.send(Messages::WebPageProxy::DidCreateSubframe(parent.frameID(), coreFrame->frameID(), frameName, effectiveSandboxFlags, effectiveReferrerPolicy, ownerElement.scrollingMode()));
 
     coreFrame->tree().setSpecifiedName(frameName);
     ASSERT(ownerElement.document().frame());
@@ -184,9 +197,6 @@ WebFrame::WebFrame(WebPage& page, WebCore::FrameIdentifier frameID)
     : m_page(page)
     , m_frameID(frameID)
 {
-#ifndef NDEBUG
-    webFrameCounter.increment();
-#endif
     ASSERT(!WebProcess::singleton().webFrame(m_frameID));
     WebProcess::singleton().addWebFrame(m_frameID, this);
 }
@@ -224,10 +234,6 @@ WebFrame::~WebFrame()
     ASSERT(!m_coreFrame);
 
     ASSERT_WITH_MESSAGE(WebProcess::singleton().webFrame(m_frameID) != this, "invalidate should have removed this WebFrame before destruction");
-
-#ifndef NDEBUG
-    webFrameCounter.decrement();
-#endif
 }
 
 WebPage* WebFrame::page() const
@@ -295,6 +301,7 @@ FrameInfoData WebFrame::info(WithCertificateInfo withCertificateInfo) const
     RefPtr coreFrame = this->coreFrame();
     RefPtr coreLocalFrame = this->coreLocalFrame();
     RefPtr document = coreLocalFrame ? coreLocalFrame->document() : nullptr;
+    RefPtr page = m_page.get();
 
     WebFrameMetrics metrics;
     if (coreFrame) {
@@ -315,6 +322,7 @@ FrameInfoData WebFrame::info(WithCertificateInfo withCertificateInfo) const
         SecurityOriginData::fromFrame(coreLocalFrame.get()),
         coreFrame ? coreFrame->tree().specifiedName().string() : String(),
         frameID(),
+        page ? std::optional { page->webPageProxyIdentifier() } : std::nullopt,
         parent ? std::optional { parent->frameID() } : std::nullopt,
         document ? std::optional { document->identifier() } : std::nullopt,
         withCertificateInfo == WithCertificateInfo::Yes ? certificateInfo() : CertificateInfo(),
@@ -427,7 +435,7 @@ void WebFrame::loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHosting
     m_coreFrame = newFrame.get();
 
     if (corePage->focusController().focusedFrame() == localFrame.get())
-        corePage->focusController().setFocusedFrame(newFrame.ptr(), FocusController::BroadcastFocusedFrame::No);
+        corePage->focusController().setFocusedFrame(newFrame.ptr(), WebCore::BroadcastFocusedFrame::No);
 
     localFrame->loader().detachFromParent();
 
@@ -453,7 +461,8 @@ void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& param
     auto clientCreator = [this, protectedThis = Ref { *this }] (auto& localFrame, auto& frameLoader) mutable {
         return makeUniqueRefWithoutRefCountedCheck<WebLocalFrameLoaderClient>(localFrame, frameLoader, WTFMove(protectedThis), makeInvalidator());
     };
-    auto localFrame = parent ? LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, parameters.scrollingMode, *parent, Ref { remoteFrame->frameTreeSyncData() }) : LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, nullptr, Ref { remoteFrame->frameTreeSyncData() });
+    auto localFrame = parent ? LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, parameters.effectiveReferrerPolicy, parameters.scrollingMode, *parent, Ref { remoteFrame->frameTreeSyncData() }) : LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, parameters.effectiveReferrerPolicy, nullptr, Ref { remoteFrame->frameTreeSyncData() });
+    ASSERT(!m_provisionalFrame);
     m_provisionalFrame = localFrame.ptr();
     m_frameIDBeforeProvisionalNavigation = parameters.frameIDBeforeProvisionalNavigation;
     localFrame->init();
@@ -523,7 +532,7 @@ void WebFrame::commitProvisionalFrame()
         document->didBecomeCurrentDocumentInFrame();
 
     if (corePage->focusController().focusedFrame() == remoteFrame.get())
-        corePage->focusController().setFocusedFrame(localFrame.get(), FocusController::BroadcastFocusedFrame::No);
+        corePage->focusController().setFocusedFrame(localFrame.get(), WebCore::BroadcastFocusedFrame::No);
 
     if (ownerElement)
         ownerElement->scheduleInvalidateStyleAndLayerComposition();
@@ -1273,7 +1282,7 @@ RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void
 
 RefPtr<WebImage> WebFrame::createSelectionSnapshot() const
 {
-    auto snapshot = snapshotSelection(*protectedCoreLocalFrame(), { { WebCore::SnapshotFlags::ForceBlackText, WebCore::SnapshotFlags::Shareable }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() });
+    auto snapshot = snapshotSelection(*protectedCoreLocalFrame(), { { WebCore::SnapshotFlags::ForceBlackText, WebCore::SnapshotFlags::Shareable }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
     if (!snapshot)
         return nullptr;
 
@@ -1333,7 +1342,7 @@ inline DocumentLoader* WebFrame::policySourceDocumentLoader() const
     if (!policySourceDocumentLoader->request().url().hasSpecialScheme() && document->url().protocolIsInHTTPFamily())
         policySourceDocumentLoader = document->loader();
 
-    return policySourceDocumentLoader.get();
+    return policySourceDocumentLoader.unsafeGet();
 }
 
 OptionSet<WebCore::AdvancedPrivacyProtections> WebFrame::advancedPrivacyProtections() const
@@ -1369,7 +1378,7 @@ bool WebFrame::handleContextMenuEvent(const PlatformMouseEvent& platformMouseEve
     RefPtr coreLocalFrame = dynamicDowncast<LocalFrame>(coreFrame());
     if (!coreLocalFrame)
         return false;
-    IntPoint point = coreLocalFrame->protectedView()->windowToContents(platformMouseEvent.position());
+    IntPoint point = coreLocalFrame->protectedView()->windowToContents(flooredIntPoint(platformMouseEvent.position()));
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent,  HitTestRequest::Type::AllowChildFrameContent };
     HitTestResult result = coreLocalFrame->eventHandler().hitTestResultAtPoint(point, hitType);
 
@@ -1379,8 +1388,9 @@ bool WebFrame::handleContextMenuEvent(const PlatformMouseEvent& platformMouseEve
 
     bool handled = frame->eventHandler().sendContextMenuEvent(platformMouseEvent);
 #if ENABLE(CONTEXT_MENUS)
-    if (handled)
-        protectedPage()->protectedContextMenu()->show();
+    if (handled && protectedPage()->protectedContextMenu()->show())
+        protectedPage()->corePage()->pointerCaptureController().clearUnmatchedMouseDown(platformMouseEvent.pointerId());
+
 #endif
     return handled;
 }
@@ -1538,10 +1548,68 @@ std::optional<ResourceResponse> WebFrame::resourceResponseForURL(const URL& url)
     return std::nullopt;
 }
 
-void WebFrame::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection, const WebCore::FocusEventData&, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&& completionHandler)
+void WebFrame::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection direction, const WebCore::FocusEventData& focusEventData, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&& completionHandler)
 {
-    // FIXME: Implement
-    completionHandler(WebCore::FoundElementInRemoteFrame::No);
+    auto foundElementInRemoteFrame = WebCore::FoundElementInRemoteFrame::No;
+
+    if (m_coreFrame) {
+        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get())) {
+            if (RefPtr page = localFrame->page()) {
+                auto result = page->focusController().findAndFocusElementStartingWithLocalFrame(direction, focusEventData, *localFrame);
+                if (result.element)
+                    foundElementInRemoteFrame = WebCore::FoundElementInRemoteFrame::Yes;
+            }
+        }
+    }
+
+    completionHandler(foundElementInRemoteFrame);
+}
+
+void WebFrame::takeSnapshotOfNode(JSHandleIdentifier identifier, CompletionHandler<void(std::optional<ShareableBitmapHandle>&&)>&& completion)
+{
+    RefPtr page = m_page.get();
+    if (!page)
+        return completion({ });
+
+    auto [globalObject, object] = WebKitJSHandle::objectForIdentifier(identifier);
+    if (!globalObject || !object)
+        return completion({ });
+
+    auto* jsNode = jsDynamicCast<JSNode*>(object);
+    if (!jsNode)
+        return completion({ });
+
+    RefPtr node = jsNode->wrapped();
+    if (!node)
+        return completion({ });
+
+    RefPtr bitmap = page->shareableBitmapSnapshotForNode(*node);
+    if (!bitmap)
+        return completion({ });
+
+    completion(bitmap->createHandle(SharedMemory::Protection::ReadOnly));
+}
+
+WebFrameInspectorTarget& WebFrame::ensureInspectorTarget()
+{
+    if (!m_inspectorTarget)
+        m_inspectorTarget = makeUnique<WebFrameInspectorTarget>(*this);
+    return *m_inspectorTarget;
+}
+
+void WebFrame::connectInspector(Inspector::FrontendChannel::ConnectionType connectionType)
+{
+    ensureInspectorTarget().connect(connectionType);
+}
+
+void WebFrame::disconnectInspector()
+{
+    ensureInspectorTarget().disconnect();
+}
+
+void WebFrame::sendMessageToInspectorTarget(const String& message)
+{
+    ensureInspectorTarget().sendMessageToTargetBackend(message);
 }
 
 } // namespace WebKit

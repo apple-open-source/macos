@@ -82,7 +82,7 @@ CustomElementConstructionData::~CustomElementConstructionData() = default;
 
 namespace {
 
-inline bool isASCIIWhitespaceOrReplacementCharacter(UChar character)
+inline bool isASCIIWhitespaceOrReplacementCharacter(char16_t character)
 {
     return isASCIIWhitespace(character) || character == replacementCharacter;
 }
@@ -200,9 +200,9 @@ public:
     String takeRemainingWhitespace()
     {
         ASSERT(!isEmpty());
-        Vector<LChar, 8> whitespace;
+        Vector<Latin1Character, 8> whitespace;
         do {
-            UChar character = m_text[0];
+            char16_t character = m_text[0];
             if (isASCIIWhitespace(character))
                 whitespace.append(character);
             m_text = m_text.substring(1);
@@ -218,7 +218,7 @@ public:
     }
 
 private:
-    template<bool characterPredicate(UChar)> void skipLeading()
+    template<bool characterPredicate(char16_t)> void skipLeading()
     {
         ASSERT(!isEmpty());
         while (characterPredicate(m_text[0])) {
@@ -228,7 +228,7 @@ private:
         }
     }
 
-    template<bool characterPredicate(UChar)> String takeLeading()
+    template<bool characterPredicate(char16_t)> String takeLeading()
     {
         ASSERT(!isEmpty());
         StringView start = m_text;
@@ -828,6 +828,16 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomHTMLToken&& token)
         m_framesetOk = false;
         return;
     case TagName::input: {
+        if (m_options.enhancedSelect) {
+            if (isParsingFragment() && m_fragmentContext.contextElement().elementName() == HTML::select) [[unlikely]] {
+                parseError(token);
+                return;
+            }
+            if (m_tree.openElements().inScope(HTML::select)) {
+                parseError(token);
+                m_tree.openElements().popUntilPopped(HTML::select);
+            }
+        }
         m_tree.reconstructTheActiveFormattingElements();
         auto* typeAttribute = findAttribute(token.attributes(), typeAttr);
         bool shouldClearFramesetOK = !typeAttribute || !equalLettersIgnoringASCIICase(typeAttribute->value(), "hidden"_s);
@@ -843,6 +853,13 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomHTMLToken&& token)
         return;
     case TagName::hr:
         processFakePEndTagIfPInButtonScope();
+        if (m_options.enhancedSelect) {
+            if (m_tree.openElements().inScope(HTML::select)) {
+                m_tree.generateImpliedEndTags();
+                if (m_tree.openElements().inScope(HTML::option) || m_tree.openElements().inScope(HTML::optgroup))
+                    parseError(token);
+            }
+        }
         m_tree.insertSelfClosingHTMLElement(WTFMove(token));
         m_framesetOk = false;
         return;
@@ -874,9 +891,25 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomHTMLToken&& token)
         }
         break;
     case TagName::select:
+        if (m_options.enhancedSelect) {
+            if (isParsingFragment() && m_fragmentContext.contextElement().elementName() == HTML::select) [[unlikely]] {
+                parseError(token);
+                return;
+            }
+            if (m_tree.openElements().inScope(HTML::select)) {
+                parseError(token);
+                m_tree.openElements().popUntilPopped(HTML::select);
+                return;
+            }
+        }
+
         m_tree.reconstructTheActiveFormattingElements();
         m_tree.insertHTMLElement(WTFMove(token));
         m_framesetOk = false;
+
+        if (m_options.enhancedSelect)
+            return;
+
         if (m_insertionMode == InsertionMode::InTable
             || m_insertionMode == InsertionMode::InCaption
             || m_insertionMode == InsertionMode::InColumnGroup
@@ -887,10 +920,26 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomHTMLToken&& token)
         else
             m_insertionMode = InsertionMode::InSelect;
         return;
+
     case TagName::optgroup:
-    case TagName::option:
-        if (m_tree.currentStackItem().elementName() == HTML::option)
+        if (m_options.enhancedSelect && m_tree.openElements().inScope(HTML::select)) {
+            m_tree.generateImpliedEndTags();
+            if (m_tree.openElements().inScope(HTML::option) || m_tree.openElements().inScope(HTML::optgroup))
+                parseError(token);
+        } else if (m_tree.currentStackItem().elementName() == HTML::option)
             processFakeEndTag(TagName::option);
+
+        m_tree.reconstructTheActiveFormattingElements();
+        m_tree.insertHTMLElement(WTFMove(token));
+        return;
+    case TagName::option:
+        if (m_options.enhancedSelect && m_tree.openElements().inScope(HTML::select)) {
+            m_tree.generateImpliedEndTagsWithExclusion(HTML::optgroup);
+            if (m_tree.openElements().inScope(HTML::option))
+                parseError(token);
+        } else if (m_tree.currentStackItem().elementName() == HTML::option)
+            processFakeEndTag(TagName::option);
+
         m_tree.reconstructTheActiveFormattingElements();
         m_tree.insertHTMLElement(WTFMove(token));
         return;
@@ -1382,6 +1431,7 @@ void HTMLTreeBuilder::processStartTag(AtomHTMLToken&& token)
         parseError(token);
         break;
     case InsertionMode::InSelectInTable:
+        ASSERT(!m_options.enhancedSelect);
         switch (token.tagName()) {
         case TagName::caption:
         case TagName::table:
@@ -1402,6 +1452,7 @@ void HTMLTreeBuilder::processStartTag(AtomHTMLToken&& token)
         }
         [[fallthrough]];
     case InsertionMode::InSelect:
+        ASSERT(!m_options.enhancedSelect);
         switch (token.tagName()) {
         case TagName::html:
             processHtmlStartTagForInBody(WTFMove(token));
@@ -1695,19 +1746,6 @@ void HTMLTreeBuilder::resetInsertionModeAppropriately()
         case HTML::template_:
             m_insertionMode = m_templateInsertionModes.last();
             return;
-        case HTML::select:
-            if (!last) {
-                while (&item->node() != &m_tree.openElements().rootNode() && item->elementName() != HTML::template_) {
-                    record = record->next();
-                    item = &record->stackItem();
-                    if (item->elementName() == HTML::table) {
-                        m_insertionMode = InsertionMode::InSelectInTable;
-                        return;
-                    }
-                }
-            }
-            m_insertionMode = InsertionMode::InSelect;
-            return;
         case HTML::td:
         case HTML::th:
             m_insertionMode = InsertionMode::InCell;
@@ -1750,6 +1788,22 @@ void HTMLTreeBuilder::resetInsertionModeAppropriately()
             ASSERT(isParsingFragment());
             m_insertionMode = InsertionMode::BeforeHead;
             return;
+        case HTML::select:
+            if (!m_options.enhancedSelect) {
+                if (!last) {
+                    while (&item->node() != &m_tree.openElements().rootNode() && item->elementName() != HTML::template_) {
+                        record = record->next();
+                        item = &record->stackItem();
+                        if (item->elementName() == HTML::table) {
+                            m_insertionMode = InsertionMode::InSelectInTable;
+                            return;
+                        }
+                    }
+                }
+                m_insertionMode = InsertionMode::InSelect;
+                return;
+            }
+            [[fallthrough]];
         default:
             if (last) {
                 ASSERT(isParsingFragment());
@@ -1901,6 +1955,12 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomHTMLToken&& token)
             processEndTag(WTFMove(token));
         return;
     }
+    case TagName::select:
+        if (!m_options.enhancedSelect) {
+            processAnyOtherEndTagForInBody(WTFMove(token));
+            return;
+        }
+        [[fallthrough]];
     case TagName::address:
     case TagName::article:
     case TagName::aside:
@@ -2335,6 +2395,7 @@ void HTMLTreeBuilder::processEndTag(AtomHTMLToken&& token)
         parseError(token);
         break;
     case InsertionMode::InSelectInTable:
+        ASSERT(!m_options.enhancedSelect);
         switch (token.tagName()) {
         case TagName::caption:
         case TagName::table:
@@ -2356,6 +2417,7 @@ void HTMLTreeBuilder::processEndTag(AtomHTMLToken&& token)
         }
         [[fallthrough]];
     case InsertionMode::InSelect:
+        ASSERT(!m_options.enhancedSelect);
         ASSERT(m_insertionMode == InsertionMode::InSelect || m_insertionMode == InsertionMode::InSelectInTable);
         switch (token.tagName()) {
         case TagName::optgroup:
@@ -2683,6 +2745,7 @@ ReprocessBuffer:
     }
     case InsertionMode::InSelectInTable:
     case InsertionMode::InSelect:
+        ASSERT(!m_options.enhancedSelect);
         m_tree.insertTextNode(buffer.takeRemaining());
         break;
     case InsertionMode::AfterAfterFrameset: {
@@ -2771,6 +2834,7 @@ void HTMLTreeBuilder::processEndOfFile(AtomHTMLToken&& token)
     case InsertionMode::InTableBody:
     case InsertionMode::InSelectInTable:
     case InsertionMode::InSelect:
+        ASSERT(!m_options.enhancedSelect || (m_insertionMode != InsertionMode::InSelect && m_insertionMode != InsertionMode::InSelectInTable));
         ASSERT(m_insertionMode == InsertionMode::InSelect || m_insertionMode == InsertionMode::InSelectInTable || m_insertionMode == InsertionMode::InTable || m_insertionMode == InsertionMode::InFrameset || m_insertionMode == InsertionMode::InTableBody || m_insertionMode == InsertionMode::InColumnGroup);
         if (&m_tree.currentNode() != &m_tree.openElements().rootNode())
             parseError(token);

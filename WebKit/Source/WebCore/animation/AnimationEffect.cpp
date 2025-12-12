@@ -36,6 +36,7 @@
 #include "JSComputedEffectTiming.h"
 #include "ScriptExecutionContext.h"
 #include "ScrollTimeline.h"
+#include "StyleSingleAnimationRange.h"
 #include "WebAnimation.h"
 #include "WebAnimationUtilities.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -77,7 +78,7 @@ EffectTiming AnimationEffect::getBindingsTiming() const
     return timing;
 }
 
-AnimationEffectTiming::ResolutionData AnimationEffect::resolutionData(UseCachedCurrentTime useCachedCurrentTime) const
+AnimationEffectTiming::ResolutionData AnimationEffect::resolutionData(UseCachedCurrentTime useCachedCurrentTime, EndpointInclusiveActiveInterval endpointInclusiveActiveInterval) const
 {
     if (!m_animation)
         return { };
@@ -89,6 +90,7 @@ AnimationEffectTiming::ResolutionData AnimationEffect::resolutionData(UseCachedC
         timeline ? timeline->duration() : std::nullopt,
         animation->startTime(),
         animation->currentTime(useCachedCurrentTime),
+        endpointInclusiveActiveInterval,
         animation->playbackRate()
     };
 }
@@ -106,11 +108,11 @@ ComputedEffectTiming AnimationEffect::getBindingsComputedTiming()
     return getComputedTiming();
 }
 
-ComputedEffectTiming AnimationEffect::getComputedTiming(UseCachedCurrentTime useCachedCurrentTime)
+ComputedEffectTiming AnimationEffect::getComputedTiming(UseCachedCurrentTime useCachedCurrentTime, EndpointInclusiveActiveInterval endpointInclusiveActiveInterval)
 {
     updateComputedTimingPropertiesIfNeeded();
 
-    auto data = resolutionData(useCachedCurrentTime);
+    auto data = resolutionData(useCachedCurrentTime, endpointInclusiveActiveInterval);
     auto resolvedTiming = m_timing.resolve(data);
 
     // https://drafts.csswg.org/web-animations-2/#dom-animationeffect-getcomputedtiming
@@ -416,7 +418,7 @@ void AnimationEffect::animationPlaybackRateDidChange()
     m_timingDidMutate = true;
 }
 
-void AnimationEffect::animationProgressBasedTimelineSourceDidChangeMetrics(const TimelineRange& animationAttachmentRange)
+void AnimationEffect::animationProgressBasedTimelineSourceDidChangeMetrics(const Style::SingleAnimationRange& animationAttachmentRange)
 {
     if (!animationAttachmentRange.isDefault())
         m_timingDidMutate = true;

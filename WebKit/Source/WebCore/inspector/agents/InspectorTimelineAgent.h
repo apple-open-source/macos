@@ -45,6 +45,7 @@
 
 namespace WebCore {
 
+class Element;
 class Event;
 class FloatQuad;
 class RenderObject;
@@ -78,6 +79,9 @@ enum class TimelineRecordType {
     FireAnimationFrame,
     
     ObserverCallback,
+
+    FirstContentfulPaint,
+    LargestContentfulPaint,
 
     Screenshot,
 };
@@ -116,6 +120,8 @@ public:
     void didEvaluateScript();
     void didTimeStamp(const String& message);
     void didPerformanceMark(const String& label, std::optional<MonotonicTime>);
+    void didEnqueueFirstContentfulPaint();
+    void didEnqueueLargestContentfulPaint(Element*, unsigned area);
     void didRequestAnimationFrame(int callbackId);
     void didCancelAnimationFrame(int callbackId);
     void willFireAnimationFrame(int callbackId);

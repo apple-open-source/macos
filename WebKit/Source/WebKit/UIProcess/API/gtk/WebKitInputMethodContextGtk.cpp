@@ -20,6 +20,7 @@
 #include "config.h"
 #include "WebKitInputMethodContext.h"
 
+#include "GtkUtilities.h"
 #include "WebKitInputMethodContextPrivate.h"
 #include <WebCore/Color.h>
 
@@ -47,7 +48,7 @@ void webkit_input_method_underline_set_color(WebKitInputMethodUnderline* underli
     }
 
     underline->underline.compositionUnderlineColor = CompositionUnderlineColor::GivenColor;
-    underline->underline.color = Color(*rgba);
+    underline->underline.color = WebKit::gdkRGBAToColor(*rgba);
 }
 
 /**

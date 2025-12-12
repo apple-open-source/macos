@@ -459,13 +459,19 @@ JSC_DEFINE_HOST_FUNCTION(mathProtoFuncSumPrecise, (JSGlobalObject* globalObject,
         : std::nullopt;
 
     auto calculatePreciseSum = [&](auto& sum) {
-        forEachInIterable(globalObject, iterable, [&sum](VM& vm, JSGlobalObject* globalObject, JSValue value) {
+        uint64_t count = 0;
+        forEachInIterable(globalObject, iterable, [&sum, &count](VM& vm, JSGlobalObject* globalObject, JSValue value) {
             auto scope = DECLARE_THROW_SCOPE(vm);
-            if (!value.isNumber()) {
+            if (count >= maxSafeIntegerAsUInt64()) [[unlikely]] {
+                throwRangeError(globalObject, scope, "Math.sumPrecise exceeded maximum iterations"_s);
+                return;
+            }
+            if (!value.isNumber()) [[unlikely]] {
                 throwTypeError(globalObject, scope, "Math.sumPrecise was passed a non-number"_s);
                 return;
             }
             sum.add(value.asNumber());
+            ++count;
         });
         return JSValue::encode(jsNumber(sum.compute()));
     };

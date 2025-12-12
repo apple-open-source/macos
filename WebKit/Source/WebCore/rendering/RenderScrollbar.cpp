@@ -28,11 +28,14 @@
 
 #include "ContainerNodeInlines.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
+#include "RenderObjectInlines.h"
 #include "RenderScrollbarPart.h"
 #include "RenderScrollbarTheme.h"
 #include "RenderStyleSetters.h"
 #include "RenderWidget.h"
+#include "ScrollbarInlines.h"
 #include "StyleInheritedData.h"
 #include "StyleResolver.h"
 
@@ -138,7 +141,7 @@ void RenderScrollbar::setPressedPart(ScrollbarPart part)
     updateScrollbarPart(TrackBGPart);
 }
 
-std::unique_ptr<RenderStyle> RenderScrollbar::getScrollbarPseudoStyle(ScrollbarPart partType, PseudoId pseudoId) const
+std::unique_ptr<RenderStyle> RenderScrollbar::getScrollbarPseudoStyle(ScrollbarPart partType, PseudoElementType pseudoElementType) const
 {
     if (!owningRenderer())
         return nullptr;
@@ -152,7 +155,7 @@ std::unique_ptr<RenderStyle> RenderScrollbar::getScrollbarPseudoStyle(ScrollbarP
     scrollbarState.enabled = enabled();
     scrollbarState.scrollCornerIsVisible = scrollableArea().isScrollCornerVisible();
     
-    std::unique_ptr<RenderStyle> result = owningRenderer()->getUncachedPseudoStyle({ pseudoId, scrollbarState }, &owningRenderer()->style());
+    std::unique_ptr<RenderStyle> result = owningRenderer()->getUncachedPseudoStyle({ pseudoElementType, scrollbarState }, &owningRenderer()->style());
     // Scrollbars for root frames should always have background color 
     // unless explicitly specified as transparent. So we force it.
     // This is because WebKit assumes scrollbar to be always painted and missing background
@@ -192,29 +195,29 @@ void RenderScrollbar::updateScrollbarParts()
     }
 }
 
-static PseudoId pseudoForScrollbarPart(ScrollbarPart part)
+static PseudoElementType pseudoForScrollbarPart(ScrollbarPart part)
 {
     switch (part) {
         case BackButtonStartPart:
         case ForwardButtonStartPart:
         case BackButtonEndPart:
         case ForwardButtonEndPart:
-            return PseudoId::WebKitScrollbarButton;
+            return PseudoElementType::WebKitScrollbarButton;
         case BackTrackPart:
         case ForwardTrackPart:
-            return PseudoId::WebKitScrollbarTrackPiece;
+            return PseudoElementType::WebKitScrollbarTrackPiece;
         case ThumbPart:
-            return PseudoId::WebKitScrollbarThumb;
+            return PseudoElementType::WebKitScrollbarThumb;
         case TrackBGPart:
-            return PseudoId::WebKitScrollbarTrack;
+            return PseudoElementType::WebKitScrollbarTrack;
         case ScrollbarBGPart:
-            return PseudoId::WebKitScrollbar;
+            return PseudoElementType::WebKitScrollbar;
         case NoPart:
         case AllParts:
             break;
     }
     ASSERT_NOT_REACHED();
-    return PseudoId::WebKitScrollbar;
+    return PseudoElementType::WebKitScrollbar;
 }
 
 void RenderScrollbar::updateScrollbarPart(ScrollbarPart partType)
@@ -359,7 +362,7 @@ float RenderScrollbar::opacity() const
     if (!partRenderer)
         return 1;
 
-    return partRenderer->style().opacity();
+    return partRenderer->style().opacity().value.value;
 }
 
 bool RenderScrollbar::isHiddenByStyle() const

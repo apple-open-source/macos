@@ -26,7 +26,7 @@
 #pragma once
 
 
-#include "InlineDisplayContent.h"
+#include <WebCore/InlineDisplayContent.h>
 #include <wtf/HashMap.h>
 #include <wtf/IteratorRange.h>
 #include <wtf/Vector.h>
@@ -63,7 +63,7 @@ namespace LayoutIntegration {
 class LineLayout;
 
 class InlineContent : public CanMakeWeakPtr<InlineContent> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(InlineContent);
 public:
     InlineContent(const RenderBlockFlow& formattingContextRoot);
 

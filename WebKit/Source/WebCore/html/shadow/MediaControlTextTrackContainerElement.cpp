@@ -32,8 +32,11 @@
 
 #if ENABLE(VIDEO)
 
+#include "ContainerNodeInlines.h"
 #include "DOMTokenList.h"
+#include "DocumentEventLoop.h"
 #include "DocumentFullscreen.h"
+#include "DocumentView.h"
 #include "ElementChildIteratorInlines.h"
 #include "EventHandler.h"
 #include "EventLoop.h"
@@ -55,6 +58,7 @@
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "StyleProperties.h"
+#include "StylePropertiesInlines.h"
 #include "TextTrackCueGeneric.h"
 #include "TextTrackList.h"
 #include "UserAgentParts.h"
@@ -182,7 +186,6 @@ void MediaControlTextTrackContainerElement::updateDisplay()
             if (cue->protectedTrack()->isSpoken())
                 continue;
 
-            cue->setFontSize(m_fontSize, m_fontSizeIsImportant);
             if (RefPtr vttCue = dynamicDowncast<VTTCue>(cue))
                 processActiveVTTCue(*vttCue);
             else {
@@ -258,12 +261,6 @@ void MediaControlTextTrackContainerElement::updateActiveCuesFontSize()
     // scale by display size. Since |vh| is a decimal percentage, multiply
     // the scale factor by 100 to achive the final font size.
     m_fontSize = lroundf(100 * fontScale);
-
-    for (auto& activeCue : mediaElement->currentlyActiveCues()) {
-        RefPtr cue = activeCue.data();
-        if (cue->isRenderable())
-            cue->setFontSize(m_fontSize, m_fontSizeIsImportant);
-    }
 }
 
 void MediaControlTextTrackContainerElement::updateTextStrokeStyle()
@@ -454,7 +451,7 @@ RefPtr<NativeImage> MediaControlTextTrackContainerElement::createTextTrackRepres
     IntRect paintingRect = IntRect(IntPoint(), layer->size());
 
     // FIXME (149422): This buffer should not be unconditionally unaccelerated.
-    auto buffer = ImageBuffer::create(paintingRect.size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, deviceScaleFactor, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8);
+    auto buffer = ImageBuffer::create(paintingRect.size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, deviceScaleFactor, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
     if (!buffer)
         return nullptr;
 

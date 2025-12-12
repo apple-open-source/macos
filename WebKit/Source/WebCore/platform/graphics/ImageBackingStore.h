@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "Color.h"
-#include "IntRect.h"
-#include "IntSize.h"
-#include "NativeImage.h"
-#include "SharedBuffer.h"
+#include <WebCore/Color.h>
+#include <WebCore/IntRect.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/NativeImage.h>
+#include <WebCore/SharedBuffer.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/ParsingUtilities.h>

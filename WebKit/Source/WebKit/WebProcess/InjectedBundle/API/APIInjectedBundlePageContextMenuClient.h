@@ -52,7 +52,7 @@ namespace InjectedBundle {
 class PageContextMenuClient {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(PageContextMenuClient);
 public:
-    virtual ~PageContextMenuClient() { }
+    virtual ~PageContextMenuClient() = default;
 
     virtual bool getCustomMenuFromDefaultItems(WebKit::WebPage&, const WebCore::HitTestResult&, const Vector<WebCore::ContextMenuItem>& /* defaultMenu */, Vector<WebKit::WebContextMenuItemData>& /* newMenu */, const WebCore::ContextMenuContext&, RefPtr<API::Object>& /* userData */) { return false; }
     virtual void prepareForImmediateAction(WebKit::WebPage&, const WebCore::HitTestResult&, RefPtr<API::Object>& /* userData */) { }

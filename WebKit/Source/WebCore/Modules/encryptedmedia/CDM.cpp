@@ -31,8 +31,7 @@
 #include "CDMFactory.h"
 #include "CDMPrivate.h"
 #include "ContextDestructionObserverInlines.h"
-#include "DocumentInlines.h"
-#include "FrameInlines.h"
+#include "DocumentPage.h"
 #include "InitDataRegistry.h"
 #include "MediaKeysRequirement.h"
 #include "MediaPlayer.h"
@@ -141,7 +140,7 @@ bool CDM::supportsInitDataType(const AtomString& initDataType) const
 
 RefPtr<SharedBuffer> CDM::sanitizeInitData(const AtomString& initDataType, const SharedBuffer& initData)
 {
-    return InitDataRegistry::shared().sanitizeInitData(initDataType, initData);
+    return InitDataRegistry::singleton().sanitizeInitData(initDataType, initData);
 }
 
 bool CDM::supportsInitData(const AtomString& initDataType, const SharedBuffer& initData)

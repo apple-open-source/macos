@@ -27,11 +27,11 @@
 
 #if HAVE(IOSURFACE)
 
-#include "DestinationColorSpace.h"
-#include "IntSize.h"
-#include "PixelFormat.h"
-#include "ProcessIdentity.h"
 #include <CoreGraphics/CoreGraphics.h>
+#include <WebCore/DestinationColorSpace.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/PixelFormat.h>
+#include <WebCore/ProcessIdentity.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
@@ -180,6 +180,7 @@ public:
     WEBCORE_EXPORT RetainPtr<id> asCAIOSurfaceLayerContents() const;
 
     IOSurfaceRef surface() const { return m_surface.get(); }
+    RetainPtr<IOSurfaceRef> protectedSurface() const { return surface(); }
 
     WEBCORE_EXPORT RetainPtr<CGContextRef> createPlatformContext(PlatformDisplayID = 0, std::optional<CGImageAlphaInfo> = std::nullopt);
 
@@ -282,6 +283,33 @@ std::optional<IOSurface::Locker<Mode>> IOSurface::lock()
     if (IOSurfaceLock(m_surface.get(), static_cast<uint32_t>(Mode), nullptr) != kIOReturnSuccess)
         return std::nullopt;
     return IOSurface::Locker<Mode>::adopt(m_surface);
+}
+
+constexpr IOSurface::Format convertToIOSurfaceFormat(PixelFormat format)
+{
+    switch (format) {
+    case PixelFormat::RGBA8:
+        return IOSurface::Format::RGBA;
+    case PixelFormat::BGRX8:
+        return IOSurface::Format::BGRX;
+    case PixelFormat::BGRA8:
+        return IOSurface::Format::BGRA;
+#if ENABLE(PIXEL_FORMAT_RGB10)
+    case PixelFormat::RGB10:
+        return IOSurface::Format::RGB10;
+#endif
+#if ENABLE(PIXEL_FORMAT_RGB10A8)
+    case PixelFormat::RGB10A8:
+        return IOSurface::Format::RGB10A8;
+#endif
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+    case PixelFormat::RGBA16F:
+        return IOSurface::Format::RGBA16F;
+#endif
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+        return IOSurface::Format::BGRA;
+    }
 }
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, WebCore::IOSurface::Format);

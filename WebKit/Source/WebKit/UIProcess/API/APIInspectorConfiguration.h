@@ -49,7 +49,7 @@ public:
     const Vector<URLSchemeHandlerPair>& urlSchemeHandlers() { return m_customURLSchemes; }
     
     WebKit::WebProcessPool* processPool();
-    void setProcessPool(WebKit::WebProcessPool*);
+    void setProcessPool(RefPtr<WebKit::WebProcessPool>&&);
 
 private:
     Vector<URLSchemeHandlerPair> m_customURLSchemes;

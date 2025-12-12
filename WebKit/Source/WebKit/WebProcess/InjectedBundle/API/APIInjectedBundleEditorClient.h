@@ -50,7 +50,7 @@ namespace InjectedBundle {
 class EditorClient {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(EditorClient);
 public:
-    virtual ~EditorClient() { }
+    virtual ~EditorClient() = default;
 
     virtual bool shouldBeginEditing(WebKit::WebPage&, const WebCore::SimpleRange&) { return true; }
     virtual bool shouldEndEditing(WebKit::WebPage&, const WebCore::SimpleRange&) { return true; }

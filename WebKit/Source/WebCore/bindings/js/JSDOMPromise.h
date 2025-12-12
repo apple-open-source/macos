@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "JSDOMGuardedObject.h"
 #include <JavaScriptCore/JSPromise.h>
+#include <WebCore/JSDOMGuardedObject.h>
 
 namespace WebCore {
 
@@ -45,13 +45,15 @@ public:
     }
 
     enum class IsCallbackRegistered : bool { No, Yes };
-    IsCallbackRegistered whenSettled(std::function<void()>&&);
+    IsCallbackRegistered whenSettled(Function<void()>&&);
     JSC::JSValue result() const;
+
+    void markAsHandled();
 
     enum class Status { Pending, Fulfilled, Rejected };
     Status status() const;
 
-    static IsCallbackRegistered whenPromiseIsSettled(JSDOMGlobalObject*, JSC::JSObject* promise, Function<void()>&&);
+    static IsCallbackRegistered whenPromiseIsSettled(JSDOMGlobalObject*, JSC::JSPromise*, Function<void()>&&);
 
 private:
     DOMPromise(JSDOMGlobalObject& globalObject, JSC::JSPromise& promise)

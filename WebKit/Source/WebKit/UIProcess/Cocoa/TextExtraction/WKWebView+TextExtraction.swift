@@ -25,9 +25,12 @@
 
 #if compiler(>=6.0)
 internal import WebKit_Internal
+internal import WebKit_Private
 #else
 @_implementationOnly import WebKit_Internal
+@_implementationOnly import WebKit_Private
 #endif
+
 @_spiOnly import UIIntelligenceSupport
 
 #if canImport(UIKit)
@@ -104,8 +107,14 @@ extension WKWebView {
             let coordinator = IntelligenceCollectionCoordinator.shared
             let collector = coordinator.createCollector(remoteContextWrapper: remoteContextWrapper)
 
-            if let item = await _requestTextExtraction(visibleRect) {
-                collector.collect(createIntelligenceElement(item: item))
+            let configuration = _WKTextExtractionConfiguration()
+            configuration.targetRect = visibleRect
+            configuration.mergeParagraphs = true
+            configuration.skipNearlyTransparentContent = true
+            configuration.canIncludeIdentifiers = false
+            configuration.shouldFilterText = false
+            if let result = await _requestTextExtraction(configuration) {
+                collector.collect(createIntelligenceElement(item: result.rootItem))
             }
 
             coordinator.finishCollection(collector)

@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "PropertySetCSSDescriptors.h"
+#include <WebCore/PropertySetCSSDescriptors.h>
 
 namespace WebCore {
 
@@ -123,6 +123,10 @@ public:
 
 private:
     CSSPositionTryDescriptors(MutableStyleProperties&, CSSPositionTryRule&);
+
+    // Override this to invalidate all remembered last-successful position options
+    // when property value changes.
+    ExceptionOr<void> setPropertyInternal(CSSPropertyID, const String& value, IsImportant) override;
 
     StyleRuleType ruleType() const final;
 };

@@ -51,7 +51,6 @@ public:
             didBind(*m_object);
     }
     WebGLBindingPoint(WebGLBindingPoint&&) = default;
-    ~WebGLBindingPoint() = default;
     WebGLBindingPoint& operator=(WebGLBindingPoint&&) = default;
 
     WebGLBindingPoint& operator=(RefPtr<T> object)

@@ -29,39 +29,38 @@
 #else
 #include <EGL/egl.h>
 #endif
-#include <openxr/openxr_platform.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
 
-std::unique_ptr<OpenXRExtensions> OpenXRExtensions::create()
+WTF_MAKE_TZONE_ALLOCATED_IMPL(OpenXRExtensions);
+
+OpenXRExtensions& OpenXRExtensions::singleton()
+{
+    static NeverDestroyed<OpenXRExtensions> sharedExtensions;
+    return sharedExtensions;
+}
+
+OpenXRExtensions::OpenXRExtensions()
+    : m_methods(WTF::makeUnique<OpenXRExtensionMethods>())
 {
     uint32_t extensionCount;
     XrResult result = xrEnumerateInstanceExtensionProperties(nullptr, 0, &extensionCount, nullptr);
 
     if (XR_FAILED(result) || !extensionCount) {
         LOG(XR, "xrEnumerateInstanceExtensionProperties(): no extensions\n");
-        return nullptr;
+        return;
     }
 
-    Vector<XrExtensionProperties> extensions(extensionCount, [] {
-        return createOpenXRStruct<XrExtensionProperties, XR_TYPE_EXTENSION_PROPERTIES>();
-    }());
+    m_extensions.fill(createOpenXRStruct<XrExtensionProperties, XR_TYPE_EXTENSION_PROPERTIES>(), extensionCount);
 
-    result = xrEnumerateInstanceExtensionProperties(nullptr, extensionCount, &extensionCount, extensions.mutableSpan().data());
+    result = xrEnumerateInstanceExtensionProperties(nullptr, extensionCount, &extensionCount, m_extensions.mutableSpan().data());
     if (XR_FAILED(result)) {
         LOG(XR, "xrEnumerateInstanceExtensionProperties() failed: %d\n", result);
-        return nullptr;
+        return;
     }
-
-    return makeUnique<OpenXRExtensions>(WTFMove(extensions));
-}
-
-OpenXRExtensions::OpenXRExtensions(Vector<XrExtensionProperties>&& extensions)
-    : m_extensions(WTFMove(extensions))
-    , m_methods(makeUnique<OpenXRExtensionMethods>())
-{
 }
 
 // Destructor must be explicitly defined here because at this point OpenXRExtensionMethods is already defined.
@@ -83,6 +82,16 @@ bool OpenXRExtensions::loadMethods(XrInstance instance)
     if (!m_methods->xrGetOpenGLESGraphicsRequirementsKHR) {
         LOG(XR, "Failed to load xrGetOpenGLESGraphicsRequirementsKHR");
         return false;
+    }
+#endif
+#if defined(XR_EXT_hand_tracking)
+    if (isExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME ""_span)) {
+        xrGetInstanceProcAddr(instance, "xrCreateHandTrackerEXT", reinterpret_cast<PFN_xrVoidFunction*>(&m_methods->xrCreateHandTrackerEXT));
+        xrGetInstanceProcAddr(instance, "xrDestroyHandTrackerEXT", reinterpret_cast<PFN_xrVoidFunction*>(&m_methods->xrDestroyHandTrackerEXT));
+        xrGetInstanceProcAddr(instance, "xrLocateHandJointsEXT", reinterpret_cast<PFN_xrVoidFunction*>(&m_methods->xrLocateHandJointsEXT));
+        RELEASE_ASSERT(m_methods->xrCreateHandTrackerEXT);
+        RELEASE_ASSERT(m_methods->xrDestroyHandTrackerEXT);
+        RELEASE_ASSERT(m_methods->xrLocateHandJointsEXT);
     }
 #endif
     return true;

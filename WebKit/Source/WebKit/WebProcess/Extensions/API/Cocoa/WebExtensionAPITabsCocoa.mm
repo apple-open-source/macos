@@ -155,8 +155,8 @@ NSDictionary *toWebAPI(const WebExtensionTabParameters& parameters)
 
     if (parameters.size) {
         auto size = parameters.size.value();
-        result[widthKey] = @(size.width);
-        result[heightKey] = @(size.height);
+        result[widthKey] = @(size.width());
+        result[heightKey] = @(size.height());
     }
 
     if (parameters.parentTabIdentifier)
@@ -973,7 +973,7 @@ void WebExtensionAPITabs::captureVisibleTab(WebPageProxyIdentifier webPageProxyI
     }, extensionContext().identifier());
 }
 
-void WebExtensionAPITabs::sendMessage(WebFrame& frame, double tabID, NSString *messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
+void WebExtensionAPITabs::sendMessage(WebFrame& frame, double tabID, const String& messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/tabs/sendMessage
 
@@ -981,7 +981,7 @@ void WebExtensionAPITabs::sendMessage(WebFrame& frame, double tabID, NSString *m
     if (!isValid(tabIdentifer, outExceptionString))
         return;
 
-    if (messageJSON.length > webExtensionMaxMessageLength) {
+    if (messageJSON.length() > webExtensionMaxMessageLength) {
         *outExceptionString = toErrorString(nullString(), @"message", @"it exceeded the maximum allowed length").createNSString().autorelease();
         return;
     }

@@ -29,6 +29,7 @@ import UniformTypeIdentifiers
 @_weakLinked internal import SwiftUI
 internal import WebKit_Private
 internal import WebKit_Private.WKSnapshotConfigurationPrivate
+internal import WebKit_Private.WKWebViewPrivate
 
 @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
 @available(watchOS, unavailable)
@@ -132,7 +133,7 @@ extension WebPage: Transferable {
     // Protocol requirement; no documentation needed.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public nonisolated static var transferRepresentation: some TransferRepresentation {
-        // FIXME: Add more exportable types, like .html, .plainText, .richText, .linkPresentationMetadata, etc.
+        // FIXME: Add more exportable types, like .html, .linkPresentationMetadata, etc.
         // FIXME: Ideally, each of these would be conditionalized on content being loaded on the page.
 
         // The preferred types are roughly in order of descending losslessness.
@@ -147,13 +148,25 @@ extension WebPage: Transferable {
 
         // FIXME: Support all the types that NSImage/UIImage support (this can't use ProxyRepresentation since it needs to be async).
         // FIXME: This is slightly inefficient since it will be converting data to an image and then back to data.
-        DataRepresentation(exportedContentType: .image) {
+        DataRepresentation(exportedContentType: .png) {
             try await $0.exported(as: .image())
         }
 
         // FIXME: See if this can somehow be made synchronous, so then it can use `ProxyRepresentation` with `exportingCondition`.
         DataRepresentation(exportedContentType: .url) {
             try await $0.urlRepresentation()
+        }
+
+        DataRepresentation(exportedContentType: .flatRTFD) {
+            try await $0.richTextRepresentation(.rtfd)
+        }
+
+        DataRepresentation(exportedContentType: .rtf) {
+            try await $0.richTextRepresentation(.rtf)
+        }
+
+        DataRepresentation(exportedContentType: .utf8PlainText) {
+            try await $0.plainTextRepresentation()
         }
     }
 
@@ -241,15 +254,17 @@ extension WebPage {
 
         let snapshot = try await backingWebView.takeSnapshot(configuration: configuration)
 
-        #if os(macOS)
-        return try await snapshot.exported(as: .image)
-        #else
         guard #_hasSymbol(Image.self) else {
             throw WKError(.unknown)
         }
+
+        #if os(macOS)
+        let image = Image(nsImage: snapshot)
+        #else
         let image = Image(uiImage: snapshot)
-        return try await image.exported(as: .image)
         #endif
+
+        return try await image.exported(as: .png)
     }
 
     private func urlRepresentation() async throws -> Data {
@@ -258,6 +273,25 @@ extension WebPage {
         }
 
         return try await url.exported(as: .url)
+    }
+
+    private func plainTextRepresentation() async throws -> Data {
+        guard let string = await backingWebView._getContentsOfAllFramesAsString() else {
+            throw WKError(.unknown)
+        }
+
+        return try await string.exported(as: .utf8PlainText)
+    }
+
+    private func richTextRepresentation(_ type: NSAttributedString.DocumentType) async throws -> Data {
+        let (string, attributes) = try await backingWebView._getContentsAsAttributedString()
+        guard let string, var attributes else {
+            throw WKError(.unknown)
+        }
+
+        attributes[.documentType] = type
+
+        return try string.data(from: .init(location: 0, length: string.length), documentAttributes: attributes)
     }
 }
 

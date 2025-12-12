@@ -100,7 +100,6 @@ enum class NSType : uint8_t {
     Date,
     Error,
     Dictionary,
-    Font,
     Locale,
     Number,
     Null,

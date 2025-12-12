@@ -27,7 +27,7 @@
 
 #if ENABLE(CONTENT_EXTENSIONS)
 
-#include "ContentExtensionActions.h"
+#include <WebCore/ContentExtensionActions.h>
 #include <wtf/KeyValuePair.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>

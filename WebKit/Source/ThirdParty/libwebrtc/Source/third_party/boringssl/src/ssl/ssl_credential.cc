@@ -113,7 +113,7 @@ ssl_credential_st::ssl_credential_st(SSLCredentialType type_arg)
 }
 
 ssl_credential_st::~ssl_credential_st() {
-  CRYPTO_free_ex_data(&g_ex_data_class, this, &ex_data);
+  CRYPTO_free_ex_data(&g_ex_data_class, &ex_data);
 }
 
 static CRYPTO_BUFFER *buffer_up_ref(const CRYPTO_BUFFER *buffer) {
@@ -428,9 +428,8 @@ int SSL_CREDENTIAL_set1_delegated_credential(SSL_CREDENTIAL *cred,
     return 0;
   }
 
-  UniquePtr<EVP_PKEY> pubkey(EVP_parse_public_key(&spki));
-  if (pubkey == nullptr || CBS_len(&spki) != 0) {
-    OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+  UniquePtr<EVP_PKEY> pubkey = ssl_parse_peer_subject_public_key_info(spki);
+  if (pubkey == nullptr) {
     return 0;
   }
 

@@ -60,11 +60,11 @@ using HTMLNames::headTag;
 using HTMLNames::htmlTag;
 
 struct DOMPatchSupport::Digest {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(DOMPatchSupport);
 
     String sha1;
     String attrsSHA1;
-    Node* node;
+    CheckedPtr<Node> node;
     Vector<std::unique_ptr<Digest>> children;
 };
 
@@ -384,13 +384,13 @@ ExceptionOr<void> DOMPatchSupport::innerPatchChildren(ContainerNode& parentNode,
     for (size_t i = 0; i < oldMap.size(); ++i) {
         if (!oldMap[i].first)
             continue;
-        RefPtr<Node> node = oldMap[i].first->node;
-        auto* anchorNode = parentNode.traverseToChildAt(oldMap[i].second);
+        RefPtr node = oldMap[i].first->node.get();
+        RefPtr anchorNode = parentNode.traverseToChildAt(oldMap[i].second);
         if (node == anchorNode)
             continue;
         if (node->hasTagName(bodyTag) || node->hasTagName(headTag))
             continue; // Never move head or body, move the rest of the nodes around them.
-        auto result = m_domEditor.insertBefore(parentNode, node.releaseNonNull(), anchorNode);
+        auto result = m_domEditor.insertBefore(parentNode, node.releaseNonNull(), anchorNode.get());
         if (result.hasException())
             return result.releaseException();
     }

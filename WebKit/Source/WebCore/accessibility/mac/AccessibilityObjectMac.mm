@@ -24,12 +24,11 @@
  */
 
 #import "config.h"
-#import "AccessibilityObject.h"
+#import "AccessibilityObjectInlines.h"
 
-#import "AXObjectCache.h"
+#import "AXObjectCacheInlines.h"
 #import "AXRemoteFrame.h"
-#import "AccessibilityLabel.h"
-#import "AccessibilityList.h"
+#import "BufferSource.h"
 #import "ColorCocoa.h"
 #import "CompositionHighlight.h"
 #import "CompositionUnderline.h"
@@ -105,19 +104,15 @@ FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect,
 
         NSRect nsRect = NSRectFromCGRect(cgRect);
         NSView *view = frameView->documentView();
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         nsRect = [[view window] convertRectToScreen:[view convertRect:nsRect toView:nil]];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        ALLOW_DEPRECATED_DECLARATIONS_END
+
         return NSRectToCGRect(nsRect);
     }
 
     return convertFrameToSpace(rect, space);
-}
-
-// On iOS, we don't have to return the value in the title. We can return the actual title, given the API.
-bool AccessibilityObject::fileUploadButtonReturnsValueInTitle() const
-{
-    return true;
 }
 
 bool AccessibilityObject::accessibilityIgnoreAttachment() const
@@ -150,7 +145,7 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     // Special case is when the unknown object is actually an attachment.
     if (role() == AccessibilityRole::Unknown && !isAttachment())
         return AccessibilityObjectInclusion::IgnoreObject;
-    
+
     if (role() == AccessibilityRole::Inline && !isStyleFormatGroup())
         return AccessibilityObjectInclusion::IgnoreObject;
 
@@ -162,10 +157,10 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
                 return AccessibilityObjectInclusion::IgnoreObject;
         }
     }
-    
+
     return AccessibilityObjectInclusion::DefaultBehavior;
 }
-    
+
 bool AccessibilityObject::caretBrowsingEnabled() const
 {
     RefPtr frame = this->frame();
@@ -205,10 +200,11 @@ String AccessibilityObject::subrolePlatformString() const
 
     if (isAttachment()) {
         NSView* attachView = [wrapper() attachmentView];
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if ([[attachView accessibilityAttributeNames] containsObject:NSAccessibilitySubroleAttribute])
             return [attachView accessibilityAttributeValue:NSAccessibilitySubroleAttribute];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     if (isMeter())
@@ -501,7 +497,7 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node& node, StringView text
         return nil;
 
     auto* cache = renderer->document().axObjectCache();
-    RefPtr object = cache ? cache->getOrCreate(*renderer) : nullptr;
+    RefPtr object = cache ? cache->getOrCreate(node) : nullptr;
     if (!object)
         return nil;
 
@@ -512,27 +508,27 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node& node, StringView text
     return string;
 }
 
-Vector<uint8_t> AXRemoteFrame::generateRemoteToken() const
+AccessibilityRemoteToken AXRemoteFrame::generateRemoteToken() const
 {
     if (RefPtr parent = parentObject()) {
         // We use the parent's wrapper so that the remote frame acts as a pass through for the remote token bridge.
-        return makeVector([NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:parent->wrapper()]);
+        return { makeVector([NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:parent->wrapper()]) };
     }
 
     return { };
 }
 
-void AXRemoteFrame::initializePlatformElementWithRemoteToken(std::span<const uint8_t> token, int processIdentifier)
+void AXRemoteFrame::initializePlatformElementWithRemoteToken(AccessibilityRemoteToken token, int processIdentifier)
 {
     m_processIdentifier = processIdentifier;
     if ([wrapper() respondsToSelector:@selector(accessibilitySetPresenterProcessIdentifier:)])
         [(id)wrapper() accessibilitySetPresenterProcessIdentifier:processIdentifier];
-    m_remoteFramePlatformElement = adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:toNSData(BufferSource { token }).get()]);
+    m_remoteFramePlatformElement = adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:toNSData(BufferSource { token.bytes }).get()]);
 
     if (auto* cache = axObjectCache())
         cache->onRemoteFrameInitialized(*this);
 }
 
-} // WebCore
+} // namespace WebCore
 
 #endif // PLATFORM(MAC)

@@ -86,7 +86,7 @@ enum class WarningTextSize : uint8_t {
     Body
 };
 
-static WebCore::CocoaFont *fontOfSize(WarningTextSize size)
+static RetainPtr<WebCore::CocoaFont> fontOfSize(WarningTextSize size)
 {
 #if PLATFORM(MAC)
     switch (size) {
@@ -111,7 +111,7 @@ static WebCore::CocoaFont *fontOfSize(WarningTextSize size)
 #endif
 }
 
-static WebCore::CocoaColor *colorForItem(WarningItem item, ViewType *warning)
+static RetainPtr<WebCore::CocoaColor> colorForItem(WarningItem item, ViewType *warning)
 {
     auto *warningView = checked_objc_cast<_WKWarningView>(warning);
 #if PLATFORM(MAC)
@@ -210,7 +210,7 @@ static RetainPtr<ViewType> viewForIconImage(_WKWarningView *warningView)
     NSString *symbolName;
     RetainPtr color = colorForItem(WarningItem::WarningSymbol, warningView);
     BOOL shouldSetTint = NO;
-    CGFloat imagePointSize = fontOfSize(WarningTextSize::Title).pointSize * imageIconPointSizeMultiplier;
+    CGFloat imagePointSize = fontOfSize(WarningTextSize::Title).get().pointSize * imageIconPointSizeMultiplier;
     WTF::switchOn(warningView.warning->data(), [&] (const WebKit::BrowsingWarning::SafeBrowsingWarningData&) {
         symbolName = @"exclamationmark.circle.fill";
     }, [&] (const WebKit::BrowsingWarning::HTTPSNavigationFailureData&) {
@@ -247,8 +247,8 @@ static ButtonType *makeButton(WarningItem item, _WKWarningView *warning, SEL act
     auto attributedTitle = adoptNS([[NSAttributedString alloc] initWithString:title.get() attributes:@{
         NSUnderlineStyleAttributeName:@(NSUnderlineStyleSingle),
         NSUnderlineColorAttributeName:[UIColor whiteColor],
-        NSForegroundColorAttributeName:colorForItem(item, warning),
-        NSFontAttributeName:fontOfSize(WarningTextSize::Body)
+        NSForegroundColorAttributeName:colorForItem(item, warning).get(),
+        NSFontAttributeName:fontOfSize(WarningTextSize::Body).get()
     }]);
     [button setAttributedTitle:attributedTitle.get() forState:UIControlStateNormal];
     [button addTarget:warning action:action forControlEvents:UIControlEventTouchUpInside];
@@ -296,7 +296,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
 #if PLATFORM(MAC)
 - (void)updateLayer
 {
-    self.layer.backgroundColor = [_backgroundColor CGColor];
+    self.layer.backgroundColor = RetainPtr { [_backgroundColor CGColor] }.get();
 }
 #endif
 
@@ -326,10 +326,10 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     };
     _warning = &warning;
 #if PLATFORM(MAC)
-    [self setWarningViewBackgroundColor:colorForItem(WarningItem::BrowsingWarningBackground, self)];
+    [self setWarningViewBackgroundColor:colorForItem(WarningItem::BrowsingWarningBackground, self).get()];
     [self addContent];
 #else
-    [self setBackgroundColor:colorForItem(WarningItem::BrowsingWarningBackground, self)];
+    [self setBackgroundColor:colorForItem(WarningItem::BrowsingWarningBackground, self).get()];
 #endif
 
 #if PLATFORM(WATCHOS)
@@ -342,15 +342,15 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
 {
     RetainPtr warningViewIcon = viewForIconImage(self);
     auto title = makeLabel(adoptNS([[NSAttributedString alloc] initWithString:_warning->title().createNSString().get() attributes:@{
-        NSFontAttributeName:fontOfSize(WarningTextSize::Title),
-        NSForegroundColorAttributeName:colorForItem(WarningItem::TitleText, self)
+        NSFontAttributeName:fontOfSize(WarningTextSize::Title).get(),
+        NSForegroundColorAttributeName:colorForItem(WarningItem::TitleText, self).get()
 #if PLATFORM(WATCHOS)
         , NSHyphenationFactorDocumentAttribute:@1
 #endif
     }]).get());
     auto warning = makeLabel(adoptNS([[NSAttributedString alloc] initWithString:_warning->warning().createNSString().get() attributes:@{
-        NSFontAttributeName:fontOfSize(WarningTextSize::Body),
-        NSForegroundColorAttributeName:colorForItem(WarningItem::MessageText, self)
+        NSFontAttributeName:fontOfSize(WarningTextSize::Body).get(),
+        NSForegroundColorAttributeName:colorForItem(WarningItem::MessageText, self).get()
 #if PLATFORM(WATCHOS)
         , NSHyphenationFactorDocumentAttribute:@1
 #endif
@@ -364,7 +364,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     RetainPtr goBack = makeButton(WarningItem::GoBackButton, self, @selector(goBackClicked));
     RetainPtr box = adoptNS([_WKWarningViewBox new]);
     _box = box.get();
-    [box setWarningViewBackgroundColor:colorForItem(WarningItem::BoxBackground, self)];
+    [box setWarningViewBackgroundColor:colorForItem(WarningItem::BoxBackground, self).get()];
     [box layer].cornerRadius = boxCornerRadius;
 
     for (ViewType *view in @[ warningViewIcon.get(), title.get(), warning.get(), goBack.get(), primaryButton.get() ]) {
@@ -440,11 +440,11 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     [showDetails removeFromSuperview];
 
     auto text = adoptNS([self._protectedWarning->details() mutableCopy]);
-    [text addAttributes:@{ NSFontAttributeName:fontOfSize(WarningTextSize::Body) } range:NSMakeRange(0, [text length])];
+    [text addAttributes:@{ NSFontAttributeName:fontOfSize(WarningTextSize::Body).get() } range:NSMakeRange(0, [text length])];
     auto details = adoptNS([[_WKWarningViewTextView alloc] initWithAttributedString:text.get() forWarning:self]);
     _details = details.get();
     auto bottom = adoptNS([_WKWarningViewBox new]);
-    [bottom setWarningViewBackgroundColor:colorForItem(WarningItem::BoxBackground, self)];
+    [bottom setWarningViewBackgroundColor:colorForItem(WarningItem::BoxBackground, self).get()];
     [bottom layer].cornerRadius = boxCornerRadius;
 
 #if HAVE(SAFE_BROWSING)
@@ -501,7 +501,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
 
 - (void)layoutText
 {
-    [_details invalidateIntrinsicContentSize];
+    [_details.get() invalidateIntrinsicContentSize];
 }
 
 #if PLATFORM(MAC)
@@ -571,16 +571,16 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     if (!_completionHandler)
         return;
 
-    if ([link isEqual:WebKit::BrowsingWarning::visitUnsafeWebsiteSentinel()])
+    if ([link isEqual:WebKit::BrowsingWarning::visitUnsafeWebsiteSentinel().get()])
         return _completionHandler(WebKit::ContinueUnsafeLoad::Yes);
 
-    if ([link isEqual:WebKit::BrowsingWarning::confirmMalwareSentinel()]) {
+    if ([link isEqual:WebKit::BrowsingWarning::confirmMalwareSentinel().get()]) {
 #if PLATFORM(MAC)
         auto alert = adoptNS([NSAlert new]);
-        [alert setMessageText:WEB_UI_NSSTRING(@"Are you sure you wish to go to this site?", "Malware confirmation dialog title")];
-        [alert setInformativeText:WEB_UI_NSSTRING(@"Merely visiting a site is sufficient for malware to install itself and harm your computer.", "Malware confirmation dialog")];
-        [alert addButtonWithTitle:WEB_UI_NSSTRING(@"Cancel", "Cancel")];
-        [alert addButtonWithTitle:WEB_UI_NSSTRING(@"Continue", "Continue")];
+        [alert setMessageText:RetainPtr { WEB_UI_NSSTRING(@"Are you sure you wish to go to this site?", "Malware confirmation dialog title") }.get()];
+        [alert setInformativeText:RetainPtr { WEB_UI_NSSTRING(@"Merely visiting a site is sufficient for malware to install itself and harm your computer.", "Malware confirmation dialog") }.get()];
+        [alert addButtonWithTitle:RetainPtr { WEB_UI_NSSTRING(@"Cancel", "Cancel") }.get()];
+        [alert addButtonWithTitle:RetainPtr { WEB_UI_NSSTRING(@"Continue", "Continue") }.get()];
         [alert beginSheetModalForWindow:self.window completionHandler:makeBlockPtr([weakSelf = WeakObjCPtr<_WKWarningView>(self), alert](NSModalResponse returnCode) {
             if (auto strongSelf = weakSelf.get()) {
                 if (returnCode == NSAlertSecondButtonReturn && strongSelf->_completionHandler)
@@ -621,7 +621,7 @@ static RetainPtr<ViewType> makeLabel(NSAttributedString *attributedString)
     RetainPtr foregroundColor = colorForItem(WarningItem::MessageText, warning);
     RetainPtr string = adoptNS([attributedString mutableCopy]);
     [string addAttributes:@{ NSForegroundColorAttributeName : foregroundColor.get() } range:NSMakeRange(0, [string length])];
-    [self setBackgroundColor:colorForItem(WarningItem::BoxBackground, warning)];
+    [self setBackgroundColor:colorForItem(WarningItem::BoxBackground, warning).get()];
     [self setLinkTextAttributes:@{ NSForegroundColorAttributeName : foregroundColor.get() }];
     [self.textStorage appendAttributedString:string.get()];
     self.editable = NO;

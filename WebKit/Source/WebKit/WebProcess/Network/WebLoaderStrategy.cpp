@@ -51,8 +51,8 @@
 #include <WebCore/DataURLDecoder.h>
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
-#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/DocumentPage.h>
 #include <WebCore/FetchOptions.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameInlines.h>
@@ -63,7 +63,7 @@
 #include <WebCore/LocalFrame.h>
 #include <WebCore/NetscapePlugInStreamLoader.h>
 #include <WebCore/NetworkLoadInformation.h>
-#include <WebCore/NodeInlines.h>
+#include <WebCore/NodeDocument.h>
 #include <WebCore/PlatformStrategies.h>
 #include <WebCore/ReferrerPolicy.h>
 #include <WebCore/ResourceLoader.h>
@@ -175,6 +175,7 @@ static Seconds maximumBufferingTime(CachedResource* resource)
     case CachedResource::Type::Beacon:
     case CachedResource::Type::Ping:
     case CachedResource::Type::CSSStyleSheet:
+    case CachedResource::Type::JSON:
     case CachedResource::Type::Script:
     case CachedResource::Type::SVGFontResource:
     case CachedResource::Type::FontResource:
@@ -278,6 +279,13 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
 
     if (tryLoadingUsingURLSchemeHandler(resourceLoader, trackingParameters))
         return;
+
+#if ENABLE(SWIFT_DEMO_URI_SCHEME)
+    if (resourceLoader.request().url().protocolIs("x-swift-demo"_s)) {
+        // We don't load this at all - higher layers of webkit code will call loadData later.
+        return;
+    }
+#endif
 
     if (!trackingParameters) {
         ASSERT_NOT_REACHED();
@@ -392,12 +400,14 @@ static void addParametersShared(const LocalFrame* frame, NetworkResourceLoadPara
         parameters.pageHasResourceLoadClient = page->hasResourceLoadClient();
         page->logMediaDiagnosticMessage(parameters.request.httpBody());
 
-#if ENABLE(WK_WEB_EXTENSIONS) && PLATFORM(COCOA)
         if (RefPtr webPage = WebPage::fromCorePage(*page)) {
+            if (!webPage->overrideReferrerForAllRequests().isNull())
+                parameters.request.setHTTPHeaderField(HTTPHeaderName::Referer, webPage->overrideReferrerForAllRequests());
+#if ENABLE(WK_WEB_EXTENSIONS) && PLATFORM(COCOA)
             if (RefPtr extensionControllerProxy = webPage->webExtensionControllerProxy())
                 parameters.pageHasLoadedWebExtensions = extensionControllerProxy->hasLoadedContexts();
-        }
 #endif
+        }
     }
 
     if (RefPtr ownerElement = frame->ownerElement()) {
@@ -597,6 +607,7 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
         existingNetworkResourceLoadIdentifierToResume = std::exchange(m_existingNetworkResourceLoadIdentifierToResume, std::nullopt);
     WEBLOADERSTRATEGY_RELEASE_LOG_FORWARDABLE(WEBLOADERSTRATEGY_SCHEDULELOAD_RESOURCE_SCHEDULED_WITH_NETWORKPROCESS, static_cast<int>(resourceLoader.request().priority()), existingNetworkResourceLoadIdentifierToResume ? existingNetworkResourceLoadIdentifierToResume->toUInt64() : 0);
 
+    loadParameters.isInitiatedByDedicatedWorker = resourceLoader.options().initiatorContext == InitiatorContext::Worker && std::holds_alternative<std::monostate>(resourceLoader.options().workerIdentifier);
     if (WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::ScheduleResourceLoad(WTFMove(loadParameters), existingNetworkResourceLoadIdentifierToResume), 0) != IPC::Error::NoError) {
         WEBLOADERSTRATEGY_RELEASE_LOG_ERROR("scheduleLoad: Unable to schedule resource with the NetworkProcess (priority=%d)", static_cast<int>(resourceLoader.request().priority()));
         // We probably failed to schedule this load with the NetworkProcess because it had crashed.
@@ -1095,7 +1106,7 @@ bool WebLoaderStrategy::havePerformedSecurityChecks(const ResourceResponse& resp
         return false;
     switch (response.source()) {
     case ResourceResponse::Source::DOMCache:
-    case ResourceResponse::Source::ApplicationCache:
+    case ResourceResponse::Source::LegacyApplicationCachePlaceholder:
     case ResourceResponse::Source::MemoryCache:
     case ResourceResponse::Source::MemoryCacheAfterValidation:
     case ResourceResponse::Source::ServiceWorker:

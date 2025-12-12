@@ -165,8 +165,7 @@ Invalidator::CheckDescendants Invalidator::invalidateIfNeeded(Element& element, 
     case Validity::AnimationInvalid:
     case Validity::InlineStyleInvalid: {
         for (auto& ruleSet : m_ruleSets) {
-            ElementRuleCollector ruleCollector(element, *ruleSet.ruleSet, selectorMatchingState);
-            ruleCollector.setMode(SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements);
+            ElementRuleCollector ruleCollector(element, *ruleSet.ruleSet, selectorMatchingState, SelectorChecker::Mode::StyleInvalidation);
 
             auto matches = ruleCollector.matchesAnyAuthorRules();
             if (ruleSet.isNegation == IsNegation::No ? matches : !matches) {

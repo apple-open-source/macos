@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include "CSSProperty.h"
-#include "CSSPropertyNames.h"
-#include "CSSStyleDeclaration.h"
+#include <WebCore/CSSProperty.h>
+#include <WebCore/CSSPropertyNames.h>
+#include <WebCore/CSSStyleDeclaration.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -78,7 +78,7 @@ protected:
 
     // CSSPropertyID versions of the CSSOM functions to support bindings.
     String getPropertyValueInternal(CSSPropertyID) const;
-    ExceptionOr<void> setPropertyInternal(CSSPropertyID, const String& value, IsImportant);
+    virtual ExceptionOr<void> setPropertyInternal(CSSPropertyID, const String& value, IsImportant);
 
     CSSParserContext cssParserContext() const;
     Ref<MutableStyleProperties> protectedPropertySet() const;

@@ -270,11 +270,11 @@ private:
     WTFLogChannel& contentKeyGroupDataSourceLogChannel() const final;
 #endif // !RELEASE_LOG_DISABLED
 
-    Ref<CDMInstanceFairPlayStreamingAVFObjC> m_instance;
-    RetainPtr<WebAVContentKeyGrouping> m_group;
+    const Ref<CDMInstanceFairPlayStreamingAVFObjC> m_instance;
+    const RetainPtr<WebAVContentKeyGrouping> m_group;
     RetainPtr<AVContentKeySession> m_session;
     std::optional<Request> m_currentRequest;
-    RetainPtr<WebCoreFPSContentKeySessionDelegate> m_delegate;
+    const RetainPtr<WebCoreFPSContentKeySessionDelegate> m_delegate;
     Vector<RetainPtr<NSData>> m_expiredSessions;
     WeakPtr<CDMInstanceSessionClient> m_client;
     String m_sessionId;

@@ -29,6 +29,8 @@
 #include "ContainerNodeInlines.h"
 #include "Document.h"
 #include "DocumentMarkerController.h"
+#include "DocumentMarkers.h"
+#include "DocumentView.h"
 #include "EditingInlines.h"
 #include "Editor.h"
 #include "EditorClient.h"

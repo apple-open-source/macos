@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include "FloatSize.h"
-#include "Image.h"
+#include <WebCore/FloatSize.h>
+#include <WebCore/Image.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>

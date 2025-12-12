@@ -327,7 +327,7 @@ errOut:
     return anchorRecords;
 }
 
-static CFArrayRef CopyUsageConstraintsForSystemAnchor(void) {
+static CFMutableArrayRef CopyUsageConstraintsForSystemAnchor(void) {
     CFMutableArrayRef result = NULL;
     CFMutableDictionaryRef options = NULL, strengthConstraints = NULL, trustRoot = NULL;
     CFNumberRef trustResult = NULL;
@@ -340,6 +340,27 @@ static CFArrayRef CopyUsageConstraintsForSystemAnchor(void) {
                                                              &kCFTypeDictionaryKeyCallBacks,
                                                              &kCFTypeDictionaryValueCallBacks),
                   out);
+
+    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakHash, kCFBooleanTrue);
+    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakKey, kCFBooleanTrue);
+    CFDictionaryAddValue(strengthConstraints, kSecTrustSettingsPolicyOptions, options);
+
+    require_quiet(result = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks), out);
+    CFArrayAppendValue(result, strengthConstraints);
+
+out:
+    CFReleaseNull(options);
+    CFReleaseNull(trustResult);
+    CFReleaseNull(trustRoot);
+    CFReleaseNull(strengthConstraints);
+    return result;
+}
+
+static CFArrayRef CopyUsageConstraintsForUnconstrainedSystemAnchor(void) {
+    CFMutableArrayRef result = NULL;
+    CFMutableDictionaryRef trustRoot = NULL;
+    CFNumberRef trustResult = NULL;
+
     require_quiet(trustRoot = CFDictionaryCreateMutable(NULL, 1,
                                                         &kCFTypeDictionaryKeyCallBacks,
                                                         &kCFTypeDictionaryValueCallBacks),
@@ -349,20 +370,51 @@ static CFArrayRef CopyUsageConstraintsForSystemAnchor(void) {
     require_quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &temp), out);
     CFDictionaryAddValue(trustRoot, kSecTrustSettingsResult, trustResult);
 
-    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakHash, kCFBooleanTrue);
-    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakKey, kCFBooleanTrue);
-    CFDictionaryAddValue(strengthConstraints, kSecTrustSettingsPolicyOptions, options);
-
-    require_quiet(result = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks), out);
-    CFArrayAppendValue(result, strengthConstraints);
+    require_quiet(result = CopyUsageConstraintsForSystemAnchor(), out);
     CFArrayAppendValue(result, trustRoot);
 
 out:
-    CFReleaseNull(options);
     CFReleaseNull(trustResult);
     CFReleaseNull(trustRoot);
-    CFReleaseNull(strengthConstraints);
     return result;
+}
+
+static CFStringRef ConvertPolicyOidToCompatibilityOid(CFStringRef policyOid) {
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleSSLServer, 0) ||
+        kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleSSLClient, 0)) {
+        return kSecPolicyAppleSSL;
+    }
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleEAPServer, 0) ||
+        kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleEAPClient, 0)) {
+        return kSecPolicyAppleEAP;
+    }
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleIPSecServer, 0) ||
+        kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleIPSecClient, 0)) {
+        return kSecPolicyAppleIPsec;
+    }
+    return policyOid;
+}
+
+static _Nullable CFStringRef ConvertPolicyOidToPolicyName(CFStringRef policyOid) {
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleSSLServer, 0)) {
+        return kSecPolicyNameSSLServer;
+    }
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleSSLClient, 0)) {
+        return kSecPolicyNameSSLClient;
+    }
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleEAPServer, 0)) {
+        return kSecPolicyNameEAPServer;
+    }
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleEAPClient, 0)) {
+        return kSecPolicyNameEAPClient;
+    }
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleIPSecServer, 0)) {
+        return kSecPolicyNameIPSecServer;
+    }
+    if (kCFCompareEqualTo == CFStringCompare(policyOid, kSecPolicyAppleIPSecClient, 0)) {
+        return kSecPolicyNameIPSecClient;
+    }
+    return NULL;
 }
 
 static _Nullable CFArrayRef
@@ -381,11 +433,38 @@ CreatePolicyTrustSettingsForAnchorRecord(CFDictionaryRef anchorRecord, CFNumberR
             require_quiet(trustSetting = CFDictionaryCreateMutable(NULL, 0,
                                                                    &kCFTypeDictionaryKeyCallBacks,
                                                                    &kCFTypeDictionaryValueCallBacks),
-                                                                   errOut);
-            CFDictionaryAddValue(trustSetting, kSecTrustSettingsPolicy, policyOidStr);
+                          errOut);
+
+            /* get the compatibility policy oid/names to match the user/admin trust store formulation of constraints */
+            CFStringRef compatibilityPolicyOidStr =  ConvertPolicyOidToCompatibilityOid(policyOidStr);
+            CFStringRef compatibilityPolicyName = ConvertPolicyOidToPolicyName(policyOidStr);
+            CFDictionaryAddValue(trustSetting, kSecTrustSettingsPolicy, compatibilityPolicyOidStr);
+            if (compatibilityPolicyName) {
+                CFDictionaryAddValue(trustSetting, kSecTrustSettingsPolicyName, compatibilityPolicyName);
+            }
             CFDictionaryAddValue(trustSetting, kSecTrustSettingsResult, trustResult);
             CFArrayAppendValue(result, trustSetting);
             CFReleaseNull(trustSetting);
+        }
+    }
+
+    /* For system anchors add system constraints */
+    CFStringRef anchorType = (CFStringRef)CFDictionaryGetValue(anchorRecord, CFSTR("type"));
+    if (isString(anchorType) &&
+        (kCFCompareEqualTo == CFStringCompare(anchorType, kSecAnchorTypeSystem, 0) ||
+         kCFCompareEqualTo == CFStringCompare(anchorType, kSecAnchorTypeSystemTEST, 0))) {
+        CFArrayRef systemConstraints = NULL;
+        if (numPolicyOids > 0) {
+            /* constrained system roots only need the policy options */
+            systemConstraints = CopyUsageConstraintsForSystemAnchor();
+        } else {
+            /* unconstrained system roots need both the policy options and the unconstrained trusted root */
+            systemConstraints = CopyUsageConstraintsForUnconstrainedSystemAnchor();
+        }
+
+        if (systemConstraints) {
+            CFArrayAppendArray(result, systemConstraints, CFRangeMake(0, CFArrayGetCount(systemConstraints)));
+            CFReleaseNull(systemConstraints);
         }
     }
 
@@ -430,17 +509,6 @@ CopyUsageConstraintsForCertificate(SecCertificateRef certificate) {
         CFDictionaryRef anchorRecord = CFArrayGetValueAtIndex(anchorRecords, recordIX);
         if (!isDictionary(anchorRecord)) {
             continue;
-        }
-
-        /* Add system constraints for system type anchors */
-        CFStringRef anchorType = (CFStringRef)CFDictionaryGetValue(anchorRecord, CFSTR("type"));
-        if (isString(anchorType) &&
-            kCFCompareEqualTo == CFStringCompare(anchorType, kSecAnchorTypeSystem, 0)) {
-            CFArrayRef systemUsageConstraints = CopyUsageConstraintsForSystemAnchor();
-            if (systemUsageConstraints) {
-                CFArrayAppendAll(result, systemUsageConstraints);
-                CFReleaseNull(systemUsageConstraints);
-            }
         }
 
         CFArrayRef trustSettings = CreatePolicyTrustSettingsForAnchorRecord(anchorRecord, trustResult);
@@ -773,7 +841,7 @@ errOut:
 static CFArrayRef SecSystemAnchorSourceCopyUsageConstraints(SecCertificateSourceRef __unused source,
                                                             SecCertificateRef __unused certificate)
 {
-    return CopyUsageConstraintsForSystemAnchor();
+    return CopyUsageConstraintsForUnconstrainedSystemAnchor();
 }
 
 static bool SecSystemAnchorSourceContains(SecCertificateSourceRef source,

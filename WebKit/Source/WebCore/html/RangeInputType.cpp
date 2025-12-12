@@ -34,7 +34,6 @@
 
 #include "ContainerNodeInlines.h"
 #include "Decimal.h"
-#include "DocumentInlines.h"
 #include "ElementInlines.h"
 #include "ElementRareData.h"
 #include "EventNames.h"
@@ -52,6 +51,7 @@
 #include "RenderSlider.h"
 #include "ScopedEventQueue.h"
 #include "ScriptDisallowedScope.h"
+#include "Settings.h"
 #include "ShadowRoot.h"
 #include "SliderThumbElement.h"
 #include "StepRange.h"
@@ -154,7 +154,7 @@ void RangeInputType::handleMouseDownEvent(MouseEvent& event)
     Ref thumb = typedSliderThumbElement();
     if (targetNode == thumb.ptr())
         return;
-    thumb->dragFrom(event.absoluteLocation());
+    thumb->dragFrom(LayoutPoint(event.absoluteLocation()));
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -179,7 +179,8 @@ void RangeInputType::handleTouchEvent(TouchEvent& event)
 
     RefPtr<TouchList> touches = event.targetTouches();
     if (touches->length() == 1) {
-        protectedTypedSliderThumbElement()->setPositionFromPoint(touches->item(0)->absoluteLocation());
+        auto touchPoint = touches->item(0)->absoluteLocation();
+        protectedTypedSliderThumbElement()->setPositionFromPoint(LayoutPoint(touchPoint));
         event.setDefaultHandled();
     }
 #endif // ENABLE(IOS_TOUCH_EVENTS)

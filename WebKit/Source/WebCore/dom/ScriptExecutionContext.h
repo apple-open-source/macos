@@ -27,10 +27,10 @@
 
 #pragma once
 
-#include "ScriptExecutionContextIdentifier.h"
-#include "SecurityContext.h"
-#include "ServiceWorkerIdentifier.h"
-#include "Timer.h"
+#include <WebCore/ScriptExecutionContextIdentifier.h>
+#include <WebCore/SecurityContext.h>
+#include <WebCore/ServiceWorkerIdentifier.h>
+#include <WebCore/Timer.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
@@ -125,7 +125,9 @@ enum class ScriptExecutionContextType : uint8_t {
     EmptyScriptExecutionContext
 };
 
-class ScriptExecutionContext : public SecurityContext, public TimerAlignment {
+class ScriptExecutionContext : public SecurityContext, public TimerAlignment, public CanMakeThreadSafeCheckedPtr<ScriptExecutionContext> {
+    WTF_MAKE_TZONE_ALLOCATED(ScriptExecutionContext);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ScriptExecutionContext);
 public:
     using Type = ScriptExecutionContextType;
 
@@ -165,6 +167,7 @@ public:
     virtual IDBClient::IDBConnectionProxy* idbConnectionProxy() = 0;
 
     virtual SocketProvider* socketProvider() = 0;
+    RefPtr<SocketProvider> protectedSocketProvider();
 
     virtual GraphicsClient* graphicsClient() { return nullptr; }
 
@@ -235,7 +238,8 @@ public:
     WEBCORE_EXPORT void ref();
     WEBCORE_EXPORT void deref();
 
-    WEBCORE_EXPORT bool requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory);
+    enum class IncludeConsoleLog : bool { No, Yes };
+    WEBCORE_EXPORT bool requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory, IncludeConsoleLog = IncludeConsoleLog::Yes);
 
     class Task {
         WTF_MAKE_TZONE_ALLOCATED(Task);
@@ -336,7 +340,7 @@ public:
 
     void registerServiceWorker(ServiceWorker&);
     void unregisterServiceWorker(ServiceWorker&);
-    inline ServiceWorker* serviceWorker(ServiceWorkerIdentifier);
+    inline ServiceWorker* serviceWorker(ServiceWorkerIdentifier); // Defined in ScriptExecutionContextInlines.h.
 
     ServiceWorkerContainer* serviceWorkerContainer();
     ServiceWorkerContainer* ensureServiceWorkerContainer();
@@ -354,7 +358,6 @@ public:
 
     void setStorageBlockingPolicy(StorageBlockingPolicy policy) { m_storageBlockingPolicy = policy; }
     enum class ResourceType : uint8_t {
-        ApplicationCache,
         Cookies,
         Geolocation,
         IndexedDB,

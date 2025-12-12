@@ -95,7 +95,8 @@ void FormatBlockCommand::formatRange(const Position& start, const Position& end,
         insertNodeBefore(*blockNode, *nodeAfterInsertionPosition);
     }
 
-    Position lastParagraphInBlockNode = blockNode->lastChild() ? positionAfterNode(blockNode->lastChild()) : Position();
+    RefPtr lastChild = blockNode->lastChild();
+    Position lastParagraphInBlockNode = lastChild ? positionAfterNode(lastChild.get()) : Position();
     bool wasEndOfParagraph = isEndOfParagraph(lastParagraphInBlockNode);
 
     moveParagraphWithClones(start, end, blockNode.get(), outerBlock.get());
@@ -117,8 +118,8 @@ RefPtr<Element> FormatBlockCommand::elementForFormatBlockCommand(const std::opti
     if (!commonAncestorElement)
         return nullptr;
 
-    auto rootEditableElement = range->start.container->rootEditableElement();
-    if (!rootEditableElement || commonAncestor->contains(rootEditableElement))
+    RefPtr rootEditableElement = range->start.container->rootEditableElement();
+    if (!rootEditableElement || commonAncestor->contains(rootEditableElement.get()))
         return nullptr;
 
     return commonAncestorElement;
@@ -161,17 +162,18 @@ bool isElementForFormatBlock(const QualifiedName& tagName)
 RefPtr<Node> enclosingBlockToSplitTreeTo(Node* startNode)
 {
     RefPtr lastBlock = startNode;
-    for (RefPtr n = startNode; n; n = n->parentNode()) {
-        if (!n->hasEditableStyle())
+    for (RefPtr node = startNode; node; node = node->parentNode()) {
+        if (!node->hasEditableStyle())
             return lastBlock;
-        if (isTableCell(*n) || n->hasTagName(bodyTag) || !n->parentNode() || !n->parentNode()->hasEditableStyle() || isElementForFormatBlock(*n))
-            return n;
-        if (isBlock(*n))
-            lastBlock = n;
-        if (isListHTMLElement(n.get())) {
-            if (n->parentNode()->hasEditableStyle())
-                return n->parentNode();
-            return n;
+        RefPtr parentNode = node->parentNode();
+        if (isTableCell(*node) || node->hasTagName(bodyTag) || !parentNode || !parentNode->hasEditableStyle() || isElementForFormatBlock(*node))
+            return node;
+        if (isBlock(*node))
+            lastBlock = node;
+        if (isListHTMLElement(node.get())) {
+            if (parentNode->hasEditableStyle())
+                return parentNode;
+            return node;
         }
     }
     return lastBlock;

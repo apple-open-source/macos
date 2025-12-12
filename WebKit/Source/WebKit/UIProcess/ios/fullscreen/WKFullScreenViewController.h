@@ -26,7 +26,9 @@
 #if ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
 
 #import <UIKit/UIViewController.h>
+#import <WebCore/PlatformVideoPresentationInterface.h>
 
+@class WKFullScreenViewController;
 @class WKWebView;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -35,6 +37,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)requestExitFullScreen;
 - (void)showUI;
 - (void)hideUI;
+- (void)fullScreenViewControllerDidInvalidate:(WKFullScreenViewController *)fullScreenViewController;
+#if PLATFORM(VISION)
+- (void)fullScreenViewController:(WKFullScreenViewController *)fullScreenViewController bestVideoPresentationInterfaceDidChange:(nullable WebCore::PlatformVideoPresentationInterface*)bestVideoPresentationInterface;
+#endif
 @end
 
 @interface WKFullScreenViewController : UIViewController

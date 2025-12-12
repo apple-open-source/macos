@@ -50,10 +50,10 @@ WebDeviceOrientationUpdateProvider::~WebDeviceOrientationUpdateProvider()
     WebProcess::singleton().removeMessageReceiver(Messages::WebDeviceOrientationUpdateProvider::messageReceiverName(), m_pageIdentifier);
 }
 
-void WebDeviceOrientationUpdateProvider::startUpdatingDeviceOrientation(WebCore::MotionManagerClient& client, const WebCore::SecurityOriginData& origin)
+void WebDeviceOrientationUpdateProvider::startUpdatingDeviceOrientation(WebCore::MotionManagerClient& client)
 {
     if (m_deviceOrientationClients.isEmptyIgnoringNullReferences() && m_page)
-        m_page->send(Messages::WebDeviceOrientationUpdateProviderProxy::StartUpdatingDeviceOrientation(origin));
+        m_page->send(Messages::WebDeviceOrientationUpdateProviderProxy::StartUpdatingDeviceOrientation());
 
     m_deviceOrientationClients.add(client);
 }
@@ -67,10 +67,10 @@ void WebDeviceOrientationUpdateProvider::stopUpdatingDeviceOrientation(WebCore::
         m_page->send(Messages::WebDeviceOrientationUpdateProviderProxy::StopUpdatingDeviceOrientation());
 }
 
-void WebDeviceOrientationUpdateProvider::startUpdatingDeviceMotion(WebCore::MotionManagerClient& client, const WebCore::SecurityOriginData& origin)
+void WebDeviceOrientationUpdateProvider::startUpdatingDeviceMotion(WebCore::MotionManagerClient& client)
 {
     if (m_deviceMotionClients.isEmptyIgnoringNullReferences() && m_page)
-        m_page->send(Messages::WebDeviceOrientationUpdateProviderProxy::StartUpdatingDeviceMotion(origin));
+        m_page->send(Messages::WebDeviceOrientationUpdateProviderProxy::StartUpdatingDeviceMotion());
 
     m_deviceMotionClients.add(client);
 }

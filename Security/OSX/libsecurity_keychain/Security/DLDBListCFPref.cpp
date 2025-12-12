@@ -42,6 +42,7 @@
 #include <syslog.h>
 #include <sandbox.h>
 #include <security_keychain/StorageManager.h>
+#include "LegacyAPICounts.h"
 
 dispatch_once_t AppSandboxChecked;
 xpc_object_t KeychainHomeFromXPC;
@@ -1117,4 +1118,86 @@ DLDbListCFPref::loginDLDbIdentifier()
     }
 
 	return mLoginDLDbIdentifier;
+}
+
+void DLDbListCFPref::sendTelemetryData() {
+    if (mDomain != kSecPreferencesDomainUser) {
+        return;
+    }
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CFArrayRef defaultArray = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(mPropertyList, kDefaultKeychainKey));
+        secdebug("keychainUserDefaults", "defaultArray:%@", defaultArray);
+        bool defaultModified = defaultArray && CFGetTypeID(defaultArray) == CFArrayGetTypeID();
+
+        CFArrayRef loginArray = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(mPropertyList, kLoginKeychainKey));
+        secdebug("keychainUserDefaults", "loginArray:%@", loginArray);
+        bool loginModified = loginArray && CFGetTypeID(loginArray) == CFArrayGetTypeID();
+
+        CFArrayRef searchList = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(mPropertyList, kDefaultDLDbListKey));
+        CFIndex searchListLengthRaw = (searchList && CFGetTypeID(searchList) == CFArrayGetTypeID()) ? CFArrayGetCount(searchList) : -1;
+        int8_t searchListLength = searchListLengthRaw < 64 ? searchListLengthRaw : 64;
+        secdebug("keychainUserDefaults", "searchList:%@ searchListLengthRaw:%ld searchListLength:%d", searchList, (long)searchListLengthRaw, searchListLength);
+
+        secdebug("keychainUserDefaults", "finding LoginDLDbIdentifier %s", LoginDLDbIdentifier().dbName());
+        int8_t defaultLoginIndex = findInSearchList(searchList, LoginDLDbIdentifier());
+
+        secdebug("keychainUserDefaults", "finding mLoginDLDbIdentifier %s", mLoginDLDbIdentifier.dbName());
+        int8_t currentLoginIndex = findInSearchList(searchList, mLoginDLDbIdentifier);
+
+        secdebug("keychainUserDefaults", "finding symlinks");
+        int8_t firstSymlinkIndex = findInSearchList(searchList, ^(const char* const dbName) {
+            char buf[PATH_MAX];
+            cached_realpath(dbName, buf);
+            secdebug("keychainUserDefaults", "  %s %s", dbName, buf);
+            return string(dbName) != string(buf);
+        });
+
+        secdebug("keychainUserDefaults", "finding outsiders");
+        string theDir = ExpandTildesInPath(kLoginKeychainPathPrefix);
+        int8_t firstOutsideIndex = findInSearchList(searchList, ^(const char* const dbName) {
+            secdebug("keychainUserDefaults", "  %s", dbName);
+            return !string(dbName).starts_with(theDir);
+        });
+
+        countLegacyKeychainUserDefaults(defaultModified, loginModified, searchListLength, defaultLoginIndex, currentLoginIndex, firstSymlinkIndex, firstOutsideIndex);
+    });
+}
+
+int8_t DLDbListCFPref::findInSearchList(CFArrayRef searchList, DLDbIdentifier it) {
+    if (!searchList) {
+        return -1;
+    }
+
+    char buf_it[PATH_MAX];
+    cached_realpath(it.dbName(), buf_it);
+    string str_it(buf_it);
+
+    return findInSearchList(searchList, ^(const char* const dbName) {
+        char buf[PATH_MAX];
+        cached_realpath(dbName, buf);
+        secdebug("keychainUserDefaults", "  %s", buf);
+        return string(buf) == str_it;
+    });
+}
+
+int8_t DLDbListCFPref::findInSearchList(CFArrayRef searchList, bool (^predicate)(const char* const currentDbName)) {
+    if (!searchList) {
+        return -1;
+    }
+
+    CFIndex top = CFArrayGetCount(searchList);
+    for (CFIndex idx = 0; idx < top; ++idx) {
+        CFDictionaryRef theDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(searchList, idx));
+        try {
+            DLDbIdentifier current = cfDictionaryRefToDLDbIdentifier(theDict);
+            if (predicate(current.dbName())) {
+                return idx < 64 ? idx : 64;
+            }
+        } catch (...) {
+            // Drop stuff that doesn't parse on the floor.
+        }
+    }
+    return -1;
 }

@@ -27,11 +27,11 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "JSObject.h"
-#include "WasmLimits.h"
-#include "WasmTable.h"
-#include "WebAssemblyWrapperFunction.h"
-#include "WebAssemblyFunction.h"
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/WasmLimits.h>
+#include <JavaScriptCore/WasmTable.h>
+#include <JavaScriptCore/WebAssemblyFunction.h>
+#include <JavaScriptCore/WebAssemblyWrapperFunction.h>
 #include <wtf/Ref.h>
 
 namespace JSC {
@@ -53,6 +53,8 @@ public:
 
     DECLARE_INFO;
 
+    DECLARE_VISIT_CHILDREN;
+
     static bool isValidLength(uint32_t length) { return Wasm::Table::isValidLength(length); }
     std::optional<uint32_t> maximum() const { return m_table->maximum(); }
     uint32_t length() const { return m_table->length(); }
@@ -69,7 +71,6 @@ public:
 private:
     JSWebAssemblyTable(VM&, Structure*, Ref<Wasm::Table>&&);
     DECLARE_DEFAULT_FINISH_CREATION;
-    DECLARE_VISIT_CHILDREN;
 
     const Ref<Wasm::Table> m_table;
 };

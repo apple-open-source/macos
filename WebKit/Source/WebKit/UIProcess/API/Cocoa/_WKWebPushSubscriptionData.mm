@@ -46,17 +46,17 @@
 
 - (NSData *)applicationServerKey
 {
-    return toNSData(self._protectedData->applicationServerKey()).get();
+    return toNSData(self._protectedData->applicationServerKey()).unsafeGet();
 }
 
 - (NSData *)authenticationSecret
 {
-    return toNSData(self._protectedData->sharedAuthenticationSecret()).get();
+    return toNSData(self._protectedData->sharedAuthenticationSecret()).unsafeGet();
 }
 
 - (NSData *)ecdhPublicKey
 {
-    return toNSData(self._protectedData->clientECDHPublicKey()).get();
+    return toNSData(self._protectedData->clientECDHPublicKey()).unsafeGet();
 }
 
 - (API::Object&)_apiObject

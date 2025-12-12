@@ -52,7 +52,7 @@ class PageGroup : public CanMakeWeakPtr<PageGroup> {
 public:
     WEBCORE_EXPORT explicit PageGroup(const String& name);
     explicit PageGroup(Page&);
-    ~PageGroup();
+    WEBCORE_EXPORT ~PageGroup();
 
     WEBCORE_EXPORT static PageGroup* pageGroup(const String& groupName);
 

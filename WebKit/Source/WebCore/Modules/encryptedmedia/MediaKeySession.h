@@ -32,7 +32,6 @@
 
 #include "ActiveDOMObject.h"
 #include "CDMInstanceSession.h"
-#include "ContextDestructionObserverInlines.h"
 #include "EventTarget.h"
 #include "EventTargetInterfaces.h"
 #include "IDLTypes.h"
@@ -109,7 +108,7 @@ private:
 
     // EventTarget
     enum EventTargetInterfaceType eventTargetInterface() const override { return EventTargetInterfaceType::MediaKeySession; }
-    ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const override;
     void refEventTarget() override { ref(); }
     void derefEventTarget() override { deref(); }
 

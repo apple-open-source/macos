@@ -6,6 +6,10 @@
 
 // translator_fuzzer.cpp: A libfuzzer fuzzer for the shader translator.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -93,10 +97,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     bool hasUnsupportedOptions = false;
 
-    const bool hasMacGLSLOptions = options.rewriteFloatUnaryMinusOperator ||
-                                   options.addAndTrueToLoopCondition ||
-                                   options.rewriteDoWhileLoops || options.unfoldShortCircuit ||
-                                   options.rewriteRowMajorMatrices;
+    const bool hasMacGLSLOptions = options.addAndTrueToLoopCondition ||
+                                   options.unfoldShortCircuit || options.rewriteRowMajorMatrices;
 
     if (!IsOutputGLSL(shaderOutput) && !IsOutputESSL(shaderOutput))
     {
@@ -112,6 +114,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 #if !defined(ANGLE_PLATFORM_APPLE)
         hasUnsupportedOptions = hasUnsupportedOptions || hasMacGLSLOptions;
 #endif
+    }
+    if (!IsOutputESSL(shaderOutput))
+    {
+        hasUnsupportedOptions = hasUnsupportedOptions || options.skipAllValidationAndTransforms;
     }
     if (!IsOutputSPIRV(shaderOutput))
     {

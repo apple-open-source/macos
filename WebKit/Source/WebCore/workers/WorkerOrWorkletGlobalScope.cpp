@@ -153,4 +153,9 @@ OptionSet<NoiseInjectionPolicy> WorkerOrWorkletGlobalScope::noiseInjectionPolici
     return policies;
 }
 
+RefPtr<WorkerOrWorkletThread> WorkerOrWorkletGlobalScope::workerOrWorkletThread() const
+{
+    return m_thread.get();
+}
+
 } // namespace WebCore

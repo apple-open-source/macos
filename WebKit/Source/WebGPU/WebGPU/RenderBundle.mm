@@ -28,6 +28,7 @@
 
 #import "APIConversions.h"
 #import "BindGroup.h"
+#import "TextureOrTextureView.h"
 #import <wtf/TZoneMallocInlines.h>
 
 @implementation ResourceUsageAndRenderStage
@@ -112,7 +113,7 @@ uint64_t RenderBundle::drawCount() const
     return m_commandCount;
 }
 
-bool RenderBundle::validateRenderPass(bool depthReadOnly, bool stencilReadOnly, const WGPURenderPassDescriptor& descriptor, const Vector<RefPtr<TextureView>>& colorAttachmentViews, const RefPtr<TextureView>& depthStencilView) const
+bool RenderBundle::validateRenderPass(bool depthReadOnly, bool stencilReadOnly, const WGPURenderPassDescriptor& descriptor, const Vector<TextureOrTextureView>& colorAttachmentViews, const std::optional<TextureOrTextureView>& depthStencilView) const
 {
     if (depthReadOnly && !m_descriptor.depthReadOnly)
         return false;
@@ -133,23 +134,23 @@ bool RenderBundle::validateRenderPass(bool depthReadOnly, bool stencilReadOnly, 
                 continue;
             return false;
         }
-        auto attachmentView = colorAttachmentViews[i];
+        auto& attachmentView = colorAttachmentViews[i];
         if (!attachmentView) {
             if (descriptorColorFormat == WGPUTextureFormat_Undefined)
                 continue;
             return false;
         }
-        if (descriptorColorFormat != attachmentView->format())
+        if (descriptorColorFormat != attachmentView.format())
             return false;
-        defaultRasterSampleCount = attachmentView->sampleCount();
+        defaultRasterSampleCount = attachmentView.sampleCount();
     }
 
     if (descriptor.depthStencilAttachment) {
-        if (!depthStencilView) {
+        if (!depthStencilView || !*depthStencilView) {
             if (m_descriptor.depthStencilFormat != WGPUTextureFormat_Undefined)
                 return false;
         } else {
-            auto& texture = *depthStencilView.get();
+            auto& texture = *depthStencilView;
             if (texture.format() != m_descriptor.depthStencilFormat)
                 return false;
             defaultRasterSampleCount = texture.sampleCount();

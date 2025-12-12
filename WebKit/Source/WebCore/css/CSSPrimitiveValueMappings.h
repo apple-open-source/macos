@@ -4,6 +4,7 @@
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2009 Jeff Schiller <codedread@gmail.com>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,23 +30,25 @@
 
 #pragma once
 
+#include "CSSFontFaceSrcValue.h"
+#include "StyleBuilderState.h"
 #include "AnchorPositionEvaluator.h"
 #include "CSSCalcSymbolTable.h"
-#include "CSSCalcValue.h"
-#include "CSSFontFaceSrcValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSToLengthConversionData.h"
 #include "CSSValueKeywords.h"
+#include "CompositeOperation.h"
 #include "FontSizeAdjust.h"
 #include "GraphicsTypes.h"
-#include "Length.h"
-#include "ListStyleType.h"
 #include "PositionTryFallback.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
 #include "ScrollAxis.h"
 #include "ScrollTypes.h"
-#include "StyleBuilderState.h"
+#include "StyleScrollBehavior.h"
+#include "StyleTextDecorationLine.h"
+#include "StyleWebKitOverflowScrolling.h"
+#include "StyleWebKitTouchCallout.h"
 #include "TextFlags.h"
 #include "ThemeTypes.h"
 #include "TouchAction.h"
@@ -83,7 +86,7 @@ public:
 
     operator const CSSPrimitiveValue&() const
     {
-        return downcast<CSSPrimitiveValue>(m_value);
+        return downcast<CSSPrimitiveValue>(m_value).unsafeGet();
     }
 
     operator const CSSValue&() const
@@ -93,27 +96,27 @@ public:
 
     operator unsigned short() const
     {
-        return protectedNumericValue()->resolveAsNumber<unsigned short>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<unsigned short>(m_builderState->cssToLengthConversionData());
     }
 
     operator int() const
     {
-        return protectedNumericValue()->resolveAsNumber<int>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<int>(m_builderState->cssToLengthConversionData());
     }
 
     operator unsigned() const
     {
-        return protectedNumericValue()->resolveAsNumber<unsigned>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<unsigned>(m_builderState->cssToLengthConversionData());
     }
 
     operator float() const
     {
-        return protectedNumericValue()->resolveAsNumber<float>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<float>(m_builderState->cssToLengthConversionData());
     }
 
     operator double() const
     {
-        return protectedNumericValue()->resolveAsNumber<double>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<double>(m_builderState->cssToLengthConversionData());
     }
 
 private:
@@ -124,7 +127,7 @@ private:
         return value;
     }
 
-    const Style::BuilderState& m_builderState;
+    const CheckedRef<const Style::BuilderState> m_builderState;
     Ref<const CSSValue> m_value;
 };
 
@@ -899,28 +902,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-constexpr CSSValueID toCSSValueID(ListStyleType::Type style)
-{
-    switch (style) {
-    case ListStyleType::Type::None:
-        return CSSValueNone;
-    default:
-        ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-        return CSSValueInvalid;
-    }
-}
-
-template<> constexpr ListStyleType::Type fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueNone:
-        return ListStyleType::Type::None;
-    default:
-        ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-        return ListStyleType::Type::None;
-    }
-}
-
 #define TYPE MarqueeBehavior
 #define FOR_EACH(CASE) CASE(None) CASE(Scroll) CASE(Slide) CASE(Alternate)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -1241,7 +1222,7 @@ template<> constexpr TextJustify fromCSSValueID(CSSValueID valueID)
     return TextJustify::Auto;
 }
 
-#define TYPE TextDecorationLine
+#define TYPE Style::TextDecorationLine::Flag
 #define FOR_EACH(CASE) CASE(Underline) CASE(Overline) CASE(LineThrough) CASE(Blink)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
@@ -1358,62 +1339,6 @@ template<> constexpr UserSelect fromCSSValueID(CSSValueID valueID)
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
     return UserSelect::Text;
-}
-
-constexpr CSSValueID toCSSValueID(VerticalAlign a)
-{
-    switch (a) {
-    case VerticalAlign::Top:
-        return CSSValueTop;
-    case VerticalAlign::Bottom:
-        return CSSValueBottom;
-    case VerticalAlign::Middle:
-        return CSSValueMiddle;
-    case VerticalAlign::Baseline:
-        return CSSValueBaseline;
-    case VerticalAlign::TextBottom:
-        return CSSValueTextBottom;
-    case VerticalAlign::TextTop:
-        return CSSValueTextTop;
-    case VerticalAlign::Sub:
-        return CSSValueSub;
-    case VerticalAlign::Super:
-        return CSSValueSuper;
-    case VerticalAlign::BaselineMiddle:
-        return CSSValueWebkitBaselineMiddle;
-    case VerticalAlign::Length:
-        return CSSValueInvalid;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return CSSValueInvalid;
-}
-
-template<> constexpr VerticalAlign fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueTop:
-        return VerticalAlign::Top;
-    case CSSValueBottom:
-        return VerticalAlign::Bottom;
-    case CSSValueMiddle:
-        return VerticalAlign::Middle;
-    case CSSValueBaseline:
-        return VerticalAlign::Baseline;
-    case CSSValueTextBottom:
-        return VerticalAlign::TextBottom;
-    case CSSValueTextTop:
-        return VerticalAlign::TextTop;
-    case CSSValueSub:
-        return VerticalAlign::Sub;
-    case CSSValueSuper:
-        return VerticalAlign::Super;
-    case CSSValueWebkitBaselineMiddle:
-        return VerticalAlign::BaselineMiddle;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return VerticalAlign::Top;
 }
 
 #define TYPE Visibility
@@ -1793,32 +1718,6 @@ template<> constexpr FontSmoothingMode fromCSSValueID(CSSValueID valueID)
     return FontSmoothingMode::AutoSmoothing;
 }
 
-constexpr CSSValueID toCSSValueID(FontSmallCaps smallCaps)
-{
-    switch (smallCaps) {
-    case FontSmallCaps::Off:
-        return CSSValueNormal;
-    case FontSmallCaps::On:
-        return CSSValueSmallCaps;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return CSSValueInvalid;
-}
-
-template<> constexpr FontSmallCaps fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueSmallCaps:
-        return FontSmallCaps::On;
-    case CSSValueNormal:
-        return FontSmallCaps::Off;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return FontSmallCaps::Off;
-}
-
 constexpr CSSValueID toCSSValueID(TextRenderingMode e)
 {
     switch (e) {
@@ -2010,6 +1909,8 @@ constexpr CSSValueID toCSSValueID(AppleVisualEffect effect)
 #if HAVE(MATERIAL_HOSTING)
     case AppleVisualEffect::GlassMaterial:
         return CSSValueAppleSystemGlassMaterial;
+    case AppleVisualEffect::GlassClearMaterial:
+        return CSSValueAppleSystemGlassMaterialClear;
     case AppleVisualEffect::GlassSubduedMaterial:
         return CSSValueAppleSystemGlassMaterialSubdued;
     case AppleVisualEffect::GlassMediaControlsMaterial:
@@ -2056,6 +1957,8 @@ template<> constexpr AppleVisualEffect fromCSSValueID(CSSValueID valueID)
 #if HAVE(MATERIAL_HOSTING)
     case CSSValueAppleSystemGlassMaterial:
         return AppleVisualEffect::GlassMaterial;
+    case CSSValueAppleSystemGlassMaterialClear:
+        return AppleVisualEffect::GlassClearMaterial;
     case CSSValueAppleSystemGlassMaterialSubdued:
         return AppleVisualEffect::GlassSubduedMaterial;
     case CSSValueAppleSystemGlassMaterialMediaControls:
@@ -2157,13 +2060,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
-
-#define TYPE ColorRendering
-#define FOR_EACH(CASE) CASE(Auto) CASE(OptimizeSpeed) CASE(OptimizeQuality)
-DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
-#undef TYPE
-#undef FOR_EACH
-
 
 #define TYPE DominantBaseline
 #define FOR_EACH(CASE) CASE(Auto) CASE(UseScript) CASE(NoChange) CASE(ResetSize) CASE(Central) \
@@ -2315,7 +2211,7 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef FOR_EACH
 
 #define TYPE ScrollSnapStrictness
-#define FOR_EACH(CASE) CASE(None) CASE(Proximity) CASE(Mandatory)
+#define FOR_EACH(CASE) CASE(Proximity) CASE(Mandatory)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -2375,56 +2271,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
-
-constexpr CSSValueID toCSSValueID(TextEdgeType textEdgeType)
-{
-    switch (textEdgeType) {
-    case TextEdgeType::Auto:
-        return CSSValueAuto;
-    case TextEdgeType::Leading:
-        return CSSValueLeading;
-    case TextEdgeType::Text:
-        return CSSValueText;
-    case TextEdgeType::CapHeight:
-        return CSSValueCap;
-    case TextEdgeType::ExHeight:
-        return CSSValueEx;
-    case TextEdgeType::Alphabetic:
-        return CSSValueAlphabetic;
-    case TextEdgeType::CJKIdeographic:
-        return CSSValueIdeographic;
-    case TextEdgeType::CJKIdeographicInk:
-        return CSSValueIdeographicInk;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return CSSValueInvalid;
-}
-
-template<> constexpr TextEdgeType fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueAuto:
-        return TextEdgeType::Auto;
-    case CSSValueLeading:
-        return TextEdgeType::Leading;
-    case CSSValueText:
-        return TextEdgeType::Text;
-    case CSSValueCap:
-        return TextEdgeType::CapHeight;
-    case CSSValueEx:
-        return TextEdgeType::ExHeight;
-    case CSSValueAlphabetic:
-        return TextEdgeType::Alphabetic;
-    case CSSValueIdeographic:
-        return TextEdgeType::CJKIdeographic;
-    case CSSValueIdeographicInk:
-        return TextEdgeType::CJKIdeographicInk;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return TextEdgeType::Auto;
-}
 
 #if ENABLE(APPLE_PAY)
 
@@ -2597,6 +2443,12 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
+#define TYPE MathShift
+#define FOR_EACH(CASE) CASE(Normal) CASE(Compact)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
 #define TYPE MathStyle
 #define FOR_EACH(CASE) CASE(Normal) CASE(Compact)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -2646,10 +2498,90 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef FOR_EACH
 
 #define TYPE Style::PositionTryFallback::Tactic
-#define FOR_EACH(CASE) CASE(FlipBlock) CASE(FlipInline) CASE(FlipStart)
+#define FOR_EACH(CASE) CASE(FlipBlock) CASE(FlipInline) CASE(FlipStart) CASE(FlipX) CASE(FlipY)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
+
+#define TYPE Style::ScrollBehavior
+#define FOR_EACH(CASE) CASE(Auto) CASE(Smooth)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE Scroller
+#define FOR_EACH(CASE) CASE(Nearest) CASE(Root) CASE(Self)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE NinePieceImageRule
+#define FOR_EACH(CASE) CASE(Stretch) CASE(Round) CASE(Space) CASE(Repeat)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE AnimationDirection
+#define FOR_EACH(CASE) CASE(Normal) CASE(Alternate) CASE(Reverse) CASE(AlternateReverse)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE AnimationFillMode
+#define FOR_EACH(CASE) CASE(None) CASE(Forwards) CASE(Backwards) CASE(Both)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE AnimationPlayState
+#define FOR_EACH(CASE) CASE(Running) CASE(Paused)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE CompositeOperation
+#define FOR_EACH(CASE) CASE(Replace) CASE(Add) CASE(Accumulate)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE TransitionBehavior
+#define FOR_EACH(CASE) CASE(Normal) CASE(AllowDiscrete)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE TextEdgeOver
+#define FOR_EACH(CASE) CASE(Text) CASE(Ideographic) CASE(IdeographicInk) CASE(Cap) CASE(Ex)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE TextEdgeUnder
+#define FOR_EACH(CASE) CASE(Text) CASE(Ideographic) CASE(IdeographicInk) CASE(Alphabetic)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#if ENABLE(WEBKIT_OVERFLOW_SCROLLING_CSS_PROPERTY)
+
+#define TYPE Style::WebkitOverflowScrolling
+#define FOR_EACH(CASE) CASE(Auto) CASE(Touch)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#endif
+
+#if ENABLE(WEBKIT_TOUCH_CALLOUT_CSS_PROPERTY)
+
+#define TYPE Style::WebkitTouchCallout
+#define FOR_EACH(CASE) CASE(Default) CASE(None)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#endif
 
 #undef EMIT_TO_CSS_SWITCH_CASE
 #undef EMIT_FROM_CSS_SWITCH_CASE

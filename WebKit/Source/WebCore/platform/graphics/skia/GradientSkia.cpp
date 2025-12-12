@@ -42,7 +42,6 @@ namespace WebCore {
 
 void Gradient::stopsChanged()
 {
-    m_shader = { };
 }
 
 inline SkScalar webCoreDoubleToSkScalar(double d)
@@ -103,9 +102,6 @@ static SkGradientShader::Interpolation toSkiaInterpolation(const ColorInterpolat
 
 sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradientSpaceTransform)
 {
-    if (m_shader)
-        return m_shader;
-
     Vector<SkColor4f, 8> colors;
     colors.reserveInitialCapacity(stops().size());
     Vector<SkScalar, 8> positions;
@@ -147,7 +143,7 @@ sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradi
     auto interpolation = toSkiaInterpolation(colorInterpolationMethod());
     SkMatrix matrix = gradientSpaceTransform;
 
-    m_shader = WTF::switchOn(
+    auto shader = WTF::switchOn(
         m_data,
         [&](const LinearData& data) {
             SkPoint points[] = { SkPoint::Make(data.point0.x(), data.point0.y()), SkPoint::Make(data.point1.x(), data.point1.y()) };
@@ -172,7 +168,7 @@ sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradi
             return SkGradientShader::MakeSweep(data.point0.x(), data.point0.y(), colors.span().data(), nullptr, positions.span().data(), colors.size(), tileMode, 0, 360, interpolation, &matrix);
         });
 
-    return m_shader;
+    return shader;
 }
 
 void Gradient::fill(GraphicsContext& context, const FloatRect& rect)

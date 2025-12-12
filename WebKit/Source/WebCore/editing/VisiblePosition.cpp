@@ -41,6 +41,7 @@
 #include "InlineRunAndOffset.h"
 #include "LineSelection.h"
 #include "Logging.h"
+#include "PositionInlines.h"
 #include "Range.h"
 #include "RenderBlockFlow.h"
 #include "RenderObjectInlines.h"
@@ -654,7 +655,7 @@ auto VisiblePosition::localCaretRect() const -> LocalCaretRect
     if (!renderer)
         return { };
 
-    return { computeLocalCaretRect(*renderer, boxAndOffset), const_cast<RenderObject*>(renderer.get()) };
+    return { computeLocalCaretRect(*renderer, boxAndOffset), const_cast<RenderObject*>(renderer.unsafeGet()) };
 }
 
 IntRect VisiblePosition::absoluteCaretBounds(bool* insideFixed) const

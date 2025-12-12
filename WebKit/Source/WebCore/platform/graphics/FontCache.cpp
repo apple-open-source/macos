@@ -125,7 +125,7 @@ using FontVerticalDataCache = HashMap<FontPlatformData, RefPtr<OpenTypeVerticalD
 #endif
 
 struct FontCache::FontDataCaches {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(FontCache);
 
     FontDataCache data;
     FontPlatformDataCache platformData;
@@ -136,17 +136,17 @@ struct FontCache::FontDataCaches {
 
 CheckedRef<FontCache> FontCache::forCurrentThread()
 {
-    return threadGlobalData().fontCache();
+    return threadGlobalDataSingleton().fontCache();
 }
 
 FontCache* FontCache::forCurrentThreadIfExists()
 {
-    return threadGlobalData().fontCacheIfExists();
+    return threadGlobalDataSingleton().fontCacheIfExists();
 }
 
 FontCache* FontCache::forCurrentThreadIfNotDestroyed()
 {
-    return threadGlobalData().fontCacheIfNotDestroyed();
+    return threadGlobalDataSingleton().fontCacheIfNotDestroyed();
 }
 
 FontCache::FontCache()
@@ -463,7 +463,7 @@ bool FontCache::useBackslashAsYenSignForFamily(const AtomString& family)
         return false;
 
     if (m_familiesUsingBackslashAsYenSign.isEmpty()) {
-        auto add = [&] (ASCIILiteral name, std::initializer_list<UChar> unicodeName) {
+        auto add = [&] (ASCIILiteral name, std::initializer_list<char16_t> unicodeName) {
             m_familiesUsingBackslashAsYenSign.add(AtomString { name });
             m_familiesUsingBackslashAsYenSign.add(AtomString(std::span { unicodeName }));
         };

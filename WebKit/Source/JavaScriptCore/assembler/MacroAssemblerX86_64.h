@@ -27,8 +27,8 @@
 
 #if ENABLE(ASSEMBLER) && CPU(X86_64)
 
-#include "X86Assembler.h"
-#include "AbstractMacroAssembler.h"
+#include <JavaScriptCore/AbstractMacroAssembler.h>
+#include <JavaScriptCore/X86Assembler.h>
 #include <array>
 #include <wtf/TZoneMalloc.h>
 
@@ -1278,12 +1278,26 @@ public:
 
     void absDouble(FPRegisterID src, FPRegisterID dst)
     {
-        ASSERT(src != dst);
-        move64ToDouble(TrustedImm64(std::bit_cast<int64_t>(-0.0)), dst);
-        if (supportsAVX())
-            m_assembler.vandnpd_rrr(src, dst, dst);
-        else
-            m_assembler.andnpd_rr(src, dst);
+        if (supportsAVX()) {
+            m_assembler.vpsllq_i8rr(1, src, dst);
+            m_assembler.vpsrlq_i8rr(1, dst, dst);
+        } else {
+            moveDouble(src, dst);
+            m_assembler.psllq_i8r(1, dst);
+            m_assembler.psrlq_i8r(1, dst);
+        }
+    }
+
+    void absFloat(FPRegisterID src, FPRegisterID dst)
+    {
+        if (supportsAVX()) {
+            m_assembler.vpslld_i8rr(1, src, dst);
+            m_assembler.vpsrld_i8rr(1, dst, dst);
+        } else {
+            moveDouble(src, dst);
+            m_assembler.pslld_i8r(1, dst);
+            m_assembler.psrld_i8r(1, dst);
+        }
     }
 
     void negateDouble(FPRegisterID src, FPRegisterID dst)
@@ -1295,6 +1309,17 @@ public:
             m_assembler.vxorpd_rrr(src, dst, dst);
         else
             m_assembler.xorpd_rr(src, dst);
+    }
+
+    void negateFloat(FPRegisterID src, FPRegisterID dst)
+    {
+        ASSERT(src != dst);
+        static constexpr float negativeZeroConstant = -0.0f;
+        loadFloat(TrustedImmPtr(&negativeZeroConstant), dst);
+        if (supportsAVX())
+            m_assembler.vxorps_rrr(src, dst, dst);
+        else
+            m_assembler.xorps_rr(src, dst);
     }
 
     void ceilDouble(FPRegisterID src, FPRegisterID dst)
@@ -4062,13 +4087,15 @@ public:
     void atomicAnd32(TrustedImm32 imm, Address address)
     {
         m_assembler.lock();
-        and32(imm, address);
+        // Do not use and32 as it may be optimized out when imm is -1.
+        m_assembler.andl_im(imm.m_value, address.offset, address.base);
     }
 
     void atomicAnd32(TrustedImm32 imm, BaseIndex address)
     {
         m_assembler.lock();
-        and32(imm, address);
+        // Do not use and32 as it may be optimized out when imm is -1.
+        m_assembler.andl_im(imm.m_value, address.offset, address.base, address.index, address.scale);
     }
 
     void atomicAnd32(RegisterID reg, Address address)
@@ -6864,13 +6891,15 @@ public:
     void atomicAnd64(TrustedImm32 imm, Address address)
     {
         m_assembler.lock();
-        and64(imm, address);
+        // Do not use and64 as it may be optimized out when imm is -1.
+        m_assembler.andq_im(imm.m_value, address.offset, address.base);
     }
     
     void atomicAnd64(TrustedImm32 imm, BaseIndex address)
     {
         m_assembler.lock();
-        and64(imm, address);
+        // Do not use and64 as it may be optimized out when imm is -1.
+        m_assembler.andq_im(imm.m_value, address.offset, address.base, address.index, address.scale);
     }
     
     void atomicAnd64(RegisterID reg, Address address)

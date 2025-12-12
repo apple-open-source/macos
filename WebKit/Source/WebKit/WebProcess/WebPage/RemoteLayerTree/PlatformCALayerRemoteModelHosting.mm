@@ -53,8 +53,9 @@ PlatformCALayerRemoteModelHosting::~PlatformCALayerRemoteModelHosting() = defaul
 
 Ref<WebCore::PlatformCALayer> PlatformCALayerRemoteModelHosting::clone(WebCore::PlatformCALayerClient* owner) const
 {
-    auto clone = adoptRef(*new PlatformCALayerRemoteModelHosting(m_model, owner, *context()));
-    context()->layerDidEnterContext(clone.get(), clone->layerType());
+    Ref context = *this->context();
+    Ref clone = adoptRef(*new PlatformCALayerRemoteModelHosting(m_model, owner, context));
+    context->layerDidEnterContext(clone.get(), clone->layerType());
 
     updateClonedLayerProperties(clone.get(), false);
 

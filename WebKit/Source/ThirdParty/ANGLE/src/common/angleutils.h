@@ -9,6 +9,10 @@
 #ifndef COMMON_ANGLEUTILS_H_
 #define COMMON_ANGLEUTILS_H_
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "common/platform.h"
 
 #if defined(ANGLE_WITH_LSAN)
@@ -146,12 +150,15 @@ struct PerfMonitorTriplet
     FN(textureDescriptorSetCacheHits)              \
     FN(textureDescriptorSetCacheMisses)            \
     FN(textureDescriptorSetCacheTotalSize)         \
+    FN(uniformBuffersDescriptorSetCacheHits)       \
+    FN(uniformBuffersDescriptorSetCacheMisses)     \
+    FN(uniformBuffersDescriptorSetCacheTotalSize)  \
     FN(shaderResourcesDescriptorSetCacheHits)      \
+    FN(shaderResourcesDescriptorSetCacheMisses)    \
+    FN(shaderResourcesDescriptorSetCacheTotalSize) \
     FN(deviceMemoryImageAllocationFallbacks)       \
     FN(mutableTexturesUploaded)                    \
     FN(fullImageClears)                            \
-    FN(shaderResourcesDescriptorSetCacheMisses)    \
-    FN(shaderResourcesDescriptorSetCacheTotalSize) \
     FN(buffersGhosted)                             \
     FN(vertexArraySyncStateCalls)                  \
     FN(allocateNewBufferBlockCalls)                \

@@ -199,6 +199,10 @@ void WebExtensionContextProxy::enumerateFramesAndNamespaceObjects(NOESCAPE const
         if (!page)
             return;
 
+        // We only support calling jsContextForServiceWorkerWorld() for the normal world.
+        if (page->isServiceWorkerPage() && !world->isNormal())
+            return;
+
         auto context = page->isServiceWorkerPage() ? frame.jsContextForServiceWorkerWorld(world) : frame.jsContextForWorld(world);
         auto globalObject = JSContextGetGlobalObject(context);
 

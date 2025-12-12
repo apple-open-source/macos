@@ -27,7 +27,7 @@
 
 #include "InlineFormattingContext.h"
 #include "InlineLineBuilder.h"
-#include "LayoutUnits.h"
+#include <WebCore/LayoutUnits.h>
 #include <wtf/Range.h>
 
 namespace WebCore {
@@ -78,6 +78,8 @@ private:
     void setGeometryForBlockLevelOutOfFlowBoxes(const Vector<size_t>& indexList, const Line::RunList&, const Vector<int32_t>& visualOrderList = { });
 
     bool isLineFullyTruncatedInBlockDirection() const { return m_lineIsFullyTruncatedInBlockDirection; }
+
+    bool isFirstFormattedLine() const { return lineBox().isFirstFormattedLine(); }
 
     const LineBox& lineBox() const { return m_lineBox; }
     size_t lineIndex() const { return lineBox().lineIndex(); }

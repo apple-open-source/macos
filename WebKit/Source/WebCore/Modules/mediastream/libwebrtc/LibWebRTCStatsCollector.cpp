@@ -27,11 +27,13 @@
 
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "JSDOMMapLike.h"
 #include "JSRTCIceTcpCandidateType.h"
 #include "JSRTCStatsReport.h"
 #include "LibWebRTCUtils.h"
 #include "Performance.h"
+#include "ScriptExecutionContextInlines.h"
 #include <webrtc/api/stats/rtcstats_objects.h>
 #include <wtf/Assertions.h>
 #include <wtf/MainThread.h>

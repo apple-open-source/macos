@@ -60,6 +60,7 @@ public:
 
     // EventTarget.
     ScriptExecutionContext* scriptExecutionContext() const final;
+    using ActiveDOMObject::protectedScriptExecutionContext;
 
     void reportNetworkUsage(size_t bytesTransferredOverNetworkDelta);
 
@@ -82,7 +83,7 @@ private:
     size_t m_bytesTransferredOverNetwork { 0 };
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    RefPtr<ResourceMonitor> m_resourceMonitor;
+    const RefPtr<ResourceMonitor> m_resourceMonitor;
 #endif
 
     bool m_isActive { true };

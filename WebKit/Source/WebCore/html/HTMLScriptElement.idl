@@ -24,7 +24,7 @@
     [CEReactions=NotNeeded] attribute (TrustedScript or [LegacyNullToEmptyString] DOMString) innerText;
     [CEReactions=NotNeeded] attribute (TrustedScript or DOMString)? textContent;
 
-    [CEReactions=NotNeeded, Reflect=for] attribute DOMString htmlFor;
+    [CEReactions=NotNeeded, Reflect="for"] attribute DOMString htmlFor;
     [CEReactions=NotNeeded, Reflect] attribute DOMString event;
     [CEReactions=NotNeeded, Reflect] attribute DOMString charset;
     [CEReactions=NotNeeded] attribute boolean async;

@@ -63,6 +63,9 @@ public:
     void addServiceWorkerRegistrationInServer(WebCore::ServiceWorkerRegistrationIdentifier) final;
     void removeServiceWorkerRegistrationInServer(WebCore::ServiceWorkerRegistrationIdentifier) final;
 
+    void registerServiceWorkerInServer(WebCore::ServiceWorkerIdentifier) final;
+    void unregisterServiceWorkerInServer(WebCore::ServiceWorkerIdentifier) final;
+
     void disconnectedFromWebProcess();
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 

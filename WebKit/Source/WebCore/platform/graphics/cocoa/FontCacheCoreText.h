@@ -28,8 +28,8 @@
 
 #pragma once
 
-#include "FontDescription.h"
-#include "ShouldLocalizeAxisNames.h"
+#include <WebCore/FontDescription.h>
+#include <WebCore/ShouldLocalizeAxisNames.h>
 
 #include <CoreText/CTFont.h>
 

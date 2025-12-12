@@ -77,7 +77,8 @@
     (global-name "com.apple.tccd")
     (global-name "com.apple.trustdFileHelper")
     (global-name "com.apple.AppSSO.service-xpc")
-    (global-name "com.apple.GSSCred"))
+    (global-name "com.apple.GSSCred")
+    (global-name "com.apple.biome.access.system"))
 
 (allow ipc-posix-shm
 	(ipc-posix-name "com.apple.AppleDatabaseChanged"))

@@ -201,7 +201,7 @@ struct request_state
     mDNSBool no_reply;              // don't send asynchronous replies to client
     mDNSu8 unresponsiveness_reports;
 };
-mdns_compile_time_max_size_check(struct request_state, 296);
+mdns_compile_time_max_size_check(struct request_state, 304);
 
 // Notes:
 // 1. On a shared connection these fields in the primary structure, including hdr, are re-used

@@ -102,7 +102,7 @@ inline static bool deviceIsAvailable(AVCaptureDevice *device)
 RetainPtr<NSArray> AVCaptureDeviceManager::currentCameras()
 {
 #if HAVE(AVCAPTUREDEVICE)
-    AVCaptureDeviceDiscoverySession *discoverySession = [PAL::getAVCaptureDeviceDiscoverySessionClass()
+    AVCaptureDeviceDiscoverySession *discoverySession = [PAL::getAVCaptureDeviceDiscoverySessionClassSingleton()
         discoverySessionWithDeviceTypes:m_avCaptureDeviceTypes.get()
         mediaType:AVMediaTypeVideo
         position:AVCaptureDevicePositionUnspecified
@@ -152,8 +152,8 @@ static inline CaptureDevice toCaptureDevice(AVCaptureDevice *device, bool isDefa
     captureDevice.setIsDefault(isDefault);
 
 #if HAVE(AVCAPTUREDEVICE) && HAVE(CONTINUITY_CAMERA)
-    if ([PAL::getAVCaptureDeviceClass() respondsToSelector:@selector(systemPreferredCamera)] && [device respondsToSelector:@selector(isContinuityCamera)])
-        captureDevice.setIsEphemeral(device.isContinuityCamera && [PAL::getAVCaptureDeviceClass() systemPreferredCamera] != device);
+    if ([PAL::getAVCaptureDeviceClassSingleton() respondsToSelector:@selector(systemPreferredCamera)] && [device respondsToSelector:@selector(isContinuityCamera)])
+        captureDevice.setIsEphemeral(device.isContinuityCamera && [PAL::getAVCaptureDeviceClassSingleton() systemPreferredCamera] != device);
 #endif
 
     return captureDevice;
@@ -186,12 +186,12 @@ Vector<CaptureDevice> AVCaptureDeviceManager::retrieveCaptureDevices()
     auto currentDevices = currentCameras();
     AVCaptureDevice *defaultVideoDevice = nil;
 #if HAVE(CONTINUITY_CAMERA) && !PLATFORM(IOS_FAMILY_SIMULATOR)
-    auto haveSystemPreferredCamera = !![PAL::getAVCaptureDeviceClass() respondsToSelector:@selector(systemPreferredCamera)];
+    auto haveSystemPreferredCamera = !![PAL::getAVCaptureDeviceClassSingleton() respondsToSelector:@selector(systemPreferredCamera)];
     if (haveSystemPreferredCamera)
-        defaultVideoDevice = [PAL::getAVCaptureDeviceClass() systemPreferredCamera];
+        defaultVideoDevice = [PAL::getAVCaptureDeviceClassSingleton() systemPreferredCamera];
     else
 #endif
-        defaultVideoDevice = [PAL::getAVCaptureDeviceClass() defaultDeviceWithMediaType: AVMediaTypeVideo];
+        defaultVideoDevice = [PAL::getAVCaptureDeviceClassSingleton() defaultDeviceWithMediaType: AVMediaTypeVideo];
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
     ([&] {
@@ -285,20 +285,20 @@ AVCaptureDeviceManager::~AVCaptureDeviceManager()
     for (AVCaptureDevice *device in m_avCaptureDevices.get())
         [device removeObserver:m_objcObserver.get() forKeyPath:@"suspended"];
 #if HAVE(AVCAPTUREDEVICE)
-    [PAL::getAVCaptureDeviceClass() removeObserver:m_objcObserver.get() forKeyPath:@"systemPreferredCamera"];
-    [PAL::getAVCaptureDeviceDiscoverySessionClass() removeObserver:m_objcObserver.get() forKeyPath:@"devices"];
+    [PAL::getAVCaptureDeviceClassSingleton() removeObserver:m_objcObserver.get() forKeyPath:@"systemPreferredCamera"];
+    [PAL::getAVCaptureDeviceDiscoverySessionClassSingleton() removeObserver:m_objcObserver.get() forKeyPath:@"devices"];
 #endif
 }
 
 void AVCaptureDeviceManager::setUserPreferredCamera(CompletionHandler<void()>&& callback)
 {
 #if HAVE(AVCAPTUREDEVICE) && PLATFORM(IOS_FAMILY)
-    if ([PAL::getAVCaptureDeviceClass() respondsToSelector:@selector(setUserPreferredCamera:)]) {
+    if ([PAL::getAVCaptureDeviceClassSingleton() respondsToSelector:@selector(setUserPreferredCamera:)]) {
         m_dispatchQueue->dispatch([callback = WTFMove(callback)]() mutable {
             auto currentDevices = AVCaptureDeviceManager::singleton().currentCameras();
             for (AVCaptureDevice *platformDevice in currentDevices.get()) {
                 if (isVideoDevice(platformDevice) && [platformDevice position] == AVCaptureDevicePositionFront) {
-                    [PAL::getAVCaptureDeviceClass() setUserPreferredCamera:platformDevice];
+                    [PAL::getAVCaptureDeviceClassSingleton() setUserPreferredCamera:platformDevice];
                     break;
                 }
             }
@@ -316,8 +316,8 @@ void AVCaptureDeviceManager::registerForDeviceNotifications()
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(deviceConnectedDidChange:) name:AVCaptureDeviceWasConnectedNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(deviceConnectedDidChange:) name:AVCaptureDeviceWasDisconnectedNotification object:nil];
     IGNORE_WARNINGS_BEGIN("objc-method-access")
-    [PAL::getAVCaptureDeviceClass() addObserver:m_objcObserver.get() forKeyPath:@"systemPreferredCamera" options:(NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew) context:nil];
-    [PAL::getAVCaptureDeviceDiscoverySessionClass() addObserver:m_objcObserver.get() forKeyPath:@"devices" options:(NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew) context:nil];
+    [PAL::getAVCaptureDeviceClassSingleton() addObserver:m_objcObserver.get() forKeyPath:@"systemPreferredCamera" options:(NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew) context:nil];
+    [PAL::getAVCaptureDeviceDiscoverySessionClassSingleton() addObserver:m_objcObserver.get() forKeyPath:@"devices" options:(NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew) context:nil];
     IGNORE_WARNINGS_END
 #endif
 }

@@ -89,7 +89,7 @@ AudioTrack* AudioTrackList::getTrackById(const AtomString& id) const
     for (auto& inbandTrack : m_inbandTracks) {
         Ref track = downcast<AudioTrack>(*inbandTrack);
         if (track->id() == id)
-            return track.ptr();
+            return track.unsafePtr();
     }
     return nullptr;
 }
@@ -99,7 +99,7 @@ AudioTrack* AudioTrackList::getTrackById(TrackID id) const
     for (auto& inbandTrack : m_inbandTracks) {
         Ref track = downcast<AudioTrack>(*inbandTrack);
         if (track->trackId() == id)
-            return track.ptr();
+            return track.unsafePtr();
     }
     return nullptr;
 }

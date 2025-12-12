@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 * Copyright (C) 2007-2014, International Business Machines Corporation and
-* others. All rights reserved.
+* others. All Rights Reserved.
 *******************************************************************************
 *
 
@@ -543,7 +543,7 @@ private:
 
     class U_I18N_API PluralSelectorAdapter : public PluralSelector {
       public:
-        PluralSelectorAdapter() : pluralRules(NULL) {
+        PluralSelectorAdapter() : pluralRules(nullptr) {
         }
 
         virtual ~PluralSelectorAdapter();
@@ -561,7 +561,7 @@ private:
     double offset;
     PluralSelectorAdapter pluralRulesWrapper;
 
-    PluralFormat();   // default constructor not implemented
+    PluralFormat() = delete;   // default constructor not implemented
     void init(const PluralRules* rules, UPluralType type, UErrorCode& status);
     /**
      * Copies dynamically allocated values (pointer fields).

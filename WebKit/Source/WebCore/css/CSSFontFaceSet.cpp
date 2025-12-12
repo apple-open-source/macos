@@ -35,7 +35,6 @@
 #include "CSSSegmentedFontFace.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
-#include "DocumentInlines.h"
 #include "FontCache.h"
 #include "FontSelectionValueInlines.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
@@ -161,6 +160,8 @@ String CSSFontFaceSet::familyNameFromPrimitive(const CSSPrimitiveValue& value)
         return pictographFamily.get();
     case CSSValueSystemUi:
         return systemUiFamily.get();
+    case CSSValueMath:
+        return mathFamily.get();
     default:
         return { };
     }

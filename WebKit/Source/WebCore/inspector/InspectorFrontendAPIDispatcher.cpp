@@ -214,7 +214,7 @@ void InspectorFrontendAPIDispatcher::evaluateOrQueueExpression(const String& exp
             return;
         }
 
-        resultHandler({ promise->promise()->result(globalObject->vm()) });
+        resultHandler({ promise->promise()->result() });
     });
 
     if (isRegistered == DOMPromise::IsCallbackRegistered::No)

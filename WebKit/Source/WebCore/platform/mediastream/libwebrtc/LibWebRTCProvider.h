@@ -27,9 +27,10 @@
 
 #if USE(LIBWEBRTC)
 
-#include "LibWebRTCMacros.h"
-#include "ScriptExecutionContextIdentifier.h"
-#include "WebRTCProvider.h"
+#include <WebCore/LibWebRTCMacros.h>
+#include <WebCore/LibWebRTCRefWrappers.h>
+#include <WebCore/ScriptExecutionContextIdentifier.h>
+#include <WebCore/WebRTCProvider.h>
 #include <wtf/Compiler.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -51,7 +52,6 @@ namespace webrtc {
 class AsyncDnsResolverFactory;
 class NetworkManager;
 class PacketSocketFactory;
-class PeerConnectionFactoryInterface;
 class RTCCertificateGenerator;
 class Thread;
 }
@@ -84,6 +84,8 @@ public:
 
     webrtc::PeerConnectionFactoryInterface* factory();
     LibWebRTCAudioModule* audioModule();
+
+    void setUseL4S(bool);
 
     // FIXME: Make these methods not static.
     static void callOnWebRTCNetworkThread(Function<void()>&&);
@@ -122,7 +124,7 @@ protected:
 
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> createPeerConnection(webrtc::PeerConnectionObserver&, webrtc::NetworkManager&, webrtc::PacketSocketFactory&, webrtc::PeerConnectionInterface::RTCConfiguration&&, std::unique_ptr<webrtc::AsyncDnsResolverFactoryInterface>&&);
 
-    webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> createPeerConnectionFactory(webrtc::Thread* networkThread, webrtc::Thread* signalingThread);
+    Ref<webrtc::PeerConnectionFactoryInterface> createPeerConnectionFactory(webrtc::Thread* networkThread, webrtc::Thread* signalingThread);
     virtual std::unique_ptr<webrtc::VideoDecoderFactory> createDecoderFactory();
     virtual std::unique_ptr<webrtc::VideoEncoderFactory> createEncoderFactory();
 
@@ -131,7 +133,7 @@ protected:
     PeerConnectionFactoryAndThreads& getStaticFactoryAndThreads(bool useNetworkThreadWithSocketServer);
 
     RefPtr<LibWebRTCAudioModule> m_audioModule;
-    webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> m_factory;
+    RefPtr<webrtc::PeerConnectionFactoryInterface> m_factory;
     // FIXME: Remove m_useNetworkThreadWithSocketServer member variable and make it a global.
     bool m_useNetworkThreadWithSocketServer { true };
 
@@ -146,6 +148,7 @@ private:
     std::optional<MediaCapabilitiesDecodingInfo> videoDecodingCapabilitiesOverride(const VideoConfiguration&) final;
     std::optional<MediaCapabilitiesEncodingInfo> videoEncodingCapabilitiesOverride(const VideoConfiguration&) final;
 
+    bool m_useL4S { false };
     std::optional<bool> m_supportsVP9VTBForTesting { false };
     bool m_disableNonLocalhostConnections { false };
     bool m_enableEnumeratingAllNetworkInterfaces { false };

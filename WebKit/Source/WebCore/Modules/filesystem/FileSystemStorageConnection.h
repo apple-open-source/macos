@@ -25,13 +25,13 @@
 
 #pragma once
 
-#include "FileSystemHandleIdentifier.h"
-#include "FileSystemSyncAccessHandleIdentifier.h"
-#include "FileSystemWritableFileStreamIdentifier.h"
-#include "FileSystemWriteCloseReason.h"
-#include "FileSystemWriteCommandType.h"
-#include "ProcessQualified.h"
-#include "ScriptExecutionContextIdentifier.h"
+#include <WebCore/FileSystemHandleIdentifier.h>
+#include <WebCore/FileSystemSyncAccessHandleIdentifier.h>
+#include <WebCore/FileSystemWritableFileStreamIdentifier.h>
+#include <WebCore/FileSystemWriteCloseReason.h>
+#include <WebCore/FileSystemWriteCommandType.h>
+#include <WebCore/ProcessQualified.h>
+#include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/FileHandle.h>
 #include <wtf/HashMap.h>

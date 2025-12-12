@@ -37,7 +37,7 @@
 #include "WKDeclarationSpecifiers.h"
 
 #define MIGRATE_SYMBOL(InstallName, Platform, Introduced, Migrated, Symbol) \
-    extern WK_EXPORT const char migrated_symbol_##Symbol __asm("$ld$previous$" InstallName "$$" #Platform "$" #Introduced "$" #Migrated "$" #Symbol "$") \
+    extern WK_EXPORT const char migrated_symbol_##Symbol __asm__("$ld$previous$" InstallName "$$" #Platform "$" #Introduced "$" #Migrated "$" #Symbol "$") \
 
 #if PLATFORM(MAC)
 #define DECLARE_MIGRATED_NAME(Symbol, macOSVersion, iOSVersion, visionOSVersion) \

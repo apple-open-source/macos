@@ -26,18 +26,18 @@
 
 #pragma once
 
-#include "CacheStorageConnection.h"
-#include "ClientOrigin.h"
-#include "ImageBitmap.h"
-#include "ReportingClient.h"
-#include "ScriptExecutionContext.h"
-#include "Settings.h"
-#include "Supplementable.h"
-#include "WindowOrWorkerGlobalScope.h"
-#include "WorkerOrWorkletGlobalScope.h"
-#include "WorkerOrWorkletScriptController.h"
-#include "WorkerType.h"
 #include <JavaScriptCore/ConsoleMessage.h>
+#include <WebCore/CacheStorageConnection.h>
+#include <WebCore/ClientOrigin.h>
+#include <WebCore/ImageBitmap.h>
+#include <WebCore/ReportingClient.h>
+#include <WebCore/ScriptExecutionContext.h>
+#include <WebCore/Settings.h>
+#include <WebCore/Supplementable.h>
+#include <WebCore/WindowOrWorkerGlobalScope.h>
+#include <WebCore/WorkerOrWorkletGlobalScope.h>
+#include <WebCore/WorkerOrWorkletScriptController.h>
+#include <WebCore/WorkerType.h>
 #include <memory>
 #include <wtf/FixedVector.h>
 #include <wtf/MemoryPressureHandler.h>
@@ -83,6 +83,7 @@ class IDBConnectionProxy;
 
 class WorkerGlobalScope : public Supplementable<WorkerGlobalScope>, public WindowOrWorkerGlobalScope, public WorkerOrWorkletGlobalScope, public ReportingClient {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WorkerGlobalScope);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WorkerGlobalScope);
 public:
     virtual ~WorkerGlobalScope();
 
@@ -113,8 +114,7 @@ public:
     WorkerSWClientConnection& swClientConnection();
     void updateServiceWorkerClientData() final;
 
-    WorkerThread& thread() const;
-    Ref<WorkerThread> protectedThread() const;
+    Ref<WorkerThread> thread() const;
 
     using ScriptExecutionContext::hasPendingActivity;
 
@@ -205,6 +205,7 @@ private:
     EventTarget* errorEventTarget() final;
     String resourceRequestIdentifier() const final { return m_inspectorIdentifier; }
     SocketProvider* socketProvider() final;
+    RefPtr<SocketProvider> protectedSocketProvider();
     RefPtr<RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection() final;
 
     bool shouldBypassMainWorldContentSecurityPolicy() const final { return m_shouldBypassMainWorldContentSecurityPolicy; }
@@ -243,10 +244,10 @@ private:
     MemoryCompactRobinHoodHashMap<URL, WeakHashSet<ScriptBufferSourceProvider>> m_importedScriptsSourceProviders;
 
     const RefPtr<CacheStorageConnection> m_cacheStorageConnection;
-    const std::unique_ptr<WorkerMessagePortChannelProvider> m_messagePortChannelProvider;
+    const RefPtr<WorkerMessagePortChannelProvider> m_messagePortChannelProvider;
     const RefPtr<WorkerSWClientConnection> m_swClientConnection;
-    std::unique_ptr<CSSValuePool> m_cssValuePool;
-    std::unique_ptr<WorkerClient> m_workerClient;
+    const std::unique_ptr<CSSValuePool> m_cssValuePool;
+    const std::unique_ptr<WorkerClient> m_workerClient;
     const RefPtr<CSSFontSelector> m_cssFontSelector;
     SettingsValues m_settingsValues;
     WorkerType m_workerType;

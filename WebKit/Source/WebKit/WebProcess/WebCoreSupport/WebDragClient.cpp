@@ -53,8 +53,8 @@ OptionSet<DragSourceAction> WebDragClient::dragSourceActionMaskForPoint(const In
     return protectedPage()->allowedDragSourceActions();
 }
 
-#if !PLATFORM(COCOA) && !PLATFORM(GTK)
-void WebDragClient::startDrag(DragItem, DataTransfer&, Frame&, const std::optional<ElementIdentifier>&)
+#if !PLATFORM(COCOA) && !PLATFORM(GTK) && !PLATFORM(WPE)
+void WebDragClient::startDrag(DragItem, DataTransfer&, Frame&, const std::optional<NodeIdentifier>&)
 {
 }
 

@@ -21,10 +21,13 @@
 
 #pragma once
 
+#import <wtf/Platform.h>
+
 #if PLATFORM(MAC)
 
-#import "RenderThemeCocoa.h"
+#import <WebCore/RenderThemeCocoa.h>
 
+OBJC_CLASS NSPopUpButtonCell;
 OBJC_CLASS WebCoreRenderThemeNotificationObserver;
 
 namespace WebCore {
@@ -38,13 +41,12 @@ public:
     friend NeverDestroyed<RenderThemeMac>;
 
     // A method asking if the control changes its tint when the window has focus or not.
-    bool controlSupportsTints(const RenderObject&) const final;
+    bool controlSupportsTints(const RenderElement&) const final;
 
     // A general method asking if any control tinting is supported at all.
     bool supportsControlTints() const final { return true; }
 
-    void inflateRectForControlRenderer(const RenderObject&, FloatRect&) final;
-    void adjustRepaintRect(const RenderBox&, FloatRect&) final;
+    void inflateRectForControlRenderer(const RenderElement&, FloatRect&) final;
 
     bool isControlStyled(const RenderStyle&) const final;
 
@@ -61,7 +63,7 @@ public:
     Color platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColorOptions>) const final;
     Color platformFocusRingColor(OptionSet<StyleColorOptions>) const final;
     Color platformTextSearchHighlightColor(OptionSet<StyleColorOptions>) const final;
-    Color platformAnnotationHighlightColor(OptionSet<StyleColorOptions>) const final;
+    Color platformAnnotationHighlightBackgroundColor(OptionSet<StyleColorOptions>) const final;
     Color platformDefaultButtonTextColor(OptionSet<StyleColorOptions>) const final;
     Color platformAutocorrectionReplacementMarkerColor(OptionSet<StyleColorOptions>) const final;
 
@@ -81,7 +83,7 @@ public:
     Style::PaddingBox controlPadding(StyleAppearance, const Style::PaddingBox&, float zoomFactor) const final;
     Style::PreferredSizePair controlSize(StyleAppearance, const FontCascade&, const Style::PreferredSizePair&, float zoomFactor) const final;
     Style::MinimumSizePair minimumControlSize(StyleAppearance, const FontCascade&, const Style::MinimumSizePair&, float zoomFactor) const final;
-    LengthBox controlBorder(StyleAppearance, const FontCascade&, const LengthBox&, float zoomFactor, const Element*) const final;
+    Style::LineWidthBox controlBorder(StyleAppearance, const FontCascade&, const Style::LineWidthBox&, float zoomFactor, const Element*) const final;
     bool controlRequiresPreWhiteSpace(StyleAppearance) const final;
 
     bool popsMenuByArrowKeys() const final { return true; }
@@ -103,9 +105,9 @@ private:
     RenderThemeMac();
 
     bool canPaint(const PaintInfo&, const Settings&, StyleAppearance) const final;
-    bool canCreateControlPartForRenderer(const RenderObject&) const final;
-    bool canCreateControlPartForBorderOnly(const RenderObject&) const final;
-    bool canCreateControlPartForDecorations(const RenderObject&) const final;
+    bool canCreateControlPartForRenderer(const RenderElement&) const final;
+    bool canCreateControlPartForBorderOnly(const RenderElement&) const final;
+    bool canCreateControlPartForDecorations(const RenderElement&) const final;
 
     int baselinePosition(const RenderBox&) const final;
 
@@ -133,14 +135,14 @@ private:
     bool hasSwitchHapticFeedback(SwitchTrigger trigger) const final { return trigger == SwitchTrigger::PointerTracking; }
 
     void adjustListButtonStyle(RenderStyle&, const Element*) const final;
-    
+
 #if ENABLE(SERVICE_CONTROLS)
     void adjustImageControlsButtonStyle(RenderStyle&, const Element*) const final;
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     LayoutSize attachmentIntrinsicSize(const RenderAttachment&) const final;
-    bool paintAttachment(const RenderObject&, const PaintInfo&, const IntRect&) final;
+    bool paintAttachment(const RenderElement&, const PaintInfo&, const IntRect&) final;
 #endif
 
 private:

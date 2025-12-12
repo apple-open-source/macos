@@ -25,14 +25,15 @@
 
 #pragma once
 
-#include "EventTarget.h"
-#include "EventTargetInterfaces.h"
-#include "IDBActiveDOMObject.h"
-#include "IDBConnectionProxy.h"
-#include "IDBDatabaseConnectionIdentifier.h"
-#include "IDBDatabaseInfo.h"
-#include "IDBKeyPath.h"
-#include "IDBTransactionMode.h"
+#include <WebCore/EventNames.h>
+#include <WebCore/EventTarget.h>
+#include <WebCore/EventTargetInterfaces.h>
+#include <WebCore/IDBActiveDOMObject.h>
+#include <WebCore/IDBConnectionProxy.h>
+#include <WebCore/IDBDatabaseConnectionIdentifier.h>
+#include <WebCore/IDBDatabaseInfo.h>
+#include <WebCore/IDBKeyPath.h>
+#include <WebCore/IDBTransactionMode.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 
 namespace WebCore {
@@ -78,7 +79,7 @@ public:
 
     // EventTarget
     enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::IDBDatabase; }
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
     void refEventTarget() final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::ref(); }
     void derefEventTarget() final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 
@@ -124,6 +125,8 @@ private:
     void stop() final;
 
     void maybeCloseInServer();
+
+    RefPtr<IDBTransaction> protectedVersionChangeTransaction() const;
 
     const Ref<IDBClient::IDBConnectionProxy> m_connectionProxy;
     IDBDatabaseInfo m_info;

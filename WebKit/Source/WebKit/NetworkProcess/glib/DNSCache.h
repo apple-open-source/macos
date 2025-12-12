@@ -41,7 +41,6 @@ namespace WebKit {
 class DNSCache : public RefCounted<DNSCache> {
 public:
     static Ref<DNSCache> create();
-    ~DNSCache() = default;
 
     enum class Type { Default, IPv4Only, IPv6Only };
     std::optional<Vector<GRefPtr<GInetAddress>>> lookup(const CString& host, Type = Type::Default);

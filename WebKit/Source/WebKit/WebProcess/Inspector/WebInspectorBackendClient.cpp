@@ -29,8 +29,8 @@
 #include "DrawingArea.h"
 #include "WebInspectorInternal.h"
 #include "WebPage.h"
-#include <WebCore/Animation.h>
 #include <WebCore/GraphicsLayer.h>
+#include <WebCore/GraphicsLayerAnimation.h>
 #include <WebCore/GraphicsLayerFactory.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/LocalFrame.h>
@@ -53,7 +53,7 @@ public:
         : m_inspectorBackendClient(inspectorBackendClient)
     {
     }
-    virtual ~RepaintIndicatorLayerClient() { }
+    virtual ~RepaintIndicatorLayerClient() = default;
 private:
     void notifyAnimationEnded(const GraphicsLayer* layer, const String&) override
     {
@@ -216,10 +216,10 @@ void WebInspectorBackendClient::showPaintRect(const FloatRect& rect)
 
     fadeKeyframes.insert(makeUnique<FloatAnimationValue>(0.25, 0));
 
-    Ref opacityAnimation = Animation::create();
+    Ref opacityAnimation = GraphicsLayerAnimation::create();
     opacityAnimation->setDuration(0.25);
 
-    paintLayer->addAnimation(fadeKeyframes, FloatSize(), opacityAnimation.ptr(), "opacity"_s, 0);
+    paintLayer->addAnimation(fadeKeyframes, opacityAnimation.ptr(), "opacity"_s, 0);
 
     Ref rawLayer = paintLayer.get();
     m_paintRectLayers.add(WTFMove(paintLayer));

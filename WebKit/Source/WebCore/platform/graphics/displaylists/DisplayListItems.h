@@ -25,22 +25,22 @@
 
 #pragma once
 
-#include "AlphaPremultiplication.h"
-#include "ControlPart.h"
-#include "DashArray.h"
-#include "DecomposedGlyphs.h"
-#include "DisplayListItem.h"
-#include "Filter.h"
-#include "FloatRoundedRect.h"
-#include "Font.h"
-#include "GlyphBuffer.h"
-#include "Gradient.h"
-#include "GraphicsContext.h"
-#include "Image.h"
-#include "NativeImage.h"
-#include "SharedBuffer.h"
-#include "SystemImage.h"
-#include "TextFlags.h"
+#include <WebCore/AlphaPremultiplication.h>
+#include <WebCore/ControlPart.h>
+#include <WebCore/DashArray.h>
+#include <WebCore/DisplayListItem.h>
+#include <WebCore/Filter.h>
+#include <WebCore/FloatRoundedRect.h>
+#include <WebCore/Font.h>
+#include <WebCore/GlyphBuffer.h>
+#include <WebCore/Gradient.h>
+#include <WebCore/GraphicsContext.h>
+#include <WebCore/Image.h>
+#include <WebCore/NativeImage.h>
+#include <WebCore/SharedBuffer.h>
+#include <WebCore/SystemImage.h>
+#include <WebCore/TextFlags.h>
+#include <wtf/Box.h>
 #include <wtf/TypeCasts.h>
 
 namespace WTF {
@@ -495,7 +495,7 @@ class DrawGlyphs {
 public:
     static constexpr char name[] = "draw-glyphs";
 
-    DrawGlyphs(Ref<const Font>&& font, Vector<GlyphBufferGlyph>&& glyphs, Vector<GlyphBufferAdvance>&& advances, const FloatPoint& localAnchor,  FontSmoothingMode smoothingMode)
+    DrawGlyphs(Ref<const Font>&& font, Vector<GlyphBufferGlyph>&& glyphs, Vector<GlyphBufferAdvance>&& advances, const FloatPoint& localAnchor, FontSmoothingMode smoothingMode)
         : m_font(WTFMove(font))
         , m_glyphs(WTFMove(glyphs))
         , m_advances(WTFMove(advances))
@@ -507,6 +507,7 @@ public:
     Ref<const Font> font() const { return m_font; }
     const Vector<GlyphBufferGlyph>& glyphs() const { return m_glyphs; }
     const Vector<GlyphBufferAdvance>& advances() const { return m_advances; }
+    size_t length() const { return m_glyphs.size(); }
 
     FloatPoint localAnchor() const { return m_localAnchor; }
     FontSmoothingMode fontSmoothingMode() const { return m_fontSmoothingMode; }
@@ -522,26 +523,47 @@ private:
     FontSmoothingMode m_fontSmoothingMode;
 };
 
-class DrawDecomposedGlyphs {
+#if USE(SKIA)
+class DrawTextBlob {
 public:
-    static constexpr char name[] = "draw-decomposed-glyphs";
+    static constexpr char name[] = "draw-text-blob";
 
-    DrawDecomposedGlyphs(Ref<const Font>&& font, Ref<const DecomposedGlyphs>&& decomposedGlyphs)
-        : m_font(WTFMove(font))
-        , m_decomposedGlyphs(WTFMove(decomposedGlyphs))
+    DrawTextBlob(Ref<const Font>&& font, Vector<GlyphBufferGlyph>&& glyphs, Vector<GlyphBufferAdvance>&& advances, const FloatPoint& localAnchor, FontSmoothingMode smoothingMode)
+        : m_textBlob(font->buildTextBlob(glyphs, advances, smoothingMode))
+        , m_enableAntialiasing(font->enableAntialiasing(smoothingMode))
+        , m_isVertical(font->platformData().orientation() == FontOrientation::Vertical)
+        , m_localAnchor(localAnchor)
+        , m_fontSmoothingMode(smoothingMode)
     {
     }
 
-    Ref<const Font> font() const { return m_font; }
-    Ref<const DecomposedGlyphs> decomposedGlyphs() const { return m_decomposedGlyphs; }
+    size_t length() const
+    {
+        if (!m_textBlob)
+            return 0;
+
+        size_t glyphsCount = 0;
+        auto iter = SkTextBlob::Iter(*m_textBlob);
+        SkTextBlob::Iter::Run run;
+        while (iter.next(&run))
+            glyphsCount += run.fGlyphCount;
+        return glyphsCount;
+    }
+
+    FloatPoint localAnchor() const { return m_localAnchor; }
+    FontSmoothingMode fontSmoothingMode() const { return m_fontSmoothingMode; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<const Font> m_font;
-    Ref<const DecomposedGlyphs> m_decomposedGlyphs;
+    sk_sp<SkTextBlob> m_textBlob;
+    bool m_enableAntialiasing { false };
+    bool m_isVertical { false };
+    FloatPoint m_localAnchor;
+    FontSmoothingMode m_fontSmoothingMode;
 };
+#endif // USE(SKIA)
 
 class DrawDisplayList {
 public:
@@ -557,6 +579,21 @@ public:
 
 private:
     Ref<const DisplayList> m_displayList;
+};
+
+class DrawPlaceholder {
+public:
+    static constexpr char name[] = "draw-placeholder";
+
+    DrawPlaceholder(Function<void(GraphicsContext&)>&&);
+    ~DrawPlaceholder();
+
+    void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
+private:
+    using FunctionHolder = Box<Function<void(GraphicsContext&)>>;
+    FunctionHolder m_function;
 };
 
 class DrawImageBuffer {
@@ -1285,18 +1322,18 @@ class BeginPage {
 public:
     static constexpr char name[] = "begin-page";
 
-    BeginPage(const IntSize& pageSize)
-        : m_pageSize(pageSize)
+    BeginPage(const FloatRect& pageRect)
+        : m_pageRect(pageRect)
     {
     }
 
-    const IntSize& pageSize() const { return m_pageSize; }
+    const FloatRect& pageRect() const { return m_pageRect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    IntSize m_pageSize;
+    FloatRect m_pageRect;
 };
 
 class EndPage {

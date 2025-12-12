@@ -114,7 +114,7 @@ inline std::optional<String> toOptional(NSString *maybeNil)
 
 inline CocoaImage *toCocoaImage(RefPtr<WebCore::Icon> icon)
 {
-    return icon ? icon->image().get() : nil;
+    return icon ? icon->image().unsafeGet() : nil;
 }
 
 enum class JSONOptions {

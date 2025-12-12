@@ -178,7 +178,7 @@ JSValue JSTestMapLikeWithOverriddenOperations::getConstructor(VM& vm, const JSGl
 
 void JSTestMapLikeWithOverriddenOperations::destroy(JSC::JSCell* cell)
 {
-    JSTestMapLikeWithOverriddenOperations* thisObject = static_cast<JSTestMapLikeWithOverriddenOperations*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestMapLikeWithOverriddenOperations* thisObject = static_cast<JSTestMapLikeWithOverriddenOperations*>(cell);
     thisObject->JSTestMapLikeWithOverriddenOperations::~JSTestMapLikeWithOverriddenOperations();
 }
 
@@ -403,7 +403,7 @@ bool JSTestMapLikeWithOverriddenOperationsOwner::isReachableFromOpaqueRoots(JSC:
 
 void JSTestMapLikeWithOverriddenOperationsOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestMapLikeWithOverriddenOperations = static_cast<JSTestMapLikeWithOverriddenOperations*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestMapLikeWithOverriddenOperations = static_cast<JSTestMapLikeWithOverriddenOperations*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestMapLikeWithOverriddenOperations->protectedWrapped().ptr(), jsTestMapLikeWithOverriddenOperations);
 }
@@ -417,7 +417,7 @@ extern "C" { extern void (*const __identifier("??_7TestMapLikeWithOverriddenOper
 extern "C" { extern void* _ZTVN7WebCore35TestMapLikeWithOverriddenOperationsE[]; }
 #endif
 template<std::same_as<TestMapLikeWithOverriddenOperations> T>
-static inline void verifyVTable(TestMapLikeWithOverriddenOperations* ptr) 
+static inline void verifyVTable(TestMapLikeWithOverriddenOperations* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -437,8 +437,9 @@ static inline void verifyVTable(TestMapLikeWithOverriddenOperations* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestMapLikeWithOverriddenOperations>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestMapLikeWithOverriddenOperations>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestMapLikeWithOverriddenOperations>(impl.ptr());
 #endif

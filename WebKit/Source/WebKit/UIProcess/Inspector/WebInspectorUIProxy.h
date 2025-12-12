@@ -30,6 +30,7 @@
 #include "Connection.h"
 #include "DebuggableInfoData.h"
 #include "MessageReceiver.h"
+#include "WebInspectorBackendProxy.h"
 #include "WebInspectorUtilities.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyIdentifier.h"
@@ -43,6 +44,7 @@
 #include <wtf/RefPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
+
 
 #if PLATFORM(MAC)
 #include "WKGeometry.h"
@@ -83,6 +85,7 @@ class WebPreferences;
 #if ENABLE(INSPECTOR_EXTENSIONS)
 class WebInspectorUIExtensionControllerProxy;
 #endif
+class WebInspectorBackendProxy;
 
 enum class AttachmentSide : uint8_t {
     Bottom,
@@ -98,6 +101,7 @@ class WebInspectorUIProxy
     , public WebCore::WindowMessageListener
 #endif
 {
+    friend class WebInspectorBackendProxy;
 public:
     static Ref<WebInspectorUIProxy> create(WebPageProxy& inspectedPage)
     {
@@ -221,6 +225,8 @@ public:
     void evaluateInFrontendForTesting(const String&);
 
 private:
+    const RefPtr<WebInspectorBackendProxy> m_backend;
+
     void createFrontendPage();
     void closeFrontendPageAndWindow();
 
@@ -268,7 +274,7 @@ private:
     bool platformCanAttach(bool webProcessCanAttach) { return webProcessCanAttach; }
 #endif
 
-    // Called by WebInspectorUIProxy messages
+    // Called by WebInspectorBackendProxy and WebInspectorUIProxy messages
     void requestOpenLocalInspectorFrontend();
     void setFrontendConnection(IPC::Connection::Handle&&);
 
@@ -284,6 +290,7 @@ private:
     void inspectedURLChanged(const String&);
     void showCertificate(const WebCore::CertificateInfo&);
     void setInspectorPageDeveloperExtrasEnabled(bool);
+    void setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor);
     void elementSelectionChanged(bool);
     void timelineRecordingChanged(bool);
 

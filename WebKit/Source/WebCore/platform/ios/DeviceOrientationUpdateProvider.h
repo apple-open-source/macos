@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
 
 #include <wtf/RefCounted.h>
@@ -37,10 +38,10 @@ class DeviceOrientationUpdateProvider : public RefCounted<DeviceOrientationUpdat
 public:
     virtual ~DeviceOrientationUpdateProvider() { }
 
-    virtual void startUpdatingDeviceOrientation(MotionManagerClient&, const SecurityOriginData&) = 0;
+    virtual void startUpdatingDeviceOrientation(MotionManagerClient&) = 0;
     virtual void stopUpdatingDeviceOrientation(MotionManagerClient&) = 0;
 
-    virtual void startUpdatingDeviceMotion(MotionManagerClient&, const SecurityOriginData&) = 0;
+    virtual void startUpdatingDeviceMotion(MotionManagerClient&) = 0;
     virtual void stopUpdatingDeviceMotion(MotionManagerClient&) = 0;
 
     virtual void deviceOrientationChanged(double, double, double, double, double) = 0;

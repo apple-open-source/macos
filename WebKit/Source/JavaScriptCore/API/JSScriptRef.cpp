@@ -34,6 +34,8 @@
 #include "Parser.h"
 #include "SourceCode.h"
 #include "SourceProvider.h"
+#include <wtf/Scope.h>
+#include <wtf/SystemTracing.h>
 
 using namespace JSC;
 
@@ -54,6 +56,22 @@ public:
     StringView source() const final
     {
         return m_source.get();
+    }
+
+    [[maybe_unused]] String debugDescription() const
+    {
+        auto url = sourceURL();
+        if (!url.isEmpty())
+            return url;
+
+        auto truncated = source().left(64);
+        if (size_t pos = truncated.find('\n'); pos != notFound) {
+            if (truncated.startsWith("//# sourceURL="_s))
+                truncated = truncated.substring(14, pos);
+            else
+                truncated = truncated.substring(0, pos);
+        }
+        return truncated.toString();
     }
 
     VM& vm() const { return m_vm; }
@@ -95,6 +113,11 @@ JSScriptRef JSScriptCreateReferencingImmortalASCIIText(JSContextGroupRef context
     auto sourceURL = urlString ? URL({ }, urlString->string()) : URL();
     auto result = OpaqueJSScript::create(vm, SourceOrigin { sourceURL }, sourceURL.string(), startingLineNumber, String(StringImpl::createWithoutCopying({ source, length })));
 
+    WTFBeginSignpost(source, JSScriptRef, "createImmortal: %" PRIVATE_LOG_STRING " (%u bytes)", result->debugDescription().ascii().data(), result->source().length());
+    auto endSignpost = makeScopeExit([&] {
+        WTFEndSignpost(source, JSScriptRef);
+    });
+
     ParserError error;
     if (!parseScript(vm, SourceCode(result.copyRef()), error)) {
         if (errorMessage)
@@ -116,6 +139,11 @@ JSScriptRef JSScriptCreateFromString(JSContextGroupRef contextGroup, JSStringRef
 
     auto sourceURL = urlString ? URL({ }, urlString->string()) : URL();
     auto result = OpaqueJSScript::create(vm, SourceOrigin { sourceURL }, sourceURL.string(), startingLineNumber, source->string());
+
+    WTFBeginSignpost(source, JSScriptRef, "createFromString: %" PRIVATE_LOG_STRING " (%u bytes)", result->debugDescription().ascii().data(), result->source().length());
+    auto endSignpost = makeScopeExit([&] {
+        WTFEndSignpost(source, JSScriptRef);
+    });
 
     ParserError error;
     if (!parseScript(vm, SourceCode(result.copyRef()), error)) {
@@ -150,6 +178,12 @@ JSValueRef JSScriptEvaluate(JSContextRef context, JSScriptRef script, JSValueRef
         RELEASE_ASSERT_NOT_REACHED();
         return nullptr;
     }
+
+    WTFBeginSignpost(script, JSScriptRef, "evaluate: %" PRIVATE_LOG_STRING " (%u bytes)", script->debugDescription().ascii().data(), script->source().length());
+    auto endSignpost = makeScopeExit([&] {
+        WTFEndSignpost(script, JSScriptRef);
+    });
+
     NakedPtr<Exception> internalException;
     JSValue thisValue = thisValueRef ? toJS(globalObject, thisValueRef) : jsUndefined();
     JSValue result = evaluate(globalObject, SourceCode(*script), thisValue, internalException);

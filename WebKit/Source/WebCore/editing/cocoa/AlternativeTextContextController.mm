@@ -51,7 +51,7 @@ void AlternativeTextContextController::replaceAlternatives(PlatformTextAlternati
 
 PlatformTextAlternatives *AlternativeTextContextController::alternativesForContext(DictationContext context) const
 {
-    return m_alternatives.get(context).get();
+    return m_alternatives.get(context).unsafeGet();
 }
 
 void AlternativeTextContextController::removeAlternativesForContext(DictationContext context)

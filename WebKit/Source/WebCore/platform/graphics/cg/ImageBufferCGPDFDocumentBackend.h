@@ -27,8 +27,8 @@
 
 #if USE(CG)
 
-#include "ImageBuffer.h"
-#include "ImageBufferCGBackend.h"
+#include <WebCore/ImageBuffer.h>
+#include <WebCore/ImageBufferCGBackend.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {

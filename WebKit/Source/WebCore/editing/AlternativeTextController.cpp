@@ -29,9 +29,12 @@
 
 #include "BoundaryPointInlines.h"
 #include "Document.h"
+#include "DocumentEventLoop.h"
 #include "DocumentFragment.h"
-#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
+#include "DocumentMarkers.h"
+#include "DocumentPage.h"
+#include "DocumentView.h"
 #include "Editing.h"
 #include "Editor.h"
 #include "EditorClient.h"
@@ -39,7 +42,8 @@
 #include "EventLoop.h"
 #include "EventTargetInlines.h"
 #include "FloatQuad.h"
-#include "LocalFrame.h"
+#include "FrameDestructionObserverInlines.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "Page.h"
 #include "Range.h"
@@ -115,7 +119,7 @@ void AlternativeTextController::startAlternativeTextUITimer(AlternativeTextType 
     if (type == AlternativeTextType::Correction)
         m_rangeWithAlternative = std::nullopt;
     m_type = type;
-    m_timer = protectedDocument()->eventLoop().scheduleTask(correctionPanelTimerInterval, TaskSource::UserInteraction, [weakThis = WeakPtr { *this }] {
+    m_timer = protectedDocument()->checkedEventLoop()->scheduleTask(correctionPanelTimerInterval, TaskSource::UserInteraction, [weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
         weakThis->timerFired();
@@ -392,7 +396,8 @@ bool AlternativeTextController::canEnableAutomaticSpellingCorrection() const
 
 bool AlternativeTextController::isAutomaticSpellingCorrectionEnabled()
 {
-    if (!editorClient() || !editorClient()->isAutomaticSpellingCorrectionEnabled())
+    CheckedPtr editorClient = this->editorClient();
+    if (!editorClient || !editorClient->isAutomaticSpellingCorrectionEnabled())
         return false;
 
     return canEnableAutomaticSpellingCorrection();
@@ -757,7 +762,7 @@ void AlternativeTextController::applyDictationAlternative(const String& alternat
     auto selection = editor->selectedRange();
     if (!selection || !editor->shouldInsertText(alternativeString, *selection, EditorInsertAction::Pasted))
         return;
-    for (auto& marker : selection->startContainer().document().markers().markersInRange(*selection, DocumentMarkerType::DictationAlternatives))
+    for (auto& marker : selection->startContainer().document().checkedMarkers()->markersInRange(*selection, DocumentMarkerType::DictationAlternatives))
         removeDictationAlternativesForMarker(*marker);
     applyAlternativeTextToRange(*selection, alternativeString, AlternativeTextType::DictationAlternatives, markerTypesForAppliedDictationAlternative());
 #else

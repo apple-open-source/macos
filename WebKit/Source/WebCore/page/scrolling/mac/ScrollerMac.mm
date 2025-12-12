@@ -28,6 +28,7 @@
 
 #if PLATFORM(MAC)
 
+#import "ColorCocoa.h"
 #import "FloatPoint.h"
 #import "IntRect.h"
 #import "NSScrollerImpDetails.h"
@@ -101,7 +102,7 @@ enum class FeatureToAnimate {
     else
         currentValue = progress;
 
-    _scroller->updateProgress(_featureToAnimate, currentValue);
+    CheckedPtr { _scroller }->updateProgress(_featureToAnimate, currentValue);
 }
 
 - (void)invalidate
@@ -206,9 +207,10 @@ enum class FeatureToAnimate {
         scrollbarPartAnimation = nil;
     }
 
-    CGFloat currentAlpha = featureToAnimate == FeatureToAnimate::KnobAlpha ? _scroller->knobAlpha() : _scroller->trackAlpha();
+    CheckedPtr scroller = _scroller;
+    CGFloat currentAlpha = featureToAnimate == FeatureToAnimate::KnobAlpha ? scroller->knobAlpha() : scroller->trackAlpha();
 
-    scrollbarPartAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller.get()
+    scrollbarPartAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:scroller.get()
         featureToAnimate:featureToAnimate
         animateFrom:currentAlpha
         animateTo:newAlpha
@@ -387,7 +389,10 @@ void ScrollerMac::updateValues()
     [m_scrollerImp setDoubleValue:values.value];
     [m_scrollerImp setPresentationValue:values.value];
     [m_scrollerImp setKnobProportion:values.proportion];
-
+#if HAVE(APPKIT_SCROLLBAR_COLOR_SPI)
+    [m_scrollerImp setTrackColor:m_trackColor.get()];
+    [m_scrollerImp setKnobColor:m_thumbColor.get()];
+#endif
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -514,6 +519,18 @@ void ScrollerMac::setNeedsDisplay()
     [m_scrollerImp setNeedsDisplay:YES];
 }
 
+void ScrollerMac::scrollbarColorChanged(const std::optional<ScrollbarColor>& scrollbarColor)
+{
+    if (scrollbarColor) {
+        m_trackColor = cocoaColor(scrollbarColor->trackColor);
+        m_thumbColor = cocoaColor(scrollbarColor->thumbColor);
+    } else {
+        m_trackColor = nullptr;
+        m_thumbColor = nullptr;
+    }
+    updateValues();
+}
+
 RetainPtr<NSScrollerImp> ScrollerMac::takeScrollerImp()
 {
     Locker locker { m_scrollerImpLock };
@@ -604,6 +621,17 @@ String ScrollerMac::scrollbarState() const
     if ([m_scrollerImp controlSize] != NSControlSizeRegular)
         result.append(",thin"_s);
 
+#if HAVE(APPKIT_SCROLLBAR_COLOR_SPI)
+    if ([m_scrollerImp trackColor] != nil) {
+        result.append(",trackColor:"_s);
+        result.append(colorFromCocoaColor([m_scrollerImp trackColor]).debugDescription());
+    }
+
+    if ([m_scrollerImp knobColor] != nil) {
+        result.append(",knobColor:"_s);
+        result.append(colorFromCocoaColor([m_scrollerImp knobColor]).debugDescription());
+    }
+#endif
     return result.toString();
 }
 

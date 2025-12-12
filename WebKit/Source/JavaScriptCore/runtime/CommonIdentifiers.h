@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Identifier.h"
+#include <JavaScriptCore/Identifier.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -87,6 +87,7 @@
     macro(bytecodes) \
     macro(bytecodesID) \
     macro(calendar) \
+    macro(calendarName) \
     macro(callee) \
     macro(caller) \
     macro(captureStackTrace) \
@@ -252,6 +253,7 @@
     macro(resizable) \
     macro(resize) \
     macro(resolve) \
+    macro(reject) \
     macro(roundingIncrement) \
     macro(roundingMode) \
     macro(roundingPriority) \
@@ -328,6 +330,8 @@
     macro(move) \
     macro(AsyncDisposableStack) \
     macro(disposeAsync) \
+    macro(keys) \
+    macro(promise) \
 
 #define JSC_COMMON_IDENTIFIERS_EACH_PRIVATE_FIELD(macro) \
     macro(constructor)

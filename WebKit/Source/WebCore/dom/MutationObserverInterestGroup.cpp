@@ -34,6 +34,7 @@
 
 #include "MutationObserverRegistration.h"
 #include "MutationRecord.h"
+#include "NodeInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {

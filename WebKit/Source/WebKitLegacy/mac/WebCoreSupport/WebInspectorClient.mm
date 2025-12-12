@@ -404,7 +404,7 @@ void WebInspectorFrontendClient::save(Vector<InspectorFrontendClient::SaveData>&
     auto suggestedURL = saveDatas[0].url;
     ASSERT(!suggestedURL.isEmpty());
 
-    NSURL *platformURL = m_suggestedToActualURLMap.get(suggestedURL).get();
+    NSURL *platformURL = m_suggestedToActualURLMap.get(suggestedURL).unsafeGet();
     if (!platformURL) {
         platformURL = [NSURL URLWithString:suggestedURL.createNSString().get()];
         // The user must confirm new filenames before we can save to them.
@@ -562,7 +562,7 @@ void WebInspectorFrontendClient::save(Vector<InspectorFrontendClient::SaveData>&
     [window setTitlebarAppearsTransparent:YES];
 
     [self setWindow:window.get()];
-    return window.get();
+    return window.unsafeGet();
 }
 
 // MARK: -

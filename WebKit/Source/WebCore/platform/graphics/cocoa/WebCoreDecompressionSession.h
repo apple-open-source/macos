@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "MediaPromiseTypes.h"
 
-#include "ProcessIdentity.h"
 #include <CoreMedia/CMTime.h>
+#include <WebCore/MediaPromiseTypes.h>
+#include <WebCore/ProcessIdentity.h>
 #include <atomic>
 #include <wtf/Expected.h>
 #include <wtf/Function.h>
@@ -106,6 +106,7 @@ private:
     };
     std::optional<PendingDecodeData> m_pendingDecodeData WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
     Vector<RetainPtr<CMSampleBufferRef>> m_lastDecodedSamples WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
+    RetainPtr<CMFormatDescriptionRef> m_lastFormatDescription WTF_GUARDED_BY_LOCK(m_lock);
     OSStatus m_lastDecodingError WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get()) { noErr };
     RetainPtr<CMFormatDescriptionRef> m_currentImageDescription WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
 

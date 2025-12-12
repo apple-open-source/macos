@@ -25,12 +25,12 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(MEDIA_STREAM) && HAVE(AVCAPTUREDEVICE)
 
-#include "IntSize.h"
-#include "OrientationNotifier.h"
-#include "RealtimeVideoCaptureSource.h"
-#include "Timer.h"
+#include <WebCore/IntSize.h>
+#include <WebCore/RealtimeVideoCaptureSource.h>
+#include <WebCore/Timer.h>
 #include <wtf/Lock.h>
 #include <wtf/text/StringHash.h>
 
@@ -59,7 +59,7 @@ class ImageTransferSessionVT;
 
 enum class VideoFrameRotation : uint16_t;
 
-class AVVideoCaptureSource : public RealtimeVideoCaptureSource, private OrientationNotifier::Observer {
+class AVVideoCaptureSource : public RealtimeVideoCaptureSource {
 public:
     static CaptureSourceOrError create(const CaptureDevice&, MediaDeviceHashSalts&&, const MediaConstraints*, std::optional<PageIdentifier>);
     static NSMutableArray* cameraCaptureDeviceTypes();
@@ -159,6 +159,7 @@ private:
     void resolvePendingPhotoRequest(Vector<uint8_t>&&, const String&);
     RetainPtr<AVCapturePhotoSettings> photoConfiguration(const PhotoSettings&);
     IntSize maxPhotoSizeForCurrentPreset(IntSize requestedSize) const;
+    IntSize maxPhotoSizeForActiveFormat(AVCaptureDeviceFormat *, IntSize) const;
     AVCapturePhotoOutput* photoOutput();
 
     RefPtr<VideoFrame> m_buffer;

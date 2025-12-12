@@ -27,12 +27,12 @@
 
 #if ENABLE(ENCRYPTED_MEDIA)
 
-#include "CDMPrivate.h"
-#include "ContextDestructionObserver.h"
 #include "MediaKeySessionType.h"
 #include "MediaKeySystemConfiguration.h"
 #include "MediaKeySystemMediaCapability.h"
 #include "MediaKeysRestrictions.h"
+#include <WebCore/CDMPrivate.h>
+#include <WebCore/ContextDestructionObserver.h>
 #include <wtf/Function.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>

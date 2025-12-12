@@ -83,6 +83,10 @@ struct ClientOrigin;
 struct NotificationData;
 struct NotificationPayload;
 struct OrganizationStorageAccessPromptQuirk;
+
+#if HAVE(WEBCONTENTRESTRICTIONS)
+struct ParentalControlsURLFilterParameters;
+#endif
 }
 
 namespace WebKit {
@@ -289,6 +293,8 @@ public:
     void getPaymentCoordinatorEmbeddingUserAgent(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&&);
 #endif
 
+    void isStorageSuspendedForTesting(PAL::SessionID, CompletionHandler<void(bool)>&&);
+
     // ProcessThrottlerClient
     void sendPrepareToSuspend(IsSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&&) final;
     void updateBundleIdentifier(const String&, CompletionHandler<void()>&&);
@@ -350,6 +356,10 @@ public:
 
     void setDefaultRequestTimeoutInterval(double);
 
+#if HAVE(WEBCONTENTRESTRICTIONS)
+    void allowEvaluatedURL(const WebCore::ParentalControlsURLFilterParameters&, CompletionHandler<void(bool)>&&);
+#endif
+
 private:
     explicit NetworkProcessProxy();
 
@@ -367,7 +377,7 @@ private:
 
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
-    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
     void didClose(IPC::Connection&) override;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) override;
     // Note: uses dispatchMessage, dispatchSyncMessage from superclass.
@@ -445,10 +455,6 @@ private:
 
     RefPtr<ProcessThrottler::Activity> m_activityFromWebProcesses;
 
-#if ENABLE(CONTENT_EXTENSIONS)
-    WeakHashSet<WebUserContentControllerProxy> m_webUserContentControllerProxies;
-#endif
-
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
     RefPtr<ListDataObserver> m_storageAccessPromptQuirksDataUpdateObserver;
 #endif
@@ -465,7 +471,7 @@ private:
     public:
         XPCEventHandler(const NetworkProcessProxy&);
 
-        bool handleXPCEvent(xpc_object_t) const override;
+        bool handleXPCEvent(xpc_object_t) override;
 
     private:
         WeakPtr<NetworkProcessProxy> m_networkProcess;

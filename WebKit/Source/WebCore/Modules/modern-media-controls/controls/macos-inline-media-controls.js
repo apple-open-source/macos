@@ -30,13 +30,14 @@ class MacOSInlineMediaControls extends InlineMediaControls
 
     constructor(options = {})
     {
-        options.layoutTraits = new MacOSLayoutTraits(LayoutTraits.Mode.Inline);
+        if (options.mode === undefined)
+            options.layoutTraits = new MacOSLayoutTraits(LayoutTraits.Mode.Inline);
+        else
+            options.layoutTraits = new MacOSLayoutTraits(options.mode);
 
         super(options);
 
         this.element.classList.add("mac");
-
-        this.timeControl.scrubber.knobStyle = Slider.KnobStyle.Bar;
 
         this._backgroundClickDelegateNotifier = new BackgroundClickDelegateNotifier(this);
 
@@ -44,12 +45,62 @@ class MacOSInlineMediaControls extends InlineMediaControls
         this.volumeSlider.width = 60;
 
         this._volumeSliderContainer = new LayoutNode(`<div class="volume-slider-container"></div>`);
-        this._volumeSliderContainer.children = [new BackgroundTint, this.volumeSlider];
 
-        // Wire up events to display the volume slider.
-        this.muteButton.element.addEventListener("mouseenter", this);
-        this.muteButton.element.addEventListener("mouseleave", this);
-        this._volumeSliderContainer.element.addEventListener("mouseleave", this);
+        if (this.layoutTraits.mode == LayoutTraits.Mode.NarrowViewer) {
+            this.element.classList.add("narrowviewer");
+            this.fullscreenButton.isFullscreen = true;
+        }
+    }
+
+    _setupVolumeSliderConfiguration()
+    {
+        if (this._volumeSliderSetupComplete) {
+            return;
+        }
+
+        const hasValidHost = this.mediaControlsHost && typeof this.mediaControlsHost.isMediaControlsMacInlineSizeSpecsEnabled !== 'undefined';
+
+        if (!hasValidHost) {
+            return;
+        }
+        
+        if (!this.mediaControlsHost.isMediaControlsMacInlineSizeSpecsEnabled || this.element.classList.contains('audio')) {
+            this.timeControl.scrubber.knobStyle = Slider.KnobStyle.Bar;
+            this._volumeSliderContainer.children = [new BackgroundTint, this.volumeSlider];
+            
+            // Wire up events to display the volume slider.
+            this.muteButton.element.addEventListener("mouseenter", this);
+            this.muteButton.element.addEventListener("mouseleave", this);
+            this._volumeSliderContainer.element.addEventListener("mouseleave", this);
+        } else {
+            this.volumeSlider.width = 135;
+            this._volumeSliderContainer.children = [new BackgroundTint, this.volumeSlider, this.muteButton];
+        }
+        
+        this._volumeSliderSetupComplete = true;
+    }
+
+    findHostFromParent()
+    {
+        const secondParent = this.element?.parentElement?.parentElement || this.element?.parentNode?.parentNode;
+
+        if (secondParent instanceof ShadowRoot && secondParent.host?.controlsHost) {
+            if (typeof secondParent.host.controlsHost.isMediaControlsMacInlineSizeSpecsEnabled !== 'undefined') {
+                return secondParent.host.controlsHost;
+            }
+        }
+        
+        return null;
+    }
+
+    get mediaControlsHost()
+    {
+        if (this._host) {
+            return this._host;
+        }
+
+        this._host = this.findHostFromParent();
+        return this._host;
     }
 
     // Protected
@@ -61,13 +112,39 @@ class MacOSInlineMediaControls extends InlineMediaControls
         if (!this._volumeSliderContainer)
             return;
 
+        if (!this._volumeSliderSetupComplete) {
+            this._setupVolumeSliderConfiguration();
+        }
+
         if (!this._inlineInsideMargin)
             this._inlineInsideMargin = this.computedValueForStylePropertyInPx("--inline-controls-inside-margin");
         if (!this._inlineBottomControlsBarHeight)
             this._inlineBottomControlsBarHeight = this.computedValueForStylePropertyInPx("--inline-controls-bar-height");
 
-        this._volumeSliderContainer.x = this.rightContainer.x + this.muteButton.x;
-        this._volumeSliderContainer.y = this.bottomControlsBar.y - this._inlineBottomControlsBarHeight - this._inlineInsideMargin;
+        if (this.mediaControlsHost && (!this.mediaControlsHost?.isMediaControlsMacInlineSizeSpecsEnabled || this.element.classList.contains('audio'))) {
+            this._volumeSliderContainer.x = this.rightContainer.x + this.muteButton.x;
+            this._volumeSliderContainer.y = this.bottomControlsBar.y - this._inlineBottomControlsBarHeight - this._inlineInsideMargin;
+        } else {
+            const hasMinimumHeight = this.height >= MinimumHeightToShowVolumeSlider;
+            const hasMinimumWidth = this.width >= 60;
+            const shouldShowVolumeContainer = hasMinimumHeight && hasMinimumWidth && !this.showsStartButton && this.visible && this.playPauseButton && this.playPauseButton.enabled;
+
+            // Force mute button visibility based on width even if container logic doesn't run
+            if (this.width < 60 && this.muteButton) {
+                this.muteButton.visible = false;
+            }
+
+            const children = this.children ? [...this.children] : [];
+            if (shouldShowVolumeContainer && !children.includes(this._volumeSliderContainer)) {
+                this._volumeSliderContainer.children = [new BackgroundTint, this.volumeSlider, this.muteButton];
+                children.push(this._volumeSliderContainer);
+                this.children = children;
+            } else if (!shouldShowVolumeContainer && children.includes(this._volumeSliderContainer)) {
+                const volumeContainerIndex = children.indexOf(this._volumeSliderContainer);
+                children.splice(volumeContainerIndex, 1);
+                this.children = children;
+            }
+        }
     }
 
     get preferredMuteButtonStyle()
@@ -77,14 +154,39 @@ class MacOSInlineMediaControls extends InlineMediaControls
 
     handleEvent(event)
     {
-        if (event.type === "mouseenter" && event.currentTarget === this.muteButton.element) {
-            if (this.muteButton.parent === this.rightContainer)
-                this.addChild(this._volumeSliderContainer);
-        } else if (event.type === "mouseleave" && (event.currentTarget === this.muteButton.element || event.currentTarget === this._volumeSliderContainer.element)) {
-            if (!this._volumeSliderContainer.element.contains(event.relatedTarget))
-                this._volumeSliderContainer.remove();
-        } else
-            super.handleEvent(event);
+        if (!this._volumeSliderSetupComplete) {
+            this._setupVolumeSliderConfiguration();
+        }
+
+        if (this.mediaControlsHost && (!this.mediaControlsHost?.isMediaControlsMacInlineSizeSpecsEnabled || this.element.classList.contains('audio'))) {
+            if (event.type === "mouseenter" && event.currentTarget === this.muteButton.element) {
+                if (this.muteButton.parent === this.rightContainer) {
+                    this.addChild(this._volumeSliderContainer);
+                }
+            } else if (event.type === "mouseleave" && (event.currentTarget === this.muteButton.element || event.currentTarget === this._volumeSliderContainer.element)) {
+                if (!this._volumeSliderContainer.element.contains(event.relatedTarget)) {
+                    this._volumeSliderContainer.remove();
+                }
+            }
+        }
     }
 
+    rightContainerButtons()
+    {
+        if (!this._volumeSliderSetupComplete) {
+            this._setupVolumeSliderConfiguration();
+        }
+
+        if (this.mediaControlsHost && this.mediaControlsHost?.isMediaControlsMacInlineSizeSpecsEnabled && !this.element.classList.contains('audio')) {
+            const buttons = super.rightContainerButtons();
+            if (buttons && this.muteButton) {
+                const muteButtonIndex = buttons.indexOf(this.muteButton);
+                if (muteButtonIndex !== -1) {
+                    buttons.splice(muteButtonIndex, 1);
+                }
+            }
+            return buttons;
+        }
+        return super.rightContainerButtons ? super.rightContainerButtons() : [];
+    }
 }

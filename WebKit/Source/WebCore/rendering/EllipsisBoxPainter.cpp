@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,10 +25,14 @@
 #include "config.h"
 #include "EllipsisBoxPainter.h"
 
+#include "CSSPropertyNames.h"
 #include "InlineIteratorTextBox.h"
 #include "LineSelection.h"
 #include "PaintInfo.h"
+#include "RenderObjectDocument.h"
+#include "RenderStyleInlines.h"
 #include "RenderView.h"
+#include "StyleTextShadow.h"
 
 namespace WebCore {
 
@@ -68,7 +72,8 @@ void EllipsisBoxPainter::paint()
             return false;
         },
         [&](const auto& shadows) {
-            context.setDropShadow({ LayoutSize(shadows[0].location.x().value, shadows[0].location.y().value), shadows[0].blur.value, style.colorWithColorFilter(shadows[0].color), ShadowRadiusMode::Default });
+            const auto& zoomFactor = style.usedZoomForLength();
+            context.setDropShadow({ LayoutSize(shadows[0].location.x().resolveZoom(zoomFactor), shadows[0].location.y().resolveZoom(zoomFactor)), shadows[0].blur.resolveZoom(zoomFactor), style.colorWithColorFilter(shadows[0].color), ShadowRadiusMode::Default });
             return true;
         }
     );

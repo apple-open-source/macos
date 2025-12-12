@@ -266,7 +266,7 @@ Region approximateAsRegion(const FloatRoundedRect& roundedRect, unsigned stepLen
         constexpr auto maximumCount = 20u;
         count = std::min(maximumCount, count);
 
-        for (auto i = 0u; i < count; ++i) {
+        for (decltype(count) i = 0; i < count; ++i) {
             auto angle = fromAngle + (i + 1) * (toAngle - fromAngle) / (count + 1);
             auto ellipsisPoint = LayoutPoint { axes.width() * cos(angle), axes.height() * sin(angle) };
             auto cornerRect = makeIntRect(corner, ellipsisCenter + ellipsisPoint);

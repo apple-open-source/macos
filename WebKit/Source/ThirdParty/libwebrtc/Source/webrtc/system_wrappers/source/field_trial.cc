@@ -9,21 +9,22 @@
 
 #include "system_wrappers/include/field_trial.h"
 
-#include <stddef.h>
-
+#include <cstddef>
 #include <map>
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "absl/algorithm/container.h"
+#include "absl/algorithm/container.h"  // IWYU pragma: keep
 #include "absl/strings/string_view.h"
-#if !defined(WEBRTC_WEBKIT_BUILD)
-#include "experiments/registered_field_trials.h"
-#endif
 #include "rtc_base/checks.h"
-#include "rtc_base/containers/flat_set.h"
 #include "rtc_base/logging.h"
 #include "rtc_base/string_encode.h"
+
+#if !defined(WEBRTC_WEBKIT_BUILD)
+// Generated file.
+#include "experiments/registered_field_trials.h"  // IWYU pragma: keep
+#endif
 
 // Simple field trial implementation, which allows client to
 // specify desired flags in InitFieldTrialsFromString.
@@ -35,11 +36,6 @@ static const char* trials_init_string = nullptr;
 namespace {
 
 constexpr char kPersistentStringSeparator = '/';
-
-flat_set<std::string>& TestKeys() {
-  static auto* test_keys = new flat_set<std::string>();
-  return *test_keys;
-}
 
 // Validates the given field trial string.
 //  E.g.:
@@ -119,13 +115,10 @@ std::string MergeFieldTrialsStrings(absl::string_view first,
 #ifndef WEBRTC_EXCLUDE_FIELD_TRIAL_DEFAULT
 std::string FindFullName(absl::string_view name) {
 #if WEBRTC_STRICT_FIELD_TRIALS == 1
-  RTC_DCHECK(absl::c_linear_search(kRegisteredFieldTrials, name) ||
-             TestKeys().contains(name))
+  RTC_DCHECK(absl::c_linear_search(kRegisteredFieldTrials, name))
       << name << " is not registered, see g3doc/field-trials.md.";
 #elif WEBRTC_STRICT_FIELD_TRIALS == 2
-  RTC_LOG_IF(LS_WARNING,
-             !(absl::c_linear_search(kRegisteredFieldTrials, name) ||
-               TestKeys().contains(name)))
+  RTC_LOG_IF(LS_WARNING, !absl::c_linear_search(kRegisteredFieldTrials, name))
       << name << " is not registered, see g3doc/field-trials.md.";
 #endif
 
@@ -173,15 +166,6 @@ void InitFieldTrialsFromString(const char* trials_string) {
 
 const char* GetFieldTrialString() {
   return trials_init_string;
-}
-
-FieldTrialsAllowedInScopeForTesting::FieldTrialsAllowedInScopeForTesting(
-    flat_set<std::string> keys) {
-  TestKeys() = std::move(keys);
-}
-
-FieldTrialsAllowedInScopeForTesting::~FieldTrialsAllowedInScopeForTesting() {
-  TestKeys().clear();
 }
 
 }  // namespace field_trial

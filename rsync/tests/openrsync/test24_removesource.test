@@ -14,7 +14,7 @@ cd ../dir2
 generate_tree_1
 
 rsync_one() {
-	local dry_run
+	local dry_run=""
 
 	case "$@" in
 	*--dry-run*)

@@ -4,7 +4,7 @@
 *******************************************************************************
 *
 *   Copyright (C) 2003-2013, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
 *   file name:  utrace.h

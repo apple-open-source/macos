@@ -86,8 +86,6 @@ public:
         m_textFont.update(nullptr);
     }
 
-    ~ResourceUsageOverlayPainter() = default;
-
 private:
     void paintContents(const GraphicsLayer*, GraphicsContext& context, const FloatRect& clip, OptionSet<GraphicsLayerPaintBehavior>) override
     {

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "SVGList.h"
+#include <WebCore/SVGList.h>
 
 namespace WebCore {
 

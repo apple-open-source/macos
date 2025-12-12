@@ -28,8 +28,8 @@
 
 #if USE(GTK4)
 
+#include "GtkUtilities.h"
 #include "WebPasteboardProxy.h"
-#include <WebCore/ImageAdapter.h>
 #include <WebCore/PasteboardCustomData.h>
 #include <WebCore/SelectionData.h>
 #include <WebCore/SharedBuffer.h>
@@ -81,13 +81,10 @@ void Clipboard::formats(CompletionHandler<void(Vector<String>&&)>&& completionHa
 
 class ClipboardTask final : public RefCounted<ClipboardTask> {
 public:
-
     static Ref<ClipboardTask> create(GdkClipboard* clipboard, Clipboard::ReadMode readMode)
     {
         return adoptRef(*new ClipboardTask(clipboard, readMode));
     }
-
-    ~ClipboardTask() = default;
 
     using ReadTextCompletionHandler = CompletionHandler<void(String&&)>;
 
@@ -276,7 +273,7 @@ void Clipboard::write(WebCore::SelectionData&& selectionData, CompletionHandler<
     }
 
     if (selectionData.hasImage()) {
-        auto pixbuf = selectionData.image()->adapter().gdkPixbuf();
+        auto pixbuf = selectionDataImageAsGdkPixbuf(selectionData);
         providers.append(gdk_content_provider_new_typed(GDK_TYPE_PIXBUF, pixbuf.get()));
     }
 

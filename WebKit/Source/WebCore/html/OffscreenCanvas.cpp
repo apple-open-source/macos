@@ -31,6 +31,7 @@
 #include "BitmapImage.h"
 #include "CSSValuePool.h"
 #include "CanvasRenderingContext.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Chrome.h"
 #include "Document.h"
 #include "EventDispatcher.h"
@@ -255,7 +256,7 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
             if (attributes.hasException(scope)) [[unlikely]]
                 return Exception { ExceptionCode::ExistingExceptionError };
 
-            auto* scriptExecutionContext = this->scriptExecutionContext();
+            RefPtr scriptExecutionContext = this->scriptExecutionContext();
             if (shouldEnableWebGL(scriptExecutionContext->settingsValues(), is<WorkerGlobalScope>(scriptExecutionContext)))
                 m_context = WebGLRenderingContextBase::create(*this, attributes.releaseReturnValue(), webGLVersion);
         }
@@ -373,11 +374,11 @@ void OffscreenCanvas::clearCopiedImage() const
 
 SecurityOrigin* OffscreenCanvas::securityOrigin() const
 {
-    auto& scriptExecutionContext = *canvasBaseScriptExecutionContext();
-    if (auto* globalScope = dynamicDowncast<WorkerGlobalScope>(scriptExecutionContext))
+    Ref scriptExecutionContext = *canvasBaseScriptExecutionContext();
+    if (auto* globalScope = dynamicDowncast<WorkerGlobalScope>(scriptExecutionContext.get()))
         return &globalScope->topOrigin();
 
-    return &downcast<Document>(scriptExecutionContext).securityOrigin();
+    return &downcast<Document>(scriptExecutionContext)->securityOrigin();
 }
 
 bool OffscreenCanvas::canDetach() const
@@ -469,6 +470,16 @@ std::unique_ptr<CSSParserContext> OffscreenCanvas::createCSSParserContext() cons
 {
     // FIXME: Rather than using a default CSSParserContext, there should be one exposed via ScriptExecutionContext.
     return makeUnique<CSSParserContext>(HTMLStandardMode);
+}
+
+ScriptExecutionContext* OffscreenCanvas::scriptExecutionContext() const
+{
+    return ContextDestructionObserver::scriptExecutionContext();
+}
+
+ScriptExecutionContext* OffscreenCanvas::canvasBaseScriptExecutionContext() const
+{
+    return ContextDestructionObserver::scriptExecutionContext();
 }
 
 }

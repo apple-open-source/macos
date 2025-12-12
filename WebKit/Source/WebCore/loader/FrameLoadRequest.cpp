@@ -33,6 +33,7 @@
 
 #include "Document.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "SecurityOrigin.h"
 
 namespace WebCore {
@@ -42,9 +43,9 @@ FrameLoadRequest::FrameLoadRequest(Ref<Document>&& requester, SecurityOrigin& re
     , m_requesterSecurityOrigin { requesterSecurityOrigin }
     , m_resourceRequest { WTFMove(resourceRequest) }
     , m_frameName { frameName }
-    , m_downloadAttribute { downloadAttribute }
-    , m_initiatedByMainFrame { initiatedByMainFrame }
 {
+    setDownloadAttribute(downloadAttribute);
+    setInitiatedByMainFrame(initiatedByMainFrame);
 }
 
 FrameLoadRequest::FrameLoadRequest(LocalFrame& frame, ResourceRequest&& resourceRequest, SubstituteData&& substituteData)
@@ -57,6 +58,8 @@ FrameLoadRequest::FrameLoadRequest(LocalFrame& frame, ResourceRequest&& resource
 
 FrameLoadRequest::~FrameLoadRequest() = default;
 
+FrameLoadRequest::FrameLoadRequest(const FrameLoadRequest&) = default;
+FrameLoadRequest& FrameLoadRequest::operator=(const FrameLoadRequest&) = default;
 FrameLoadRequest::FrameLoadRequest(FrameLoadRequest&&) = default;
 FrameLoadRequest& FrameLoadRequest::operator=(FrameLoadRequest&&) = default;
 

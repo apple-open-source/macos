@@ -32,7 +32,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DOMFormData.h"
-#include "Document.h"
+#include "DocumentView.h"
 #include "Editor.h"
 #include "ElementInlines.h"
 #include "Event.h"
@@ -341,7 +341,7 @@ void HTMLTextAreaElement::updateValue() const
 
 ValueOrReference<String> HTMLTextAreaElement::value() const
 {
-    if (protectedDocument()->requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory::FormControls))
+    if (shouldApplyScriptTrackingPrivacyProtection())
         return emptyString();
     updateValue();
     return m_value;

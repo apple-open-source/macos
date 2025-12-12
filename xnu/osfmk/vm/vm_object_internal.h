@@ -557,10 +557,11 @@ __private_extern__ void vm_object_set_chead_hint(
 __private_extern__ void         vm_object_reap_pages(
 	vm_object_t object,
 	int     reap_type);
-#define REAP_REAP       0
-#define REAP_TERMINATE  1
-#define REAP_PURGEABLE  2
-#define REAP_DATA_FLUSH 3
+#define REAP_REAP               0
+#define REAP_TERMINATE          1
+#define REAP_PURGEABLE          2
+#define REAP_DATA_FLUSH         3
+#define REAP_DATA_FLUSH_CLEAN   4
 
 #if CONFIG_FREEZE
 

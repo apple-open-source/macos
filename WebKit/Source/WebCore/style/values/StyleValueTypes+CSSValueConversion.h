@@ -24,84 +24,159 @@
 
 #pragma once
 
+#include "CSSPrimitiveValue.h"
 #include "CSSValueList.h"
+#include "StyleBuilderChecking.h"
 #include "StyleValueTypes.h"
 
 namespace WebCore {
 namespace Style {
 
+// Specialization for `String`.
+template<> struct CSSValueConversion<String> {
+    String operator()(BuilderState& state, const CSSPrimitiveValue& value)
+    {
+        if (!value.isString()) [[unlikely]] {
+            state.setCurrentPropertyInvalidAtComputedValueTime();
+            return emptyString();
+        }
+        return value.string();
+    }
+    String operator()(BuilderState& state, const CSSValue& value)
+    {
+        RefPtr primitiveValue = requiredDowncast<CSSPrimitiveValue>(state, value);
+        if (!primitiveValue) [[unlikely]]
+            return emptyString();
+        return this->operator()(state, *primitiveValue);
+    }
+};
+
+// Specialization for `AtomString`.
+template<> struct CSSValueConversion<AtomString> {
+    AtomString operator()(BuilderState& state, const CSSPrimitiveValue& value)
+    {
+        if (!value.isString()) [[unlikely]] {
+            state.setCurrentPropertyInvalidAtComputedValueTime();
+            return emptyAtom();
+        }
+        return AtomString { value.string() };
+    }
+    AtomString operator()(BuilderState& state, const CSSValue& value)
+    {
+        RefPtr primitiveValue = requiredDowncast<CSSPrimitiveValue>(state, value);
+        if (!primitiveValue) [[unlikely]]
+            return emptyAtom();
+        return this->operator()(state, *primitiveValue);
+    }
+};
+
 // Specialization for `CustomIdentifier`.
 template<> struct CSSValueConversion<CustomIdentifier> {
-   CustomIdentifier operator()(BuilderState& state, const CSSValue& value)
-   {
-        if (!value.isCustomIdent()) {
+    CustomIdentifier operator()(BuilderState& state, const CSSPrimitiveValue& value)
+    {
+        if (!value.isCustomIdent()) [[unlikely]] {
             state.setCurrentPropertyInvalidAtComputedValueTime();
             return { .value = emptyAtom() };
         }
         return { .value = AtomString { value.customIdent() } };
-   }
+    }
+    CustomIdentifier operator()(BuilderState& state, const CSSValue& value)
+    {
+        RefPtr primitiveValue = requiredDowncast<CSSPrimitiveValue>(state, value);
+        if (!primitiveValue) [[unlikely]]
+            return { .value = emptyAtom() };
+        return this->operator()(state, *primitiveValue);
+    }
+};
+
+// Specialization for `TupleLike` (wrapper).
+template<TupleLike StyleType> requires (std::tuple_size_v<StyleType> == 1) struct CSSValueConversion<StyleType> {
+    StyleType operator()(BuilderState& state, const CSSValue& value)
+    {
+        return { toStyleFromCSSValue<std::remove_cvref_t<std::tuple_element_t<0, StyleType>>>(state, value) };
+    }
 };
 
 // Specialization for `SpaceSeparatedFixedVector`.
 template<typename StyleType> struct CSSValueConversion<SpaceSeparatedFixedVector<StyleType>> {
-   SpaceSeparatedFixedVector<StyleType> operator()(BuilderState& state, const CSSValue& value)
-   {
+    SpaceSeparatedFixedVector<StyleType> operator()(BuilderState& state, const CSSValue& value)
+    {
         if (auto list = dynamicDowncast<CSSValueList>(value)) {
             return SpaceSeparatedFixedVector<StyleType>::map(*list, [&](const CSSValue& element) {
                 return toStyleFromCSSValue<StyleType>(state, element);
             });
         }
         return { toStyleFromCSSValue<StyleType>(state, value) };
-   }
+    }
 };
 
 // Specialization for `CommaSeparatedFixedVector`.
 template<typename StyleType> struct CSSValueConversion<CommaSeparatedFixedVector<StyleType>> {
-   CommaSeparatedFixedVector<StyleType> operator()(BuilderState& state, const CSSValue& value)
-   {
+    CommaSeparatedFixedVector<StyleType> operator()(BuilderState& state, const CSSValue& value)
+    {
         if (auto list = dynamicDowncast<CSSValueList>(value)) {
             return CommaSeparatedFixedVector<StyleType>::map(*list, [&](const CSSValue& element) {
                 return toStyleFromCSSValue<StyleType>(state, element);
             });
         }
         return { toStyleFromCSSValue<StyleType>(state, value) };
-   }
+    }
+};
+
+// Specialization for `ValueOrKeyword`.
+template<typename StyleType, typename Keyword, typename StyleTypeMarkableTraits> struct CSSValueConversion<ValueOrKeyword<StyleType, Keyword, StyleTypeMarkableTraits>> {
+    ValueOrKeyword<StyleType, Keyword, StyleTypeMarkableTraits> operator()(BuilderState& state, const CSSValue& value)
+    {
+        if (value.valueID() == Keyword { }.value)
+            return Keyword { };
+        return toStyleFromCSSValue<StyleType>(state, value);
+    }
+};
+
+// Specialization for types derived from `ValueOrKeyword`.
+template<ValueOrKeywordDerived T> struct CSSValueConversion<T> {
+    T operator()(BuilderState& state, const CSSValue& value)
+    {
+        if (value.valueID() == typename T::Keyword { }.value)
+            return typename T::Keyword { };
+        return toStyleFromCSSValue<typename T::Value>(state, value);
+    }
 };
 
 // Specialization for `ListOrNone`.
 template<typename ListType> struct CSSValueConversion<ListOrNone<ListType>> {
-   ListOrNone<ListType> operator()(BuilderState& state, const CSSValue& value)
-   {
+    ListOrNone<ListType> operator()(BuilderState& state, const CSSValue& value)
+    {
         if (value.valueID() == CSSValueNone)
             return CSS::Keyword::None { };
         return toStyleFromCSSValue<ListType>(state, value);
-   }
+    }
 };
 
 // Specialization for types derived from `ListOrNone`.
 template<ListOrNoneDerived T> struct CSSValueConversion<T> {
-   T operator()(BuilderState& state, const CSSValue& value)
-   {
+    T operator()(BuilderState& state, const CSSValue& value)
+    {
         if (value.valueID() == CSSValueNone)
             return CSS::Keyword::None { };
         return toStyleFromCSSValue<typename T::List>(state, value);
-   }
+    }
 };
 
 // Specialization for `ListOrDefault`.
 template<typename ListType, typename Defaulter> struct CSSValueConversion<ListOrDefault<ListType, Defaulter>> {
-   ListOrDefault<ListType, Defaulter> operator()(BuilderState& state, const CSSValue& value)
-   {
+    ListOrDefault<ListType, Defaulter> operator()(BuilderState& state, const CSSValue& value)
+    {
         return toStyleFromCSSValue<ListType>(state, value);
-   }
+    }
 };
 
 // Specialization for types derived from `ListOrDefault`.
 template<ListOrDefaultDerived T> struct CSSValueConversion<T> {
-   T operator()(BuilderState& state, const CSSValue& value)
-   {
+    T operator()(BuilderState& state, const CSSValue& value)
+    {
         return toStyleFromCSSValue<typename T::List>(state, value);
-   }
+    }
 };
 
 } // namespace Style

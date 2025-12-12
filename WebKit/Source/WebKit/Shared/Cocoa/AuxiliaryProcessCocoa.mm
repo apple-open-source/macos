@@ -53,6 +53,7 @@
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SoftLinking.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/text/MakeString.h>
 
 #if ENABLE(CFPREFS_DIRECT_MODE)
@@ -68,7 +69,6 @@
 #import <pal/cf/AudioToolboxSoftLink.h>
 
 #if HAVE(UPDATE_WEB_ACCESSIBILITY_SETTINGS) && ENABLE(CFPREFS_DIRECT_MODE)
-SOFT_LINK_LIBRARY_OPTIONAL(libAccessibility)
 SOFT_LINK_OPTIONAL(libAccessibility, _AXSUpdateWebAccessibilitySettings, void, (), ());
 #endif
 
@@ -133,7 +133,7 @@ void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageNa
 
 bool AuxiliaryProcess::parentProcessHasEntitlement(ASCIILiteral entitlement)
 {
-    return WTF::hasEntitlement(m_connection->xpcConnection(), entitlement);
+    return WTF::hasEntitlement(protectedParentProcessConnection()->protectedXPCConnection().get(), entitlement);
 }
 
 void AuxiliaryProcess::platformStopRunLoop()
@@ -145,7 +145,11 @@ void AuxiliaryProcess::platformStopRunLoop()
 
 void AuxiliaryProcess::registerWithStateDumper(ASCIILiteral title)
 {
-    os_state_add_handler(dispatch_get_main_queue(), [this, title] (os_state_hints_t hints) {
+    os_state_add_handler(mainDispatchQueueSingleton(), [weakThis = WeakPtr { *this }, title] (os_state_hints_t hints) -> os_state_data_s* {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return nullptr;
+
         @autoreleasepool {
             os_state_data_t os_state = nullptr;
 
@@ -154,7 +158,7 @@ void AuxiliaryProcess::registerWithStateDumper(ASCIILiteral title)
             if (hints->osh_api == OS_STATE_API_ERROR)
                 return os_state;
 
-            auto stateDictionary = additionalStateForDiagnosticReport();
+            auto stateDictionary = protectedThis->additionalStateForDiagnosticReport();
 
             // Submitting an empty process state object may provide an
             // indication of the existance of private sessions, which we'd like
@@ -237,13 +241,15 @@ void AuxiliaryProcess::preferenceDidUpdate(const String& domain, const String& k
     handlePreferenceChange(domain, key, value.get());
 }
 
-#if !HAVE(UPDATE_WEB_ACCESSIBILITY_SETTINGS) && PLATFORM(IOS_FAMILY)
-static const WTF::String& increaseContrastPreferenceKey()
+const WTF::String& AuxiliaryProcess::increaseContrastPreferenceKey()
 {
+#if PLATFORM(MAC)
+    static NeverDestroyed<WTF::String> key(MAKE_STATIC_STRING_IMPL("increaseContrast"));
+#else
     static NeverDestroyed<WTF::String> key(MAKE_STATIC_STRING_IMPL("DarkenSystemColors"));
+#endif
     return key;
 }
-#endif
 
 #if USE(APPKIT)
 static const WTF::String& invertColorsPreferenceKey()
@@ -332,7 +338,7 @@ bool AuxiliaryProcess::isSystemWebKit()
         if ([path hasPrefix:@"/Library/Apple/System/"])
             return true;
 #endif
-        return [path hasPrefix:FileSystem::systemDirectoryPath()];
+        return [path hasPrefix:RetainPtr { FileSystem::systemDirectoryPath() }.get()];
     }();
 
     return isSystemWebKit;

@@ -33,14 +33,15 @@
 #include "HeapAnalyzer.h"
 #include "IndexingHeaderInlines.h"
 #include "JSCInlines.h"
+#include "JSCellButterfly.h"
 #include "JSCustomGetterFunction.h"
 #include "JSCustomSetterFunction.h"
 #include "JSFunction.h"
-#include "JSImmutableButterfly.h"
 #include "Lookup.h"
 #include "PropertyDescriptor.h"
 #include "PropertyNameArray.h"
 #include "ProxyObject.h"
+#include "ResourceExhaustion.h"
 #include "TypeError.h"
 #include "VMInlines.h"
 #include "VMTrapsInlines.h"
@@ -84,7 +85,7 @@ ALWAYS_INLINE void JSObject::markAuxiliaryAndVisitOutOfLineProperties(Visitor& v
         return;
 
     if (isCopyOnWrite(structure->indexingMode())) {
-        visitor.append(std::bit_cast<WriteBarrier<JSCell>>(JSImmutableButterfly::fromButterfly(butterfly)));
+        visitor.append(std::bit_cast<WriteBarrier<JSCell>>(JSCellButterfly::fromButterfly(butterfly)));
         return;
     }
 
@@ -125,7 +126,7 @@ ALWAYS_INLINE Structure* JSObject::visitButterflyImpl(Visitor& visitor)
 
     auto visitElements = [&] (IndexingType indexingMode) {
         switch (indexingMode) {
-        // We don't need to visit the elements for CopyOnWrite butterflies since they we marked the JSImmutableButterfly acting as our butterfly.
+        // We don't need to visit the elements for CopyOnWrite butterflies since they we marked the JSCellButterfly acting as our butterfly.
         case ALL_WRITABLE_CONTIGUOUS_INDEXING_TYPES:
             visitor.appendValuesHidden(butterfly->contiguous().data(), butterfly->publicLength());
             break;
@@ -1212,6 +1213,11 @@ void JSObject::notifyPresenceOfIndexedAccessors(VM& vm)
     globalObject()->haveABadTime(vm);
 }
 
+static inline size_t nextLength(size_t length)
+{
+    return length + length / 2;
+}
+
 Butterfly* JSObject::createInitialIndexedStorage(VM& vm, unsigned length)
 {
     ASSERT(length <= MAX_STORAGE_VECTOR_LENGTH);
@@ -1302,12 +1308,8 @@ static Butterfly* createArrayStorageButterflyImpl(VM& vm, JSObject* intendedOwne
         oldButterfly, vm, intendedOwner, structure, structure->outOfLineCapacity(), false, 0,
         ArrayStorage::sizeFor(vectorLength));
     if (!newButterfly) [[unlikely]] {
-        if (mode == AllocationFailureMode::Assert)
-            RELEASE_ASSERT(newButterfly, length, vectorLength, oldButterfly);
-        else {
-            ASSERT(mode == AllocationFailureMode::ReturnNull);
-            return nullptr;
-        }
+        RELEASE_ASSERT_RESOURCE_AVAILABLE(mode != AllocationFailureMode::Assert, MemoryExhaustion, "Crash intentionally because memory is exhausted.");
+        return nullptr;
     }
 
     ArrayStorage* result = newButterfly->arrayStorage();
@@ -1791,7 +1793,7 @@ void JSObject::convertFromCopyOnWrite(VM& vm)
     const bool hasIndexingHeader = true;
     Butterfly* oldButterfly = butterfly();
     size_t propertyCapacity = 0;
-    unsigned newVectorLength = Butterfly::optimalContiguousVectorLength(propertyCapacity, std::min(oldButterfly->vectorLength() * 2, MAX_STORAGE_VECTOR_LENGTH));
+    unsigned newVectorLength = Butterfly::optimalContiguousVectorLength(propertyCapacity, std::min<size_t>(nextLength(oldButterfly->vectorLength()), MAX_STORAGE_VECTOR_LENGTH));
     Butterfly* newButterfly = Butterfly::createUninitialized(vm, this, 0, propertyCapacity, hasIndexingHeader, newVectorLength * sizeof(JSValue));
 
     // memcpy is fine since newButterfly is not tied to any object yet.
@@ -2490,7 +2492,7 @@ static ALWAYS_INLINE JSValue callToPrimitiveFunction(JSGlobalObject* globalObjec
             return JSValue();
     }
 
-    auto callData = JSC::getCallData(function);
+    auto callData = JSC::getCallDataInline(function);
     if (callData.type == CallData::Type::None) {
         if constexpr (key == CachedSpecialPropertyKey::ToPrimitive)
             throwTypeError(globalObject, scope, "Symbol.toPrimitive is not a function, undefined, or null"_s);
@@ -2606,7 +2608,7 @@ bool JSObject::hasInstance(JSGlobalObject* globalObject, JSValue value, JSValue 
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (!hasInstanceValue.isUndefinedOrNull() && hasInstanceValue != globalObject->functionProtoHasInstanceSymbolFunction()) {
-        auto callData = JSC::getCallData(hasInstanceValue);
+        auto callData = JSC::getCallDataInline(hasInstanceValue);
         if (callData.type == CallData::Type::None) {
             throwException(globalObject, scope, createInvalidInstanceofParameterErrorHasInstanceValueNotFunction(globalObject, this));
             return false;
@@ -3809,7 +3811,7 @@ bool JSObject::ensureLengthSlow(VM& vm, unsigned length)
         newVectorLength = availableOldLength;
     } else {
         newVectorLength = Butterfly::optimalContiguousVectorLength(
-            propertyCapacity, std::min(length * 2, MAX_STORAGE_VECTOR_LENGTH));
+            propertyCapacity, std::min<size_t>(nextLength(length), MAX_STORAGE_VECTOR_LENGTH));
         butterfly = butterfly->reallocArrayRightIfPossible(
             vm, deferralContext, this, structure, propertyCapacity, true,
             oldVectorLength * sizeof(EncodedJSValue),
@@ -4147,7 +4149,7 @@ JSValue JSObject::getMethod(JSGlobalObject* globalObject, CallData& callData, co
         return jsUndefined();
     }
 
-    callData = JSC::getCallData(method.asCell());
+    callData = JSC::getCallDataInline(method.asCell());
     if (callData.type == CallData::Type::None) {
         throwVMTypeError(globalObject, scope, errorMessage);
         return jsUndefined();

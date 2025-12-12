@@ -27,7 +27,7 @@
 #import "H264UtilitiesCocoa.h"
 
 #import "BitReader.h"
-#import "MediaSample.h"
+#import "TrackInfo.h"
 
 #import <pal/cf/CoreMediaSoftLink.h>
 

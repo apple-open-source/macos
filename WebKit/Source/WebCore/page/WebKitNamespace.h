@@ -28,13 +28,21 @@
 #if ENABLE(USER_MESSAGE_HANDLERS)
 
 #include "LocalDOMWindowProperty.h"
+#include <JavaScriptCore/Strong.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
+namespace JSC {
+class JSGlobalObject;
+}
+
 namespace WebCore {
 
+class Node;
 class UserContentProvider;
 class UserMessageHandlersNamespace;
+class WebKitJSHandle;
+class WebKitSerializedNode;
 
 class WebKitNamespace : public LocalDOMWindowProperty, public RefCounted<WebKitNamespace> {
 public:
@@ -46,6 +54,12 @@ public:
     virtual ~WebKitNamespace();
 
     UserMessageHandlersNamespace* messageHandlers();
+    Ref<WebKitJSHandle> createJSHandle(JSC::JSGlobalObject&, JSC::Strong<JSC::JSObject>);
+
+    struct SerializedNodeInit {
+        bool deep { false };
+    };
+    ExceptionOr<Ref<WebKitSerializedNode>> serializeNode(Node&, SerializedNodeInit&&);
 
 private:
     explicit WebKitNamespace(LocalDOMWindow&, UserContentProvider&);

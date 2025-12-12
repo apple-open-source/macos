@@ -25,9 +25,12 @@
 
 #pragma once
 
-#import "Color.h"
-#import "TextAttachmentForSerialization.h"
+#import <WebCore/Color.h>
+#import <WebCore/FontPlatformData.h>
+#import <WebCore/TextAttachmentForSerialization.h>
+#import <pal/spi/cf/CoreTextSPI.h>
 #import <wtf/ObjectIdentifier.h>
+#import <wtf/Platform.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/URL.h>
 #import <wtf/Vector.h>
@@ -49,19 +52,19 @@
 #define PlatformNSTextTableBlock        NSTextTableBlock.class
 #else
 #define PlatformColor                   UIColor
-#define PlatformColorClass              PAL::getUIColorClass()
+#define PlatformColorClass              PAL::getUIColorClassSingleton()
 #define PlatformFont                    UIFont
-#define PlatformFontClass               PAL::getUIFontClass()
-#define PlatformImageClass              PAL::getUIImageClass()
-#define PlatformNSColorClass            getNSColorClass()
-#define PlatformNSParagraphStyle        PAL::getNSParagraphStyleClass()
-#define PlatformNSPresentationIntent    PAL::getNSPresentationIntentClass()
-#define PlatformNSShadow                PAL::getNSShadowClass()
-#define PlatformNSTextAttachment        getNSTextAttachmentClass()
-#define PlatformNSTextList              getNSTextListClass()
-#define PlatformNSTextTab               getNSTextTabClass()
-#define PlatformNSTextTable             getNSTextTableClass()
-#define PlatformNSTextTableBlock        getNSTextTableBlockClass()
+#define PlatformFontClass               PAL::getUIFontClassSingleton()
+#define PlatformImageClass              PAL::getUIImageClassSingleton()
+#define PlatformNSColorClass            getNSColorClassSingleton()
+#define PlatformNSParagraphStyle        PAL::getNSParagraphStyleClassSingleton()
+#define PlatformNSPresentationIntent    PAL::getNSPresentationIntentClassSingleton()
+#define PlatformNSShadow                PAL::getNSShadowClassSingleton()
+#define PlatformNSTextAttachment        getNSTextAttachmentClassSingleton()
+#define PlatformNSTextList              getNSTextListClassSingleton()
+#define PlatformNSTextTab               getNSTextTabClassSingleton()
+#define PlatformNSTextTable             getNSTextTableClassSingleton()
+#define PlatformNSTextTableBlock        getNSTextTableBlockClassSingleton()
 #endif
 
 OBJC_CLASS NSAttributedString;
@@ -206,12 +209,23 @@ struct WEBCORE_EXPORT AttributedString {
         Color color;
     };
 
+    struct FontWrapper {
+        Ref<Font> font;
+
+        String postScriptName() const;
+        double pointSize() const;
+        CTFontDescriptorOptions fontDescriptorOptions() const;
+        std::optional<WebCore::FontPlatformSerializedAttributes> fontSerializedAttributes() const;
+        static std::optional<FontWrapper> createFromIPCData(const String& postScriptName, double pointSize, const CTFontDescriptorOptions&, const std::optional<WebCore::FontPlatformSerializedAttributes>&);
+    };
+
     struct AttributeValue {
-        Variant<
+
+        using AttributeType = Variant<
             double,
             String,
             URL,
-            Ref<Font>,
+            FontWrapper,
             Vector<String>,
             Vector<double>,
             ParagraphStyle,
@@ -225,7 +239,9 @@ struct WEBCORE_EXPORT AttributedString {
 #endif
             TextAttachmentFileWrapper,
             TextAttachmentMissingImage
-        > value;
+            >;
+
+        AttributeType value;
     };
 
     String string;

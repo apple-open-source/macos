@@ -1780,7 +1780,7 @@ vm_object_reap_pages(
 	bool            set_cache_attr_needed;
 	pmap_flush_context      pmap_flush_context_storage;
 
-	if (reap_type == REAP_DATA_FLUSH) {
+	if (reap_type == REAP_DATA_FLUSH || reap_type == REAP_DATA_FLUSH_CLEAN) {
 		/*
 		 * We need to disconnect pages from all pmaps before
 		 * releasing them to the free list
@@ -1856,7 +1856,9 @@ restart_after_sleep:
 
 			vm_page_lock_queues();
 		}
-		if (reap_type == REAP_DATA_FLUSH || reap_type == REAP_TERMINATE) {
+		if (reap_type == REAP_DATA_FLUSH ||
+		    reap_type == REAP_DATA_FLUSH_CLEAN ||
+		    reap_type == REAP_TERMINATE) {
 			if (p->vmp_busy || p->vmp_cleaning) {
 				vm_page_unlock_queues();
 				/*
@@ -1872,11 +1874,23 @@ restart_after_sleep:
 
 				goto restart_after_sleep;
 			}
-			if (p->vmp_laundry) {
+			if (p->vmp_laundry && reap_type != REAP_DATA_FLUSH_CLEAN) {
 				vm_pageout_steal_laundry(p, TRUE);
 			}
 		}
 		switch (reap_type) {
+		case REAP_DATA_FLUSH_CLEAN:
+			if (!p->vmp_dirty &&
+			    p->vmp_wpmapped &&
+			    pmap_is_modified(VM_PAGE_GET_PHYS_PAGE(p))) {
+				SET_PAGE_DIRTY(p, FALSE);
+			}
+			if (p->vmp_dirty) {
+				/* only flush clean pages */
+				continue;
+			}
+			OS_FALLTHROUGH;
+
 		case REAP_DATA_FLUSH:
 			if (VM_PAGE_WIRED(p)) {
 				/*
@@ -3983,6 +3997,7 @@ Retry:
 			} else {
 				vm_object_reference_locked(old_copy);
 			}
+			assert3u(old_copy->copy_strategy, ==, MEMORY_OBJECT_COPY_SYMMETRIC);
 			vm_object_unlock(old_copy);
 			vm_object_unlock(src_object);
 
@@ -4116,6 +4131,7 @@ Retry:
 	vm_object_reference_locked(src_object);
 	VM_OBJECT_COPY_SET(src_object, new_copy);
 	vm_object_unlock(src_object);
+	assert3u(new_copy->copy_strategy, ==, MEMORY_OBJECT_COPY_SYMMETRIC);
 	vm_object_unlock(new_copy);
 
 	return new_copy;

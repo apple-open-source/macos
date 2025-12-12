@@ -30,6 +30,7 @@
 #include "WebInspectorUIProxy.h"
 #include "WebPageInspectorController.h"
 #include "WebPageProxy.h"
+#include "WebsiteDataStore.h"
 #include <JavaScriptCore/InspectorProtocolObjects.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>

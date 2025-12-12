@@ -26,7 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-/* compile: xcrun -sdk macosx.internal clang -ldarwintest -o chroot_unmount_stress chroot_unmount_stress.c -g -Weverything */
+/* compile: xcrun -sdk macosx.internal clang -arch arm64e -arch x86_64 -ldarwintest -o chroot_unmount_stress chroot_unmount_stress.c */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,7 +60,7 @@ T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.vfs"),
 	T_META_RADAR_COMPONENT_NAME("xnu"),
 	T_META_RADAR_COMPONENT_VERSION("vfs"),
-	T_META_ASROOT(false),
+	T_META_ASROOT(true),
 	T_META_CHECK_LEAKS(false));
 
 static void

@@ -97,7 +97,7 @@ void GPUProcess::ensureAVCaptureServerConnection()
 {
     RELEASE_LOG(WebRTC, "GPUProcess::ensureAVCaptureServerConnection: Entering.");
 #if HAVE(AVCAPTUREDEVICE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    RetainPtr deviceClass = PAL::getAVCaptureDeviceClass();
+    RetainPtr deviceClass = PAL::getAVCaptureDeviceClassSingleton();
     if ([deviceClass respondsToSelector:@selector(ensureServerConnection)]) {
         RELEASE_LOG(WebRTC, "GPUProcess::ensureAVCaptureServerConnection: Calling [AVCaptureDevice ensureServerConnection]");
         [deviceClass ensureServerConnection];

@@ -270,7 +270,8 @@ XNU_ONLY_EXPORTS = \
 	vsock_domain.h \
 	code_signing_internal.h \
 	trusted_execution_monitor.h \
-	coalition.h
+	coalition.h \
+	coalition_private.h
 
 # /usr/include
 INSTALL_MI_LIST	= ${DATAFILES}

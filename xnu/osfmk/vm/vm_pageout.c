@@ -6160,7 +6160,7 @@ vm_object_upl_request(
 	vm_page_t               alias_page = NULL;
 	int                     refmod_state = 0;
 	vm_object_t             last_copy_object;
-	uint32_t                last_copy_version;
+	uint64_t                last_copy_version;
 	struct  vm_page_delayed_work    dw_array;
 	struct  vm_page_delayed_work    *dwp, *dwp_start;
 	bool                    dwp_finish_ctx = TRUE;
@@ -6273,6 +6273,10 @@ vm_object_upl_request(
 	}
 	if (cntrl_flags & UPL_FOR_PAGEOUT) {
 		upl->flags |= UPL_PAGEOUT;
+	}
+	if ((cntrl_flags & UPL_RET_ONLY_ABSENT) &&
+	    !(cntrl_flags & UPL_FILE_IO)) {
+		upl->flags |= UPL_PAGEIN;
 	}
 
 	vm_object_lock(object);
@@ -6708,6 +6712,7 @@ check_busy:
 
 					if (!(cntrl_flags & UPL_FILE_IO)) {
 						counter_inc(&vm_statistics_pageins);
+						counter_inc(&vm_statistics_pageins_requested);
 					}
 				}
 			}

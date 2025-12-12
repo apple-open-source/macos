@@ -2527,6 +2527,7 @@ ch_update_upp_buf_stats(struct kern_channel *ch, struct kern_pbufpool *pp)
 	os_atomic_store(&csm->csm_upp_buf_inuse, buf_inuse, relaxed);
 }
 
+#if SK_LOG
 SK_NO_INLINE_ATTRIBUTE
 char *
 ch2str(const struct kern_channel *ch, char *__counted_by(dsz)dst, size_t dsz)
@@ -2536,3 +2537,4 @@ ch2str(const struct kern_channel *ch, char *__counted_by(dsz)dst, size_t dsz)
 
 	return dst;
 }
+#endif

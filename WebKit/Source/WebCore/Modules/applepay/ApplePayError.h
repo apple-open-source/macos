@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +27,8 @@
 
 #if ENABLE(APPLE_PAY)
 
-#include "ApplePayErrorCode.h"
-#include "ApplePayErrorContactField.h"
+#include <WebCore/ApplePayErrorCode.h>
+#include <WebCore/ApplePayErrorContactField.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -47,8 +47,6 @@ public:
     {
         return adoptRef(*new ApplePayError(code, contactField, message, domain));
     }
-
-    virtual ~ApplePayError() = default;
 
     ApplePayErrorCode code() const { return m_code; }
     void setCode(ApplePayErrorCode code) { m_code = code; }

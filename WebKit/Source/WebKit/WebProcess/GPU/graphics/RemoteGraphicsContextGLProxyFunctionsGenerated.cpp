@@ -54,7 +54,7 @@ void RemoteGraphicsContextGLProxy::attachShader(PlatformGLObject program, Platfo
     }
 }
 
-void RemoteGraphicsContextGLProxy::bindAttribLocation(PlatformGLObject arg0, GCGLuint index, const String& name)
+void RemoteGraphicsContextGLProxy::bindAttribLocation(PlatformGLObject arg0, GCGLuint index, const CString& name)
 {
     if (isContextLost())
         return;
@@ -596,7 +596,7 @@ void RemoteGraphicsContextGLProxy::generateMipmap(GCGLenum target)
     }
 }
 
-bool RemoteGraphicsContextGLProxy::getActiveAttrib(PlatformGLObject program, GCGLuint index, struct WebCore::GraphicsContextGLActiveInfo& arg2)
+std::optional<WebCore::GraphicsContextGLActiveInfo> RemoteGraphicsContextGLProxy::getActiveAttrib(PlatformGLObject program, GCGLuint index)
 {
     if (isContextLost())
         return { };
@@ -605,12 +605,11 @@ bool RemoteGraphicsContextGLProxy::getActiveAttrib(PlatformGLObject program, GCG
         markContextLost();
         return { };
     }
-    auto& [returnValue, arg2Reply] = sendResult.reply();
-    arg2 = WTFMove(arg2Reply);
+    auto& [returnValue] = sendResult.reply();
     return returnValue;
 }
 
-bool RemoteGraphicsContextGLProxy::getActiveUniform(PlatformGLObject program, GCGLuint index, struct WebCore::GraphicsContextGLActiveInfo& arg2)
+std::optional<WebCore::GraphicsContextGLActiveInfo> RemoteGraphicsContextGLProxy::getActiveUniform(PlatformGLObject program, GCGLuint index)
 {
     if (isContextLost())
         return { };
@@ -619,12 +618,11 @@ bool RemoteGraphicsContextGLProxy::getActiveUniform(PlatformGLObject program, GC
         markContextLost();
         return { };
     }
-    auto& [returnValue, arg2Reply] = sendResult.reply();
-    arg2 = WTFMove(arg2Reply);
+    auto& [returnValue] = sendResult.reply();
     return returnValue;
 }
 
-GCGLint RemoteGraphicsContextGLProxy::getAttribLocation(PlatformGLObject arg0, const String& name)
+GCGLint RemoteGraphicsContextGLProxy::getAttribLocation(PlatformGLObject arg0, const CString& name)
 {
     if (isContextLost())
         return { };
@@ -650,7 +648,7 @@ GCGLint RemoteGraphicsContextGLProxy::getBufferParameteri(GCGLenum target, GCGLe
     return returnValue;
 }
 
-String RemoteGraphicsContextGLProxy::getString(GCGLenum name)
+CString RemoteGraphicsContextGLProxy::getString(GCGLenum name)
 {
     if (isContextLost())
         return { };
@@ -767,7 +765,7 @@ GCGLint RemoteGraphicsContextGLProxy::getFramebufferAttachmentParameteri(GCGLenu
     return returnValue;
 }
 
-String RemoteGraphicsContextGLProxy::getProgramInfoLog(PlatformGLObject arg0)
+CString RemoteGraphicsContextGLProxy::getProgramInfoLog(PlatformGLObject arg0)
 {
     if (isContextLost())
         return { };
@@ -806,7 +804,7 @@ GCGLint RemoteGraphicsContextGLProxy::getShaderi(PlatformGLObject arg0, GCGLenum
     return returnValue;
 }
 
-String RemoteGraphicsContextGLProxy::getShaderInfoLog(PlatformGLObject arg0)
+CString RemoteGraphicsContextGLProxy::getShaderInfoLog(PlatformGLObject arg0)
 {
     if (isContextLost())
         return { };
@@ -832,19 +830,6 @@ void RemoteGraphicsContextGLProxy::getShaderPrecisionFormat(GCGLenum shaderType,
     memcpySpan(range, rangeReply);
     if (precision)
         *precision = precisionReply;
-}
-
-String RemoteGraphicsContextGLProxy::getShaderSource(PlatformGLObject arg0)
-{
-    if (isContextLost())
-        return { };
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::GetShaderSource(arg0));
-    if (!sendResult.succeeded()) {
-        markContextLost();
-        return { };
-    }
-    auto& [returnValue] = sendResult.reply();
-    return returnValue;
 }
 
 GCGLfloat RemoteGraphicsContextGLProxy::getTexParameterf(GCGLenum target, GCGLenum pname)
@@ -912,7 +897,7 @@ void RemoteGraphicsContextGLProxy::getUniformuiv(PlatformGLObject program, GCGLi
     memcpySpan(value, valueReply);
 }
 
-GCGLint RemoteGraphicsContextGLProxy::getUniformLocation(PlatformGLObject arg0, const String& name)
+GCGLint RemoteGraphicsContextGLProxy::getUniformLocation(PlatformGLObject arg0, const CString& name)
 {
     if (isContextLost())
         return { };
@@ -1117,7 +1102,7 @@ void RemoteGraphicsContextGLProxy::scissor(GCGLint x, GCGLint y, GCGLsizei width
     }
 }
 
-void RemoteGraphicsContextGLProxy::shaderSource(PlatformGLObject arg0, const String& arg1)
+void RemoteGraphicsContextGLProxy::shaderSource(PlatformGLObject arg0, const CString& arg1)
 {
     if (isContextLost())
         return;
@@ -1946,7 +1931,7 @@ void RemoteGraphicsContextGLProxy::compressedTexSubImage3D(GCGLenum target, GCGL
     }
 }
 
-GCGLint RemoteGraphicsContextGLProxy::getFragDataLocation(PlatformGLObject program, const String& name)
+GCGLint RemoteGraphicsContextGLProxy::getFragDataLocation(PlatformGLObject program, const CString& name)
 {
     if (isContextLost())
         return { };
@@ -2548,7 +2533,7 @@ void RemoteGraphicsContextGLProxy::endTransformFeedback()
     }
 }
 
-void RemoteGraphicsContextGLProxy::transformFeedbackVaryings(PlatformGLObject program, const Vector<String>& varyings, GCGLenum bufferMode)
+void RemoteGraphicsContextGLProxy::transformFeedbackVaryings(PlatformGLObject program, const Vector<CString>& varyings, GCGLenum bufferMode)
 {
     if (isContextLost())
         return;
@@ -2559,17 +2544,17 @@ void RemoteGraphicsContextGLProxy::transformFeedbackVaryings(PlatformGLObject pr
     }
 }
 
-void RemoteGraphicsContextGLProxy::getTransformFeedbackVarying(PlatformGLObject program, GCGLuint index, struct WebCore::GraphicsContextGLActiveInfo& arg2)
+std::optional<WebCore::GraphicsContextGLActiveInfo> RemoteGraphicsContextGLProxy::getTransformFeedbackVarying(PlatformGLObject program, GCGLuint index)
 {
     if (isContextLost())
-        return;
+        return { };
     auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::GetTransformFeedbackVarying(program, index));
     if (!sendResult.succeeded()) {
         markContextLost();
-        return;
+        return { };
     }
-    auto& [arg2Reply] = sendResult.reply();
-    arg2 = WTFMove(arg2Reply);
+    auto& [returnValue] = sendResult.reply();
+    return returnValue;
 }
 
 void RemoteGraphicsContextGLProxy::pauseTransformFeedback()
@@ -2616,7 +2601,7 @@ void RemoteGraphicsContextGLProxy::bindBufferRange(GCGLenum target, GCGLuint ind
     }
 }
 
-Vector<GCGLuint> RemoteGraphicsContextGLProxy::getUniformIndices(PlatformGLObject program, const Vector<String>& uniformNames)
+Vector<GCGLuint> RemoteGraphicsContextGLProxy::getUniformIndices(PlatformGLObject program, const Vector<CString>& uniformNames)
 {
     if (isContextLost())
         return { };
@@ -2642,7 +2627,7 @@ Vector<GCGLint> RemoteGraphicsContextGLProxy::getActiveUniforms(PlatformGLObject
     return returnValue;
 }
 
-GCGLuint RemoteGraphicsContextGLProxy::getUniformBlockIndex(PlatformGLObject program, const String& uniformBlockName)
+GCGLuint RemoteGraphicsContextGLProxy::getUniformBlockIndex(PlatformGLObject program, const CString& uniformBlockName)
 {
     if (isContextLost())
         return { };
@@ -2655,7 +2640,7 @@ GCGLuint RemoteGraphicsContextGLProxy::getUniformBlockIndex(PlatformGLObject pro
     return returnValue;
 }
 
-String RemoteGraphicsContextGLProxy::getActiveUniformBlockName(PlatformGLObject program, GCGLuint uniformBlockIndex)
+CString RemoteGraphicsContextGLProxy::getActiveUniformBlockName(PlatformGLObject program, GCGLuint uniformBlockIndex)
 {
     if (isContextLost())
         return { };
@@ -2692,7 +2677,7 @@ void RemoteGraphicsContextGLProxy::getActiveUniformBlockiv(PlatformGLObject prog
     memcpySpan(params, paramsReply);
 }
 
-String RemoteGraphicsContextGLProxy::getTranslatedShaderSourceANGLE(PlatformGLObject arg0)
+CString RemoteGraphicsContextGLProxy::getTranslatedShaderSourceANGLE(PlatformGLObject arg0)
 {
     if (isContextLost())
         return { };
@@ -3053,7 +3038,6 @@ GCGLExternalSync RemoteGraphicsContextGLProxy::createExternalSync(WebCore::Graph
     }
     return name;
 }
-#endif
 
 void RemoteGraphicsContextGLProxy::deleteExternalSync(GCGLExternalSync arg0)
 {
@@ -3066,7 +3050,6 @@ void RemoteGraphicsContextGLProxy::deleteExternalSync(GCGLExternalSync arg0)
     }
 }
 
-#if ENABLE(WEBXR)
 bool RemoteGraphicsContextGLProxy::enableRequiredWebXRExtensions()
 {
     if (isContextLost())

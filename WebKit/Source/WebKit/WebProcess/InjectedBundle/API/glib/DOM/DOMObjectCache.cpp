@@ -24,6 +24,7 @@
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/LocalDOMWindow.h>
 #include <WebCore/LocalFrameInlines.h>
+#include <WebCore/NodeDocument.h>
 #include <WebCore/NodeInlines.h>
 #include <glib-object.h>
 #include <wtf/HashMap.h>
@@ -36,7 +37,7 @@
 namespace WebKit {
 
 struct DOMObjectCacheData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(DOMObjectCacheData);
     DOMObjectCacheData(GObject* wrapper)
         : object(wrapper)
         , cacheReferences(1)

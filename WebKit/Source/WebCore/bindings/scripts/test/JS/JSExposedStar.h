@@ -20,10 +20,10 @@
 
 #pragma once
 
-#include "EventTargetInlines.h"
+#include "EventTarget.h"
 #include "ExposedStar.h"
-#include "JSDOMWrapper.h"
 #include "JSEventTarget.h"
+#include <WebCore/JSDOMWrapper.h>
 
 namespace WebCore {
 

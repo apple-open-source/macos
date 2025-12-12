@@ -24,11 +24,11 @@
     JSGenerateToNativeObject,
     Exposed=Window
 ] interface HTMLFormElement : HTMLElement {
-    [CEReactions=NotNeeded, Reflect=accept_charset] attribute DOMString acceptCharset;
+    [CEReactions=NotNeeded, Reflect="accept-charset"] attribute DOMString acceptCharset;
     [CEReactions=NotNeeded, ReflectSetter] attribute [AtomString] USVString action;
     [CEReactions=NotNeeded, ReflectSetter] attribute [AtomString] DOMString autocomplete;
     [CEReactions=NotNeeded, ReflectSetter] attribute [AtomString] DOMString enctype;
-    [CEReactions=NotNeeded, ImplementedAs=enctype, ReflectSetter=enctype] attribute [AtomString] DOMString encoding;
+    [CEReactions=NotNeeded, ImplementedAs=enctype, ReflectSetter="enctype"] attribute [AtomString] DOMString encoding;
     [CEReactions=NotNeeded, ReflectSetter] attribute [AtomString] DOMString method;
     [CEReactions=NotNeeded, Reflect] attribute DOMString name;
     [CEReactions=NotNeeded, Reflect] attribute boolean noValidate;

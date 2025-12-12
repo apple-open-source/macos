@@ -27,17 +27,18 @@
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
 #include "LibWebRTCMacros.h"
-#include <wtf/CompletionHandler.h>
-#include <wtf/RefPtr.h>
-
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 
 // See Bug 274508: Disable thread-safety-reference-return warnings in libwebrtc
 IGNORE_CLANG_WARNINGS_BEGIN("thread-safety-reference-return")
+IGNORE_CLANG_WARNINGS_BEGIN("nullability-completeness")
 #include <webrtc/pc/rtc_stats_collector.h>
+IGNORE_CLANG_WARNINGS_END
 IGNORE_CLANG_WARNINGS_END
 
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+#include <wtf/CompletionHandler.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 

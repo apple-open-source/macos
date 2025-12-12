@@ -24,14 +24,14 @@
 
 #pragma once
 
-#include "CSSValue.h"
-#include "CSSValueAggregates.h"
-#include "CSSVariableData.h"
-#include "Length.h"
-#include "StyleColor.h"
-#include "StyleImage.h"
-#include "StyleURL.h"
-#include "TransformOperation.h"
+#include <WebCore/CSSValue.h>
+#include <WebCore/CSSValueAggregates.h>
+#include <WebCore/CSSVariableData.h>
+#include <WebCore/StyleColor.h>
+#include <WebCore/StyleImageWrapper.h>
+#include <WebCore/StylePrimitiveNumeric.h>
+#include <WebCore/StyleTransformFunction.h>
+#include <WebCore/StyleURL.h>
 #include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Variant.h>
@@ -50,26 +50,20 @@ public:
     // https://drafts.csswg.org/css-variables-2/#guaranteed-invalid
     struct GuaranteedInvalid { };
 
-    struct Numeric {
-        double value;
-        CSSUnitType unitType;
-        bool operator==(const Numeric&) const = default;
-    };
-
-    struct Transform {
-        Ref<TransformOperation> operation;
-        bool operator==(const Transform& other) const { return arePointingToEqualData(operation, other.operation); }
-    };
-
     using Value = Variant<
-        WebCore::Length,
-        Numeric,
-        RefPtr<StyleImage>,
+        LengthPercentage<>,
+        Length<>,
+        Number<>,
+        Percentage<>,
+        Angle<>,
+        Time<>,
+        Resolution<>,
+        ImageWrapper,
         Color,
         URL,
         CustomIdentifier,
         String,
-        Transform
+        TransformFunction
     >;
 
     struct ValueList {

@@ -8,20 +8,14 @@
 #include <mach/mach_error.h>
 #include <mach/task.h>
 
+#include "../task_security_config.h"
+
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.spawn"),
 	T_META_RUN_CONCURRENTLY(TRUE),
 	T_META_RADAR_COMPONENT_NAME("xnu"),
 	T_META_RADAR_COMPONENT_VERSION("spawn"),
 	T_META_TAG_VM_PREFERRED);
-
-struct task_security_config {
-	uint8_t hardened_heap: 1,
-	    tpro :1,
-	    reserved: 1,
-	    platform_restrictions_version :3;
-	uint8_t hardened_process_version;
-};
 
 T_DECL(test_platform_restrictions_entitlements,
     "entitlement should enable the platform restrictions configuration",

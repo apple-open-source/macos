@@ -83,7 +83,7 @@ private:
 
     // WebXRLayer
 #if PLATFORM(COCOA)
-    void startFrame(size_t frameIndex, MachSendRight&&, MachSendRight&&, MachSendRight&&, size_t reusableTextureIndex) final;
+    void startFrame(size_t frameIndex, MachSendRight&&, MachSendRight&&, MachSendRight&&, size_t reusableTextureIndex, PlatformXR::RateMapDescription&&) final;
 #endif
     void endFrame() final;
 

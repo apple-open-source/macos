@@ -34,6 +34,7 @@
 #include "DocumentFragment.h"
 #include "Editor.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "Page.h"
 #include "Settings.h"
 #include "markup.h"
@@ -97,7 +98,7 @@ bool WebContentMarkupReader::readHTML(const String& string)
         return false;
 
     if (shouldSanitize()) {
-        m_markup = sanitizeMarkup(string, MSOListQuirks::Disabled, Function<void(DocumentFragment&)> { [](DocumentFragment& fragment) {
+        m_markup = sanitizeMarkup(string, frame().document(), MSOListQuirks::Disabled, Function<void(DocumentFragment&)> { [](DocumentFragment& fragment) {
             removeSubresourceURLAttributes(fragment, [](const URL& url) {
                 return shouldReplaceSubresourceURL(url);
             });

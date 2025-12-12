@@ -17,6 +17,7 @@ namespace sh
 {
 
 class ImmutableString;
+class TField;
 class TSymbol;
 class TType;
 
@@ -78,6 +79,7 @@ class TInfoSinkBase
 
     TInfoSinkBase &operator<<(const TType &type);
     TInfoSinkBase &operator<<(const TSymbol &symbol);
+    TInfoSinkBase &operator<<(const TField &symbol);
 
     // Make sure floats are written with correct precision.
     TInfoSinkBase &operator<<(float f)

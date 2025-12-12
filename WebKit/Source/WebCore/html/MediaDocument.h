@@ -27,7 +27,7 @@
 
 #if ENABLE(VIDEO)
 
-#include "HTMLDocument.h"
+#include <WebCore/HTMLDocument.h>
 
 namespace WebCore {
 

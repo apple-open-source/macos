@@ -23,9 +23,9 @@
 
 #pragma once
 
-#include "DOMTokenList.h"
-#include "HTMLElement.h"
-#include "ScriptElement.h"
+#include <WebCore/DOMTokenList.h>
+#include <WebCore/HTMLElement.h>
+#include <WebCore/ScriptElement.h>
 
 namespace WebCore {
 
@@ -64,7 +64,7 @@ public:
     using HTMLElement::ref;
     using HTMLElement::deref;
 
-    static bool supports(StringView type) { return type == "classic"_s || type == "module"_s || type == "importmap"_s; }
+    static bool supports(StringView type) { return type == "classic"_s || type == "module"_s || type == "importmap"_s || type == "speculationrules"_s; }
 
     String fetchPriorityForBindings() const;
     RequestPriority fetchPriority() const final;
@@ -104,7 +104,7 @@ private:
 
     bool isScriptPreventedByAttributes() const final;
 
-    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) final;
+    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) const final;
 
     const std::unique_ptr<DOMTokenList> m_blockingList;
     bool m_isRenderBlocking { false };

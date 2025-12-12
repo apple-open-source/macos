@@ -37,6 +37,8 @@
 namespace WebCore {
 namespace Style {
 
+using namespace CSS::Literals;
+
 // MARK: - Conversion
 
 Color toStyleColor(const CSS::ColorMix& unresolved, ColorResolutionState& state)
@@ -170,9 +172,12 @@ static void serializationForColorMixPercentage2(StringBuilder& builder, const CS
 
 void serializationForCSSTokenization(StringBuilder& builder, const CSS::SerializationContext& context, const ColorMix& colorMix)
 {
-    builder.append("color-mix(in "_s);
-    WebCore::serializationForCSS(builder, colorMix.colorInterpolationMethod);
-    builder.append(", "_s);
+    builder.append("color-mix("_s);
+    if (colorMix.colorInterpolationMethod != CSS::defaultInterpolationMethodForColorMix) {
+        builder.append("in "_s);
+        WebCore::serializationForCSS(builder, colorMix.colorInterpolationMethod);
+        builder.append(", "_s);
+    }
     serializationForCSSTokenization(builder, context, colorMix.mixComponents1.color);
     ColorMixSerializationDetails::serializationForColorMixPercentage1(builder, context, colorMix);
     builder.append(", "_s);

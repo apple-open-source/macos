@@ -32,6 +32,7 @@
 #include "BackgroundFetchRequest.h"
 #include "CacheQueryOptions.h"
 #include "CookieChangeSubscription.h"
+#include "ExceptionOr.h"
 #include "NotificationData.h"
 #include "RetrieveRecordsOptions.h"
 #include "SecurityOrigin.h"
@@ -187,6 +188,16 @@ void WorkerSWClientConnection::removeServiceWorkerRegistrationInServer(ServiceWo
         Ref connection = ServiceWorkerProvider::singleton().serviceWorkerConnection();
         connection->removeServiceWorkerRegistrationInServer(identifier);
     });
+}
+
+void WorkerSWClientConnection::registerServiceWorkerInServer(ServiceWorkerIdentifier)
+{
+    ASSERT_NOT_REACHED();
+}
+
+void WorkerSWClientConnection::unregisterServiceWorkerInServer(ServiceWorkerIdentifier)
+{
+    ASSERT_NOT_REACHED();
 }
 
 void WorkerSWClientConnection::didResolveRegistrationPromise(const ServiceWorkerRegistrationKey& key)

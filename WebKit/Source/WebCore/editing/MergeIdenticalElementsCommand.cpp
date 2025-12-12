@@ -27,6 +27,7 @@
 #include "MergeIdenticalElementsCommand.h"
 
 #include "Element.h"
+#include "NodeDocument.h"
 
 namespace WebCore {
 
@@ -46,10 +47,10 @@ void MergeIdenticalElementsCommand::doApply()
     m_atChild = m_element2->firstChild();
 
     Vector<Ref<Node>> children;
-    for (Node* child = m_element1->firstChild(); child; child = child->nextSibling())
+    for (RefPtr child = m_element1->firstChild(); child; child = child->nextSibling())
         children.append(*child);
 
-    for (auto& child : children)
+    for (Ref child : children)
         m_element2->insertBefore(child, m_atChild.copyRef());
 
     m_element1->remove();
@@ -67,10 +68,10 @@ void MergeIdenticalElementsCommand::doUnapply()
         return;
 
     Vector<Ref<Node>> children;
-    for (Node* child = m_element2->firstChild(); child && child != atChild; child = child->nextSibling())
+    for (RefPtr child = m_element2->firstChild(); child && child != atChild; child = child->nextSibling())
         children.append(*child);
 
-    for (auto& child : children)
+    for (Ref child : children)
         m_element1->appendChild(child);
 }
 

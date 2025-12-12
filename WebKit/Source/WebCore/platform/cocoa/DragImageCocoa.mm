@@ -39,7 +39,7 @@
 #import "Image.h"
 #import "ImageAdapter.h"
 #import "LocalDefaultSystemAppearance.h"
-#import "NodeInlines.h"
+#import "NodeDocument.h"
 #import "Page.h"
 #import "StringTruncator.h"
 #import "TextIndicator.h"

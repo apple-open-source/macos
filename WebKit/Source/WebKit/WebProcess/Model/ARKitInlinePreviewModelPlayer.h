@@ -47,9 +47,7 @@ protected:
     WebCore::ModelPlayerClient* client() { return m_client.get(); }
 
     virtual std::optional<ModelIdentifier> modelIdentifier() = 0;
-#if ENABLE(MODEL_PROCESS)
     WebCore::ModelPlayerIdentifier identifier() const final;
-#endif
 
 private:
     // WebCore::ModelPlayer overrides.
@@ -70,13 +68,11 @@ private:
     void hasAudio(CompletionHandler<void(std::optional<bool>&&)>&&) override;
     void isMuted(CompletionHandler<void(std::optional<bool>&&)>&&) override;
     void setIsMuted(bool, CompletionHandler<void(bool success)>&&) override;
-    Vector<RetainPtr<id>> accessibilityChildren() override;
+    WebCore::ModelPlayerAccessibilityChildren accessibilityChildren() override;
 
     WeakPtr<WebPage> m_page;
     WeakPtr<WebCore::ModelPlayerClient> m_client;
-#if ENABLE(MODEL_PROCESS)
     WebCore::ModelPlayerIdentifier m_id;
-#endif
 };
 
 }

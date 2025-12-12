@@ -72,6 +72,7 @@ class DynamicsCompressorNode;
 class GainNode;
 class IIRFilterNode;
 class MediaElementAudioSourceNode;
+class MediaSessionManagerInterface;
 class OscillatorNode;
 class PannerNode;
 class PeriodicWave;
@@ -214,6 +215,7 @@ public:
 
     // EventTarget
     ScriptExecutionContext* scriptExecutionContext() const final;
+    using ActiveDOMObject::protectedScriptExecutionContext;
 
     virtual void sourceNodeWillBeginPlayback(AudioNode&);
     // When a source node has no more processing to do (has finished playing), then it tells the context to dereference it.
@@ -256,6 +258,8 @@ protected:
     void setState(State);
 
     void clear();
+
+    RefPtr<MediaSessionManagerInterface> mediaSessionManager() const;
 
 protected:
     // Only accessed when the graph lock is held.

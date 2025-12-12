@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "RenderStyleConstants.h"
+#include <WebCore/RenderStyleConstants.h>
 #include <wtf/EnumTraits.h>
 
 namespace WTF {
@@ -59,6 +59,13 @@ public:
     ItemPosition position() const { return static_cast<ItemPosition>(m_position); }
     ItemPositionType positionType() const { return static_cast<ItemPositionType>(m_positionType); }
     OverflowAlignment overflow() const { return static_cast<OverflowAlignment>(m_overflow); }
+
+    bool isNormal(ItemPosition autoAlignment = ItemPosition::Normal) const
+    {
+        if (position() == ItemPosition::Auto)
+            return autoAlignment == ItemPosition::Normal;
+        return position() == ItemPosition::Normal;
+    }
 
     // Must resolve Auto before calling. Normal treated as Start.
     // Returns position adjustment from container's start edge.

@@ -35,6 +35,10 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RAMSize.h>
 
+#if PLATFORM(COCOA)
+#include <wtf/darwin/DispatchExtras.h>
+#endif
+
 namespace WTF {
 
 WTF_EXPORT_PRIVATE bool MemoryPressureHandler::ReliefLogger::s_loggingEnabled = false;
@@ -75,7 +79,7 @@ MemoryPressureHandler::MemoryPressureHandler()
 #endif
 {
 #if PLATFORM(COCOA)
-    setDispatchQueue(dispatch_get_main_queue());
+    setDispatchQueue(mainDispatchQueueSingleton());
 #endif
 }
 

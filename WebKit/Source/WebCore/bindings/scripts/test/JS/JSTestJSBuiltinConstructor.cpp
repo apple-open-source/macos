@@ -154,7 +154,7 @@ JSValue JSTestJSBuiltinConstructor::getConstructor(VM& vm, const JSGlobalObject*
 
 void JSTestJSBuiltinConstructor::destroy(JSC::JSCell* cell)
 {
-    JSTestJSBuiltinConstructor* thisObject = static_cast<JSTestJSBuiltinConstructor*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestJSBuiltinConstructor* thisObject = static_cast<JSTestJSBuiltinConstructor*>(cell);
     thisObject->JSTestJSBuiltinConstructor::~JSTestJSBuiltinConstructor();
 }
 

@@ -32,7 +32,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 #if ENABLE(ASSEMBLER)
 
-#include "JSCJSValue.h"
+#include <JavaScriptCore/JSCJSValue.h>
 
 #define DEFINE_SIMD_FUNC(name, func, lane) \
     template <typename ...Args> \
@@ -63,22 +63,22 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #if CPU(ARM_THUMB2)
 #define TARGET_ASSEMBLER ARMv7Assembler
 #define TARGET_MACROASSEMBLER MacroAssemblerARMv7
-#include "MacroAssemblerARMv7.h"
+#include <JavaScriptCore/MacroAssemblerARMv7.h>
 
 #elif CPU(ARM64E)
 #define TARGET_ASSEMBLER ARM64EAssembler
 #define TARGET_MACROASSEMBLER MacroAssemblerARM64E
-#include "MacroAssemblerARM64E.h"
+#include <JavaScriptCore/MacroAssemblerARM64E.h>
 
 #elif CPU(ARM64)
 #define TARGET_ASSEMBLER ARM64Assembler
 #define TARGET_MACROASSEMBLER MacroAssemblerARM64
-#include "MacroAssemblerARM64.h"
+#include <JavaScriptCore/MacroAssemblerARM64.h>
 
 #elif CPU(X86_64)
 #define TARGET_ASSEMBLER X86Assembler
 #define TARGET_MACROASSEMBLER MacroAssemblerX86_64
-#include "MacroAssemblerX86_64.h"
+#include <JavaScriptCore/MacroAssemblerX86_64.h>
 
 #elif CPU(RISCV64)
 #define TARGET_ASSEMBLER RISCV64Assembler
@@ -89,7 +89,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #error "The MacroAssembler is not supported on this platform."
 #endif
 
-#include "MacroAssemblerHelpers.h"
+#include <JavaScriptCore/MacroAssemblerHelpers.h>
 
 namespace WTF {
 
@@ -102,17 +102,10 @@ namespace JSC {
 
 namespace Probe {
 
-enum class SavedFPWidth {
-    SaveVectors,
-    DontSaveVectors
-};
-
 class Context;
 typedef void (SYSV_ABI *Function)(Context&);
 
 } // namespace Probe
-
-using Probe::SavedFPWidth;
 
 namespace Printer {
 
@@ -599,6 +592,8 @@ public:
 
     void moveDouble(Address src, Address dest, FPRegisterID scratch)
     {
+        if (src == dest)
+            return;
         loadDouble(src, scratch);
         storeDouble(scratch, dest);
     }
@@ -2456,11 +2451,10 @@ public:
     //
     // Note: this version of probe() should be implemented by the target specific
     // MacroAssembler.
-    void probe(Probe::Function, void* arg, SavedFPWidth = SavedFPWidth::DontSaveVectors);
+    void probe(Probe::Function, void* arg);
 
     // This leaks memory. Must not be used for production.
     JS_EXPORT_PRIVATE void probeDebug(Function<void(Probe::Context&)>);
-    JS_EXPORT_PRIVATE void probeDebugSIMD(Function<void(Probe::Context&)>);
 
     // Let's you print from your JIT generated code.
     // See comments in MacroAssemblerPrinter.h for examples of how to use this.

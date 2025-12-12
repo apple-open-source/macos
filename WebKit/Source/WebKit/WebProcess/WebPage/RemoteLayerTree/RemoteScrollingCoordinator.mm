@@ -37,6 +37,7 @@
 #import "RemoteScrollingUIState.h"
 #import "WebPage.h"
 #import "WebProcess.h"
+#import <WebCore/AXObjectCache.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>
@@ -71,10 +72,8 @@ RemoteScrollingCoordinator::~RemoteScrollingCoordinator()
 
 void RemoteScrollingCoordinator::scheduleTreeStateCommit()
 {
-    if (!m_webPage)
-        return;
-
-    m_webPage->drawingArea()->triggerRenderingUpdate();
+    if (RefPtr webPage = m_webPage.get())
+        webPage->protectedDrawingArea()->triggerRenderingUpdate();
 }
 
 bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const LocalFrameView& frameView) const
@@ -122,20 +121,12 @@ RemoteScrollingCoordinatorTransaction RemoteScrollingCoordinator::buildTransacti
 }
 
 // Notification from the UI process that we scrolled.
-void RemoteScrollingCoordinator::scrollPositionChangedForNode(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, std::optional<FloatPoint> layoutViewportOrigin, bool syncLayerPosition, CompletionHandler<void()>&& completionHandler)
+void RemoteScrollingCoordinator::scrollUpdateForNode(ScrollUpdate update, CompletionHandler<void()>&& completionHandler)
 {
-    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinator::scrollingTreeNodeDidScroll " << nodeID << " to " << scrollPosition << " layoutViewportOrigin " << layoutViewportOrigin);
+    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinator::scrollUpdateForNode: " << update);
 
-    auto scrollUpdate = ScrollUpdate { nodeID, scrollPosition, layoutViewportOrigin, ScrollUpdateType::PositionUpdate, syncLayerPosition ? ScrollingLayerPositionAction::Sync : ScrollingLayerPositionAction::Set };
-    applyScrollUpdate(WTFMove(scrollUpdate));
-
+    applyScrollUpdate(WTFMove(update));
     completionHandler();
-}
-
-void RemoteScrollingCoordinator::animatedScrollDidEndForNode(ScrollingNodeID nodeID)
-{
-    auto scrollUpdate = ScrollUpdate { nodeID, { }, { }, ScrollUpdateType::AnimatedScrollDidEnd };
-    applyScrollUpdate(WTFMove(scrollUpdate));
 }
 
 void RemoteScrollingCoordinator::currentSnapPointIndicesChangedForNode(ScrollingNodeID nodeID, std::optional<unsigned> horizontal, std::optional<unsigned> vertical)
@@ -174,19 +165,19 @@ void RemoteScrollingCoordinator::startMonitoringWheelEvents(bool clearLatchingSt
 
 void RemoteScrollingCoordinator::receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase)
 {
-    if (auto monitor = page()->wheelEventTestMonitor())
+    if (auto monitor = protectedPage()->wheelEventTestMonitor())
         monitor->receivedWheelEventWithPhases(phase, momentumPhase);
 }
 
 void RemoteScrollingCoordinator::startDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, OptionSet<WebCore::WheelEventTestMonitor::DeferReason> reason)
 {
-    if (auto monitor = page()->wheelEventTestMonitor())
+    if (auto monitor = protectedPage()->wheelEventTestMonitor())
         monitor->deferForReason(nodeID, reason);
 }
 
 void RemoteScrollingCoordinator::stopDeferringScrollingTestCompletionForNode(WebCore::ScrollingNodeID nodeID, OptionSet<WebCore::WheelEventTestMonitor::DeferReason> reason)
 {
-    if (auto monitor = page()->wheelEventTestMonitor())
+    if (auto monitor = protectedPage()->wheelEventTestMonitor())
         monitor->removeDeferralForReason(nodeID, reason);
 }
 

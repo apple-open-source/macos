@@ -53,9 +53,9 @@
 #include <JavaScriptCore/JSLock.h>
 #include <WebCore/CommonVM.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
-#include <WebCore/Document.h>
+#include <WebCore/DocumentView.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/GCController.h>
+#include <WebCore/GarbageCollectionController.h>
 #include <WebCore/GeolocationClient.h>
 #include <WebCore/GeolocationController.h>
 #include <WebCore/GeolocationPositionData.h>
@@ -106,9 +106,7 @@ InjectedBundle::InjectedBundle(const WebProcessCreationParameters& parameters)
 {
 }
 
-InjectedBundle::~InjectedBundle()
-{
-}
+InjectedBundle::~InjectedBundle() = default;
 
 void InjectedBundle::setClient(std::unique_ptr<API::InjectedBundle::Client>&& client)
 {
@@ -221,12 +219,12 @@ bool InjectedBundle::isProcessingUserGesture()
 
 void InjectedBundle::garbageCollectJavaScriptObjects()
 {
-    GCController::singleton().garbageCollectNow();
+    GarbageCollectionController::singleton().garbageCollectNow();
 }
 
 void InjectedBundle::garbageCollectJavaScriptObjectsOnAlternateThreadForDebugging(bool waitUntilDone)
 {
-    GCController::singleton().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
+    GarbageCollectionController::singleton().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
 }
 
 size_t InjectedBundle::javaScriptObjectsCount()

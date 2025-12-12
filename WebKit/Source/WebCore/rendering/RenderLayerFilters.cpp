@@ -31,7 +31,7 @@
 #include "config.h"
 #include "RenderLayerFilters.h"
 
-#include "CSSFilter.h"
+#include "CSSFilterRenderer.h"
 #include "CachedSVGDocument.h"
 #include "CachedSVGDocumentReference.h"
 #include "ContainerNodeInlines.h"
@@ -39,6 +39,7 @@
 #include "LegacyRenderSVGResourceFilter.h"
 #include "Logging.h"
 #include "ReferenceFilterOperation.h"
+#include "RenderObjectInlines.h"
 #include "RenderSVGShape.h"
 #include "RenderStyleInlines.h"
 #include <wtf/NeverDestroyed.h>
@@ -82,11 +83,12 @@ void RenderLayerFilters::notifyFinished(CachedResource&, const NetworkLoadMetric
     m_layer->renderer().repaint();
 }
 
-void RenderLayerFilters::updateReferenceFilterClients(const FilterOperations& operations)
+void RenderLayerFilters::updateReferenceFilterClients(const Style::Filter& filter)
 {
     removeReferenceFilterClients();
 
-    for (auto& operation : operations) {
+    for (auto& value : filter) {
+        Ref operation = value.value;
         RefPtr referenceOperation = dynamicDowncast<Style::ReferenceFilterOperation>(operation);
         if (!referenceOperation)
             continue;
@@ -126,24 +128,26 @@ void RenderLayerFilters::removeReferenceFilterClients()
 
 bool RenderLayerFilters::isIdentity(RenderElement& renderer)
 {
-    const auto& operations = renderer.style().filter();
-    return CSSFilter::isIdentity(renderer, operations);
+    const auto& filter = renderer.style().filter();
+    return CSSFilterRenderer::isIdentity(renderer, filter);
 }
 
 IntOutsets RenderLayerFilters::calculateOutsets(RenderElement& renderer, const FloatRect& targetBoundingBox)
 {
-    const auto& operations = renderer.style().filter();
-    
-    if (!operations.hasFilterThatMovesPixels())
+    const auto& filter = renderer.style().filter();
+
+    if (!filter.hasFilterThatMovesPixels())
         return { };
 
-    return CSSFilter::calculateOutsets(renderer, operations, targetBoundingBox);
+    return CSSFilterRenderer::calculateOutsets(renderer, filter, targetBoundingBox);
 }
 
 GraphicsContext* RenderLayerFilters::beginFilterEffect(RenderElement& renderer, GraphicsContext& context, const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect, const LayoutRect& layerRepaintRect, const LayoutRect& clipRect)
 {
     auto expandedDirtyRect = dirtyRect;
     auto targetBoundingBox = intersection(filterBoxRect, dirtyRect);
+
+    auto preferredFilterRenderingModes = renderer.page().preferredFilterRenderingModes(context);
 
     auto outsets = calculateOutsets(renderer, targetBoundingBox);
     if (!outsets.isZero()) {
@@ -161,10 +165,10 @@ GraphicsContext* RenderLayerFilters::beginFilterEffect(RenderElement& renderer, 
     if (targetBoundingBox.isEmpty())
         return nullptr;
 
-    if (!m_filter || m_targetBoundingBox != targetBoundingBox) {
+    if (!m_filter || m_targetBoundingBox != targetBoundingBox || m_preferredFilterRenderingModes != preferredFilterRenderingModes) {
         m_targetBoundingBox = targetBoundingBox;
         // FIXME: This rebuilds the entire effects chain even if the filter style didn't change.
-        m_filter = CSSFilter::create(renderer, renderer.style().filter(), m_preferredFilterRenderingModes, m_filterScale, m_targetBoundingBox, context);
+        m_filter = CSSFilterRenderer::create(renderer, renderer.style().filter(), preferredFilterRenderingModes, m_filterScale, m_targetBoundingBox, context);
     }
 
     if (!m_filter)
@@ -174,7 +178,7 @@ GraphicsContext* RenderLayerFilters::beginFilterEffect(RenderElement& renderer, 
     auto filterRegion = m_targetBoundingBox;
 
     if (filter->hasFilterThatMovesPixels()) {
-        // For CSSFilter, filterRegion = targetBoundingBox + filter->outsets()
+        // For CSSFilterRenderer, filterRegion = targetBoundingBox + filter->outsets()
         filterRegion.expand(toLayoutBoxExtent(outsets));
     } else if (auto* shape = dynamicDowncast<RenderSVGShape>(renderer))
         filterRegion = shape->currentSVGLayoutRect();
@@ -182,10 +186,11 @@ GraphicsContext* RenderLayerFilters::beginFilterEffect(RenderElement& renderer, 
     if (filterRegion.isEmpty())
         return nullptr;
 
-    // For CSSFilter, sourceImageRect = filterRegion.
+    // For CSSFilterRenderer, sourceImageRect = filterRegion.
     bool hasUpdatedBackingStore = false;
-    if (m_filterRegion != filterRegion) {
+    if (m_filterRegion != filterRegion || m_preferredFilterRenderingModes != preferredFilterRenderingModes) {
         m_filterRegion = filterRegion;
+        m_preferredFilterRenderingModes = preferredFilterRenderingModes;
         hasUpdatedBackingStore = true;
     }
 

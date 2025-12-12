@@ -48,6 +48,10 @@
 #include "AcceleratedEffectStack.h"
 #endif
 
+#if PLATFORM(COCOA)
+#include <QuartzCore/CALayer.h>
+#endif
+
 #ifndef NDEBUG
 #include <stdio.h>
 #endif
@@ -632,7 +636,7 @@ void GraphicsLayer::setOffsetFromRenderer(const FloatSize& offset, ShouldSetNeed
     m_offsetFromRenderer = offset;
 
     // If the compositing layer offset changes, we need to repaint.
-    if (shouldSetNeedsDisplay == SetNeedsDisplay)
+    if (shouldSetNeedsDisplay == ShouldSetNeedsDisplay::Set)
         setNeedsDisplay();
 }
 
@@ -644,7 +648,7 @@ void GraphicsLayer::setScrollOffset(const ScrollOffset& offset, ShouldSetNeedsDi
     m_scrollOffset = offset;
 
     // If the compositing layer offset changes, we need to repaint.
-    if (shouldSetNeedsDisplay == SetNeedsDisplay)
+    if (shouldSetNeedsDisplay == ShouldSetNeedsDisplay::Set)
         setNeedsDisplay();
 }
 
@@ -1173,6 +1177,14 @@ String GraphicsLayer::layerTreeAsText(OptionSet<LayerTreeAsTextOptions> options,
     dumpLayer(ts, options);
     return ts.release();
 }
+
+#if PLATFORM(COCOA)
+RetainPtr<CALayer> GraphicsLayer::protectedPlatformLayer() const
+{
+    // FIXME: CALayer.h is included but static analysis is still warning.
+    SUPPRESS_FORWARD_DECL_ARG return platformLayer();
+}
+#endif
 
 } // namespace WebCore
 

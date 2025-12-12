@@ -51,9 +51,7 @@ public:
     }
 
 private:
-    ProcessNames()
-    {
-    }
+    ProcessNames() = default;
 
     static void ensureSingleton()
     {

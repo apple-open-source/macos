@@ -47,7 +47,7 @@ class TextControlInnerTextElement;
 // The class represents types of which UI contain text fields.
 // It supports not only the types for BaseTextInputType but also type=number.
 class TextFieldInputType : public InputType, protected SpinButtonOwner, protected AutoFillButtonElement::AutoFillButtonOwner
-    , private DataListSuggestionsClient, protected DataListButtonElement::DataListButtonOwner
+    , protected DataListSuggestionsClient, protected DataListButtonElement::DataListButtonOwner
 {
     WTF_MAKE_TZONE_ALLOCATED(TextFieldInputType);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TextFieldInputType);
@@ -88,7 +88,7 @@ private:
     bool isKeyboardFocusable(const FocusEventData&) const final;
     bool isMouseFocusable() const final;
     bool isEmptyValue() const final;
-    void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent&) final;
+    void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent&) override;
     void forwardEvent(Event&) final;
     bool shouldSubmitImplicitly(Event&) final;
     RenderPtr<RenderElement> createInputRenderer(RenderStyle&&) override;

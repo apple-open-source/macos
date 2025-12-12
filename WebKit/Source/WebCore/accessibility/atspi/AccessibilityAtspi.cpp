@@ -903,7 +903,7 @@ void AccessibilityAtspi::notifyStateChanged(AccessibilityObjectAtspi& atspiObjec
     const char* notification = notificationName(name);
     if (!notification)
         return;
-    
+
     notify(atspiObject, notification, value);
 }
 
@@ -913,7 +913,7 @@ void AccessibilityAtspi::notifyActiveDescendantChanged(AccessibilityObjectAtspi&
 }
 
 void AccessibilityAtspi::notifySelectionChanged(AccessibilityObjectAtspi& atspiObject) const
-{   
+{
     notify(atspiObject, "AXSelectedChildrenChanged", nullptr);
 }
 

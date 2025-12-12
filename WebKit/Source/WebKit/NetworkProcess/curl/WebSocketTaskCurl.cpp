@@ -136,7 +136,7 @@ void WebSocketTask::didOpen(WebCore::CurlStreamID)
     if (m_request.allowCookies()) {
         if (CheckedPtr storageSession = networkSession() ? networkSession()->networkStorageSession() : nullptr) {
             auto includeSecureCookies = m_request.url().protocolIs("wss"_s) ? WebCore::IncludeSecureCookies::Yes : WebCore::IncludeSecureCookies::No;
-            auto cookieHeaderField = storageSession->cookieRequestHeaderFieldValue(m_request.firstPartyForCookies(), WebCore::SameSiteInfo::create(m_request), m_request.url(), std::nullopt, std::nullopt, includeSecureCookies, WebCore::ApplyTrackingPrevention::Yes, WebCore::ShouldRelaxThirdPartyCookieBlocking::No).first;
+            auto cookieHeaderField = storageSession->cookieRequestHeaderFieldValue(m_request.firstPartyForCookies(), WebCore::SameSiteInfo::create(m_request), m_request.url(), std::nullopt, std::nullopt, includeSecureCookies, WebCore::ApplyTrackingPrevention::Yes, WebCore::ShouldRelaxThirdPartyCookieBlocking::No, WebCore::IsKnownCrossSiteTracker::No).first;
             if (!cookieHeaderField.isEmpty())
                 cookieHeader = makeString("Cookie: "_s, cookieHeaderField, "\r\n"_s).utf8();
         }

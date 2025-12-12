@@ -1653,12 +1653,6 @@ private:
             break;
         }
 
-        case StringCharCodeAt: {
-            setRelationship(Relationship::safeCreate(node->child2().node(), m_zero, Relationship::GreaterThan, -1));
-            setRelationship(Relationship::safeCreate(node->child2().node(), m_zero, Relationship::LessThan, StringImpl::MaxLength));
-            break;
-        }
-
         case Upsilon: {
             auto shadowNode = NodeFlowProjection(node->phi(), NodeFlowProjection::Shadow);
             // We must first remove all relationships involving the shadow node, because setEquivalence does not overwrite them.

@@ -23,8 +23,7 @@
 
 #include "ActiveDOMObject.h"
 #include "ContextDestructionObserverInlines.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAbstractOperations.h"
@@ -34,7 +33,6 @@
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMGlobalObjectInlines.h"
 #include "JSDOMWrapperCache.h"
-#include "Quirks.h"
 #include "ScriptExecutionContext.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
@@ -149,7 +147,7 @@ JSValue JSTestNamedSetterThrowingException::getConstructor(VM& vm, const JSGloba
 
 void JSTestNamedSetterThrowingException::destroy(JSC::JSCell* cell)
 {
-    JSTestNamedSetterThrowingException* thisObject = static_cast<JSTestNamedSetterThrowingException*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestNamedSetterThrowingException* thisObject = static_cast<JSTestNamedSetterThrowingException*>(cell);
     thisObject->JSTestNamedSetterThrowingException::~JSTestNamedSetterThrowingException();
 }
 
@@ -381,7 +379,7 @@ bool JSTestNamedSetterThrowingExceptionOwner::isReachableFromOpaqueRoots(JSC::Ha
 
 void JSTestNamedSetterThrowingExceptionOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestNamedSetterThrowingException = static_cast<JSTestNamedSetterThrowingException*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestNamedSetterThrowingException = static_cast<JSTestNamedSetterThrowingException*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestNamedSetterThrowingException->protectedWrapped().ptr(), jsTestNamedSetterThrowingException);
 }
@@ -395,7 +393,7 @@ extern "C" { extern void (*const __identifier("??_7TestNamedSetterThrowingExcept
 extern "C" { extern void* _ZTVN7WebCore32TestNamedSetterThrowingExceptionE[]; }
 #endif
 template<std::same_as<TestNamedSetterThrowingException> T>
-static inline void verifyVTable(TestNamedSetterThrowingException* ptr) 
+static inline void verifyVTable(TestNamedSetterThrowingException* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -415,8 +413,9 @@ static inline void verifyVTable(TestNamedSetterThrowingException* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestNamedSetterThrowingException>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestNamedSetterThrowingException>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestNamedSetterThrowingException>(impl.ptr());
 #endif

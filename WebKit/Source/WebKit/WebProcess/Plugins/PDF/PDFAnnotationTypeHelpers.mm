@@ -40,14 +40,14 @@ static std::optional<WidgetType> widgetType(PDFAnnotation *annotation)
     if (!annotationIsOfType(annotation, AnnotationType::Widget))
         return { };
 
-    RetainPtr type = [annotation valueForAnnotationKey:RetainPtr { get_PDFKit_PDFAnnotationKeyWidgetFieldType() }.get()];
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationWidgetSubtypeButton() }.get()])
+    RetainPtr type = [annotation valueForAnnotationKey:get_PDFKit_PDFAnnotationKeyWidgetFieldTypeSingleton()];
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationWidgetSubtypeButtonSingleton()])
         return WidgetType::Button;
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationWidgetSubtypeChoice() }.get()])
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationWidgetSubtypeChoiceSingleton()])
         return WidgetType::Choice;
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationWidgetSubtypeSignature() }.get()])
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationWidgetSubtypeSignatureSingleton()])
         return WidgetType::Signature;
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationWidgetSubtypeText() }.get()])
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationWidgetSubtypeTextSingleton()])
         return WidgetType::Text;
 
     ASSERT_NOT_REACHED();
@@ -56,14 +56,14 @@ static std::optional<WidgetType> widgetType(PDFAnnotation *annotation)
 
 static std::optional<AnnotationType> annotationType(PDFAnnotation *annotation)
 {
-    RetainPtr type = [annotation valueForAnnotationKey:RetainPtr { get_PDFKit_PDFAnnotationKeySubtype() }.get()];
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationSubtypeLink() }.get()])
+    RetainPtr type = [annotation valueForAnnotationKey:get_PDFKit_PDFAnnotationKeySubtypeSingleton()];
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationSubtypeLinkSingleton()])
         return AnnotationType::Link;
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationSubtypePopup() }.get()])
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationSubtypePopupSingleton()])
         return AnnotationType::Popup;
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationSubtypeText() }.get()])
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationSubtypeTextSingleton()])
         return AnnotationType::Text;
-    if ([type.get() isEqualToString:RetainPtr { get_PDFKit_PDFAnnotationSubtypeWidget() }.get()])
+    if ([type.get() isEqualToString:get_PDFKit_PDFAnnotationSubtypeWidgetSingleton()])
         return AnnotationType::Widget;
 
     ASSERT_NOT_REACHED();

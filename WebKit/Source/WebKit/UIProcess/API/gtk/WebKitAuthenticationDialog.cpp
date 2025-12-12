@@ -21,11 +21,11 @@
 #include "WebKitAuthenticationDialog.h"
 
 #include "AuthenticationDecisionListener.h"
+#include "GtkUtilities.h"
+#include "GtkVersioning.h"
 #include "WebKitAuthenticationRequestPrivate.h"
 #include "WebKitCredentialPrivate.h"
 #include "WebKitWebView.h"
-#include <WebCore/GtkUtilities.h>
-#include <WebCore/GtkVersioning.h>
 #include <glib/gi18n-lib.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
@@ -273,7 +273,7 @@ static void webkitAuthenticationDialogUnmap(GtkWidget* widget)
         return;
 
     auto* toplevel = gtk_widget_get_toplevel(GTK_WIDGET(widget));
-    if (WebCore::widgetIsOnscreenToplevelWindow(toplevel))
+    if (widgetIsOnscreenToplevelWindow(toplevel))
         gtk_window_set_default(GTK_WINDOW(toplevel), nullptr);
 
     GTK_WIDGET_CLASS(webkit_authentication_dialog_parent_class)->unmap(widget);
@@ -285,7 +285,7 @@ static void webkitAuthenticationDialogMap(GtkWidget* widget)
     WebKitAuthenticationDialogPrivate* priv = WEBKIT_AUTHENTICATION_DIALOG(widget)->priv;
     gtk_widget_grab_focus(priv->loginEntry);
     auto* toplevel = gtk_widget_get_toplevel(widget);
-    if (WebCore::widgetIsOnscreenToplevelWindow(toplevel))
+    if (widgetIsOnscreenToplevelWindow(toplevel))
         gtk_window_set_default(GTK_WINDOW(toplevel), priv->defaultButton);
 
     GTK_WIDGET_CLASS(webkit_authentication_dialog_parent_class)->map(widget);

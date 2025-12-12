@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "ImmutableNFA.h"
-#include "MutableRangeList.h"
+#include <WebCore/ImmutableNFA.h>
+#include <WebCore/MutableRangeList.h>
 #include <wtf/HashSet.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)

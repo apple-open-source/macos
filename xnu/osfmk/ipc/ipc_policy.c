@@ -96,13 +96,6 @@ TUNABLE(bool, service_port_defense_enabled, "-service_port_defense_enabled", tru
 /* The bootarg to disable ALL ipc policy violation telemetry */
 TUNABLE(bool, ipcpv_telemetry_enabled, "-ipcpv_telemetry_enabled", true);
 
-/* boot-arg for provisional reply port enforcement */
-#if XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE
-TUNABLE(bool, prp_enforcement_enabled, "-prp_enforcement_enabled", false);
-#else
-TUNABLE(bool, prp_enforcement_enabled, "-prp_enforcement_enabled", true);
-#endif /* XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE */
-
 /*
  * bootargs for reply port semantics on bootstrap ports
  */

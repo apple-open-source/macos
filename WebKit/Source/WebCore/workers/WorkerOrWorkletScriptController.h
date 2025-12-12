@@ -26,13 +26,12 @@
 
 #pragma once
 
-#include <wtf/Compiler.h>
-
-#include "FetchOptions.h"
-#include "WorkerThreadType.h"
 #include <JavaScriptCore/Debugger.h>
 #include <JavaScriptCore/JSRunLoopTimer.h>
+#include <WebCore/FetchOptions.h>
+#include <WebCore/WorkerThreadType.h>
 #include <wtf/CheckedPtr.h>
+#include <wtf/Compiler.h>
 #include <wtf/Forward.h>
 #include <wtf/Lock.h>
 #include <wtf/MessageQueue.h>

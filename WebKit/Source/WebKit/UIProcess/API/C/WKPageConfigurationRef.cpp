@@ -27,6 +27,7 @@
 #include "WKPageConfigurationRef.h"
 
 #include "APIPageConfiguration.h"
+#include "APIWebsitePolicies.h"
 #include "BrowsingContextGroup.h"
 #include "WKAPICast.h"
 #include "WebPageGroup.h"
@@ -128,4 +129,14 @@ void WKPageConfigurationSetShouldSendConsoleLogsToUIProcessForTesting(WKPageConf
 void WKPageConfigurationSetPortsForUpgradingInsecureSchemeForTesting(WKPageConfigurationRef configuration, uint16_t upgradeFromInsecurePort, uint16_t upgradeToSecurePort)
 {
     toProtectedImpl(configuration)->setPortsForUpgradingInsecureSchemeForTesting(upgradeFromInsecurePort, upgradeToSecurePort);
+}
+
+WKWebsitePoliciesRef WKPageConfigurationGetDefaultWebsitePolicies(WKPageConfigurationRef configuration)
+{
+    return toAPI(toProtectedImpl(configuration)->protectedDefaultWebsitePolicies().get());
+}
+
+void WKPageConfigurationSetDefaultWebsitePolicies(WKPageConfigurationRef configuration, WKWebsitePoliciesRef policies)
+{
+    toProtectedImpl(configuration)->setDefaultWebsitePolicies(toProtectedImpl(policies));
 }

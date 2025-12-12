@@ -58,7 +58,7 @@ class WebProcessProxy;
 struct SharedPreferencesForWebProcess;
 
 class WebFullScreenManagerProxyClient : public CanMakeCheckedPtr<WebFullScreenManagerProxyClient> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(WebFullScreenManagerProxyClient);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebFullScreenManagerProxyClient);
 public:
     virtual ~WebFullScreenManagerProxyClient() { }
@@ -86,6 +86,8 @@ public:
 
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
+
+    WebFullScreenManagerProxyClient* client() { return m_client.get(); }
 
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess(const IPC::Connection&) const;
 

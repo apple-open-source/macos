@@ -27,9 +27,9 @@
 
 #if ENABLE(MEDIA_STREAM) && USE(AVFOUNDATION)
 
-#include "FrameRateMonitor.h"
-#include "SampleBufferDisplayLayer.h"
-#include "VideoFrame.h"
+#include <WebCore/FrameRateMonitor.h>
+#include <WebCore/SampleBufferDisplayLayer.h>
+#include <WebCore/VideoFrame.h>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/RetainPtr.h>
@@ -67,6 +67,7 @@ public:
 
     // SampleBufferDisplayLayer.
     PlatformLayer* rootLayer() final;
+    RetainPtr<PlatformLayer> protectedRootLayer();
     void initialize(bool hideRootLayer, IntSize, bool shouldMaintainAspectRatio, CompletionHandler<void(bool didSucceed)>&&) final;
 #if !RELEASE_LOG_DISABLED
     void setLogIdentifier(uint64_t) final;

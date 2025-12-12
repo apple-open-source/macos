@@ -36,19 +36,19 @@
 
 namespace WebCore {
 
-Ref<RealtimeIncomingVideoSource> RealtimeIncomingVideoSource::create(rtc::scoped_refptr<webrtc::VideoTrackInterface>&& videoTrack, String&& trackId)
+Ref<RealtimeIncomingVideoSource> RealtimeIncomingVideoSource::create(Ref<webrtc::VideoTrackInterface>&& videoTrack, String&& trackId)
 {
     auto source = RealtimeIncomingVideoSourceLibWebRTC::create(WTFMove(videoTrack), WTFMove(trackId));
     source->start();
     return source;
 }
 
-Ref<RealtimeIncomingVideoSourceLibWebRTC> RealtimeIncomingVideoSourceLibWebRTC::create(rtc::scoped_refptr<webrtc::VideoTrackInterface>&& videoTrack, String&& trackId)
+Ref<RealtimeIncomingVideoSourceLibWebRTC> RealtimeIncomingVideoSourceLibWebRTC::create(Ref<webrtc::VideoTrackInterface>&& videoTrack, String&& trackId)
 {
     return adoptRef(*new RealtimeIncomingVideoSourceLibWebRTC(WTFMove(videoTrack), WTFMove(trackId)));
 }
 
-RealtimeIncomingVideoSourceLibWebRTC::RealtimeIncomingVideoSourceLibWebRTC(rtc::scoped_refptr<webrtc::VideoTrackInterface>&& videoTrack, String&& videoTrackId)
+RealtimeIncomingVideoSourceLibWebRTC::RealtimeIncomingVideoSourceLibWebRTC(Ref<webrtc::VideoTrackInterface>&& videoTrack, String&& videoTrackId)
     : RealtimeIncomingVideoSource(WTFMove(videoTrack), WTFMove(videoTrackId))
 {
 }

@@ -28,8 +28,8 @@
 #if PLATFORM(COCOA)
 
 #include "ArgumentCodersCocoa.h"
-#include "DoubleGeometry.h"
 #include <CoreGraphics/CGGeometry.h>
+#include <WebCore/DoubleRect.h>
 #include <wtf/RetainPtr.h>
 
 OBJC_CLASS NSValue;
@@ -55,7 +55,7 @@ public:
 
     static bool shouldWrapValue(NSValue *);
 
-    using Value = Variant<IPCRange, DoubleRect, UniqueRef<CoreIPCNSCFObject>>;
+    using Value = Variant<IPCRange, WebCore::DoubleRect, UniqueRef<CoreIPCNSCFObject>>;
 
 private:
     friend struct IPC::ArgumentCoder<CoreIPCNSValue, void>;

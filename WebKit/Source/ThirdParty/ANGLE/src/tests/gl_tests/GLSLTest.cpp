@@ -4,6 +4,10 @@
 // found in the LICENSE file.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "test_utils/ANGLETest.h"
 
 #include "test_utils/angle_test_configs.h"
@@ -631,6 +635,22 @@ void main()
 })";
 
     ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), kFS);
+}
+
+// Test relational operations between bools is rejected.
+TEST_P(GLSLTest, BoolLessThan)
+{
+    constexpr char kFS[] = R"(uniform mediump vec4 u;
+void main() {
+  bool a = bool(u.x);
+  bool b = bool(u.y);
+  bool c = a < b;
+  gl_FragColor = vec4(c, !c, c, !c);
+}
+)";
+
+    GLuint shader = CompileShader(GL_FRAGMENT_SHADER, kFS);
+    EXPECT_EQ(0u, shader);
 }
 
 TEST_P(GLSLTest_ES3, CompareEqualityOfArrayOfVectors)
@@ -4146,6 +4166,37 @@ void main() {
     ASSERT_GL_NO_ERROR();
 }
 
+// Test that using a varying matrix is supported.
+TEST_P(GLSLTest, VaryingMatrix)
+{
+    constexpr char kVS[] =
+        "uniform vec2 u_a1;\n"
+        "attribute vec4 a_position;\n"
+        "varying mat2 v_mat;\n"
+        "void main() {\n"
+        "    v_mat = mat2(u_a1, 0.0, 0.0);\n"
+        "    gl_Position = a_position;\n"
+        "}";
+
+    constexpr char kFS[] =
+        "precision mediump float;\n"
+        "varying mat2 v_mat;\n"
+        "void main(void)\n"
+        "{\n"
+        "    gl_FragColor = vec4(v_mat[0].x, v_mat[0].y, v_mat[0].x, 1.0);\n"
+        "}";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+
+    GLint oneIndex = glGetUniformLocation(program, "u_a1");
+    ASSERT_NE(-1, oneIndex);
+    glUseProgram(program);
+    glUniform2f(oneIndex, 0.25f, 0.5f);
+
+    drawQuad(program, "a_position", 0.5f);
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor(63, 128, 63, 255), 1.0);
+}
+
 // Test that using a varying matrix array is supported.
 TEST_P(GLSLTest, VaryingMatrixArray)
 {
@@ -7024,6 +7075,82 @@ void main()
     GLuint fs = CompileShader(GL_FRAGMENT_SHADER, kFS);
     EXPECT_NE(fs, 0u);
     ASSERT_GL_NO_ERROR();
+}
+
+// Test that nested structs with samplers work when the nested struct is not the last element.
+TEST_P(GLSLTest_ES3, NestedStructWithSamplers)
+{
+    const char kFS[] = R"(#version 300 es
+precision mediump float;
+
+struct Inner
+{
+    sampler2D s;
+    float a;
+};
+
+uniform struct Outer
+{
+    Inner i;
+    float b;
+} u;
+
+out vec4 color;
+
+void main()
+{
+    color = texture(u.i.s, vec2(0)) + vec4(u.i.a, u.b, 0, 1);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    glUseProgram(program);
+
+    GLint uniLocA = glGetUniformLocation(program, "u.i.a");
+    ASSERT_NE(-1, uniLocA);
+    glUniform1f(uniLocA, 0.5f);
+
+    GLint uniLocB = glGetUniformLocation(program, "u.b");
+    ASSERT_NE(-1, uniLocB);
+    glUniform1f(uniLocB, 0.75f);
+
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.0f);
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor(127, 191, 0, 255), 1);
+}
+
+// Test that nested structs with samplers work when the nested struct is not the last element and
+// includes nothing but samplers.
+TEST_P(GLSLTest_ES3, NestedStructWithOnlySamplers)
+{
+    const char kFS[] = R"(#version 300 es
+precision mediump float;
+
+struct Inner
+{
+    sampler2D s;
+};
+
+uniform struct Outer
+{
+    Inner i;
+    float a;
+} u;
+
+out vec4 color;
+
+void main()
+{
+    color = texture(u.i.s, vec2(0)) + vec4(u.a, 0, 0, 1);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    glUseProgram(program);
+
+    GLint uniLocA = glGetUniformLocation(program, "u.a");
+    ASSERT_NE(-1, uniLocA);
+    glUniform1f(uniLocA, 0.5f);
+
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.0f);
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor(127, 0, 0, 255), 1);
 }
 
 // Test that structs with samplers are not allowed in interface blocks.  This is forbidden per
@@ -11184,7 +11311,7 @@ bool SubrectEquals(const std::vector<GLColor> &bigArray,
     return badPixels == 0;
 }
 
-// Tests that FragCoord behaves the same betweeen a user FBO and the back buffer.
+// Tests that FragCoord behaves the same between a user FBO and the back buffer.
 TEST_P(GLSLTest, FragCoordConsistency)
 {
     constexpr char kFragCoordShader[] = R"(uniform mediump vec2 viewportSize;
@@ -22271,7 +22398,7 @@ void main() {
 
 }  // anonymous namespace
 
-ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND_ES31_AND_ES32(
     GLSLTest,
     ES3_OPENGL().enable(Feature::ForceInitShaderVariables),
     ES3_OPENGL().enable(Feature::ScalarizeVecAndMatConstructorArgs),

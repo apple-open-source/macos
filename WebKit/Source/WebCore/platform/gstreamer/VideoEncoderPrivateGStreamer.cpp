@@ -673,7 +673,7 @@ static void webkit_video_encoder_class_init(WebKitVideoEncoderClass* klass)
             const auto& encodedCaps = self->priv->encodedCaps;
             if (!gst_caps_is_any(encodedCaps.get()) && !gst_caps_is_empty(encodedCaps.get())) [[likely]] {
                 auto structure = gst_caps_get_structure(encodedCaps.get(), 0);
-                auto profile = gstStructureGetString(structure, "profile"_s);
+                auto profile = gstStructureGetString(structure, "profile"_s).toString();
 
                 if (profile.findIgnoringASCIICase("high"_s) != notFound)
                     gst_preset_load_preset(GST_PRESET(self->priv->encoder.get()), "Profile High");

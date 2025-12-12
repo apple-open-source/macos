@@ -35,9 +35,11 @@
 
 #include "Notification.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "DedicatedWorkerGlobalScope.h"
 #include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentEventLoop.h"
+#include "DocumentSecurityOrigin.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
@@ -416,6 +418,11 @@ void Notification::requestPermission(Document& document, RefPtr<NotificationPerm
         return resolvePromiseAndCallback(Permission::Denied);
     }
 
+    if (!document.isSameOriginAsTopDocument()) {
+        document.addConsoleMessage(MessageSource::Security, MessageLevel::Error, "The Notification permission may only be requested in a browsing context with the same security origin as the top level browsing context."_s);
+        return resolvePromiseAndCallback(Permission::Denied);
+    }
+
     RefPtr frame = document.frame();
     RefPtr window = frame ? frame->window() : nullptr;
     if (!window || !window->consumeTransientActivation()) {
@@ -470,6 +477,11 @@ NotificationData Notification::data() const
         m_dataForBindings->wireBytes(),
         m_silent
     };
+}
+
+ScriptExecutionContext* Notification::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 void Notification::ensureOnNotificationThread(ScriptExecutionContextIdentifier contextIdentifier, WTF::UUID notificationIdentifier, Function<void(Notification*)>&& task)

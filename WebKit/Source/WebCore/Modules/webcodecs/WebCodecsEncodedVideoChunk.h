@@ -27,8 +27,8 @@
 
 #if ENABLE(WEB_CODECS)
 
-#include "BufferSource.h"
-#include "WebCodecsEncodedVideoChunkData.h"
+#include <WebCore/BufferSource.h>
+#include <WebCore/WebCodecsEncodedVideoChunkData.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
@@ -51,8 +51,6 @@ private:
 
 class WebCodecsEncodedVideoChunk : public RefCounted<WebCodecsEncodedVideoChunk> {
 public:
-    ~WebCodecsEncodedVideoChunk() = default;
-
     struct Init {
         WebCodecsEncodedVideoChunkType type { WebCodecsEncodedVideoChunkType::Key };
         int64_t timestamp { 0 };

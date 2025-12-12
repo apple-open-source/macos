@@ -30,6 +30,7 @@
 #include <wtf/Forward.h>
 
 #ifdef __OBJC__
+#include <wtf/Platform.h>
 #include <wtf/cocoa/TypeCastsCocoa.h>
 #endif
 
@@ -139,6 +140,7 @@ namespace WebCore {
     WEBCORE_EXPORT String contextMenuItemTagSmartQuotes();
     WEBCORE_EXPORT String contextMenuItemTagSmartDashes();
     WEBCORE_EXPORT String contextMenuItemTagSmartLinks();
+    WEBCORE_EXPORT String contextMenuItemTagSmartLists();
     WEBCORE_EXPORT String contextMenuItemTagTextReplacement();
     WEBCORE_EXPORT String contextMenuItemTagTransformationsMenu();
     WEBCORE_EXPORT String contextMenuItemTagMakeUpperCase();
@@ -432,6 +434,11 @@ namespace WebCore {
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     WEBCORE_EXPORT String fullscreenControllerViewSpatial();
     WEBCORE_EXPORT String fullscreenControllerViewImmersive();
+#endif
+
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+    WEBCORE_EXPORT String imageControlsLabelSpatial();
+    WEBCORE_EXPORT String imageControlsLabelPanorama();
 #endif
 
 #if PLATFORM(COCOA)

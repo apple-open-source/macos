@@ -31,8 +31,9 @@
 #include "IntRect.h"
 #include "LegacyRenderSVGResourceFilterInlines.h"
 #include "Logging.h"
+#include "RenderElementInlines.h"
+#include "RenderObjectInlines.h"
 #include "SVGElementTypeHelpers.h"
-#include "SVGRenderStyle.h"
 #include "SVGRenderingContext.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
@@ -51,7 +52,7 @@ LegacyRenderSVGResourceFilter::~LegacyRenderSVGResourceFilter() = default;
 
 bool LegacyRenderSVGResourceFilter::isIdentity() const
 {
-    return SVGFilter::isIdentity(protectedFilterElement());
+    return SVGFilterRenderer::isIdentity(protectedFilterElement());
 }
 
 void LegacyRenderSVGResourceFilter::removeAllClientsFromCache()
@@ -100,9 +101,11 @@ auto LegacyRenderSVGResourceFilter::applyResource(RenderElement& renderer, const
     auto addResult = m_rendererFilterDataMap.set(renderer, makeUnique<FilterData>());
     auto filterData = addResult.iterator->value.get();
 
-    auto targetBoundingBox = renderer.objectBoundingBox();
     Ref filterElement = this->filterElement();
-    auto filterRegion = SVGLengthContext::resolveRectangle<SVGFilterElement>(filterElement.ptr(), filterElement->filterUnits(), targetBoundingBox);
+    RefPtr contextElement = dynamicDowncast<SVGElement>(renderer.element());
+    auto targetBoundingBox = renderer.objectBoundingBox();
+
+    auto filterRegion = SVGLengthContext::resolveRectangle(contextElement.get(), filterElement.get(), filterElement->filterUnits(), targetBoundingBox);
     if (filterRegion.isEmpty()) {
         m_rendererFilterDataMap.remove(renderer);
         return { };
@@ -125,10 +128,10 @@ auto LegacyRenderSVGResourceFilter::applyResource(RenderElement& renderer, const
     // Determine scale factor for filter. The size of intermediate ImageBuffers shouldn't be bigger than kMaxFilterSize.
     ImageBuffer::sizeNeedsClamping(filterData->sourceImageRect.size(), filterScale);
 
-    auto preferredFilterModes = renderer.page().preferredFilterRenderingModes();
+    auto preferredFilterModes = renderer.page().preferredFilterRenderingModes(*context);
 
-    // Create the SVGFilter object.
-    filterData->filter = SVGFilter::create(filterElement, preferredFilterModes, filterScale, filterRegion, targetBoundingBox, *context, RenderingResourceIdentifier::generate());
+    // Create the SVGFilterRenderer object.
+    filterData->filter = SVGFilterRenderer::create(contextElement.get(), filterElement, preferredFilterModes, filterScale, filterRegion, targetBoundingBox, *context, RenderingResourceIdentifier::generate());
     if (!filterData->filter) {
         m_rendererFilterDataMap.remove(renderer);
         return { };
@@ -221,7 +224,14 @@ void LegacyRenderSVGResourceFilter::postApplyResource(RenderElement& renderer, G
 FloatRect LegacyRenderSVGResourceFilter::resourceBoundingBox(const RenderObject& object, RepaintRectCalculation)
 {
     Ref filterElement = this->filterElement();
-    return SVGLengthContext::resolveRectangle<SVGFilterElement>(filterElement.ptr(), filterElement->filterUnits(), object.objectBoundingBox());
+
+    CheckedPtr renderer = dynamicDowncast<RenderElement>(object);
+    if (!renderer)
+        return SVGLengthContext::resolveRectangle(filterElement.get(), filterElement->filterUnits(), object.objectBoundingBox());
+
+    RefPtr contextElement = dynamicDowncast<SVGElement>(renderer->element());
+
+    return SVGLengthContext::resolveRectangle(contextElement.get(), filterElement.get(), filterElement->filterUnits(), object.objectBoundingBox());
 }
 
 void LegacyRenderSVGResourceFilter::markFilterForRepaint(FilterEffect& effect)

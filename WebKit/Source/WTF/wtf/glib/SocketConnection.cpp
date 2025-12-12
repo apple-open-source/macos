@@ -44,7 +44,7 @@ SocketConnection::SocketConnection(GRefPtr<GSocketConnection>&& connection, cons
 
     auto* socket = g_socket_connection_get_socket(m_connection.get());
     g_socket_set_blocking(socket, FALSE);
-    m_readMonitor.start(socket, G_IO_IN, RunLoop::currentSingleton(), [this, protectedThis = Ref { *this }](GIOCondition condition) -> gboolean {
+    m_readMonitor.start(socket, G_IO_IN, RunLoop::currentSingleton(), nullptr, [this, protectedThis = Ref { *this }](GIOCondition condition) -> gboolean {
         if (isClosed())
             return G_SOURCE_REMOVE;
 
@@ -109,6 +109,7 @@ static inline bool messageIsByteSwapped(MessageFlags flags)
 #endif
 }
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
 bool SocketConnection::readMessage()
 {
     if (m_readBuffer.size() < sizeof(uint32_t))
@@ -203,6 +204,7 @@ void SocketConnection::sendMessage(const char* messageName, GVariant* parameters
 
     write();
 }
+IGNORE_CLANG_WARNINGS_END
 
 void SocketConnection::write()
 {
@@ -240,7 +242,7 @@ void SocketConnection::waitForSocketWritability()
     if (m_writeMonitor.isActive())
         return;
 
-    m_writeMonitor.start(g_socket_connection_get_socket(m_connection.get()), G_IO_OUT, RunLoop::currentSingleton(), [this, protectedThis = Ref { *this }] (GIOCondition condition) -> gboolean {
+    m_writeMonitor.start(g_socket_connection_get_socket(m_connection.get()), G_IO_OUT, RunLoop::currentSingleton(), nullptr, [this, protectedThis = Ref { *this }] (GIOCondition condition) -> gboolean {
         if (condition & G_IO_OUT) {
             // We can't stop the monitor from this lambda, because stop destroys the lambda.
             RunLoop::currentSingleton().dispatch([this, protectedThis] {

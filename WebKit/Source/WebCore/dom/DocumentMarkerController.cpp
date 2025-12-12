@@ -30,13 +30,16 @@
 #include "BoundaryPointInlines.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
-#include "DocumentInlines.h"
+#include "DocumentMarkers.h"
+#include "DocumentView.h"
+#include "FloatQuad.h"
 #include "FontCascade.h"
 #include "LocalFrame.h"
 #include "NodeTraversal.h"
 #include "Page.h"
 #include "RenderBlockFlow.h"
 #include "RenderLayer.h"
+#include "RenderObjectInlines.h"
 #include "RenderReplaced.h"
 #include "RenderText.h"
 #include "RenderedDocumentMarker.h"
@@ -84,15 +87,19 @@ auto DocumentMarkerController::collectTextRanges(const SimpleRange& range) -> Ve
     return ranges;
 }
 
-void DocumentMarkerController::addMarker(const SimpleRange& range, DocumentMarkerType type, const DocumentMarker::Data& data)
+bool DocumentMarkerController::addMarker(const SimpleRange& range, DocumentMarkerType type, const DocumentMarker::Data& data)
 {
-    for (auto& textPiece : collectTextRanges(range))
-        addMarker(textPiece.node, { type, textPiece.range, DocumentMarker::Data { data } });
+    bool added = false;
+    for (auto& textPiece : collectTextRanges(range)) {
+        if (addMarker(textPiece.node, { type, textPiece.range, DocumentMarker::Data { data } }))
+            added = true;
+    }
+    return added;
 }
 
-void DocumentMarkerController::addMarker(Node& node, unsigned startOffset, unsigned length, DocumentMarkerType type, DocumentMarker::Data&& data)
+bool DocumentMarkerController::addMarker(Node& node, unsigned startOffset, unsigned length, DocumentMarkerType type, DocumentMarker::Data&& data)
 {
-    addMarker(node, { type, { startOffset, startOffset + length }, WTFMove(data) });
+    return addMarker(node, { type, { startOffset, startOffset + length }, WTFMove(data) });
 }
 
 void DocumentMarkerController::addDraggedContentMarker(const SimpleRange& range)
@@ -310,12 +317,12 @@ static bool canMergeMarkers(const DocumentMarker& marker, const DocumentMarker& 
 // Markers are stored in order sorted by their start offset.
 // Markers of the same type do not overlap each other.
 
-void DocumentMarkerController::addMarker(Node& node, DocumentMarker&& newMarker)
+bool DocumentMarkerController::addMarker(Node& node, DocumentMarker&& newMarker)
 {
     ASSERT(newMarker.endOffset() >= newMarker.startOffset());
     if (newMarker.endOffset() == newMarker.startOffset() && newMarker.type() != DocumentMarkerType::TransparentContent) {
         // In general, markers with collapsed ranges are not allowed, except explicitly for `TransparentContent` markers.
-        return;
+        return false;
     }
 
     m_possiblyExistingMarkerTypes.add(newMarker.type());
@@ -386,6 +393,7 @@ void DocumentMarkerController::addMarker(Node& node, DocumentMarker&& newMarker)
 #endif
 
     invalidateRectsForMarkersInNode(node);
+    return true;
 }
 
 // Copies markers from source to destination, applying the specified shift delta to the copies. The shift is

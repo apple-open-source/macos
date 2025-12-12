@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "ContextDestructionObserver.h"
-#include "TaskSource.h"
+#include <WebCore/ContextDestructionObserver.h>
+#include <WebCore/TaskSource.h>
 #include <wtf/AbstractRefCounted.h>
 #include <wtf/Assertions.h>
 #include <wtf/CancellableTask.h>

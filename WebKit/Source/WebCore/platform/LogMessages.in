@@ -85,14 +85,14 @@ DOCUMENTLOADER_DETACHFROMFRAME, "[pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMai
 DOCUMENTLOADER_STOPLOADING, "[pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] DocumentLoader::stopLoading", (uint64_t, uint64_t, int), DEFAULT, Network
 
 MEDIASESSIONMANAGERCOCOA_SESSIONCANPRODUCEAUDIOCHANGED, "MediaSessionManagerCocoa::sessionCanProduceAudioChanged", (), DEFAULT, Media
-MEDIASESSIONMANAGERCOCOA_CLIENTCHARACTERISTICSCHANGED, "MediaSessionManagerCocoa::clientCharacteristicsChanged, session ID = %llu", (uint64_t), DEFAULT, Media
+MEDIASESSIONMANAGERCOCOA_CLIENTCHARACTERISTICSCHANGED, "MediaSessionManagerCocoa::clientCharacteristicsChanged, session ID = %" PRIu64, (uint64_t), DEFAULT, Media
 MEDIASESSIONMANAGERCOCOA_UPDATESESSIONSTATE, "MediaSessionManagerCocoa::updateSessionState: AudioCapture(%d), AudioTrack(%d), Video(%d), Audio(%d), VideoAudio(%d), WebAudio(%d)", (int, int, int, int, int, int), DEFAULT, Media
 
-PLATFORMMEDIASESSIONMANAGER_REMOVESESSION, "PlatformMediaSessionManager::removeSession, session ID = %" PRIu64 "", (uint64_t), DEFAULT, Media
-PLATFORMMEDIASESSIONMANAGER_SESSIONWILLENDPLAYBACK, "PlatformMediaSessionManager::sessionWillEndPlayback, session ID = %" PRIu64 "", (uint64_t), DEFAULT, Media
-PLATFORMMEDIASESSIONMANAGER_SESSIONCANPRODUCEAUDIOCHANGED, "PlatformMediaSessionManager::sessionCanProduceAudioChanged", (), DEFAULT, Media
-PLATFORMMEDIASESSIONMANAGER_ADDSESSION, "PlatformMediaSessionManager::addSession, session ID = %" PRIu64 "", (uint64_t), DEFAULT, Media
-PLATFORMMEDIASESSIONMANAGER_MAYBEACTIVATEAUDIOSESSION_ACTIVE_SESSION_NOT_REQUIRED, "PlatformMediaSessionManager::maybeActivateAudioSession:  active audio session not required", (), DEFAULT, Media
+MEDIASESSIONMANAGERINTERFACE_REMOVESESSION, "MediaSessionManagerInterface::removeSession, session ID = %" PRIu64 "", (uint64_t), DEFAULT, Media
+MEDIASESSIONMANAGERINTERFACE_SESSIONWILLENDPLAYBACK, "MediaSessionManagerInterface::sessionWillEndPlayback, session ID = %" PRIu64 "", (uint64_t), DEFAULT, Media
+MEDIASESSIONMANAGERINTERFACE_SESSIONCANPRODUCEAUDIOCHANGED, "MediaSessionManagerInterface::sessionCanProduceAudioChanged", (), DEFAULT, Media
+MEDIASESSIONMANAGERINTERFACE_ADDSESSION, "MediaSessionManagerInterface::addSession, session ID = %" PRIu64 "", (uint64_t), DEFAULT, Media
+MEDIASESSIONMANAGERINTERFACE_MAYBEACTIVATEAUDIOSESSION_ACTIVE_SESSION_NOT_REQUIRED, "MediaSessionManagerInterface::maybeActivateAudioSession:  active audio session not required", (), DEFAULT, Media
 
 HTMLMEDIAELEMENT_CONSTRUCTOR, "HTMLMediaElement::HTMLMediaElement(%" PRIX64 ")", (uint64_t), DEFAULT, Media
 HTMLMEDIAELEMENT_DESTRUCTOR, "HTMLMediaElement::~HTMLMediaElement(%" PRIX64 ")", (uint64_t), DEFAULT, Media
@@ -113,11 +113,13 @@ HTMLMEDIAELEMENT_PLAYINTERNAL, "HTMLMediaElement::playInternal(%" PRIX64 ")", (u
 HTMLMEDIAELEMENT_ADDAUDIOTRACK, "HTMLMediaElement::addAudioTrack(%" PRIX64 ") id: %s, %s", (uint64_t, CString, CString), DEFAULT, Media
 HTMLMEDIAELEMENT_ADDVIDEOTRACK, "HTMLMediaElement::addVideoTrack(%" PRIX64 ") id: %s, %s", (uint64_t, CString, CString), DEFAULT, Media
 HTMLMEDIAELEMENT_CANPLAYTYPE, "HTMLMediaElement::canPlayType(%" PRIX64 ") %s: %s", (uint64_t, CString, CString), DEFAULT, Media
-HTMLMEDIAELEMENT_CANTRANSITIONFROMAUTOPLAYTOPLAY, "HTMLMediaElement::canTransitionFromAutoplayToPlay(%" PRIX64 ") %s", (uint64_t, CString), DEFAULT, Media
+HTMLMEDIAELEMENT_CANTRANSITIONFROMAUTOPLAYTOPLAY_NOT_ENOUGH_DATA, "HTMLMediaElement::canTransitionFromAutoplayToPlay(%" PRIX64 ") not enough data", (uint64_t), DEFAULT, Media
+HTMLMEDIAELEMENT_CANTRANSITIONFROMAUTOPLAYTOPLAY_NOT_AUTOPLAYING, "HTMLMediaElement::canTransitionFromAutoplayToPlay(%" PRIX64 ") not autoplaying", (uint64_t), DEFAULT, Media
 HTMLMEDIAELEMENT_CONFIGURETEXTTRACKDISPLAY, "HTMLMediaElement::configureTextTrackDisplay(%" PRIX64 ") %s", (uint64_t, CString), DEFAULT, Media
 HTMLMEDIAELEMENT_CONFIGURETEXTTRACKGROUP, "HTMLMediaElement::configureTextTrackGroup(%" PRIX64 ") %s track with language %s and BCP 47 language %s has score %d", (uint64_t, CString, CString, CString, int), DEFAULT, Media
 HTMLMEDIAELEMENT_MEDIAENGINEWASUPDATED, "HTMLMediaElement::mediaEngineWasUpdated(%" PRIX64 ")", (uint64_t), DEFAULT, Media
 HTMLMEDIAELEMENT_MEDIAPLAYERCHARACTERISTICSCHANGED, "HTMLMediaElement::mediaPlayerCharacteristicChanged(%" PRIX64 ") %s", (uint64_t, CString), DEFAULT, Media
+HTMLMEDIAELEMENT_MEDIAPLAYERCHARACTERISTICSCHANGED_NO_MEDIASESSION, "HTMLMediaElement::mediaPlayerCharacteristicChanged(%" PRIX64 ") no media session", (uint64_t), DEFAULT, Media
 HTMLMEDIAELEMENT_MEDIAPLAYERDURATIONCHANGED, "HTMLMediaElement::mediaPlayerDurationChanged(%" PRIX64 ") duration = %f, current time = %f", (uint64_t, float, float), DEFAULT, Media
 HTMLMEDIAELEMENT_MEDIAPLAYERSIZECHANGED, "HTMLMediaElement::mediaPlayerSizeChanged(%" PRIX64 ") w = %f, h = %f", (uint64_t, float, float), DEFAULT, Media
 HTMLMEDIAELEMENT_PAUSE, "HTMLMediaElement::pause(%" PRIX64 ")", (uint64_t), DEFAULT, Media
@@ -149,7 +151,7 @@ HTMLVIDEOELEMENT_MEDIAPLAYERFIRSTVIDEOFRAMEAVAILABLE, "HTMLVideoElement::mediaPl
 HTMLVIDEOELEMENT_SCHEDULERESIZEEVENT, "HTMLMediaElement::scheduleResizeEvent(%" PRIX64 ") width: %f height: %f", (uint64_t, float, float), DEFAULT, Media
 
 PERFORMANCELOGGING_MEMORY_USAGE_INFO, "Memory usage info dump at %s:", (CString), DEFAULT, PerformanceLogging
-PERFORMANCELOGGING_MEMORY_USAGE_FOR_KEY, "  %s: %llu", (CString, uint64_t), DEFAULT, PerformanceLogging
+PERFORMANCELOGGING_MEMORY_USAGE_FOR_KEY, "  %s: %" PRIu64, (CString, uint64_t), DEFAULT, PerformanceLogging
 
 PERFORMANCEMONITOR_MEASURE_POSTLOAD_CPUUSAGE, "PerformanceMonitor::measurePostLoadCPUUsage: Process was using %.1f%% CPU after the page load.", (double), DEFAULT, PerformanceLogging
 PERFORMANCEMONITOR_MEASURE_POSTLOAD_MEMORYUSAGE, "PerformanceMonitor::measurePostLoadMemoryUsage: Process was using %" PRIu64 " bytes of memory after the page load.", (uint64_t), DEFAULT, PerformanceLogging
@@ -160,13 +162,23 @@ PERFORMANCEMONITOR_MEASURE_CPUUSAGE_IN_ACTIVITYSTATE, "PerformanceMonitor::measu
 POLICYCHECKIER_CHECKNAVIGATIONPOLICY_CONTINUE_LOAD_IN_ANOTHER_PROCESS, "[pageID=%" PRIu64 ", frameID=%" PRIu64 "] PolicyChecker::checkNavigationPolicy: stopping because policyAction from dispatchDecidePolicyForNavigationAction is LoadWillContinueInAnotherProcess", (uint64_t, uint64_t), DEFAULT, Loading
 POLICYCHECKIER_CHECKNAVIGATIONPOLICY_CONTINUE_INITIAL_EMPTY_DOCUMENT, "[pageID=%" PRIu64 ", frameID=%" PRIu64 "] PolicyChecker::checkNavigationPolicy: continuing because this is an initial empty document", (uint64_t, uint64_t), DEFAULT, Loading
 
+LIBWEBRTCMEDIAENDPOINT_ONSTATSDELIVERED, "RTCStats (%" PRIu64 ") %s", (uint64_t, CString), DEFAULT, WebRTCStats
+LIBWEBRTC_LOG_ERROR, "LibWebRTC error: %s", (CString), DEFAULT, WebRTC
+LIBWEBRTC_LOG_MESSAGE, "LibWebRTC message: %s", (CString), DEFAULT, WebRTC
+
 LOCALFRAMEVIEW_FIRING_FIRST_VISUALLY_NON_EMPTY_LAYOUT_MILESTONE, "[pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] LocalFrameView::fireLayoutRelatedMilestonesIfNeeded: Firing first visually non-empty layout milestone on the main frame", (uint64_t, uint64_t, int), DEFAULT, Layout
 LOCALFRAMEVIEW_FIRING_RESIZE_EVENTS_DISABLED_FOR_PAGE, "[pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] LocalFrameView::scheduleResizeEventIfNeeded: Not firing resize events because they are temporarily disabled for this page", (uint64_t, uint64_t, int), DEFAULT, Events
 LOCALFRAMEVIEW_NOT_PAINTING_LAYOUT_NEEDED, "    [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] LocalFrameView::paintContents: Not painting because render tree needs layout", (uint64_t, uint64_t, int), DEFAULT, Layout
 
-SERVICEWORKERTHREADPROXY_REMOVEFETCH, "ServiceWorkerThreadProxy::removeFetch %llu", (uint64_t), DEFAULT, ServiceWorker
+PEERCONNECTIONBACKEND_CREATEOFFERSUCCEEDED, "PeerConnectionBackend::createOfferSucceeded (%" PRIu64 ") to: '%s'", (uint64_t, CString), DEFAULT, WebRTC
+PEERCONNECTIONBACKEND_CREATEANSWERSUCCEEDED, "PeerConnectionBackend::createAnswerSucceeded (%" PRIu64 ") to: '%s'", (uint64_t, CString), DEFAULT, WebRTC
 
-FONTCACHECORETEXT_REGISTER_FONT, "Registering font %{private}s with fontURL %{private}s", (CString, CString), DEFAULT, Fonts
-FONTCACHECORETEXT_REGISTER_ERROR, "Could not register font %{private}s, error %{public}s", (CString, CString), DEFAULT, Fonts
+RTCPEERCONNECTION_SETLOCALDESCRIPTION, "RTCPeerConnection::setLocalDescription (%" PRIu64 ") to: '%s'", (uint64_t, CString), DEFAULT, WebRTC
+RTCPEERCONNECTION_SETREMOTEDESCRIPTION, "RTCPeerConnection::setRemoteDescription (%" PRIu64 ") to: '%s'", (uint64_t, CString), DEFAULT, WebRTC
+
+SERVICEWORKERTHREADPROXY_REMOVEFETCH, "ServiceWorkerThreadProxy::removeFetch %" PRIu64, (uint64_t), DEFAULT, ServiceWorker
+
+FONTCACHECORETEXT_REGISTER_FONT, "Registering font %" PRIVATE_LOG_STRING " with fontURL %" PRIVATE_LOG_STRING, (CString, CString), DEFAULT, Fonts
+FONTCACHECORETEXT_REGISTER_ERROR, "Could not register font %" PRIVATE_LOG_STRING ", error %" PUBLIC_LOG_STRING, (CString, CString), DEFAULT, Fonts
 
 WEBCORE_TEST_LOG, "WebCore log message for testing (%u)", (unsigned), DEFAULT, Testing

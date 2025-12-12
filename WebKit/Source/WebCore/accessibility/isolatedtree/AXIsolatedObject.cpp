@@ -31,14 +31,22 @@
 #include "AXGeometryManager.h"
 #include "AXIsolatedTree.h"
 #include "AXLogger.h"
+#include "AXLoggerBase.h"
+#include "AXObjectCacheInlines.h"
 #include "AXSearchManager.h"
 #include "AXTextMarker.h"
 #include "AXTextRun.h"
+#include "AXUtilities.h"
 #include "AccessibilityNodeObject.h"
 #include "DateComponents.h"
 #include "HTMLNames.h"
+#include "Logging.h"
 #include "RenderObject.h"
 #include <wtf/text/MakeString.h>
+
+#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
+#include "ModelPlayerAccessibilityChildren.h"
+#endif
 
 #if PLATFORM(MAC)
 #import <pal/spi/mac/HIServicesSPI.h>
@@ -70,32 +78,54 @@ Ref<AXIsolatedObject> AXIsolatedObject::create(IsolatedObjectData&& data)
 
 AXIsolatedObject::~AXIsolatedObject()
 {
-    ASSERT(!wrapper());
+    AX_BROKEN_ASSERT(!wrapper());
 }
 
-String AXIsolatedObject::dbgInternal(bool verbose, OptionSet<AXDebugStringOption> debugOptions) const
+void AXIsolatedObject::updateFromData(IsolatedObjectData&& data)
+{
+    ASSERT(!isMainThread());
+
+    if (data.axID != objectID() || data.tree->treeID() != treeID()) {
+        // Our data should only be updated from the same main-thread equivalent object.
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    m_role = data.role;
+    m_parentID = data.parentID;
+    m_unresolvedChildrenIDs = WTFMove(data.childrenIDs);
+    m_childrenDirty = true;
+    m_getsGeometryFromChildren = data.getsGeometryFromChildren;
+
+    m_properties = WTFMove(data.properties);
+    m_propertyFlags = data.propertyFlags;
+}
+
+String AXIsolatedObject::debugDescriptionInternal(bool verbose, std::optional<OptionSet<AXDebugStringOption>> debugOptions) const
 {
     StringBuilder result;
     result.append("{"_s);
-    result.append("role: "_s, accessibilityRoleToString(role()));
+    result.append("role: "_s, roleToString(role()));
     result.append(", ID "_s, objectID().loggingString());
 
-    if (verbose || debugOptions & AXDebugStringOption::Ignored)
-        result.append(isIgnored() ? ", ignored"_s : emptyString());
+    if (debugOptions) {
+        if (verbose || *debugOptions & AXDebugStringOption::Ignored)
+            result.append(isIgnored() ? ", ignored"_s : emptyString());
 
-    if (verbose || debugOptions & AXDebugStringOption::RelativeFrame) {
-        FloatRect frame = relativeFrame();
-        result.append(", relativeFrame ((x: "_s, frame.x(), ", y: "_s, frame.y(), "), (w: "_s, frame.width(), ", h: "_s, frame.height(), "))"_s);
+        if (verbose || *debugOptions & AXDebugStringOption::RelativeFrame) {
+            FloatRect frame = relativeFrame();
+            result.append(", relativeFrame ((x: "_s, frame.x(), ", y: "_s, frame.y(), "), (w: "_s, frame.width(), ", h: "_s, frame.height(), "))"_s);
+        }
+
+        if (verbose || *debugOptions & AXDebugStringOption::RemoteFrameOffset)
+            result.append(", remoteFrameOffset ("_s, remoteFrameOffset().x(), ", "_s, remoteFrameOffset().y(), ")"_s);
     }
-
-    if (verbose || debugOptions & AXDebugStringOption::RemoteFrameOffset)
-        result.append(", remoteFrameOffset ("_s, remoteFrameOffset().x(), ", "_s, remoteFrameOffset().y(), ")"_s);
 
     result.append("}"_s);
     return result.toString();
 }
 
-static bool isDefaultValue(AXProperty property, AXPropertyValueVariant& value)
+bool isDefaultValue(AXProperty property, AXPropertyValueVariant& value)
 {
     return WTF::switchOn(value,
         [](std::nullptr_t&) { return true; },
@@ -259,7 +289,7 @@ void AXIsolatedObject::setChildrenIDs(Vector<AXID>&& ids)
 const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool updateChildrenIfNeeded)
 {
 #if USE(APPLE_INTERNAL_SDK)
-    ASSERT(_AXSIsolatedTreeModeFunctionIsAvailable() && ((_AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeSecondaryThread && !isMainThread())
+    AX_DEBUG_ASSERT(_AXSIsolatedTreeModeFunctionIsAvailable() && ((_AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeSecondaryThread && !isMainThread())
         || (_AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeMainThread && isMainThread())));
 #elif USE(ATSPI)
     ASSERT(!isMainThread());
@@ -280,7 +310,7 @@ const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool
         m_unresolvedChildrenIDs = WTFMove(unresolvedIDs);
         // Having any unresolved children IDs at this point means we should've had a child / children, but they didn't
         // exist in tree()->objectForID(), so we were never able to hydrate it into an object.
-        ASSERT(m_unresolvedChildrenIDs.isEmpty());
+        AX_BROKEN_ASSERT(m_unresolvedChildrenIDs.isEmpty());
 
 #ifndef NDEBUG
         verifyChildrenIndexInParent();
@@ -371,20 +401,6 @@ std::optional<AXCoreObject::AccessibilityChildrenVector> AXIsolatedObject::mathR
     return std::nullopt;
 }
 
-bool AXIsolatedObject::fileUploadButtonReturnsValueInTitle() const
-{
-#if PLATFORM(MAC)
-    return true;
-#else
-    return false;
-#endif
-}
-
-AXIsolatedObject* AXIsolatedObject::focusedUIElement() const
-{
-    return tree()->focusedNode().get();
-}
-    
 AXIsolatedObject* AXIsolatedObject::scrollBar(AccessibilityOrientation orientation)
 {
     return objectAttributeValue(orientation == AccessibilityOrientation::Vertical ? AXProperty::VerticalScrollBar : AXProperty::HorizontalScrollBar);
@@ -1098,10 +1114,10 @@ FloatRect AXIsolatedObject::relativeFrame() const
         if (rectFromLabels && !rectFromLabels->isEmpty())
             relativeFrame = *rectFromLabels;
         else {
-            // InitialFrameRect stores the correct size, but not position, of the element before it is painted.
+            // InitialLocalRect stores the correct size, but not position, of the element before it is painted.
             // We find the position of the nearest painted ancestor to use as the position until the object's frame
             // is cached during painting.
-            relativeFrame = rectAttributeValue<FloatRect>(AXProperty::InitialFrameRect);
+            relativeFrame = rectAttributeValue<FloatRect>(AXProperty::InitialLocalRect);
 
             std::optional<IntRect> ancestorRelativeFrame;
             Accessibility::findAncestor<AXIsolatedObject>(*this, false, [&] (const auto& object) {
@@ -1195,13 +1211,13 @@ void AXIsolatedObject::decrement()
     });
 }
 
-bool AXIsolatedObject::isAccessibilityRenderObject() const
+bool AXIsolatedObject::isAccessibilityNodeObject() const
 {
     ASSERT_NOT_REACHED();
     return false;
 }
 
-bool AXIsolatedObject::isAccessibilityTableInstance() const
+bool AXIsolatedObject::isAccessibilityRenderObject() const
 {
     ASSERT_NOT_REACHED();
     return false;
@@ -1357,15 +1373,17 @@ void AXIsolatedObject::setSelectedVisiblePositionRange(const VisiblePositionRang
         object->setSelectedVisiblePositionRange(visiblePositionRange);
 }
 
-#if PLATFORM(COCOA) && ENABLE(MODEL_ELEMENT)
-Vector<RetainPtr<id>> AXIsolatedObject::modelElementChildren()
+#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
+
+ModelPlayerAccessibilityChildren AXIsolatedObject::modelElementChildren()
 {
-    return Accessibility::retrieveValueFromMainThread<Vector<RetainPtr<id>>>([this] () -> Vector<RetainPtr<id>> {
+    return Accessibility::retrieveValueFromMainThread<ModelPlayerAccessibilityChildren>([this] -> ModelPlayerAccessibilityChildren {
         if (RefPtr object = associatedAXObject())
             return object->modelElementChildren();
         return { };
     });
 }
+
 #endif
 
 std::optional<SimpleRange> AXIsolatedObject::simpleRange() const
@@ -1599,6 +1617,57 @@ String AXIsolatedObject::linkRelValue() const
     });
 }
 
+#if ENABLE_ACCESSIBILITY_LOCAL_FRAME
+
+AXIsolatedObject* AXIsolatedObject::crossFrameParentObject() const
+{
+    if (role() != AccessibilityRole::ScrollArea)
+        return nullptr;
+
+    auto parentFrameID = optionalAttributeValue<FrameIdentifier>(AXProperty::CrossFrameParentFrameID);
+    if (!parentFrameID)
+        return nullptr;
+
+    auto optionalParentObjectID = optionalAttributeValue<Markable<AXID>>(AXProperty::CrossFrameParentAXID);
+
+    // TODO: add helpers to retrieve an AXID directly to clean this up.
+    if (!optionalParentObjectID)
+        return nullptr;
+
+    auto markableParentObjectID = *optionalParentObjectID;
+    if (!markableParentObjectID)
+        return nullptr;
+
+    auto parentObjectID = *markableParentObjectID;
+
+    RefPtr parentTree = AXIsolatedTree::treeForFrameIDAlreadyLocked(*parentFrameID);
+    if (!parentTree)
+        return nullptr;
+
+    return parentTree->objectForID(parentObjectID);
+}
+
+AXIsolatedObject* AXIsolatedObject::crossFrameChildObject() const
+{
+    if (role() != AccessibilityRole::LocalFrame)
+        return nullptr;
+
+    auto frameID = optionalAttributeValue<FrameIdentifier>(AXProperty::CrossFrameChildFrameID);
+    if (!frameID)
+        return nullptr;
+
+    RefPtr<AXIsolatedTree> childTree;
+    childTree = AXIsolatedTree::treeForFrameIDAlreadyLocked(*frameID);
+    if (!childTree)
+        return nullptr;
+
+    childTree->applyPendingChanges();
+
+    return childTree->rootNode();
+}
+
+#endif // ENABLE_ACCESSIBILITY_LOCAL_FRAME
+
 Element* AXIsolatedObject::element() const
 {
     ASSERT_NOT_REACHED();
@@ -1641,6 +1710,30 @@ bool AXIsolatedObject::isTableCell() const
     return false;
 }
 
+AXCoreObject* AXIsolatedObject::parentTableIfTableCell() const
+{
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+
+AXCoreObject* AXIsolatedObject::parentTable() const
+{
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+
+bool AXIsolatedObject::isTableRow() const
+{
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+AXCoreObject* AXIsolatedObject::parentTableIfExposedTableRow() const
+{
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+
 bool AXIsolatedObject::isDescendantOfRole(AccessibilityRole) const
 {
     ASSERT_NOT_REACHED();
@@ -1661,11 +1754,6 @@ void AXIsolatedObject::setAccessibleName(const AtomString&)
 String AXIsolatedObject::textContentPrefixFromListMarker() const
 {
     return propertyValue<String>(AXProperty::TextContentPrefixFromListMarker);
-}
-
-String AXIsolatedObject::titleAttributeValue() const
-{
-    return optionalAttributeValue<String>(AXProperty::TitleAttributeValue).value_or(AXCoreObject::titleAttributeValue());
 }
 
 String AXIsolatedObject::stringValue() const
@@ -1729,7 +1817,7 @@ Widget* AXIsolatedObject::widget() const
 PlatformWidget AXIsolatedObject::platformWidget() const
 {
 #if PLATFORM(COCOA)
-    return propertyValue<RetainPtr<NSView>>(AXProperty::PlatformWidget).get();
+    return propertyValue<RetainPtr<NSView>>(AXProperty::PlatformWidget).unsafeGet();
 #else
     return m_platformWidget;
 #endif
@@ -1821,7 +1909,7 @@ AXCoreObject::AccessibilityChildrenVector AXIsolatedObject::rowHeaders()
     return headers;
 }
 
-AXIsolatedObject* AXIsolatedObject::headerContainer()
+AXIsolatedObject* AXIsolatedObject::tableHeaderContainer()
 {
     for (const auto& child : unignoredChildren()) {
         if (child->role() == AccessibilityRole::TableHeaderContainer)

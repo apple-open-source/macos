@@ -216,7 +216,7 @@ MediaTime RemoteAudioDestinationProxy::outputLatency() const
 {
     return (MediaTime { static_cast<int64_t>(m_audioUnitLatency), static_cast<uint32_t>(sampleRate()) }
 #if USE(AUDIO_SESSION)
-            + MediaTime { static_cast<int64_t>(AudioSession::protectedSharedSession()->outputLatency()), static_cast<uint32_t>(AudioSession::protectedSharedSession()->sampleRate()) }
+            + MediaTime { static_cast<int64_t>(WebCore::AudioSession::singleton().outputLatency()), static_cast<uint32_t>(WebCore::AudioSession::singleton().sampleRate()) }
 #endif
             );
 }
@@ -239,7 +239,7 @@ void RemoteAudioDestinationProxy::renderAudio(unsigned frameCount)
 
         // Associate the destination data array with the output bus then fill the FIFO.
         for (UInt32 i = 0; i < numberOfBuffers; ++i) {
-            auto memory = mutableSpan<float>(buffers[i]);
+            auto memory = WebCore::mutableSpan<float>(buffers[i]);
             if (numberOfFrames < memory.size())
                 memory = memory.first(numberOfFrames);
             m_outputBus->setChannelMemory(i, memory);

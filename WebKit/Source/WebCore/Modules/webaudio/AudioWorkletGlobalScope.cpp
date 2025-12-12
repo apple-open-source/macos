@@ -123,7 +123,7 @@ ExceptionOr<void> AudioWorkletGlobalScope::registerProcessor(String&& name, Ref<
     if (!addResult.isNewEntry)
         return Exception { ExceptionCode::NotSupportedError, "A processor was already registered with this name"_s };
 
-    auto* messagingProxy = thread().messagingProxy();
+    auto* messagingProxy = thread()->messagingProxy();
     if (!messagingProxy)
         return Exception { ExceptionCode::InvalidStateError };
 
@@ -188,9 +188,9 @@ std::unique_ptr<AudioWorkletProcessorConstructionData> AudioWorkletGlobalScope::
     return std::exchange(m_pendingProcessorConstructionData, nullptr);
 }
 
-AudioWorkletThread& AudioWorkletGlobalScope::thread() const
+Ref<AudioWorkletThread> AudioWorkletGlobalScope::thread() const
 {
-    return *static_cast<AudioWorkletThread*>(workerOrWorkletThread());
+    return downcast<AudioWorkletThread>(workerOrWorkletThread()).releaseNonNull();
 }
 
 void AudioWorkletGlobalScope::handlePreRenderTasks()

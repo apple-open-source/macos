@@ -111,10 +111,17 @@ using WebCore::IdentityCredentialProtocol;
 {
     self = [super init];
     if (self) {
-        _requestDataBytes = requestDataBytes;
-        _protocol = protocol;
+        self.requestDataBytes = requestDataBytes;
+        self.protocol = protocol;
     }
     return self;
+}
+
+- (void)dealloc
+{
+    self.requestDataBytes = nil;
+
+    [super dealloc];
 }
 
 @end // WKRequestDataResult
@@ -216,7 +223,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
 
 - (id<WKDigitalCredentialsPickerDelegate>)delegate
 {
-    return _delegate.get().get();
+    return _delegate.get().unsafeGet();
 }
 
 - (void)setDelegate:(id<WKDigitalCredentialsPickerDelegate>)delegate
@@ -401,7 +408,7 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
         exceptionData = { ExceptionCode::AbortError, "Request was cancelled."_s };
         break;
     default:
-        LOG(DigitalCredentials, "The error code was not in the case statement? %d.", error.code);
+        LOG(DigitalCredentials, "The error code was not in the case statement? %zd.", error.code);
         exceptionData = { ExceptionCode::UnknownError, "Some other error."_s };
         RetainPtr debugDescription = error.userInfo[NSDebugDescriptionErrorKey] ?: error.userInfo[NSLocalizedDescriptionKey];
         LOG(DigitalCredentials, "Internal error: %@", debugDescription ? debugDescription.get() : @"Unknown error with no description.");

@@ -28,7 +28,7 @@
 
 #include "CustomElementReactionQueue.h"
 #include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
 #include "ElementRareData.h"
 #include "ElementTraversal.h"
 #include "HTMLElementFactory.h"
@@ -37,7 +37,6 @@
 #include "LocalDOMWindow.h"
 #include "MathMLNames.h"
 #include "QualifiedName.h"
-#include "Quirks.h"
 #include "ShadowRoot.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include <JavaScriptCore/JSCJSValueInlines.h>

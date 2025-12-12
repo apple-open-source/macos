@@ -26,7 +26,7 @@
 #include "config.h"
 #include "ScreenManager.h"
 
-#include <WebCore/GtkUtilities.h>
+#include "GtkUtilities.h"
 #include <WebCore/PlatformScreen.h>
 #include <cmath>
 

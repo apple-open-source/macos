@@ -35,6 +35,7 @@
 #include <limits>
 #include <math.h>
 #include <stdlib.h>
+#include <wtf/HashFunctions.h>
 #include <wtf/HashTraits.h>
 #include <wtf/MathExtras.h>
 #include <wtf/SaturatedArithmetic.h>

@@ -48,7 +48,7 @@ public:
 
     JSC::CodeBlockHash codeBlockHashConcurrently(int startOffset, int endOffset, JSC::CodeSpecializationKind kind) override
     {
-        return m_cachedScript->codeBlockHashConcurrently(startOffset, endOffset, kind, sourceType() == JSC::SourceProviderSourceType::Module ? CachedScript::ShouldDecodeAsUTF8Only::Yes : CachedScript::ShouldDecodeAsUTF8Only::No);
+        return m_cachedScript->codeBlockHashConcurrently(startOffset, endOffset, kind, isModuleType() ? CachedScript::ShouldDecodeAsUTF8Only::Yes : CachedScript::ShouldDecodeAsUTF8Only::No);
     }
 
 private:
@@ -66,18 +66,14 @@ inline unsigned CachedScriptSourceProvider::hash() const
 {
     // Modules should always be decoded as UTF-8.
     // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-single-module-script
-    if (sourceType() == JSC::SourceProviderSourceType::Module)
-        return m_cachedScript->scriptHash(CachedScript::ShouldDecodeAsUTF8Only::Yes);
-    return m_cachedScript->scriptHash();
+    return m_cachedScript->scriptHash(isModuleType() ? CachedScript::ShouldDecodeAsUTF8Only::Yes : CachedScript::ShouldDecodeAsUTF8Only::No);
 }
 
 inline StringView CachedScriptSourceProvider::source() const
 {
     // Modules should always be decoded as UTF-8.
     // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-single-module-script
-    if (sourceType() == JSC::SourceProviderSourceType::Module)
-        return m_cachedScript->script(CachedScript::ShouldDecodeAsUTF8Only::Yes);
-    return m_cachedScript->script();
+    return m_cachedScript->script(isModuleType() ? CachedScript::ShouldDecodeAsUTF8Only::Yes : CachedScript::ShouldDecodeAsUTF8Only::No);
 }
 
 } // namespace WebCore

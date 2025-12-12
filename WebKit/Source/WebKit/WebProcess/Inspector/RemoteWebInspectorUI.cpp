@@ -242,6 +242,17 @@ void RemoteWebInspectorUI::setInspectorPageDeveloperExtrasEnabled(bool enabled)
     WebProcess::singleton().protectedParentProcessConnection()->send(Messages::RemoteWebInspectorUIProxy::SetInspectorPageDeveloperExtrasEnabled(enabled), m_page->identifier());
 }
 
+void RemoteWebInspectorUI::setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor)
+{
+    m_pageZoomFactor = pageZoomFactor;
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::RemoteWebInspectorUIProxy::SetPageAndTextZoomFactors(pageZoomFactor, textZoomFactor), m_page->identifier());
+}
+
+double RemoteWebInspectorUI::pageZoomFactor() const
+{
+    return m_pageZoomFactor;
+}
+
 Inspector::DebuggableType RemoteWebInspectorUI::debuggableType() const
 {
     return m_debuggableInfo.debuggableType;

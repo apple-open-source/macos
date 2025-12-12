@@ -64,7 +64,7 @@ public:
     static SystemHeap* tryGet();
     static SystemHeap* getExisting();
 
-#if BOS(DARWIN)
+#if BENABLE(MALLOC_HEAP_BREAKDOWN) || BOS(DARWIN)
     malloc_zone_t* zone() const { return m_zone; };
 #endif
 

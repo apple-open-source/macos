@@ -39,7 +39,7 @@
 
 - (void)dealloc
 {
-    [_algorithm release];
+    SUPPRESS_UNRETAINED_ARG [_algorithm release];
     [super dealloc];
 }
 

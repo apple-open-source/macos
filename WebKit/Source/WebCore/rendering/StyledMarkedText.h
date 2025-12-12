@@ -36,7 +36,7 @@ class RenderText;
 class RenderedDocumentMarker;
 
 struct StyledMarkedText final : MarkedText {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(StyledMarkedText);
     WTF_STRUCT_OVERRIDE_DELETE_FOR_CHECKED_PTR(StyledMarkedText);
 
     struct Style {

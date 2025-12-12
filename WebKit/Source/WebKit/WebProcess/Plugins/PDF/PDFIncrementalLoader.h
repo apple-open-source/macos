@@ -39,6 +39,7 @@ OBJC_CLASS PDFDocument;
 
 namespace WebCore {
 class NetscapePlugInStreamLoader;
+class SharedBuffer;
 }
 
 namespace WebKit {

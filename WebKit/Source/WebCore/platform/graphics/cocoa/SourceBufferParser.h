@@ -27,9 +27,9 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
-#include "MediaPlayerEnums.h"
-#include "SourceBufferPrivateClient.h"
 #include <JavaScriptCore/Forward.h>
+#include <WebCore/MediaPlayerEnums.h>
+#include <WebCore/SourceBufferPrivateClient.h>
 #include <pal/spi/cocoa/MediaToolboxSPI.h>
 #include <wtf/Expected.h>
 #include <wtf/RefCounted.h>

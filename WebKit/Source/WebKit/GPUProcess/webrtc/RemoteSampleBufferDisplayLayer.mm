@@ -84,7 +84,7 @@ void RemoteSampleBufferDisplayLayer::initialize(bool hideRootLayer, IntSize size
             return callback({ });
 
         protectedThis->m_layerHostingContext = LayerHostingContext::create(contextOptions);
-        protectedThis->m_layerHostingContext->setRootLayer(protectedThis->protectedSampleBufferDisplayLayer()->rootLayer());
+        protectedThis->m_layerHostingContext->setRootLayer(protectedThis->protectedSampleBufferDisplayLayer()->protectedRootLayer().get());
         callback(protectedThis->m_layerHostingContext->hostingContext());
     });
 }

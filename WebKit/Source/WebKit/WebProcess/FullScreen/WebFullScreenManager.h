@@ -27,13 +27,13 @@
 
 #if ENABLE(FULLSCREEN_API)
 
+#include <WebCore/BoxExtents.h>
 #include <WebCore/EventListener.h>
 #include <WebCore/ExceptionOr.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/HTMLMediaElement.h>
 #include <WebCore/HTMLMediaElementEnums.h>
 #include <WebCore/IntRect.h>
-#include <WebCore/LengthBox.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>

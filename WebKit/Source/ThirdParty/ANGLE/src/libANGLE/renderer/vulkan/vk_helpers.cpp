@@ -6,6 +6,10 @@
 // vk_helpers:
 //   Helper utility classes that manage Vulkan resources.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "libANGLE/renderer/vulkan/vk_helpers.h"
 
 #include "common/aligned_memory.h"
@@ -5585,6 +5589,82 @@ angle::Result BufferHelper::initExternal(ErrorContext *context,
     return angle::Result::Continue;
 }
 
+angle::Result BufferHelper::initAndAcquireFromExternalMemory(
+    Context *context,
+    VkMemoryPropertyFlags memoryProperties,
+    const VkBufferCreateInfo &requestedCreateInfo,
+    const VkExternalMemoryHandleTypeFlagBits externalMemoryHandleType,
+    const int32_t sharedBufferFD)
+{
+    Renderer *renderer = context->getRenderer();
+    ASSERT(renderer);
+
+    initializeBarrierTracker(context);
+
+    VkBufferCreateInfo modifiedCreateInfo             = requestedCreateInfo;
+    VkExternalMemoryBufferCreateInfo externCreateInfo = {};
+    externCreateInfo.sType       = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO;
+    externCreateInfo.handleTypes = externalMemoryHandleType;
+    externCreateInfo.pNext       = nullptr;
+    modifiedCreateInfo.pNext     = &externCreateInfo;
+
+    DeviceScoped<Buffer> buffer(renderer->getDevice());
+    ANGLE_VK_TRY(context, buffer.get().init(renderer->getDevice(), modifiedCreateInfo));
+
+    DeviceScoped<DeviceMemory> deviceMemory(renderer->getDevice());
+    VkMemoryPropertyFlags memoryPropertyFlagsOut;
+    VkDeviceSize allocatedSize = 0;
+    uint32_t memoryTypeIndex;
+    ANGLE_TRY(InitExternalSharedFDMemory(context, externalMemoryHandleType, sharedBufferFD,
+                                         memoryProperties, &buffer.get(), &memoryPropertyFlagsOut,
+                                         &memoryTypeIndex, &deviceMemory.get(), &allocatedSize));
+
+    mSuballocation.initWithEntireBuffer(context, buffer.get(), MemoryAllocationType::BufferExternal,
+                                        memoryTypeIndex, deviceMemory.get(), memoryPropertyFlagsOut,
+                                        requestedCreateInfo.size, allocatedSize);
+    if (isHostVisible())
+    {
+        uint8_t *ptrOut;
+        ANGLE_TRY(map(context, &ptrOut));
+    }
+    return angle::Result::Continue;
+}
+
+angle::Result BufferHelper::initHostExternal(ErrorContext *context,
+                                             VkMemoryPropertyFlags memoryProperties,
+                                             const VkBufferCreateInfo &requestedCreateInfo,
+                                             void *hostPtr)
+{
+    Renderer *renderer = context->getRenderer();
+
+    initializeBarrierTracker(context);
+
+    VkBufferCreateInfo modifiedCreateInfo             = requestedCreateInfo;
+    VkExternalMemoryBufferCreateInfo externCreateInfo = {};
+    externCreateInfo.sType       = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO;
+    externCreateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT;
+    externCreateInfo.pNext       = nullptr;
+    modifiedCreateInfo.pNext     = &externCreateInfo;
+
+    DeviceScoped<Buffer> buffer(renderer->getDevice());
+    ANGLE_VK_TRY(context, buffer.get().init(renderer->getDevice(), modifiedCreateInfo));
+
+    DeviceScoped<DeviceMemory> deviceMemory(renderer->getDevice());
+    VkMemoryPropertyFlags memoryPropertyFlagsOut;
+    VkDeviceSize allocatedSize = 0;
+    uint32_t memoryTypeIndex   = UINT32_MAX;
+
+    ANGLE_TRY(InitExternalHostMemory(context, hostPtr, memoryProperties, &buffer.get(),
+                                     &memoryPropertyFlagsOut, &memoryTypeIndex, &deviceMemory.get(),
+                                     &allocatedSize));
+
+    mSuballocation.initWithEntireBuffer(context, buffer.get(), MemoryAllocationType::BufferExternal,
+                                        memoryTypeIndex, deviceMemory.get(), memoryPropertyFlagsOut,
+                                        requestedCreateInfo.size, allocatedSize);
+
+    return angle::Result::Continue;
+}
+
 VkResult BufferHelper::initSuballocation(Context *context,
                                          uint32_t memoryTypeIndex,
                                          size_t size,
@@ -7139,7 +7219,7 @@ angle::Result ImageHelper::initExternalMemory(ErrorContext *context,
     return angle::Result::Continue;
 }
 
-angle::Result ImageHelper::initLayerImageView(ErrorContext *context,
+angle::Result ImageHelper::initLayerImageView(ContextVk *contextVk,
                                               gl::TextureType textureType,
                                               VkImageAspectFlags aspectMask,
                                               const gl::SwizzleState &swizzleMap,
@@ -7149,14 +7229,14 @@ angle::Result ImageHelper::initLayerImageView(ErrorContext *context,
                                               uint32_t baseArrayLayer,
                                               uint32_t layerCount) const
 {
-    return initLayerImageViewImpl(context, textureType, aspectMask, swizzleMap, imageViewOut,
-                                  baseMipLevelVk, levelCount, baseArrayLayer, layerCount,
-                                  GetVkFormatFromFormatID(context->getRenderer(), mActualFormatID),
-                                  kDefaultImageViewUsageFlags, gl::YuvSamplingMode::Default,
-                                  GL_NONE);
+    return initLayerImageViewImpl(
+        contextVk, textureType, aspectMask, swizzleMap, imageViewOut, baseMipLevelVk, levelCount,
+        baseArrayLayer, layerCount,
+        GetVkFormatFromFormatID(contextVk->getRenderer(), mActualFormatID),
+        kDefaultImageViewUsageFlags, gl::YuvSamplingMode::Default, GL_NONE);
 }
 
-angle::Result ImageHelper::initLayerImageViewWithUsage(ErrorContext *context,
+angle::Result ImageHelper::initLayerImageViewWithUsage(ContextVk *contextVk,
                                                        gl::TextureType textureType,
                                                        VkImageAspectFlags aspectMask,
                                                        const gl::SwizzleState &swizzleMap,
@@ -7168,15 +7248,15 @@ angle::Result ImageHelper::initLayerImageViewWithUsage(ErrorContext *context,
                                                        VkImageUsageFlags imageUsageFlags,
                                                        GLenum astcDecodePrecision) const
 {
-    return initLayerImageViewImpl(context, textureType, aspectMask, swizzleMap, imageViewOut,
-                                  baseMipLevelVk, levelCount, baseArrayLayer, layerCount,
-                                  GetVkFormatFromFormatID(context->getRenderer(), mActualFormatID),
-                                  imageUsageFlags, gl::YuvSamplingMode::Default,
-                                  astcDecodePrecision);
+    return initLayerImageViewImpl(
+        contextVk, textureType, aspectMask, swizzleMap, imageViewOut, baseMipLevelVk, levelCount,
+        baseArrayLayer, layerCount,
+        GetVkFormatFromFormatID(contextVk->getRenderer(), mActualFormatID), imageUsageFlags,
+        gl::YuvSamplingMode::Default, astcDecodePrecision);
 }
 
 angle::Result ImageHelper::initLayerImageViewWithYuvModeOverride(
-    ErrorContext *context,
+    ContextVk *contextVk,
     gl::TextureType textureType,
     VkImageAspectFlags aspectMask,
     const gl::SwizzleState &swizzleMap,
@@ -7189,13 +7269,14 @@ angle::Result ImageHelper::initLayerImageViewWithYuvModeOverride(
     VkImageUsageFlags imageUsageFlags,
     GLenum astcDecodePrecision) const
 {
-    return initLayerImageViewImpl(context, textureType, aspectMask, swizzleMap, imageViewOut,
-                                  baseMipLevelVk, levelCount, baseArrayLayer, layerCount,
-                                  GetVkFormatFromFormatID(context->getRenderer(), mActualFormatID),
-                                  imageUsageFlags, yuvSamplingMode, astcDecodePrecision);
+    return initLayerImageViewImpl(
+        contextVk, textureType, aspectMask, swizzleMap, imageViewOut, baseMipLevelVk, levelCount,
+        baseArrayLayer, layerCount,
+        GetVkFormatFromFormatID(contextVk->getRenderer(), mActualFormatID), imageUsageFlags,
+        yuvSamplingMode, astcDecodePrecision);
 }
 
-angle::Result ImageHelper::initLayerImageViewImpl(ErrorContext *context,
+angle::Result ImageHelper::initLayerImageViewImpl(ContextVk *contextVk,
                                                   gl::TextureType textureType,
                                                   VkImageAspectFlags aspectMask,
                                                   const gl::SwizzleState &swizzleMap,
@@ -7264,11 +7345,11 @@ angle::Result ImageHelper::initLayerImageViewImpl(ErrorContext *context,
 
     if (conversionDesc.valid())
     {
-        ASSERT((context->getFeatures().supportsYUVSamplerConversion.enabled));
+        ASSERT((contextVk->getFeatures().supportsYUVSamplerConversion.enabled));
         yuvConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
         yuvConversionInfo.pNext = nullptr;
-        ANGLE_TRY(context->getRenderer()->getYuvConversionCache().getSamplerYcbcrConversion(
-            context, conversionDesc, &yuvConversionInfo.conversion));
+        ANGLE_TRY(contextVk->getShareGroup()->getYuvConversionCache().getSamplerYcbcrConversion(
+            contextVk, conversionDesc, &yuvConversionInfo.conversion));
         AddToPNextChain(&viewInfo, &yuvConversionInfo);
 
         // VUID-VkImageViewCreateInfo-image-02399
@@ -7278,11 +7359,11 @@ angle::Result ImageHelper::initLayerImageViewImpl(ErrorContext *context,
             viewInfo.format = VK_FORMAT_UNDEFINED;
         }
     }
-    ANGLE_VK_TRY(context, imageViewOut->init(context->getDevice(), viewInfo));
+    ANGLE_VK_TRY(contextVk, imageViewOut->init(contextVk->getDevice(), viewInfo));
     return angle::Result::Continue;
 }
 
-angle::Result ImageHelper::initReinterpretedLayerImageView(ErrorContext *context,
+angle::Result ImageHelper::initReinterpretedLayerImageView(ContextVk *contextVk,
                                                            gl::TextureType textureType,
                                                            VkImageAspectFlags aspectMask,
                                                            const gl::SwizzleState &swizzleMap,
@@ -7296,12 +7377,12 @@ angle::Result ImageHelper::initReinterpretedLayerImageView(ErrorContext *context
                                                            GLenum astcDecodePrecision) const
 {
     VkImageUsageFlags usageFlags =
-        imageUsageFlags & GetMaximalImageUsageFlags(context->getRenderer(), imageViewFormat);
+        imageUsageFlags & GetMaximalImageUsageFlags(contextVk->getRenderer(), imageViewFormat);
 
     return initLayerImageViewImpl(
-        context, textureType, aspectMask, swizzleMap, imageViewOut, baseMipLevelVk, levelCount,
+        contextVk, textureType, aspectMask, swizzleMap, imageViewOut, baseMipLevelVk, levelCount,
         baseArrayLayer, layerCount,
-        vk::GetVkFormatFromFormatID(context->getRenderer(), imageViewFormat), usageFlags,
+        vk::GetVkFormatFromFormatID(contextVk->getRenderer(), imageViewFormat), usageFlags,
         gl::YuvSamplingMode::Default, astcDecodePrecision);
 }
 
@@ -7534,6 +7615,45 @@ angle::Result ImageHelper::initImplicitMultisampledRenderToTexture(
     ANGLE_TRY(initMemoryAndNonZeroFillIfNeeded(
         context, hasProtectedContent, memoryProperties, kMultisampledMemoryFlags,
         vk::MemoryAllocationType::ImplicitMultisampledRenderToTextureImage));
+    return angle::Result::Continue;
+}
+
+angle::Result ImageHelper::initRgbDrawImageForYuvResolve(ErrorContext *context,
+                                                         const MemoryProperties &memoryProperties,
+                                                         const ImageHelper &resolveImage,
+                                                         bool isRobustResourceInitEnabled)
+{
+    // Find the RGB format corresponding to the YUV format
+    const vk::ExternalYuvFormatInfo &externalFormatInfo =
+        context->getRenderer()->getExternalFormatTable()->getExternalFormatInfo(
+            resolveImage.getActualFormatID());
+    const angle::FormatID formatID =
+        vk::GetFormatIDFromVkFormat(externalFormatInfo.colorAttachmentFormat);
+
+    // Create RGB draw image
+    const VkImageUsageFlags usageFlags =
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+
+    const bool hasProtectedContent =
+        (resolveImage.getCreateFlags() & VK_IMAGE_CREATE_PROTECTED_BIT) != 0;
+    const VkImageCreateFlags createFlags = hasProtectedContent ? VK_IMAGE_CREATE_PROTECTED_BIT : 0;
+
+    ANGLE_TRY(initExternal(context, gl::TextureType::_2D, resolveImage.getExtents(), formatID,
+                           formatID, 1, usageFlags, createFlags, ImageLayout::Undefined, nullptr,
+                           resolveImage.getFirstAllocatedLevel(), resolveImage.getLevelCount(),
+                           resolveImage.getLayerCount(), isRobustResourceInitEnabled,
+                           hasProtectedContent, YcbcrConversionDesc{}, nullptr));
+
+    ASSERT(!hasEmulatedImageChannels());
+
+    const VkMemoryPropertyFlags yuvMemoryFlags =
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+        (hasProtectedContent ? VK_MEMORY_PROPERTY_PROTECTED_BIT : 0);
+
+    ANGLE_TRY(initMemoryAndNonZeroFillIfNeeded(context, hasProtectedContent, memoryProperties,
+                                               yuvMemoryFlags,
+                                               vk::MemoryAllocationType::ImplicitYuvTargetImage));
+
     return angle::Result::Continue;
 }
 
@@ -9424,18 +9544,9 @@ angle::Result ImageHelper::calculateBufferInfo(ContextVk *contextVk,
         return angle::Result::Continue;
     }
 
-    ANGLE_VK_CHECK_MATH(contextVk,
-                        formatInfo.computeRowPitch(type, glExtents.width, unpack.alignment,
-                                                   unpack.rowLength, inputRowPitch));
-
-    ANGLE_VK_CHECK_MATH(contextVk,
-                        formatInfo.computeDepthPitch(glExtents.height, unpack.imageHeight,
-                                                     *inputRowPitch, inputDepthPitch));
-
     ANGLE_VK_CHECK_MATH(
-        contextVk, formatInfo.computeSkipBytes(type, *inputRowPitch, *inputDepthPitch, unpack, is3D,
-                                               inputSkipBytes));
-
+        contextVk, formatInfo.computeRowDepthSkipBytes(type, glExtents, unpack, is3D, inputRowPitch,
+                                                       inputDepthPitch, inputSkipBytes));
     return angle::Result::Continue;
 }
 
@@ -11394,11 +11505,8 @@ angle::Result ImageHelper::GetReadPixelsParams(ContextVk *contextVk,
     const gl::InternalFormat &sizedFormatInfo = gl::GetInternalFormatInfo(format, type);
 
     GLuint outputPitch = 0;
-    ANGLE_VK_CHECK_MATH(contextVk,
-                        sizedFormatInfo.computeRowPitch(type, area.width, packState.alignment,
-                                                        packState.rowLength, &outputPitch));
-    ANGLE_VK_CHECK_MATH(contextVk, sizedFormatInfo.computeSkipBytes(type, outputPitch, 0, packState,
-                                                                    false, skipBytesOut));
+    ANGLE_VK_CHECK_MATH(contextVk, sizedFormatInfo.computeRowSkipBytes(type, area.width, packState,
+                                                                       &outputPitch, skipBytesOut));
 
     ANGLE_TRY(GetPackPixelsParams(sizedFormatInfo, outputPitch, packState, packBuffer, area,
                                   clippedArea, paramsOut, skipBytesOut));
@@ -12709,7 +12817,7 @@ angle::Result ImageViewHelper::initReadViewsImpl(ContextVk *contextVk,
             contextVk, viewType, aspectFlags, readSwizzle, &getReadImageView(), baseLevel,
             levelCount, baseLayer, layerCount, imageUsageFlags, astcDecodePrecision));
 
-        if (image.getActualFormat().isYUV)
+        if (image.hasImmutableSampler())
         {
             ANGLE_TRY(image.initLayerImageViewWithYuvModeOverride(
                 contextVk, viewType, aspectFlags, readSwizzle,
@@ -12806,7 +12914,7 @@ angle::Result ImageViewHelper::initLinearAndSrgbReadViewsImpl(ContextVk *context
                 baseLayer, layerCount, imageUsageFlags, srgbFormat, astcDecodePrecision));
         }
 
-        if (image.getActualFormat().isYUV)
+        if (image.hasImmutableSampler())
         {
             ANGLE_TRY(image.initLayerImageViewWithYuvModeOverride(
                 contextVk, viewType, aspectFlags, readSwizzle,
@@ -12855,7 +12963,7 @@ angle::Result ImageViewHelper::initLinearAndSrgbReadViewsImpl(ContextVk *context
     return angle::Result::Continue;
 }
 
-angle::Result ImageViewHelper::getLevelStorageImageView(ErrorContext *context,
+angle::Result ImageViewHelper::getLevelStorageImageView(ContextVk *contextVk,
                                                         gl::TextureType viewType,
                                                         const ImageHelper &image,
                                                         LevelIndex levelVk,
@@ -12877,11 +12985,11 @@ angle::Result ImageViewHelper::getLevelStorageImageView(ErrorContext *context,
 
     // Create the view.  Note that storage images are not affected by swizzle parameters.
     return image.initReinterpretedLayerImageView(
-        context, viewType, image.getAspectFlags(), gl::SwizzleState(), imageView, levelVk, 1, layer,
-        image.getLayerCount(), imageUsageFlags, formatID, GL_NONE);
+        contextVk, viewType, image.getAspectFlags(), gl::SwizzleState(), imageView, levelVk, 1,
+        layer, image.getLayerCount(), imageUsageFlags, formatID, GL_NONE);
 }
 
-angle::Result ImageViewHelper::getLevelLayerStorageImageView(ErrorContext *contextVk,
+angle::Result ImageViewHelper::getLevelLayerStorageImageView(ContextVk *contextVk,
                                                              const ImageHelper &image,
                                                              LevelIndex levelVk,
                                                              uint32_t layer,
@@ -12910,7 +13018,7 @@ angle::Result ImageViewHelper::getLevelLayerStorageImageView(ErrorContext *conte
                                                  1, imageUsageFlags, formatID, GL_NONE);
 }
 
-angle::Result ImageViewHelper::getLevelLayerDrawImageViewImpl(ErrorContext *context,
+angle::Result ImageViewHelper::getLevelLayerDrawImageViewImpl(ContextVk *contextVk,
                                                               const ImageHelper &image,
                                                               LevelIndex levelVk,
                                                               uint32_t layer,
@@ -12937,12 +13045,12 @@ angle::Result ImageViewHelper::getLevelLayerDrawImageViewImpl(ErrorContext *cont
     // Note that these views are specifically made to be used as framebuffer attachments, and
     // therefore don't have swizzle.
     return image.initReinterpretedLayerImageView(
-        context, Get2DTextureType(layerCount, image.getSamples()), image.getAspectFlags(),
+        contextVk, Get2DTextureType(layerCount, image.getSamples()), image.getAspectFlags(),
         gl::SwizzleState(), imageViewOut, levelVk, 1, layer, layerCount,
         vk::ImageHelper::kDefaultImageViewUsageFlags, actualFormat, GL_NONE);
 }
 
-angle::Result ImageViewHelper::getLevelDrawImageView(ErrorContext *context,
+angle::Result ImageViewHelper::getLevelDrawImageView(ContextVk *contextVk,
                                                      const ImageHelper &image,
                                                      LevelIndex levelVk,
                                                      uint32_t layer,
@@ -12973,10 +13081,10 @@ angle::Result ImageViewHelper::getLevelDrawImageView(ErrorContext *context,
     view          = std::make_unique<ImageView>();
     *imageViewOut = view.get();
 
-    return getLevelLayerDrawImageViewImpl(context, image, levelVk, layer, layerCount, view.get());
+    return getLevelLayerDrawImageViewImpl(contextVk, image, levelVk, layer, layerCount, view.get());
 }
 
-angle::Result ImageViewHelper::getLevelLayerDrawImageView(ErrorContext *context,
+angle::Result ImageViewHelper::getLevelLayerDrawImageView(ContextVk *contextVk,
                                                           const ImageHelper &image,
                                                           LevelIndex levelVk,
                                                           uint32_t layer,
@@ -13006,10 +13114,10 @@ angle::Result ImageViewHelper::getLevelLayerDrawImageView(ErrorContext *context,
         return angle::Result::Continue;
     }
 
-    return getLevelLayerDrawImageViewImpl(context, image, levelVk, layer, 1, imageView);
+    return getLevelLayerDrawImageViewImpl(contextVk, image, levelVk, layer, 1, imageView);
 }
 
-angle::Result ImageViewHelper::getLevelDepthOrStencilImageView(ErrorContext *context,
+angle::Result ImageViewHelper::getLevelDepthOrStencilImageView(ContextVk *contextVk,
                                                                const ImageHelper &image,
                                                                LevelIndex levelVk,
                                                                uint32_t layer,
@@ -13039,11 +13147,11 @@ angle::Result ImageViewHelper::getLevelDepthOrStencilImageView(ErrorContext *con
     view          = std::make_unique<ImageView>();
     *imageViewOut = view.get();
 
-    return getLevelLayerDepthOrStencilImageViewImpl(context, image, levelVk, layer, layerCount,
+    return getLevelLayerDepthOrStencilImageViewImpl(contextVk, image, levelVk, layer, layerCount,
                                                     aspect, view.get());
 }
 
-angle::Result ImageViewHelper::getLevelLayerDepthOrStencilImageView(ErrorContext *context,
+angle::Result ImageViewHelper::getLevelLayerDepthOrStencilImageView(ContextVk *contextVk,
                                                                     const ImageHelper &image,
                                                                     LevelIndex levelVk,
                                                                     uint32_t layer,
@@ -13068,12 +13176,12 @@ angle::Result ImageViewHelper::getLevelLayerDepthOrStencilImageView(ErrorContext
         return angle::Result::Continue;
     }
 
-    return getLevelLayerDepthOrStencilImageViewImpl(context, image, levelVk, layer, 1, aspect,
+    return getLevelLayerDepthOrStencilImageViewImpl(contextVk, image, levelVk, layer, 1, aspect,
                                                     imageView);
 }
 
 angle::Result ImageViewHelper::getLevelLayerDepthOrStencilImageViewImpl(
-    ErrorContext *context,
+    ContextVk *contextVk,
     const ImageHelper &image,
     LevelIndex levelVk,
     uint32_t layer,
@@ -13084,7 +13192,7 @@ angle::Result ImageViewHelper::getLevelLayerDepthOrStencilImageViewImpl(
     // Note that these views are specifically made to be used as input attachments, and
     // therefore don't have swizzle.
     return image.initReinterpretedLayerImageView(
-        context, Get2DTextureType(layerCount, image.getSamples()), aspect, gl::SwizzleState(),
+        contextVk, Get2DTextureType(layerCount, image.getSamples()), aspect, gl::SwizzleState(),
         imageViewOut, levelVk, 1, layer, layerCount, vk::ImageHelper::kDefaultImageViewUsageFlags,
         image.getActualFormatID(), GL_NONE);
 }

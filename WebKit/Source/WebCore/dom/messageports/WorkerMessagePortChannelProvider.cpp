@@ -37,6 +37,11 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerMessagePortChannelProvider);
 
+Ref<WorkerMessagePortChannelProvider> WorkerMessagePortChannelProvider::create(WorkerOrWorkletGlobalScope& scope)
+{
+    return adoptRef(*new WorkerMessagePortChannelProvider(scope));
+}
+
 WorkerMessagePortChannelProvider::WorkerMessagePortChannelProvider(WorkerOrWorkletGlobalScope& scope)
     : m_scope(scope)
 {
@@ -109,16 +114,20 @@ private:
 
 void WorkerMessagePortChannelProvider::takeAllMessagesForPort(const MessagePortIdentifier& identifier, CompletionHandler<void(Vector<MessageWithMessagePorts>&&, CompletionHandler<void()>&&)>&& callback)
 {
+    RefPtr scope = m_scope.get();
+    if (!scope)
+        return callback({ }, [] { });
+
     uint64_t callbackIdentifier = ++m_lastCallbackIdentifier;
     m_takeAllMessagesCallbacks.add(callbackIdentifier, WTFMove(callback));
 
-    callOnMainThread([weakThis = WeakPtr { *this }, workerThread = RefPtr { m_scope->workerOrWorkletThread() }, callbackIdentifier, identifier]() mutable {
+    callOnMainThread([weakThis = WeakPtr { *this }, workerThread = scope->workerOrWorkletThread(), callbackIdentifier, identifier]() mutable {
         MessagePortChannelProvider::singleton().takeAllMessagesForPort(identifier, [weakThis = WTFMove(weakThis), workerThread = WTFMove(workerThread), callbackIdentifier](Vector<MessageWithMessagePorts>&& messages, Function<void()>&& completionHandler) mutable {
             workerThread->runLoop().postTaskForMode([weakThis = WTFMove(weakThis), callbackIdentifier, messages = WTFMove(messages), completionHandler = MainThreadCompletionHandler(WTFMove(completionHandler))](auto&) mutable {
-                CheckedPtr checkedThis = weakThis.get();
-                if (!checkedThis)
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
                     return;
-                checkedThis->m_takeAllMessagesCallbacks.take(callbackIdentifier)(WTFMove(messages), [completionHandler = WTFMove(completionHandler)]() mutable {
+                protectedThis->m_takeAllMessagesCallbacks.take(callbackIdentifier)(WTFMove(messages), [completionHandler = WTFMove(completionHandler)]() mutable {
                     completionHandler.complete();
                 });
             }, WorkerRunLoop::defaultMode());

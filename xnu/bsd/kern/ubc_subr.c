@@ -511,6 +511,7 @@ cs_validate_csblob(
 	const CS_GenericBlob *blob;
 	int error;
 	size_t length;
+	bool primary_cd_exists = false;
 	const CS_GenericBlob *self_constraint = NULL;
 	const CS_GenericBlob *parent_constraint = NULL;
 	const CS_GenericBlob *responsible_proc_constraint = NULL;
@@ -568,6 +569,9 @@ cs_validate_csblob(
 
 			/* extra validation for CDs, that is also returned */
 			if (type == CSSLOT_CODEDIRECTORY || (type >= CSSLOT_ALTERNATE_CODEDIRECTORIES && type < CSSLOT_ALTERNATE_CODEDIRECTORY_LIMIT)) {
+				if (type == CSSLOT_CODEDIRECTORY) {
+					primary_cd_exists = true;
+				}
 				const CS_CodeDirectory *candidate = (const CS_CodeDirectory *)subBlob;
 				if ((error = cs_validate_codedirectory(candidate, subLength)) != 0) {
 					return error;
@@ -644,6 +648,10 @@ cs_validate_csblob(
 				}
 				library_constraint = subBlob;
 			}
+		}
+		if (!primary_cd_exists) {
+			printf("missing primary code directory\n");
+			return EBADEXEC;
 		}
 	} else if (ntohl(blob->magic) == CSMAGIC_CODEDIRECTORY) {
 		if ((error = cs_validate_codedirectory((const CS_CodeDirectory *)(const void *)addr, length)) != 0) {

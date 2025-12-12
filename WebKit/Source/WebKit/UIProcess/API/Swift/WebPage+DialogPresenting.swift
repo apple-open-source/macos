@@ -46,7 +46,7 @@ extension WebPage {
     @available(tvOS, unavailable)
     public enum JavaScriptPromptResult: Hashable, Sendable {
         /// Signals an affirmative action was produced by the invocation with the specified text.
-        case ok(String)
+        case ok(Swift.String)
 
         /// Signals a negative action was produced by the invocation.
         case cancel
@@ -58,7 +58,7 @@ extension WebPage {
     @available(tvOS, unavailable)
     public enum FileInputPromptResult: Hashable, Sendable {
         /// Signals an affirmative action was produced by the invocation with the specified files.
-        case selected([URL])
+        case selected([Foundation.URL])
 
         /// Signals a negative action was produced by the invocation.
         case cancel
@@ -84,7 +84,7 @@ extension WebPage {
         ///   - message: The message provided by JavaScript.
         ///   - frame: Information about the frame whose JavaScript process initiated this call.
         @MainActor
-        func handleJavaScriptAlert(message: String, initiatedBy frame: WebPage.FrameInfo) async
+        func handleJavaScriptAlert(message: Swift.String, initiatedBy frame: WebPage.FrameInfo) async
 
         /// A JavaScript `confirm()` function has been invoked.
         ///
@@ -93,7 +93,7 @@ extension WebPage {
         ///   - frame: Information about the frame whose JavaScript process initiated this call.
         /// - Returns: The result of handling the invocation.
         @MainActor
-        func handleJavaScriptConfirm(message: String, initiatedBy frame: WebPage.FrameInfo) async -> WebPage.JavaScriptConfirmResult
+        func handleJavaScriptConfirm(message: Swift.String, initiatedBy frame: WebPage.FrameInfo) async -> WebPage.JavaScriptConfirmResult
 
         /// A JavaScript `prompt()` function has been invoked.
         ///
@@ -104,8 +104,8 @@ extension WebPage {
         /// - Returns: The result of handling the invocation; if the result is affirmative, the response will include some text returned to JavaScript.
         @MainActor
         func handleJavaScriptPrompt(
-            message: String,
-            defaultText: String?,
+            message: Swift.String,
+            defaultText: Swift.String?,
             initiatedBy frame: WebPage.FrameInfo
         ) async -> WebPage.JavaScriptPromptResult
 
@@ -131,20 +131,23 @@ extension WebPage {
 extension WebPage.DialogPresenting {
     /// By default, this method immediately returns.
     @MainActor
-    public func handleJavaScriptAlert(message: String, initiatedBy frame: WebPage.FrameInfo) async {
+    public func handleJavaScriptAlert(message: Swift.String, initiatedBy frame: WebPage.FrameInfo) async {
     }
 
     /// By default, this method immediately returns with a result of `.cancel`.
     @MainActor
-    public func handleJavaScriptConfirm(message: String, initiatedBy frame: WebPage.FrameInfo) async -> WebPage.JavaScriptConfirmResult {
+    public func handleJavaScriptConfirm(
+        message: Swift.String,
+        initiatedBy frame: WebPage.FrameInfo
+    ) async -> WebPage.JavaScriptConfirmResult {
         .cancel
     }
 
     /// By default, this method immediately returns with a result of `.cancel`.
     @MainActor
     public func handleJavaScriptPrompt(
-        message: String,
-        defaultText: String?,
+        message: Swift.String,
+        defaultText: Swift.String?,
         initiatedBy frame: WebPage.FrameInfo
     ) async -> WebPage.JavaScriptPromptResult {
         .cancel

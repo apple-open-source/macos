@@ -27,10 +27,10 @@
 namespace WTF {
 
 class AtomString final {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(AtomString);
 public:
     AtomString();
-    AtomString(std::span<const LChar>);
+    AtomString(std::span<const Latin1Character>);
     AtomString(std::span<const char16_t>);
 
     AtomString(AtomStringImpl*);
@@ -64,7 +64,7 @@ public:
     RefPtr<AtomStringImpl> releaseImpl() { return static_pointer_cast<AtomStringImpl>(m_string.releaseImpl()); }
 
     bool is8Bit() const { return m_string.is8Bit(); }
-    std::span<const LChar> span8() const LIFETIME_BOUND { return m_string.span8(); }
+    std::span<const Latin1Character> span8() const LIFETIME_BOUND { return m_string.span8(); }
     std::span<const char16_t> span16() const LIFETIME_BOUND { return m_string.span16(); }
     unsigned length() const { return m_string.length(); }
 
@@ -165,7 +165,7 @@ inline AtomString::AtomString()
 {
 }
 
-inline AtomString::AtomString(std::span<const LChar> string)
+inline AtomString::AtomString(std::span<const Latin1Character> string)
     : m_string(AtomStringImpl::add(string))
 {
 }
@@ -332,7 +332,12 @@ ALWAYS_INLINE String WARN_UNUSED_RETURN makeStringByReplacingAll(const AtomStrin
 template<> struct IntegerToStringConversionTrait<AtomString> {
     using ReturnType = AtomString;
     using AdditionalArgumentType = void;
-    static AtomString flush(std::span<const LChar> characters, void*) { return characters; }
+    static AtomString flush(std::span<const Latin1Character> characters, void*) { return characters; }
+};
+
+template<> struct MarkableTraits<AtomString> {
+    static bool isEmptyValue(const AtomString& string) { return string.isNull(); }
+    static AtomString emptyValue() { return nullAtom(); }
 };
 
 } // namespace WTF

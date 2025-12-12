@@ -24,10 +24,11 @@
 
 #pragma once
 
-#include "SharedBuffer.h"
-#include "ShouldLocalizeAxisNames.h"
-#include "TextFlags.h"
+#include <WebCore/SharedBuffer.h>
+#include <WebCore/ShouldLocalizeAxisNames.h>
+#include <WebCore/TextFlags.h>
 #include <wtf/Forward.h>
+#include <wtf/Platform.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
@@ -331,12 +332,13 @@ public:
     WEBCORE_EXPORT IPCData toIPCData() const;
 
 #if USE(CORE_TEXT)
-    WEBCORE_EXPORT CTFontRef registeredFont() const; // Returns nullptr iff the font is not registered, such as web fonts (otherwise returns font()).
+    WEBCORE_EXPORT RetainPtr<CTFontRef> registeredFont() const; // Returns nullptr iff the font is not registered, such as web fonts (otherwise returns font()).
     static RetainPtr<CFTypeRef> objectForEqualityCheck(CTFontRef);
     RetainPtr<CFTypeRef> objectForEqualityCheck() const;
     bool hasCustomTracking() const { return isSystemFont(); }
 
     CTFontRef ctFont() const { return m_font.get(); }
+    RetainPtr<CTFontRef> protectedCTFont() const { return ctFont(); }
 #endif
 
 #if PLATFORM(COCOA)
@@ -365,6 +367,7 @@ public:
     SkiaHarfBuzzFont* skiaHarfBuzzFont() const { return m_hbFont.get(); }
     hb_font_t* hbFont() const;
     const Vector<hb_feature_t>& features() const { return m_features; }
+    static bool skiaTypefaceHasAnySupportedColorTable(const SkTypeface&);
 #endif
 
 #if ENABLE(MATHML) && USE(HARFBUZZ)

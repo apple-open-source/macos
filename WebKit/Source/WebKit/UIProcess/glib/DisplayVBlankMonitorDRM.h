@@ -36,7 +36,6 @@ class DisplayVBlankMonitorDRM final : public DisplayVBlankMonitorThreaded {
 public:
     static std::unique_ptr<DisplayVBlankMonitor> create(PlatformDisplayID);
     DisplayVBlankMonitorDRM(unsigned, WTF::UnixFileDescriptor&&, int);
-    ~DisplayVBlankMonitorDRM() = default;
 
 private:
     Type type() const override { return Type::Drm; }

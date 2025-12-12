@@ -3,6 +3,14 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 vi{
     collations{
+        search{
+            Sequence{
+                "[import und-u-co-search]"
+                "[import vi-u-co-standard]"
+                "[reorder others]"
+            }
+            Version{"46"}
+        }
         standard{
             Sequence{
                 "[normalization on]"

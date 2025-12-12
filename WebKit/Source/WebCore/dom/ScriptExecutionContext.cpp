@@ -32,11 +32,13 @@
 #include "CachedScript.h"
 #include "CommonVM.h"
 #include "ContentSecurityPolicy.h"
+#include "ContextDestructionObserverInlines.h"
 #include "CrossOriginMode.h"
 #include "CrossOriginOpenerPolicy.h"
 #include "DOMTimer.h"
 #include "DatabaseContext.h"
 #include "Document.h"
+#include "DocumentPage.h"
 #include "EmptyScriptExecutionContext.h"
 #include "ErrorEvent.h"
 #include "FontLoadRequest.h"
@@ -66,6 +68,7 @@
 #include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerProvider.h"
 #include "Settings.h"
+#include "SocketProvider.h"
 #include "WebCoreJSClientData.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WorkerGlobalScope.h"
@@ -124,6 +127,7 @@ public:
     RefPtr<ScriptCallStack> m_callStack;
 };
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ScriptExecutionContext);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ScriptExecutionContext::PendingException);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ScriptExecutionContext::Task);
 
@@ -511,7 +515,7 @@ void ScriptExecutionContext::reportUnhandledPromiseRejection(JSC::JSGlobalObject
 
     Ref vm = state.vm();
     auto scope = DECLARE_CATCH_SCOPE(vm);
-    JSC::JSValue result = promise.result(vm);
+    JSC::JSValue result = promise.result();
     String resultMessage = retrieveErrorMessage(state, vm, result, scope);
     String errorMessage;
 
@@ -711,11 +715,19 @@ void ScriptExecutionContext::registerServiceWorker(ServiceWorker& serviceWorker)
 {
     auto addResult = m_serviceWorkers.add(serviceWorker.identifier(), &serviceWorker);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
+
+    ensureOnMainThread([identifier = serviceWorker.identifier()] {
+        ServiceWorkerProvider::singleton().protectedServiceWorkerConnection()->registerServiceWorkerInServer(identifier);
+    });
 }
 
 void ScriptExecutionContext::unregisterServiceWorker(ServiceWorker& serviceWorker)
 {
     m_serviceWorkers.remove(serviceWorker.identifier());
+
+    ensureOnMainThread([identifier = serviceWorker.identifier()] {
+        ServiceWorkerProvider::singleton().protectedServiceWorkerConnection()->unregisterServiceWorkerInServer(identifier);
+    });
 }
 
 ServiceWorkerContainer* ScriptExecutionContext::serviceWorkerContainer()
@@ -870,7 +882,6 @@ ScriptExecutionContext::HasResourceAccess ScriptExecutionContext::canAccessResou
     case ResourceType::Cookies:
     case ResourceType::Geolocation:
         return HasResourceAccess::Yes;
-    case ResourceType::ApplicationCache:
     case ResourceType::Plugin:
     case ResourceType::WebSQL:
     case ResourceType::IndexedDB:
@@ -968,7 +979,7 @@ GuaranteedSerialFunctionDispatcher& ScriptExecutionContext::nativePromiseDispatc
     return *m_nativePromiseDispatcher;
 }
 
-bool ScriptExecutionContext::requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory category)
+bool ScriptExecutionContext::requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory category, IncludeConsoleLog includeConsoleLog)
 {
     RefPtr vm = vmIfExists();
     if (!vm)
@@ -1004,7 +1015,7 @@ bool ScriptExecutionContext::requiresScriptTrackingPrivacyProtection(ScriptTrack
     if (!page->settings().scriptTrackingPrivacyLoggingEnabled())
         return true;
 
-    if (!page->reportScriptTrackingPrivacy(taintedURL, category))
+    if (includeConsoleLog == IncludeConsoleLog::No || !page->reportScriptTrackingPrivacy(taintedURL, category))
         return true;
 
     addConsoleMessage(MessageSource::JS, MessageLevel::Info, makeLogMessage(taintedURL, category));
@@ -1023,6 +1034,11 @@ bool ScriptExecutionContext::isAlwaysOnLoggingAllowed() const
 WebCoreOpaqueRoot root(ScriptExecutionContext* context)
 {
     return WebCoreOpaqueRoot { context };
+}
+
+RefPtr<SocketProvider> ScriptExecutionContext::protectedSocketProvider()
+{
+    return socketProvider();
 }
 
 } // namespace WebCore

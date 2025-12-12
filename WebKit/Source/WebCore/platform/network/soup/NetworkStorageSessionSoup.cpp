@@ -47,11 +47,15 @@
 #include <wtf/glib/GUniquePtr.h>
 
 #if USE(LIBSECRET)
-#include "GRefPtrGtk.h"
 #include <glib/gi18n-lib.h>
 #define SECRET_WITH_UNSTABLE 1
 #define SECRET_API_SUBJECT_TO_CHANGE 1
 #include <libsecret/secret.h>
+#include <wtf/glib/GRefPtr.h>
+
+namespace WTF {
+WTF_DEFINE_GREF_TRAITS_INLINE(SecretValue, secret_value_ref, secret_value_unref)
+}
 #endif
 
 namespace WebCore {
@@ -221,7 +225,7 @@ static ASCIILiteral authTypeFromProtectionSpaceAuthenticationScheme(ProtectionSp
 }
 
 struct SecretServiceSearchData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(SecretServiceSearchData);
     SecretServiceSearchData(GCancellable* cancellable, Function<void (Credential&&)>&& completionHandler)
         : cancellable(cancellable)
         , completionHandler(WTFMove(completionHandler))
@@ -349,12 +353,8 @@ void NetworkStorageSession::setCookieAcceptPolicy(HTTPCookieAcceptPolicy policy)
         soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NEVER;
         break;
     case HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain:
-#if SOUP_CHECK_VERSION(2, 71, 0)
         soupPolicy = SOUP_COOKIE_JAR_ACCEPT_GRANDFATHERED_THIRD_PARTY;
         break;
-#else
-        [[fallthrough]];
-#endif
     case HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain:
         soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY;
         break;
@@ -370,10 +370,8 @@ HTTPCookieAcceptPolicy NetworkStorageSession::cookieAcceptPolicy() const
         return HTTPCookieAcceptPolicy::AlwaysAccept;
     case SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY:
         return HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain;
-#if SOUP_CHECK_VERSION(2, 71, 0)
     case SOUP_COOKIE_JAR_ACCEPT_GRANDFATHERED_THIRD_PARTY:
         return HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
-#endif
     case SOUP_COOKIE_JAR_ACCEPT_NEVER:
         return HTTPCookieAcceptPolicy::Never;
     }
@@ -393,6 +391,7 @@ void NetworkStorageSession::setTrackingPreventionEnabled(bool enabled)
     }
 }
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
 static inline bool httpOnlyCookieExists(const GSList* cookies, const gchar* name, const gchar* path)
 {
     for (const GSList* iter = cookies; iter; iter = g_slist_next(iter)) {
@@ -406,10 +405,11 @@ static inline bool httpOnlyCookieExists(const GSList* cookies, const gchar* name
     }
     return false;
 }
+IGNORE_CLANG_WARNINGS_END
 
-void NetworkStorageSession::setCookiesFromDOM(const URL& firstParty, const SameSiteInfo&, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, RequiresScriptTrackingPrivacy requiresScriptTrackingPrivacy, const String& value, ShouldRelaxThirdPartyCookieBlocking relaxThirdPartyCookieBlocking) const
+void NetworkStorageSession::setCookiesFromDOM(const URL& firstParty, const SameSiteInfo&, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, RequiresScriptTrackingPrivacy requiresScriptTrackingPrivacy, const String& value, ShouldRelaxThirdPartyCookieBlocking relaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker) const
 {
-    if (applyTrackingPrevention == ApplyTrackingPrevention::Yes && shouldBlockCookies(firstParty, url, frameID, pageID, relaxThirdPartyCookieBlocking))
+    if (applyTrackingPrevention == ApplyTrackingPrevention::Yes && shouldBlockCookies(firstParty, url, frameID, pageID, relaxThirdPartyCookieBlocking, isKnownCrossSiteTracker))
         return;
 
     auto origin = urlToSoupURI(url);
@@ -443,29 +443,21 @@ void NetworkStorageSession::setCookiesFromDOM(const URL& firstParty, const SameS
         // Cap lifetime of persistent, client-side cookies to a week.
         if (cappedLifetime) {
             if (auto* expiresDate = soup_cookie_get_expires(cookie.get())) {
-#if USE(SOUP2)
-                auto timeIntervalSinceNow = Seconds(static_cast<double>(soup_date_to_time_t(expiresDate))) - WallTime::now().secondsSinceEpoch();
-#else
                 auto timeIntervalSinceNow = Seconds(static_cast<double>(g_date_time_to_unix(expiresDate))) - WallTime::now().secondsSinceEpoch();
-#endif
                 if (timeIntervalSinceNow > cappedLifetime.value())
                     soup_cookie_set_max_age(cookie.get(), cappedLifetime->secondsAs<int>());
             }
         }
 
-#if SOUP_CHECK_VERSION(2, 67, 1)
         soup_cookie_jar_add_cookie_full(jar, cookie.release(), origin.get(), firstPartyURI.get());
-#else
-        soup_cookie_jar_add_cookie_with_first_party(jar, firstPartyURI.get(), cookie.release());
-#endif
     }
 
     soup_cookies_free(existingCookies);
 }
 
-bool NetworkStorageSession::setCookieFromDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, RequiresScriptTrackingPrivacy, const Cookie& cookie, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
+bool NetworkStorageSession::setCookieFromDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, RequiresScriptTrackingPrivacy, const Cookie& cookie, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker) const
 {
-    if (applyTrackingPrevention == ApplyTrackingPrevention::Yes && shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking))
+    if (applyTrackingPrevention == ApplyTrackingPrevention::Yes && shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking, isKnownCrossSiteTracker))
         return false;
 
     GUniquePtr<SoupCookie> soupCookie(cookie.toSoupCookie());
@@ -491,12 +483,7 @@ bool NetworkStorageSession::setCookieFromDOM(const URL& firstParty, const SameSi
     }
     soup_cookies_free(existingCookies);
 
-#if SOUP_CHECK_VERSION(2, 67, 1)
     soup_cookie_jar_add_cookie_full(cookieStorage(), soupCookie.release(), uri.get(), firstPartyURI.get());
-#else
-    soup_cookie_jar_add_cookie_with_first_party(cookieStorage(), firstPartyURI.get(), soupCookie.release());
-    UNUSED_PARAM(uri);
-#endif
 
     return true;
 }
@@ -504,16 +491,9 @@ bool NetworkStorageSession::setCookieFromDOM(const URL& firstParty, const SameSi
 void NetworkStorageSession::setCookies(const Vector<Cookie>& cookies, const URL& url, const URL& firstParty)
 {
     for (auto cookie : cookies) {
-#if SOUP_CHECK_VERSION(2, 67, 1)
         auto origin = urlToSoupURI(url);
         auto firstPartyURI = urlToSoupURI(firstParty);
-
         soup_cookie_jar_add_cookie_full(cookieStorage(), cookie.toSoupCookie(), origin.get(), firstPartyURI.get());
-#else
-        UNUSED_PARAM(url);
-        UNUSED_PARAM(firstParty);
-        soup_cookie_jar_add_cookie(cookieStorage(), cookie.toSoupCookie());
-#endif
     }
 }
 
@@ -680,16 +660,15 @@ void NetworkStorageSession::hasCookies(const RegistrableDomain& domain, Completi
     completionHandler(false);
 }
 
-static std::optional<CookieList> lookupCookies(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, ForHTTPHeader forHTTPHeader, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, IncludeSecureCookies includeSecureCookies, bool* didAccessSecureCookies = nullptr)
+static std::optional<CookieList> lookupCookies(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, ForHTTPHeader forHTTPHeader, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker, IncludeSecureCookies includeSecureCookies, bool* didAccessSecureCookies = nullptr)
 {
-    if (applyTrackingPrevention == ApplyTrackingPrevention::Yes && session.shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking))
+    if (applyTrackingPrevention == ApplyTrackingPrevention::Yes && session.shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking, isKnownCrossSiteTracker))
         return nullptr;
 
     auto uri = urlToSoupURI(url);
     if (!uri)
         return std::nullopt;
 
-#if SOUP_CHECK_VERSION(2, 69, 90)
     auto firstPartyURI = urlToSoupURI(firstParty);
     if (!firstPartyURI)
         return std::nullopt;
@@ -697,9 +676,6 @@ static std::optional<CookieList> lookupCookies(const NetworkStorageSession& sess
     auto cookieURI = sameSiteInfo.isSameSite ? urlToSoupURI(url) : nullptr;
     CookieList cookies(soup_cookie_jar_get_cookie_list_with_same_site_info(session.cookieStorage(), uri.get(), firstPartyURI.get(), cookieURI.get(), forHTTPHeader == ForHTTPHeader::Yes,
         sameSiteInfo.isSafeHTTPMethod, sameSiteInfo.isTopSite));
-#else
-    CookieList cookies(soup_cookie_jar_get_cookie_list(session.cookieStorage(), uri.get(), forHTTPHeader == ForHTTPHeader::Yes));
-#endif
     if (!cookies)
         return nullptr;
 
@@ -732,7 +708,7 @@ static std::optional<CookieList> lookupCookies(const NetworkStorageSession& sess
     return cookies;
 }
 
-static std::pair<String, bool> lookupCookiesHeaders(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, ForHTTPHeader forHTTPHeader, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, IncludeSecureCookies includeSecureCookies)
+static std::pair<String, bool> lookupCookiesHeaders(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, ForHTTPHeader forHTTPHeader, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker, IncludeSecureCookies includeSecureCookies)
 {
     bool didAccessSecureCookies = false;
     auto cookies = lookupCookies(
@@ -745,6 +721,7 @@ static std::pair<String, bool> lookupCookiesHeaders(const NetworkStorageSession&
         pageID,
         applyTrackingPrevention,
         shouldRelaxThirdPartyCookieBlocking,
+        isKnownCrossSiteTracker,
         includeSecureCookies,
         &didAccessSecureCookies);
 
@@ -770,6 +747,7 @@ bool NetworkStorageSession::getRawCookies(const URL& firstParty, const SameSiteI
         pageID,
         applyTrackingPrevention,
         shouldRelaxThirdPartyCookieBlocking,
+        IsKnownCrossSiteTracker::No,
         IncludeSecureCookies::Yes);
 
     if (!soupCookies)
@@ -801,7 +779,7 @@ Vector<Cookie> NetworkStorageSession::domCookiesForHost(const URL& url)
     return cookies;
 }
 
-std::pair<String, bool> NetworkStorageSession::cookiesForDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking relaxThirdPartyCookieBlocking) const
+std::pair<String, bool> NetworkStorageSession::cookiesForDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking relaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker) const
 {
     return lookupCookiesHeaders(
         *this,
@@ -813,11 +791,12 @@ std::pair<String, bool> NetworkStorageSession::cookiesForDOM(const URL& firstPar
         pageID,
         applyTrackingPrevention,
         relaxThirdPartyCookieBlocking,
+        isKnownCrossSiteTracker,
         includeSecureCookies
     );
 }
 
-std::optional<Vector<Cookie>> NetworkStorageSession::cookiesForDOMAsVector(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CookieStoreGetOptions&& options) const
+std::optional<Vector<Cookie>> NetworkStorageSession::cookiesForDOMAsVector(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker, CookieStoreGetOptions&& options) const
 {
     auto soupCookies = lookupCookies(
         *this,
@@ -829,6 +808,7 @@ std::optional<Vector<Cookie>> NetworkStorageSession::cookiesForDOMAsVector(const
         pageID,
         applyTrackingPrevention,
         shouldRelaxThirdPartyCookieBlocking,
+        isKnownCrossSiteTracker,
         includeSecureCookies);
 
     if (!soupCookies)
@@ -846,7 +826,7 @@ std::optional<Vector<Cookie>> NetworkStorageSession::cookiesForDOMAsVector(const
     return cookies;
 }
 
-std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking relaxThirdPartyCookieBlocking) const
+std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking relaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker) const
 {
     return lookupCookiesHeaders(
         *this,
@@ -858,6 +838,7 @@ std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(con
         pageID,
         applyTrackingPrevention,
         relaxThirdPartyCookieBlocking,
+        isKnownCrossSiteTracker,
         includeSecureCookies);
 }
 
@@ -873,13 +854,14 @@ std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(con
         headerFieldProxy.pageID,
         ApplyTrackingPrevention::Yes,
         ShouldRelaxThirdPartyCookieBlocking::No,
+        IsKnownCrossSiteTracker::No,
         headerFieldProxy.includeSecureCookies);
 }
 
 #if HAVE(COOKIE_CHANGE_LISTENER_API)
-bool NetworkStorageSession::startListeningForCookieChangeNotifications(CookieChangeObserver& observer, const URL& url, const URL& firstParty, FrameIdentifier frameID, PageIdentifier pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking)
+bool NetworkStorageSession::startListeningForCookieChangeNotifications(CookieChangeObserver& observer, const URL& url, const URL& firstParty, FrameIdentifier frameID, PageIdentifier pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, IsKnownCrossSiteTracker isKnownCrossSiteTracker)
 {
-    if (shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking))
+    if (shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking, isKnownCrossSiteTracker))
         return false;
 
     auto host = url.host().toString();

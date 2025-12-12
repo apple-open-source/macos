@@ -31,6 +31,7 @@
 #import "CMUtilities.h"
 #import "Logging.h"
 #import "MediaSampleAVFObjC.h"
+#import "MediaSamplesBlock.h"
 #import "MediaUtilities.h"
 #import "WebMAudioUtilitiesCocoa.h"
 #import <webm/mkvmuxer/mkvmuxer.h>
@@ -190,8 +191,12 @@ void MediaRecorderPrivateWriterWebM::forceNewSegment(const MediaTime&)
     m_delegate->forceNewClusterOnNextFrame();
 }
 
-Ref<GenericPromise> MediaRecorderPrivateWriterWebM::close(const MediaTime&)
+Ref<GenericPromise> MediaRecorderPrivateWriterWebM::close(Deque<UniqueRef<MediaSamplesBlock>>&& samples, const MediaTime&)
 {
+    auto result = Result::Success;
+    while (!samples.isEmpty() && result == Result::Success)
+        result = writeFrame(samples.takeFirst().get());
+
     m_delegate->finalize();
     return GenericPromise::createAndResolve();
 }

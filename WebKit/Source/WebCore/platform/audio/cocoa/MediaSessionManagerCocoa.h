@@ -25,13 +25,14 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(COCOA)
 
-#include "AudioHardwareListener.h"
-#include "AudioSession.h"
-#include "NowPlayingManager.h"
-#include "PlatformMediaSessionManager.h"
-#include "RemoteCommandListener.h"
+#include <WebCore/AudioHardwareListener.h>
+#include <WebCore/AudioSession.h>
+#include <WebCore/NowPlayingManager.h>
+#include <WebCore/PlatformMediaSessionManager.h>
+#include <WebCore/RemoteCommandListener.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -47,7 +48,7 @@ class MediaSessionManagerCocoa
     , private AudioHardwareListener::Client {
     WTF_MAKE_TZONE_ALLOCATED(MediaSessionManagerCocoa);
 public:
-    MediaSessionManagerCocoa();
+    MediaSessionManagerCocoa(PageIdentifier);
     
     void updateSessionState() final;
     void beginInterruption(PlatformMediaSession::InterruptionType) final;
@@ -63,9 +64,6 @@ public:
     std::optional<NowPlayingInfo> nowPlayingInfo() const final { return m_nowPlayingInfo; }
     static WEBCORE_EXPORT void clearNowPlayingInfo();
     static WEBCORE_EXPORT void setNowPlayingInfo(bool setAsNowPlayingApplication, bool shouldUpdateNowPlayingSuppression, const NowPlayingInfo&);
-
-    static WEBCORE_EXPORT void setShouldUseModernAVContentKeySession(bool);
-    static WEBCORE_EXPORT bool shouldUseModernAVContentKeySession();
 
     static String audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(MediaPlayerPitchCorrectionAlgorithm, bool preservesPitch, double rate);
 
@@ -129,7 +127,7 @@ private:
     RefPtr<AudioHardwareListener> m_audioHardwareListener;
 
     AudioHardwareListener::BufferSizeRange m_supportedAudioHardwareBufferSizes;
-    size_t m_defaultBufferSize;
+    std::optional<size_t> m_defaultBufferSize;
 
     RunLoop::Timer m_delayCategoryChangeTimer;
     AudioSession::CategoryType m_previousCategory { AudioSession::CategoryType::None };

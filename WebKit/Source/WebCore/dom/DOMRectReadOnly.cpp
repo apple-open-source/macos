@@ -30,6 +30,7 @@
 #include "config.h"
 #include "DOMRectReadOnly.h"
 
+#include "ScriptWrappableInlines.h"
 #include "WebCoreOpaqueRoot.h"
 #include <wtf/TZoneMallocInlines.h>
 

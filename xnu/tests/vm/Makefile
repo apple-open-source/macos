@@ -9,17 +9,20 @@ vm/entitlement_increased_memory_limit: CODE_SIGN_ENTITLEMENTS = vm/entitlement_i
 vm/entitlement_increased_memory_limit: OTHER_CFLAGS += -DENTITLED=1 jumbo_va_spaces_common.c
 vm/entitlement_increased_memory_limit: OTHER_LDFLAGS += -ldarwintest_utils memorystatus_assertion_helpers.c
 vm/entitlement_increased_memory_limit: vm/entitlement_increased_memory_limit.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
 
 vm/entitlement_increased_memory_limit_unentitled: OTHER_LDFLAGS += -ldarwintest_utils memorystatus_assertion_helpers.c
 vm/entitlement_increased_memory_limit_unentitled: vm/entitlement_increased_memory_limit.c jumbo_va_spaces_common.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 
 vm/entitlement_increased_debugging_memory_limit: CODE_SIGN_ENTITLEMENTS = vm/entitlement_increased_debugging_memory_limit.entitlements
 vm/entitlement_increased_debugging_memory_limit: OTHER_CFLAGS += -DENTITLED_DEBUGGING=1 jumbo_va_spaces_common.c
 vm/entitlement_increased_debugging_memory_limit: OTHER_LDFLAGS += -ldarwintest_utils memorystatus_assertion_helpers.c
 vm/entitlement_increased_debugging_memory_limit: vm/entitlement_increased_memory_limit.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
 
@@ -31,6 +34,7 @@ vm/entitlement_increased_memory_limit_bincompat: CODE_SIGN_ENTITLEMENTS = vm/ent
 vm/entitlement_increased_memory_limit_bincompat: OTHER_CFLAGS += -DENTITLED=1 -DBINCOMPAT=1 jumbo_va_spaces_common.c
 vm/entitlement_increased_memory_limit_bincompat: OTHER_LDFLAGS += -ldarwintest_utils memorystatus_assertion_helpers.c 
 vm/entitlement_increased_memory_limit_bincompat: vm/entitlement_increased_memory_limit.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@.xros
 	$(shell /usr/bin/xcrun -sdk $(SDKROOT) -find vtool) -set-build-version 2 19.0 19.0 -replace -output $(SYMROOT)/$@ $(SYMROOT)/$@.xros
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
@@ -66,16 +70,19 @@ vm/entitlement_internal_bands: CODE_SIGN_ENTITLEMENTS = vm/entitlement_internal_
 vm/entitlement_internal_bands: OTHER_CFLAGS += -DENTITLED=1
 vm/entitlement_internal_bands: OTHER_LDFLAGS += -ldarwintest_utils
 vm/entitlement_internal_bands: vm/entitlement_internal_bands.c memorystatus_assertion_helpers.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
 
 vm/entitlement_internal_bands_unentitled: OTHER_LDFLAGS += -ldarwintest_utils
 vm/entitlement_internal_bands_unentitled: vm/entitlement_internal_bands.c memorystatus_assertion_helpers.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@;
 
 vm/ios13extended_footprint: CODE_SIGN_ENTITLEMENTS = vm/ios13extended_footprint.entitlements
 vm/ios13extended_footprint: vm/ios13extended_footprint.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $< -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
 
@@ -90,6 +97,7 @@ endif
 CUSTOM_TARGETS += vm/hello
 
 vm/hello: vm/hello.c
+	mkdir -p $(SYMROOT)/vm
 	$(CC) $(LDFLAGS) $(CFLAGS) $< -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@;
 

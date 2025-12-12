@@ -5,7 +5,7 @@
 	<key>VersionNumber</key>
 	<integer>2025082000</integer>
 	<key>MobileAssetContentVersion</key>
-	<integer>1010</integer>
+	<integer>1011</integer>
 	<key>PKITrustStoreAssetsVersion</key>
 	<string>1.2.3</string>
 </dict>

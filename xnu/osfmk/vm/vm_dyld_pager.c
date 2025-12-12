@@ -56,6 +56,7 @@
 #include <vm/vm_page_internal.h>
 #include <vm/vm_object_internal.h>
 #include <vm/vm_sanitize_internal.h>
+#include <vm/vm_compressor_pager_xnu.h>
 
 #include <sys/kdebug_triage.h>
 #include <mach-o/fixup-chains.h>
@@ -121,6 +122,8 @@ static boolean_t dyld_pager_backing_object(
 	vm_object_t *backing_object,
 	vm_object_offset_t *backing_offset);
 static dyld_pager_t dyld_pager_lookup(memory_object_t  mem_obj);
+
+struct vm_map_with_linking_stats vm_map_with_linking_stats;
 
 /*
  * Vector of VM operations for this EMM.
@@ -1513,6 +1516,30 @@ dyld_pager_create(
 	pager->dyld_header.mo_control = MEMORY_OBJECT_CONTROL_NULL;
 	pager->dyld_header.mo_last_unmap_ctid = 0;
 
+	/*
+	 * Record the regions so the pager can find the offset from an address.
+	 */
+	pager->dyld_num_range = region_cnt;
+	for (uint32_t r = 0; r < region_cnt; ++r) {
+		pager->dyld_file_offset[r] = regions[r].mwlr_file_offset;
+		pager->dyld_address[r] = regions[r].mwlr_address;
+		pager->dyld_size[r] = regions[r].mwlr_size;
+		/* check that this range is covered by backing_object */
+		vm_object_offset_t end_offset;
+		if (os_add_overflow(pager->dyld_file_offset[r], pager->dyld_size[r],
+		    &end_offset)) {
+			vm_map_with_linking_stats.vmwls_overflow++;
+			kfree_type(struct dyld_pager, pager);
+			pager = NULL;
+			return NULL;
+		} else if (end_offset > backing_object->vo_size) {
+			vm_map_with_linking_stats.vmwls_bad_offset++;
+			kfree_type(struct dyld_pager, pager);
+			pager = NULL;
+			return NULL;
+		}
+	}
+
 	pager->dyld_is_ready = FALSE;/* not ready until it has a "name" */
 	/* existence reference for the caller */
 	os_ref_init_count_raw(&pager->dyld_ref_count, NULL, 1);
@@ -1523,16 +1550,6 @@ dyld_pager_create(
 #if defined(HAS_APPLE_PAC)
 	pager->dyld_a_key = (task->map && task->map->pmap && !task->map->pmap->disable_jop) ? task->jop_pid : 0;
 #endif /* defined(HAS_APPLE_PAC) */
-
-	/*
-	 * Record the regions so the pager can find the offset from an address.
-	 */
-	pager->dyld_num_range = region_cnt;
-	for (uint32_t r = 0; r < region_cnt; ++r) {
-		pager->dyld_file_offset[r] = regions[r].mwlr_file_offset;
-		pager->dyld_address[r] = regions[r].mwlr_address;
-		pager->dyld_size[r] = regions[r].mwlr_size;
-	}
 
 	vm_object_reference(backing_object);
 	lck_mtx_lock(&dyld_pager_lock);
@@ -1625,6 +1642,7 @@ vm_map_with_linking(
 	vm_object_t             backing_object = VM_OBJECT_NULL;
 	vm_object_t             shadow_object;
 	int                     num_extra_shadows;
+	uint64_t                num_extra_shadow_pages;
 
 	if (region_cnt == 0) {
 		kr = KERN_INVALID_ARGUMENT;
@@ -1651,10 +1669,18 @@ vm_map_with_linking(
 	    VME_OBJECT(map_entry) == VM_OBJECT_NULL) {
 		vm_map_unlock_read(map);
 		kr = KERN_INVALID_ADDRESS;
+		vm_map_with_linking_stats.vmwls_bad_addr++;
+		goto done;
+	}
+	if (!(map_entry->max_protection & VM_PROT_WRITE)) {
+		vm_map_unlock_read(map);
+		kr = KERN_PROTECTION_FAILURE;
+		vm_map_with_linking_stats.vmwls_bad_prot++;
 		goto done;
 	}
 	/* go down the shadow chain looking for the file object and its copy object */
 	num_extra_shadows = 0;
+	num_extra_shadow_pages = 0;
 	shadow_object = VME_OBJECT(map_entry);
 	vm_object_lock(shadow_object);
 	while (shadow_object->shadow != VM_OBJECT_NULL) {
@@ -1674,6 +1700,11 @@ vm_map_with_linking(
 		}
 		if (backing_object == VM_OBJECT_NULL) {
 			num_extra_shadows++;
+			num_extra_shadow_pages += shadow_object->resident_page_count;
+			if (shadow_object->internal && shadow_object->pager) {
+				num_extra_shadow_pages +=
+				    vm_compressor_pager_get_count(shadow_object->pager);
+			}
 		}
 		vm_object_lock(next_object);
 		vm_object_unlock(shadow_object);
@@ -1688,20 +1719,12 @@ vm_map_with_linking(
 		vm_object_unlock(shadow_object);
 		shadow_object = VM_OBJECT_NULL;
 		vm_map_unlock_read(map);
+		vm_map_with_linking_stats.vmwls_bad_file++;
 		kr = KERN_INVALID_ARGUMENT;
 		goto done;
 	}
 	vm_object_unlock(shadow_object);
 	shadow_object = VM_OBJECT_NULL;
-	vm_map_unlock_read(map);
-	if (backing_object == VM_OBJECT_NULL ||
-	    backing_object != file_object->vo_copy) {
-		printf("%d[%s] %s: mapping at 0x%llx not a proper copy-on-write mapping\n",
-		    proc_selfpid(), proc_name_address(current_proc()), __func__,
-		    (uint64_t)map_addr);
-		kr = KERN_INVALID_ARGUMENT;
-		goto done;
-	}
 	if (num_extra_shadows) {
 		/*
 		 * We found some extra shadow objects in the shadow chain for this mapping.
@@ -1710,10 +1733,30 @@ vm_map_with_linking(
 		 * previously been copied and modified in these extra shadow objects
 		 * will no longer be visible in this mapping.
 		 */
-		printf("%d[%s] %s: (warn) skipped %d shadow object(s) at 0x%llx\n",
+		printf("%d[%s] %s: (warn) found %d shadow object(s) with %llu pages at 0x%llx\n",
 		    proc_selfpid(), proc_name_address(current_proc()), __func__,
-		    num_extra_shadows, (uint64_t)map_addr);
+		    num_extra_shadows, num_extra_shadow_pages, (uint64_t)map_addr);
+		vm_map_unlock_read(map);
+		vm_map_with_linking_stats.vmwls_bad_shadows++;
+		kr = KERN_INVALID_ARGUMENT;
+		goto done;
 	}
+	if (backing_object == VM_OBJECT_NULL ||
+	    backing_object != file_object->vo_copy ||
+	    backing_object->copy_strategy == MEMORY_OBJECT_COPY_DELAY ||
+	    (backing_object->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC &&
+	    !map_entry->needs_copy)) {
+		printf("%d[%s] %s: mapping at 0x%llx not a proper copy-on-write mapping\n",
+		    proc_selfpid(), proc_name_address(current_proc()), __func__,
+		    (uint64_t)map_addr);
+		vm_map_unlock_read(map);
+		vm_map_with_linking_stats.vmwls_bad_cow++;
+		kr = KERN_INVALID_ARGUMENT;
+		goto done;
+	}
+
+	vm_map_unlock_read(map);
+	map_entry = VM_MAP_ENTRY_NULL;
 
 	/* create a pager, backed by the latest snapshot (copy object) of the file */
 	pager = dyld_pager_setup(task, backing_object, regions, region_cnt, *link_info, link_info_size);
@@ -1776,6 +1819,11 @@ done:
 		memory_object_deallocate(pager);
 		pager = MEMORY_OBJECT_NULL;
 	}
+	if (kr == KERN_SUCCESS) {
+		vm_map_with_linking_stats.vmwls_total_success++;
+	} else {
+		vm_map_with_linking_stats.vmwls_total_fail++;
+	}
 	return kr;
 }
 
@@ -1791,7 +1839,7 @@ dyld_pager_purge(
 	assert(object != VM_OBJECT_NULL);
 	vm_object_lock(object);
 	pages_purged = object->resident_page_count;
-	vm_object_reap_pages(object, REAP_DATA_FLUSH);
+	vm_object_reap_pages(object, REAP_DATA_FLUSH_CLEAN);
 	pages_purged -= object->resident_page_count;
 //	printf("     %s:%d pager %p object %p purged %llu left %d\n", __FUNCTION__, __LINE__, pager, object, pages_purged, object->resident_page_count);
 	vm_object_unlock(object);

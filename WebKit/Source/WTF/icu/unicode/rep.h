@@ -3,7 +3,7 @@
 /*
 **************************************************************************
 * Copyright (C) 1999-2012, International Business Machines Corporation and
-* others. All rights reserved.
+* others. All Rights Reserved.
 **************************************************************************
 *   Date        Name        Description
 *   11/17/99    aliu        Creation.  Ported from java.  Modified to
@@ -192,7 +192,7 @@ public:
      * Clone this object, an instance of a subclass of Replaceable.
      * Clones can be used concurrently in multiple threads.
      * If a subclass does not implement clone(), or if an error occurs,
-     * then NULL is returned.
+     * then nullptr is returned.
      * The caller must delete the clone.
      *
      * @return a clone of this object

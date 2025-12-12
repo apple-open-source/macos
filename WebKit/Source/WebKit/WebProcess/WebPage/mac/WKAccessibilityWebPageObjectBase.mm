@@ -45,6 +45,7 @@
 #import <WebCore/RemoteFrame.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/Scrollbar.h>
+#import <WebCore/Settings.h>
 
 namespace ax = WebCore::Accessibility;
 
@@ -130,6 +131,14 @@ namespace ax = WebCore::Accessibility;
                 return [protectedSelf accessibilityPluginObject];
         }
 
+        RefPtr frame = protectedFrame ? WTFMove(protectedFrame) : [protectedSelf focusedLocalFrame];
+        if (RefPtr document = frame ? frame->document() : nullptr) {
+            if (CheckedPtr cache = document->axObjectCache()) {
+                if (RefPtr root = cache->rootObjectForFrame(*frame))
+                    return root->wrapper();
+            }
+        }
+
         if (auto cache = protectedSelf.get().axObjectCache) {
             // It's possible we were given a null frame (this is explicitly expected when off the main-thread, since
             // we can't access the webpage off the main-thread to get a frame). Now that we are actually on the main-thread,
@@ -188,6 +197,24 @@ namespace ax = WebCore::Accessibility;
         // of the plugin accessiblity tree.
         return;
     }
+
+    CheckedPtr cache = tree->axObjectCache();
+    if (!cache)
+        return;
+
+    std::optional isolatedTreeFrameID = cache->frameID();
+    if (!isolatedTreeFrameID)
+        return;
+
+    RefPtr mainFrame = m_page ? m_page->mainFrame() : nullptr;
+    if (!mainFrame)
+        return;
+
+    // Ignore an isolated tree that's not the main frame, otherwise VoiceOver might jump directly to an iframe
+    // when interacting with a page.
+    if (*isolatedTreeFrameID != mainFrame->frameID())
+        return;
+
     m_isolatedTree = tree.get();
 }
 

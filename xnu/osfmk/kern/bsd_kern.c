@@ -479,15 +479,6 @@ get_task_resident_size(task_t task)
 }
 
 uint64_t
-get_task_compressed(task_t task)
-{
-	uint64_t val;
-
-	ledger_get_balance(task->ledger, task_ledgers.internal_compressed, (ledger_amount_t *) &val);
-	return val;
-}
-
-uint64_t
 get_task_resident_max(task_t task)
 {
 	uint64_t val;
@@ -508,6 +499,30 @@ get_task_ledger_balance(task_t task, int entry)
 	ledger_get_balance(task->ledger, entry, &balance);
 	return balance;
 }
+
+uint64_t
+get_task_compressed(task_t task)
+{
+	uint64_t total = 0;
+
+	total += get_task_ledger_balance(task, task_ledgers.internal_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.purgeable_nonvolatile_compressed);
+	/* Alt. Acct. is doubled counted between the purgeable and internal ledgers */
+	total -= get_task_ledger_balance(task, task_ledgers.alternate_accounting_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.network_nonvolatile_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.tagged_footprint_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.media_footprint_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.graphics_footprint_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.neural_footprint_compressed);
+#if !CONFIG_JETSAM
+	total += get_task_ledger_balance(task, task_ledgers.tagged_nofootprint_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.media_nofootprint_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.graphics_nofootprint_compressed);
+	total += get_task_ledger_balance(task, task_ledgers.neural_nofootprint_compressed);
+#endif
+	return total;
+}
+
 
 uint64_t
 get_task_purgeable_size(task_t task)

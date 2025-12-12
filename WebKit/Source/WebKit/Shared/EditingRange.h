@@ -27,6 +27,7 @@
 
 #include "ArgumentCoders.h"
 #include <WebCore/CharacterRange.h>
+#include <wtf/NotFound.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {

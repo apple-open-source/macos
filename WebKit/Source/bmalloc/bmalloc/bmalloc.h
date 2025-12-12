@@ -145,6 +145,39 @@ BINLINE void* memalign(size_t alignment, size_t size, CompactAllocationMode mode
 }
 
 // Returns null on failure.
+BINLINE void* tryZeroedMemalign(size_t alignment, size_t size, CompactAllocationMode mode, HeapKind kind = HeapKind::Primary)
+{
+#if BUSE(LIBPAS)
+    if (!isGigacage(kind))
+        return bmalloc_try_allocate_zeroed_with_alignment_inline(size, alignment, asPasAllocationMode(mode));
+    return bmalloc_try_allocate_auxiliary_zeroed_with_alignment_inline(
+        &heapForKind(gigacageKind(kind)), size, alignment, asPasAllocationMode(mode));
+#else
+    BUNUSED(mode);
+    auto* mem = Cache::tryAllocate(kind, alignment, size);
+    if (mem)
+        memset(mem, 0, size);
+    return mem;
+#endif
+}
+
+// Crashes on failure.
+BINLINE void* zeroedMemalign(size_t alignment, size_t size, CompactAllocationMode mode, HeapKind kind = HeapKind::Primary)
+{
+#if BUSE(LIBPAS)
+    if (!isGigacage(kind))
+        return bmalloc_allocate_zeroed_with_alignment_inline(size, alignment, asPasAllocationMode(mode));
+    return bmalloc_allocate_auxiliary_zeroed_with_alignment_inline(
+        &heapForKind(gigacageKind(kind)), size, alignment, asPasAllocationMode(mode));
+#else
+    BUNUSED(mode);
+    auto* mem = Cache::allocate(kind, alignment, size);
+    memset(mem, 0, size);
+    return mem;
+#endif
+}
+
+// Returns null on failure.
 BINLINE void* tryRealloc(void* object, size_t newSize, CompactAllocationMode mode, HeapKind kind = HeapKind::Primary)
 {
 #if BUSE(LIBPAS)

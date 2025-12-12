@@ -50,6 +50,7 @@
 #import <WebCore/SecurityOrigin.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CallbackAggregator.h>
+#import <wtf/text/MakeString.h>
 
 static NSString * const idKey = @"id";
 static NSString * const frameIdKey = @"frameId";
@@ -60,6 +61,7 @@ static NSString * const nameKey = @"name";
 static NSString * const reasonKey = @"reason";
 static NSString * const previousVersionKey = @"previousVersion";
 static NSString * const documentIdKey = @"documentId";
+static NSString * const versionKey = @"version";
 
 namespace WebKit {
 
@@ -99,29 +101,29 @@ using ReplyCallbackAggregator = EagerCallbackAggregator<void(id, IsDefaultReply)
 
 namespace WebKit {
 
-JSValue *WebExtensionAPIRuntimeBase::reportError(NSString *errorMessage, JSGlobalContextRef contextRef, NOESCAPE const Function<void()>& handler)
+JSValue *WebExtensionAPIRuntimeBase::reportError(String errorMessage, JSGlobalContextRef contextRef, NOESCAPE const Function<void()>& handler)
 {
-    ASSERT(errorMessage.length);
+    ASSERT(!errorMessage.isEmpty());
     ASSERT(contextRef);
 
-    RELEASE_LOG_ERROR(Extensions, "Runtime error reported: %{public}@", errorMessage);
+    RELEASE_LOG_ERROR(Extensions, "Runtime error reported: %" PUBLIC_LOG_STRING, errorMessage.utf8().data());
 
     JSContext *context = [JSContext contextWithJSGlobalContextRef:contextRef];
 
-    auto *result = [JSValue valueWithNewErrorFromMessage:errorMessage inContext:context];
+    auto *result = [JSValue valueWithNewErrorFromMessage:errorMessage.createNSString().get() inContext:context];
 
     m_lastErrorAccessed = false;
     m_lastError = result;
 
     if (handler) {
-        errorMessage = [@"Unchecked runtime.lastError: " stringByAppendingString:errorMessage];
+        errorMessage = makeString("Unchecked runtime.lastError: "_s, errorMessage);
         handler();
     }
 
     if (!m_lastErrorAccessed) {
         // Log the error to the console if it wasn't checked in the callback.
         JSValue *consoleErrorFunction = context.globalObject[@"console"][@"error"];
-        [consoleErrorFunction callWithArguments:@[[JSValue valueWithNewErrorFromMessage:errorMessage inContext:context]]];
+        [consoleErrorFunction callWithArguments:@[[JSValue valueWithNewErrorFromMessage:errorMessage.createNSString().get() inContext:context]]];
 
         if (handler)
             RELEASE_LOG_DEBUG(Extensions, "Unchecked runtime.lastError");
@@ -133,20 +135,20 @@ JSValue *WebExtensionAPIRuntimeBase::reportError(NSString *errorMessage, JSGloba
     return result;
 }
 
-JSValue *WebExtensionAPIRuntimeBase::reportError(NSString *errorMessage, WebExtensionCallbackHandler& callback)
+JSValue *WebExtensionAPIRuntimeBase::reportError(const String& errorMessage, WebExtensionCallbackHandler& callback)
 {
     return reportError(errorMessage, callback.globalContext(), [&]() {
         callback.call();
     });
 }
 
-bool WebExtensionAPIRuntime::parseConnectOptions(NSDictionary *options, std::optional<String>& name, NSString *sourceKey, NSString **outExceptionString)
+bool WebExtensionAPIRuntime::parseConnectOptions(NSDictionary *options, std::optional<String>& name, const String& sourceKey, NSString **outExceptionString)
 {
     static NSDictionary<NSString *, id> *types = @{
         nameKey: NSString.class,
     };
 
-    if (!validateDictionary(options, sourceKey, nil, types, outExceptionString))
+    if (!validateDictionary(options, sourceKey.createNSString().get(), nil, types, outExceptionString))
         return false;
 
     if (NSString *nameString = options[nameKey])
@@ -167,7 +169,7 @@ bool WebExtensionAPIRuntime::isPropertyAllowed(const ASCIILiteral& name, WebPage
     return false;
 }
 
-NSURL *WebExtensionAPIRuntime::getURL(NSString *resourcePath, NSString **outExceptionString)
+NSURL *WebExtensionAPIRuntime::getURL(const String& resourcePath, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/getURL
 
@@ -181,11 +183,16 @@ NSDictionary *WebExtensionAPIRuntime::getManifest()
     return extensionContext().manifest();
 }
 
-NSString *WebExtensionAPIRuntime::runtimeIdentifier()
+String WebExtensionAPIRuntime::getVersion()
+{
+    return objectForKey<NSString>(extensionContext().manifest(), versionKey);
+}
+
+String WebExtensionAPIRuntime::runtimeIdentifier()
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/id
 
-    return extensionContext().uniqueIdentifier().createNSString().autorelease();
+    return extensionContext().uniqueIdentifier();
 }
 
 void WebExtensionAPIRuntime::getPlatformInfo(Ref<WebExtensionCallbackHandler>&& callback)
@@ -299,11 +306,11 @@ JSValue *WebExtensionAPIRuntime::lastError()
     return m_lastError.get();
 }
 
-void WebExtensionAPIRuntime::sendMessage(WebPageProxyIdentifier webPageProxyIdentifier, WebFrame& frame, NSString *extensionID, NSString *messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
+void WebExtensionAPIRuntime::sendMessage(WebPageProxyIdentifier webPageProxyIdentifier, WebFrame& frame, const String& extensionID, const String& messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/sendMessage
 
-    if (messageJSON.length > webExtensionMaxMessageLength) {
+    if (messageJSON.length() > webExtensionMaxMessageLength) {
         *outExceptionString = toErrorString(nullString(), @"message", @"it exceeded the maximum allowed length").createNSString().autorelease();
         return;
     }
@@ -336,7 +343,7 @@ void WebExtensionAPIRuntime::sendMessage(WebPageProxyIdentifier webPageProxyIden
     }, extensionContext().identifier());
 }
 
-RefPtr<WebExtensionAPIPort> WebExtensionAPIRuntime::connect(WebPageProxyIdentifier webPageProxyIdentifier, WebFrame& frame, JSContextRef context, NSString *extensionID, NSDictionary *options, NSString **outExceptionString)
+RefPtr<WebExtensionAPIPort> WebExtensionAPIRuntime::connect(WebPageProxyIdentifier webPageProxyIdentifier, WebFrame& frame, JSContextRef context, const String& extensionID, NSDictionary *options, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/connect
 
@@ -375,7 +382,7 @@ RefPtr<WebExtensionAPIPort> WebExtensionAPIRuntime::connect(WebPageProxyIdentifi
     return port;
 }
 
-void WebExtensionAPIRuntime::sendNativeMessage(WebFrame& frame, NSString *applicationID, NSString *messageJSON, Ref<WebExtensionCallbackHandler>&& callback)
+void WebExtensionAPIRuntime::sendNativeMessage(WebFrame& frame, const String& applicationID, const String& messageJSON, Ref<WebExtensionCallbackHandler>&& callback)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/sendNativeMessage
 
@@ -389,7 +396,7 @@ void WebExtensionAPIRuntime::sendNativeMessage(WebFrame& frame, NSString *applic
     }, extensionContext().identifier());
 }
 
-RefPtr<WebExtensionAPIPort> WebExtensionAPIRuntime::connectNative(WebPageProxyIdentifier webPageProxyIdentifier, JSContextRef context, NSString *applicationID)
+RefPtr<WebExtensionAPIPort> WebExtensionAPIRuntime::connectNative(WebPageProxyIdentifier webPageProxyIdentifier, JSContextRef context, const String& applicationID)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/connectNative
 
@@ -406,11 +413,11 @@ RefPtr<WebExtensionAPIPort> WebExtensionAPIRuntime::connectNative(WebPageProxyId
     return port;
 }
 
-void WebExtensionAPIWebPageRuntime::sendMessage(WebPage& page, WebFrame& frame, NSString *extensionID, NSString *messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
+void WebExtensionAPIWebPageRuntime::sendMessage(WebPage& page, WebFrame& frame, const String& extensionID, const String& messageJSON, NSDictionary *options, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/sendMessage
 
-    if (messageJSON.length > webExtensionMaxMessageLength) {
+    if (messageJSON.length() > webExtensionMaxMessageLength) {
         *outExceptionString = toErrorString(nullString(), @"message", @"it exceeded the maximum allowed length").createNSString().autorelease();
         return;
     }
@@ -451,7 +458,7 @@ void WebExtensionAPIWebPageRuntime::sendMessage(WebPage& page, WebFrame& frame, 
     }, destinationExtensionContext->identifier());
 }
 
-RefPtr<WebExtensionAPIPort> WebExtensionAPIWebPageRuntime::connect(WebPage& page, WebFrame& frame, JSContextRef context, NSString *extensionID, NSDictionary *options, NSString **outExceptionString)
+RefPtr<WebExtensionAPIPort> WebExtensionAPIWebPageRuntime::connect(WebPage& page, WebFrame& frame, JSContextRef context, const String& extensionID, NSDictionary *options, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/connect
 

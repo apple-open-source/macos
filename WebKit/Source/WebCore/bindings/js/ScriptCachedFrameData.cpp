@@ -33,12 +33,11 @@
 #include "ScriptCachedFrameData.h"
 
 #include "CommonVM.h"
-#include "Document.h"
-#include "GCController.h"
+#include "DocumentPage.h"
+#include "FrameConsoleClient.h"
+#include "GarbageCollectionController.h"
 #include "JSDOMWindow.h"
-#include "LocalFrame.h"
-#include "Page.h"
-#include "PageConsoleClient.h"
+#include "LocalFrameInlines.h"
 #include "PageGroup.h"
 #include "ScriptController.h"
 #include <JavaScriptCore/JSLock.h>
@@ -94,8 +93,7 @@ void ScriptCachedFrameData::restore(LocalFrame& frame)
             }
         }
 
-        if (page)
-            windowProxy->window()->setConsoleClient(page->console());
+        windowProxy->window()->setConsoleClient(frame.console());
     }
 }
 
@@ -106,7 +104,7 @@ void ScriptCachedFrameData::clear()
 
     JSLockHolder lock(commonVM());
     m_windows.clear();
-    GCController::singleton().garbageCollectSoon();
+    GarbageCollectionController::singleton().garbageCollectSoon();
 }
 
 } // namespace WebCore

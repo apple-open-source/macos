@@ -25,12 +25,12 @@
 
 #pragma once
 
-#include "Color.h"
-#include "DecodingOptions.h"
-#include "ImageOrientation.h"
-#include "ImageTypes.h"
-#include "IntSize.h"
-#include "NativeImage.h"
+#include <WebCore/Color.h>
+#include <WebCore/DecodingOptions.h>
+#include <WebCore/ImageOrientation.h>
+#include <WebCore/ImageTypes.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/NativeImage.h>
 #include <wtf/Seconds.h>
 
 namespace WebCore {

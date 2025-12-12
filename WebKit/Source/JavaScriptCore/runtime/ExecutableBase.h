@@ -25,13 +25,13 @@
 
 #pragma once
 
-#include "ArityCheckMode.h"
-#include "CallData.h"
-#include "CodeBlockHash.h"
-#include "CodeSpecializationKind.h"
-#include "JITCode.h"
-#include "UnlinkedCodeBlock.h"
-#include "UnlinkedFunctionExecutable.h"
+#include <JavaScriptCore/ArityCheckMode.h>
+#include <JavaScriptCore/CallData.h>
+#include <JavaScriptCore/CodeBlockHash.h>
+#include <JavaScriptCore/CodeSpecializationKind.h>
+#include <JavaScriptCore/JITCode.h>
+#include <JavaScriptCore/UnlinkedCodeBlock.h>
+#include <JavaScriptCore/UnlinkedFunctionExecutable.h>
 
 namespace JSC {
 

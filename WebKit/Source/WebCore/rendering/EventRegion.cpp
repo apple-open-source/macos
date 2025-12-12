@@ -33,6 +33,7 @@
 #include "PathUtilities.h"
 #include "RenderAncestorIterator.h"
 #include "RenderBox.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include "SimpleRange.h"
 #include "WindRule.h"
@@ -50,7 +51,7 @@ EventRegionContext::EventRegionContext(EventRegion& eventRegion)
 
 EventRegionContext::~EventRegionContext() = default;
 
-void EventRegionContext::unite(const FloatRoundedRect& roundedRect, RenderObject& renderer, const RenderStyle& style, bool overrideUserModifyIsEditable)
+void EventRegionContext::unite(const FloatRoundedRect& roundedRect, const RenderObject& renderer, const RenderStyle& style, bool overrideUserModifyIsEditable)
 {
     auto transformAndClipIfNeeded = [&](auto input, auto transform) {
         if (m_transformStack.isEmpty() && m_clipStack.isEmpty())
@@ -133,7 +134,7 @@ static std::optional<FloatRect> guardRectForRegionBounds(const InteractionRegion
     return std::nullopt;
 }
 
-void EventRegionContext::uniteInteractionRegions(RenderObject& renderer, const FloatRect& layerBounds, const FloatSize& clipOffset, const std::optional<AffineTransform>& transform)
+void EventRegionContext::uniteInteractionRegions(const RenderObject& renderer, const FloatRect& layerBounds, const FloatSize& clipOffset, const std::optional<AffineTransform>& transform)
 {
     if (!renderer.page().shouldBuildInteractionRegions())
         return;
@@ -164,17 +165,17 @@ void EventRegionContext::uniteInteractionRegions(RenderObject& renderer, const F
             return;
 
         bool defaultContentHint = interactionRegion->contentHint == InteractionRegion::ContentHint::Default;
-        if (defaultContentHint && shouldConsolidateInteractionRegion(renderer, rectForTracking, interactionRegion->elementIdentifier))
+        if (defaultContentHint && shouldConsolidateInteractionRegion(renderer, rectForTracking, interactionRegion->nodeIdentifier))
             return;
 
         // This region might be a container we can remove later.
         bool hasNoVisualBorders = !renderer.hasVisibleBoxDecorations();
         if (hasNoVisualBorders) {
             if (auto* renderElement = dynamicDowncast<RenderElement>(renderer))
-                m_containerRemovalCandidates.add(renderElement->element()->identifier());
+                m_containerRemovalCandidates.add(renderElement->element()->nodeIdentifier());
         }
 
-        auto discoveredAddResult = m_discoveredRegionsByElement.add(interactionRegion->elementIdentifier, Vector<InteractionRegion>());
+        auto discoveredAddResult = m_discoveredRegionsByElement.add(interactionRegion->nodeIdentifier, Vector<InteractionRegion>());
         discoveredAddResult.iterator->value.append(*interactionRegion);
         if (!discoveredAddResult.isNewEntry)
             return;
@@ -185,7 +186,7 @@ void EventRegionContext::uniteInteractionRegions(RenderObject& renderer, const F
             if (result.isNewEntry) {
                 m_interactionRegions.append({
                     InteractionRegion::Type::Guard,
-                    interactionRegion->elementIdentifier,
+                    interactionRegion->nodeIdentifier,
                     guardRect.value()
                 });
             }
@@ -195,13 +196,13 @@ void EventRegionContext::uniteInteractionRegions(RenderObject& renderer, const F
     }
 }
 
-bool EventRegionContext::shouldConsolidateInteractionRegion(RenderObject& renderer, const IntRect& bounds, const ElementIdentifier& elementIdentifier)
+bool EventRegionContext::shouldConsolidateInteractionRegion(const RenderObject& renderer, const IntRect& bounds, const NodeIdentifier& nodeIdentifier)
 {
     for (auto& ancestor : ancestorsOfType<RenderElement>(renderer)) {
         if (!ancestor.element())
             continue;
 
-        auto ancestorElementIdentifier = ancestor.element()->identifier();
+        auto ancestorElementIdentifier = ancestor.element()->nodeIdentifier();
         auto discoveredIterator = m_discoveredRegionsByElement.find(ancestorElementIdentifier);
 
         // The ancestor has no known InteractionRegion, we can skip it.
@@ -239,7 +240,7 @@ bool EventRegionContext::shouldConsolidateInteractionRegion(RenderObject& render
         bool hasNoVisualBorders = !renderer.hasVisibleBoxDecorations();
 
         bool canConsolidate = hasNoVisualBorders
-            && (majorOverlap || elementIdentifier == ancestorElementIdentifier);
+            && (majorOverlap || nodeIdentifier == ancestorElementIdentifier);
 
         // We're consolidating the region based on this ancestor, it shouldn't be removed or candidate for removal.
         if (canConsolidate) {
@@ -264,13 +265,13 @@ void EventRegionContext::convertGuardContainersToInterationIfNeeded(float minimu
         if (region.type != InteractionRegion::Type::Guard)
             continue;
 
-        if (!m_discoveredRegionsByElement.contains(region.elementIdentifier)) {
+        if (!m_discoveredRegionsByElement.contains(region.nodeIdentifier)) {
             auto rectForTracking = enclosingIntRect(region.rectInLayerCoordinates);
             auto result = m_interactionRectsAndContentHints.add(rectForTracking, region.contentHint);
             if (result.isNewEntry) {
                 region.type = InteractionRegion::Type::Interaction;
                 region.cornerRadius = minimumCornerRadius;
-                m_discoveredRegionsByElement.add(region.elementIdentifier, Vector<InteractionRegion>({ region }));
+                m_discoveredRegionsByElement.add(region.nodeIdentifier, Vector<InteractionRegion>({ region }));
             }
         }
     }
@@ -283,7 +284,7 @@ void EventRegionContext::shrinkWrapInteractionRegions()
         if (region.type != InteractionRegion::Type::Interaction)
             continue;
 
-        auto discoveredIterator = m_discoveredRegionsByElement.find(region.elementIdentifier);
+        auto discoveredIterator = m_discoveredRegionsByElement.find(region.nodeIdentifier);
         if (discoveredIterator == m_discoveredRegionsByElement.end())
             continue;
 
@@ -375,7 +376,7 @@ void EventRegionContext::removeSuperfluousInteractionRegions()
 {
     m_interactionRegions.removeAllMatching([&] (auto& region) {
         if (region.type != InteractionRegion::Type::Guard)
-            return m_containersToRemove.contains(region.elementIdentifier);
+            return m_containersToRemove.contains(region.nodeIdentifier);
 
         auto guardRect = enclosingIntRect(region.rectInLayerCoordinates);
         auto guardIterator = m_guardRects.find(guardRect);
@@ -462,7 +463,7 @@ EventRegion::EventRegion(Region&& region
 {
 }
 
-void EventRegion::unite(const Region& region, RenderObject& renderer, const RenderStyle& style, bool overrideUserModifyIsEditable)
+void EventRegion::unite(const Region& region, const RenderObject& renderer, const RenderStyle& style, bool overrideUserModifyIsEditable)
 {
     if (renderer.usedPointerEvents() == PointerEvents::None)
         return;

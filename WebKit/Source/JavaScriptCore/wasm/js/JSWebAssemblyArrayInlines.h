@@ -35,6 +35,11 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
+TypeInfoBlob JSWebAssemblyArray::typeInfoBlob()
+{
+    return TypeInfoBlob(0, TypeInfo(WebAssemblyGCObjectType, StructureFlags));
+}
+
 WebAssemblyGCStructure* JSWebAssemblyArray::createStructure(VM& vm, JSGlobalObject* globalObject, Ref<const Wasm::TypeDefinition>&& unexpandedType, Ref<const Wasm::RTT>&& rtt)
 {
     const Wasm::TypeDefinition& type = unexpandedType->expand();
@@ -125,10 +130,16 @@ auto JSWebAssemblyArray::visitSpanNonVector(auto functor)
 
 uint64_t JSWebAssemblyArray::get(uint32_t index)
 {
-    // V128 is not supported in LLInt.
+    // V128 is not supported in IPInt.
     return visitSpanNonVector([&](auto span) ALWAYS_INLINE_LAMBDA -> uint64_t {
         return span[index];
     });
+}
+
+v128_t JSWebAssemblyArray::getVector(uint32_t index)
+{
+    ASSERT(elementType().type.unpacked().isV128());
+    return span<v128_t>()[index];
 }
 
 void JSWebAssemblyArray::set(VM& vm, uint32_t index, uint64_t value)

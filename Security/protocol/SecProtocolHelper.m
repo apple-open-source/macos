@@ -22,7 +22,7 @@ DefineTLSCiphersuiteGroupList(tls_ciphersuite_group_legacy,
                               CiphersuitesDHE);
 DefineTLSCiphersuiteGroupList(tls_ciphersuite_group_ats,
                               CiphersuitesTLS13,
-                              CiphersuitesPFS);
+                              CiphersuitesPFSFCSOrdering);
 DefineTLSCiphersuiteGroupList(tls_ciphersuite_group_ats_compatibility,
                               CiphersuitesNonPFS);
 

@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "HTMLFormElement.h"
+#include <WebCore/HTMLFormElement.h>
 
 namespace WebCore {
 

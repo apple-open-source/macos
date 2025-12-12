@@ -153,7 +153,7 @@ JSValue JSTestStringifierNamedOperation::getConstructor(VM& vm, const JSGlobalOb
 
 void JSTestStringifierNamedOperation::destroy(JSC::JSCell* cell)
 {
-    JSTestStringifierNamedOperation* thisObject = static_cast<JSTestStringifierNamedOperation*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestStringifierNamedOperation* thisObject = static_cast<JSTestStringifierNamedOperation*>(cell);
     thisObject->JSTestStringifierNamedOperation::~JSTestStringifierNamedOperation();
 }
 
@@ -226,7 +226,7 @@ bool JSTestStringifierNamedOperationOwner::isReachableFromOpaqueRoots(JSC::Handl
 
 void JSTestStringifierNamedOperationOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestStringifierNamedOperation = static_cast<JSTestStringifierNamedOperation*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestStringifierNamedOperation = static_cast<JSTestStringifierNamedOperation*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestStringifierNamedOperation->protectedWrapped().ptr(), jsTestStringifierNamedOperation);
 }
@@ -240,7 +240,7 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierNamedOperation
 extern "C" { extern void* _ZTVN7WebCore29TestStringifierNamedOperationE[]; }
 #endif
 template<std::same_as<TestStringifierNamedOperation> T>
-static inline void verifyVTable(TestStringifierNamedOperation* ptr) 
+static inline void verifyVTable(TestStringifierNamedOperation* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -260,8 +260,9 @@ static inline void verifyVTable(TestStringifierNamedOperation* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestStringifierNamedOperation>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestStringifierNamedOperation>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestStringifierNamedOperation>(impl.ptr());
 #endif

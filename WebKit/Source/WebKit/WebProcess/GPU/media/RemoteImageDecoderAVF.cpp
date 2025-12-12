@@ -166,7 +166,7 @@ PlatformImagePtr RemoteImageDecoderAVF::createFrameImageAtIndex(size_t index, Su
         imageHandle->takeOwnershipOfMemory(MemoryLedger::Graphics);
 
         if (RefPtr bitmap = ShareableBitmap::create(WTFMove(*imageHandle)))
-            protectedThis->m_frameImages.add(index, bitmap->makeCGImage());
+            protectedThis->m_frameImages.add(index, bitmap->createPlatformImage(DontCopyBackingStore));
     };
 
     callOnMainRunLoopAndWait(WTFMove(createFrameImage));

@@ -41,6 +41,8 @@ public:
         return adoptRef(*new NavigationActivation(type, WTFMove(entry), WTFMove(fromEntry)));
     }
 
+    ~NavigationActivation();
+
     NavigationNavigationType navigationType() { return m_navigationType; };
     NavigationHistoryEntry* from() const { return m_fromEntry.get(); };
     const NavigationHistoryEntry& entry() const { return m_entry; };

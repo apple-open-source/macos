@@ -83,6 +83,7 @@ typedef void (^CompletionHandler)(void);
 @property NSString *currentUpdateServer;
 @property NSFileHandle *currentUpdateFile;
 @property NSURL *currentUpdateFileURL;
+@property NSDate *startedDownload;
 @property BOOL finishedDownloading;
 @end
 
@@ -124,7 +125,8 @@ typedef void (^CompletionHandler)(void);
 
     dispatch_async(_revDbUpdateQueue, ^{
         /* LOG EVENT: background update started */
-        secnotice("validupdate", "update started at %f", (double)CFAbsoluteTimeGetCurrent());
+        NSDate *updateIngestionStarted = [NSDate date];
+        secnotice("validupdate", "update started at %@", updateIngestionStarted);
 
         CFDataRef updateData = NULL;
         const char *updateFilePath = [updateFileURL fileSystemRepresentation];
@@ -156,7 +158,14 @@ typedef void (^CompletionHandler)(void);
         self->_currentUpdateServer = nil;
 
         /* LOG EVENT: background update finished */
-        secnotice("validupdate", "update finished at %f", (double)CFAbsoluteTimeGetCurrent());
+        NSDate *updateIngestionFinished = [NSDate date];
+        double updateIngestionDuration = [updateIngestionFinished timeIntervalSinceDate:updateIngestionStarted];
+        secnotice("validupdate", "update finished at %@ (took %f)", updateIngestionFinished, updateIngestionDuration);
+        NSNumber *ingestionDurationMetric = [NSNumber numberWithDouble:updateIngestionDuration];
+
+        // Call this (instead of the logger directly) to ensure we're going through background_analytics_activate
+        TrustdHealthAnalyticsLogMetric(TAMetricValidIngestion, (__bridge CFNumberRef)ingestionDurationMetric);
+
         gUpdateStarted = 0;
 
         self->_handler();
@@ -210,7 +219,8 @@ didReceiveResponse:(NSURLResponse *)response
     }
 
     /* LOG EVENT: background download actually started */
-    secnotice("validupdate", "download started at %f", (double)CFAbsoluteTimeGetCurrent());
+    self.startedDownload = [NSDate date];
+    secnotice("validupdate", "download started at %@", self.startedDownload);
 
     NSError *error = nil;
     self->_currentUpdateFile = [NSFileHandle fileHandleForWritingToURL:self->_currentUpdateFileURL error:&error];
@@ -253,9 +263,16 @@ didReceiveResponse:(NSURLResponse *)response
 - (void)URLSession:(NSURLSession *)session
               task:(NSURLSessionTask *)task
 didCompleteWithError:(NSError *)error {
+    NSDate *downloadFinished = [NSDate date];
+    double downloadTime = [downloadFinished timeIntervalSinceDate: self->_startedDownload];
+    secdebug("validupdate", "download finished at %@ (took %f)", downloadFinished, downloadTime);
+
     if (error) {
         secnotice("validupdate", "Session %@ task %@ failed with error %@", session, task, error);
-        [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
+        [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate 
+                                       hardFailure:NO 
+                                            result:error 
+                                    withAttributes:@{@"downloadTime" : @(downloadTime)}];
         [self reschedule];
         /* close file before we leave */
         [self->_currentUpdateFile closeFile];
@@ -264,7 +281,11 @@ didCompleteWithError:(NSError *)error {
         self->_currentUpdateFileURL = nil;
     } else {
         /* LOG EVENT: background download finished */
-        secnotice("validupdate", "download finished at %f", (double)CFAbsoluteTimeGetCurrent());
+
+        // We only log the metric on success here, since we report the time in the failure event
+        NSNumber *downloadTimeMetric = [NSNumber numberWithDouble:downloadTime];
+        TrustdHealthAnalyticsLogMetric(TAMetricValidDownload, (__bridge CFNumberRef)downloadTimeMetric);
+
         secdebug("validupdate", "Session %@ task %@ succeeded", session, task);
         self->_finishedDownloading = YES;
         [self updateDb:[self versionFromTask:task]];

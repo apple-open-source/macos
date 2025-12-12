@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "StyleValueTypes.h"
+#include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
 namespace Style {
@@ -55,4 +55,4 @@ template<> struct CSSValueConversion<ProgressTimelineName> { auto operator()(Bui
 } // namespace WebCore
 
 DEFINE_TUPLE_LIKE_CONFORMANCE(WebCore::Style::ProgressTimelineName, 1)
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ProgressTimelineNames> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::ProgressTimelineNames)

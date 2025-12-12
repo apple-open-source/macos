@@ -25,10 +25,11 @@
 
 #pragma once
 
-#include "CachedResourceHandle.h"
-#include "CachedSVGDocumentClient.h"
-#include "LoaderMalloc.h"
-#include "StyleURL.h"
+#include <WebCore/CachedResourceHandle.h>
+#include <WebCore/CachedSVGDocument.h>
+#include <WebCore/CachedSVGDocumentClient.h>
+#include <WebCore/LoaderMalloc.h>
+#include <WebCore/StyleURL.h>
 
 namespace WebCore {
 
@@ -37,7 +38,7 @@ class CachedResourceLoader;
 struct ResourceLoaderOptions;
 
 class CachedSVGDocumentReference final : public CachedSVGDocumentClient {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CachedSVGDocumentReference, Loader);
 public:
     CachedSVGDocumentReference(const Style::URL&);
 

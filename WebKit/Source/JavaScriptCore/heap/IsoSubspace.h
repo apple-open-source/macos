@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "AlignedMemoryAllocator.h"
-#include "BlockDirectory.h"
-#include "Subspace.h"
-#include "SubspaceAccess.h"
+#include <JavaScriptCore/AlignedMemoryAllocator.h>
+#include <JavaScriptCore/BlockDirectory.h>
+#include <JavaScriptCore/Subspace.h>
+#include <JavaScriptCore/SubspaceAccess.h>
 #include <wtf/SinglyLinkedListWithTail.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -77,7 +77,7 @@ namespace GCClient {
 
 class IsoSubspace {
     WTF_MAKE_NONCOPYABLE(IsoSubspace);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(IsoSubspace);
 public:
     JS_EXPORT_PRIVATE IsoSubspace(JSC::IsoSubspace&);
     JS_EXPORT_PRIVATE ~IsoSubspace() = default;

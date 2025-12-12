@@ -353,7 +353,7 @@ void MockAudioSharedInternalUnit::generateSampleBuffers(MonotonicTime renderTime
         reconfigure();
 
     uint32_t totalFrameCount = alignTo16Bytes(delta.seconds() * sampleRate());
-    uint32_t frameCount = std::min(totalFrameCount, static_cast<uint32_t>(AudioSession::sharedSession().bufferSize()));
+    uint32_t frameCount = std::min(totalFrameCount, static_cast<uint32_t>(AudioSession::singleton().bufferSize()));
 
     while (frameCount) {
         uint32_t bipBopStart = m_samplesRendered % m_bipBopBuffer.size();
@@ -368,7 +368,7 @@ void MockAudioSharedInternalUnit::generateSampleBuffers(MonotonicTime renderTime
         emitSampleBuffers(bipBopCount);
         m_samplesRendered += bipBopCount;
         totalFrameCount -= bipBopCount;
-        frameCount = std::min(totalFrameCount, static_cast<uint32_t>(AudioSession::sharedSession().bufferSize()));
+        frameCount = std::min(totalFrameCount, static_cast<uint32_t>(AudioSession::singleton().bufferSize()));
     }
 }
 

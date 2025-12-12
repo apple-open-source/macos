@@ -203,6 +203,9 @@ FunctionExecutable* UnlinkedFunctionExecutable::link(VM& vm, ScriptExecutable* t
     if (overrideLineNumber)
         result->setOverrideLineNumber(*overrideLineNumber);
 
+    if (inlineAttribute() == InlineAttribute::Never)
+        result->setNeverInline(true);
+
     if (hasFunctionOverride) [[unlikely]]
         result->overrideInfo(overrideInfo);
 

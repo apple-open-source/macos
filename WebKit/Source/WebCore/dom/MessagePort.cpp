@@ -27,9 +27,11 @@
 #include "config.h"
 #include "MessagePort.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
+#include "ExceptionOr.h"
 #include "Logging.h"
 #include "MessageEvent.h"
 #include "MessagePortChannelProvider.h"
@@ -130,13 +132,13 @@ MessagePort::~MessagePort()
     if (m_entangled)
         close();
 
-    if (auto* context = scriptExecutionContext())
+    if (RefPtr context = scriptExecutionContext())
         context->destroyedMessagePort(*this);
 }
 
 void MessagePort::entangle()
 {
-    MessagePortChannelProvider::fromContext(*protectedScriptExecutionContext()).entangleLocalPortInThisProcessToRemote(m_identifier, m_remoteIdentifier);
+    MessagePortChannelProvider::protectedFromContext(*protectedScriptExecutionContext())->entangleLocalPortInThisProcessToRemote(m_identifier, m_remoteIdentifier);
 }
 
 ExceptionOr<void> MessagePort::postMessage(JSC::JSGlobalObject& state, JSC::JSValue messageValue, StructuredSerializeOptions&& options)
@@ -170,7 +172,7 @@ ExceptionOr<void> MessagePort::postMessage(JSC::JSGlobalObject& state, JSC::JSVa
 
     LOG(MessagePorts, "Actually posting message to port %s (to be received by port %s)", m_identifier.logString().utf8().data(), m_remoteIdentifier.logString().utf8().data());
 
-    MessagePortChannelProvider::fromContext(*protectedScriptExecutionContext()).postMessageToRemote(WTFMove(message), m_remoteIdentifier);
+    MessagePortChannelProvider::protectedFromContext(*protectedScriptExecutionContext())->postMessageToRemote(WTFMove(message), m_remoteIdentifier);
     return { };
 }
 
@@ -180,7 +182,7 @@ TransferredMessagePort MessagePort::disentangle()
     m_entangled = false;
 
     Ref context = *scriptExecutionContext();
-    MessagePortChannelProvider::fromContext(context).messagePortDisentangled(m_identifier);
+    MessagePortChannelProvider::protectedFromContext(context)->messagePortDisentangled(m_identifier);
 
     // We can't receive any messages or generate any events after this, so remove ourselves from the list of active ports.
     context->destroyedMessagePort(*this);
@@ -264,7 +266,7 @@ void MessagePort::dispatchMessages()
         Ref vm = globalObject->vm();
         auto scope = DECLARE_CATCH_SCOPE(vm);
 
-        auto* workerGlobalScope = dynamicDowncast<WorkerGlobalScope>(*context);
+        RefPtr workerGlobalScope = dynamicDowncast<WorkerGlobalScope>(*context);
         for (auto& message : messages) {
             // close() in Worker onmessage handler should prevent next message from dispatching.
             if (workerGlobalScope && workerGlobalScope->isClosing())
@@ -285,7 +287,7 @@ void MessagePort::dispatchMessages()
         }
     };
 
-    MessagePortChannelProvider::fromContext(*context).takeAllMessagesForPort(m_identifier, WTFMove(messagesTakenHandler));
+    MessagePortChannelProvider::protectedFromContext(*context)->takeAllMessagesForPort(m_identifier, WTFMove(messagesTakenHandler));
 }
 
 void MessagePort::dispatchEvent(Event& event)
@@ -378,6 +380,11 @@ bool MessagePort::removeEventListener(const AtomString& eventType, EventListener
         m_hasMessageEventListener = false;
 
     return result;
+}
+
+ScriptExecutionContext* MessagePort::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 WebCoreOpaqueRoot root(MessagePort* port)

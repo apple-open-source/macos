@@ -7,6 +7,10 @@
 //    Implements the class methods for FramebufferNULL.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "libANGLE/renderer/null/FramebufferNULL.h"
 
 #include "common/debug.h"
@@ -119,12 +123,9 @@ angle::Result FramebufferNULL::readPixels(const gl::Context *context,
     ContextNULL *contextNull = GetImplAs<ContextNULL>(context);
 
     GLuint rowBytes = 0;
-    ANGLE_CHECK_GL_MATH(contextNull, glFormat.computeRowPitch(type, origArea.width, pack.alignment,
-                                                              pack.rowLength, &rowBytes));
-
     GLuint skipBytes = 0;
-    ANGLE_CHECK_GL_MATH(contextNull,
-                        glFormat.computeSkipBytes(type, rowBytes, 0, pack, false, &skipBytes));
+    ANGLE_CHECK_GL_MATH(contextNull, glFormat.computeRowSkipBytes(type, origArea.width, pack,
+                                                                  &rowBytes, &skipBytes));
     pixels += skipBytes;
 
     // Skip OOB region up to first in bounds pixel

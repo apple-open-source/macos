@@ -44,7 +44,7 @@ class WebContextMenuClient;
 
 class WebSharingServicePickerClient {
 public:
-    virtual ~WebSharingServicePickerClient() { }
+    virtual ~WebSharingServicePickerClient() = default;
 
     virtual void sharingServicePickerWillBeDestroyed(WebSharingServicePickerController &);
     virtual WebCore::Page* pageForSharingServicePicker(WebSharingServicePickerController &);

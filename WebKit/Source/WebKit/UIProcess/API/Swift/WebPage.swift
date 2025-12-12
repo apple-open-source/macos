@@ -28,6 +28,8 @@ import Observation
 internal import WebKit_Private
 internal import WebKit_Internal
 
+/// An object that controls and manages the behavior of interactive web content.
+///
 /// A ``WebPage`` is an ``Observable`` type, which you use to access various properties of web content
 /// and track changes to them. Use ``WebPage`` to interact with web content, like evaluating JavaScript
 /// or converting the page to PDF data. The following example shows you how you can combine these
@@ -117,12 +119,12 @@ final public class WebPage {
         /// Use the static type properties for the defined canonical CSS media type options.
         ///
         /// - Parameter rawValue: The raw value of the media type.
-        public init(rawValue: String) {
+        public init(rawValue: Swift.String) {
             self.rawValue = rawValue
         }
 
         /// The raw value of the media type.
-        public let rawValue: String
+        public let rawValue: Swift.String
     }
 
     /// The set of possible fullscreen states a webpage may be in.
@@ -142,7 +144,7 @@ final public class WebPage {
         /// The page is not currently in fullscreen.
         case notInFullscreen
     }
-    
+
     // This is based on the XGA standard resolution size.
     private static let defaultFrame = CGRect(x: 0, y: 0, width: 1024, height: 768)
 
@@ -243,12 +245,12 @@ final public class WebPage {
     /// This property contains the URL for the webpage currently being presented. Use this URL in places
     /// where you reflect the webpage address in your app’s user interface. If the webpage has not loaded
     /// any content yet, this value will be `nil`.
-    public var url: URL? {
+    public var url: Foundation.URL? {
         backingProperty(\.url, backedBy: \.url)
     }
 
     /// The page title.
-    public var title: String {
+    public var title: Swift.String {
         backingProperty(\.title, backedBy: \.title) { backingValue in
             // The title property is annotated as optional in WKWebView, but is never actually `nil`.
             // swift-format-ignore: NeverForceUnwrap
@@ -335,7 +337,7 @@ final public class WebPage {
     /// Use this property to specify a custom user agent string for the webpage.
     ///
     /// The default value of this property is `nil`.
-    public var customUserAgent: String? {
+    public var customUserAgent: Swift.String? {
         get { backingWebView.customUserAgent }
         set { backingWebView.customUserAgent = newValue }
     }
@@ -393,16 +395,26 @@ final public class WebPage {
         return webView
     }()
 
+    #if os(macOS)
+    // SPI for testing.
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    @_spi(Testing)
+    public var smartListsEnabled: Bool {
+        get { backingWebView._isSmartListsEnabled() }
+        set { backingWebView._setSmartListsEnabled(newValue) }
+    }
+    #endif
+
     // MARK: Loading functions
-    
-    @ObservationIgnored
-    private var scopedNavigations: [ObjectIdentifier : AsyncThrowingStream<NavigationEvent, any Error>.Continuation] = [:]
 
     @ObservationIgnored
-    private var scopedStreams: [ObjectIdentifier : AsyncThrowingStream<NavigationEvent, any Error>] = [:]
+    private var scopedNavigations: [ObjectIdentifier: AsyncThrowingStream<NavigationEvent, any Error>.Continuation] = [:]
 
     @ObservationIgnored
-    private var indefiniteNavigations: [UUID : AsyncThrowingStream<NavigationEvent, any Error>.Continuation] = [:]
+    private var scopedStreams: [ObjectIdentifier: AsyncThrowingStream<NavigationEvent, any Error>] = [:]
+
+    @ObservationIgnored
+    private var indefiniteNavigations: [UUID: AsyncThrowingStream<NavigationEvent, any Error>.Continuation] = [:]
 
     /// Loads the web content that the specified URL references and navigates to that content.
     ///
@@ -412,7 +424,7 @@ final public class WebPage {
     /// - Parameter url: The URL to load. If this is `nil`, an error will be immediately thrown from the returned sequence.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
     @discardableResult
-    public func load(_ url: URL?) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(_ url: Foundation.URL?) -> some AsyncSequence<NavigationEvent, any Error> {
         guard let url else {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: NavigationError.invalidURL)
@@ -448,7 +460,12 @@ final public class WebPage {
     ///   - baseURL: A URL that you use to resolve relative URLs within the document.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
     @discardableResult
-    public func load(_ data: Data, mimeType: String, characterEncoding: String.Encoding, baseURL: URL) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(
+        _ data: Data,
+        mimeType: Swift.String,
+        characterEncoding: Swift.String.Encoding,
+        baseURL: Foundation.URL
+    ) -> some AsyncSequence<NavigationEvent, any Error> {
         let cfEncoding = CFStringConvertNSStringEncodingToEncoding(characterEncoding.rawValue)
         guard cfEncoding != kCFStringEncodingInvalidId else {
             preconditionFailure("\(characterEncoding) is not a valid character encoding")
@@ -457,7 +474,7 @@ final public class WebPage {
         guard let convertedEncoding = CFStringConvertEncodingToIANACharSetName(cfEncoding) as? String else {
             preconditionFailure("\(characterEncoding) is not a valid character encoding")
         }
-        
+
         return toNavigationSequence {
             $0.load(data, mimeType: mimeType, characterEncodingName: convertedEncoding, baseURL: baseURL)
         }
@@ -474,8 +491,13 @@ final public class WebPage {
     ///   - html: The string to use as the contents of the webpage.
     ///   - baseURL: The base URL to use when the system resolves relative URLs within the HTML string. By default, this is `about:blank`.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
+    // swift-format-ignore: NeverForceUnwrap
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     @discardableResult
-    public func load(html: String, baseURL: URL = URL(string: "about:blank")!) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(
+        html: Swift.String,
+        baseURL: Foundation.URL = Foundation.URL(string: "about:blank")!
+    ) -> some AsyncSequence<NavigationEvent, any Error> {
         toNavigationSequence {
             $0.loadHTMLString(html, baseURL: baseURL)
         }
@@ -489,7 +511,11 @@ final public class WebPage {
     ///   - responseData: The data to use as the contents of the webpage.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
     @discardableResult
-    public func load(simulatedRequest request: URLRequest, response: URLResponse, responseData: Data) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(
+        simulatedRequest request: URLRequest,
+        response: URLResponse,
+        responseData: Data
+    ) -> some AsyncSequence<NavigationEvent, any Error> {
         toNavigationSequence {
             // `WKWebView` annotates this method as returning non-nil, but it may return nil.
             $0.loadSimulatedRequest(request, response: response, responseData: responseData) as WKNavigation?
@@ -503,7 +529,10 @@ final public class WebPage {
     ///   - htmlString: The HTML code you provide in a string to use as the contents of the webpage.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
     @discardableResult
-    public func load(simulatedRequest request: URLRequest, responseHTML htmlString: String) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(
+        simulatedRequest request: URLRequest,
+        responseHTML htmlString: Swift.String
+    ) -> some AsyncSequence<NavigationEvent, any Error> {
         toNavigationSequence {
             // `WKWebView` annotates this method as returning non-nil, but it may return nil.
             $0.loadSimulatedRequest(request, responseHTML: htmlString) as WKNavigation?
@@ -578,7 +607,7 @@ final public class WebPage {
     ///   frame is no longer valid when script evaluation begins, this function throws an error with the
     ///   `WKError.Code.javaScriptInvalidFrameTarget` code.
     ///
-    ///   - contentWorld: The namespace in which to evaluate the JavaScript code. THis parameter doesn't apply to changes
+    ///   - contentWorld: The namespace in which to evaluate the JavaScript code. This parameter doesn't apply to changes
     ///   you make in the underlying web content, such as the document's DOM structure. Those changes remain visible to
     ///   all scripts, regardless of which content world you specify. For more information about content worlds, see `WKContentWorld`.
     ///
@@ -586,8 +615,8 @@ final public class WebPage {
     /// - Throws: An error if a problem occurred while evaluating the JavaScript.
     @discardableResult
     public func callJavaScript(
-        _ functionBody: String,
-        arguments: [String: Any] = [:],
+        _ functionBody: Swift.String,
+        arguments: [Swift.String: Any] = [:],
         in frame: FrameInfo? = nil,
         contentWorld: WKContentWorld? = nil
     ) async throws -> sending Any? {

@@ -42,7 +42,7 @@ GPUComputePassEncoder::GPUComputePassEncoder(Ref<WebGPU::ComputePassEncoder>&& b
 
 String GPUComputePassEncoder::label() const
 {
-    return m_backing->label();
+    return m_overrideLabel ? *m_overrideLabel : m_backing->label();
 }
 
 void GPUComputePassEncoder::setLabel(String&& label)
@@ -70,8 +70,10 @@ void GPUComputePassEncoder::dispatchWorkgroupsIndirect(const GPUBuffer& indirect
 void GPUComputePassEncoder::end()
 {
     protectedBacking()->end();
-    if (RefPtr device = m_device.get())
+    if (RefPtr device = m_device.get()) {
+        m_overrideLabel = label();
         m_backing = device->invalidComputePassEncoder();
+    }
 }
 
 void GPUComputePassEncoder::setBindGroup(GPUIndex32 index, const GPUBindGroup* bindGroup,

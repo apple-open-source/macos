@@ -41,6 +41,11 @@ void WebProcessCache::platformInitialize()
         clearingDelayAfterApplicationResignsActive = clearingDelayAfterApplicationResignsActiveOverride;
         WTFLogAlways("Warning: WebProcessCache clearingDelayAfterApplicationResignsActive was overriden via user defaults and is now %g seconds", clearingDelayAfterApplicationResignsActiveOverride.seconds());
     }
+
+    Boolean capacityExists = false;
+    int capacity = CFPreferencesGetAppIntegerValue(CFSTR("WebProcessCacheCapacity"), kCFPreferencesCurrentApplication, &capacityExists);
+    if (capacityExists && capacity >= 0)
+        capacityOverride = capacity;
 }
 
 } // namespace WebKit

@@ -33,11 +33,16 @@
 #if ENABLE(DRAG_SUPPORT)
 #include "BoundaryPointInlines.h"
 #include "CachedImage.h"
-#include "CachedResourceLoader.h"
 #include "ColorSerialization.h"
+#include "ContainerNodeInlines.h"
 #include "DataTransfer.h"
-#include "Document.h"
+#include "DocumentEventLoop.h"
 #include "DocumentFragment.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentSecurityOrigin.h"
+#include "DocumentView.h"
 #include "DragActions.h"
 #include "DragClient.h"
 #include "DragData.h"
@@ -52,6 +57,8 @@
 #include "File.h"
 #include "FloatRect.h"
 #include "FocusController.h"
+#include "FrameDestructionObserverInlines.h"
+#include "FrameInlines.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
@@ -66,13 +73,12 @@
 #include "Image.h"
 #include "ImageOrientation.h"
 #include "ImageOverlay.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "Model.h"
 #include "MoveSelectionCommand.h"
 #include "MutableStyleProperties.h"
 #include "OriginAccessPatterns.h"
-#include "Page.h"
 #include "Pasteboard.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
@@ -86,6 +92,7 @@
 #include "RenderAttachment.h"
 #include "RenderFileUploadControl.h"
 #include "RenderImage.h"
+#include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include "ReplaceSelectionCommand.h"
 #include "ResourceRequest.h"
@@ -138,7 +145,7 @@ bool isDraggableLink(const Element& element)
 static PlatformMouseEvent createMouseEvent(const DragData& dragData)
 {
     auto modifiers = PlatformKeyboardEvent::currentStateOfModifierKeys();
-    return PlatformMouseEvent(dragData.clientPosition(), dragData.globalPosition(), MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, modifiers, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap);
+    return PlatformMouseEvent(dragData.clientPosition(), dragData.globalPosition(), MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, modifiers, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap);
 }
 
 DragController::DragController(Page& page, std::unique_ptr<DragClient>&& client)
@@ -323,8 +330,10 @@ Variant<std::optional<DragOperation>, RemoteUserInputEventData> DragController::
     }
 
     if (RefPtr remoteSubframe = dynamicDowncast<RemoteFrame>(frame.eventHandler().subframeForTargetNode(hitTestResult.targetNode()))) {
-        // FIXME(264611): These mouse coordinates need to be correctly transformed.
-        return RemoteUserInputEventData { remoteSubframe->frameID(), dragData.clientPosition() };
+        auto pointInFrame = hitTestResult.roundedPointInInnerNodeFrame();
+        if (auto remoteEventData = frame.eventHandler().userInputEventDataForRemoteFrame(remoteSubframe.get(), pointInFrame))
+            return *remoteEventData;
+        return std::nullopt;
     }
 
     mouseMovedIntoDocument(hitTestResult.innerNode() ? RefPtr { hitTestResult.innerNode()->protectedDocument() } : nullptr);
@@ -401,7 +410,7 @@ static Element* elementUnderMouse(Document& documentUnderMouse, const IntPoint& 
     if (!element)
         element = node->parentElement();
     auto* host = element->shadowHost();
-    return host ? host : element.get();
+    return host ? host : element.unsafeGet();
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -993,7 +1002,7 @@ std::optional<HitTestResult> DragController::hitTestResultForDragStart(LocalFram
     return { hitTestResult };
 }
 
-bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSet<DragOperation> sourceOperationMask, const PlatformMouseEvent& dragEvent, const IntPoint& dragOrigin, HasNonDefaultPasteboardData hasData)
+bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSet<DragOperation> sourceOperationMask, const PlatformMouseEvent& dragEvent, const IntPoint& dragOrigin, HasNonDefaultPasteboardData hasData, const std::optional<FrameIdentifier>& rootFrameID)
 {
     if (!state.source)
         return false;
@@ -1011,7 +1020,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
     auto linkURL = hitTestResult->absoluteLinkURL();
     auto imageURL = hitTestResult->absoluteImageURL();
 
-    IntPoint mouseDraggedPoint = src.view()->windowToContents(dragEvent.position());
+    IntPoint mouseDraggedPoint = src.view()->windowToContents(flooredIntPoint(dragEvent.position()));
 
     m_draggingImageURL = URL();
     m_sourceDragOperationMask = sourceOperationMask;
@@ -1094,10 +1103,10 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
         }
         client().willPerformDragSourceAction(DragSourceAction::Selection, dragOrigin, dataTransfer);
         if (!dragImage) {
-            TextIndicatorData textIndicator;
-            dragImage = DragImage { dissolveDragImageToFraction(createDragImageForSelection(src, textIndicator), DragImageAlpha) };
-            if (textIndicator.contentImage)
-                dragImage.setTextIndicator(TextIndicator::create(textIndicator));
+            auto [dragImageRef, textIndicator] = createDragImageForSelection(src);
+            dragImage = DragImage { dissolveDragImageToFraction(dragImageRef, DragImageAlpha) };
+            if (textIndicator && textIndicator->contentImage())
+                dragImage.setTextIndicator(textIndicator);
             dragLoc = dragLocForSelectionDrag(src);
             m_dragOffset = IntPoint(dragOrigin.x() - dragLoc.x(), dragOrigin.y() - dragLoc.y());
         }
@@ -1106,7 +1115,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
             return false;
 
         if (mustUseLegacyDragClient) {
-            doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { });
+            doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { }, rootFrameID);
             return true;
         }
 
@@ -1151,7 +1160,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
             doImageDrag(element, dragOrigin, hitTestResult->imageRect(), src, m_dragOffset, state, WTFMove(attachmentInfo));
         else {
             // DHTML defined drag image
-            doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, WTFMove(attachmentInfo));
+            doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, WTFMove(attachmentInfo), rootFrameID);
         }
 
         return true;
@@ -1202,7 +1211,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
         }
 
         if (mustUseLegacyDragClient) {
-            doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { });
+            doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { }, rootFrameID);
             return true;
         }
 
@@ -1240,19 +1249,19 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
         client().willPerformDragSourceAction(DragSourceAction::Attachment, dragOrigin, dataTransfer);
         
         if (!dragImage) {
-            TextIndicatorData textIndicator;
             CheckedPtr attachmentRenderer = dynamicDowncast<RenderAttachment>(attachment->renderer());
             if (attachmentRenderer)
                 attachmentRenderer->setShouldDrawBorder(false);
-            dragImage = DragImage { dissolveDragImageToFraction(createDragImageForSelection(src, textIndicator), DragImageAlpha) };
+            auto [dragImageRef, textIndicator] = createDragImageForSelection(src);
+            dragImage = DragImage { dissolveDragImageToFraction(dragImageRef, DragImageAlpha) };
             if (attachmentRenderer)
                 attachmentRenderer->setShouldDrawBorder(true);
-            if (textIndicator.contentImage)
-                dragImage.setTextIndicator(TextIndicator::create(textIndicator));
+            if (textIndicator && textIndicator->contentImage())
+                dragImage.setTextIndicator(textIndicator);
             dragLoc = dragLocForSelectionDrag(src);
             m_dragOffset = IntPoint(dragOrigin.x() - dragLoc.x(), dragOrigin.y() - dragLoc.y());
         }
-        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, WTFMove(promisedAttachment));
+        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, WTFMove(promisedAttachment), rootFrameID);
         if (!element->isContentRichlyEditable())
             src.checkedSelection()->setSelection(previousSelection);
         src.protectedEditor()->setIgnoreSelectionChanges(false);
@@ -1273,7 +1282,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
         dragLoc = dragLocForDHTMLDrag(mouseDraggedPoint, dragOrigin, dragImageOffset, false);
 
         client().willPerformDragSourceAction(DragSourceAction::Color, dragOrigin, dataTransfer);
-        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { });
+        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { }, rootFrameID);
         return true;
     }
 
@@ -1291,7 +1300,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
         dragLoc = dragLocForDHTMLDrag(mouseDraggedPoint, dragOrigin, dragImageOffset, false);
 
         client().willPerformDragSourceAction(DragSourceAction::Model, dragOrigin, dataTransfer);
-        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { });
+        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { }, rootFrameID);
         return true;
     }
 #endif
@@ -1299,7 +1308,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
     if (state.type == DragSourceAction::DHTML && dragImage) {
         ASSERT(m_dragSourceAction.contains(DragSourceAction::DHTML));
         client().willPerformDragSourceAction(DragSourceAction::DHTML, dragOrigin, dataTransfer);
-        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { });
+        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { }, rootFrameID);
         return true;
     }
 
@@ -1350,7 +1359,7 @@ void DragController::doImageDrag(Element& element, const IntPoint& dragOrigin, c
         return;
 
     dragImageOffset = mouseDownPoint + scaledOrigin;
-    doSystemDrag(WTFMove(dragImage), dragImageOffset, dragOrigin, frame, state, WTFMove(attachmentInfo));
+    doSystemDrag(WTFMove(dragImage), dragImageOffset, dragOrigin, frame, state, WTFMove(attachmentInfo), frame.frameID());
 }
 
 void DragController::beginDrag(DragItem dragItem, LocalFrame& frame, const IntPoint& mouseDownPoint, const IntPoint& mouseDraggedPoint, DataTransfer& dataTransfer, DragSourceAction dragSourceAction)
@@ -1380,7 +1389,7 @@ static RefPtr<Element> containingLinkElement(Element& element)
     return nullptr;
 }
 
-void DragController::doSystemDrag(DragImage image, const IntPoint& dragLoc, const IntPoint& eventPos, LocalFrame& frame, const DragState& state, PromisedAttachmentInfo&& promisedAttachmentInfo)
+void DragController::doSystemDrag(DragImage image, const IntPoint& dragLoc, const IntPoint& eventPos, LocalFrame& frame, const DragState& state, PromisedAttachmentInfo&& promisedAttachmentInfo, const std::optional<FrameIdentifier>& rootFrameID)
 {
     m_didInitiateDrag = true;
     m_dragInitiator = frame.document();
@@ -1395,6 +1404,7 @@ void DragController::doSystemDrag(DragImage image, const IntPoint& dragLoc, cons
     item.sourceAction = state.type.toSingleValue();
     item.promisedAttachmentInfo = WTFMove(promisedAttachmentInfo);
     item.containsSelection = frame.selection().contains(eventPos);
+    item.rootFrameID = rootFrameID;
 
     auto eventPositionInRootViewCoordinates = frameView->contentsToRootView(eventPos);
     auto dragLocationInRootViewCoordinates = frameView->contentsToRootView(dragLoc);
@@ -1402,7 +1412,7 @@ void DragController::doSystemDrag(DragImage image, const IntPoint& dragLoc, cons
     item.dragLocationInContentCoordinates = mainFrameView->rootViewToContents(dragLocationInRootViewCoordinates);
     item.dragLocationInWindowCoordinates = mainFrameView->contentsToWindow(item.dragLocationInContentCoordinates);
 
-    std::optional<ElementIdentifier> elementID;
+    std::optional<NodeIdentifier> nodeID;
     if (RefPtr element = state.source) {
         RefPtr dataTransferImageElement = state.dataTransfer->dragImageElement();
         if (state.type == DragSourceAction::DHTML) {
@@ -1427,13 +1437,13 @@ void DragController::doSystemDrag(DragImage image, const IntPoint& dragLoc, cons
             item.url = frame.document()->completeURL(link->getAttribute(HTMLNames::hrefAttr));
         }
 
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE_INTERACTION)
         if (RefPtr modelElement = dynamicDowncast<HTMLModelElement>(state.source); modelElement && m_dragSourceAction.contains(DragSourceAction::Model))
             item.modelLayerID = modelElement->layerID();
 #endif
-        elementID = element->identifier();
+        nodeID = element->nodeIdentifier();
     }
-    client().startDrag(WTFMove(item), *state.dataTransfer, mainFrame.get(), elementID);
+    client().startDrag(WTFMove(item), *state.dataTransfer, mainFrame.get(), nodeID);
     // DragClient::startDrag can cause our Page to dispear, deallocating |this|.
     if (!mainFrame->page())
         return;

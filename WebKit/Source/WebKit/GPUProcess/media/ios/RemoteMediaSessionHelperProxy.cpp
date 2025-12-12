@@ -42,13 +42,13 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteMediaSessionHelperProxy);
 RemoteMediaSessionHelperProxy::RemoteMediaSessionHelperProxy(GPUConnectionToWebProcess& gpuConnection)
     : m_gpuConnection(gpuConnection)
 {
-    MediaSessionHelper::sharedHelper().addClient(*this);
+    MediaSessionHelper::protectedSharedHelper()->addClient(*this);
 }
 
 RemoteMediaSessionHelperProxy::~RemoteMediaSessionHelperProxy()
 {
     stopMonitoringWirelessRoutes();
-    MediaSessionHelper::sharedHelper().removeClient(*this);
+    MediaSessionHelper::protectedSharedHelper()->removeClient(*this);
 }
 
 void RemoteMediaSessionHelperProxy::ref() const
@@ -67,7 +67,7 @@ void RemoteMediaSessionHelperProxy::startMonitoringWirelessRoutes()
         return;
 
     m_isMonitoringWirelessRoutes = true;
-    MediaSessionHelper::sharedHelper().startMonitoringWirelessRoutes();
+    MediaSessionHelper::protectedSharedHelper()->startMonitoringWirelessRoutes();
 }
 
 void RemoteMediaSessionHelperProxy::stopMonitoringWirelessRoutes()
@@ -76,7 +76,7 @@ void RemoteMediaSessionHelperProxy::stopMonitoringWirelessRoutes()
         return;
 
     m_isMonitoringWirelessRoutes = false;
-    MediaSessionHelper::sharedHelper().stopMonitoringWirelessRoutes();
+    MediaSessionHelper::protectedSharedHelper()->stopMonitoringWirelessRoutes();
 }
 
 void RemoteMediaSessionHelperProxy::uiApplicationWillEnterForeground(SuspendedUnderLock suspendedUnderLock)

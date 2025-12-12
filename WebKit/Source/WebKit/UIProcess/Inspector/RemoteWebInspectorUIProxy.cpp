@@ -64,7 +64,7 @@ RefPtr<WebPageProxy> RemoteWebInspectorUIProxy::protectedInspectorPage()
 }
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
-RefPtr<WebInspectorUIExtensionControllerProxy> RemoteWebInspectorUIProxy::protectedExtensionController()
+RefPtr<WebInspectorUIExtensionControllerProxy> RemoteWebInspectorUIProxy::protectedExtensionController() const
 {
     return m_extensionController;
 }
@@ -218,6 +218,15 @@ void RemoteWebInspectorUIProxy::setInspectorPageDeveloperExtrasEnabled(bool enab
         return;
 
     inspectorPage->protectedPreferences()->setDeveloperExtrasEnabled(enabled);
+}
+
+void RemoteWebInspectorUIProxy::setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor)
+{
+    RefPtr inspectorPage = m_inspectorPage.get();
+    if (!inspectorPage)
+        return;
+
+    inspectorPage->setPageAndTextZoomFactors(pageZoomFactor, textZoomFactor);
 }
 
 void RemoteWebInspectorUIProxy::sendMessageToBackend(const String& message)

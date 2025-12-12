@@ -98,6 +98,9 @@ __os_security_config_init(const char *apple[])
 	if (value & OS_SECURITY_CONFIG_TPRO) {
 		__security_config |= OS_SECURITY_CONFIG_TPRO;
 	}
+	if (value & OS_SECURITY_CONFIG_GUARD_OBJECTS) {
+		__security_config |= OS_SECURITY_CONFIG_GUARD_OBJECTS;
+	}
 }
 
 os_security_config_t
@@ -115,6 +118,9 @@ _pbi_flags_to_security_config(uint32_t pbi_flags) {
 	if (pbi_flags & PROC_FLAG_TPRO_ENABLED) {
 		config |= OS_SECURITY_CONFIG_TPRO;
 	}
+	if (pbi_flags & PROC_FLAG_GUARD_OBJECTS_ENABLED) {
+		config |= OS_SECURITY_CONFIG_GUARD_OBJECTS;
+	}
 
 	return config;
 }
@@ -122,7 +128,8 @@ _pbi_flags_to_security_config(uint32_t pbi_flags) {
 static inline os_security_config_t
 _task_security_config_info_to_security_config(uint32_t task_config) {
 	os_security_config_t mask = OS_SECURITY_CONFIG_HARDENED_HEAP |
-								OS_SECURITY_CONFIG_TPRO;
+								OS_SECURITY_CONFIG_TPRO |
+								OS_SECURITY_CONFIG_GUARD_OBJECTS;
 
 	return (os_security_config_t)task_config & mask;
 }

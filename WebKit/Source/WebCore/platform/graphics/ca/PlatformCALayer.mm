@@ -33,6 +33,7 @@
 #include "LayerPool.h"
 #include "PlatformCALayerClient.h"
 #include "PlatformCALayerDelegatedContents.h"
+#include "PlatformScreen.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreText/CoreText.h>
 #include <QuartzCore/CABase.h>

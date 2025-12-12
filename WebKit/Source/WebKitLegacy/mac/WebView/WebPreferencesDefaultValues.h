@@ -61,8 +61,6 @@ bool defaultNeedsKeyboardEventDisambiguationQuirks();
 bool defaultMutationEventsEnabled();
 bool defaultAttachmentElementEnabled();
 bool defaultShouldRestrictBaseURLSchemes();
-bool defaultAllowDisplayOfInsecureContent();
-bool defaultAllowRunningOfInsecureContent();
 bool defaultShouldConvertInvalidURLsToBlank();
 bool defaultPopoverAttributeEnabled();
 

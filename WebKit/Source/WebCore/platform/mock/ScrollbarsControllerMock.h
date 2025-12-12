@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "ScrollbarsController.h"
+#include <WebCore/ScrollbarsController.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {

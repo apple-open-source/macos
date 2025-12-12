@@ -23,10 +23,12 @@
 #include "config.h"
 #include "SVGClipPathElement.h"
 
+#include "ContainerNodeInlines.h"
 #include "Document.h"
 #include "ImageBuffer.h"
 #include "LegacyRenderSVGResourceClipper.h"
 #include "RenderElementInlines.h"
+#include "RenderObjectInlines.h"
 #include "RenderSVGResourceClipper.h"
 #include "RenderSVGText.h"
 #include "RenderStyleInlines.h"
@@ -35,6 +37,7 @@
 #include "SVGLayerTransformComputation.h"
 #include "SVGNames.h"
 #include "SVGUseElement.h"
+#include "Settings.h"
 #include "StyleResolver.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>

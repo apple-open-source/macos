@@ -34,13 +34,13 @@
 
 #include "DOMWrapperWorld.h"
 #include "Document.h"
+#include "FrameConsoleClient.h"
 #include "InspectorPageAgent.h"
 #include "InstrumentingAgents.h"
 #include "JSDOMWindowCustom.h"
 #include "JSExecState.h"
 #include "LocalFrame.h"
 #include "Page.h"
-#include "PageConsoleClient.h"
 #include "ScriptController.h"
 #include "SecurityOrigin.h"
 #include "UserGestureEmulationScope.h"
@@ -68,7 +68,8 @@ PageRuntimeAgent::~PageRuntimeAgent() = default;
 
 Inspector::Protocol::ErrorStringOr<void> PageRuntimeAgent::enable()
 {
-    if (m_instrumentingAgents.enabledPageRuntimeAgent() == this)
+    Ref agents = m_instrumentingAgents.get();
+    if (agents->enabledPageRuntimeAgent() == this)
         return { };
 
     auto result = InspectorRuntimeAgent::enable();
@@ -79,14 +80,14 @@ Inspector::Protocol::ErrorStringOr<void> PageRuntimeAgent::enable()
     // can force creation of script state which could result in duplicate notifications.
     reportExecutionContextCreation();
 
-    m_instrumentingAgents.setEnabledPageRuntimeAgent(this);
+    agents->setEnabledPageRuntimeAgent(this);
 
     return result;
 }
 
 Inspector::Protocol::ErrorStringOr<void> PageRuntimeAgent::disable()
 {
-    m_instrumentingAgents.setEnabledPageRuntimeAgent(nullptr);
+    Ref { m_instrumentingAgents.get() }->setEnabledPageRuntimeAgent(nullptr);
 
     return InspectorRuntimeAgent::disable();
 }
@@ -99,7 +100,7 @@ void PageRuntimeAgent::frameNavigated(LocalFrame& frame)
 
 void PageRuntimeAgent::didClearWindowObjectInWorld(LocalFrame& frame, DOMWrapperWorld& world)
 {
-    auto* pageAgent = m_instrumentingAgents.enabledPageAgent();
+    auto* pageAgent = Ref { m_instrumentingAgents.get() }->enabledPageAgent();
     if (!pageAgent)
         return;
 
@@ -127,17 +128,17 @@ InjectedScript PageRuntimeAgent::injectedScriptForEval(Inspector::Protocol::Erro
 
 void PageRuntimeAgent::muteConsole()
 {
-    PageConsoleClient::mute();
+    FrameConsoleClient::mute();
 }
 
 void PageRuntimeAgent::unmuteConsole()
 {
-    PageConsoleClient::unmute();
+    FrameConsoleClient::unmute();
 }
 
 void PageRuntimeAgent::reportExecutionContextCreation()
 {
-    auto* pageAgent = m_instrumentingAgents.enabledPageAgent();
+    auto* pageAgent = Ref { m_instrumentingAgents.get() }->enabledPageAgent();
     if (!pageAgent)
         return;
 

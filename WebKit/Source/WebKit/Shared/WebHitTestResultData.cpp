@@ -23,9 +23,10 @@
 
 #include "ShareableBitmapUtilities.h"
 #include "WebFrame.h"
-#include <WebCore/Document.h>
+#include <WebCore/DocumentView.h>
 #include <WebCore/ElementInlines.h>
 #include <WebCore/EventHandler.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/HitTestResult.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
@@ -81,9 +82,7 @@ static String imageSuggestedFilenameFromHitTestResult(const HitTestResult& hitTe
     return webFrame->suggestedFilenameForResourceWithURL(hitTestResult.absoluteImageURL());
 }
 
-WebHitTestResultData::WebHitTestResultData()
-{
-}
+WebHitTestResultData::WebHitTestResultData() = default;
 
 WebHitTestResultData::WebHitTestResultData(const HitTestResult& hitTestResult, const String& tooltipText, bool includeImage)
     : absoluteImageURL(hitTestResult.absoluteImageURL().string())
@@ -105,7 +104,8 @@ WebHitTestResultData::WebHitTestResultData(const HitTestResult& hitTestResult, c
     , isActivePDFAnnotation(false)
     , elementType(elementTypeFromHitTestResult(hitTestResult))
     , frameInfo(frameInfoDataFromHitTestResult(hitTestResult))
-    , toolTipText(tooltipText)
+    , targetFrame(hitTestResult.targetFrame() ? std::optional(hitTestResult.targetFrame()->frameID()) : std::nullopt)
+    , tooltipText(tooltipText)
     , hasEntireImage(hitTestResult.hasEntireImage())
     , allowsFollowingLink(hitTestResult.allowsFollowingLink())
     , allowsFollowingImageURL(hitTestResult.allowsFollowingImageURL())
@@ -143,13 +143,13 @@ WebHitTestResultData::WebHitTestResultData(const HitTestResult& hitTestResult, c
     }
 }
 
-WebHitTestResultData::WebHitTestResultData(const HitTestResult& hitTestResult, const String& toolTipText)
-    : WebHitTestResultData(hitTestResult, toolTipText, false) { }
+WebHitTestResultData::WebHitTestResultData(const HitTestResult& hitTestResult, const String& tooltipText)
+    : WebHitTestResultData(hitTestResult, tooltipText, false) { }
 
 WebHitTestResultData::WebHitTestResultData(const HitTestResult& hitTestResult, bool includeImage)
     : WebHitTestResultData(hitTestResult, String(), includeImage) { }
 
-WebHitTestResultData::WebHitTestResultData(const String& absoluteImageURL, const String& absolutePDFURL, const String& absoluteLinkURL, const String& absoluteMediaURL, const String& linkLabel, const String& linkTitle, const String& linkSuggestedFilename, const String& imageSuggestedFilename, bool isContentEditable, const WebCore::IntRect& elementBoundingBox, const WebKit::WebHitTestResultData::IsScrollbar& isScrollbar, bool isSelected, bool isTextNode, bool isOverTextInsideFormControlElement, bool isDownloadableMedia, bool mediaIsInFullscreen, bool isActivePDFAnnotation, const WebHitTestResultData::ElementType& elementType, std::optional<FrameInfoData>&& frameInfo, std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData, const String& lookupText, const String& toolTipText, const String& imageText, std::optional<WebCore::SharedMemory::Handle>&& imageHandle, const RefPtr<WebCore::ShareableBitmap>& imageBitmap, const String& sourceImageMIMEType, bool hasEntireImage, bool allowsFollowingLink, bool allowsFollowingImageURL, std::optional<WebCore::ResourceResponse>&& linkLocalResourceResponse,
+WebHitTestResultData::WebHitTestResultData(const String& absoluteImageURL, const String& absolutePDFURL, const String& absoluteLinkURL, const String& absoluteMediaURL, const String& linkLabel, const String& linkTitle, const String& linkSuggestedFilename, const String& imageSuggestedFilename, bool isContentEditable, const WebCore::IntRect& elementBoundingBox, const WebKit::WebHitTestResultData::IsScrollbar& isScrollbar, bool isSelected, bool isTextNode, bool isOverTextInsideFormControlElement, bool isDownloadableMedia, bool mediaIsInFullscreen, bool isActivePDFAnnotation, const WebHitTestResultData::ElementType& elementType, std::optional<FrameInfoData>&& frameInfo, std::optional<WebCore::FrameIdentifier> targetFrame, std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData, const String& lookupText, const String& tooltipText, const String& imageText, std::optional<WebCore::SharedMemory::Handle>&& imageHandle, const RefPtr<WebCore::ShareableBitmap>& imageBitmap, const String& sourceImageMIMEType, bool hasEntireImage, bool allowsFollowingLink, bool allowsFollowingImageURL, std::optional<WebCore::ResourceResponse>&& linkLocalResourceResponse,
 #if PLATFORM(MAC)
     const WebHitTestResultPlatformData& platformData,
 #endif
@@ -172,10 +172,11 @@ WebHitTestResultData::WebHitTestResultData(const String& absoluteImageURL, const
         , mediaIsInFullscreen(mediaIsInFullscreen)
         , isActivePDFAnnotation(isActivePDFAnnotation)
         , elementType(elementType)
-        , frameInfo(frameInfo)
+        , frameInfo(WTFMove(frameInfo))
+        , targetFrame(targetFrame)
         , remoteUserInputEventData(remoteUserInputEventData)
         , lookupText(lookupText)
-        , toolTipText(toolTipText)
+        , tooltipText(tooltipText)
         , imageText(imageText)
         , imageBitmap(imageBitmap)
         , sourceImageMIMEType(sourceImageMIMEType)

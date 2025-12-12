@@ -68,6 +68,7 @@ private:
     void continueRequestAfterGetPinToken(Vector<uint8_t>&&, const fido::pin::TokenRequest&);
     bool tryRestartPin(const fido::CtapDeviceResponseCode&);
 
+    bool canDowngradeToU2f() const;
     bool tryDowngrade();
 
     Vector<WebCore::AuthenticatorTransport> transports() const;

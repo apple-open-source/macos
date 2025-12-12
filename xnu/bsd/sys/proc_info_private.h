@@ -128,6 +128,7 @@ struct proc_delegated_signal_info {
 #define PROC_FLAG_SEC_BYPASS_ENABLED            0x08000000
 #define PROC_FLAG_HARDENED_HEAP_ENABLED         0x10000000
 #define PROC_FLAG_TPRO_ENABLED                  0x20000000
+#define PROC_FLAG_GUARD_OBJECTS_ENABLED                 0x80000000
 
 /* keep in sync with KQ_* in sys/eventvar.h */
 #define PROC_KQUEUE_WORKQ       0x0040

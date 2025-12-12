@@ -30,10 +30,10 @@
 #ifndef FloatRoundedRect_h
 #define FloatRoundedRect_h
 
-#include "FloatRect.h"
-#include "FloatSize.h"
-#include "LayoutRoundedRect.h"
-#include "Region.h"
+#include <WebCore/FloatRect.h>
+#include <WebCore/FloatSize.h>
+#include <WebCore/LayoutRoundedRect.h>
+#include <WebCore/Region.h>
 #include <wtf/TZoneMalloc.h>
 
 #if USE(SKIA)

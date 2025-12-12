@@ -184,17 +184,20 @@ typedef struct task_pend_token *task_pend_token_t;
 struct task_security_config {
 	union {
 		struct {
-			uint8_t hardened_heap: 1,
-			    tpro :1,
+			uint16_t hardened_heap: 1,
+			    tpro: 1,
 #if HAS_MTE || HAS_MTE_EMULATION_SHIMS
-			    sec :1,
+			    sec: 1,
 #else /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 			reserved: 1,
 #endif
-			platform_restrictions_version :3;
+			platform_restrictions_version: 3,
+			    script_restrictions: 1,
+			    ipc_containment_vessel: 1,
+			    guard_objects: 1;
 			uint8_t hardened_process_version;
 		};
-		uint16_t value;
+		uint32_t value;
 	};
 };
 
@@ -1280,6 +1283,7 @@ extern uint32_t task_get_security_config(task_t);
 
 TASK_SECURITY_CONFIG_HELPER_DECLARE(hardened_heap);
 TASK_SECURITY_CONFIG_HELPER_DECLARE(tpro);
+TASK_SECURITY_CONFIG_HELPER_DECLARE(guard_objects);
 
 uint8_t task_get_platform_restrictions_version(task_t task);
 void    task_set_platform_restrictions_version(task_t task, uint64_t version);

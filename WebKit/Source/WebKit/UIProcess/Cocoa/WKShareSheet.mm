@@ -242,7 +242,7 @@ static RetainPtr<LPLinkMetadata> placeholderMetadataWithFileURL(NSURL *url)
 
 - (id<WKShareSheetDelegate>)delegate
 {
-    return _delegate.get().get();
+    return _delegate.get().unsafeGet();
 }
 
 - (void)setDelegate:(id<WKShareSheetDelegate>)delegate
@@ -340,7 +340,7 @@ static void appendFilesAsShareableURLs(RetainPtr<NSMutableArray>&& shareDataArra
 
     _completionHandler = WTFMove(completionHandler);
 
-    if (auto resolution = [_webView _resolutionForShareSheetImmediateCompletionForTesting]) {
+    if (auto resolution = [_webView.get() _resolutionForShareSheetImmediateCompletionForTesting]) {
         _didShareSuccessfully = *resolution;
         [self dismiss];
         return;
@@ -415,8 +415,9 @@ static void appendFilesAsShareableURLs(RetainPtr<NSMutableArray>&& shareDataArra
             popoverController.permittedArrowDirections = 0;
     }
 
-    if ([_delegate respondsToSelector:@selector(shareSheet:willShowActivityItems:)])
-        [_delegate shareSheet:self willShowActivityItems:sharingItems];
+    RetainPtr delegate = _delegate.get();
+    if ([delegate respondsToSelector:@selector(shareSheet:willShowActivityItems:)])
+        [delegate shareSheet:self willShowActivityItems:sharingItems];
 
     _presentationViewController = webView.get()._wk_viewControllerForFullScreenPresentation;
     [_presentationViewController presentViewController:_shareSheetViewController.get() animated:YES completion:nil];
@@ -437,7 +438,7 @@ static void appendFilesAsShareableURLs(RetainPtr<NSMutableArray>&& shareDataArra
 
 - (NSWindow *)sharingService:(NSSharingService *)sharingService sourceWindowForShareItems:(NSArray *)items sharingContentScope:(NSSharingContentScope *)sharingContentScope
 {
-    return [_webView window];
+    return [_webView.get() window];
 }
 
 - (void)sharingService:(NSSharingService *)sharingService didFailToShareItems:(NSArray *)items error:(NSError *)error
@@ -471,8 +472,9 @@ static void appendFilesAsShareableURLs(RetainPtr<NSMutableArray>&& shareDataArra
     _temporaryFileShareDirectory = nullptr;
 
     auto dispatchDidDismiss = ^{
-        if ([_delegate respondsToSelector:@selector(shareSheetDidDismiss:)])
-            [_delegate shareSheetDidDismiss:self];
+        RetainPtr delegate = _delegate.get();
+        if ([delegate respondsToSelector:@selector(shareSheetDidDismiss:)])
+            [delegate shareSheetDidDismiss:self];
     };
 
 #if PLATFORM(MAC)

@@ -133,8 +133,8 @@ static void appendTwoDigitNumber(StringBuilder& builder, int number)
 {
     ASSERT(number >= 0);
     ASSERT(number < 100);
-    builder.append(static_cast<LChar>('0' + number / 10));
-    builder.append(static_cast<LChar>('0' + number % 10));
+    builder.append(static_cast<Latin1Character>('0' + number / 10));
+    builder.append(static_cast<Latin1Character>('0' + number % 10));
 }
 
 static inline double msToMilliseconds(double ms)
@@ -387,7 +387,7 @@ static constexpr struct KnownZone {
     { "pdt"_s, -420 }
 };
 
-inline static void skipSpacesAndComments(std::span<const LChar>& s)
+inline static void skipSpacesAndComments(std::span<const Latin1Character>& s)
 {
     int nesting = 0;
     while (!s.empty()) {
@@ -405,12 +405,12 @@ inline static void skipSpacesAndComments(std::span<const LChar>& s)
 }
 
 // returns 0-11 (Jan-Dec); -1 on failure
-static int findMonth(std::span<const LChar> monthStr)
+static int findMonth(std::span<const Latin1Character> monthStr)
 {
     if (monthStr.size() < 3)
         return -1;
 
-    std::array<LChar, 3> needle;
+    std::array<Latin1Character, 3> needle;
     for (unsigned i = 0; i < 3; ++i)
         needle[i] = toASCIILower(monthStr[i]);
     constexpr auto haystack = "janfebmaraprmayjunjulaugsepoctnovdec"_span;
@@ -421,7 +421,7 @@ static int findMonth(std::span<const LChar> monthStr)
     return -1;
 }
 
-static bool parseInt(std::span<const LChar>& string, int base, int* result)
+static bool parseInt(std::span<const Latin1Character>& string, int base, int* result)
 {
     char* stopPosition;
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -435,7 +435,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     return true;
 }
 
-static bool parseLong(std::span<const LChar>& string, int base, long* result)
+static bool parseLong(std::span<const Latin1Character>& string, int base, long* result)
 {
     char* stopPosition;
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -451,7 +451,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 // Parses a date with the format YYYY[-MM[-DD]].
 // Year parsing is lenient, allows any number of digits, and +/-.
 // Returns 0 if a parse error occurs, else returns the end of the parsed portion of the string.
-static bool parseES5DatePortion(std::span<const LChar>& currentPosition, int& year, long& month, long& day, bool& isSingleDigit)
+static bool parseES5DatePortion(std::span<const Latin1Character>& currentPosition, int& year, long& month, long& day, bool& isSingleDigit)
 {
     // This is a bit more lenient on the year string than ES5 specifies:
     // instead of restricting to 4 digits (or 6 digits with mandatory +/-),
@@ -497,7 +497,7 @@ static bool parseES5DatePortion(std::span<const LChar>& currentPosition, int& ye
 // Parses a time with the format HH:mm[:ss[.sss]][Z|(+|-)(00:00|0000|00)].
 // Fractional seconds parsing is lenient, allows any number of digits.
 // Returns 0 if a parse error occurs, else returns the end of the parsed portion of the string.
-static bool parseES5TimePortion(std::span<const LChar>& currentPosition, long& hours, long& minutes, long& seconds, double& milliseconds, bool& isLocalTime, long& timeZoneSeconds, bool hasTSymbol)
+static bool parseES5TimePortion(std::span<const Latin1Character>& currentPosition, long& hours, long& minutes, long& seconds, double& milliseconds, bool& isLocalTime, long& timeZoneSeconds, bool hasTSymbol)
 {
     isLocalTime = false;
 
@@ -613,7 +613,7 @@ static bool parseES5TimePortion(std::span<const LChar>& currentPosition, long& h
     return true;
 }
 
-double parseES5Date(std::span<const LChar> dateString, bool& isLocalTime)
+double parseES5Date(std::span<const Latin1Character> dateString, bool& isLocalTime)
 {
     isLocalTime = false;
 
@@ -655,6 +655,9 @@ double parseES5Date(std::span<const LChar> dateString, bool& isLocalTime)
     if (!dateString.empty())
         return std::numeric_limits<double>::quiet_NaN();
 
+    if (isSingleDigit)
+        isLocalTime = true;
+
     // A few of these checks could be done inline above, but since many of them are interrelated
     // we would be sacrificing readability to "optimize" the (presumably less common) failure path.
     if (month < 1 || month > 12)
@@ -680,7 +683,7 @@ double parseES5Date(std::span<const LChar> dateString, bool& isLocalTime)
 }
 
 // Odd case where 'exec' is allowed to be 0, to accomodate a caller in WebCore.
-double parseDate(std::span<const LChar> dateString, bool& isLocalTime)
+double parseDate(std::span<const Latin1Character> dateString, bool& isLocalTime)
 {
     isLocalTime = true;
     int offset = 0;
@@ -971,7 +974,7 @@ double parseDate(std::span<const LChar> dateString, bool& isLocalTime)
     return ymdhmsToMilliseconds(year.value(), month + 1, day, hour, minute, second, 0) - offset * (secondsPerMinute * msPerSecond);
 }
 
-double parseDate(std::span<const LChar> dateString)
+double parseDate(std::span<const Latin1Character> dateString)
 {
     bool isLocalTime;
     double value = parseDate(dateString, isLocalTime);

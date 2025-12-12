@@ -28,13 +28,18 @@ var testCurves = []struct {
 	{"P-521", CurveP521},
 	{"X25519", CurveX25519},
 	{"Kyber", CurveX25519Kyber768},
-	{"MLKEM", CurveX25519MLKEM768},
+	{"X25519MLKEM768", CurveX25519MLKEM768},
+	{"MLKEM1024", CurveMLKEM1024},
 }
 
 const bogusCurve = 0x1234
 
 func isPqGroup(r CurveID) bool {
-	return r == CurveX25519Kyber768 || r == CurveX25519MLKEM768
+	return r == CurveX25519Kyber768 || isMLKEMGroup(r)
+}
+
+func isMLKEMGroup(r CurveID) bool {
+	return r == CurveX25519MLKEM768 || r == CurveMLKEM1024
 }
 
 func isECDHGroup(r CurveID) bool {
@@ -54,6 +59,8 @@ func addCurveTests() {
 		TLS_AES_256_GCM_SHA384,
 	}
 
+	// Not all curves are enabled by default, so these tests explicitly enable
+	// the curve under test in the shim.
 	for _, curve := range testCurves {
 		for _, ver := range tlsVersions {
 			if isPqGroup(curve.id) && ver.version < VersionTLS13 {
@@ -72,7 +79,7 @@ func addCurveTests() {
 					},
 					flags: append(
 						[]string{"-expect-curve-id", strconv.Itoa(int(curve.id))},
-						flagInts("-curves", shimConfig.AllCurves)...,
+						flagCurves("-curves", []CurveID{curve.id})...,
 					),
 					expectations: connectionExpectations{
 						curveID: curve.id,
@@ -99,7 +106,7 @@ func addCurveTests() {
 							TruncateKeyShare: true,
 						},
 					},
-					flags:              flagInts("-curves", shimConfig.AllCurves),
+					flags:              flagCurves("-curves", []CurveID{curve.id}),
 					shouldFail:         true,
 					expectedError:      ":BAD_ECPOINT:",
 					expectedLocalError: badKeyShareLocalError,
@@ -116,7 +123,7 @@ func addCurveTests() {
 							PadKeyShare: true,
 						},
 					},
-					flags:              flagInts("-curves", shimConfig.AllCurves),
+					flags:              flagCurves("-curves", []CurveID{curve.id}),
 					shouldFail:         true,
 					expectedError:      ":BAD_ECPOINT:",
 					expectedLocalError: badKeyShareLocalError,
@@ -134,7 +141,7 @@ func addCurveTests() {
 								SendCompressedCoordinates: true,
 							},
 						},
-						flags:              flagInts("-curves", shimConfig.AllCurves),
+						flags:              flagCurves("-curves", []CurveID{curve.id}),
 						shouldFail:         true,
 						expectedError:      ":BAD_ECPOINT:",
 						expectedLocalError: badKeyShareLocalError,
@@ -150,7 +157,7 @@ func addCurveTests() {
 								ECDHPointNotOnCurve: true,
 							},
 						},
-						flags:              flagInts("-curves", shimConfig.AllCurves),
+						flags:              flagCurves("-curves", []CurveID{curve.id}),
 						shouldFail:         true,
 						expectedError:      ":BAD_ECPOINT:",
 						expectedLocalError: badKeyShareLocalError,
@@ -170,7 +177,7 @@ func addCurveTests() {
 								SetX25519HighBit: true,
 							},
 						},
-						flags: flagInts("-curves", shimConfig.AllCurves),
+						flags: flagCurves("-curves", []CurveID{curve.id}),
 						expectations: connectionExpectations{
 							curveID: curve.id,
 						},
@@ -188,14 +195,14 @@ func addCurveTests() {
 								LowOrderX25519Point: true,
 							},
 						},
-						flags:              flagInts("-curves", shimConfig.AllCurves),
+						flags:              flagCurves("-curves", []CurveID{curve.id}),
 						shouldFail:         true,
 						expectedError:      ":BAD_ECPOINT:",
 						expectedLocalError: badKeyShareLocalError,
 					})
 				}
 
-				if curve.id == CurveX25519MLKEM768 && testType == serverTest {
+				if isMLKEMGroup(curve.id) && testType == serverTest {
 					testCases = append(testCases, testCase{
 						testType: testType,
 						name:     "CurveTest-Invalid-MLKEMEncapKeyNotReduced-" + suffix,
@@ -207,7 +214,7 @@ func addCurveTests() {
 								MLKEMEncapKeyNotReduced: true,
 							},
 						},
-						flags:              flagInts("-curves", shimConfig.AllCurves),
+						flags:              flagCurves("-curves", []CurveID{curve.id}),
 						shouldFail:         true,
 						expectedError:      ":BAD_ECPOINT:",
 						expectedLocalError: badKeyShareLocalError,
@@ -583,101 +590,124 @@ func addCurveTests() {
 		},
 	})
 
-	// If ML-KEM is offered, both X25519 and ML-KEM should have a key-share.
-	testCases = append(testCases, testCase{
-		name: "NotJustMLKEMKeyShare",
-		config: Config{
-			MinVersion: VersionTLS13,
-			Bugs: ProtocolBugs{
-				ExpectedKeyShares: []CurveID{CurveX25519MLKEM768, CurveX25519},
-			},
-		},
-		flags: []string{
-			"-curves", strconv.Itoa(int(CurveX25519MLKEM768)),
-			"-curves", strconv.Itoa(int(CurveX25519)),
-			"-expect-curve-id", strconv.Itoa(int(CurveX25519MLKEM768)),
-		},
-	})
+	for _, curve := range testCurves {
+		if !isMLKEMGroup(curve.id) {
+			continue
+		}
 
-	// ... and the other way around
-	testCases = append(testCases, testCase{
-		name: "MLKEMKeyShareIncludedSecond",
-		config: Config{
-			MinVersion: VersionTLS13,
-			Bugs: ProtocolBugs{
-				ExpectedKeyShares: []CurveID{CurveX25519, CurveX25519MLKEM768},
+		// If ML-KEM is offered, both X25519 and ML-KEM should have a key-share.
+		testCases = append(testCases, testCase{
+			name: "NotJustMLKEMKeyShare-" + curve.name,
+			config: Config{
+				MinVersion: VersionTLS13,
+				Bugs: ProtocolBugs{
+					ExpectedKeyShares: []CurveID{curve.id, CurveX25519},
+				},
 			},
-		},
-		flags: []string{
-			"-curves", strconv.Itoa(int(CurveX25519)),
-			"-curves", strconv.Itoa(int(CurveX25519MLKEM768)),
-			"-expect-curve-id", strconv.Itoa(int(CurveX25519)),
-		},
-	})
-
-	// ... and even if there's another curve in the middle because it's the
-	// first classical and first post-quantum "curves" that get key shares
-	// included.
-	testCases = append(testCases, testCase{
-		name: "MLKEMKeyShareIncludedThird",
-		config: Config{
-			MinVersion: VersionTLS13,
-			Bugs: ProtocolBugs{
-				ExpectedKeyShares: []CurveID{CurveX25519, CurveX25519MLKEM768},
+			flags: []string{
+				"-curves", strconv.Itoa(int(curve.id)),
+				"-curves", strconv.Itoa(int(CurveX25519)),
+				"-expect-curve-id", strconv.Itoa(int(curve.id)),
 			},
-		},
-		flags: []string{
-			"-curves", strconv.Itoa(int(CurveX25519)),
-			"-curves", strconv.Itoa(int(CurveP256)),
-			"-curves", strconv.Itoa(int(CurveX25519MLKEM768)),
-			"-expect-curve-id", strconv.Itoa(int(CurveX25519)),
-		},
-	})
+		})
 
-	// If ML-KEM is the only configured curve, the key share is sent.
-	testCases = append(testCases, testCase{
-		name: "JustConfiguringMLKEMWorks",
-		config: Config{
-			MinVersion: VersionTLS13,
-			Bugs: ProtocolBugs{
-				ExpectedKeyShares: []CurveID{CurveX25519MLKEM768},
+		// ... and the other way around
+		testCases = append(testCases, testCase{
+			name: "MLKEMKeyShareIncludedSecond-" + curve.name,
+			config: Config{
+				MinVersion: VersionTLS13,
+				Bugs: ProtocolBugs{
+					ExpectedKeyShares: []CurveID{CurveX25519, curve.id},
+				},
 			},
-		},
-		flags: []string{
-			"-curves", strconv.Itoa(int(CurveX25519MLKEM768)),
-			"-expect-curve-id", strconv.Itoa(int(CurveX25519MLKEM768)),
-		},
-	})
-
-	// If both ML-KEM and Kyber are configured, only the preferred one's
-	// key share should be sent.
-	testCases = append(testCases, testCase{
-		name: "BothMLKEMAndKyber",
-		config: Config{
-			MinVersion: VersionTLS13,
-			Bugs: ProtocolBugs{
-				ExpectedKeyShares: []CurveID{CurveX25519MLKEM768},
+			flags: []string{
+				"-curves", strconv.Itoa(int(CurveX25519)),
+				"-curves", strconv.Itoa(int(curve.id)),
+				"-expect-curve-id", strconv.Itoa(int(CurveX25519)),
 			},
-		},
-		flags: []string{
-			"-curves", strconv.Itoa(int(CurveX25519MLKEM768)),
-			"-curves", strconv.Itoa(int(CurveX25519Kyber768)),
-			"-expect-curve-id", strconv.Itoa(int(CurveX25519MLKEM768)),
-		},
-	})
+		})
 
-	// As a server, ML-KEM is not yet supported by default.
+		// ... and even if there's another curve in the middle because it's the
+		// first classical and first post-quantum "curves" that get key shares
+		// included.
+		testCases = append(testCases, testCase{
+			name: "MLKEMKeyShareIncludedThird-" + curve.name,
+			config: Config{
+				MinVersion: VersionTLS13,
+				Bugs: ProtocolBugs{
+					ExpectedKeyShares: []CurveID{CurveX25519, curve.id},
+				},
+			},
+			flags: []string{
+				"-curves", strconv.Itoa(int(CurveX25519)),
+				"-curves", strconv.Itoa(int(CurveP256)),
+				"-curves", strconv.Itoa(int(curve.id)),
+				"-expect-curve-id", strconv.Itoa(int(CurveX25519)),
+			},
+		})
+
+		// If ML-KEM is the only configured curve, the key share is sent.
+		testCases = append(testCases, testCase{
+			name: "JustConfiguringMLKEMWorks-" + curve.name,
+			config: Config{
+				MinVersion: VersionTLS13,
+				Bugs: ProtocolBugs{
+					ExpectedKeyShares: []CurveID{curve.id},
+				},
+			},
+			flags: []string{
+				"-curves", strconv.Itoa(int(curve.id)),
+				"-expect-curve-id", strconv.Itoa(int(curve.id)),
+			},
+		})
+
+		// If both ML-KEM and Kyber are configured, only the preferred one's
+		// key share should be sent.
+		testCases = append(testCases, testCase{
+			name: "BothMLKEMAndKyber-" + curve.name,
+			config: Config{
+				MinVersion: VersionTLS13,
+				Bugs: ProtocolBugs{
+					ExpectedKeyShares: []CurveID{curve.id},
+				},
+			},
+			flags: []string{
+				"-curves", strconv.Itoa(int(curve.id)),
+				"-curves", strconv.Itoa(int(CurveX25519Kyber768)),
+				"-expect-curve-id", strconv.Itoa(int(curve.id)),
+			},
+		})
+	}
+
+	// As a server, ML-KEMs and Kyber are not yet supported by default.
 	testCases = append(testCases, testCase{
 		testType: serverTest,
 		name:     "PostQuantumNotEnabledByDefaultForAServer",
 		config: Config{
 			MinVersion:       VersionTLS13,
-			CurvePreferences: []CurveID{CurveX25519MLKEM768, CurveX25519Kyber768, CurveX25519},
-			DefaultCurves:    []CurveID{CurveX25519MLKEM768, CurveX25519Kyber768},
+			CurvePreferences: []CurveID{CurveX25519MLKEM768, CurveMLKEM1024, CurveX25519Kyber768, CurveX25519},
+			DefaultCurves:    []CurveID{CurveX25519MLKEM768, CurveMLKEM1024, CurveX25519Kyber768},
 		},
 		flags: []string{
 			"-server-preference",
 			"-expect-curve-id", strconv.Itoa(int(CurveX25519)),
+		},
+	})
+
+	// If two ML-KEMs are configured, only the preferred one's
+	// key share should be sent.
+	testCases = append(testCases, testCase{
+		name: "TwoMLKEMs",
+		config: Config{
+			MinVersion: VersionTLS13,
+			Bugs: ProtocolBugs{
+				ExpectedKeyShares: []CurveID{CurveMLKEM1024},
+			},
+		},
+		flags: []string{
+			"-curves", strconv.Itoa(int(CurveMLKEM1024)),
+			"-curves", strconv.Itoa(int(CurveX25519MLKEM768)),
+			"-expect-curve-id", strconv.Itoa(int(CurveMLKEM1024)),
 		},
 	})
 

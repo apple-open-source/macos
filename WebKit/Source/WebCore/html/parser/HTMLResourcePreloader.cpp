@@ -26,10 +26,10 @@
 #include "config.h"
 #include "HTMLResourcePreloader.h"
 
-#include "CachedResourceLoader.h"
 #include "CrossOriginAccessControl.h"
 #include "DefaultResourceLoadPriority.h"
-#include "DocumentInlines.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentView.h"
 #include "MediaQueryEvaluator.h"
 #include "MediaQueryParser.h"
 #include "NodeRenderStyle.h"
@@ -52,7 +52,7 @@ CachedResourceRequest PreloadRequest::resourceRequest(Document& document)
     ASSERT(isMainThread());
 
     bool skipContentSecurityPolicyCheck = false;
-    if (m_resourceType == CachedResource::Type::Script)
+    if (m_resourceType == CachedResource::Type::Script || m_resourceType == CachedResource::Type::JSON)
         skipContentSecurityPolicyCheck = document.checkedContentSecurityPolicy()->allowScriptWithNonce(m_nonceAttribute);
     else if (m_resourceType == CachedResource::Type::CSSStyleSheet)
         skipContentSecurityPolicyCheck = document.checkedContentSecurityPolicy()->allowStyleWithNonce(m_nonceAttribute);
@@ -66,9 +66,10 @@ CachedResourceRequest PreloadRequest::resourceRequest(Document& document)
         if (crossOriginMode.isNull())
             crossOriginMode = ScriptElementCachedScriptFetcher::defaultCrossOriginModeForModule;
     }
-    if (m_resourceType == CachedResource::Type::Script || m_resourceType == CachedResource::Type::ImageResource)
+    if (m_resourceType == CachedResource::Type::Script || m_resourceType == CachedResource::Type::JSON || m_resourceType == CachedResource::Type::ImageResource)
         options.referrerPolicy = m_referrerPolicy;
     options.fetchPriority = m_fetchPriority;
+    options.nonce = m_nonceAttribute;
     auto request = createPotentialAccessControlRequest(completeURL(document), WTFMove(options), document, crossOriginMode);
     request.setInitiatorType(m_initiatorType);
 

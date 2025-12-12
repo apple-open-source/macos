@@ -659,11 +659,19 @@ GCGLExternalSync GraphicsContextGLCocoa::createExternalSync(ExternalSyncSource&&
     auto [syncEventHandle, signalValue] = WTFMove(syncEvent);
     auto sharedEvent = newSharedEventWithMachPort(syncEventHandle.sendRight());
     if (!sharedEvent) {
-        LOG(WebGL, "Unable to create a MTLSharedEvent from the syncEvent in createEGLSync.");
+        LOG(WebGL, "Unable to create a MTLSharedEvent from the syncEvent.");
         addError(GCGLErrorCode::InvalidOperation);
         return { };
     }
-    return createExternalSync(sharedEvent.get(), signalValue);
+    auto* eglSync = createMetalSharedEventEGLSync(sharedEvent.get(), signalValue);
+    if (!eglSync) {
+        addError(GCGLErrorCode::InvalidOperation);
+        return { };
+    }
+    auto newName = ++m_nextExternalSyncName;
+    m_eglSyncs.add(newName, eglSync);
+    return newName;
+
 }
 
 bool GraphicsContextGLCocoa::enableRequiredWebXRExtensions()
@@ -693,9 +701,9 @@ bool GraphicsContextGLCocoa::enableRequiredWebXRExtensionsImpl()
 }
 #endif
 
-GCGLExternalSync GraphicsContextGLCocoa::createExternalSync(id sharedEvent, uint64_t signalValue)
+void* GraphicsContextGLCocoa::createMetalSharedEventEGLSync(id sharedEvent, uint64_t signalValue)
 {
-    COMPILE_ASSERT(sizeof(EGLAttrib) == sizeof(void*), "EGLAttrib not pointer-sized!");
+    static_assert(sizeof(EGLAttrib) == sizeof(void*), "EGLAttrib not pointer-sized!");
     auto signalValueLo = static_cast<EGLAttrib>(signalValue);
     auto signalValueHi = static_cast<EGLAttrib>(signalValue >> 32);
 
@@ -707,14 +715,7 @@ GCGLExternalSync GraphicsContextGLCocoa::createExternalSync(id sharedEvent, uint
         EGL_SYNC_METAL_SHARED_EVENT_SIGNAL_VALUE_HI_ANGLE, signalValueHi,
         EGL_NONE
     };
-    auto* eglSync = EGL_CreateSync(display, EGL_SYNC_METAL_SHARED_EVENT_ANGLE, syncAttributes);
-    if (!eglSync) {
-        addError(GCGLErrorCode::InvalidOperation);
-        return { };
-    }
-    auto newName = ++m_nextExternalSyncName;
-    m_eglSyncs.add(newName, eglSync);
-    return newName;
+    return EGL_CreateSync(display, EGL_SYNC_METAL_SHARED_EVENT_ANGLE, syncAttributes);
 }
 
 void GraphicsContextGLCocoa::waitUntilWorkScheduled()
@@ -800,7 +801,7 @@ RefPtr<VideoFrame> GraphicsContextGLCocoa::surfaceBufferToVideoFrame(SurfaceBuff
     if (!source || source.size() != getInternalFramebufferSize())
         return nullptr;
     // We will mirror and rotate the buffer explicitly. Thus the source being used is always a new one.
-    auto pixelBuffer = createCVPixelBuffer(source.surface()->surface());
+    auto pixelBuffer = createCVPixelBuffer(source.surface()->protectedSurface().get());
     if (!pixelBuffer)
         return nullptr;
     // Mirror and rotate the pixel buffer explicitly, as WebRTC encoders cannot mirror.
@@ -876,19 +877,20 @@ void GraphicsContextGLCocoa::insertFinishedSignalOrInvoke(Function<void()> signa
 {
     static std::atomic<uint64_t> nextSignalValue;
     uint64_t signalValue = ++nextSignalValue;
-    id<MTLSharedEvent> event = m_finishedMetalSharedEvent.get();
+    RetainPtr<id<MTLSharedEvent>> event = m_finishedMetalSharedEvent.get();
     // The block below has to be a real compiler generated block instead of BlockPtr due to a Metal bug. rdar://108035473
     __block Function<void()> blockSignal = WTFMove(signal);
     [event notifyListener:m_finishedMetalSharedEventListener.get() atValue:signalValue block:^(id<MTLSharedEvent>, uint64_t) {
         blockSignal();
     }];
-    auto sync = createExternalSync(event, signalValue);
-    if (!sync) [[unlikely]] {
-        event.signaledValue = signalValue;
+    auto* eglSync = createMetalSharedEventEGLSync(event.get(), signalValue);
+    if (!eglSync) [[unlikely]] {
+        event.get().signaledValue = signalValue;
         ASSERT_NOT_REACHED();
         return;
     }
-    deleteExternalSync(sync);
+    bool result = EGL_DestroySync(platformDisplay(), eglSync);
+    ASSERT_UNUSED(result, result);
 }
 
 #if ENABLE(VIDEO)

@@ -31,7 +31,7 @@
 #include "WebPageProxyMessages.h"
 #include <WebCore/Element.h>
 #include <WebCore/LocalFrame.h>
-#include <WebCore/NodeInlines.h>
+#include <WebCore/NodeDocument.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {

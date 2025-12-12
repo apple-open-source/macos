@@ -97,7 +97,7 @@ HTMLElement* HTMLFormControlsCollection::customElementAfter(Element* current) co
         if (element->asFormListedElement()->isEnumeratable()) {
             m_cachedElement = element.get();
             m_cachedElementOffsetInArray = i;
-            return element.get();
+            return element.unsafeGet();
         }
     }
     return nullptr;

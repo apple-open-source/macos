@@ -28,6 +28,7 @@
 
 #if ENABLE(WEB_AUTHN)
 
+#include "Logging.h"
 #include "MockHidConnection.h"
 #include <wtf/RunLoop.h>
 

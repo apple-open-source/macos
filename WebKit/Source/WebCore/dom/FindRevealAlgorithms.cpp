@@ -28,57 +28,72 @@
 
 #include "Document.h"
 #include "ElementInlines.h"
+#include "Event.h"
 #include "EventNames.h"
 #include "HTMLDetailsElement.h"
 #include "HTMLSlotElement.h"
+#include "NodeRenderStyle.h"
+#include "RenderStyleInlines.h"
 #include "Settings.h"
 #include "UserAgentParts.h"
 
 namespace WebCore {
 
-// https://html.spec.whatwg.org/#ancestor-details-revealing-algorithm
-void revealClosedDetailsAncestors(Node& node)
-{
-    if (!node.document().settings().detailsAutoExpandEnabled())
-        return;
+enum class RevealType : bool {
+    ClosedDetails,
+    HiddenUntilFound
+};
 
-    Ref currentNode = node;
-    while (RefPtr parent = currentNode->parentInComposedTree()) {
-        if (RefPtr slot = currentNode->assignedSlot(); slot && slot->userAgentPart() == UserAgentParts::detailsContent() && slot->shadowHost()) {
-            currentNode = *slot->shadowHost();
-            Ref details = downcast<HTMLDetailsElement>(currentNode);
-            if (!details->hasAttributeWithoutSynchronization(HTMLNames::openAttr))
-                details->toggleOpen();
-        } else
-            currentNode = *parent;
-    }
-}
-
-// https://html.spec.whatwg.org/#ancestor-hidden-until-found-revealing-algorithm
-void revealHiddenUntilFoundAncestors(Node& node)
-{
-    if (!node.document().settings().hiddenUntilFoundEnabled())
-        return;
-
-    for (RefPtr currentNode = &node; currentNode; currentNode = currentNode->parentElementInComposedTree()) {
-        RefPtr element = dynamicDowncast<HTMLElement>(currentNode);
-        if (element && element->isHiddenUntilFound()) {
-            element->dispatchEvent(Event::create(eventNames().beforematchEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
-            element->setHidden({ });
-        }
-    }
-}
-
-void revealClosedDetailsAndHiddenUntilFoundAncestors(Node& node)
+// https://html.spec.whatwg.org/#ancestor-revealing-algorithm
+bool revealClosedDetailsAndHiddenUntilFoundAncestors(Node& node)
 {
     node.protectedDocument()->updateStyleIfNeeded();
 
     // Bail out if there is neither a hidden=until-found or details ancestor.
     if (node.renderStyle() && !node.renderStyle()->autoRevealsWhenFound())
-        return;
+        return false;
 
-    revealClosedDetailsAncestors(node);
-    revealHiddenUntilFoundAncestors(node);
+    auto closedDetailsElementAncestor = [](Node& node) -> HTMLDetailsElement* {
+        RefPtr slot = node.assignedSlot();
+        if (slot && slot->userAgentPart() == UserAgentParts::detailsContent() && slot->shadowHost()) {
+            Ref details = downcast<HTMLDetailsElement>(*slot->shadowHost());
+            if (!details->hasAttributeWithoutSynchronization(HTMLNames::openAttr))
+                return details.unsafePtr();
+        }
+        return nullptr;
+    };
+
+    Vector<std::pair<Ref<HTMLElement>, RevealType>> ancestors;
+    for (RefPtr ancestor = node; ancestor->parentElementInComposedTree(); ancestor = ancestor->parentElementInComposedTree()) {
+        if (RefPtr element = dynamicDowncast<HTMLElement>(*ancestor); element && element->isHiddenUntilFound())
+            ancestors.append({ element.releaseNonNull(), RevealType::HiddenUntilFound });
+        if (RefPtr details = closedDetailsElementAncestor(*ancestor))
+            ancestors.append({ details.releaseNonNull(), RevealType::ClosedDetails });
+    }
+
+    auto revealed = false;
+    for (auto [element, revealType] : ancestors) {
+        if (!element->isConnected())
+            return revealed;
+        switch (revealType) {
+        case RevealType::ClosedDetails:
+            if (element->hasAttributeWithoutSynchronization(HTMLNames::openAttr))
+                return revealed;
+            element->setBooleanAttribute(HTMLNames::openAttr, true);
+            revealed = true;
+            break;
+        case RevealType::HiddenUntilFound:
+            if (!element->isHiddenUntilFound())
+                return revealed;
+            element->dispatchEvent(Event::create(eventNames().beforematchEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
+            if (!element->isConnected() || !element->isHiddenUntilFound())
+                return revealed;
+            element->setHidden({ });
+            revealed = true;
+            break;
+        }
+    }
+    return revealed;
 }
 
 } // namespace WebCore

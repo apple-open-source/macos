@@ -173,7 +173,7 @@ void BackendDispatcher::dispatch(const String& message)
         }
 
         String domain = domainAndMethod[0];
-        SupplementalBackendDispatcher* domainDispatcher = m_dispatchers.get(domain);
+        RefPtr domainDispatcher = m_dispatchers.get(domain);
         if (!domainDispatcher) {
             reportProtocolError(MethodNotFound, makeString('\'', domain, "' domain was not found"_s));
             sendPendingErrors();

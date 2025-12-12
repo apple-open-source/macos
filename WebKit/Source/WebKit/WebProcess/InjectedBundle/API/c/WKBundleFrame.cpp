@@ -40,13 +40,13 @@
 #include "WebPage.h"
 #include <WebCore/AXIsolatedObject.h>
 #include <WebCore/AXObjectCache.h>
-#include <WebCore/Document.h>
 #include <WebCore/DocumentInlines.h>
+#include <WebCore/DocumentPage.h>
+#include <WebCore/DocumentSecurityOrigin.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
-#include <WebCore/Page.h>
 #include <WebCore/ReportingScope.h>
 
 WKTypeID WKBundleFrameGetTypeID()
@@ -76,7 +76,7 @@ WKURLRef WKBundleFrameCopyProvisionalURL(WKBundleFrameRef frameRef)
 
 WKFrameLoadState WKBundleFrameGetFrameLoadState(WKBundleFrameRef frameRef)
 {
-    auto* coreFrame = WebKit::toImpl(frameRef)->coreLocalFrame();
+    RefPtr coreFrame = WebKit::toImpl(frameRef)->coreLocalFrame();
     if (!coreFrame)
         return kWKFrameLoadStateFinished;
 
@@ -252,7 +252,7 @@ WKDataRef WKBundleFrameCopyWebArchiveFilteringSubframes(WKBundleFrameRef frameRe
     UNUSED_PARAM(context);
 #endif
     
-    return 0;
+    return nullptr;
 }
 
 bool WKBundleFrameCallShouldCloseOnWebView(WKBundleFrameRef frameRef)
@@ -260,7 +260,7 @@ bool WKBundleFrameCallShouldCloseOnWebView(WKBundleFrameRef frameRef)
     if (!frameRef)
         return true;
 
-    auto* coreFrame = WebKit::toImpl(frameRef)->coreLocalFrame();
+    RefPtr coreFrame = WebKit::toImpl(frameRef)->coreLocalFrame();
     if (!coreFrame)
         return true;
 
@@ -275,7 +275,7 @@ WKBundleHitTestResultRef WKBundleFrameCreateHitTestResult(WKBundleFrameRef frame
 
 WKSecurityOriginRef WKBundleFrameCopySecurityOrigin(WKBundleFrameRef frameRef)
 {
-    auto* coreFrame = WebKit::toImpl(frameRef)->coreLocalFrame();
+    RefPtr coreFrame = WebKit::toImpl(frameRef)->coreLocalFrame();
     if (!coreFrame)
         return 0;
 

@@ -189,6 +189,9 @@ private:
     WebCore::AudioSessionSoundStageSize soundStageSize() const final { return m_soundStageSize; }
     void setSoundStageSize(WebCore::AudioSessionSoundStageSize) final;
 
+    bool prefersAutoDimming() const final { return m_prefersAutoDimming; }
+    void setPrefersAutoDimming(bool) final;
+
     void swapVideoReceiverEndpointsWith(PlaybackSessionModelContext&);
 
 #if !RELEASE_LOG_DISABLED
@@ -238,6 +241,7 @@ private:
     std::optional<WebCore::SpatialVideoMetadata> m_spatialVideoMetadata;
     std::optional<WebCore::VideoProjectionMetadata> m_videoProjectionMetadata;
 
+    bool m_prefersAutoDimming { false };
 #if !RELEASE_LOG_DISABLED
     uint64_t m_logIdentifier { 0 };
 #endif
@@ -356,6 +360,9 @@ private:
     void addNowPlayingMetadataObserver(PlaybackSessionContextIdentifier, const WebCore::NowPlayingMetadataObserver&);
     void removeNowPlayingMetadataObserver(PlaybackSessionContextIdentifier, const WebCore::NowPlayingMetadataObserver&);
     void setSoundStageSize(PlaybackSessionContextIdentifier, WebCore::AudioSessionSoundStageSize);
+
+    bool prefersAutoDimming() const;
+    void setPrefersAutoDimming(bool);
 
     void updateVideoControlsManager(PlaybackSessionContextIdentifier);
 

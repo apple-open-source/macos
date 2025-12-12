@@ -47,6 +47,11 @@ NSScrollerImp* ScrollbarMac::scrollerImp() const
     return m_scrollerImp.get();
 }
 
+RetainPtr<NSScrollerImp> ScrollbarMac::protectedScrollerImp() const
+{
+    return scrollerImp();
+}
+
 void ScrollbarMac::createScrollerImp(NSScrollerImp* oldScrollerImp)
 {
     if (shouldRegisterScrollbar()) {

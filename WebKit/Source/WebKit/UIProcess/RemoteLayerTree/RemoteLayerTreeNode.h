@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "RemoteAcceleratedEffectStack.h"
+#include "RemoteAnimationStack.h"
 #include "RemoteLayerBackingStore.h"
 #include <WebCore/EventRegion.h>
 #include <WebCore/IOSurface.h>
@@ -61,6 +61,7 @@ public:
     static Ref<RemoteLayerTreeNode> createWithPlainLayer(WebCore::PlatformLayerIdentifier);
 
     CALayer *layer() const { return m_layer.get(); }
+    RetainPtr<CALayer> protectedLayer() const;
 #if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS) || HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     const Markable<WebCore::FloatRect> visibleRect() const { return m_visibleRect; }
     void setVisibleRect(const WebCore::FloatRect& value) { m_visibleRect = value; }
@@ -112,7 +113,7 @@ public:
     void addToHostingNode(RemoteLayerTreeNode&);
     void removeFromHostingNode();
 
-    void applyBackingStore(RemoteLayerTreeHost*, LayerContentsType, RemoteLayerBackingStoreProperties&);
+    void applyBackingStore(RemoteLayerTreeHost*, RemoteLayerBackingStoreProperties&);
 
     // A cached CAIOSurface object to retain CA render resources.
     struct CachedContentsBuffer {
@@ -139,8 +140,8 @@ public:
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     void setAcceleratedEffectsAndBaseValues(const WebCore::AcceleratedEffects&, const WebCore::AcceleratedEffectValues&, RemoteLayerTreeHost&);
-    const RemoteAcceleratedEffectStack* effectStack() const { return m_effectStack.get(); }
-    RefPtr<RemoteAcceleratedEffectStack> takeEffectStack() { return std::exchange(m_effectStack, nullptr); }
+    const RemoteAnimationStack* animationStack() const { return m_animationStack.get(); }
+    RefPtr<RemoteAnimationStack> takeAnimationStack() { return std::exchange(m_animationStack, nullptr); }
 #endif
 
     bool backdropRootIsOpaque() const { return m_backdropRootIsOpaque; }
@@ -158,7 +159,7 @@ private:
     Markable<WebCore::LayerHostingContextIdentifier> m_remoteContextHostingIdentifier;
     Markable<WebCore::LayerHostingContextIdentifier> m_remoteContextHostedIdentifier;
 
-    RetainPtr<CALayer> m_layer;
+    const RetainPtr<CALayer> m_layer;
 
 #if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS) || HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     Markable<WebCore::FloatRect> m_visibleRect;
@@ -198,7 +199,7 @@ private:
     std::optional<WebCore::RenderingResourceIdentifier> m_asyncContentsIdentifier;
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    RefPtr<RemoteAcceleratedEffectStack> m_effectStack;
+    RefPtr<RemoteAnimationStack> m_animationStack;
 #endif
     bool m_backdropRootIsOpaque { false };
 };

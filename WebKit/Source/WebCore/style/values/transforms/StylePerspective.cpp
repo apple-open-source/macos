@@ -78,7 +78,7 @@ auto Blending<Perspective>::blend(const Perspective& from, const Perspective& to
 
     ASSERT(!from.isNone());
     ASSERT(!to.isNone());
-    return { WebCore::Style::blend(*from.m_value, *to.m_value, context) };
+    return { WebCore::Style::blend(*from.tryValue(), *to.tryValue(), context) };
 }
 
 } // namespace Style

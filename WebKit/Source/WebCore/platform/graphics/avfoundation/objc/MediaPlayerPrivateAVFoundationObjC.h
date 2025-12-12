@@ -159,9 +159,6 @@ private:
 
     void cancelLoad() final;
 
-    void beginSimulatedHDCPError() final { outputObscuredDueToInsufficientExternalProtectionChanged(true); }
-    void endSimulatedHDCPError() final { outputObscuredDueToInsufficientExternalProtectionChanged(false); }
-
     void notifyTrackModeChanged() final;
     void synchronizeTextTrackState() final;
 
@@ -180,7 +177,7 @@ private:
     RetainPtr<PlatformLayer> createVideoFullscreenLayer() final;
     void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler) final;
     void updateVideoFullscreenInlineImage() final;
-    void setVideoFullscreenFrame(FloatRect) final;
+    void setVideoFullscreenFrame(const FloatRect&) final;
     void setVideoFullscreenGravity(MediaPlayer::VideoGravity) final;
     void setVideoFullscreenMode(MediaPlayer::VideoFullscreenMode) final;
     void videoFullscreenStandbyChanged() final;
@@ -199,7 +196,7 @@ private:
 
     void createAVPlayer() final;
     void createAVPlayerItem() final;
-    virtual void createAVPlayerLayer();
+    void createAVPlayerLayer();
     void createAVAssetForURL(const URL&) final;
     void createAVAssetForURL(const URL&, RetainPtr<NSMutableDictionary>);
     MediaPlayerPrivateAVFoundation::ItemStatus playerItemStatus() const final;
@@ -339,7 +336,7 @@ private:
 
     AVPlayer *objCAVFoundationAVPlayer() const final { return m_avPlayer.get(); }
 
-    bool performTaskAtTime(Function<void()>&&, const MediaTime&) final;
+    bool performTaskAtTime(Function<void(const MediaTime&)>&&, const MediaTime&) final;
     void setShouldObserveTimeControlStatus(bool);
 
     void setPreferredDynamicRangeMode(DynamicRangeMode) final;

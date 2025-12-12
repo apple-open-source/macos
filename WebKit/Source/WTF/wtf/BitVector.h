@@ -69,7 +69,7 @@ class FixedBitVector;
 // If you know the length of the vector at compile-time,
 // please consider using WTF::BitSet instead.
 class BitVector final {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(BitVector);
 public: 
     BitVector()
         : m_bitsOrPointer(makeInlineBits(0))
@@ -325,7 +325,7 @@ public:
     }
     
     class iterator {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(iterator);
     public:
         iterator() = default;
         

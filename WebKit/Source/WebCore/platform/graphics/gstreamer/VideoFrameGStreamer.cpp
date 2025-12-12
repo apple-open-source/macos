@@ -508,6 +508,7 @@ void VideoFrameGStreamer::setMetadataAndContentHint(std::optional<VideoFrameTime
     gst_sample_set_buffer(m_sample.get(), modifiedBuffer.get());
 }
 
+IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage")
 static void copyPlane(uint8_t* destination, const uint8_t* source, uint64_t sourceStride, const ComputedPlaneLayout& spanPlaneLayout)
 {
     uint64_t sourceOffset = spanPlaneLayout.sourceTop * sourceStride;
@@ -520,6 +521,7 @@ static void copyPlane(uint8_t* destination, const uint8_t* source, uint64_t sour
         destinationOffset += spanPlaneLayout.destinationStride;
     }
 }
+IGNORE_CLANG_WARNINGS_END
 
 void VideoFrame::copyTo(std::span<uint8_t> destination, VideoPixelFormat pixelFormat, Vector<ComputedPlaneLayout>&& computedPlaneLayout, CompletionHandler<void(std::optional<Vector<PlaneLayout>>&&)>&& callback)
 {

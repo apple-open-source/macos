@@ -25,12 +25,13 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(GAMEPAD) && PLATFORM(MAC)
 
-#include "GamepadProvider.h"
-#include "HIDGamepad.h"
-#include "Timer.h"
 #include <IOKit/hid/IOHIDManager.h>
+#include <WebCore/GamepadProvider.h>
+#include <WebCore/HIDGamepad.h>
+#include <WebCore/Timer.h>
 #include <pal/spi/cocoa/IOKitSPI.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
@@ -41,8 +42,10 @@ namespace WebCore {
 
 class GamepadProviderClient;
 
-class HIDGamepadProvider : public GamepadProvider {
+class HIDGamepadProvider final : public GamepadProvider, public CanMakeCheckedPtr<HIDGamepadProvider> {
     WTF_MAKE_NONCOPYABLE(HIDGamepadProvider);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HIDGamepadProvider);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HIDGamepadProvider);
     friend class NeverDestroyed<HIDGamepadProvider>;
 public:
     WEBCORE_EXPORT static HIDGamepadProvider& singleton();

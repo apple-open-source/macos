@@ -199,11 +199,22 @@ out:
  *  be iterated through, with one byte per page touched.  (This is to ensure that
  *  the memory is actually created, and is used to avoid deadlocking due to swapping
  *  during a live verify of the boot volume.)
+ *
+ *	The cache blocks are allocated as one big chunk of memory, via mmap(), with individual
+ *	blocks parceled out when needed.  Free blocks are tracked via an array of pointers, one
+ *	for each block.  The array is treated as a stack, with the stack top at the front of the
+ *	array. As blocks are handed out, the stack top moves down the array, so e.g. if there are
+ *	three blocks in use, then the first three locations of the array are considered empty. The
+ *	location of the stack top is tracked by the value of cache->ActiveBlocks. Initially the
+ *	pointers in the array are set up in order of the block addresses they point to.  This order
+ *	isn't important, it's just a convenient way to set them up. When an allocated block is freed
+ *	up, its pointer is pushed onto the stack, possibly resulting in a mixed-up ordering
+ *	of pointer locations, relative to the block they point to. This is fine, as the ordering
+ *	doesn't matter, as long as there is one pointer per free block.
  */
 int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
                uint32_t cacheBlockSize, uint32_t cacheTotalBlocks, uint32_t hashSize, int preTouch)
 {
-	void **		temp;
 	uint32_t	i;
 	Buf_t *		buf;
 	
@@ -220,13 +231,13 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 	/* Allocate the cache memory */
 	/* Break out of the loop on success, or when the proposed cache is < MinCacheSize */
 	while (1) {
-		cache->FreeHead = mmap (NULL,
+		cache->CacheBlocks = mmap (NULL,
 					cacheTotalBlocks * cacheBlockSize,
 					PROT_READ | PROT_WRITE,
 					MAP_ANON | MAP_PRIVATE,
 					-1,
 					0);
-		if (cache->FreeHead == (void *)-1) {
+		if (cache->CacheBlocks == (void *)-1) {
 			if ((cacheTotalBlocks * cacheBlockSize) <= MinCacheSize) {
 				if (state.debug)
 					fsck_print(ctx, LOG_TYPE_INFO, "\tTried to allocate %dK, minimum is %dK\n",
@@ -247,9 +258,9 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 			break;
 		}
 	}
-	if (cache->FreeHead == (void*)-1) {
+	if (cache->CacheBlocks == (void*)-1) {
 #if CACHE_DEBUG
-		fsck_print(ctx, LOG_TYPE_INFO, "%s(%d):  FreeHead = -1\n", __FUNCTION__, __LINE__);
+		fsck_print(ctx, LOG_TYPE_INFO, "%s(%d):  CacheBlocks = -1\n", __FUNCTION__, __LINE__);
 #endif
 		return (ENOMEM);
 	}
@@ -258,7 +269,7 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 	/* If necessary, touch a byte in each page */
 	if (preTouch) {
 		size_t pageSize = getpagesize();
-		unsigned char *ptr = (unsigned char *)cache->FreeHead;
+		unsigned char *ptr = (unsigned char *)cache->CacheBlocks;
 		unsigned char *end = ptr + (cacheTotalBlocks * cacheBlockSize);
 		while (ptr < end) {
 			*ptr = 0;
@@ -266,14 +277,19 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 		}
 	}
 
-	/* Initialize the cache memory free list */
-	temp = cache->FreeHead;
-	for (i = 0; i < cacheTotalBlocks - 1; i++) {
-		*temp = ((char *)temp + cacheBlockSize);
-		temp  = (void **)((char *)temp + cacheBlockSize);
+	/* Initialize the free pointers */
+	cache->FreeBlockPtrs = malloc(cacheTotalBlocks * sizeof(void *));
+	if (!cache->FreeBlockPtrs) {
+#if CACHE_DEBUG
+		fsck_print(ctx, LOG_TYPE_INFO, "%s(%d):  malloc(%zu) failed\n", __FUNCTION__, __LINE__, cacheTotalBlocks * sizeof(void *));
+#endif
+		return ENOMEM;
 	}
-	*temp = NULL;
-	cache->FreeSize = cacheTotalBlocks;
+	for (i = 0; i < cacheTotalBlocks; i++) {
+		cache->FreeBlockPtrs[i] = (char *)cache->CacheBlocks + i * cacheBlockSize;
+	}
+	cache->TotalBlocks = cacheTotalBlocks;
+	cache->ActiveBlocks = 0;
 
 	buf = (Buf_t *)malloc(sizeof(Buf_t) * MAXBUFS);
 	if (buf == NULL) {
@@ -319,8 +335,8 @@ int CacheDestroy (Cache_t *cache)
 #endif	
 	/* Shutdown the LRU */
 	LRUDestroy (&cache->LRU);
-	
-	/* I'm lazy, I'll come back to it :P */
+	free(cache->FreeBlockPtrs);
+	munmap(cache->CacheBlocks, cache->TotalBlocks * cache->BlockSize);
 	return (EOK);
 }
 
@@ -809,18 +825,10 @@ int CacheEvict (Cache_t *cache, Tag_t *tag)
  */
 void *CacheAllocBlock (Cache_t *cache)
 {
-	void *	temp;
-	
-	if (cache->FreeHead == NULL)
+	if (cache->ActiveBlocks == cache->TotalBlocks) {
 		return (NULL);
-	if (cache->FreeSize == 0)
-		return (NULL);
-
-	temp = cache->FreeHead;
-	cache->FreeHead = *((void **)cache->FreeHead);
-	cache->FreeSize--;
-
-	return (temp);
+	}
+	return cache->FreeBlockPtrs[cache->ActiveBlocks++];
 }
 
 /*
@@ -852,9 +860,7 @@ CacheFreeBlock( Cache_t *cache, Tag_t *tag )
 
 	if ((tag->Flags & kLockWrite) == 0)
 	{
-		*((void **)tag->Buffer) = cache->FreeHead;
-		cache->FreeHead = (void **)tag->Buffer;
-		cache->FreeSize++;
+		cache->FreeBlockPtrs[--cache->ActiveBlocks] = tag->Buffer;
 	}
 	return( EOK );
 }
@@ -1288,7 +1294,7 @@ int CacheLookup (Cache_t *cache, uint64_t off, Tag_t **tag)
 			temp->Buffer = CacheAllocBlock (cache);
 			if (temp->Buffer == NULL) {
 #if CACHE_DEBUG
-				fsck_print(ctx, LOG_TYPE_INFO, "%s(%d):  CacheAllocBlock failed (FreeHead = %p, FreeSize = %u)\n", __FUNCTION__, __LINE__, cache->FreeHead, cache->FreeSize);
+				fsck_print(ctx, LOG_TYPE_INFO, "%s(%d):  CacheAllocBlock failed (FreeHead = %p, free blocks = %u)\n", __FUNCTION__, __LINE__, cache->FreeHead, cache->TotalBlocks - cache->ActiveBlocks);
 #endif
 				return (ENOMEM);
 			}

@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "FetchOptions.h"
-#include "LoadableScript.h"
-#include "LoadableScriptError.h"
-#include "ModuleFetchParameters.h"
 #include <JavaScriptCore/ScriptFetcher.h>
+#include <WebCore/FetchOptions.h>
+#include <WebCore/LoadableScript.h>
+#include <WebCore/LoadableScriptError.h>
+#include <WebCore/ModuleFetchParameters.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {

@@ -51,6 +51,7 @@
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/glib/RunLoopSourcePriority.h>
 
 #if USE(CAIRO)
 #include <WebCore/CairoPaintingEngine.h>
@@ -58,26 +59,16 @@
 #include <WebCore/SkiaPaintingEngine.h>
 #endif
 
-#if USE(GLIB_EVENT_LOOP)
-#include <wtf/glib/RunLoopSourcePriority.h>
-#endif
 
 namespace WebKit {
 using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LayerTreeHost);
 
-#if HAVE(DISPLAY_LINK)
 LayerTreeHost::LayerTreeHost(WebPage& webPage)
-#else
-LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displayID)
-#endif
     : m_webPage(webPage)
     , m_sceneState(CoordinatedSceneState::create())
     , m_layerFlushTimer(RunLoop::mainSingleton(), "LayerTreeHost::LayerFlushTimer"_s, this, &LayerTreeHost::layerFlushTimerFired)
-#if !HAVE(DISPLAY_LINK)
-    , m_displayID(displayID)
-#endif
 #if USE(CAIRO)
     , m_paintingEngine(Cairo::PaintingEngine::create())
 #elif USE(SKIA)
@@ -88,23 +79,20 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
         auto& rootLayer = m_sceneState->rootLayer();
 #if ENABLE(DAMAGE_TRACKING)
         rootLayer.setDamagePropagationEnabled(webPage.corePage()->settings().propagateDamagingInformation());
+        if (webPage.corePage()->settings().propagateDamagingInformation()) {
+            m_damageInGlobalCoordinateSpace = std::make_shared<Damage>(m_webPage.size());
+            rootLayer.setDamageInGlobalCoordinateSpace(m_damageInGlobalCoordinateSpace);
+        }
 #endif
         Locker locker { rootLayer.lock() };
         rootLayer.setAnchorPoint(FloatPoint3D(0, 0, 0));
         rootLayer.setSize(m_webPage.size());
     }
 
-#if USE(GLIB_EVENT_LOOP)
     m_layerFlushTimer.setPriority(RunLoopSourcePriority::LayerFlushTimer);
-    m_layerFlushTimer.setName("[WebKit] LayerTreeHost"_s);
-#endif
     scheduleLayerFlush();
 
-#if HAVE(DISPLAY_LINK)
     m_compositor = ThreadedCompositor::create(*this);
-#else
-    m_compositor = ThreadedCompositor::create(*this, *this, displayID);
-#endif
 #if ENABLE(DAMAGE_TRACKING)
     std::optional<OptionSet<ThreadedCompositor::DamagePropagationFlags>> damagePropagationFlags;
     const auto& settings = webPage.corePage()->settings();
@@ -181,17 +169,12 @@ void LayerTreeHost::flushLayers()
 
     SetForScope<bool> reentrancyProtector(m_isFlushingLayers, true);
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
     TraceScope traceScope(FlushPendingLayerChangesStart, FlushPendingLayerChangesEnd);
-#endif
 
     Ref page { m_webPage };
     page->updateRendering();
     page->flushPendingEditorStateUpdate();
-
-#if PLATFORM(WPE) || PLATFORM(GTK)
     page->flushPendingThemeColorChange();
-#endif
 
     if (m_overlayCompositingLayer)
         m_overlayCompositingLayer->flushCompositingState(visibleContentsRect());
@@ -219,10 +202,8 @@ void LayerTreeHost::flushLayers()
         applyTransientZoomToLayers(m_transientZoomScale, m_transientZoomOrigin);
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
     if (RefPtr drawingArea = m_webPage.drawingArea())
         drawingArea->dispatchPendingCallbacksAfterEnsuringDrawing();
-#endif
 
     bool didChangeSceneState = m_sceneState->flush();
     if (m_compositionRequired || m_pendingResize || m_forceFrameSync || didChangeSceneState)
@@ -258,13 +239,6 @@ void LayerTreeHost::layerFlushTimerFired()
         WTFEndSignpost(this, LayerFlushTimerFired);
         return;
     }
-
-#if !HAVE(DISPLAY_LINK)
-    // If a force-repaint callback was registered, we should force a 'frame sync' that
-    // will guarantee us a call to renderNextFrame() once the update is complete.
-    if (m_forceRepaintAsync.callback)
-        m_forceFrameSync = true;
-#endif
 
     flushLayers();
 
@@ -303,19 +277,6 @@ void LayerTreeHost::setViewOverlayRootLayer(GraphicsLayer* graphicsLayer)
 
 void LayerTreeHost::forceRepaint()
 {
-#if !HAVE(DISPLAY_LINK)
-    // This is necessary for running layout tests. Since in this case we are not waiting for a UIProcess to reply nicely.
-    // Instead we are just triggering forceRepaint. But we still want to have the scripted animation callbacks being executed.
-    if (auto* frameView = m_webPage.localMainFrameView())
-        frameView->updateLayoutAndStyleIfNeededRecursive();
-
-    // We need to schedule another flush, otherwise the forced paint might cancel a later expected flush.
-    m_forceFrameSync = true;
-    scheduleLayerFlush();
-
-    if (!m_isWaitingForRenderer)
-        flushLayers();
-#else
     if (m_isWaitingForRenderer) {
         if (m_forceRepaintAsync.callback)
             m_pendingForceRepaint = true;
@@ -339,20 +300,10 @@ void LayerTreeHost::forceRepaint()
         return;
     cancelPendingLayerFlush();
     flushLayers();
-#endif
 }
 
 void LayerTreeHost::forceRepaintAsync(CompletionHandler<void()>&& callback)
 {
-#if !HAVE(DISPLAY_LINK)
-    scheduleLayerFlush();
-
-    // We want a clean repaint, meaning that if we're currently waiting for the renderer
-    // to finish an update, we'll have to schedule another flush when it's done.
-    ASSERT(!m_forceRepaintAsync.callback);
-    m_forceRepaintAsync.callback = WTFMove(callback);
-    m_forceRepaintAsync.needsFreshFlush = m_scheduledWhileWaitingForRenderer;
-#else
     ASSERT(!m_forceRepaintAsync.callback);
     m_forceRepaintAsync.callback = WTFMove(callback);
     forceRepaint();
@@ -360,16 +311,13 @@ void LayerTreeHost::forceRepaintAsync(CompletionHandler<void()>&& callback)
         m_forceRepaintAsync.compositionRequestID = std::nullopt;
     else
         m_forceRepaintAsync.compositionRequestID = m_compositionRequestID;
-#endif
 }
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
 void LayerTreeHost::ensureDrawing()
 {
     m_forceFrameSync = true;
     scheduleLayerFlush();
 }
-#endif
 
 void LayerTreeHost::sizeDidChange()
 {
@@ -416,6 +364,8 @@ void LayerTreeHost::attachLayer(CoordinatedPlatformLayer& layer)
 {
 #if ENABLE(DAMAGE_TRACKING)
     layer.setDamagePropagationEnabled(webPage().corePage()->settings().propagateDamagingInformation());
+    if (m_damageInGlobalCoordinateSpace)
+        layer.setDamageInGlobalCoordinateSpace(m_damageInGlobalCoordinateSpace);
 #endif
     m_sceneState->addLayer(layer);
 }
@@ -459,6 +409,11 @@ RunLoop* LayerTreeHost::compositingRunLoop() const
     return m_compositor->runLoop();
 }
 
+int LayerTreeHost::maxTextureSize() const
+{
+    return m_compositor->maxTextureSize();
+}
+
 #if USE(CAIRO)
 Cairo::PaintingEngine& LayerTreeHost::paintingEngine()
 {
@@ -480,30 +435,6 @@ Ref<GraphicsLayer> LayerTreeHost::createGraphicsLayer(GraphicsLayer::Type layerT
     return adoptRef(*new GraphicsLayerCoordinated(layerType, client, CoordinatedPlatformLayer::create(*this)));
 }
 
-#if !HAVE(DISPLAY_LINK)
-RefPtr<DisplayRefreshMonitor> LayerTreeHost::createDisplayRefreshMonitor(PlatformDisplayID displayID)
-{
-    ASSERT(m_displayID == displayID);
-    return Ref { m_compositor->displayRefreshMonitor() };
-}
-
-void LayerTreeHost::requestDisplayRefreshMonitorUpdate()
-{
-    // Flush layers to cause a repaint. If m_isWaitingForRenderer was true at this point, the layer
-    // flush won't do anything, but that means there's a painting ongoing that will send the
-    // display refresh notification when it's done.
-    m_forceFrameSync = true;
-    scheduleLayerFlush();
-}
-
-void LayerTreeHost::handleDisplayRefreshMonitorUpdate(bool hasBeenRescheduled)
-{
-    // Call renderNextFrame. If hasBeenRescheduled is true, the layer flush will force a repaint
-    // that will cause the display refresh notification to come.
-    renderNextFrame(hasBeenRescheduled);
-}
-#endif
-
 void LayerTreeHost::willRenderFrame()
 {
     if (RefPtr drawingArea = m_webPage.drawingArea())
@@ -520,7 +451,6 @@ void LayerTreeHost::didRenderFrame()
     }
 }
 
-#if HAVE(DISPLAY_LINK)
 void LayerTreeHost::didComposite(uint32_t compositionResponseID)
 {
     WTFBeginSignpost(this, DidComposite, "compositionRequestID %i, compositionResponseID %i", m_compositionRequestID, compositionResponseID);
@@ -551,7 +481,6 @@ void LayerTreeHost::didComposite(uint32_t compositionResponseID)
     }
     WTFEndSignpost(this, DidComposite);
 }
-#endif
 
 void LayerTreeHost::commitSceneState()
 {
@@ -559,39 +488,6 @@ void LayerTreeHost::commitSceneState()
     m_compositionRequestID = m_compositor->requestComposition();
     WTFEmitSignpost(this, CommitSceneState, "compositionRequestID %i", m_compositionRequestID);
 }
-
-#if !HAVE(DISPLAY_LINK)
-void LayerTreeHost::renderNextFrame(bool forceRepaint)
-{
-    WTFBeginSignpost(this, RenderNextFrame);
-
-    m_isWaitingForRenderer = false;
-    bool scheduledWhileWaitingForRenderer = std::exchange(m_scheduledWhileWaitingForRenderer, false);
-
-    if (m_forceRepaintAsync.callback) {
-        // If the asynchronous force-repaint needs a separate fresh flush, it was due to
-        // the force-repaint request being registered while CoordinatedLayerTreeHost was
-        // waiting for the renderer to finish an update.
-        ASSERT(!m_forceRepaintAsync.needsFreshFlush || scheduledWhileWaitingForRenderer);
-
-        // Execute the callback if another layer flush and the subsequent state update
-        // aren't needed. If they are, the callback will be executed when this function
-        // is called after the next update.
-        if (!m_forceRepaintAsync.needsFreshFlush)
-            m_forceRepaintAsync.callback();
-        m_forceRepaintAsync.needsFreshFlush = false;
-    }
-
-    if (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive() || forceRepaint) {
-        m_layerFlushTimer.stop();
-        if (forceRepaint)
-            m_forceFrameSync = true;
-        layerFlushTimerFired();
-    }
-
-    WTFEndSignpost(this, RenderNextFrame);
-}
-#endif
 
 #if PLATFORM(GTK)
 FloatPoint LayerTreeHost::constrainTransientZoomOrigin(double scale, FloatPoint origin) const

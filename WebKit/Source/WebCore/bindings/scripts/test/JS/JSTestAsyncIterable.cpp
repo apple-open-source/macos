@@ -159,7 +159,7 @@ JSValue JSTestAsyncIterable::getConstructor(VM& vm, const JSGlobalObject* global
 
 void JSTestAsyncIterable::destroy(JSC::JSCell* cell)
 {
-    JSTestAsyncIterable* thisObject = static_cast<JSTestAsyncIterable*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestAsyncIterable* thisObject = static_cast<JSTestAsyncIterable*>(cell);
     thisObject->JSTestAsyncIterable::~JSTestAsyncIterable();
 }
 
@@ -291,7 +291,7 @@ bool JSTestAsyncIterableOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unkno
 
 void JSTestAsyncIterableOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestAsyncIterable = static_cast<JSTestAsyncIterable*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestAsyncIterable = static_cast<JSTestAsyncIterable*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestAsyncIterable->protectedWrapped().ptr(), jsTestAsyncIterable);
 }
@@ -305,7 +305,7 @@ extern "C" { extern void (*const __identifier("??_7TestAsyncIterable@WebCore@@6B
 extern "C" { extern void* _ZTVN7WebCore17TestAsyncIterableE[]; }
 #endif
 template<std::same_as<TestAsyncIterable> T>
-static inline void verifyVTable(TestAsyncIterable* ptr) 
+static inline void verifyVTable(TestAsyncIterable* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -325,8 +325,9 @@ static inline void verifyVTable(TestAsyncIterable* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestAsyncIterable>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestAsyncIterable>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestAsyncIterable>(impl.ptr());
 #endif

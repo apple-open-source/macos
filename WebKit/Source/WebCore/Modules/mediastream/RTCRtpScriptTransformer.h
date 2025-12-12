@@ -27,10 +27,10 @@
 
 #if ENABLE(WEB_RTC)
 
-#include "ActiveDOMObject.h"
-#include "JSDOMPromiseDeferredForward.h"
-#include "RTCRtpTransformBackend.h"
 #include <JavaScriptCore/JSCJSValue.h>
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/JSDOMPromiseDeferredForward.h>
+#include <WebCore/RTCRtpTransformBackend.h>
 #include <wtf/Deque.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/RefCounted.h>
@@ -99,6 +99,8 @@ private:
     RefPtr<PendingActivity<RTCRtpScriptTransformer>> m_pendingActivity;
 
     Deque<Ref<DeferredPromise>> m_pendingKeyFramePromises;
+    bool m_isVideo { false };
+    bool m_isSender { false };
 
 #if !RELEASE_LOG_DISABLED
     bool m_enableAdditionalLogging { false };

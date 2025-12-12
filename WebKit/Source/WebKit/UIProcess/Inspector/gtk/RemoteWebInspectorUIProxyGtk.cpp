@@ -28,6 +28,7 @@
 
 #if ENABLE(REMOTE_INSPECTOR)
 
+#include "GtkVersioning.h"
 #include "HardwareAccelerationManager.h"
 #include "RemoteWebInspectorUIMessages.h"
 #include "WebInspectorUIProxy.h"
@@ -36,7 +37,6 @@
 #include "WebPageGroup.h"
 #include "WebProcessPool.h"
 #include <WebCore/CertificateInfo.h>
-#include <WebCore/GtkVersioning.h>
 #include <wtf/text/Base64.h>
 
 namespace WebKit {

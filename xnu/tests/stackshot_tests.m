@@ -2314,19 +2314,23 @@ T_DECL(throttled_sp,
 }
 
 
-char *const clpc_path = "/usr/local/bin/clpc";
 char *const clpcctrl_path = "/usr/local/bin/clpcctrl";
 
-static void
+static int
 run_clpc(char *const argv[]) {
 	posix_spawnattr_t sattr;
 	pid_t pid;
 	int wstatus;
+	int ret;
 
 	T_QUIET; T_ASSERT_POSIX_ZERO(posix_spawn(&pid, argv[0], NULL, NULL, argv, NULL), "spawn clpcctrl");
 	T_QUIET; T_ASSERT_POSIX_SUCCESS(waitpid(pid, &wstatus, 0), "wait for clpcctrl");
 	T_QUIET; T_ASSERT_TRUE(WIFEXITED(wstatus), "clpcctrl exited normally");
-	T_QUIET; T_ASSERT_POSIX_ZERO(WEXITSTATUS(wstatus), "clpcctrl exited successfully");
+	ret = WEXITSTATUS(wstatus);
+
+	if (ret) {
+		return ret;
+	}
 
 	uint64_t sched_recommended_cores = 1;
 	size_t sched_recommended_cores_sz = sizeof(uint64_t);
@@ -2334,6 +2338,8 @@ run_clpc(char *const argv[]) {
 	    sysctlbyname("kern.sched_recommended_cores", &sched_recommended_cores, &sched_recommended_cores_sz, NULL, 0),
 	    "get kern.sched_recommended_cores");
 	T_LOG("Recommended cores: 0x%llx", sched_recommended_cores);
+
+	return 0;
 }
 
 static void
@@ -2343,62 +2349,7 @@ restore_clpc() {
 	 * exit status when re-enabling dynamic control. So, we use the old
 	 * one here.
 	 */
-	run_clpc((char *const []) { clpcctrl_path, "-d", NULL });
-}
-
-struct cpu_cluster {
-	int type;
-	uint64_t mask;
-};
-
-static NSArray*
-get_cpu_clusters() {
-	NSTask *task = [[NSTask alloc] init];
-	[task setLaunchPath:[NSString stringWithUTF8String:clpc_path]];
-	[task setArguments:@[@"topologies", @"-f", @"json"]];
-
-	NSPipe *pipe = [NSPipe pipe];
-	[task setStandardOutput:pipe];
-	[task setStandardError:nil];
-
-	[task launch];
-	[task waitUntilExit];
-
-	NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
-	NSString *data_string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-
-	/*
-	 * The CLPC util outputs the CPU and ANE topology as JSON objects _not_
-	 * separated by a comma, so we have to fix it up...
-	 */
-	data_string = [data_string stringByReplacingOccurrencesOfString:@"\n}\n" withString:@"\n},\n"];
-	data_string = [NSString stringWithFormat:@"[%@]", data_string];
-	data = [data_string dataUsingEncoding:NSUTF8StringEncoding];
-
-	T_QUIET; T_ASSERT_EQ(task.terminationStatus, 0, "clpc exit status");
-
-	NSError *jsonError = nil;
-	NSArray *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
-
-	if (jsonError) {
-		T_FAIL("clpc topologies failed. output: %s\nerror: %s",
-			[data_string cStringUsingEncoding:NSUTF8StringEncoding],
-			[[jsonError localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
-		T_END;
-	}
-
-	NSMutableArray* out = [[NSMutableArray alloc] init];
-	struct cpu_cluster cluster;
-
-	for (NSDictionary *cluster_json in json[0][@"CPU Topology"][@"Clusters"]) {
-		cluster = (struct cpu_cluster) {
-			.type = [cluster_json[@"Type"] intValue] + 1,
-			.mask = [cluster_json[@"CoreMask"] unsignedLongLongValue]
-		};
-		[out addObject:[NSValue valueWithBytes:&cluster objCType:@encode(struct cpu_cluster)]];
-	}
-
-	return out;
+	T_QUIET; T_ASSERT_POSIX_ZERO(run_clpc((char *const []) { clpcctrl_path, "-d", NULL }), "CLPC ran successfully");
 }
 
 void test_stackshot_cpu_info(void *ssbuf, size_t sslen, int exp_cpus, NSArray *exp_cluster_types) {
@@ -2468,20 +2419,6 @@ void test_stackshot_cpu_info(void *ssbuf, size_t sslen, int exp_cpus, NSArray *e
 	T_QUIET; T_ASSERT_TRUE(seen_buffer || !is_development_kernel(), "Seen buffer info or is release kernel");
 }
 
-static void
-test_stackshot_with_clpcctrl(const char *name, char *const argv[], int exp_cpus, NSArray *exp_cluster_types) {
-	run_clpc(argv);
-	struct scenario scenario = {
-		.name = name,
-		.flags = (STACKSHOT_KCDATA_FORMAT | STACKSHOT_SAVE_LOADINFO |
-			STACKSHOT_THREAD_WAITINFO | STACKSHOT_GET_GLOBAL_MEM_STATS)
-	};
-	take_stackshot(&scenario, false, ^(void *ssbuf, size_t sslen) {
-		parse_stackshot(0, ssbuf, sslen, nil);
-		test_stackshot_cpu_info(ssbuf, sslen, exp_cpus, exp_cluster_types);
-	});
-}
-
 #define N_CLUSTER_TYPES 2
 
 T_DECL(core_masks,
@@ -2528,44 +2465,56 @@ T_DECL(core_masks,
 
 	T_ATEND(restore_clpc);
 
-	uint64_t cluster_masks[N_CLUSTER_TYPES] = {0};
-	NSArray* clusters = get_cpu_clusters();
-	for (NSValue *data in clusters) {
-		struct cpu_cluster cluster;
-		[data getValue:&cluster];
-
-		T_QUIET; T_ASSERT_LT(cluster.type - 1, N_CLUSTER_TYPES, "valid cluster type");
-		cluster_masks[cluster.type - 1] |= cluster.mask;
-	}
-
 	NSMutableArray* cluster_types = [[NSMutableArray alloc] init];
+	
 	char const* scenario_names[] = {
 		"core_masks_amp_ecpus",
 		"core_masks_amp_pcpus",
 	};
+
+	char const* core_mask_names[] = {
+		"e",
+		"p",
+	};
+
 	for (int type = 0; type < N_CLUSTER_TYPES; type++) {
-		if (!cluster_masks[type]) {
+		int c_ret = run_clpc((char *const[]) {clpcctrl_path, "-C", core_mask_names[type], NULL});
+		if (c_ret) {
+			T_LOG("clpcctrl for mask %s failed with %d", core_mask_names[type], c_ret);
 			continue;
 		}
-
+		
 		NSNumber *cluster_type_num = [NSNumber numberWithInt:(type + 1)];
 		[cluster_types addObject:cluster_type_num];
 
-		char mask_str[19];
-		sprintf(mask_str, "0x%llx", cluster_masks[type]);
+		struct scenario scenario = {
+			.name = scenario_names[type],
+			.flags = (STACKSHOT_KCDATA_FORMAT | STACKSHOT_SAVE_LOADINFO |
+			STACKSHOT_THREAD_WAITINFO | STACKSHOT_GET_GLOBAL_MEM_STATS)
+		};
 
-		test_stackshot_with_clpcctrl(
-			scenario_names[type],
-			(char *const[]) {clpc_path, "control", "-C", mask_str, NULL},
-			-1, @[cluster_type_num]);
+		take_stackshot(&scenario, false, ^(void *ssbuf, size_t sslen) {
+			parse_stackshot(0, ssbuf, sslen, nil);
+			test_stackshot_cpu_info(ssbuf, sslen, -1, @[cluster_type_num]);
+		});
 	}
 
 	T_ASSERT_GE((int) [cluster_types count], 2, "at least two cluster types");
 
-	test_stackshot_with_clpcctrl(
-		"core_masks_amp_allcpus",
-		(char *const[]) {clpc_path, "control", "-C", "all", NULL},
-		-1, cluster_types);
+	T_QUIET; T_ASSERT_POSIX_ZERO(
+			run_clpc((char *const[]) {clpcctrl_path, "-C", "all", NULL}),
+			"clpcctrl all CPUs");
+
+	struct scenario scenario = {
+		.name = "core_masks_amp_allcpus",
+		.flags = (STACKSHOT_KCDATA_FORMAT | STACKSHOT_SAVE_LOADINFO |
+		STACKSHOT_THREAD_WAITINFO | STACKSHOT_GET_GLOBAL_MEM_STATS)
+	};
+
+	take_stackshot(&scenario, false, ^(void *ssbuf, size_t sslen) {
+		parse_stackshot(0, ssbuf, sslen, nil);
+		test_stackshot_cpu_info(ssbuf, sslen, -1, cluster_types);
+	});
 }
 
 #pragma mark performance tests

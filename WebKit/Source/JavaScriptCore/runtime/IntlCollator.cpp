@@ -444,7 +444,7 @@ void IntlCollator::checkICULocaleInvariants(const LocaleSet& locales)
             bool allAreGood = true;
             for (unsigned x = 0; x < 128; ++x) {
                 for (unsigned y = 0; y < 128; ++y) {
-                    if (canUseASCIIUCADUCETComparison(static_cast<LChar>(x)) && canUseASCIIUCADUCETComparison(static_cast<LChar>(y))) {
+                    if (canUseASCIIUCADUCETComparison(static_cast<Latin1Character>(x)) && canUseASCIIUCADUCETComparison(static_cast<Latin1Character>(y))) {
                         UErrorCode status = U_ZERO_ERROR;
                         char16_t xstring[] = { static_cast<char16_t>(x), 0 };
                         char16_t ystring[] = { static_cast<char16_t>(y), 0 };

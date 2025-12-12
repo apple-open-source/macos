@@ -49,8 +49,7 @@ struct Cookie {
 
 #ifdef __OBJC__
     WEBCORE_EXPORT Cookie(NSHTTPCookie *);
-    WEBCORE_EXPORT operator NSHTTPCookie *() const;
-    WEBCORE_EXPORT RetainPtr<NSHTTPCookie> toProtectedNSHTTPCookie() const;
+    WEBCORE_EXPORT RetainPtr<NSHTTPCookie> createNSHTTPCookie() const;
 #elif USE(SOUP)
     explicit Cookie(SoupCookie*);
     SoupCookie* toSoupCookie() const;
@@ -137,7 +136,13 @@ struct CookieHash {
     static const bool safeToCompareToEmptyOrDeleted = false;
 };
 
-}
+namespace CookieUtil {
+
+WEBCORE_EXPORT String defaultPathForURL(const URL&);
+
+} // namespace CookieUtil
+
+} // namespace WebCore
 
 namespace WTF {
     template<typename T> struct DefaultHash;

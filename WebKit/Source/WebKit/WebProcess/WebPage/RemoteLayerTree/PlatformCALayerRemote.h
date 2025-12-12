@@ -44,6 +44,7 @@ struct AcceleratedEffectValues;
 #if ENABLE(MODEL_PROCESS)
 class ModelContext;
 #endif
+enum class GraphicsLayerCustomAppearance : bool;
 }
 
 namespace WebKit {
@@ -213,8 +214,8 @@ public:
     WebCore::WindRule shapeWindRule() const override;
     void setShapeWindRule(WebCore::WindRule) override;
 
-    WebCore::GraphicsLayer::CustomAppearance customAppearance() const override;
-    void updateCustomAppearance(WebCore::GraphicsLayer::CustomAppearance) override;
+    WebCore::GraphicsLayerCustomAppearance customAppearance() const override;
+    void updateCustomAppearance(WebCore::GraphicsLayerCustomAppearance) override;
 
     void setEventRegion(const WebCore::EventRegion&) override;
 
@@ -268,7 +269,8 @@ public:
 
     void moveToContext(RemoteLayerTreeContext&);
     RemoteLayerTreeContext* context() const { return m_context.get(); }
-    
+    RefPtr<RemoteLayerTreeContext> protectedContext() const { return m_context.get(); }
+
     void markFrontBufferVolatileForTesting() override;
     virtual void populateCreationProperties(RemoteLayerTreeTransaction::LayerCreationProperties&, const RemoteLayerTreeContext&, WebCore::PlatformCALayer::LayerType);
 

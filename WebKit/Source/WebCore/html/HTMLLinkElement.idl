@@ -26,8 +26,8 @@
 ] interface HTMLLinkElement : HTMLElement {
     [Reflect] attribute boolean disabled;
     [CEReactions=NotNeeded, Reflect] attribute DOMString charset;
-    [CEReactions=NotNeeded, Reflect, URL] attribute USVString href;
-    [CEReactions=NotNeeded, Conditional=WEB_PAGE_SPATIAL_BACKDROP, EnabledBySetting=WebPageSpatialBackdropEnabled, Reflect, URL] attribute USVString environmentMap;
+    [CEReactions=NotNeeded, ReflectURL] attribute USVString href;
+    [CEReactions=NotNeeded, Conditional=WEB_PAGE_SPATIAL_BACKDROP, EnabledBySetting=WebPageSpatialBackdropEnabled, ReflectURL] attribute USVString environmentMap;
     [CEReactions=NotNeeded, Reflect] attribute DOMString hreflang;
     [CEReactions=NotNeeded, Reflect] attribute DOMString media;
     [CEReactions=NotNeeded, Reflect] attribute DOMString rel;

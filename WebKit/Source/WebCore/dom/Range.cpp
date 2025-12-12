@@ -55,7 +55,6 @@
 #include "WebCoreOpaqueRootInlines.h"
 #include "markup.h"
 #include <stdio.h>
-#include <wtf/RefCountedLeakCounter.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
@@ -64,8 +63,6 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-
-DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, rangeCounter, ("Range"));
 
 enum ContentsProcessDirection { ProcessContentsForward, ProcessContentsBackward };
 
@@ -80,10 +77,6 @@ inline Range::Range(Document& ownerDocument)
     , m_start(ownerDocument)
     , m_end(ownerDocument)
 {
-#ifndef NDEBUG
-    rangeCounter.increment();
-#endif
-
     protectedOwnerDocument()->attachRange(*this);
 }
 
@@ -96,10 +89,6 @@ Range::~Range()
 {
     ASSERT(!m_isAssociatedWithSelection);
     protectedOwnerDocument()->detachRange(*this);
-
-#ifndef NDEBUG
-    rangeCounter.decrement();
-#endif
 }
 
 Ref<Document> Range::protectedOwnerDocument()

@@ -47,7 +47,7 @@ class RemoteLegacyCDMProxy;
 class RemoteMediaPlayerProxy;
 
 class RemoteLegacyCDMSessionProxy : public IPC::MessageReceiver, public WebCore::LegacyCDMSessionClient, public RefCounted<RemoteLegacyCDMSessionProxy> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(RemoteLegacyCDMSessionProxy);
 public:
     static Ref<RemoteLegacyCDMSessionProxy> create(RemoteLegacyCDMFactoryProxy&, uint64_t logIdentifier, RemoteLegacyCDMSessionIdentifier, WebCore::LegacyCDM&);
     ~RemoteLegacyCDMSessionProxy();
@@ -61,8 +61,6 @@ public:
     WebCore::LegacyCDMSession* session() const { return m_session.get(); }
     RefPtr<WebCore::LegacyCDMSession> protectedSession() const;
 
-    void setPlayer(WeakPtr<RemoteMediaPlayerProxy>);
-
     RefPtr<ArrayBuffer> getCachedKeyForKeyId(const String&);
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 
@@ -74,7 +72,7 @@ private:
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
-    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
 
     // LegacyCDMSessionClient
     void sendMessage(Uint8Array*, String destinationURL) final;
@@ -106,7 +104,6 @@ private:
 
     RemoteLegacyCDMSessionIdentifier m_identifier;
     RefPtr<WebCore::LegacyCDMSession> m_session;
-    WeakPtr<RemoteMediaPlayerProxy> m_player;
     String m_mediaKeysHashSalt;
 };
 

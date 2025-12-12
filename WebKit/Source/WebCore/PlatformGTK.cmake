@@ -60,15 +60,8 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/gbm/GBMVersioning.h
     platform/graphics/gbm/PlatformDisplayGBM.h
 
-    platform/graphics/gtk/GdkCairoUtilities.h
-    platform/graphics/gtk/GdkSkiaUtilities.h
-
     platform/graphics/x11/XErrorTrapper.h
 
-    platform/gtk/GRefPtrGtk.h
-    platform/gtk/GUniquePtrGtk.h
-    platform/gtk/GtkUtilities.h
-    platform/gtk/GtkVersioning.h
     platform/gtk/ScrollbarThemeGtk.h
 
     platform/text/enchant/TextCheckerEnchant.h
@@ -76,26 +69,28 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
 list(APPEND WebCore_LIBRARIES
     ${ENCHANT_LIBRARIES}
-    ${GLIB_GIO_LIBRARIES}
-    ${GLIB_GMODULE_LIBRARIES}
-    ${GLIB_GOBJECT_LIBRARIES}
-    ${GLIB_LIBRARIES}
     ${LIBSECRET_LIBRARIES}
     ${LIBTASN1_LIBRARIES}
     ${HYPHEN_LIBRARIES}
     ${UPOWERGLIB_LIBRARIES}
     ${X11_X11_LIB}
-    GTK::GTK
+    Cairo::Cairo
+    GLib::GLib
 )
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${ENCHANT_INCLUDE_DIRS}
-    ${GIO_UNIX_INCLUDE_DIRS}
-    ${GLIB_INCLUDE_DIRS}
     ${LIBSECRET_INCLUDE_DIRS}
     ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
+
+if (USE_CAIRO)
+    # GTK is only used by WebCore when building with cairo enabled.
+    list(APPEND WebCore_LIBRARIES
+        GTK::GTK
+    )
+endif ()
 
 if (ENABLE_WAYLAND_TARGET)
     list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
@@ -143,7 +138,7 @@ include_directories(SYSTEM
     ${WebCore_SYSTEM_INCLUDE_DIRECTORIES}
 )
 
-list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE GTK::GTK)
+list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE GLib::GLib)
 
 if (ENABLE_SMOOTH_SCROLLING)
     list(APPEND WebCore_SOURCES

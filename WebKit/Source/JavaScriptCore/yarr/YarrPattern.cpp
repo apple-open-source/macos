@@ -2595,7 +2595,7 @@ void indentForNestingLevel(PrintStream& out, unsigned nestingDepth)
         out.print("  ");
 }
 
-void dumpUChar32(PrintStream& out, char32_t c)
+void dumpChar32(PrintStream& out, char32_t c)
 {
     if (c >= ' ' && c <= 0xff)
         out.printf("'%c'", static_cast<char>(c));
@@ -2661,7 +2661,7 @@ void dumpCharacterClass(PrintStream& out, YarrPattern* pattern, CharacterClass* 
             for (size_t i = 0; i < matchesSize; ++i) {
                 if (i)
                     out.print(",");
-                dumpUChar32(out, matches[i]);
+                dumpChar32(out, matches[i]);
             }
             out.print(")");
         }
@@ -2680,9 +2680,9 @@ void dumpCharacterClass(PrintStream& out, YarrPattern* pattern, CharacterClass* 
                     out.print(",");
                 CharacterRange range = ranges[i];
                 out.print("(");
-                dumpUChar32(out, range.begin);
+                dumpChar32(out, range.begin);
                 out.print("..");
-                dumpUChar32(out, range.end);
+                dumpChar32(out, range.end);
                 out.print(")");
             }
             out.print(")");
@@ -2772,11 +2772,11 @@ void PatternTerm::dump(PrintStream& out, YarrPattern* thisPattern, unsigned nest
         out.printf("character ");
         out.printf("inputPosition %u ", inputPosition);
         if (thisPattern->ignoreCase() && isASCIIAlpha(patternCharacter)) {
-            dumpUChar32(out, toASCIIUpper(patternCharacter));
+            dumpChar32(out, toASCIIUpper(patternCharacter));
             out.print("/");
-            dumpUChar32(out, toASCIILower(patternCharacter));
+            dumpChar32(out, toASCIILower(patternCharacter));
         } else
-            dumpUChar32(out, patternCharacter);
+            dumpChar32(out, patternCharacter);
         dumpQuantifier(out);
         if (quantityType != QuantifierType::FixedCount)
             out.print(",frame location ", frameLocation);

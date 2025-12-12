@@ -51,6 +51,9 @@ public:
 
     virtual ~WorkerModuleScriptLoader();
 
+    void ref() const final { ModuleScriptLoader::ref(); }
+    void deref() const final { ModuleScriptLoader::deref(); }
+
     void load(ScriptExecutionContext&, URL&& sourceURL);
 
     WorkerScriptLoader& scriptLoader() { return m_scriptLoader.get(); }

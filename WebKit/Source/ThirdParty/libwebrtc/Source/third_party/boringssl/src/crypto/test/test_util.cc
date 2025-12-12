@@ -16,6 +16,7 @@
 
 #include <ostream>
 
+#include <openssl/bn.h>
 #include <openssl/err.h>
 
 #include "../internal.h"
@@ -41,7 +42,7 @@ std::ostream &operator<<(std::ostream &os, const Bytes &in) {
   return os;
 }
 
-bool DecodeHex(std::vector<uint8_t> *out, const std::string &in) {
+bool DecodeHex(std::vector<uint8_t> *out, std::string_view in) {
   out->clear();
   if (in.size() % 2 != 0) {
     return false;
@@ -70,7 +71,7 @@ std::string EncodeHex(bssl::Span<const uint8_t> in) {
 }
 
 testing::AssertionResult ErrorEquals(uint32_t err, int lib, int reason) {
-  if (ERR_GET_LIB(err) == lib && ERR_GET_REASON(err) == reason) {
+  if (ERR_equals(err, lib, reason)) {
     return testing::AssertionSuccess();
   }
 
@@ -81,4 +82,18 @@ testing::AssertionResult ErrorEquals(uint32_t err, int lib, int reason) {
          << ERR_error_string_n(ERR_PACK(lib, reason), expected,
                                sizeof(expected))
          << "\"";
+}
+
+bssl::UniquePtr<BIGNUM> HexToBIGNUM(const char *hex) {
+  BIGNUM *bn = nullptr;
+  BN_hex2bn(&bn, hex);
+  return bssl::UniquePtr<BIGNUM>(bn);
+}
+
+std::string BIGNUMToHex(const BIGNUM *bn) {
+  bssl::UniquePtr<char> hex(BN_bn2hex(bn));
+  if (hex == nullptr) {
+    return "error";
+  }
+  return hex.get();
 }

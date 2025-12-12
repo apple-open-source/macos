@@ -38,6 +38,7 @@
 
 namespace WebCore {
 
+class CSSFilterRenderer;
 class CachedSVGDocument;
 class Element;
 class FilterOperations;
@@ -52,17 +53,16 @@ public:
     const LayoutRect& dirtySourceRect() const { return m_dirtySourceRect; }
     void expandDirtySourceRect(const LayoutRect& rect) { m_dirtySourceRect.unite(rect); }
 
-    CSSFilter* filter() const { return m_filter.get(); }
+    CSSFilterRenderer* filter() const { return m_filter.get(); }
     void clearFilter() { m_filter = nullptr; }
     
     bool hasFilterThatMovesPixels() const;
     bool hasFilterThatShouldBeRestrictedBySecurityOrigin() const;
     bool hasSourceImage() const;
 
-    void updateReferenceFilterClients(const FilterOperations&);
+    void updateReferenceFilterClients(const Style::Filter&);
     void removeReferenceFilterClients();
 
-    void setPreferredFilterRenderingModes(OptionSet<FilterRenderingMode> preferredFilterRenderingModes) { m_preferredFilterRenderingModes = preferredFilterRenderingModes; }
     void setFilterScale(const FloatSize& filterScale) { m_filterScale = filterScale; }
 
     static bool isIdentity(RenderElement&);
@@ -90,7 +90,7 @@ private:
     FloatSize m_filterScale { 1, 1 };
     FloatRect m_filterRegion;
 
-    RefPtr<CSSFilter> m_filter;
+    RefPtr<CSSFilterRenderer> m_filter;
     std::unique_ptr<GraphicsContextSwitcher> m_targetSwitcher;
 };
 

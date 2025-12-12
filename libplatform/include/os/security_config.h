@@ -47,12 +47,16 @@ __BEGIN_DECLS
  *
  * @constant OS_SECURITY_CONFIG_TPRO
  * Indicates that Trusted Path Read-Only (TPRO) is enabled for the process/task.
+ *
+ * @constant OS_SECURITY_CONFIG_GUARD_OBJECTS
+ * Indicates that the Guard Objects configuration is enabled for the process/task.
  */
-__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0))
+__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0), bridgeos(10.0))
 OS_OPTIONS(os_security_config, uint64_t,
   OS_SECURITY_CONFIG_NONE = 0x0,
   OS_SECURITY_CONFIG_HARDENED_HEAP OS_SWIFT_NAME(hardenedHeap) = 0x1,
   OS_SECURITY_CONFIG_TPRO OS_SWIFT_NAME(trustedPathReadOnly) = 0x2,
+  OS_SECURITY_CONFIG_GUARD_OBJECTS OS_SWIFT_NAME(guardObjects) = 0x100,
 );
 
 /*!
@@ -68,7 +72,7 @@ OS_OPTIONS(os_security_config, uint64_t,
  * An os_security_config_t value representing the active security flags.
  * This function is not expected to fail for the current process.
  */
-__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0))
+__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0), bridgeos(10.0))
 OS_EXPORT OS_NOTHROW
 os_security_config_t
 os_security_config_get(void);
@@ -93,7 +97,7 @@ os_security_config_get(void);
  * @result
  * Returns 0 on success, in which case `*config` is populated, or -1 on failure.
  */
-__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0))
+__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0), bridgeos(10.0))
 OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
 int
 os_security_config_get_for_proc(pid_t pid, os_security_config_t *config);
@@ -118,7 +122,7 @@ os_security_config_get_for_proc(pid_t pid, os_security_config_t *config);
  * @result
  * Returns 0 on success, in which case `*config` is populated, or -1 on failure.
  */
-__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0))
+__API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), watchos(26.0), visionos(26.0), driverkit(25.0), bridgeos(10.0))
 OS_EXPORT OS_NOTHROW OS_NONNULL_ALL
 int
 os_security_config_get_for_task(task_t task, os_security_config_t *config);

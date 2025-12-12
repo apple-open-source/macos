@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <WebCore/StyleScopeOrdinal.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/TextStream.h>

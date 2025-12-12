@@ -229,10 +229,13 @@ void GStreamerVideoCaptureSource::startProducingData()
 
     m_capturer->setFrameRate(frameRate());
     m_capturer->reconfigure();
-    m_capturer->setSinkVideoFrameCallback([this](auto&& videoFrame) {
-        if (!isProducingData() || muted())
+    m_capturer->setSinkVideoFrameCallback([weakThis = ThreadSafeWeakPtr(*this)](auto&& videoFrame) {
+        auto self = weakThis.get();
+        if (!self)
             return;
-        dispatchVideoFrameToObservers(WTFMove(videoFrame), { });
+        if (!self->isProducingData() || self->muted())
+            return;
+        self->dispatchVideoFrameToObservers(videoFrame, { });
     });
 
     m_capturer->start();

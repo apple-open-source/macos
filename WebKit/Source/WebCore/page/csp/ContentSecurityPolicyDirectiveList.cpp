@@ -28,10 +28,9 @@
 #include "ContentSecurityPolicyDirectiveList.h"
 
 #include "ContentSecurityPolicyDirectiveNames.h"
-#include "Document.h"
-#include "DocumentInlines.h"
+#include "DocumentSecurityOrigin.h"
 #include "HTTPParsers.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "SecurityContext.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -471,7 +470,7 @@ void ContentSecurityPolicyDirectiveList::parse(const String& policy, ContentSecu
     // A meta tag delievered CSP could contain invalid HTTP header values depending on how it was formatted in the document.
     // We want to store the CSP as a valid HTTP header for e.g. blob URL inheritance.
     if (policyFrom == ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta) {
-        m_header = policy.trim(isASCIIWhitespaceWithoutFF<UChar>).removeCharacters([](auto c) {
+        m_header = policy.trim(isASCIIWhitespaceWithoutFF<char16_t>).removeCharacters([](auto c) {
             return c == 0x00 || c == '\r' || c == '\n';
         });
     } else
@@ -622,11 +621,12 @@ void ContentSecurityPolicyDirectiveList::parseRequireTrustedTypesFor(ParsedDirec
             }
 
             auto begin = buffer.position();
-            if (skipExactlyIgnoringASCIICase(buffer, "'script'"_s))
+            if (skipExactlyIgnoringASCIICase(buffer, "'script'"_s) && (buffer.atEnd() || isUnicodeCompatibleASCIIWhitespace(*buffer)))
                 m_requireTrustedTypesForScript = true;
             else {
+                skipWhile<isNotASCIISpace>(buffer);
                 m_policy->reportInvalidTrustedTypesSinkGroup(std::span { begin, buffer.position() });
-                return;
+                continue;
             }
 
             ASSERT(buffer.atEnd() || isUnicodeCompatibleASCIIWhitespace(*buffer));

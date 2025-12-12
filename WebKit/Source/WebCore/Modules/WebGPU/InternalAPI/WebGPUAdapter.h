@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "WebGPUDeviceDescriptor.h"
-#include "WebGPUSupportedFeatures.h"
-#include "WebGPUSupportedLimits.h"
+#include <WebCore/WebGPUDeviceDescriptor.h>
+#include <WebCore/WebGPUSupportedFeatures.h>
+#include <WebCore/WebGPUSupportedLimits.h>
 #include <optional>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>

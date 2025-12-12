@@ -26,9 +26,9 @@
 #ifndef DeviceOrientationClientMock_h
 #define DeviceOrientationClientMock_h
 
-#include "DeviceOrientationClient.h"
-#include "DeviceOrientationData.h"
-#include "Timer.h"
+#include <WebCore/DeviceOrientationClient.h>
+#include <WebCore/DeviceOrientationData.h>
+#include <WebCore/Timer.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>
@@ -42,12 +42,13 @@ class DeviceOrientationController;
 // client when running DumpRenderTree.
 class DeviceOrientationClientMock final : public DeviceOrientationClient {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(DeviceOrientationClientMock, WEBCORE_EXPORT);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DeviceOrientationClientMock);
 public:
     WEBCORE_EXPORT DeviceOrientationClientMock();
 
     // DeviceOrientationClient
     WEBCORE_EXPORT void setController(DeviceOrientationController*) override;
-    WEBCORE_EXPORT void startUpdating(const SecurityOriginData&) override;
+    WEBCORE_EXPORT void startUpdating() override;
     WEBCORE_EXPORT void stopUpdating() override;
     DeviceOrientationData* lastOrientation() const override { return m_orientation.get(); }
     void deviceOrientationControllerDestroyed() override { }

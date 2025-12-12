@@ -108,7 +108,7 @@ RemoteGraphicsContextGLProxy::~RemoteGraphicsContextGLProxy()
     disconnectGpuProcessIfNeeded();
 }
 
-void RemoteGraphicsContextGLProxy::initializeIPC(Ref<IPC::StreamClientConnection>&& streamConnection, RenderingBackendIdentifier renderingBackend, IPC::StreamServerConnection::Handle&& serverHandle, SerialFunctionDispatcher& dispatcher)
+void RemoteGraphicsContextGLProxy::initializeIPC(Ref<IPC::StreamClientConnection>&& streamConnection, RemoteRenderingBackendIdentifier renderingBackend, IPC::StreamServerConnection::Handle&& serverHandle, SerialFunctionDispatcher& dispatcher)
 {
     m_streamConnection = streamConnection.ptr();
     streamConnection->open(*this, dispatcher);
@@ -123,13 +123,13 @@ void RemoteGraphicsContextGLProxy::initializeIPC(Ref<IPC::StreamClientConnection
 
 }
 
-bool RemoteGraphicsContextGLProxy::supportsExtension(const String& name)
+bool RemoteGraphicsContextGLProxy::supportsExtension(const CString& name)
 {
     waitUntilInitialized();
     return m_availableExtensions.contains(name) || m_requestableExtensions.contains(name);
 }
 
-void RemoteGraphicsContextGLProxy::ensureExtensionEnabled(const String& name)
+void RemoteGraphicsContextGLProxy::ensureExtensionEnabled(const CString& name)
 {
     waitUntilInitialized();
     if (m_requestableExtensions.contains(name) && !m_enabledExtensions.contains(name)) {
@@ -142,7 +142,7 @@ void RemoteGraphicsContextGLProxy::ensureExtensionEnabled(const String& name)
     }
 }
 
-bool RemoteGraphicsContextGLProxy::isExtensionEnabled(const String& name)
+bool RemoteGraphicsContextGLProxy::isExtensionEnabled(const CString& name)
 {
     waitUntilInitialized();
     return m_availableExtensions.contains(name) || m_enabledExtensions.contains(name);
@@ -150,10 +150,10 @@ bool RemoteGraphicsContextGLProxy::isExtensionEnabled(const String& name)
 
 void RemoteGraphicsContextGLProxy::initialize(const RemoteGraphicsContextGLInitializationState& initializationState)
 {
-    for (auto extension : StringView(initializationState.availableExtensions).split(' '))
-        m_availableExtensions.add(extension.toString());
-    for (auto extension : StringView(initializationState.requestableExtensions).split(' '))
-        m_requestableExtensions.add(extension.toString());
+    for (auto extension : StringView(initializationState.availableExtensions.span()).split(' '))
+        m_availableExtensions.add(extension.utf8());
+    for (auto extension : StringView(initializationState.requestableExtensions.span()).split(' '))
+        m_requestableExtensions.add(extension.utf8());
     m_externalImageTarget = initializationState.externalImageTarget;
     m_externalImageBindingQuery = initializationState.externalImageBindingQuery;
 }
@@ -539,7 +539,7 @@ void RemoteGraphicsContextGLProxy::wasLost()
     markContextLost();
 }
 
-void RemoteGraphicsContextGLProxy::addDebugMessage(GCGLenum type, GCGLenum id, GCGLenum severity, String&& message)
+void RemoteGraphicsContextGLProxy::addDebugMessage(GCGLenum type, GCGLenum id, GCGLenum severity, CString&& message)
 {
     if (isContextLost())
         return;

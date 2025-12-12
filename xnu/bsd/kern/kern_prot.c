@@ -118,6 +118,9 @@ extern void task_importance_update_owner_info(task_t);
 /* Used by pmap.c to copy kauth_cred_t structs */
 void kauth_cred_copy(const uintptr_t kv, const uintptr_t new_data);
 
+/* mutex for synchronizing set{,re}uid */
+LCK_MTX_DECLARE_ATTR(setuid_lock, &proc_mlock_grp, &proc_lck_attr);
+
 /*
  * setprivexec
  *
@@ -708,6 +711,7 @@ setuid(proc_t p, struct setuid_args *uap, __unused int32_t *retval)
 	want_uid = uap->uid;
 	AUDIT_ARG(uid, want_uid);
 
+	lck_mtx_lock(&setuid_lock);
 	changed = kauth_cred_proc_update(p, PROC_SETTOKEN_SETUGID,
 	    ^bool (kauth_cred_t parent, kauth_cred_t model) {
 		posix_cred_t cur_pcred = posix_cred_get(parent);
@@ -761,6 +765,7 @@ setuid(proc_t p, struct setuid_args *uap, __unused int32_t *retval)
 		(void)chgproccnt(old_ruid, -1);
 	}
 
+	lck_mtx_unlock(&setuid_lock);
 	return error;
 }
 
@@ -815,7 +820,6 @@ seteuid(proc_t p, struct seteuid_args *uap, __unused int32_t *retval)
 	return error;
 }
 
-
 /*
  * setreuid
  *
@@ -869,6 +873,7 @@ setreuid(proc_t p, struct setreuid_args *uap, __unused int32_t *retval)
 	AUDIT_ARG(euid, want_euid);
 	AUDIT_ARG(ruid, want_ruid);
 
+	lck_mtx_lock(&setuid_lock);
 	changed = kauth_cred_proc_update(p, PROC_SETTOKEN_SETUGID,
 	    ^bool (kauth_cred_t parent, kauth_cred_t model) {
 		posix_cred_t cur_pcred = posix_cred_get(parent);
@@ -920,7 +925,7 @@ setreuid(proc_t p, struct setreuid_args *uap, __unused int32_t *retval)
 		(void)chgproccnt(want_ruid, 1);
 		(void)chgproccnt(old_ruid, -1);
 	}
-
+	lck_mtx_unlock(&setuid_lock);
 	return error;
 }
 

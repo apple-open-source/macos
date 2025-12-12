@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "FileSystemHandleIdentifier.h"
-#include "IDLTypes.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/FileSystemHandleIdentifier.h>
+#include <WebCore/IDLTypes.h>
 #include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 

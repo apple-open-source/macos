@@ -51,7 +51,7 @@ public:
         return adoptRef(*new UndoItem(WTFMove(init)));
     }
 
-    bool isValid() const;
+    bool isValid() const { return !!m_undoManager; }
     void invalidate();
 
     Document* document() const;

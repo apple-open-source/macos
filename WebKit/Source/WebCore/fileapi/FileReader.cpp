@@ -37,6 +37,7 @@
 #include "EventNames.h"
 #include "Exception.h"
 #include "ExceptionCode.h"
+#include "ExceptionOr.h"
 #include "File.h"
 #include "Logging.h"
 #include "ProgressEvent.h"
@@ -83,6 +84,11 @@ void FileReader::stop()
 bool FileReader::virtualHasPendingActivity() const
 {
     return m_state == LOADING;
+}
+
+ScriptExecutionContext* FileReader::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 ExceptionOr<void> FileReader::readAsArrayBuffer(Blob& blob)

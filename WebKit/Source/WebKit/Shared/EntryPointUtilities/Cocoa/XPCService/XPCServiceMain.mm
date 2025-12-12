@@ -25,6 +25,7 @@
 
 #import "config.h"
 
+#import "LaunchLogHook.h"
 #import "Logging.h"
 #import "WKCrashReporter.h"
 #import "WebKitServiceNames.h"
@@ -44,6 +45,7 @@
 #import <wtf/StdLibExtras.h>
 #import <wtf/WTFProcess.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/darwin/XPCExtras.h>
 #import <wtf/spi/cocoa/OSLogSPI.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
@@ -84,11 +86,12 @@ static void initializeCFPrefs()
 #endif // ENABLE(CFPREFS_DIRECT_MODE)
 }
 
-static void initializeLogd(bool disableLogging)
+static void initializeLogd(bool disableLogging, xpc_connection_t connection)
 {
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
     if (disableLogging) {
         os_trace_set_mode(OS_TRACE_MODE_OFF);
+        LaunchLogHook::singleton().initialize(connection);
         return;
     }
 #else
@@ -142,7 +145,7 @@ void XPCServiceEventHandler(xpc_connection_t peer)
 {
     OSObjectPtr<xpc_connection_t> retainedPeerConnection(peer);
 
-    xpc_connection_set_target_queue(peer, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+    xpc_connection_set_target_queue(peer, globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
     xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
         if (type != XPC_TYPE_DICTIONARY) {
@@ -176,7 +179,7 @@ void XPCServiceEventHandler(xpc_connection_t peer)
             WTF::initialize();
 
             bool disableLogging = xpc_dictionary_get_bool(event, "disable-logging");
-            initializeLogd(disableLogging);
+            initializeLogd(disableLogging, retainedPeerConnection.get());
 
             if (RetainPtr languages = xpc_dictionary_get_value(event, "OverrideLanguages")) {
                 Vector<String> newLanguages;
@@ -196,13 +199,13 @@ void XPCServiceEventHandler(xpc_connection_t peer)
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-            auto containerEnvironmentVariables = xpc_dictionary_get_value(event, "ContainerEnvironmentVariables");
-            xpc_dictionary_apply(containerEnvironmentVariables, ^(const char *key, xpc_object_t value) {
-                setenv(key, xpc_string_get_string_ptr(value), 1);  // NOLINT
-                return true;
-            });
+            if (auto containerEnvironmentVariables = xpc_dictionary_get_value(event, "ContainerEnvironmentVariables")) {
+                xpc_dictionary_apply(containerEnvironmentVariables, ^(const char *key, xpc_object_t value) {
+                    setenv(key, xpc_string_get_string_ptr(value), 1);  // NOLINT
+                    return true;
+                });
+            }
 #endif
-
             String serviceName = xpcDictionaryGetString(event, "service-name"_s);
             if (!serviceName) {
                 RELEASE_LOG_ERROR(IPC, "XPCServiceEventHandler: 'service-name' is not present in the XPC dictionary");
@@ -212,7 +215,9 @@ void XPCServiceEventHandler(xpc_connection_t peer)
             CFStringRef entryPointFunctionName = nullptr;
             if (serviceName.startsWith(webContentServiceName)) {
                 s_isWebProcess = true;
+#if !USE(EXTENSIONKIT)
                 setUserDirSuffix(webContentServiceName);
+#endif
                 entryPointFunctionName = CFSTR(STRINGIZE_VALUE_OF(WEBCONTENT_SERVICE_INITIALIZER));
             } else if (serviceName == networkingServiceName) {
                 setUserDirSuffix(networkingServiceName);

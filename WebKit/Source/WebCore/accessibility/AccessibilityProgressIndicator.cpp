@@ -21,8 +21,10 @@
 #include "config.h"
 #include "AccessibilityProgressIndicator.h"
 
-#include "AXObjectCache.h"
+#include "AXObjectCacheInlines.h"
+#include "AccessibilityObjectInlines.h"
 #include "FloatConversion.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLMeterElement.h"
 #include "HTMLNames.h"
 #include "HTMLProgressElement.h"
@@ -32,7 +34,7 @@
 #include "RenderProgress.h"
 
 namespace WebCore {
-    
+
 using namespace HTMLNames;
 
 AccessibilityProgressIndicator::AccessibilityProgressIndicator(AXID axID, RenderObject& renderer, AXObjectCache& cache)
@@ -41,16 +43,27 @@ AccessibilityProgressIndicator::AccessibilityProgressIndicator(AXID axID, Render
     ASSERT(is<RenderProgress>(renderer) || is<RenderMeter>(renderer) || is<HTMLProgressElement>(renderer.node()) || is<HTMLMeterElement>(renderer.node()));
 }
 
+AccessibilityProgressIndicator::AccessibilityProgressIndicator(AXID axID, Element& element, AXObjectCache& cache)
+    : AccessibilityRenderObject(axID, element, cache)
+{
+    ASSERT(is<HTMLProgressElement>(element) || is<HTMLMeterElement>(element));
+}
+
 Ref<AccessibilityProgressIndicator> AccessibilityProgressIndicator::create(AXID axID, RenderObject& renderer, AXObjectCache& cache)
 {
     return adoptRef(*new AccessibilityProgressIndicator(axID, renderer, cache));
+}
+
+Ref<AccessibilityProgressIndicator> AccessibilityProgressIndicator::create(AXID axID, Element& element, AXObjectCache& cache)
+{
+    return adoptRef(*new AccessibilityProgressIndicator(axID, element, cache));
 }
 
 bool AccessibilityProgressIndicator::computeIsIgnored() const
 {
     return isIgnoredByDefault();
 }
-    
+
 String AccessibilityProgressIndicator::valueDescription() const
 {
     // If the author has explicitly provided a value through aria-valuetext, use it.
@@ -145,7 +158,7 @@ String AccessibilityProgressIndicator::gaugeRegionValueDescription() const
     // Only expose this when the author has explicitly specified the following attributes.
     if (!hasAttribute(lowAttr) && !hasAttribute(highAttr) && !hasAttribute(optimumAttr))
         return String();
-    
+
     switch (meterElement->gaugeRegion()) {
     case HTMLMeterElement::GaugeRegionOptimum:
         return AXMeterGaugeRegionOptimumText();
@@ -159,4 +172,3 @@ String AccessibilityProgressIndicator::gaugeRegionValueDescription() const
 }
 
 } // namespace WebCore
-

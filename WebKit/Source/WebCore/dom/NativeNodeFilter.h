@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "NodeFilter.h"
-#include "NodeFilterCondition.h"
+#include <WebCore/NodeFilter.h>
+#include <WebCore/NodeFilterCondition.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {

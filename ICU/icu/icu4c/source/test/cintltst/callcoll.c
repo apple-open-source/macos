@@ -96,6 +96,8 @@ static void TestJ5298(void);
 
 static void TestBadKey(void);
 
+static void TestVietnameseSearch(void); // rdar://157197322
+
 const UCollationResult results[] = {
     UCOL_LESS,
     UCOL_LESS, /*UCOL_GREATER,*/
@@ -213,6 +215,7 @@ void addAllCollTest(TestNode** root)
     addTest(root, &TestJitterbug1098, "tscoll/callcoll/TestJitterbug1098");
     addTest(root, &TestFCDCrash, "tscoll/callcoll/TestFCDCrash");
     addTest(root, &TestJ5298, "tscoll/callcoll/TestJ5298");
+    addTest(root, &TestVietnameseSearch, "tscoll/callcoll/TestVietnameseSearch"); // rdar://157197322
     addTest(root, &TestBadKey, "tscoll/callcoll/TestBadKey");
 }
 
@@ -1346,6 +1349,56 @@ static void TestJ5298(void)
     }
     uenum_close(values);
     log_verbose("\n");
+}
+
+// rdar://157197322
+// Test Vietnamese search collation similar to mdtokenizer -k -l vi@collation=search
+static void TestVietnameseSearch(void)
+{
+    UErrorCode status = U_ZERO_ERROR;
+    UCollator* coll;
+    uint8_t key1[256], key2[256];
+    int32_t key1Len, key2Len;
+    UCollationResult result;
+
+    // Vietnamese words: "Lợn" (pig) and "Lồn" (vulgar term)
+    // These have different tone marks and should be distinguished in search collation
+    const UChar lon_with_o_circumflex_dot[] = {0x004c, 0x1ee3, 0x006e, 0x0000}; /* Lợn */
+    const UChar lon_with_o_circumflex_grave[] = {0x004c, 0x1ed3, 0x006e, 0x0000}; /* Lồn */
+
+    // Create Vietnamese collator with search collation rules
+    coll = ucol_open("vi@collation=search", &status);
+    if (U_FAILURE(status)) {
+        log_data_err("Failed to create Vietnamese search collator: %s\n", u_errorName(status));
+        return;
+    }
+    ucol_setAttribute(coll, UCOL_STRENGTH, UCOL_PRIMARY, &status);
+
+    // Test collation comparison - these should be different
+    result = ucol_strcoll(coll, lon_with_o_circumflex_dot, -1, lon_with_o_circumflex_grave, -1);
+    if (result == UCOL_EQUAL) {
+        log_err("ERROR: Vietnamese words with different tone marks should not be equal in search collation\n");
+    } else {
+        log_verbose("SUCCESS: Vietnamese tone marks distinguished: Lợn %s Lồn\n",
+                   result == UCOL_LESS ? "<" : ">");
+    }
+
+    // Test collation key generation (simulates mdtokenizer -k behavior)
+    key1Len = ucol_getSortKey(coll, lon_with_o_circumflex_dot, -1, key1, sizeof(key1));
+    key2Len = ucol_getSortKey(coll, lon_with_o_circumflex_grave, -1, key2, sizeof(key2));
+
+    if (key1Len > 0 && key2Len > 0) {
+        // Keys should be different
+        if (key1Len == key2Len && memcmp(key1, key2, key1Len) == 0) {
+            log_err("ERROR: Collation keys should be different for Vietnamese words with different tone marks\n");
+        } else {
+            log_verbose("SUCCESS: Generated different collation keys for Vietnamese tone mark variants\n");
+        }
+    } else {
+        log_err("ERROR: Failed to generate collation keys\n");
+    }
+
+    ucol_close(coll);
 }
 
 static const char* badKeyLocales[] = {

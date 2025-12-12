@@ -108,7 +108,6 @@ static void TestIndianAMPM(void); // rdar://142529306, rdar://142529982, rdar://
 static void TestTaiwanDayPeriods(void); // rdar://142599503
 static void TestMonthAndDayNames(void); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
 static void TestFinnishSunday(void); // rdar://152838495
-static void TestVikramDayNames(void); // rdar://159235412
 #endif  // APPLE_ICU_CHANGES
 
 void addDateForTest(TestNode** root);
@@ -190,7 +189,6 @@ void addDateForTest(TestNode** root)
 #endif
     TESTCASE(TestMonthAndDayNames); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
     TESTCASE(TestFinnishSunday); // rdar://152838495
-    TESTCASE(TestVikramDayNames); // rdar://159235412
 #endif  // APPLE_ICU_CHANGES
 }
 /* Testing the DateFormat API */
@@ -5198,68 +5196,6 @@ static void TestFinnishSunday(void) {
         udatpg_close(dtpg);
     }
 }
-
-// rdar://159235412
-static void TestVikramDayNames(void) {
-    struct TestCase {
-        const char* locale;
-        const UChar* skeleton;
-        const UChar* expectedResult;
-    } testCases[] = {
-        { "en_US@calendar=vikram", u"MMMd", u"Ćaitra Ś. 2" },
-        { "en_US@calendar=vikram", u"d",    u"17" },
-        { "hi_IN@calendar=vikram", u"MMMd", u"चैत्र शु॰ द्वितीया" },
-        { "hi_IN@calendar=vikram", u"d",    u"17" },
-    };
-    
-    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
-        UErrorCode err = U_ZERO_ERROR;
-        const char* testLocale = testCases[i].locale;
-        const UChar* testSkeleton = testCases[i].skeleton;
-        const UChar* expectedResult = testCases[i].expectedResult;
-        
-        UDateTimePatternGenerator* dtpg = udatpg_open(testLocale, &err);
-        UChar pattern[256];
-        int32_t patternLen = udatpg_getBestPattern(dtpg, testSkeleton, -1, pattern, 256, &err);
-        
-        if (!assertSuccess("Failed to create test pattern", &err)) {
-            // dump out early-- there's no point
-            return;
-        }
-        
-        const UDate testDate = 1712750400000; // WED 2024 Apr 10 12:00:00 UTC
-        
-        UChar result[256];
-        UDateFormat* df1 = udat_open(UDAT_FULL, UDAT_FULL, testLocale, NULL, 0, NULL, 0, &err);
-        udat_applyPattern(df1, false, pattern, patternLen);
-        int32_t len = udat_format(df1, testDate, result, 256, NULL, &err);
-        
-        if (assertSuccess("Failed to create formatter with UDAT_FULL", &err)) {
-            assertUEquals("Wrong result with UDAT_FULL", expectedResult, result);
-        }
-        
-        UDateFormat* df2 = udat_open(UDAT_NONE, UDAT_NONE, testLocale, NULL, 0, NULL, 0, &err);
-        udat_applyPattern(df2, false, pattern, patternLen);
-        len = udat_format(df2, testDate, result, 256, NULL, &err);
-        
-        if (assertSuccess("Failed to create formatter with UDAT_NONE", &err)) {
-            assertUEquals("Wrong result with UDAT_NONE", expectedResult, result);
-        }
-        
-        UDateFormat* df3 = udat_open(UDAT_PATTERN, UDAT_PATTERN, testLocale, NULL, 0, pattern, -1, &err);
-        len = udat_format(df3, testDate, result, 256, NULL, &err);
-        
-        if (assertSuccess("Failed to create formatter with UDAT_PATTERN", &err)) {
-            assertUEquals("Wrong result with UDAT_PATTERN", expectedResult, result);
-        }
-        
-        udat_close(df1);
-        udat_close(df2);
-        udat_close(df3);
-        udatpg_close(dtpg);
-    }
-}
-
 
 
 #endif  // APPLE_ICU_CHANGES

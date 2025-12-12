@@ -168,7 +168,7 @@ GradientRendererCG::Strategy GradientRendererCG::makeGradient(ColorInterpolation
             if (destinationColorSpace)
                 return destinationColorSpace->platformColorSpace();
 
-            return cachedCGColorSpace<ColorSpaceFor<SRGBA<float>>>();
+            return cachedCGColorSpaceSingleton<ColorSpaceFor<SRGBA<float>>>();
         }
 
         using OutputSpaceColorType = std::conditional_t<HasCGColorSpaceMapping<ColorSpace::ExtendedSRGB>, ExtendedSRGBA<float>, SRGBA<float>>;
@@ -178,7 +178,7 @@ GradientRendererCG::Strategy GradientRendererCG::makeGradient(ColorInterpolation
 
             locations.append(stop.offset);
         }
-        return cachedCGColorSpace<ColorSpaceFor<OutputSpaceColorType>>();
+        return cachedCGColorSpaceSingleton<ColorSpaceFor<OutputSpaceColorType>>();
     }();
 
     // CoreGraphics has a bug where if the last two stops are at 1, it fails to extend the last stop's color. This can be visible in radial gradients.
@@ -357,7 +357,7 @@ GradientRendererCG::Strategy GradientRendererCG::makeShading(ColorInterpolationM
     auto function = makeFunction(colorInterpolationMethod, data);
 
     // FIXME: Investigate using bounded sRGB when the input stops are all bounded sRGB.
-    auto colorSpace = cachedCGColorSpace<ColorSpaceFor<OutputSpaceColorType>>();
+    auto colorSpace = cachedCGColorSpaceSingleton<ColorSpaceFor<OutputSpaceColorType>>();
 
     return Shading { WTFMove(data), WTFMove(function), colorSpace };
 }

@@ -78,7 +78,7 @@ void MediaResourceSniffer::cancel()
 
 MediaResourceSniffer::Promise& MediaResourceSniffer::promise() const
 {
-    return m_producer.promise().get();
+    return m_producer.promise().unsafeGet();
 }
 
 void MediaResourceSniffer::dataReceived(PlatformMediaResource&, const SharedBuffer& buffer)

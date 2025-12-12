@@ -29,7 +29,7 @@
 
 #include "MediaControlsHost.h"
 
-#include "AddEventListenerOptions.h"
+#include "AddEventListenerOptionsInlines.h"
 #include "AudioTrackList.h"
 #include "CaptionUserPreferences.h"
 #include "Chrome.h"
@@ -38,12 +38,14 @@
 #include "ContextMenuController.h"
 #include "ContextMenuItem.h"
 #include "ContextMenuProvider.h"
-#include "DocumentInlines.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
 #include "Event.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include "FloatRect.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLVideoElement.h"
@@ -56,11 +58,12 @@
 #include "Navigator.h"
 #include "NavigatorMediaSession.h"
 #include "Node.h"
+#include "NodeDocument.h"
 #include "Page.h"
 #include "PageGroup.h"
-#include "Quirks.h"
 #include "RenderTheme.h"
 #include "ShadowRoot.h"
+#include "Settings.h"
 #include "TextTrack.h"
 #include "TextTrackCueList.h"
 #include "TextTrackList.h"
@@ -352,6 +355,15 @@ bool MediaControlsHost::needsChromeMediaControlsPseudoElement() const
     return false;
 }
 
+bool MediaControlsHost::isMediaControlsMacInlineSizeSpecsEnabled() const
+{
+#if HAVE(MATERIAL_HOSTING)
+    if (RefPtr mediaElement = m_mediaElement.ptr())
+        return mediaElement->document().settings().mediaControlsMacInlineSizeSpecsEnabled();
+#endif
+    return false;
+}
+
 String MediaControlsHost::externalDeviceDisplayName() const
 {
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -429,11 +441,6 @@ Vector<String, 2> MediaControlsHost::shadowRootStyleSheets() const
 String MediaControlsHost::base64StringForIconNameAndType(const String& iconName, const String& iconType)
 {
     return RenderTheme::singleton().mediaControlsBase64StringForIconNameAndType(iconName, iconType);
-}
-
-String MediaControlsHost::formattedStringForDuration(double durationInSeconds)
-{
-    return RenderTheme::singleton().mediaControlsFormattedStringForDuration(durationInSeconds);
 }
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)

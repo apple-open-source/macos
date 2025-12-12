@@ -25,13 +25,12 @@
 
 #pragma once
 
-#include "BorderValue.h"
-#include "LengthSize.h"
-#include "NinePieceImage.h"
-#include "RectCorners.h"
-#include "RectEdges.h"
-#include "StyleBorderRadius.h"
-#include "StyleCornerShapeValue.h"
+#include <WebCore/BorderValue.h>
+#include <WebCore/RectCorners.h>
+#include <WebCore/RectEdges.h>
+#include <WebCore/StyleBorderImage.h>
+#include <WebCore/StyleBorderRadius.h>
+#include <WebCore/StyleCornerShapeValue.h>
 
 namespace WebCore {
 
@@ -54,43 +53,44 @@ public:
 
     bool hasBorderImage() const
     {
-        return m_image.hasImage();
+        return !m_image.source().isNone();
     }
 
     bool hasBorderRadius() const
     {
-        return m_radii.anyOf([](auto& corner) { return !Style::isEmpty(corner); });
+        return m_radii.anyOf([](auto& corner) { return !Style::isKnownEmpty(corner); });
     }
 
     template<BoxSide side>
-    float borderEdgeWidth() const
+    Style::LineWidth borderEdgeWidth() const
     {
         if (m_edges[side].style() == BorderStyle::None || m_edges[side].style() == BorderStyle::Hidden)
-            return 0;
-        if (m_image.overridesBorderWidths() && m_image.borderSlices()[side].isFixed())
-            return m_image.borderSlices()[side].value();
+            return 0_css_px;
+        if (m_image.overridesBorderWidths()) {
+            if (auto fixedBorderWidthValue = m_image.width().values[side].tryFixed())
+                return Style::LineWidth { *fixedBorderWidthValue };
+        }
         return m_edges[side].width();
     }
 
-    float borderLeftWidth() const { return borderEdgeWidth<BoxSide::Left>(); }
-    float borderRightWidth() const { return borderEdgeWidth<BoxSide::Right>(); }
-    float borderTopWidth() const { return borderEdgeWidth<BoxSide::Top>(); }
-    float borderBottomWidth() const { return borderEdgeWidth<BoxSide::Bottom>(); }
+    Style::LineWidth borderLeftWidth() const { return borderEdgeWidth<BoxSide::Left>(); }
+    Style::LineWidth borderRightWidth() const { return borderEdgeWidth<BoxSide::Right>(); }
+    Style::LineWidth borderTopWidth() const { return borderEdgeWidth<BoxSide::Top>(); }
+    Style::LineWidth borderBottomWidth() const { return borderEdgeWidth<BoxSide::Bottom>(); }
 
-    FloatBoxExtent borderWidth() const
+    Style::LineWidthBox borderWidth() const
     {
-        return FloatBoxExtent(borderTopWidth(), borderRightWidth(), borderBottomWidth(), borderLeftWidth());
+        return { borderTopWidth(), borderRightWidth(), borderBottomWidth(), borderLeftWidth() };
     }
 
     bool isEquivalentForPainting(const BorderData& other, bool currentColorDiffers) const;
-
 
     const BorderValue& left() const { return m_edges.left(); }
     const BorderValue& right() const { return m_edges.right(); }
     const BorderValue& top() const { return m_edges.top(); }
     const BorderValue& bottom() const { return m_edges.bottom(); }
 
-    const NinePieceImage& image() const { return m_image; }
+    const Style::BorderImage& image() const { return m_image; }
 
     const Style::BorderRadiusValue& topLeftRadius() const { return m_radii.topLeft(); }
     const Style::BorderRadiusValue& topRightRadius() const { return m_radii.topRight(); }
@@ -111,7 +111,7 @@ private:
     bool containsCurrentColor() const;
 
     RectEdges<BorderValue> m_edges;
-    NinePieceImage m_image;
+    Style::BorderImage m_image;
     Style::BorderRadius m_radii { Style::BorderRadiusValue { 0_css_px, 0_css_px } };
     Style::CornerShape m_cornerShapes { Style::CornerShapeValue::round() };
 };

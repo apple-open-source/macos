@@ -2505,7 +2505,7 @@ double correctSqrt(double value)
 {
 #if CPU(X86_64)
     double result;
-    asm ("sqrtsd %1, %0" : "=x"(result) : "x"(value));
+    __asm__("sqrtsd %1, %0" : "=x"(result) : "x"(value));
     return result;
 #else
     return sqrt(value);

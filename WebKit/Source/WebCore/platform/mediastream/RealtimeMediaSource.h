@@ -33,20 +33,22 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(MEDIA_STREAM)
 
-#include "CaptureDevice.h"
-#include "Image.h"
-#include "MediaAccessDenialReason.h"
-#include "MediaConstraints.h"
-#include "MediaDeviceHashSalts.h"
-#include "PhotoCapabilities.h"
-#include "PhotoSettings.h"
-#include "PlatformLayer.h"
-#include "RealtimeMediaSourceCapabilities.h"
-#include "RealtimeMediaSourceFactory.h"
-#include "RealtimeMediaSourceIdentifier.h"
-#include "VideoFrameTimeMetadata.h"
+#include <WebCore/CaptureDevice.h>
+#include <WebCore/Image.h>
+#include <WebCore/MediaAccessDenialReason.h>
+#include <WebCore/MediaConstraints.h>
+#include <WebCore/MediaDeviceHashSalts.h>
+#include <WebCore/PhotoCapabilities.h>
+#include <WebCore/PhotoSettings.h>
+#include <WebCore/PlatformLayer.h>
+#include <WebCore/RealtimeMediaSourceCapabilities.h>
+#include <WebCore/RealtimeMediaSourceFactory.h>
+#include <WebCore/RealtimeMediaSourceIdentifier.h>
+#include <WebCore/VideoFrameTimeMetadata.h>
+#include <wtf/AbstractCanMakeCheckedPtr.h>
 #include <wtf/AbstractThreadSafeRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
@@ -124,15 +126,9 @@ class WEBCORE_EXPORT RealtimeMediaSource : public AbstractThreadSafeRefCountedAn
 #endif
 {
 public:
-    class AudioSampleObserver {
+    class AudioSampleObserver : public AbstractCanMakeCheckedPtr {
     public:
         virtual ~AudioSampleObserver() = default;
-
-        // CheckedPtr interface
-        virtual uint32_t checkedPtrCount() const = 0;
-        virtual uint32_t checkedPtrCountWithoutThreadCheck() const = 0;
-        virtual void incrementCheckedPtrCount() const = 0;
-        virtual void decrementCheckedPtrCount() const = 0;
 
         // May be called on a background thread.
         virtual void audioSamplesAvailable(const WTF::MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t /*numberOfFrames*/) = 0;

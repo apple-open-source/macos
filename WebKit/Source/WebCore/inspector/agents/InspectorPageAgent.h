@@ -31,17 +31,22 @@
 
 #pragma once
 
-#include "CachedResource.h"
-#include "InspectorWebAgentBase.h"
-#include "LayoutRect.h"
 #include <JavaScriptCore/InspectorBackendDispatchers.h>
 #include <JavaScriptCore/InspectorFrontendDispatchers.h>
 #include <JavaScriptCore/InspectorProtocolObjects.h>
+#include <WebCore/CachedResource.h>
+#include <WebCore/InspectorWebAgentBase.h>
+#include <WebCore/LayoutRect.h>
+#include <wtf/Platform.h>
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
 #include <wtf/text/WTFString.h>
+
+namespace Inspector {
+enum class ResourceType;
+}
 
 namespace WebCore {
 
@@ -61,36 +66,6 @@ class InspectorPageAgent final : public InspectorAgentBase, public Inspector::Pa
 public:
     InspectorPageAgent(PageAgentContext&, InspectorBackendClient*, InspectorOverlay&);
     ~InspectorPageAgent();
-
-    enum ResourceType {
-        DocumentResource,
-        StyleSheetResource,
-        ImageResource,
-        FontResource,
-        ScriptResource,
-        XHRResource,
-        FetchResource,
-        PingResource,
-        BeaconResource,
-        WebSocketResource,
-#if ENABLE(APPLICATION_MANIFEST)
-        ApplicationManifestResource,
-#endif
-        EventSourceResource,
-        OtherResource,
-    };
-
-    static bool sharedBufferContent(RefPtr<FragmentedSharedBuffer>&&, const String& textEncodingName, bool withBase64Encode, String* result);
-    static Vector<CachedResource*> cachedResourcesForFrame(LocalFrame*);
-    static void resourceContent(Inspector::Protocol::ErrorString&, LocalFrame*, const URL&, String* result, bool* base64Encoded);
-    static String sourceMapURLForResource(CachedResource*);
-    static CachedResource* cachedResource(const LocalFrame*, const URL&);
-    static Inspector::Protocol::Page::ResourceType resourceTypeJSON(ResourceType);
-    static ResourceType inspectorResourceType(CachedResource::Type);
-    static ResourceType inspectorResourceType(const CachedResource&);
-    static Inspector::Protocol::Page::ResourceType cachedResourceTypeJSON(const CachedResource&);
-    static LocalFrame* findFrameWithSecurityOrigin(Page&, const String& originRawString);
-    static DocumentLoader* assertDocumentLoader(Inspector::Protocol::ErrorString&, LocalFrame*);
 
     // InspectorAgentBase
     void didCreateFrontendAndBackend();
@@ -132,10 +107,6 @@ public:
     void frameNavigated(LocalFrame&);
     void frameDetached(LocalFrame&);
     void loaderDetachedFromFrame(DocumentLoader&);
-    void frameStartedLoading(LocalFrame&);
-    void frameStoppedLoading(LocalFrame&);
-    void frameScheduledNavigation(Frame&, Seconds delay);
-    void frameClearedScheduledNavigation(Frame&);
     void accessibilitySettingsDidChange();
     void defaultUserPreferencesDidChange();
 #if ENABLE(DARK_MODE_CSS)
@@ -158,9 +129,6 @@ private:
     double timestamp();
 
     Ref<InspectorOverlay> protectedOverlay() const;
-
-    static bool mainResourceContent(LocalFrame*, bool withBase64Encode, String* result);
-    static bool dataContent(std::span<const uint8_t> data, const String& textEncodingName, bool withBase64Encode, String* result);
 
     void overridePrefersReducedMotion(std::optional<Inspector::Protocol::Page::UserPreferenceValue>&&);
     void overridePrefersContrast(std::optional<Inspector::Protocol::Page::UserPreferenceValue>&&);

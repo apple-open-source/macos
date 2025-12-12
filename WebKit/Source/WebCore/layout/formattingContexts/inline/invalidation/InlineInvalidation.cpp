@@ -64,8 +64,8 @@ bool InlineInvalidation::rootStyleWillChange(const ElementBox& formattingContext
         if (!oldStyle.fontCascadeEqual(newStyle))
             return true;
 
-        auto* newFirstLineStyle = newStyle.getCachedPseudoStyle({ PseudoId::FirstLine });
-        auto* oldFirstLineStyle = oldStyle.getCachedPseudoStyle({ PseudoId::FirstLine });
+        auto* newFirstLineStyle = newStyle.getCachedPseudoStyle({ PseudoElementType::FirstLine });
+        auto* oldFirstLineStyle = oldStyle.getCachedPseudoStyle({ PseudoElementType::FirstLine });
         if (newFirstLineStyle && oldFirstLineStyle && !oldFirstLineStyle->fontCascadeEqual(*newFirstLineStyle))
             return true;
 

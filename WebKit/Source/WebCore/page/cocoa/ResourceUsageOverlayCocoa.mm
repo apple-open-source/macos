@@ -30,6 +30,7 @@
 
 #import "ColorSpaceCG.h"
 #import "CommonVM.h"
+#import "GraphicsLayer.h"
 #import "JSDOMWindow.h"
 #import "PlatformCALayer.h"
 #import "ResourceUsageThread.h"
@@ -149,7 +150,7 @@ struct HistoricMemoryCategoryInfo {
 };
 
 struct HistoricResourceUsageData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(HistoricResourceUsageData);
     HistoricResourceUsageData();
 
     RingBuffer<float> cpu;

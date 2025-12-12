@@ -30,7 +30,7 @@
 #include "Document.h"
 #include "FrameLoader.h"
 #include "LocalDOMWindow.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameLoaderClient.h"
 #include <wtf/Ref.h>
 

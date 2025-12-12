@@ -513,7 +513,11 @@ void SimulatedInputDispatcher::finishDispatching(std::optional<AutomationCommand
     m_keyframes.clear();
     m_keyframeIndex = 0;
     m_inputSourceStateIndex = 0;
-
+#if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
+    // It is unclear if this is desirable; see
+    // https://github.com/w3c/webdriver/issues/1772 for ongoing discussion:
+    m_client.clearDoubleClicks();
+#endif
     finish(error);
 }
 

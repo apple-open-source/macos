@@ -25,11 +25,12 @@
 
 #pragma once
 
-#include "ActivityState.h"
-#include "FocusOptions.h"
-#include "LayoutRect.h"
-#include "LocalFrame.h"
-#include "Timer.h"
+#include <WebCore/ActivityState.h>
+#include <WebCore/FocusControllerTypes.h>
+#include <WebCore/FocusOptions.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/Timer.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
@@ -51,21 +52,12 @@ class TreeScope;
 struct FocusCandidate;
 struct FocusEventData;
 
-enum class ContinuedSearchInRemoteFrame : bool { No, Yes };
-enum class FoundElementInRemoteFrame : bool { No, Yes };
-
-struct FocusableElementSearchResult {
-    RefPtr<Element> element;
-    ContinuedSearchInRemoteFrame continuedSearchInRemoteFrame { ContinuedSearchInRemoteFrame::No };
-};
-
 class FocusController final : public CanMakeCheckedPtr<FocusController> {
     WTF_MAKE_TZONE_ALLOCATED(FocusController);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FocusController);
 public:
     explicit FocusController(Page&, OptionSet<ActivityState>);
 
-    enum class BroadcastFocusedFrame : bool { No, Yes };
     WEBCORE_EXPORT void setFocusedFrame(Frame*, BroadcastFocusedFrame = BroadcastFocusedFrame::Yes);
     Frame* focusedFrame() const { return m_focusedFrame.get(); }
     LocalFrame* focusedLocalFrame() const { return dynamicDowncast<LocalFrame>(m_focusedFrame.get()); }
@@ -75,7 +67,7 @@ public:
     WEBCORE_EXPORT bool setInitialFocus(FocusDirection, KeyboardEvent*);
     bool advanceFocus(FocusDirection, KeyboardEvent*, bool initialFocus = false);
 
-    WEBCORE_EXPORT bool setFocusedElement(Element*, LocalFrame&, const FocusOptions& = { });
+    WEBCORE_EXPORT bool setFocusedElement(Element*, Frame*, const FocusOptions& = { }, BroadcastFocusedElement = BroadcastFocusedElement::Yes);
 
     void setActivityState(OptionSet<ActivityState>);
 
@@ -95,13 +87,20 @@ public:
 
     WEBCORE_EXPORT bool relinquishFocusToChrome(FocusDirection);
 
+    WEBCORE_EXPORT FocusableElementSearchResult findAndFocusElementStartingWithLocalFrame(FocusDirection, const FocusEventData&, LocalFrame&);
+
 private:
     void setActiveInternal(bool);
     void setFocusedInternal(bool);
     void setIsVisibleAndActiveInternal(bool);
 
+    enum class InitialFocus : bool { No, Yes };
+    enum class ContinuingRemoteSearch : bool { No, Yes };
+
     bool advanceFocusDirectionally(FocusDirection, const FocusEventData&);
-    bool advanceFocusInDocumentOrder(FocusDirection, const FocusEventData&, bool initialFocus);
+    bool advanceFocusInDocumentOrder(FocusDirection, const FocusEventData&, InitialFocus);
+
+    FocusableElementSearchResult findAndFocusElementInDocumentOrderStartingWithFrame(Ref<LocalFrame>, RefPtr<Node> scopeNode, RefPtr<Node> startingNode, FocusDirection, const FocusEventData&, InitialFocus, ContinuingRemoteSearch);
 
     FocusableElementSearchResult findFocusableElementAcrossFocusScope(FocusDirection, const FocusNavigationScope& startScope, Node* start, const FocusEventData&);
 
@@ -135,6 +134,7 @@ private:
 
     WeakRef<Page> m_page;
     WeakPtr<Frame> m_focusedFrame;
+    WeakPtr<LocalFrame> m_focusedFrameBeforeRemoteFocusBroadcast;
     bool m_isChangingFocusedFrame;
     OptionSet<ActivityState> m_activityState;
 

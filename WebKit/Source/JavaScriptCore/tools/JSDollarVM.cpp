@@ -2089,6 +2089,7 @@ public:
 
     DECLARE_INFO;
 
+private:
     WriteBarrier<JSPromise> m_promise;
     const Ref<Wasm::StreamingCompiler> m_streamingCompiler;
 };
@@ -2149,6 +2150,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionCpuClflush);
 static JSC_DECLARE_HOST_FUNCTION(functionLLintTrue);
 static JSC_DECLARE_HOST_FUNCTION(functionBaselineJITTrue);
 static JSC_DECLARE_HOST_FUNCTION(functionNoInline);
+static JSC_DECLARE_HOST_FUNCTION(functionIsNeverInline);
 static JSC_DECLARE_HOST_FUNCTION(functionTriggerMemoryPressure);
 static JSC_DECLARE_HOST_FUNCTION(functionGC);
 static JSC_DECLARE_HOST_FUNCTION(functionEdenGC);
@@ -2270,6 +2272,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionCallFromCPPAsFirstEntry);
 static JSC_DECLARE_HOST_FUNCTION(functionCallFromCPP);
 static JSC_DECLARE_HOST_FUNCTION(functionCachedCallFromCPP);
 static JSC_DECLARE_HOST_FUNCTION(functionDumpLineBreakData);
+static JSC_DECLARE_HOST_FUNCTION(functionWeakCreate);
 
 const ClassInfo JSDollarVM::s_info = { "DollarVM"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSDollarVM) };
 
@@ -2372,15 +2375,15 @@ JSC_DEFINE_HOST_FUNCTION(functionOMGTrue, (JSGlobalObject* globalObject, CallFra
         if (visitor->codeType() != StackVisitor::Frame::Wasm
             || !visitor->callee().isNativeCallee()) {
             allFramesAreValid = false;
-            return Wasm::CompilationMode::LLIntMode;
+            return Wasm::CompilationMode::IPIntMode;
         }
-        return static_cast<Wasm::Callee*>(visitor->callee().asNativeCallee())->compilationMode();
+        return uncheckedDowncast<Wasm::Callee>(visitor->callee().asNativeCallee())->compilationMode();
     };
 
     auto expectWasmToJS = [&](StackVisitor& visitor) {
         if (visitor->codeType() != StackVisitor::Frame::Wasm
             || !visitor->callee().isNativeCallee()
-            || !isAnyWasmToJS(static_cast<Wasm::Callee*>(visitor->callee().asNativeCallee())->compilationMode())) {
+            || !isAnyWasmToJS(uncheckedDowncast<Wasm::Callee>(visitor->callee().asNativeCallee())->compilationMode())) {
             allFramesAreValid = false;
             return;
         }
@@ -2611,6 +2614,24 @@ JSC_DEFINE_HOST_FUNCTION(functionNoInline, (JSGlobalObject*, CallFrame* callFram
         executable->setNeverInline(true);
     
     return JSValue::encode(jsUndefined());
+}
+
+// Check that the argument function is never inlined (set by $vm.noInline or the @neverInline attribute)
+// Usage:
+// function f() {}
+// $vm.isNeverInline(f);
+JSC_DEFINE_HOST_FUNCTION(functionIsNeverInline, (JSGlobalObject*, CallFrame* callFrame))
+{
+    DollarVMAssertScope assertScope;
+    if (callFrame->argumentCount() < 1)
+        return JSValue::encode(jsBoolean(false));
+
+    JSValue theFunctionValue = callFrame->uncheckedArgument(0);
+
+    if (FunctionExecutable* executable = getExecutableForFunction(theFunctionValue))
+        return JSValue::encode(jsBoolean(executable->neverInline()));
+
+    return JSValue::encode(jsBoolean(false));
 }
 
 // Runs a full GC synchronously.
@@ -3913,7 +3934,7 @@ JSC_DEFINE_HOST_FUNCTION(functionRejectPromiseAsHandled, (JSGlobalObject* global
     DollarVMAssertScope assertScope;
     JSPromise* promise = jsCast<JSPromise*>(callFrame->uncheckedArgument(0));
     JSValue reason = callFrame->uncheckedArgument(1);
-    promise->rejectAsHandled(globalObject, reason);
+    promise->rejectAsHandled(globalObject->vm(), globalObject, reason);
     return JSValue::encode(jsUndefined());
 }
 
@@ -4308,6 +4329,13 @@ JSC_DEFINE_HOST_FUNCTION(functionDumpLineBreakData, (JSGlobalObject*, CallFrame*
     return JSValue::encode(jsUndefined());
 }
 
+JSC_DEFINE_HOST_FUNCTION(functionWeakCreate, (JSGlobalObject* globalObject, CallFrame*))
+{
+    DollarVMAssertScope assertScope;
+    Weak<JSGlobalObject> unusedWeak(globalObject);
+    return JSValue::encode(jsUndefined());
+}
+
 constexpr unsigned jsDollarVMPropertyAttributes = PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum | PropertyAttribute::DontDelete;
 
 void JSDollarVM::finishCreation(VM& vm)
@@ -4345,6 +4373,7 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, "baselineJITTrue"_s, functionBaselineJITTrue, 0);
 
     addFunction(vm, "noInline"_s, functionNoInline, 1);
+    addFunction(vm, "isNeverInline"_s, functionIsNeverInline, 1);
 
     addFunction(vm, "triggerMemoryPressure"_s, functionTriggerMemoryPressure, 0);
     addFunction(vm, "gc"_s, functionGC, 0);
@@ -4505,6 +4534,7 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, "callFromCPP"_s, functionCallFromCPP, 2);
     addFunction(vm, "cachedCallFromCPP"_s, functionCachedCallFromCPP, 2);
     addFunction(vm, "dumpLineBreakData"_s, functionDumpLineBreakData, 0);
+    addFunction(vm, "weakCreate"_s, functionWeakCreate, 0);
 
     m_objectDoingSideEffectPutWithoutCorrectSlotStatusStructureID.set(vm, this, ObjectDoingSideEffectPutWithoutCorrectSlotStatus::createStructure(vm, globalObject, jsNull()));
 }

@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface _WKInspectorWindow ()
 
 @property (nonatomic, readwrite, getter=isForRemoteTarget) BOOL forRemoteTarget;
-@property (nonatomic, nullable, readwrite, weak) WKWebView *inspectedWebView;
+@property (nonatomic, nullable, readwrite, weak) WKWebView *inspectedWebView SUPPRESS_UNRETAINED_MEMBER;
 
 @end
 

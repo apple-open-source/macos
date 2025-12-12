@@ -25,24 +25,25 @@
 
 #pragma once
 
-#include "CompositionUnderline.h"
-#include "EditAction.h"
-#include "EditingBehavior.h"
-#include "EditingStyle.h"
-#include "EditorInsertAction.h"
-#include "FindOptions.h"
-#include "FrameSelection.h"
-#include "LocalFrame.h"
-#include "PasteboardWriterData.h"
-#include <wtf/RobinHoodHashSet.h>
-#include "ScrollView.h"
-#include "Text.h"
-#include "TextChecking.h"
-#include "TextEventInputType.h"
-#include "TextIteratorBehavior.h"
-#include "VisibleSelection.h"
-#include "WritingDirection.h"
+#include <WebCore/CompositionUnderline.h>
+#include <WebCore/EditAction.h>
+#include <WebCore/EditingBehavior.h>
+#include <WebCore/EditingStyle.h>
+#include <WebCore/EditorInsertAction.h>
+#include <WebCore/FindOptions.h>
+#include <WebCore/FrameSelection.h>
+#include <WebCore/LocalFrame.h>
+#include <WebCore/PasteboardWriterData.h>
+#include <WebCore/ScrollView.h>
+#include <WebCore/Text.h>
+#include <WebCore/TextChecking.h>
+#include <WebCore/TextEventInputType.h>
+#include <WebCore/TextIteratorBehavior.h>
+#include <WebCore/VisibleSelection.h>
+#include <WebCore/WritingDirection.h>
 #include <memory>
+#include <wtf/Platform.h>
+#include <wtf/RobinHoodHashSet.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakPtr.h>
 
@@ -505,7 +506,7 @@ public:
 
     WEBCORE_EXPORT String selectedText() const;
     String selectedTextForDataTransfer() const;
-    WEBCORE_EXPORT bool findString(const String&, FindOptions);
+    WEBCORE_EXPORT std::optional<SimpleRange> findString(const String&, FindOptions);
 
     WEBCORE_EXPORT std::optional<SimpleRange> rangeOfString(const String&, const std::optional<SimpleRange>& searchRange, FindOptions);
 
@@ -572,6 +573,11 @@ public:
     WEBCORE_EXPORT bool isAutomaticSpellingCorrectionEnabled();
     WEBCORE_EXPORT void toggleAutomaticSpellingCorrection();
     WEBCORE_EXPORT bool canEnableAutomaticSpellingCorrection() const;
+    WEBCORE_EXPORT void toggleSmartLists();
+#endif
+
+#if PLATFORM(COCOA)
+    WEBCORE_EXPORT bool isSmartListsEnabled();
 #endif
 
     RefPtr<DocumentFragment> webContentFromPasteboard(Pasteboard&, const SimpleRange& context, bool allowPlainText, bool& chosePlainText);

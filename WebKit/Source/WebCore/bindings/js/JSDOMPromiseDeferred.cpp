@@ -26,6 +26,7 @@
 #include "config.h"
 #include "JSDOMPromiseDeferred.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "EventLoop.h"
 #include "JSDOMExceptionHandling.h"
@@ -87,10 +88,10 @@ void DeferredPromise::callFunction(JSGlobalObject& lexicalGlobalObject, ResolveM
         deferred()->resolve(&lexicalGlobalObject, resolution);
         break;
     case ResolveMode::Reject:
-        deferred()->reject(&lexicalGlobalObject, resolution);
+        deferred()->reject(vm, &lexicalGlobalObject, resolution);
         break;
     case ResolveMode::RejectAsHandled:
-        deferred()->rejectAsHandled(&lexicalGlobalObject, resolution);
+        deferred()->rejectAsHandled(vm, &lexicalGlobalObject, resolution);
         break;
     }
 
@@ -239,24 +240,12 @@ void rejectPromiseWithExceptionIfAny(JSC::JSGlobalObject& lexicalGlobalObject, J
 JSC::EncodedJSValue createRejectedPromiseWithTypeError(JSC::JSGlobalObject& lexicalGlobalObject, const String& errorMessage, RejectedPromiseWithTypeErrorCause cause)
 {
     auto& globalObject = lexicalGlobalObject;
-    auto& vm = lexicalGlobalObject.vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto promiseConstructor = globalObject.promiseConstructor();
-    auto rejectFunction = promiseConstructor->get(&lexicalGlobalObject, vm.propertyNames->builtinNames().rejectPrivateName());
-    RETURN_IF_EXCEPTION(scope, { });
     auto* rejectionValue = static_cast<ErrorInstance*>(createTypeError(&lexicalGlobalObject, errorMessage));
     if (cause == RejectedPromiseWithTypeErrorCause::NativeGetter)
         rejectionValue->setNativeGetterTypeError();
 
-    auto callData = JSC::getCallData(rejectFunction);
-    ASSERT(callData.type != CallData::Type::None);
-
-    MarkedArgumentBuffer arguments;
-    arguments.append(rejectionValue);
-    ASSERT(!arguments.hasOverflowed());
-
-    RELEASE_AND_RETURN(scope, JSValue::encode(call(&lexicalGlobalObject, rejectFunction, callData, promiseConstructor, arguments)));
+    return JSValue::encode(JSPromise::rejectedPromise(&globalObject, rejectionValue));
 }
 
 static inline JSC::JSValue parseAsJSON(JSC::JSGlobalObject* lexicalGlobalObject, const String& data)

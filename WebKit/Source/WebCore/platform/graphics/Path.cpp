@@ -111,7 +111,7 @@ PathImpl& Path::ensureImpl()
         return setImpl(PathStream::create(WTFMove(*segment)));
 
     if (auto impl = asImpl())
-        return *impl;
+        return *impl.unsafeGet();
     ASSERT_NOT_REACHED(); // Impl is never empty.
     return setImpl(PathStream::create());
 }

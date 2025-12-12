@@ -22,7 +22,7 @@
 
 #include "ExposedToWorkerAndWindow.h"
 #include "JSDOMConvertDictionary.h"
-#include "JSDOMWrapper.h"
+#include <WebCore/JSDOMWrapper.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {

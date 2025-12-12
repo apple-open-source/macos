@@ -37,6 +37,7 @@
 #include "WebKitWebViewPrivate.h"
 #include "WebKitWebsiteDataAccessPermissionRequestPrivate.h"
 #include "WebKitWindowPropertiesPrivate.h"
+#include "WebKitXRPermissionRequestPrivate.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
 #include "WebsiteDataStore.h"
@@ -47,8 +48,8 @@
 
 #if PLATFORM(GTK)
 #include "Display.h"
-#include <WebCore/GtkUtilities.h>
-#include <WebCore/GtkVersioning.h>
+#include "GtkUtilities.h"
+#include "GtkVersioning.h"
 #endif
 
 using namespace WebKit;
@@ -109,7 +110,7 @@ private:
         webkitWebViewRunJavaScriptBeforeUnloadConfirm(m_webView, message.utf8(), WTFMove(completionHandler));
     }
 
-    void mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData& data, OptionSet<WebEventModifier> modifiers, API::Object*) final
+    void mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData& data, OptionSet<WebEventModifier> modifiers) final
     {
         webkitWebViewMouseTargetChanged(m_webView, data, modifiers);
     }
@@ -179,7 +180,7 @@ private:
 #if PLATFORM(GTK)
         GdkRectangle geometry = WebCore::IntRect(frame);
         GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(m_webView));
-        if (webkit_web_view_is_controlled_by_automation(m_webView) && WebCore::widgetIsOnscreenToplevelWindow(window) && gtk_widget_get_visible(window)) {
+        if (webkit_web_view_is_controlled_by_automation(m_webView) && widgetIsOnscreenToplevelWindow(window) && gtk_widget_get_visible(window)) {
             bool needsMove = false;
             // Querying and setting window positions is not supported in GTK4.
 #if !USE(GTK4)
@@ -239,13 +240,13 @@ private:
 #if PLATFORM(GTK)
         GdkRectangle geometry = { 0, 0, 0, 0 };
         GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(m_webView));
-        if (WebCore::widgetIsOnscreenToplevelWindow(window) && gtk_widget_get_visible(window)) {
+        if (widgetIsOnscreenToplevelWindow(window) && gtk_widget_get_visible(window)) {
             gtk_window_get_position(GTK_WINDOW(window), &geometry.x, &geometry.y);
             gtk_window_get_size(GTK_WINDOW(window), &geometry.width, &geometry.height);
         } else {
             GdkRectangle defaultGeometry;
             webkit_window_properties_get_geometry(webkit_web_view_get_window_properties(m_webView), &defaultGeometry);
-            if ((!defaultGeometry.width || !defaultGeometry.height) && WebCore::widgetIsOnscreenToplevelWindow(window)) {
+            if ((!defaultGeometry.width || !defaultGeometry.height) && widgetIsOnscreenToplevelWindow(window)) {
                 int defaultWidth, defaultHeight;
                 gtk_window_get_default_size(GTK_WINDOW(window), &defaultWidth, &defaultHeight);
                 if (!defaultGeometry.width && defaultWidth != -1)
@@ -349,9 +350,9 @@ private:
     }
 
 #if ENABLE(POINTER_LOCK)
-    void requestPointerLock(WebPageProxy* page) final
+    void requestPointerLock(WebPageProxy* page, CompletionHandler<void(bool)>&& completionHandler) final
     {
-        GRefPtr<WebKitPointerLockPermissionRequest> permissionRequest = adoptGRef(webkitPointerLockPermissionRequestCreate(m_webView));
+        GRefPtr<WebKitPointerLockPermissionRequest> permissionRequest = adoptGRef(webkitPointerLockPermissionRequestCreate(m_webView, WTFMove(completionHandler)));
         RELEASE_ASSERT(!m_pointerLockPermissionRequest);
         m_pointerLockPermissionRequest.reset(permissionRequest.get());
         webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(permissionRequest.get()));
@@ -373,6 +374,24 @@ private:
         webkitWebViewPermissionStateQuery(m_webView, query);
         webkit_permission_state_query_unref(query);
     }
+
+#if ENABLE(WEBXR) && USE(OPENXR)
+    void requestPermissionOnXRSessionFeatures(WebKit::WebPageProxy&, const WebCore::SecurityOriginData& origin, PlatformXR::SessionMode mode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& consentRequired, const PlatformXR::Device::FeatureList& consentOptional, const PlatformXR::Device::FeatureList& requiredFeaturesRequested, const PlatformXR::Device::FeatureList& optionalFeaturesRequested, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler) final
+    {
+        GRefPtr<WebKitXRPermissionRequest> request = webkitXRPermissionRequestCreate(origin, mode, granted, consentRequired, consentOptional, requiredFeaturesRequested, optionalFeaturesRequested, WTFMove(completionHandler));
+        webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(request.get()));
+    }
+
+    void didStartXRSession(WebPageProxy&) final
+    {
+        webkitWebViewSetIsImmersiveModeEnabled(m_webView, true);
+    }
+
+    void didEndXRSession(WebPageProxy&) final
+    {
+        webkitWebViewSetIsImmersiveModeEnabled(m_webView, false);
+    }
+#endif
 
     WebKitWebView* m_webView;
 #if ENABLE(POINTER_LOCK)

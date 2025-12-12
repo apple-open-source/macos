@@ -52,7 +52,7 @@ static inline void didFinishGetRequest(ServiceWorkerGlobalScope& scope, Deferred
 
 void ServiceWorkerClients::get(ScriptExecutionContext& context, const String& id, Ref<DeferredPromise>&& promise)
 {
-    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread().identifier();
+    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread()->identifier();
 
     callOnMainThread([promiseIdentifier = addPendingPromise(WTFMove(promise)), serviceWorkerIdentifier, id = id.isolatedCopy()] () {
         Ref connection = *SWContextManager::singleton().connection();
@@ -79,7 +79,7 @@ static inline void matchAllCompleted(ServiceWorkerGlobalScope& scope, DeferredPr
 
 void ServiceWorkerClients::matchAll(ScriptExecutionContext& context, const ClientQueryOptions& options, Ref<DeferredPromise>&& promise)
 {
-    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread().identifier();
+    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread()->identifier();
 
     callOnMainThread([promiseIdentifier = addPendingPromise(WTFMove(promise)), serviceWorkerIdentifier, options] () mutable {
         Ref connection = *SWContextManager::singleton().connection();
@@ -112,7 +112,7 @@ void ServiceWorkerClients::openWindow(ScriptExecutionContext& context, const Str
         return;
     }
 
-    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread().identifier();
+    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread()->identifier();
     callOnMainThread([promiseIdentifier = addPendingPromise(WTFMove(promise)), serviceWorkerIdentifier, url = url.isolatedCopy()] () mutable {
         Ref connection = *SWContextManager::singleton().connection();
         connection->openWindow(serviceWorkerIdentifier, url, [promiseIdentifier, serviceWorkerIdentifier]<typename Result> (Result&& result) mutable {
@@ -147,7 +147,7 @@ void ServiceWorkerClients::openWindow(ScriptExecutionContext& context, const Str
 
 void ServiceWorkerClients::claim(ScriptExecutionContext& context, Ref<DeferredPromise>&& promise)
 {
-    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread().identifier();
+    auto serviceWorkerIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread()->identifier();
 
     callOnMainThread([promiseIdentifier = addPendingPromise(WTFMove(promise)), serviceWorkerIdentifier] () mutable {
         Ref connection = *SWContextManager::singleton().connection();

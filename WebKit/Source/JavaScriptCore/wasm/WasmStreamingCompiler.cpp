@@ -35,7 +35,6 @@
 #include "JSWebAssemblyModule.h"
 #include "StrongInlines.h"
 #include "WasmIPIntPlan.h"
-#include "WasmLLIntPlan.h"
 #include "WasmStreamingPlan.h"
 #include "WasmWorklist.h"
 
@@ -76,10 +75,7 @@ Ref<StreamingCompiler> StreamingCompiler::create(VM& vm, CompilerMode compilerMo
 bool StreamingCompiler::didReceiveFunctionData(FunctionCodeIndex functionIndex, const Wasm::FunctionData&)
 {
     if (!m_plan) {
-        if (Options::useWasmIPInt())
-            m_plan = adoptRef(*new IPIntPlan(m_vm, m_info.copyRef(), m_compilerMode, Plan::dontFinalize()));
-        else
-            m_plan = adoptRef(*new LLIntPlan(m_vm, m_info.copyRef(), m_compilerMode, Plan::dontFinalize()));
+        m_plan = adoptRef(*new IPIntPlan(m_vm, m_info.copyRef(), m_compilerMode, Plan::dontFinalize()));
 
         // Plan already failed in preparation. We do not start threaded compilation.
         // Keep Plan failed, and "finalize" will reject promise with that failure.
@@ -117,10 +113,7 @@ void StreamingCompiler::didFinishParsing()
         // Reaching here means that this WebAssembly module has no functions.
         ASSERT(!m_info->functions.size());
         ASSERT(!m_remainingCompilationRequests);
-        if (Options::useWasmIPInt())
-            m_plan = adoptRef(*new IPIntPlan(m_vm, m_info.copyRef(), m_compilerMode, Plan::dontFinalize()));
-        else
-            m_plan = adoptRef(*new LLIntPlan(m_vm, m_info.copyRef(), m_compilerMode, Plan::dontFinalize()));
+        m_plan = adoptRef(*new IPIntPlan(m_vm, m_info.copyRef(), m_compilerMode, Plan::dontFinalize()));
         // If plan is already failed in preparation, we will reject promise with plan's failure soon in finalize.
     }
 }
@@ -143,9 +136,7 @@ void StreamingCompiler::didComplete()
         ASSERT(!plan.hasWork());
         if (plan.failed())
             return Unexpected<String>(plan.errorMessage());
-        if (Options::useWasmIPInt())
-            return JSC::Wasm::Module::ValidationResult(Module::create(static_cast<IPIntPlan&>(plan)));
-        return JSC::Wasm::Module::ValidationResult(Module::create(static_cast<LLIntPlan&>(plan)));
+        return JSC::Wasm::Module::ValidationResult(Module::create(static_cast<IPIntPlan&>(plan)));
     };
 
     auto result = makeValidationResult(*m_plan);
@@ -230,7 +221,7 @@ void StreamingCompiler::fail(JSGlobalObject* globalObject, JSValue error)
     // scannable by the GC.
     WTF::compilerFence();
     m_vm.deferredWorkTimer->cancelPendingWork(ticket);
-    promise->reject(globalObject, error);
+    promise->reject(m_vm, globalObject, error);
 }
 
 void StreamingCompiler::cancel()

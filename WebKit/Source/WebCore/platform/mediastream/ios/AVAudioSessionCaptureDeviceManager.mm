@@ -59,7 +59,7 @@
     if (!self)
         return nil;
 
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(routeDidChange:) name:PAL::get_AVFoundation_AVAudioSessionRouteChangeNotification() object:session];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(routeDidChange:) name:PAL::get_AVFoundation_AVAudioSessionRouteChangeNotificationSingleton() object:session];
 
     _callback = callback;
 
@@ -104,10 +104,10 @@ AVAudioSessionCaptureDeviceManager::AVAudioSessionCaptureDeviceManager()
 void AVAudioSessionCaptureDeviceManager::createAudioSession()
 {
 #if !PLATFORM(MACCATALYST)
-    m_audioSession = adoptNS([[PAL::getAVAudioSessionClass() alloc] initAuxiliarySession]);
+    m_audioSession = adoptNS([[PAL::getAVAudioSessionClassSingleton() alloc] initAuxiliarySession]);
 #else
     // FIXME: Figure out if this is correct for Catalyst, where auxiliary session isn't available.
-    m_audioSession = [PAL::getAVAudioSessionClass() sharedInstance];
+    m_audioSession = [PAL::getAVAudioSessionClassSingleton() sharedInstance];
 #endif
 
     NSError *error = nil;
@@ -187,7 +187,7 @@ void AVAudioSessionCaptureDeviceManager::setPreferredSpeakerID(const String& spe
     } else
         m_isReceiverPreferredSpeaker = false;
 
-    AudioSession::sharedSession().setCategory(AudioSession::sharedSession().category(), AudioSession::sharedSession().mode(), AudioSession::sharedSession().routeSharingPolicy());
+    AudioSession::singleton().setCategory(AudioSession::singleton().category(), AudioSession::singleton().mode(), AudioSession::singleton().routeSharingPolicy());
 }
 
 bool AVAudioSessionCaptureDeviceManager::setPreferredAudioSessionDeviceIDs()
@@ -206,7 +206,7 @@ bool AVAudioSessionCaptureDeviceManager::setPreferredAudioSessionDeviceIDs()
         RELEASE_LOG_INFO(WebRTC, "AVAudioSessionCaptureDeviceManager setting preferred input to '%{public}s'", m_preferredMicrophoneID.ascii().data());
 
         NSError *error = nil;
-        if (![[PAL::getAVAudioSessionClass() sharedInstance] setPreferredInput:preferredInputPort error:&error]) {
+        if (![[PAL::getAVAudioSessionClassSingleton() sharedInstance] setPreferredInput:preferredInputPort error:&error]) {
             RELEASE_LOG_ERROR(WebRTC, "AVAudioSessionCaptureDeviceManager failed to set preferred input to '%{public}s' with error: %@", m_preferredMicrophoneID.utf8().data(), error.localizedDescription);
             return false;
         }

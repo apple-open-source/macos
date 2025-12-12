@@ -45,6 +45,7 @@
 #import <wtf/Deque.h>
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <UIKitSPI.h>
@@ -138,8 +139,8 @@ constexpr NSUInteger maximumReadOnlyAccessPaths = 2;
 
 + (NSMutableArray<WKWebView *> *)cache
 {
-    static auto* cache = [[NSMutableArray alloc] initWithCapacity:maximumWebViewCacheSize];
-    return cache;
+    static NeverDestroyed<RetainPtr<NSMutableArray>> s_cache = adoptNS([[NSMutableArray alloc] initWithCapacity:maximumWebViewCacheSize]);
+    return s_cache.get().get();
 }
 
 static RetainPtr<WKWebViewConfiguration>& globalConfiguration()
@@ -156,7 +157,7 @@ static RetainPtr<NSString>& sourceApplicationBundleIdentifier()
 
 static BOOL shouldAllowNetworkLoads = shouldAllowNetworkLoadsByDefault;
 
-static NSMutableArray<NSURL *> *readOnlyAccessPaths()
+static NSMutableArray<NSURL *> *readOnlyAccessPathsSingleton()
 {
     static NeverDestroyed<RetainPtr<NSMutableArray>> readOnlyAccessPaths = adoptNS([[NSMutableArray alloc] initWithCapacity:maximumReadOnlyAccessPaths]);
     return readOnlyAccessPaths.get().get();
@@ -170,10 +171,10 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
 
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         RetainPtr<WKProcessPool> processPool;
-        if (readOnlyAccessPaths().count) {
-            RELEASE_ASSERT(readOnlyAccessPaths().count <= 2);
+        if (readOnlyAccessPathsSingleton().count) {
+            RELEASE_ASSERT(readOnlyAccessPathsSingleton().count <= 2);
             auto processPoolConfiguration = adoptNS([[_WKProcessPoolConfiguration alloc] init]);
-            [processPoolConfiguration setAdditionalReadAccessAllowedURLs:readOnlyAccessPaths()];
+            [processPoolConfiguration setAdditionalReadAccessAllowedURLs:readOnlyAccessPathsSingleton()];
             processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
         } else
             processPool = adoptNS([[WKProcessPool alloc] init]).get();
@@ -225,8 +226,8 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
     if (!errorMessage)
         return;
 
-    if (readOnlyAccessPaths().count) {
-        [readOnlyAccessPaths() removeAllObjects];
+    if (readOnlyAccessPathsSingleton().count) {
+        [readOnlyAccessPathsSingleton() removeAllObjects];
         [self clearConfiguration];
     }
     [NSException raise:NSInvalidArgumentException format:@"%@", errorMessage];
@@ -300,13 +301,13 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
     for (id fileURL in readAccessFileURLs)
         [self validateEntry:fileURL];
 
-    if ([readAccessFileURLs isEqualToArray:readOnlyAccessPaths()])
+    if ([readAccessFileURLs isEqualToArray:readOnlyAccessPathsSingleton()])
         return;
 
     if (readAccessFileURLs)
-        [readOnlyAccessPaths() setArray:readAccessFileURLs];
+        [readOnlyAccessPathsSingleton() setArray:readAccessFileURLs];
     else
-        [readOnlyAccessPaths() removeAllObjects];
+        [readOnlyAccessPathsSingleton() removeAllObjects];
     [self clearConfiguration];
 }
 
@@ -491,7 +492,7 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
                 timeoutInterval = timeoutOption.doubleValue;
         }
 
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeoutInterval * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeoutInterval * NSEC_PER_SEC), mainDispatchQueueSingleton(), ^{
             if (finished)
                 return;
             cancel(WKErrorAttributedStringContentLoadTimedOut, nil);
@@ -508,7 +509,7 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
     if ([NSThread isMainThread])
         runConversion();
     else
-        dispatch_async(dispatch_get_main_queue(), runConversion);
+        dispatch_async(mainDispatchQueueSingleton(), runConversion);
 }
 
 @end

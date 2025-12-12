@@ -29,8 +29,8 @@
 #include "config.h"
 #include "AccessibilityListBoxOption.h"
 
-#include "AXObjectCache.h"
-#include "AccessibilityListBox.h"
+#include "AXObjectCacheInlines.h"
+#include "AccessibilityObjectInlines.h"
 #include "ContainerNodeInlines.h"
 #include "ElementInlines.h"
 #include "HTMLNames.h"
@@ -165,14 +165,14 @@ void AccessibilityListBoxOption::setSelected(bool selected)
     RefPtr selectElement = listBoxOptionParentNode();
     if (!selectElement)
         return;
-    
+
     if (!canSetSelectedAttribute())
         return;
-    
+
     bool isOptionSelected = isSelected();
     if ((isOptionSelected && selected) || (!isOptionSelected && !selected))
         return;
-    
+
     // Convert from the entire list index to the option index.
     int optionIndex = selectElement->listToOptionIndex(listBoxOptionIndex());
     selectElement->accessKeySetSelectedIndex(optionIndex);

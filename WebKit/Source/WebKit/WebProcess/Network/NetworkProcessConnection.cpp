@@ -71,6 +71,7 @@
 #include <WebCore/MessagePort.h>
 #include <WebCore/NavigationScheduler.h>
 #include <WebCore/Page.h>
+#include <WebCore/PermissionController.h>
 #include <WebCore/SharedBuffer.h>
 #include <pal/SessionID.h>
 
@@ -87,8 +88,10 @@ NetworkProcessConnection::NetworkProcessConnection(IPC::Connection::Identifier&&
 {
     m_connection->open(*this);
 
+#if USE(LIBWEBRTC)
     if (WebRTCProvider::webRTCAvailable())
         WebProcess::singleton().protectedLibWebRTCNetwork()->setConnection(m_connection.copyRef());
+#endif
 }
 
 NetworkProcessConnection::~NetworkProcessConnection()
@@ -191,8 +194,10 @@ bool NetworkProcessConnection::dispatchSyncMessage(IPC::Connection& connection, 
 {
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     if (decoder.messageReceiverName() == Messages::WebPaymentCoordinator::messageReceiverName()) {
-        if (auto webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
-            return webPage->paymentCoordinator()->didReceiveSyncMessage(connection, decoder, replyEncoder);
+        if (auto webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID()))) {
+            webPage->paymentCoordinator()->didReceiveSyncMessage(connection, decoder, replyEncoder);
+            return true;
+        }
         return false;
     }
 #endif
@@ -353,5 +358,10 @@ void NetworkProcessConnection::connectToRTCDataChannelRemoteSource(WebCore::RTCD
     callback(RTCDataChannelRemoteManager::singleton().connectToRemoteSource(localIdentifier, remoteIdentifier));
 }
 #endif
+
+void NetworkProcessConnection::storageAccessPermissionChanged(const WebCore::RegistrableDomain& topFrameDomain, const WebCore::RegistrableDomain& subFrameDomain)
+{
+    WebCore::PermissionController::singleton().storageAccessPermissionChanged(topFrameDomain, subFrameDomain);
+}
 
 } // namespace WebKit

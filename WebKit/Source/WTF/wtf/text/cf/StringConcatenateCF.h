@@ -49,7 +49,7 @@ inline StringTypeAdapter<CFStringRef>::StringTypeAdapter(CFStringRef string)
 {
 }
 
-template<> inline void StringTypeAdapter<CFStringRef>::writeTo<LChar>(std::span<LChar> destination) const
+template<> inline void StringTypeAdapter<CFStringRef>::writeTo<Latin1Character>(std::span<Latin1Character> destination) const
 {
     if (m_string)
         memcpySpan(destination, CFStringGetLatin1CStringSpan(m_string));

@@ -31,18 +31,18 @@
 #include "ScriptWrappable.h"
 #include "SubscribeOptions.h"
 #include "VoidCallback.h"
-#include <wtf/RefCounted.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 
 namespace WebCore {
 
 class ScriptExecutionContext;
 
-class Subscriber final : public ActiveDOMObject, public ScriptWrappable, public RefCounted<Subscriber> {
+class Subscriber final : public ActiveDOMObject, public ScriptWrappable, public RefCountedAndCanMakeWeakPtr<Subscriber> {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Subscriber);
 
 public:
-    void ref() const final { RefCounted::ref(); }
-    void deref() const final { RefCounted::deref(); }
+    void ref() const final { RefCountedAndCanMakeWeakPtr::ref(); }
+    void deref() const final { RefCountedAndCanMakeWeakPtr::deref(); }
 
     void next(JSC::JSValue);
     void complete();
@@ -53,6 +53,8 @@ public:
     AbortSignal& signal() { return m_signal.get(); }
 
     static Ref<Subscriber> create(ScriptExecutionContext&, Ref<InternalObserver>&&, const SubscribeOptions&);
+
+    ~Subscriber();
 
     void reportErrorObject(JSC::JSValue);
 

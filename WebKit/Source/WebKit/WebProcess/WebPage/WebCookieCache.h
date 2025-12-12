@@ -88,7 +88,7 @@ private:
 
     HashSet<String> m_hostsWithInMemoryStorage;
     std::unique_ptr<WebCore::NetworkStorageSession> m_inMemoryStorageSession;
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     bool m_optInCookiePartitioningEnabled { false };
 #endif
 

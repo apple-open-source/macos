@@ -26,10 +26,10 @@
 
 #pragma once
 
-#include "CSSValue.h"
-#include "CSSVariableData.h"
-#include "CSSVariableReferenceValue.h"
-#include "CSSWideKeyword.h"
+#include <WebCore/CSSValue.h>
+#include <WebCore/CSSVariableData.h>
+#include <WebCore/CSSVariableReferenceValue.h>
+#include <WebCore/CSSWideKeyword.h>
 
 namespace WebCore {
 

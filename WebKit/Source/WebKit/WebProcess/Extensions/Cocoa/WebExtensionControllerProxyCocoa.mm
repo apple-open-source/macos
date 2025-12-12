@@ -65,7 +65,11 @@ void WebExtensionControllerProxy::globalObjectIsAvailableForFrame(WebPage& page,
     auto context = frame.jsContextForWorld(world);
     auto globalObject = JSContextGetGlobalObject(context);
 
-    auto namespaceObject = JSObjectGetProperty(context, globalObject, toJSString("browser").get(), nullptr);
+    JSRetainPtr browserString = toJSString("browser");
+    if (!browserString)
+        return;
+
+    auto namespaceObject = JSObjectGetProperty(context, globalObject, browserString.get(), nullptr);
     if (namespaceObject && JSValueIsObject(context, namespaceObject))
         return;
 
@@ -85,8 +89,10 @@ void WebExtensionControllerProxy::globalObjectIsAvailableForFrame(WebPage& page,
 
     namespaceObject = toJS(context, WebExtensionAPINamespace::create(contentWorldType, *extension).ptr());
 
-    JSObjectSetProperty(context, globalObject, toJSString("browser").get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
-    JSObjectSetProperty(context, globalObject, toJSString("chrome").get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
+    JSObjectSetProperty(context, globalObject, browserString.get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
+
+    if (JSRetainPtr chromeString = toJSString("chrome"))
+        JSObjectSetProperty(context, globalObject, chromeString.get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
 }
 
 void WebExtensionControllerProxy::serviceWorkerGlobalObjectIsAvailableForFrame(WebPage& page, WebFrame& frame, DOMWrapperWorld& world)
@@ -100,7 +106,11 @@ void WebExtensionControllerProxy::serviceWorkerGlobalObjectIsAvailableForFrame(W
     auto context = frame.jsContextForServiceWorkerWorld(world);
     auto globalObject = JSContextGetGlobalObject(context);
 
-    auto namespaceObject = JSObjectGetProperty(context, globalObject, toJSString("browser").get(), nullptr);
+    JSRetainPtr browserString = toJSString("browser");
+    if (!browserString)
+        return;
+
+    auto namespaceObject = JSObjectGetProperty(context, globalObject, browserString.get(), nullptr);
     if (namespaceObject && JSValueIsObject(context, namespaceObject))
         return;
 
@@ -108,8 +118,9 @@ void WebExtensionControllerProxy::serviceWorkerGlobalObjectIsAvailableForFrame(W
 
     namespaceObject = toJS(context, WebExtensionAPINamespace::create(WebExtensionContentWorldType::Main, *extension).ptr());
 
-    JSObjectSetProperty(context, globalObject, toJSString("browser").get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
-    JSObjectSetProperty(context, globalObject, toJSString("chrome").get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
+    JSObjectSetProperty(context, globalObject, browserString.get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
+    if (JSRetainPtr chromeString = toJSString("chrome"))
+        JSObjectSetProperty(context, globalObject, chromeString.get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
 }
 
 void WebExtensionControllerProxy::addBindingsToWebPageFrameIfNecessary(WebFrame& frame, DOMWrapperWorld& world)
@@ -117,13 +128,17 @@ void WebExtensionControllerProxy::addBindingsToWebPageFrameIfNecessary(WebFrame&
     auto context = frame.jsContextForWorld(world);
     auto globalObject = JSContextGetGlobalObject(context);
 
-    auto namespaceObject = JSObjectGetProperty(context, globalObject, toJSString("browser").get(), nullptr);
+    JSRetainPtr browserString = toJSString("browser");
+    if (!browserString)
+        return;
+
+    auto namespaceObject = JSObjectGetProperty(context, globalObject, browserString.get(), nullptr);
     if (namespaceObject && JSValueIsObject(context, namespaceObject))
         return;
 
     namespaceObject = toJS(context, WebExtensionAPIWebPageNamespace::create(WebExtensionContentWorldType::WebPage).ptr());
 
-    JSObjectSetProperty(context, globalObject, toJSString("browser").get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
+    JSObjectSetProperty(context, globalObject, browserString.get(), namespaceObject, kJSPropertyAttributeNone, nullptr);
 }
 
 static WebExtensionFrameParameters toFrameParameters(WebFrame& frame, const URL& url, bool includeDocumentIdentifier = true)

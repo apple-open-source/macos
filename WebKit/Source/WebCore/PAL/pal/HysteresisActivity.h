@@ -25,8 +25,10 @@
 
 #pragma once
 
+#include <pal/ExportMacros.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Seconds.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace PAL {
 

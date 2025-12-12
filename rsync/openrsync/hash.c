@@ -30,6 +30,10 @@
 
 #include "extern.h"
 
+#ifndef MIN
+#define MIN(_l, _r)     (((_l) < (_r)) ? (_l) : (_r))
+#endif
+
 /*
  * A fast 32-bit hash.
  * Described in Tridgell's "Efficient Algorithms for Sorting and

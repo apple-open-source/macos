@@ -31,6 +31,9 @@ enum class WebKit::WebExtensionEventListenerType : uint8_t {
     CommandsOnChanged,
     CommandsOnCommand,
     CookiesOnChanged,
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+    DeclarativeNetRequestOnRuleMatchedDebug,
+#endif
     DevToolsElementsPanelOnSelectionChanged,
     DevToolsExtensionPanelOnHidden,
     DevToolsExtensionPanelOnSearch,

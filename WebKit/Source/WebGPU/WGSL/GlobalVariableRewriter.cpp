@@ -163,7 +163,6 @@ private:
     Reflection::EntryPointInformation* m_entryPointInformation { nullptr };
     HashMap<uint32_t, uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_generateLayoutGroupMapping;
     PipelineLayout* m_generatedLayout { nullptr };
-    unsigned m_constantId { 0 };
     unsigned m_currentStatementIndex { 0 };
     unsigned m_entryPointID { 0 };
     Vector<Insertion> m_pendingInsertions;
@@ -1022,6 +1021,18 @@ std::optional<Error> RewriteGlobalVariables::visitEntryPoint(const CallGraph::En
     }
     case ShaderStage::Vertex:
         m_entryPointInformation->typedEntryPoint = Reflection::Vertex { false };
+        if (entryPoint.function.returnTypeInvariant())
+            m_entryPointInformation->usesInvariant = true;
+        else if (auto* returnType = entryPoint.function.maybeReturnType()) {
+            if (auto* structType = std::get_if<Types::Struct>(returnType->inferredType())) {
+                for (const auto& member : structType->structure.members()) {
+                    if (member.invariant()) {
+                        m_entryPointInformation->usesInvariant = true;
+                        break;
+                    }
+                }
+            }
+        }
         break;
     case ShaderStage::Fragment:
         m_entryPointInformation->typedEntryPoint = Reflection::Fragment { };

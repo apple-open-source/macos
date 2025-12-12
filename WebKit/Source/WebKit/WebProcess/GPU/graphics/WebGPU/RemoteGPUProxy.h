@@ -28,7 +28,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "GPUProcessConnection.h"
-#include "RenderingBackendIdentifier.h"
+#include "RemoteRenderingBackendIdentifier.h"
 #include "StreamClientConnection.h"
 #include "WebGPUIdentifier.h"
 #include <WebCore/WebGPU.h>
@@ -40,11 +40,19 @@ namespace WebCore {
 class IntSize;
 class GraphicsContext;
 class NativeImage;
+namespace DDModel {
+class DDMesh;
+struct DDMeshDescriptor;
+}
 }
 
 namespace WebKit {
 class RemoteRenderingBackendProxy;
 class WebPage;
+
+namespace DDModel {
+class ConvertToBackingContext;
+}
 
 namespace WebGPU {
 class ConvertToBackingContext;
@@ -55,8 +63,8 @@ class RemoteGPUProxy final : public WebCore::WebGPU::GPU, private IPC::Connectio
     WTF_MAKE_TZONE_ALLOCATED(RemoteGPUProxy);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteGPUProxy);
 public:
-    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, WebPage&);
-    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, SerialFunctionDispatcher&);
+    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, DDModel::ConvertToBackingContext&, WebPage&);
+    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, DDModel::ConvertToBackingContext&, RemoteRenderingBackendProxy&, SerialFunctionDispatcher&);
 
     virtual ~RemoteGPUProxy();
 
@@ -74,8 +82,8 @@ public:
 private:
     friend class WebGPU::DowncastConvertToBackingContext;
 
-    RemoteGPUProxy(WebGPU::ConvertToBackingContext&, SerialFunctionDispatcher&);
-    void initializeIPC(Ref<IPC::StreamClientConnection>&&, RenderingBackendIdentifier, IPC::StreamServerConnection::Handle&&);
+    RemoteGPUProxy(WebGPU::ConvertToBackingContext&, DDModel::ConvertToBackingContext&, SerialFunctionDispatcher&);
+    void initializeIPC(Ref<IPC::StreamClientConnection>&&, RemoteRenderingBackendIdentifier, IPC::StreamServerConnection::Handle&&);
 
     RemoteGPUProxy(const RemoteGPUProxy&) = delete;
     RemoteGPUProxy(RemoteGPUProxy&&) = delete;
@@ -102,8 +110,14 @@ private:
     {
         return root().protectedStreamClientConnection()->sendSync(std::forward<T>(message), backing());
     }
+    template<typename T, typename C>
+    WARN_UNUSED_RETURN std::optional<IPC::StreamClientConnection::AsyncReplyID> sendWithAsyncReply(T&& message, C&& completionHandler)
+    {
+        return root().protectedStreamClientConnection()->sendWithAsyncReply(WTFMove(message), completionHandler, backing());
+    }
 
     void requestAdapter(const WebCore::WebGPU::RequestAdapterOptions&, CompletionHandler<void(RefPtr<WebCore::WebGPU::Adapter>&&)>&&) final;
+    RefPtr<WebCore::DDModel::DDMesh> createModelBacking(unsigned width, unsigned height, CompletionHandler<void(Vector<MachSendRight>&&)>&&) final;
 
     RefPtr<WebCore::WebGPU::PresentationContext> createPresentationContext(const WebCore::WebGPU::PresentationContextDescriptor&) final;
 
@@ -146,6 +160,7 @@ private:
     RefPtr<IPC::StreamClientConnection> protectedStreamConnection() const { return m_streamConnection; }
 
     const Ref<WebGPU::ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<DDModel::ConvertToBackingContext> m_modelConvertToBackingContext;
     ThreadSafeWeakPtr<SerialFunctionDispatcher> m_dispatcher;
     WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     RefPtr<IPC::StreamClientConnection> m_streamConnection;

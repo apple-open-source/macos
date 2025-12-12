@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "FileSystemHandle.h"
+#include <WebCore/FileSystemHandle.h>
 
 namespace WebCore {
 

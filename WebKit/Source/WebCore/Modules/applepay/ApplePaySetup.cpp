@@ -28,7 +28,8 @@
 
 #if ENABLE(APPLE_PAY)
 
-#include "DocumentInlines.h"
+#include "ContextDestructionObserverInlines.h"
+#include "DocumentPage.h"
 #include "JSApplePaySetupFeature.h"
 #include "JSDOMPromiseDeferred.h"
 #include "Page.h"

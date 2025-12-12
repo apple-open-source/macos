@@ -39,7 +39,7 @@ RefPtr<AtomStringImpl> AtomStringImpl::add(CFStringRef string)
     if (!string)
         return nullptr;
 
-    if (auto span = byteCast<LChar>(CFStringGetLatin1CStringSpan(string)); span.data())
+    if (auto span = byteCast<Latin1Character>(CFStringGetLatin1CStringSpan(string)); span.data())
         return add(span);
 
     size_t length = CFStringGetLength(string);

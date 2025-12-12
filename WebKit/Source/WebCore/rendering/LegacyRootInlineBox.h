@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include "BidiContext.h"
-#include "LegacyInlineFlowBox.h"
-#include "RenderBox.h"
+#include <WebCore/BidiContext.h>
+#include <WebCore/LegacyInlineFlowBox.h>
+#include <WebCore/RenderBox.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 

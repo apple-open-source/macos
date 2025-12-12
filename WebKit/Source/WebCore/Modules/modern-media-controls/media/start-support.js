@@ -77,6 +77,9 @@ class StartSupport extends MediaControllerSupport
     {
         const media = this.mediaController.media;
         const host = this.mediaController.host;
+        
+        if (host && host.inWindowFullscreen)
+            return false;
 
         if (host && host.shouldForceControlsDisplay)
             return true;

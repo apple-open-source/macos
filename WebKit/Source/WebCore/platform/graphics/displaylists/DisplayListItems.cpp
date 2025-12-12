@@ -26,7 +26,6 @@
 #include "config.h"
 #include "DisplayListItems.h"
 
-#include "DecomposedGlyphs.h"
 #include "DisplayList.h"
 #include "Filter.h"
 #include "FilterResults.h"
@@ -35,6 +34,10 @@
 #include "MediaPlayer.h"
 #include "SharedBuffer.h"
 #include <wtf/text/TextStream.h>
+
+#if USE(SKIA)
+#include "GraphicsContextSkia.h"
+#endif
 
 namespace WebCore {
 namespace DisplayList {
@@ -277,7 +280,7 @@ void DrawFilteredImageBuffer::dump(TextStream& ts, OptionSet<AsTextFlag> flags) 
 
 void DrawGlyphs::apply(GraphicsContext& context) const
 {
-    return context.drawGlyphs(m_font, m_glyphs.span(), m_advances.span(), m_localAnchor, m_fontSmoothingMode);
+    context.drawGlyphs(m_font, m_glyphs.span(), m_advances.span(), m_localAnchor, m_fontSmoothingMode);
 }
 
 void DrawGlyphs::dump(TextStream& ts, OptionSet<AsTextFlag>) const
@@ -285,34 +288,23 @@ void DrawGlyphs::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     // FIXME: dump more stuff.
     ts.dumpProperty("local-anchor"_s, localAnchor());
     ts.dumpProperty("font-smoothing-mode"_s, fontSmoothingMode());
-    ts.dumpProperty("length"_s, glyphs().size());
+    ts.dumpProperty("length"_s, length());
 }
 
-void DrawDecomposedGlyphs::apply(GraphicsContext& context) const
+#if USE(SKIA)
+void DrawTextBlob::apply(GraphicsContext& context) const
 {
-    return context.drawDecomposedGlyphs(m_font, m_decomposedGlyphs);
+    if (m_textBlob)
+        static_cast<GraphicsContextSkia*>(&context)->drawSkiaText(m_textBlob, SkFloatToScalar(m_localAnchor.x()), SkFloatToScalar(m_localAnchor.y()), m_enableAntialiasing, m_isVertical);
 }
 
-void DrawDecomposedGlyphs::dump(TextStream& ts, OptionSet<AsTextFlag> flags) const
+void DrawTextBlob::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 {
-    {
-        // Currently not much platform-agnostic to print for font.
-        TextStream::GroupScope decomposedGlyphsScope { ts };
-        ts << "font"_s << ' ';
-        if (flags.contains(AsTextFlag::IncludeResourceIdentifiers))
-            ts.dumpProperty("identifier"_s, font()->renderingResourceIdentifier());
-    }
-    {
-        TextStream::GroupScope decomposedGlyphsScope { ts };
-        ts << "decomposedGlyphs"_s << ' ';
-        Ref decomposedGlyphs = this->decomposedGlyphs();
-        ts.dumpProperty("glyph-count"_s, decomposedGlyphs->glyphs().size());
-        ts.dumpProperty("local-anchor"_s, decomposedGlyphs->localAnchor());
-        ts.dumpProperty("font-smoothing-mode"_s, decomposedGlyphs->fontSmoothingMode());
-        if (flags.contains(AsTextFlag::IncludeResourceIdentifiers))
-            ts.dumpProperty("identifier"_s, decomposedGlyphs->renderingResourceIdentifier());
-    }
+    ts.dumpProperty("local-anchor"_s, localAnchor());
+    ts.dumpProperty("font-smoothing-mode"_s, fontSmoothingMode());
+    ts.dumpProperty("length"_s, length());
 }
+#endif // USE(SKIA)
 
 DrawDisplayList::DrawDisplayList(Ref<const DisplayList>&& displayList)
     : m_displayList(WTFMove(displayList))
@@ -337,6 +329,22 @@ void DrawDisplayList::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     ts.dumpProperty("display-list"_s, displayList);
 }
 
+DrawPlaceholder::DrawPlaceholder(Function<void(GraphicsContext&)>&& function)
+    : m_function(FunctionHolder::create(WTFMove(function)))
+{
+}
+
+DrawPlaceholder::~DrawPlaceholder() = default;
+
+void DrawPlaceholder::apply(GraphicsContext& context) const
+{
+    return (*m_function)(context);
+}
+
+void DrawPlaceholder::dump(TextStream&, OptionSet<AsTextFlag>) const
+{
+}
+
 void DrawImageBuffer::apply(GraphicsContext& context) const
 {
     context.drawImageBuffer(m_imageBuffer, m_destinationRect, m_srcRect, m_options);
@@ -352,7 +360,7 @@ void DrawImageBuffer::dump(TextStream& ts, OptionSet<AsTextFlag> flags) const
 
 void DrawNativeImage::apply(GraphicsContext& context) const
 {
-    context.drawNativeImageInternal(m_image, m_destinationRect, m_srcRect, m_options);
+    context.drawNativeImage(m_image, m_destinationRect, m_srcRect, m_options);
 }
 
 void DrawNativeImage::dump(TextStream& ts, OptionSet<AsTextFlag> flags) const
@@ -755,12 +763,12 @@ void ApplyDeviceScaleFactor::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 
 void BeginPage::apply(GraphicsContext& context) const
 {
-    context.beginPage(m_pageSize);
+    context.beginPage(m_pageRect);
 }
 
 void BeginPage::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 {
-    ts.dumpProperty("page-size"_s, pageSize());
+    ts.dumpProperty("page-rect"_s, pageRect());
 }
 
 void EndPage::apply(GraphicsContext& context) const

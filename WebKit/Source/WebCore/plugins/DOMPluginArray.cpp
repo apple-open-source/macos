@@ -21,9 +21,10 @@
 #include "DOMPluginArray.h"
 
 #include "DOMPlugin.h"
-#include "FrameInlines.h"
+#include "DocumentPage.h"
 #include "LocalFrameInlines.h"
 #include "Page.h"
+#include "ScriptWrappableInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/AtomString.h>
 

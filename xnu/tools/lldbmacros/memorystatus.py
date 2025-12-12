@@ -80,8 +80,8 @@ def GetMemoryStatusNode(proc):
         relaunch_flags = '-'
 
     if proc.p_pcaction != 0:
-        pc_control = PControlAction(proc.p_pcaction & 0xff).name
-        pc_action = PControlAction((proc.p_pcaction & 0xff00) >> 16).name
+        pc_control = PControlAction(proc.p_pcaction & 0xffff).name
+        pc_action = PControlAction((proc.p_pcaction) >> 16).name
     else:
         pc_control = '-'
         pc_action = '-'

@@ -59,3 +59,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ConstantSourceNode)
+    static bool isType(const WebCore::AudioNode& node) { return node.nodeType() == WebCore::AudioNode::NodeTypeConstant; }
+SPECIALIZE_TYPE_TRAITS_END()

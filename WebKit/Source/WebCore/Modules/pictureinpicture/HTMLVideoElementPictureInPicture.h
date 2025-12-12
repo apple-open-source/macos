@@ -28,8 +28,8 @@
 
 #if ENABLE(PICTURE_IN_PICTURE_API)
 
-#include "PictureInPictureObserver.h"
-#include "Supplementable.h"
+#include <WebCore/PictureInPictureObserver.h>
+#include <WebCore/Supplementable.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>

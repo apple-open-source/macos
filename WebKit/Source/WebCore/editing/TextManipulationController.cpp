@@ -28,11 +28,13 @@
 
 #include "AccessibilityObject.h"
 #include "CharacterData.h"
+#include "ContainerNodeInlines.h"
 #include "EditingInlines.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementRareData.h"
 #include "EventLoop.h"
 #include "EventTargetInlines.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLBRElement.h"
 #include "HTMLElement.h"
 #include "HTMLInputElement.h"
@@ -46,6 +48,7 @@
 #include "NodeTraversal.h"
 #include "PseudoElement.h"
 #include "RenderBox.h"
+#include "RenderStyleInlines.h"
 #include "ScriptDisallowedScope.h"
 #include "ShadowRoot.h"
 #include "Text.h"
@@ -147,17 +150,17 @@ void TextManipulationController::startObservingParagraphs(ManipulationItemCallba
     flushPendingItemsForCallback();
 }
 
-static bool isInPrivateUseArea(UChar character)
+static bool isInPrivateUseArea(char16_t character)
 {
     return 0xE000 <= character && character <= 0xF8FF;
 }
 
-static bool isTokenDelimiter(UChar character)
+static bool isTokenDelimiter(char16_t character)
 {
     return isHTMLLineBreak(character) || isInPrivateUseArea(character);
 }
 
-static bool isNotSpace(UChar character)
+static bool isNotSpace(char16_t character)
 {
     if (character == noBreakSpace)
         return false;
@@ -604,17 +607,17 @@ void TextManipulationController::scheduleObservationUpdate()
         controller->m_didScheduleObservationUpdate = false;
 
         NodeSet nodesToObserve;
-        for (auto& text : controller->m_manipulatedNodesWithNewContent) {
-            if (!controller->m_manipulatedNodes.contains(text))
+        for (Ref text : controller->m_manipulatedNodesWithNewContent) {
+            if (!controller->m_manipulatedNodes.contains(text.get()))
                 continue;
             if (shouldIgnoreNodeInTextField(text))
                 continue;
-            controller->m_manipulatedNodes.remove(text);
+            controller->m_manipulatedNodes.remove(text.get());
             nodesToObserve.add(text);
         }
         controller->m_manipulatedNodesWithNewContent.clear();
 
-        for (auto& node : controller->m_addedOrNewlyRenderedNodes) {
+        for (Ref node : controller->m_addedOrNewlyRenderedNodes) {
             if (shouldIgnoreNodeInTextField(node))
                 continue;
             nodesToObserve.add(node);
@@ -625,7 +628,7 @@ void TextManipulationController::scheduleObservationUpdate()
             return;
 
         RefPtr<Node> commonAncestor;
-        for (auto& node : nodesToObserve) {
+        for (Ref node : nodesToObserve) {
             if (!node->isConnected())
                 continue;
 
@@ -886,7 +889,7 @@ auto TextManipulationController::replace(const ManipulationItemData& item, const
         if (!firstContentNode)
             firstContentNode = content.node;
 
-        auto parentNode = content.node->parentNode();
+        RefPtr parentNode = content.node->parentNode();
         if (!commonAncestor)
             commonAncestor = parentNode;
         else if (!parentNode->isDescendantOf(commonAncestor.get())) {

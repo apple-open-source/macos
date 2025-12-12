@@ -39,7 +39,9 @@ static RetainPtr<NSError> createNSError(NSString* domain, int code, NSURL *URL)
 {
     RetainPtr<NSDictionary> userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
         URL, NSURLErrorFailingURLErrorKey,
-        [URL absoluteString], @"NSErrorFailingURLStringKey",
+#if USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
+        [URL absoluteString], NSURLErrorFailingURLStringErrorKey,
+#endif
         nil];
 
     return adoptNS([[NSError alloc] initWithDomain:domain code:code userInfo:userInfo.get()]);

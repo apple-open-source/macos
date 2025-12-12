@@ -28,9 +28,9 @@
 
 #if ENABLE(GAMEPAD)
 #include "Display.h"
+#include "GtkUtilities.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebPageProxy.h"
-#include <WebCore/GtkUtilities.h>
 #include <wtf/ProcessPrivilege.h>
 #include <wtf/glib/GRefPtr.h>
 
@@ -90,7 +90,7 @@ WebPageProxy* UIGamepadProvider::platformWebPageProxyForGamepadInput()
 {
     GUniquePtr<GList> toplevels(gtk_window_list_toplevels());
     for (GList* iter = toplevels.get(); iter; iter = g_list_next(iter)) {
-        if (!WebCore::widgetIsOnscreenToplevelWindow(GTK_WIDGET(iter->data)))
+        if (!WebKit::widgetIsOnscreenToplevelWindow(GTK_WIDGET(iter->data)))
             continue;
 
         auto* window = GTK_WINDOW(iter->data);

@@ -33,6 +33,7 @@
 #import "Logging.h"
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/darwin/DispatchExtras.h>
 
 namespace WebCore {
 
@@ -127,7 +128,7 @@ void LegacyTileLayerPool::schedulePrune()
         return;
     m_needsPrune = true;
     dispatch_time_t nextPruneTime = dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC);
-    dispatch_after(nextPruneTime, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    dispatch_after(nextPruneTime, globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         prune();
     });
 }

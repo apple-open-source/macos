@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ScopedName.h"
+#include <WebCore/ScopedName.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/TextStream.h>
 
@@ -43,12 +43,14 @@ struct PositionTryFallback {
     enum class Tactic : uint8_t {
         FlipBlock,
         FlipInline,
-        FlipStart
+        FlipStart,
+        FlipX,
+        FlipY,
     };
     Vector<Tactic> tactics { };
 
     // A position-area fallback is mutually exclusive with the rest.
-    const RefPtr<const StyleProperties> positionAreaProperties { };
+    RefPtr<const StyleProperties> positionAreaProperties { };
 
     ~PositionTryFallback();
     friend bool operator==(const PositionTryFallback&, const PositionTryFallback&);

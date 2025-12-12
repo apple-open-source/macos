@@ -27,7 +27,7 @@
 #pragma once
 
 #include "PendingScriptClient.h"
-#include "Timer.h"
+#include <WebCore/Timer.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/HashSet.h>
 #include <wtf/TZoneMalloc.h>

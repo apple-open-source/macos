@@ -283,8 +283,13 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
         this._emulatedCondition = condition;
 
-        for (let target of WI.targets)
+        for (let target of WI.targets) {
+            // FIXME: <https://webkit.org/b/298979> Add Network support for FrameTarget.
+            if (target instanceof WI.FrameTarget)
+                continue;
+
             this._applyEmulatedCondition(target);
+        }
 
         this.dispatchEventToListeners(WI.NetworkManager.Event.EmulatedConditionChanged);
     }

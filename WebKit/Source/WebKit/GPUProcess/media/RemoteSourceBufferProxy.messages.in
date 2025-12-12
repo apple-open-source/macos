@@ -57,7 +57,6 @@ messages -> RemoteSourceBufferProxy {
     SetAppendWindowEnd(MediaTime appendWindowEnd)
     SetMaximumBufferSize(uint64_t size) -> ()
     ComputeSeekTime(struct WebCore::SeekTarget target) -> (Expected<MediaTime, WebCore::PlatformMediaError> seekedTime)
-    SeekToTime(MediaTime time)
     UpdateTrackIds(Vector<std::pair<WebCore::TrackID, WebCore::TrackID>> identifierPairs)
     BufferedSamplesForTrackId(WebCore::TrackID trackID) -> (WebCore::SourceBufferPrivate::SamplesPromise::Result samples)
     EnqueuedSamplesForTrackID(WebCore::TrackID trackID) -> (WebCore::SourceBufferPrivate::SamplesPromise::Result samples)

@@ -25,12 +25,14 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if HAVE(IOSURFACE)
 
-#include "IOSurface.h"
-#include "IntSize.h"
-#include "IntSizeHash.h"
-#include "Timer.h"
+#include <WebCore/IOSurface.h>
+#include <WebCore/IOSurfacePoolIdentifier.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/IntSizeHash.h>
+#include <WebCore/Timer.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
@@ -123,6 +125,7 @@ private:
     size_t m_bytesCached WTF_GUARDED_BY_LOCK(m_lock) { 0 };
     size_t m_inUseBytesCached WTF_GUARDED_BY_LOCK(m_lock) { 0 };
     size_t m_maximumBytesCached WTF_GUARDED_BY_LOCK(m_lock) { defaultMaximumBytesCached };
+    const IOSurfacePoolIdentifier m_poolIdentifier { IOSurfacePoolIdentifier::generate() };
 };
 
 }

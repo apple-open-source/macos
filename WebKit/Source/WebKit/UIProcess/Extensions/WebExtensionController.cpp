@@ -31,11 +31,13 @@
 #include "WebExtensionControllerParameters.h"
 #include "WebExtensionControllerProxyMessages.h"
 #include "WebPageProxy.h"
-#if PLATFORM(COCOA)
-#include <wtf/BlockPtr.h>
-#endif
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
+
+#if PLATFORM(COCOA)
+#include <wtf/BlockPtr.h>
+#include <wtf/darwin/DispatchExtras.h>
+#endif
 
 namespace WebKit {
 
@@ -67,7 +69,7 @@ WebExtensionController::WebExtensionController(Ref<WebExtensionControllerConfigu
     // when the first extension is about to be loaded.
 
 #if PLATFORM(COCOA)
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(freshlyCreatedTimeout.seconds() * NSEC_PER_SEC)), dispatch_get_main_queue(), makeBlockPtr([this, weakThis = WeakPtr { *this }] {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(freshlyCreatedTimeout.seconds() * NSEC_PER_SEC)), mainDispatchQueueSingleton(), makeBlockPtr([this, weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
 

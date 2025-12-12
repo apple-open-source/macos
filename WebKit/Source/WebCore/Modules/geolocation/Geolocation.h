@@ -28,16 +28,16 @@
 
 #if ENABLE(GEOLOCATION)
 
-#include "ActiveDOMObject.h"
-#include "ContextDestructionObserver.h"
-#include "Document.h"
-#include "GeolocationPosition.h"
-#include "GeolocationPositionError.h"
-#include "PositionCallback.h"
-#include "PositionErrorCallback.h"
-#include "PositionOptions.h"
-#include "ScriptWrappable.h"
-#include "Timer.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/ContextDestructionObserver.h>
+#include <WebCore/Document.h>
+#include <WebCore/GeolocationPosition.h>
+#include <WebCore/GeolocationPositionError.h>
+#include <WebCore/PositionCallback.h>
+#include <WebCore/PositionErrorCallback.h>
+#include <WebCore/PositionOptions.h>
+#include <WebCore/ScriptWrappable.h>
+#include <WebCore/Timer.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>

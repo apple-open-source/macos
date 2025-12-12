@@ -146,7 +146,7 @@ private:
 };
 
 class JSIPCConnection : public RefCounted<JSIPCConnection>, private IPC::Connection::Client {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(JSIPCConnection);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(JSIPCConnection);
 public:
     static Ref<JSIPCConnection> create(IPC::Connection::Identifier&& testedConnectionIdentifier)
@@ -165,7 +165,7 @@ public:
     JSObjectRef createJSWrapper(JSContextRef);
     static JSIPCConnection* toWrapped(JSContextRef, JSValueRef);
 
-    const Ref<IPC::Connection> connection() const { return m_testedConnection; }
+    IPC::Connection& connection() const { return m_testedConnection; }
 private:
     JSIPCConnection(Ref<IPC::Connection> connection)
         : m_testedConnection { WTFMove(connection) }
@@ -174,7 +174,7 @@ private:
 
     // IPC::Connection::Client overrides.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
-    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
     void didClose(IPC::Connection&) final;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>&) final;
 
@@ -193,7 +193,7 @@ private:
     static JSValueRef waitForMessage(JSContextRef, JSObjectRef, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception);
     static JSValueRef waitForAsyncReplyAndDispatchImmediately(JSContextRef, JSObjectRef, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception);
 
-    Ref<IPC::Connection> m_testedConnection;
+    const Ref<IPC::Connection> m_testedConnection;
 };
 
 class JSIPCStreamClientConnection : public RefCountedAndCanMakeWeakPtr<JSIPCStreamClientConnection> {
@@ -245,7 +245,7 @@ private:
     // run loop invocation (in JS). This means that messages of interest do not ever enter here.
     // Due to JSIPCStreamClientConnection supporting WeakPtr and IPC::MessageReceiver forcing WeakPtr, we store this as a member.
     class MessageReceiver : public IPC::Connection::Client {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(MessageReceiver);
         WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(MessageReceiver);
     public:
         MessageReceiver(JSIPCStreamClientConnection& connection)
@@ -257,7 +257,7 @@ private:
 
         // IPC::MessageReceiver overrides.
         void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final { ASSERT_NOT_REACHED(); }
-        bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final { ASSERT_NOT_REACHED(); return false; }
+        void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final { ASSERT_NOT_REACHED(); }
         void didClose(IPC::Connection&) final { }
         void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) final { ASSERT_NOT_REACHED(); }
 
@@ -807,10 +807,9 @@ void JSIPCConnection::didReceiveMessage(IPC::Connection&, IPC::Decoder&)
     ASSERT_NOT_REACHED();
 }
 
-bool JSIPCConnection::didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&)
+void JSIPCConnection::didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&)
 {
     ASSERT_NOT_REACHED();
-    return false;
 }
 
 void JSIPCConnection::didClose(IPC::Connection&)
@@ -1950,21 +1949,21 @@ RefPtr<JSIPCConnection> JSIPC::processTargetFromArgument(JSC::JSGlobalObject* gl
 
     if (name == processTargetNameUI) {
         RefPtr connection = WebProcess::singleton().parentProcessConnection();
-        if (!m_uiConnection || m_uiConnection->connection().ptr() != connection)
+        if (!m_uiConnection || &m_uiConnection->connection() != connection)
             m_uiConnection = JSIPCConnection::create(connection.releaseNonNull());
         return m_uiConnection;
     }
 #if ENABLE(GPU_PROCESS)
     if (name == processTargetNameGPU) {
         RefPtr connection = WebProcess::singleton().ensureGPUProcessConnection().connection();
-        if (!m_gpuConnection || m_gpuConnection->connection().ptr() != connection)
+        if (!m_gpuConnection || &m_gpuConnection->connection() != connection)
             m_gpuConnection = JSIPCConnection::create(connection.releaseNonNull());
         return m_gpuConnection;
     }
 #endif
     if (name == processTargetNameNetworking) {
         RefPtr connection = WebProcess::singleton().ensureNetworkProcessConnection().connection();
-        if (!m_networkConnection || m_networkConnection->connection().ptr() != connection)
+        if (!m_networkConnection || &m_networkConnection->connection() != connection)
             m_networkConnection = JSIPCConnection::create(connection.releaseNonNull());
         return m_networkConnection;
     }
@@ -2004,7 +2003,7 @@ void JSIPC::addMessageListener(JSMessageListener::Type type, JSContextRef contex
         return;
     }
 
-    connection->connection()->addMessageObserver(*listener);
+    connection->connection().addMessageObserver(*listener);
     jsIPC->m_messageListeners.append(listener.releaseNonNull());
 }
 
@@ -2557,7 +2556,7 @@ JSValueRef JSIPC::sendMessage(JSContextRef context, JSObjectRef, JSObjectRef thi
     if (!messageName)
         return JSValueMakeUndefined(context);
     JSValueRef messageArguments = arguments.size() > 3 ? arguments[3] : nullptr;
-    return jsSend(connection->connection().get(), *destinationID, *messageName, context, messageArguments, exception);
+    return jsSend(connection->connection(), *destinationID, *messageName, context, messageArguments, exception);
 }
 
 JSValueRef JSIPC::waitForMessage(JSContextRef context, JSObjectRef, JSObjectRef thisObject, size_t rawArgumentCount, const JSValueRef rawArguments[], JSValueRef* exception)
@@ -2582,7 +2581,7 @@ JSValueRef JSIPC::waitForMessage(JSContextRef context, JSObjectRef, JSObjectRef 
     if (!info)
         return JSValueMakeUndefined(context);
     auto [destinationID, messageName, timeout] = *info;
-    return jsWaitForMessage(connection->connection().get(), destinationID, messageName, timeout, context, exception);
+    return jsWaitForMessage(connection->connection(), destinationID, messageName, timeout, context, exception);
 }
 
 JSValueRef JSIPC::sendSyncMessage(JSContextRef context, JSObjectRef, JSObjectRef thisObject, size_t rawArgumentCount, const JSValueRef rawArguments[], JSValueRef* exception)
@@ -2608,7 +2607,7 @@ JSValueRef JSIPC::sendSyncMessage(JSContextRef context, JSObjectRef, JSObjectRef
         return JSValueMakeUndefined(context);
     auto [destinationID, messageName, timeout] = *info;
     JSValueRef messageArguments = arguments.size() > 4 ? arguments[4] : nullptr;
-    return jsSendSync(connection->connection().get(), destinationID, messageName, timeout, context, messageArguments, exception);
+    return jsSendSync(connection->connection(), destinationID, messageName, timeout, context, messageArguments, exception);
 }
 
 JSValueRef JSIPC::createConnectionPair(JSContextRef context, JSObjectRef, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -2962,6 +2961,9 @@ JSValueRef JSIPC::messages(JSContextRef context, JSObjectRef thisObject, JSStrin
     auto nameIdent = JSC::Identifier::fromString(vm, "name"_s);
     auto replyArgumentsIdent = JSC::Identifier::fromString(vm, "replyArguments"_s);
     auto isSyncIdent = JSC::Identifier::fromString(vm, "isSync"_s);
+    auto dispatchedFromIdent = JSC::Identifier::fromString(vm, "dispatchedFrom"_s);
+    auto dispatchedToIdent = JSC::Identifier::fromString(vm, "dispatchedTo"_s);
+    auto isAsyncReplyIdent = JSC::Identifier::fromString(vm, "isAsyncReply"_s);
     for (unsigned i = 0; i < static_cast<unsigned>(IPC::MessageName::Last); ++i) {
         auto name = static_cast<IPC::MessageName>(i);
 
@@ -2984,6 +2986,15 @@ JSValueRef JSIPC::messages(JSContextRef context, JSObjectRef thisObject, JSStrin
         RETURN_IF_EXCEPTION(scope, JSValueMakeUndefined(context));
 
         dictionary->putDirect(vm, isSyncIdent, JSC::jsBoolean(messageIsSync(name)));
+        RETURN_IF_EXCEPTION(scope, JSValueMakeUndefined(context));
+
+        dictionary->putDirect(vm, dispatchedFromIdent, JSC::jsString(vm, String(dispatchedFrom(name))));
+        RETURN_IF_EXCEPTION(scope, JSValueMakeUndefined(context));
+
+        dictionary->putDirect(vm, dispatchedToIdent, JSC::jsString(vm, String(dispatchedTo(name))));
+        RETURN_IF_EXCEPTION(scope, JSValueMakeUndefined(context));
+
+        dictionary->putDirect(vm, isAsyncReplyIdent, JSC::jsBoolean(isAsyncReply(name)));
         RETURN_IF_EXCEPTION(scope, JSValueMakeUndefined(context));
 
         messagesObject->putDirect(vm, JSC::Identifier::fromString(vm, description(name)), dictionary);

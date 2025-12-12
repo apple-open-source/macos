@@ -33,11 +33,12 @@
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
 #import <WebCore/CachedImage.h>
-#import <WebCore/Document.h>
+#import <WebCore/DocumentPage.h>
 #import <WebCore/DragController.h>
 #import <WebCore/Editor.h>
 #import <WebCore/ElementInlines.h>
-#import <WebCore/FrameDestructionObserver.h>
+#import <WebCore/FrameDestructionObserverInlines.h>
+#import <WebCore/FrameIdentifier.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/LegacyWebArchive.h>
@@ -86,7 +87,7 @@ static RefPtr<ShareableBitmap> convertDragImageToBitmap(DragImage image, const I
     return bitmap;
 }
 
-void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame& frame, const std::optional<ElementIdentifier>& elementID)
+void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame& frame, const std::optional<NodeIdentifier>& nodeID)
 {
     auto& image = dragItem.image;
 
@@ -103,7 +104,7 @@ void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame& frame, co
         return;
 
     m_page->willStartDrag();
-    m_page->send(Messages::WebPageProxy::StartDrag(dragItem, WTFMove(*handle), elementID));
+    m_page->send(Messages::WebPageProxy::StartDrag(dragItem, WTFMove(*handle), nodeID));
 }
 
 void WebDragClient::didConcludeEditDrag()

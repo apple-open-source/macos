@@ -485,12 +485,14 @@ void SOAuthorizationSession::dismissViewController()
         }
     }
 
-    if (!m_isInDestructor && NSApp.hidden) {
+    // FIXME: This is a safer cpp false positive (rdar://problem/161068288).
+    SUPPRESS_UNRETAINED_ARG if (!m_isInDestructor && NSApp.hidden) {
         AUTHORIZATIONSESSION_RELEASE_LOG("dismissViewController: Application is hidden. Waiting to dismiss until active.");
         if (m_applicationDidUnhideObserver) {
             AUTHORIZATIONSESSION_RELEASE_LOG("dismissViewController: [Hidden] Already has an Unhide observer (%p). Deminiaturized observer is %p", m_presentingWindowDidDeminiaturizeObserver.get(), m_applicationDidUnhideObserver.get());
             return;
         }
+        // FIXME: We should not need to protect NSApp here (rdar://problem/161068288).
         m_applicationDidUnhideObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidUnhideNotification object:NSApp queue:nil usingBlock:[protectedThis = Ref { *this }, this] (NSNotification *) {
             AUTHORIZATIONSESSION_RELEASE_LOG("dismissViewController: Application is no longer hidden. Completing the dismissal.");
             dismissViewController();

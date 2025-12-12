@@ -26,12 +26,12 @@
 #include "config.h"
 #include "UserGestureIndicator.h"
 
-#include "Document.h"
+#include "DocumentPage.h"
 #include "FrameDestructionObserverInlines.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "Logging.h"
-#include "Page.h"
 #include "ResourceLoadObserver.h"
 #include "SecurityOrigin.h"
 #include <wtf/MainThread.h>
@@ -126,7 +126,7 @@ UserGestureIndicator::UserGestureIndicator(std::optional<IsProcessingUserGesture
         if (processInteractionStyle == ProcessInteractionStyle::Immediate) {
             RefPtr mainFrameDocument = document->mainFrameDocument();
             if (mainFrameDocument)
-                ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(*mainFrameDocument);
+                ResourceLoadObserver::singleton().logUserInteractionWithReducedTimeResolution(*mainFrameDocument);
             else
                 LOG_ONCE(SiteIsolation, "Unable to properly construct UserGestureIndicator::UserGestureIndicator() without access to the main frame document ");
         }
@@ -179,6 +179,11 @@ UserGestureIndicator::~UserGestureIndicator()
     }
 
     currentToken() = m_previousToken;
+}
+
+RefPtr<UserGestureToken> UserGestureIndicator::currentUserGestureForMainThread()
+{
+    return currentToken();
 }
 
 RefPtr<UserGestureToken> UserGestureIndicator::currentUserGesture()

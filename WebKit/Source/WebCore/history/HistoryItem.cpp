@@ -83,7 +83,7 @@ HistoryItem::HistoryItem(const HistoryItem& item)
     , m_isTargetItem(item.m_isTargetItem)
     , m_itemSequenceNumber(item.m_itemSequenceNumber)
     , m_documentSequenceNumber(item.m_documentSequenceNumber)
-    , m_formData(item.m_formData ? RefPtr<FormData> { item.m_formData->copy() } : nullptr)
+    , m_formData(item.m_formData ? RefPtr<FormData> { RefPtr { item.m_formData }->copy() } : nullptr)
     , m_formContentType(item.m_formContentType)
 #if PLATFORM(IOS_FAMILY)
     , m_obscuredInsets(item.m_obscuredInsets)
@@ -364,42 +364,15 @@ void HistoryItem::clearChildren()
     m_client->clearChildren(*this);
 }
 
-// We do same-document navigation if going to a different item and if either of the following is true:
+// We do same-document navigation if going to a different item and the following is true:
 // - The other item corresponds to the same document (for history entries created via pushState or fragment changes).
-// - The other item corresponds to the same set of documents, including frames (for history entries created via regular navigation)
 bool HistoryItem::shouldDoSameDocumentNavigationTo(HistoryItem& otherItem) const
 {
-    // The following logic must be kept in sync with WebKit::WebBackForwardListItem::itemIsInSameDocument().
     if (m_itemID == otherItem.itemID())
         return false;
 
-    if (stateObject() || otherItem.stateObject())
-        return documentSequenceNumber() == otherItem.documentSequenceNumber();
-    
-    if ((url().hasFragmentIdentifier() || otherItem.url().hasFragmentIdentifier()) && equalIgnoringFragmentIdentifier(url(), otherItem.url()))
-        return documentSequenceNumber() == otherItem.documentSequenceNumber();
-    
-    return hasSameDocumentTree(otherItem);
-}
-
-// Does a recursive check that this item and its descendants have the same
-// document sequence numbers as the other item.
-bool HistoryItem::hasSameDocumentTree(HistoryItem& otherItem) const
-{
-    if (documentSequenceNumber() != otherItem.documentSequenceNumber())
-        return false;
-        
-    if (children().size() != otherItem.children().size())
-        return false;
-
-    for (size_t i = 0; i < children().size(); i++) {
-        auto& child = children()[i].get();
-        auto* otherChild = otherItem.childItemWithDocumentSequenceNumber(child.documentSequenceNumber());
-        if (!otherChild || !child.hasSameDocumentTree(*otherChild))
-            return false;
-    }
-
-    return true;
+    // The following logic must be kept in sync with WebKit::WebBackForwardListItem::itemIsInSameDocument().
+    return documentSequenceNumber() == otherItem.documentSequenceNumber();
 }
 
 String HistoryItem::formContentType() const

@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "AuthenticationChallengeBase.h"
-#include "AuthenticationClient.h"
+#include <WebCore/AuthenticationChallengeBase.h>
+#include <WebCore/AuthenticationClient.h>
 #include <wtf/RefPtr.h>
 
 OBJC_CLASS NSURLAuthenticationChallenge;
@@ -42,6 +42,7 @@ public:
 
 #ifdef __OBJC__
     id sender() const { return m_sender.get(); }
+    RetainPtr<id> protectedSender() const { return sender(); }
     NSURLAuthenticationChallenge *nsURLAuthenticationChallenge() const { return m_nsChallenge.get(); }
     RetainPtr<NSURLAuthenticationChallenge> protectedNSURLAuthenticationChallenge() const { return m_nsChallenge; }
 #endif

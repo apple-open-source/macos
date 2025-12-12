@@ -23,13 +23,14 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "AttachmentAssociatedElement.h"
-#include "DecodingOptions.h"
-#include "FormAssociatedElement.h"
-#include "GraphicsTypes.h"
-#include "HTMLElement.h"
-#include "MediaQuery.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/AttachmentAssociatedElement.h>
+#include <WebCore/DecodingOptions.h>
+#include <WebCore/FormAssociatedElement.h>
+#include <WebCore/GraphicsTypes.h>
+#include <WebCore/HTMLElement.h>
+#include <WebCore/MediaQuery.h>
+#include <wtf/Platform.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -139,7 +140,7 @@ public:
 
     bool usesSrcsetOrPicture() const;
 
-    const AtomString& loadingForBindings() const;
+    enum LoadingValues { Lazy, Eager };
 
     bool isLazyLoadable() const;
     static bool hasLazyLoadableAttributeValue(StringView);
@@ -148,6 +149,8 @@ public:
 
     bool isDroppedImagePlaceholder() const { return m_isDroppedImagePlaceholder; }
     void setIsDroppedImagePlaceholder() { m_isDroppedImagePlaceholder = true; }
+
+    void setIsUserAgentShadowRootResource();
 
     void evaluateDynamicMediaQueryDependencies();
 
@@ -185,14 +188,14 @@ private:
     void invalidateAttributeMapping();
     void collectExtraStyleForPresentationalHints(MutableStyleProperties&) override;
 
-    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) final;
+    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) const final;
 
     // ActiveDOMObject.
     bool virtualHasPendingActivity() const final;
 
     void didAttachRenderers() override;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
-    bool isReplaced(const RenderStyle&) const final;
+    bool isReplaced(const RenderStyle* = nullptr) const final;
     void setBestFitURLAndDPRFromImageCandidate(const ImageCandidate&);
 
     bool canStartSelection() const override;
@@ -242,7 +245,7 @@ private:
     void setSourceElement(HTMLSourceElement*);
 
     IntersectionObserverData& ensureIntersectionObserverData() final;
-    IntersectionObserverData* intersectionObserverDataIfExists() final;
+    IntersectionObserverData* intersectionObserverDataIfExists() const final;
 
     const std::unique_ptr<HTMLImageLoader> m_imageLoader;
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;

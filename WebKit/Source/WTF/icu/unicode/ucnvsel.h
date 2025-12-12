@@ -4,7 +4,7 @@
 *******************************************************************************
 *
 *   Copyright (C) 2008-2011, International Business Machines
-*   Corporation, Google and others.  All rights reserved.
+*   Corporation, Google and others.  All Rights Reserved.
 *
 *******************************************************************************
 */
@@ -36,6 +36,7 @@
 
 /**
  * \file
+ * \brief C API: Encoding/charset encoding selector
  *
  * A converter selector is built with a set of encoding/charset names
  * and given an input string returns the set of names of the

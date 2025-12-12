@@ -292,7 +292,7 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
                     propertyNames.push(savedResultAlias + "_");
 
                 let target = WI.runtimeManager.activeExecutionContext.target;
-                let targetData = WI.debuggerManager.paused ? WI.debuggerManager.dataForTarget(target) : {};
+                let targetData = (WI.debuggerManager.paused && WI.debuggerManager.dataForTarget(target)) || {};
 
                 function shouldExposeEvent() {
                     switch (completionController.mode) {

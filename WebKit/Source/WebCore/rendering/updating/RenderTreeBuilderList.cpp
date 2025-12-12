@@ -30,6 +30,7 @@
 #include "RenderListMarker.h"
 #include "RenderMenuList.h"
 #include "RenderMultiColumnFlow.h"
+#include "RenderObjectStyle.h"
 #include "RenderTable.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -113,7 +114,7 @@ void RenderTreeBuilder::List::updateItemMarker(RenderListItem& listItemRenderer)
 {
     auto& style = listItemRenderer.style();
 
-    if (style.listStyleType().type == ListStyleType::Type::None && (!style.listStyleImage() || style.listStyleImage()->errorOccurred())) {
+    if (RefPtr styleImage = style.listStyleImage().tryStyleImage(); style.listStyleType().isNone() && (!styleImage || styleImage->errorOccurred())) {
         if (auto* marker = listItemRenderer.markerRenderer())
             m_builder.destroy(*marker);
         return;

@@ -51,7 +51,11 @@
 #include "JITStubRoutineSet.h"
 #include "JITWorklistInlines.h"
 #include "JSFinalizationRegistry.h"
+#include "JSFunctionWithFields.h"
 #include "JSIterator.h"
+#include "JSPromiseAllContext.h"
+#include "JSPromiseAllGlobalContext.h"
+#include "JSPromiseReaction.h"
 #include "JSRawJSONObject.h"
 #include "JSRemoteFunction.h"
 #include "JSVirtualMachineInternal.h"
@@ -416,7 +420,6 @@ Heap::Heap(VM& vm, HeapType heapType)
     , auxiliarySpace("Auxiliary"_s, *this, auxiliaryHeapCellType, fastMallocAllocator.get()) // Hash:0x96255ba1
     , immutableButterflyAuxiliarySpace("ImmutableButterfly JSCellWithIndexingHeader"_s, *this, immutableButterflyHeapCellType, fastMallocAllocator.get()) // Hash:0xaadcb3c1
     , cellSpace("JSCell"_s, *this, cellHeapCellType, fastMallocAllocator.get()) // Hash:0xadfb5a79
-    , variableSizedCellSpace("Variable Sized JSCell"_s, *this, cellHeapCellType, fastMallocAllocator.get()) // Hash:0xbcd769cc
     , destructibleObjectSpace("JSDestructibleObject"_s, *this, destructibleObjectHeapCellType, fastMallocAllocator.get()) // Hash:0x4f5ed7a9
     FOR_EACH_JSC_COMMON_ISO_SUBSPACE(INIT_SERVER_ISO_SUBSPACE)
     FOR_EACH_JSC_STRUCTURE_ISO_SUBSPACE(INIT_SERVER_STRUCTURE_ISO_SUBSPACE)
@@ -880,14 +883,8 @@ void Heap::assertMarkStacksEmpty()
 void Heap::gatherStackRoots(ConservativeRoots& roots)
 {
     m_machineThreads->gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks, m_currentThreadState, m_currentThread);
-}
-
-void Heap::gatherJSStackRoots(ConservativeRoots& roots)
-{
 #if ENABLE(C_LOOP)
-    vm().interpreter.cloopStack().gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks);
-#else
-    UNUSED_PARAM(roots);
+    vm().cloopStack().gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks);
 #endif
 }
 
@@ -1071,25 +1068,25 @@ size_t Heap::protectedObjectCount()
     return result;
 }
 
-std::unique_ptr<TypeCountSet> Heap::protectedObjectTypeCounts()
+TypeCountSet Heap::protectedObjectTypeCounts()
 {
-    std::unique_ptr<TypeCountSet> result = makeUnique<TypeCountSet>();
+    TypeCountSet result;
     forEachProtectedCell(
         [&] (JSCell* cell) {
-            recordType(*result, cell);
+            recordType(result, cell);
         });
     return result;
 }
 
-std::unique_ptr<TypeCountSet> Heap::objectTypeCounts()
+TypeCountSet Heap::objectTypeCounts()
 {
-    std::unique_ptr<TypeCountSet> result = makeUnique<TypeCountSet>();
+    TypeCountSet result;
     HeapIterationScope iterationScope(*this);
     m_objectSpace.forEachLiveCell(
         iterationScope,
         [&] (HeapCell* cell, HeapCell::Kind kind) -> IterationStatus {
             if (isJSCellKind(kind))
-                recordType(*result, static_cast<JSCell*>(cell));
+                recordType(result, static_cast<JSCell*>(cell));
             return IterationStatus::Continue;
         });
     return result;
@@ -3008,7 +3005,6 @@ void Heap::addCoreConstraints()
                 ConservativeRoots conservativeRoots(*this);
 
                 gatherStackRoots(conservativeRoots);
-                gatherJSStackRoots(conservativeRoots);
                 gatherScratchBufferRoots(conservativeRoots);
 
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::ConservativeScan);

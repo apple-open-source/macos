@@ -32,7 +32,6 @@ public:
     {
         return adoptRef(*new WebKitPopupMenu(webView, client));
     }
-    ~WebKitPopupMenu() = default;
 
     void activateItem(std::optional<unsigned> itemIndex) override;
 

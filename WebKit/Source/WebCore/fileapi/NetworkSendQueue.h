@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "ContextDestructionObserver.h"
-#include "ExceptionCode.h"
+#include <WebCore/ContextDestructionObserver.h>
+#include <WebCore/ExceptionCode.h>
 #include <span>
 #include <wtf/Deque.h>
 #include <wtf/Function.h>

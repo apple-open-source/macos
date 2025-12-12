@@ -28,12 +28,17 @@
 #include "FrameSelection.h"
 
 #include "AXObjectCache.h"
+#include "BoundaryPointInlines.h"
 #include "CaretAnimator.h"
 #include "CharacterData.h"
 #include "ColorBlending.h"
+#include "ContainerNodeInlines.h"
 #include "DeleteSelectionCommand.h"
 #include "DictationCaretAnimator.h"
 #include "DocumentInlines.h"
+#include "DocumentPage.h"
+#include "DocumentQuirks.h"
+#include "DocumentView.h"
 #include "Editing.h"
 #include "Editor.h"
 #include "EditorClient.h"
@@ -43,6 +48,7 @@
 #include "EventNames.h"
 #include "FloatQuad.h"
 #include "FocusController.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameTree.h"
 #include "GCReachableRef.h"
 #include "GraphicsContext.h"
@@ -62,14 +68,14 @@
 #include "LocalFrameView.h"
 #include "Logging.h"
 #include "MutableStyleProperties.h"
+#include "NodeInlines.h"
 #include "OpacityCaretAnimator.h"
-#include "Page.h"
 #include "PositionInlines.h"
 #include "PseudoClassChangeInvalidation.h"
-#include "Quirks.h"
 #include "Range.h"
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
+#include "RenderStyleInlines.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
 #include "RenderTheme.h"
@@ -559,7 +565,7 @@ void FrameSelection::updateAndRevealSelection(const AXTextStateChangeIntent& int
         if (forceCenterScroll == ForceCenterScroll::Yes)
             alignment = ScrollAlignment::alignCenterAlways;
 
-        revealSelection(m_selectionRevealMode, alignment, revealExtent, scrollBehavior, onlyAllowForwardScrolling);
+        revealSelection({ m_selectionRevealMode, alignment, revealExtent, scrollBehavior, onlyAllowForwardScrolling });
     }
     if (!m_document->editor().ignoreSelectionChanges())
         notifyAccessibilityForSelectionChange(intent);
@@ -2126,7 +2132,7 @@ bool FrameSelection::contains(const LayoutPoint& point) const
         return false;
     }
 
-    return WebCore::contains<ComposedTree>(*range, makeBoundaryPoint(innerNode->renderer()->positionForPoint(result.localPoint(), HitTestSource::User, nullptr)));
+    return WebCore::contains<ComposedTree>(*range, makeBoundaryPoint(innerNode->renderer()->visiblePositionForPoint(result.localPoint(), HitTestSource::User)));
 }
 
 // Workaround for the fact that it's hard to delete a frame.
@@ -2484,8 +2490,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
     if (caretBrowsing) {
         if (RefPtr anchor = enclosingAnchorElement(m_selection.base())) {
             CheckedRef focusController { document->page()->focusController() };
-            Ref frame = *document->frame();
-            focusController->setFocusedElement(anchor.get(), frame);
+            focusController->setFocusedElement(anchor.get(), document->protectedFrame().get());
             return;
         }
     }
@@ -2500,7 +2505,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
                 FocusOptions focusOptions;
                 if (options & SetSelectionOption::ForBindings)
                     focusOptions.trigger = FocusTrigger::Bindings;
-                document->protectedPage()->focusController().setFocusedElement(target.get(), *document->protectedFrame(), focusOptions);
+                document->protectedPage()->focusController().setFocusedElement(target.get(), document->protectedFrame().get(), focusOptions);
                 return;
             }
             target = target->parentOrShadowHostElement();
@@ -2509,7 +2514,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
     }
 
     if (caretBrowsing)
-        document->protectedPage()->focusController().setFocusedElement(nullptr, *document->protectedFrame());
+        document->protectedPage()->focusController().setFocusedElement(nullptr, document->protectedFrame().get());
 }
 
 void DragCaretController::paintDragCaret(LocalFrame* frame, GraphicsContext& p, const LayoutPoint& paintOffset) const
@@ -2652,9 +2657,9 @@ RefPtr<HTMLFormElement> FrameSelection::currentForm() const
     return scanForForm(start.get());
 }
 
-void FrameSelection::revealSelection(SelectionRevealMode revealMode, const ScrollAlignment& alignment, RevealExtentOption revealExtentOption, ScrollBehavior scrollBehavior, OnlyAllowForwardScrolling onlyAllowForwardScrolling)
+void FrameSelection::revealSelection(const RevealSelectionOptions& revealSelectionOptions)
 {
-    if (revealMode == SelectionRevealMode::DoNotReveal)
+    if (revealSelectionOptions.selectionRevealMode == SelectionRevealMode::DoNotReveal)
         return;
 
     if (isNone())
@@ -2667,7 +2672,7 @@ void FrameSelection::revealSelection(SelectionRevealMode revealMode, const Scrol
     if (isCaret())
         rect = absoluteCaretBounds(&insideFixed);
     else
-        rect = revealExtentOption == RevealExtentOption::RevealExtent ? VisiblePosition(m_selection.extent()).absoluteCaretBounds() : enclosingIntRect(selectionBounds(ClipToVisibleContent::No));
+        rect = revealSelectionOptions.revealExtentOption == RevealExtentOption::RevealExtent ? VisiblePosition(m_selection.extent()).absoluteCaretBounds() : enclosingIntRect(selectionBounds(ClipToVisibleContent::No));
 
     Position start = m_selection.start();
     ASSERT(start.deprecatedNode());
@@ -2683,7 +2688,7 @@ void FrameSelection::revealSelection(SelectionRevealMode revealMode, const Scrol
     // the selection rect could intersect more than just that.
     // See <rdar://problem/4799899>.
     m_document->frame()->view()->setLastUserScrollType(LocalFrameView::UserScrollType::Implicit);
-    LocalFrameView::scrollRectToVisible(rect, *start.deprecatedNode()->renderer(), insideFixed, { revealMode, alignment, alignment, ShouldAllowCrossOriginScrolling::Yes, scrollBehavior, onlyAllowForwardScrolling });
+    LocalFrameView::scrollRectToVisible(rect, *start.deprecatedNode()->renderer(), insideFixed, { revealSelectionOptions.selectionRevealMode, revealSelectionOptions.scrollAlignment, revealSelectionOptions.scrollAlignment, ShouldAllowCrossOriginScrolling::Yes, revealSelectionOptions.scrollBehavior, revealSelectionOptions.onlyAllowForwardScrolling });
     updateAppearance();
 
 #if PLATFORM(IOS_FAMILY)
@@ -2829,7 +2834,7 @@ void FrameSelection::expandSelectionToStartOfWordContainingCaretSelection()
     moveTo(s2, e1);
 }
 
-UChar FrameSelection::characterInRelationToCaretSelection(int amount) const
+char16_t FrameSelection::characterInRelationToCaretSelection(int amount) const
 {
     auto position = m_selection.visibleStart();
     if (amount < 0) {
@@ -2854,7 +2859,7 @@ bool FrameSelection::selectionAtWordStart() const
         previousCount++;
         if (isStartOfParagraph(position))
             return previousCount != 1;
-        if (UChar c = position.characterAfter())
+        if (char16_t c = position.characterAfter())
             return deprecatedIsSpaceOrNewline(c) || c == noBreakSpace || (u_ispunct(c) && c != ',' && c != '-' && c != '\'');
     }
     return true;
@@ -2887,7 +2892,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
         return VisibleSelection();
 
     if (isEndOfParagraph(endVisiblePosBeforeExpansion)) {
-        UChar c(endVisiblePosBeforeExpansion.characterBefore());
+        char16_t c(endVisiblePosBeforeExpansion.characterBefore());
         if (deprecatedIsSpaceOrNewline(c) || c == noBreakSpace) {
             // End of paragraph with space.
             return VisibleSelection();
@@ -2930,7 +2935,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
             // Empty document
             return VisibleSelection();
         }
-        UChar c(previous.characterAfter());
+        char16_t c(previous.characterAfter());
         if (deprecatedIsSpaceOrNewline(c) || c == noBreakSpace) {
             // Space at end of line
             return VisibleSelection();
@@ -2945,7 +2950,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
             // On empty line
             return VisibleSelection();
         }
-        UChar c(previous.characterAfter());
+        char16_t c(previous.characterAfter());
         if (deprecatedIsSpaceOrNewline(c) || c == noBreakSpace) {
             // Space at end of line
             return VisibleSelection();
@@ -2965,7 +2970,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
     // Now loop backwards until we find a non-space.
     while (endVisiblePos != startVisiblePos) {
         VisiblePosition previous(endVisiblePos.previous());
-        UChar c(previous.characterAfter());
+        char16_t c(previous.characterAfter());
         if (!deprecatedIsSpaceOrNewline(c) && c != noBreakSpace)
             break;
         endVisiblePos = previous;

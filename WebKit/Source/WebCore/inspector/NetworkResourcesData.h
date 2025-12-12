@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "InspectorPageAgent.h"
+#include "InspectorResourceType.h"
 #include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
 #include <wtf/ListHashSet.h>
@@ -39,8 +39,8 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
-
 class CachedResource;
+class CertificateInfo;
 class ResourceResponse;
 
 class NetworkResourcesData {
@@ -71,8 +71,8 @@ public:
         unsigned evictContent();
         bool isContentEvicted() const { return m_isContentEvicted; }
 
-        InspectorPageAgent::ResourceType type() const { return m_type; }
-        void setType(InspectorPageAgent::ResourceType type) { m_type = type; }
+        Inspector::ResourceType type() const { return m_type; }
+        void setType(Inspector::ResourceType type) { m_type = type; }
 
         int httpStatusCode() const { return m_httpStatusCode; }
         void setHTTPStatusCode(int httpStatusCode) { m_httpStatusCode = httpStatusCode; }
@@ -124,7 +124,7 @@ public:
         RefPtr<FragmentedSharedBuffer> m_buffer;
         std::optional<CertificateInfo> m_certificateInfo;
         CachedResource* m_cachedResource { nullptr };
-        InspectorPageAgent::ResourceType m_type { InspectorPageAgent::OtherResource };
+        Inspector::ResourceType m_type { Inspector::ResourceType::Other };
         int m_httpStatusCode { 0 };
         String m_httpStatusText;
         bool m_isContentEvicted { false };
@@ -146,11 +146,11 @@ public:
     NetworkResourcesData(const Settings&);
     ~NetworkResourcesData();
 
-    void resourceCreated(const String& requestId, const String& loaderId, InspectorPageAgent::ResourceType);
+    void resourceCreated(const String& requestId, const String& loaderId, Inspector::ResourceType);
     void resourceCreated(const String& requestId, const String& loaderId, CachedResource&);
-    void responseReceived(const String& requestId, const String& frameId, const ResourceResponse&, InspectorPageAgent::ResourceType, bool forceBufferData);
-    void setResourceType(const String& requestId, InspectorPageAgent::ResourceType);
-    InspectorPageAgent::ResourceType resourceType(const String& requestId);
+    void responseReceived(const String& requestId, const String& frameId, const ResourceResponse&, Inspector::ResourceType, bool forceBufferData);
+    void setResourceType(const String& requestId, Inspector::ResourceType);
+    Inspector::ResourceType resourceType(const String& requestId);
     void setResourceContent(const String& requestId, const String& content, bool base64Encoded = false);
     ResourceData const* maybeAddResourceData(const String& requestId, const SharedBuffer&);
     void maybeDecodeDataToContent(const String& requestId);

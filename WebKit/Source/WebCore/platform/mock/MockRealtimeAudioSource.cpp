@@ -147,12 +147,6 @@ void MockRealtimeAudioSource::settingsDidChange(OptionSet<RealtimeMediaSourceSet
 
 void MockRealtimeAudioSource::startProducingData()
 {
-#if PLATFORM(IOS_FAMILY)
-    PlatformMediaSessionManager::singleton().sessionCanProduceAudioChanged();
-    ASSERT(AudioSession::sharedSession().category() == AudioSession::CategoryType::PlayAndRecord);
-    ASSERT(AudioSession::sharedSession().mode() == AudioSession::Mode::VideoChat);
-#endif
-
     if (!sampleRate())
         setSampleRate(std::get<MockMicrophoneProperties>(m_device.properties).defaultSampleRate);
 

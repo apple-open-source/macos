@@ -28,9 +28,9 @@
 
 #include "APINavigation.h"
 #include "DrawingAreaProxy.h"
+#include "GRefPtrGtk.h"
 #include "WebBackForwardList.h"
 #include "WebPageProxy.h"
-#include <WebCore/GRefPtrGtk.h>
 #include <WebCore/Scrollbar.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 

@@ -8,6 +8,10 @@
 
 #include "libANGLE/renderer/d3d/FramebufferD3D.h"
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "common/bitset_utils.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/ErrorStrings.h"
@@ -220,13 +224,10 @@ angle::Result FramebufferD3D::readPixels(const gl::Context *context,
     ContextD3D *contextD3D = GetImplAs<ContextD3D>(context);
 
     GLuint outputPitch = 0;
-    ANGLE_CHECK_GL_MATH(contextD3D,
-                        sizedFormatInfo.computeRowPitch(type, area.width, pack.alignment,
-                                                        pack.rowLength, &outputPitch));
-
     GLuint outputSkipBytes = 0;
-    ANGLE_CHECK_GL_MATH(contextD3D, sizedFormatInfo.computeSkipBytes(type, outputPitch, 0, pack,
-                                                                     false, &outputSkipBytes));
+
+    ANGLE_CHECK_GL_MATH(contextD3D, sizedFormatInfo.computeRowSkipBytes(
+                                        type, area.width, pack, &outputPitch, &outputSkipBytes));
     outputSkipBytes += (clippedArea.x - area.x) * sizedFormatInfo.pixelBytes +
                        (clippedArea.y - area.y) * outputPitch;
 

@@ -28,6 +28,7 @@
 #if ENABLE(VIDEO)
 
 #include <wtf/RefCounted.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 

@@ -41,7 +41,7 @@ public struct URLScheme: Hashable, Sendable {
     /// - Parameter rawValue: The raw value of the scheme string; if this is an invalid scheme, of if WebKit already handles
     /// this scheme, the initializer returns `nil`.
     @MainActor
-    public init?(_ rawValue: String) {
+    public init?(_ rawValue: Swift.String) {
         guard WKWebViewConfiguration._isValidCustomScheme(rawValue) else {
             return nil
         }
@@ -50,7 +50,7 @@ public struct URLScheme: Hashable, Sendable {
     }
 
     /// The raw value of the scheme string.
-    public let rawValue: String
+    public let rawValue: Swift.String
 }
 
 /// A value used as part of a sequence of results from a ``URLSchemeHandler``, which can either be a `Data` or a `URLResponse`.

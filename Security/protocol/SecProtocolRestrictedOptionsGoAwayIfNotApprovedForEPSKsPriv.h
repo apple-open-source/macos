@@ -156,6 +156,21 @@ SPI_AVAILABLE(macos(26.0), ios(26.0), watchos(26.0), tvos(26.0), visionos(26.0))
 bool
 sec_protocol_options_get_raw_external_pre_shared_keys_enabled(sec_protocol_options_t options);
 
+/*!
+ * @function sec_protocol_options_get_external_pre_shared_keys_enabled
+ * @abstract
+ *      Returns whether TLS  configured to offer TLS 1.3 EPSKs.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param enable
+ *      Whether TLS 1.3 epsks are enabled or disabled. Default is disabled.
+ */
+SPI_AVAILABLE(macos(26.2), ios(26.2), watchos(26.2), tvos(26.2), visionos(26.2))
+bool
+sec_protocol_options_get_external_pre_shared_keys_enabled(sec_protocol_options_t options);
+
 #define SEC_PROTOCOL_HAS_RAW_EPSKS 1
 
 SEC_ASSUME_NONNULL_END

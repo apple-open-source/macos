@@ -45,7 +45,6 @@ class MediaKeySystemPermissionRequestManager : private WebCore::MediaCanStartLis
     WTF_MAKE_TZONE_ALLOCATED(MediaKeySystemPermissionRequestManager);
 public:
     explicit MediaKeySystemPermissionRequestManager(WebPage&);
-    ~MediaKeySystemPermissionRequestManager() = default;
 
     void ref() const final;
     void deref() const final;

@@ -63,7 +63,7 @@ template<> inline int32_t saturatedSum<int32_t>(int32_t a, int32_t b)
 {
     int32_t result;
 #if CPU(ARM_THUMB2)
-    asm("qadd %[sum], %[addend], %[augend]"
+    __asm__("qadd %[sum], %[addend], %[augend]"
         : [sum]"=r"(result)
         : [augend]"r"(a), [addend]"r"(b)
         : /* Nothing is clobbered. */
@@ -96,7 +96,7 @@ template<> inline int32_t saturatedDifference<int32_t>(int32_t a, int32_t b)
 {
     int32_t result;
 #if CPU(ARM_THUMB2)
-    asm("qsub %[difference], %[minuend], %[subtrahend]"
+    __asm__("qsub %[difference], %[minuend], %[subtrahend]"
         : [difference]"=r"(result)
         : [minuend]"r"(a), [subtrahend]"r"(b)
         : /* Nothing is clobbered. */

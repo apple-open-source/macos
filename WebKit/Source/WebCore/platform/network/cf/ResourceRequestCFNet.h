@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "HTTPHeaderMap.h"
-#include "ResourceLoadPriority.h"
-#include "ResourceRequestBase.h"
+#include <WebCore/HTTPHeaderMap.h>
+#include <WebCore/ResourceLoadPriority.h>
+#include <WebCore/ResourceRequestBase.h>
 #include <pal/spi/cf/CFNetworkSPI.h>
 
 namespace WebCore {

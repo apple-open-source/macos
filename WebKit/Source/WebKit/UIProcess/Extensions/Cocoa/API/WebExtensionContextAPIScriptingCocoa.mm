@@ -367,9 +367,8 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
 
         RefPtr extension = m_extension;
         for (NSString *scriptPath in scriptPaths) {
-            RefPtr<API::Error> error;
-            if (!extension->resourceStringForPath(scriptPath, error)) {
-                recordError(::WebKit::wrapper(*error));
+            if (auto scriptValue = extension->resourceStringForPath(scriptPath); !scriptValue) {
+                recordErrorIfNeeded(scriptValue.error());
                 *errorMessage = toErrorString(callingAPIName, nullString(), @"invalid resource '%@'", scriptPath).createNSString().autorelease();
                 return false;
             }
@@ -382,9 +381,8 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
         });
 
         for (NSString *styleSheetPath in styleSheetPaths) {
-            RefPtr<API::Error> error;
-            if (!extension->resourceStringForPath(styleSheetPath, error)) {
-                recordError(::WebKit::wrapper(*error));
+            if (auto styleSheetValue = extension->resourceStringForPath(styleSheetPath); !styleSheetValue) {
+                recordErrorIfNeeded(styleSheetValue.error());
                 *errorMessage = toErrorString(callingAPIName, nullString(), @"invalid resource '%@'", styleSheetPath).createNSString().autorelease();
                 return false;
             }

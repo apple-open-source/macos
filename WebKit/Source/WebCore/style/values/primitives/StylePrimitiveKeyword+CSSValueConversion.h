@@ -25,16 +25,17 @@
 #pragma once
 
 #include "CSSPrimitiveValueMappings.h"
+#include "StylePrimitiveKeyword+ValueRepresentationNeeded.h"
 #include "StyleValueTypes.h"
 
 namespace WebCore {
 namespace Style {
 
-template<typename T> requires std::is_enum_v<T> struct CSSValueConversion<T> {
-   T operator()(BuilderState&, const CSSValue& value)
-   {
+template<EnumWithoutValueRepresentation T> struct CSSValueConversion<T> {
+    T operator()(BuilderState&, const CSSValue& value)
+    {
         return fromCSSValueID<T>(value.valueID());
-   }
+    }
 };
 
 } // namespace Style

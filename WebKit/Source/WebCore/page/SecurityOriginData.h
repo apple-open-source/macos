@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ProcessQualified.h"
+#include <WebCore/ProcessQualified.h>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Hasher.h>
 #include <wtf/Markable.h>

@@ -38,9 +38,7 @@ Ref<DummyModelPlayer> DummyModelPlayer::create(ModelPlayerClient& client)
 
 DummyModelPlayer::DummyModelPlayer(ModelPlayerClient& client)
     : m_client { client }
-#if ENABLE(MODEL_PROCESS)
     , m_id(ModelPlayerIdentifier::generate())
-#endif
 {
 }
 
@@ -48,8 +46,8 @@ DummyModelPlayer::~DummyModelPlayer() = default;
 
 void DummyModelPlayer::load(Model& model, LayoutSize)
 {
-    if (m_client)
-        m_client->didFailLoading(*this, ResourceError { errorDomainWebKitInternal, 0, model.url(), "Trying to load model via DummyModelPlayer"_s });
+    if (RefPtr client = m_client.get())
+        client->didFailLoading(*this, ResourceError { errorDomainWebKitInternal, 0, model.url(), "Trying to load model via DummyModelPlayer"_s });
 }
 
 PlatformLayer* DummyModelPlayer::layer()
@@ -131,9 +129,21 @@ void DummyModelPlayer::setIsMuted(bool, CompletionHandler<void(bool success)>&&)
 }
 
 #if PLATFORM(COCOA)
-Vector<RetainPtr<id>> DummyModelPlayer::accessibilityChildren()
+ModelPlayerAccessibilityChildren DummyModelPlayer::accessibilityChildren()
 {
     return { };
+}
+#endif
+
+#if ENABLE(GPU_PROCESS_MODEL)
+const MachSendRight* DummyModelPlayer::displayBuffer() const
+{
+    return nullptr;
+}
+
+GraphicsLayerContentsDisplayDelegate* DummyModelPlayer::contentsDisplayDelegate()
+{
+    return nullptr;
 }
 #endif
 

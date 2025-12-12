@@ -3,7 +3,7 @@
 /********************************************************************
  * COPYRIGHT:
  * Copyright (c) 1997-2011, International Business Machines Corporation and
- * others. All rights reserved.
+ * others. All Rights Reserved.
  * Copyright (C) 2010 , Yahoo! Inc.
  ********************************************************************
  *
@@ -348,7 +348,7 @@ public:
 private:
     friend class MessageFormat;
 
-    SelectFormat();   // default constructor not implemented.
+    SelectFormat() = delete;   // default constructor not implemented.
 
     /**
      * Finds the SelectFormat sub-message for the given keyword, or the "other" sub-message.

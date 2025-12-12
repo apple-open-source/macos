@@ -496,28 +496,6 @@ This guard is only enabled on development kernels at this time.
 This is the non fatal version of `kGUARD_EXC_SERVICE_PORT_VIOLATION_FATAL`, which is
 used when the `service_port_defense_enabled` bootarg is not set.
 
-
-### `kGUARD_EXC_PROVISIONAL_REPLY_PORT` 0x00100002
-
-- **ReportCrash Name**: N/A,
-- **Target meaning**: always zero,
-- **Payload meaning**: always zero.
-
-This exception is thrown when a 1p process is trying to create a provisional
-reply port on iOS. It is currently a soft crash to collect telemetry before
-the actual enforcement.
-
-
-### `kGUARD_EXC_OOL_PORT_ARRAY_CREATION` 0x00100003
-
-- **ReportCrash Name**: N/A,
-- **Target meaning**: always zero.
-- **Payload meaning**: always zero.
-
-This is telemetry for processes creating a port with flag
-MPO_CONNECTION_PORT_WITH_PORT_ARRAY without an entitlement
-
-
 ### `kGUARD_EXC_MOVE_PROVISIONAL_REPLY_PORT` 0x00100004
 
 - **ReportCrash Name**: N/A,

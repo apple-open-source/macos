@@ -94,9 +94,6 @@ private:
 
 template<typename EntryType>
 class DefaultIsoTLSEntry : public IsoTLSEntry {
-public:
-    ~DefaultIsoTLSEntry() = default;
-    
 protected:
     DefaultIsoTLSEntry();
 

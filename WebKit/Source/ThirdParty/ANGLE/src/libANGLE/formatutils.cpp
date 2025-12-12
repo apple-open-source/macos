@@ -6,6 +6,10 @@
 
 // formatutils.cpp: Queries for GL image formats.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_libc_calls
+#endif
+
 #include "libANGLE/formatutils.h"
 
 #include "anglebase/no_destructor.h"
@@ -1749,6 +1753,64 @@ bool InternalFormat::computePalettedImageRowPitch(GLsizei width, GLuint *resultO
     }
 }
 
+bool InternalFormat::computeRowDepthSkipBytes(GLenum formatType,
+                                              const Extents &area,
+                                              const gl::PixelStoreStateBase &unpack,
+                                              bool is3D,
+                                              GLuint *rowPitchOut,
+                                              GLuint *depthPitchOut,
+                                              GLuint *skipBytesOut) const
+{
+    GLuint rowPitch = 0;
+    if (!computeRowPitch(type, area.width, unpack.alignment, unpack.rowLength, &rowPitch))
+    {
+        return false;
+    }
+    GLuint depthPitch       = 0;
+    const GLint imageHeight = is3D ? unpack.imageHeight : 0;
+    if (!computeDepthPitch(area.height, imageHeight, rowPitch, &depthPitch))
+    {
+        return false;
+    }
+    GLuint skipBytes        = 0;
+    const GLuint skipRows   = static_cast<GLuint>(unpack.skipRows);
+    const GLuint skipPixels = static_cast<GLuint>(unpack.skipPixels);
+    const GLuint skipImages = is3D ? static_cast<GLuint>(unpack.skipImages) : 0u;
+    if (!computeSkipBytes(type, rowPitch, depthPitch, skipRows, skipPixels, skipImages, &skipBytes))
+    {
+        return false;
+    }
+    *rowPitchOut   = rowPitch;
+    *depthPitchOut = depthPitch;
+    *skipBytesOut  = skipBytes;
+    return true;
+}
+
+bool InternalFormat::computeRowSkipBytes(GLenum formatType,
+                                         GLsizei width,
+                                         const gl::PixelPackState &pack,
+                                         GLuint *rowPitchOut,
+                                         GLuint *skipBytesOut) const
+{
+    GLuint rowPitch = 0;
+    if (!computeRowPitch(type, width, pack.alignment, pack.rowLength, &rowPitch))
+    {
+        return false;
+    }
+    GLuint skipBytes        = 0;
+    const GLuint depthPitch = 0;
+    const GLuint skipRows   = static_cast<GLuint>(pack.skipRows);
+    const GLuint skipPixels = static_cast<GLuint>(pack.skipPixels);
+    const GLuint skipImages = 0u;
+    if (!computeSkipBytes(type, rowPitch, depthPitch, skipRows, skipPixels, skipImages, &skipBytes))
+    {
+        return false;
+    }
+    *rowPitchOut  = rowPitch;
+    *skipBytesOut = skipBytes;
+    return true;
+}
+
 bool InternalFormat::computeRowPitch(GLenum formatType,
                                      GLsizei width,
                                      GLint alignment,
@@ -1919,23 +1981,14 @@ std::pair<GLuint, GLuint> InternalFormat::getCompressedImageMinBlocks() const
 bool InternalFormat::computeSkipBytes(GLenum formatType,
                                       GLuint rowPitch,
                                       GLuint depthPitch,
-                                      const PixelStoreStateBase &state,
-                                      bool is3D,
+                                      GLuint skipRows,
+                                      GLuint skipPixels,
+                                      GLuint skipImages,
                                       GLuint *resultOut) const
 {
-    CheckedNumeric<GLuint> checkedRowPitch(rowPitch);
-    CheckedNumeric<GLuint> checkedDepthPitch(depthPitch);
-    CheckedNumeric<GLuint> checkedSkipImages(static_cast<GLuint>(state.skipImages));
-    CheckedNumeric<GLuint> checkedSkipRows(static_cast<GLuint>(state.skipRows));
-    CheckedNumeric<GLuint> checkedSkipPixels(static_cast<GLuint>(state.skipPixels));
-    CheckedNumeric<GLuint> checkedPixelBytes(computePixelBytes(formatType));
-    auto checkedSkipImagesBytes = checkedSkipImages * checkedDepthPitch;
-    if (!is3D)
-    {
-        checkedSkipImagesBytes = 0;
-    }
-    auto skipBytes = checkedSkipImagesBytes + checkedSkipRows * checkedRowPitch +
-                     checkedSkipPixels * checkedPixelBytes;
+    auto skipBytes = CheckedNumeric<GLuint>{skipImages} * depthPitch +
+                     CheckedNumeric<GLuint>{skipRows} * rowPitch +
+                     CheckedNumeric<GLuint>{skipPixels} * computePixelBytes(formatType);
     return CheckedMathResult(skipBytes, resultOut);
 }
 
@@ -1946,13 +1999,10 @@ bool InternalFormat::computePackUnpackEndByte(GLenum formatType,
                                               GLuint *resultOut) const
 {
     GLuint rowPitch = 0;
-    if (!computeRowPitch(formatType, size.width, state.alignment, state.rowLength, &rowPitch))
-    {
-        return false;
-    }
-
     GLuint depthPitch = 0;
-    if (is3D && !computeDepthPitch(size.height, state.imageHeight, rowPitch, &depthPitch))
+    GLuint skipBytes  = 0;
+    if (!computeRowDepthSkipBytes(formatType, size, state, is3D, &rowPitch, &depthPitch,
+                                  &skipBytes))
     {
         return false;
     }
@@ -1980,12 +2030,6 @@ bool InternalFormat::computePackUnpackEndByte(GLenum formatType,
             CheckedNumeric<GLuint> depthMinusOne = size.depth - 1;
             checkedCopyBytes += depthMinusOne * depthPitch;
         }
-    }
-
-    GLuint skipBytes = 0;
-    if (!computeSkipBytes(formatType, rowPitch, depthPitch, state, is3D, &skipBytes))
-    {
-        return false;
     }
 
     CheckedNumeric<GLuint> endByte = checkedCopyBytes + CheckedNumeric<GLuint>(skipBytes);

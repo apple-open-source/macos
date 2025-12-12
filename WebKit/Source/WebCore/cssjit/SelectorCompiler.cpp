@@ -1247,8 +1247,7 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
         return FunctionType::SimpleSelectorChecker;
 
     case CSSSelector::PseudoClass::Scope:
-        fragment.pseudoClasses.add(CSSSelector::PseudoClass::Scope);
-        return FunctionType::SelectorCheckerWithCheckingContext;
+        return FunctionType::CannotCompile;
 
     case CSSSelector::PseudoClass::Active:
     case CSSSelector::PseudoClass::Empty:
@@ -1419,7 +1418,7 @@ static FunctionType constructFragmentsInternal(const CSSSelector* rootSelector, 
     bool isRightmostOrAdjacent = positionInRootFragments != FragmentPositionInRootFragments::Other;
     FunctionType functionType = FunctionType::SimpleSelectorChecker;
     SelectorFragment* fragment = nullptr;
-    for (const CSSSelector* selector = rootSelector; selector; selector = selector->tagHistory()) {
+    for (const CSSSelector* selector = rootSelector; selector; selector = selector->precedingInComplexSelector()) {
         if (!fragment) {
             selectorFragments.append(SelectorFragment());
             fragment = &selectorFragments.last();
@@ -1489,7 +1488,8 @@ static FunctionType constructFragmentsInternal(const CSSSelector* rootSelector, 
             case CSSSelector::PseudoElement::ViewTransition:
             case CSSSelector::PseudoElement::UserAgentPart:
             case CSSSelector::PseudoElement::UserAgentPartLegacyAlias:
-                ASSERT(!fragment->pseudoElementSelector);
+                if (fragment->pseudoElementSelector)
+                    return FunctionType::CannotCompile;
                 fragment->pseudoElementSelector = selector;
                 break;
             case CSSSelector::PseudoElement::WebKitUnknown:
@@ -1514,7 +1514,7 @@ static FunctionType constructFragmentsInternal(const CSSSelector* rootSelector, 
             break;
         }
         case CSSSelector::Match::List:
-            if (selector->value().find(isASCIIWhitespace<UChar>) != notFound)
+            if (selector->value().find(isASCIIWhitespace<char16_t>) != notFound)
                 return FunctionType::CannotMatchAnything;
             [[fallthrough]];
         case CSSSelector::Match::Begin:
@@ -1551,7 +1551,7 @@ static FunctionType constructFragmentsInternal(const CSSSelector* rootSelector, 
         if (relation == CSSSelector::Relation::Subselector)
             continue;
 
-        if ((relation == CSSSelector::Relation::ShadowDescendant || relation == CSSSelector::Relation::ShadowPartDescendant) && !selector->isLastInTagHistory())
+        if ((relation == CSSSelector::Relation::ShadowDescendant || relation == CSSSelector::Relation::ShadowPartDescendant) && !selector->isFirstInComplexSelector())
             return FunctionType::CannotCompile;
 
         if (relation == CSSSelector::Relation::ShadowSlotted)
@@ -2285,7 +2285,7 @@ void SelectorCodeGenerator::generateSelectorChecker()
     StackAllocator earlyFailureStack = m_stackAllocator;
 
     Assembler::JumpList failureOnFunctionEntry;
-    // Test selector's pseudo element equals to requested PseudoId.
+    // Test selector's pseudo element equals to requested PseudoElementType.
     if (m_selectorContext != SelectorContext::QuerySelector && m_functionType == FunctionType::SelectorCheckerWithCheckingContext) {
         ASSERT_WITH_MESSAGE(fragmentMatchesTheRightmostElement(m_selectorFragments.first()), "Matching pseudo elements only make sense for the rightmost fragment.");
         generateRequestedPseudoElementEqualsToSelectorPseudoElement(failureOnFunctionEntry, m_selectorFragments.first(), checkingContextRegister);
@@ -4359,16 +4359,16 @@ void SelectorCodeGenerator::generateElementHasPseudoElement(Assembler::JumpList&
 void SelectorCodeGenerator::generateRequestedPseudoElementEqualsToSelectorPseudoElement(Assembler::JumpList& failureCases, const SelectorFragment& fragment, Assembler::RegisterID checkingContext)
 {
     ASSERT(m_selectorContext != SelectorContext::QuerySelector);
-
-    // Make sure that the requested pseudoId equals to the pseudo element of the rightmost fragment.
-    // If the rightmost fragment doesn't have a pseudo element, the requested pseudoId need to be PseudoId::None to succeed the matching.
-    // Otherwise, if the requested pseudoId is not PseudoId::None, the requested pseudoId need to equal to the pseudo element of the rightmost fragment.
+    // Make sure that the requested pseudoElementType equals to the pseudo element of the rightmost fragment.
+    // If the rightmost fragment doesn't have a pseudo element, the request must not have one either to succeed the matching.
+    // Otherwise, the requested pseudoElementType need to equal to the pseudo element of the rightmost fragment.
     if (fragmentMatchesTheRightmostElement(fragment)) {
+        static_assert(sizeof(SelectorChecker::CheckingContext::pseudoElementType) == 1);
         if (!fragment.pseudoElementSelector)
-            failureCases.append(m_assembler.branch8(Assembler::NotEqual, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, pseudoId)), Assembler::TrustedImm32(static_cast<unsigned>(PseudoId::None))));
+            failureCases.append(m_assembler.branchTest8(Assembler::NonZero, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, hasRequestedPseudoElement))));
         else {
-            Assembler::Jump skip = m_assembler.branch8(Assembler::Equal, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, pseudoId)), Assembler::TrustedImm32(static_cast<unsigned>(PseudoId::None)));
-            failureCases.append(m_assembler.branch8(Assembler::NotEqual, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, pseudoId)), Assembler::TrustedImm32(static_cast<unsigned>(CSSSelector::pseudoId(fragment.pseudoElementSelector->pseudoElement())))));
+            Assembler::Jump skip = m_assembler.branchTest8(Assembler::Zero, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, hasRequestedPseudoElement)));
+            failureCases.append(m_assembler.branch8(Assembler::NotEqual, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, pseudoElementType)), Assembler::TrustedImm32(static_cast<unsigned>(*CSSSelector::stylePseudoElementTypeFor(fragment.pseudoElementSelector->pseudoElement())))));
             skip.link(&m_assembler);
         }
     }
@@ -4451,25 +4451,28 @@ void SelectorCodeGenerator::generateMarkPseudoStyleForPseudoElement(Assembler::J
 
     Assembler::JumpList successCases;
 
-    // When the requested pseudoId isn't PseudoId::None, there's no need to mark the pseudo element style.
-    successCases.append(m_assembler.branch8(Assembler::NotEqual, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, pseudoId)), Assembler::TrustedImm32(static_cast<unsigned>(PseudoId::None))));
+    // When there is a requestedpseudoElementType, there's no need to mark the pseudo element style.
+    static_assert(sizeof(SelectorChecker::CheckingContext::hasRequestedPseudoElement) == 1);
+    static_assert(sizeof(SelectorChecker::CheckingContext::pseudoElementType) == 1);
+    successCases.append(m_assembler.branchTest8(Assembler::NonZero, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, hasRequestedPseudoElement))));
 
-    // When resolving mode is CollectingRulesIgnoringVirtualPseudoElements, there's no need to mark the pseudo element style.
-    successCases.append(branchOnResolvingModeWithCheckingContext(Assembler::Equal, SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements, checkingContext));
+    // When style invalidation, there's no need to mark the pseudo element style.
+    successCases.append(branchOnResolvingModeWithCheckingContext(Assembler::Equal, SelectorChecker::Mode::StyleInvalidation, checkingContext));
 
     // When resolving mode is ResolvingStyle, mark the pseudo style for pseudo element.
-    PseudoId dynamicPseudo = CSSSelector::pseudoId(fragment.pseudoElementSelector->pseudoElement());
-    if (dynamicPseudo < PseudoId::FirstInternalPseudoId) {
+    auto pseudoElementType = *CSSSelector::stylePseudoElementTypeFor(fragment.pseudoElementSelector->pseudoElement());
+    if (allPublicPseudoElementTypes.contains(pseudoElementType)) {
         failureCases.append(branchOnResolvingModeWithCheckingContext(Assembler::NotEqual, SelectorChecker::Mode::ResolvingStyle, checkingContext));
 
-        Assembler::Address pseudoIDSetAddress(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, pseudoIDSet));
-        auto pseudoIDSetDataAddress = pseudoIDSetAddress.withOffset(PseudoIdSet::dataMemoryOffset());
-        PseudoIdSet value { dynamicPseudo };
-        m_assembler.store32(Assembler::TrustedImm32(value.data()), pseudoIDSetDataAddress);
+        static_assert(sizeof(decltype(SelectorChecker::CheckingContext::publicPseudoElements)::StorageType) == 4);
+        Assembler::Address pseudoElementSetAddress(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, publicPseudoElements));
+        auto pseudoElementSetDataAddress = pseudoElementSetAddress.withOffset(EnumSet<PseudoElementType>::storageMemoryOffset());
+        EnumSet<PseudoElementType> value { pseudoElementType };
+        m_assembler.store32(Assembler::TrustedImm32(value.toRaw()), pseudoElementSetDataAddress);
     }
 
     // We have a pseudoElementSelector, we are not in CollectingRulesIgnoringVirtualPseudoElements so
-    // we must match that pseudo element. Since the context's pseudo selector is PseudoId::None, we fail matching
+    // we must match that pseudo element. Since the context does not have a requested pseudo element we fail matching
     // after the marking.
     failureCases.append(m_assembler.jump());
 

@@ -162,6 +162,9 @@ class DateTimeYearFieldElement final : public DateTimeNumericFieldElement {
 public:
     static Ref<DateTimeYearFieldElement> create(Document&, DateTimeFieldElementFieldOwner&);
 
+    void stepDown() final;
+    void stepUp() final;
+
 private:
     DateTimeYearFieldElement(Document&, DateTimeFieldElementFieldOwner&);
 

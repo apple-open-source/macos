@@ -139,6 +139,11 @@ body[dir=rtl] .timeline-record-bar > .segment:last-of-type {
     --record-bar-segment-border-color: hsl(79, 45%, 51%);
 }
 
+.timeline-record-bar.timeline-record-type-layout:is(.first-contentful-paint, .largest-contentful-paint) > .segment {
+    background-color: hsl(172, 48%, 75%);
+    --record-bar-segment-border-color: hsl(173, 46%, 45%);
+}
+
 .timeline-record-bar.timeline-record-type-script > .segment {
     background-color: hsl(269, 65%, 74%);
     --record-bar-segment-border-color: hsl(273, 33%, 58%);

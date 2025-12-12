@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "ResourceError.h"
-#include "ResourceHandleClient.h"
-#include "ResourceResponse.h"
+#include <WebCore/ResourceError.h>
+#include <WebCore/ResourceHandleClient.h>
+#include <WebCore/ResourceResponse.h>
 #include <wtf/Function.h>
 #include <wtf/MessageQueue.h>
 #include <wtf/ThreadSafeRefCounted.h>

@@ -41,9 +41,11 @@
 #include "HTMLParserIdioms.h"
 #include "JSEventListener.h"
 #include "LegacyRenderSVGResourceContainer.h"
+#include "NodeInlines.h"
 #include "NodeName.h"
 #include "RenderAncestorIterator.h"
 #include "RenderSVGResourceContainer.h"
+#include "RenderStyleInlines.h"
 #include "ResolvedStyle.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementRareData.h"
@@ -54,12 +56,13 @@
 #include "SVGNames.h"
 #include "SVGParsingError.h"
 #include "SVGPropertyAnimatorFactory.h"
-#include "SVGRenderStyle.h"
+#include "SVGPropertyOwnerRegistry.h"
 #include "SVGRenderSupport.h"
 #include "SVGResourceElementClient.h"
 #include "SVGSVGElement.h"
 #include "SVGTitleElement.h"
 #include "SVGUseElement.h"
+#include "Settings.h"
 #include "ShadowRoot.h"
 #include "StyleAdjuster.h"
 #include "StyleExtractor.h"
@@ -692,7 +695,7 @@ const RenderStyle* SVGElement::computedStyle(const std::optional<Style::PseudoEl
 ColorInterpolation SVGElement::colorInterpolation() const
 {
     if (auto renderer = this->renderer())
-        return renderer->style().svgStyle().colorInterpolationFilters();
+        return renderer->style().colorInterpolationFilters();
 
     // Try to determine the property value from the computed style.
     if (auto value = Style::Extractor(const_cast<SVGElement*>(this)).propertyValue(CSSPropertyColorInterpolationFilters, Style::Extractor::UpdateLayout::No))

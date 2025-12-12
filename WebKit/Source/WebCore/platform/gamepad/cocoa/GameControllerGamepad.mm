@@ -74,11 +74,11 @@ void GameControllerGamepad::setupElements()
 #if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
     if (auto *haptics = [m_gcController haptics]) {
         if (canLoad_GameController_GCHapticsLocalityLeftHandle() && canLoad_GameController_GCHapticsLocalityRightHandle()) {
-            if ([haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftHandle()] && [haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightHandle()])
+            if ([haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftHandleSingleton()] && [haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightHandleSingleton()])
                 m_supportedEffectTypes.add(GamepadHapticEffectType::DualRumble);
         }
         if (canLoad_GameController_GCHapticsLocalityLeftTrigger() && canLoad_GameController_GCHapticsLocalityRightTrigger()) {
-            if ([haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftTrigger()] && [haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightTrigger()])
+            if ([haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityLeftTriggerSingleton()] && [haptics.supportedLocalities containsObject:get_GameController_GCHapticsLocalityRightTriggerSingleton()])
                 m_supportedEffectTypes.add(GamepadHapticEffectType::TriggerRumble);
         }
     }

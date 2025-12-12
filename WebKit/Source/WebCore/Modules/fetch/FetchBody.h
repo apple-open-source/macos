@@ -85,7 +85,7 @@ public:
     void cleanConsumer() { m_consumer.clean(); }
     bool hasConsumerPendingActivity() const { return m_consumer.hasPendingActivity(); }
 
-    FetchBody clone();
+    FetchBody clone(JSDOMGlobalObject&);
 
     bool hasReadableStream() const { return !!m_readableStream; }
     const ReadableStream* readableStream() const { return m_readableStream.get(); }

@@ -25,26 +25,28 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if ENABLE(VIDEO)
 
-#include "ContentType.h"
-#include "Cookie.h"
-#include "FourCC.h"
-#include "GraphicsTypesGL.h"
-#include "LayoutRect.h"
-#include "MediaPlayerClientIdentifier.h"
-#include "MediaPlayerEnums.h"
-#include "MediaPlayerIdentifier.h"
-#include "MediaPromiseTypes.h"
-#include "PlatformDynamicRangeLimit.h"
-#include "PlatformLayer.h"
-#include "PlatformTextTrack.h"
-#include "ProcessIdentity.h"
-#include "SecurityOriginData.h"
-#include "Timer.h"
-#include "VideoPlaybackQualityMetrics.h"
-#include "VideoTarget.h"
 #include <JavaScriptCore/Forward.h>
+#include <WebCore/ContentType.h>
+#include <WebCore/Cookie.h>
+#include <WebCore/FourCC.h>
+#include <WebCore/GraphicsTypesGL.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/MediaPlayerClientIdentifier.h>
+#include <WebCore/MediaPlayerEnums.h>
+#include <WebCore/MediaPlayerIdentifier.h>
+#include <WebCore/MediaPromiseTypes.h>
+#include <WebCore/PlatformDynamicRangeLimit.h>
+#include <WebCore/PlatformLayer.h>
+#include <WebCore/PlatformTextTrack.h>
+#include <WebCore/ProcessIdentity.h>
+#include <WebCore/SecurityOriginData.h>
+#include <WebCore/Timer.h>
+#include <WebCore/VideoPlaybackQualityMetrics.h>
+#include <WebCore/VideoTarget.h>
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
@@ -61,13 +63,11 @@ OBJC_CLASS AVPlayer;
 OBJC_CLASS NSArray;
 
 namespace WebCore {
-class MediaPlayerClient;
 class MediaPlayerFactory;
 }
 
 namespace WTF {
 template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::MediaPlayerClient> : std::true_type { };
 template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::MediaPlayerFactory> : std::true_type { };
 }
 
@@ -133,7 +133,7 @@ struct MediaEngineSupportParameters {
 };
 
 struct SeekTarget {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(SeekTarget);
     SeekTarget(const MediaTime& targetTime, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold)
         : time(targetTime)
         , negativeThreshold(negativeThreshold)
@@ -182,10 +182,10 @@ struct MediaPlayerLoadOptions {
     ContentType contentType { };
     bool requiresRemotePlayback { false };
     bool supportsLimitedMatroska { false };
-    VideoMediaSampleRendererPreferences videoMediaSampleRendererPreferences { };
+    VideoRendererPreferences videoRendererPreferences { };
 };
 
-class MediaPlayerClient : public CanMakeWeakPtr<MediaPlayerClient> {
+class MediaPlayerClient : public AbstractRefCountedAndCanMakeWeakPtr<MediaPlayerClient> {
 public:
     virtual ~MediaPlayerClient() = default;
 
@@ -397,7 +397,7 @@ public:
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     RetainPtr<PlatformLayer> createVideoFullscreenLayer();
     void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler = [] { });
-    void setVideoFullscreenFrame(FloatRect);
+    void setVideoFullscreenFrame(const FloatRect&);
     void updateVideoFullscreenInlineImage();
     using MediaPlayerEnums::VideoGravity;
     void setVideoFullscreenGravity(VideoGravity);
@@ -530,7 +530,7 @@ public:
 
     double volume() const;
     void setVolume(double);
-    bool platformVolumeConfigurationRequired() const { return client().mediaPlayerPlatformVolumeConfigurationRequired(); }
+    bool platformVolumeConfigurationRequired() const { return protectedClient()->mediaPlayerPlatformVolumeConfigurationRequired(); }
 
     bool muted() const;
     void setMuted(bool);
@@ -676,9 +676,6 @@ public:
     bool isGStreamerHolePunchingEnabled();
 #endif
 
-    void beginSimulatedHDCPError();
-    void endSimulatedHDCPError();
-
     String languageOfPrimaryAudioTrack() const;
 
     size_t extraMemoryCost() const;
@@ -715,7 +712,7 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger();
-    uint64_t mediaPlayerLogIdentifier() { return client().mediaPlayerLogIdentifier(); }
+    uint64_t mediaPlayerLogIdentifier() { return protectedClient()->mediaPlayerLogIdentifier(); }
 #endif
 
     void applicationWillResignActive();
@@ -725,22 +722,22 @@ public:
     AVPlayer *objCAVFoundationAVPlayer() const;
 #endif
 
-    bool performTaskAtTime(Function<void()>&&, const MediaTime&);
+    bool performTaskAtTime(Function<void(const MediaTime&)>&&, const MediaTime&);
 
     bool shouldIgnoreIntrinsicSize();
 
-    bool renderingCanBeAccelerated() const { return client().mediaPlayerRenderingCanBeAccelerated(); }
-    void renderingModeChanged() const  { client().mediaPlayerRenderingModeChanged(); }
-    bool acceleratedCompositingEnabled() { return client().mediaPlayerAcceleratedCompositingEnabled(); }
-    void activeSourceBuffersChanged() { client().mediaPlayerActiveSourceBuffersChanged(); }
-    LayoutRect playerContentBoxRect() const { return client().mediaPlayerContentBoxRect(); }
-    float playerContentsScale() const { return client().mediaPlayerContentsScale(); }
-    bool shouldUsePersistentCache() const { return client().mediaPlayerShouldUsePersistentCache(); }
-    const String& mediaCacheDirectory() const { return client().mediaPlayerMediaCacheDirectory(); }
-    bool isVideoPlayer() const { return client().mediaPlayerIsVideo(); }
-    void mediaEngineUpdated() { client().mediaPlayerEngineUpdated(); }
-    void resourceNotSupported() { client().mediaPlayerResourceNotSupported(); }
-    bool isLooping() const { return client().mediaPlayerIsLooping(); }
+    bool renderingCanBeAccelerated() const { return protectedClient()->mediaPlayerRenderingCanBeAccelerated(); }
+    void renderingModeChanged() const  { protectedClient()->mediaPlayerRenderingModeChanged(); }
+    bool acceleratedCompositingEnabled() { return protectedClient()->mediaPlayerAcceleratedCompositingEnabled(); }
+    void activeSourceBuffersChanged() { protectedClient()->mediaPlayerActiveSourceBuffersChanged(); }
+    LayoutRect playerContentBoxRect() const { return protectedClient()->mediaPlayerContentBoxRect(); }
+    float playerContentsScale() const { return protectedClient()->mediaPlayerContentsScale(); }
+    bool shouldUsePersistentCache() const { return protectedClient()->mediaPlayerShouldUsePersistentCache(); }
+    const String& mediaCacheDirectory() const { return protectedClient()->mediaPlayerMediaCacheDirectory(); }
+    bool isVideoPlayer() const { return protectedClient()->mediaPlayerIsVideo(); }
+    void mediaEngineUpdated() { protectedClient()->mediaPlayerEngineUpdated(); }
+    void resourceNotSupported() { protectedClient()->mediaPlayerResourceNotSupported(); }
+    bool isLooping() const { return protectedClient()->mediaPlayerIsLooping(); }
     void isLoopingChanged();
 
     void remoteEngineFailedToLoad();
@@ -774,7 +771,7 @@ public:
     void renderVideoWillBeDestroyed();
 
     void setShouldDisableHDR(bool);
-    bool shouldDisableHDR() const { return client().mediaPlayerShouldDisableHDR(); }
+    bool shouldDisableHDR() const { return protectedClient()->mediaPlayerShouldDisableHDR(); }
 
     void setResourceOwner(const ProcessIdentity&);
 
@@ -799,8 +796,8 @@ public:
     void setInFullscreenOrPictureInPicture(bool);
     bool isInFullscreenOrPictureInPicture() const;
 
-    PlatformVideoTarget videoTarget() const { return client().mediaPlayerVideoTarget(); }
-    MediaPlayerClientIdentifier clientIdentifier() const { return client().mediaPlayerClientIdentifier(); }
+    PlatformVideoTarget videoTarget() const { return protectedClient()->mediaPlayerVideoTarget(); }
+    MediaPlayerClientIdentifier clientIdentifier() const { return protectedClient()->mediaPlayerClientIdentifier(); }
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     bool supportsLinearMediaPlayer() const;
@@ -815,11 +812,14 @@ public:
     void setMessageClientForTesting(WeakPtr<MessageClientForTesting>);
     MessageClientForTesting* messageClientForTesting() const;
 
+    void elementIdChanged(const String&) const;
+
 private:
     MediaPlayer(MediaPlayerClient&);
     MediaPlayer(MediaPlayerClient&, MediaPlayerEnums::MediaEngineIdentifier);
 
     MediaPlayerClient& client() const { return *m_client; }
+    Ref<MediaPlayerClient> protectedClient() const { return client(); }
 
     RefPtr<MediaPlayerPrivateInterface> protectedPrivate() const;
 
@@ -919,12 +919,14 @@ public:
 
 inline String MediaPlayer::audioOutputDeviceId() const
 {
-    return m_client ? m_client->audioOutputDeviceId() : String { };
+    RefPtr client = m_client.get();
+    return client ? client->audioOutputDeviceId() : String { };
 }
 
 inline String MediaPlayer::audioOutputDeviceIdOverride() const
 {
-    return m_client ? m_client->audioOutputDeviceIdOverride() : String { };
+    RefPtr client = m_client.get();
+    return client ? client->audioOutputDeviceIdOverride() : String { };
 }
 
 inline bool MediaPlayer::hasMediaEngine() const

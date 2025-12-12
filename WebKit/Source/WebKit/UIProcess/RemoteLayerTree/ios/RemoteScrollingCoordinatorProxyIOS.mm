@@ -179,7 +179,7 @@ void RemoteScrollingCoordinatorProxyIOS::connectStateNodeLayers(ScrollingStateTr
 
         switch (currNode->nodeType()) {
         case ScrollingNodeType::Overflow: {
-            ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(currNode);
+            ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(currNode).unsafeGet();
 
             if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
                 auto platformLayerID = scrollingStateNode.scrollContainerLayer().layerID();
@@ -194,7 +194,7 @@ void RemoteScrollingCoordinatorProxyIOS::connectStateNodeLayers(ScrollingStateTr
         };
         case ScrollingNodeType::MainFrame:
         case ScrollingNodeType::Subframe: {
-            ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(currNode);
+            ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(currNode).unsafeGet();
 
             if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
                 auto platformLayerID = scrollingStateNode.scrollContainerLayer().layerID();
@@ -218,7 +218,7 @@ void RemoteScrollingCoordinatorProxyIOS::connectStateNodeLayers(ScrollingStateTr
             break;
         }
         case ScrollingNodeType::PluginScrolling: {
-            ScrollingStatePluginScrollingNode& scrollingStateNode = downcast<ScrollingStatePluginScrollingNode>(currNode);
+            ScrollingStatePluginScrollingNode& scrollingStateNode = downcast<ScrollingStatePluginScrollingNode>(currNode).unsafeGet();
 
             if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
                 auto platformLayerID = scrollingStateNode.scrollContainerLayer().layerID();
@@ -457,25 +457,41 @@ void RemoteScrollingCoordinatorProxyIOS::animationsWereRemovedFromNode(RemoteLay
         drawingAreaIOS().pauseDisplayRefreshCallbacksForAnimation();
 }
 
+void RemoteScrollingCoordinatorProxyIOS::registerTimelineIfNecessary(WebCore::ProcessIdentifier processIdentifier, Seconds originTime, MonotonicTime now)
+{
+    if (m_timelines.find(processIdentifier) == m_timelines.end())
+        m_timelines.set(processIdentifier, RemoteAnimationTimeline::create(originTime, now));
+}
+
+const RemoteAnimationTimeline* RemoteScrollingCoordinatorProxyIOS::timeline(WebCore::ProcessIdentifier processIdentifier) const
+{
+    auto it = m_timelines.find(processIdentifier);
+    if (it != m_timelines.end())
+        return it->value.ptr();
+    return nullptr;
+}
+
 void RemoteScrollingCoordinatorProxyIOS::updateAnimations()
 {
     // FIXME: Rather than using 'now' at the point this is called, we
     // should probably be using the timestamp of the (next?) display
     // link update or vblank refresh.
     auto now = MonotonicTime::now();
+    for (auto& timeline : m_timelines.values())
+        timeline->updateCurrentTime(now);
 
     auto& layerTreeHost = drawingAreaIOS().remoteLayerTreeHost();
 
     auto animatedNodeLayerIDs = std::exchange(m_animatedNodeLayerIDs, { });
     for (auto animatedNodeLayerID : animatedNodeLayerIDs) {
         auto* animatedNode = layerTreeHost.nodeForID(animatedNodeLayerID);
-        auto* effectStack = animatedNode->effectStack();
-        effectStack->applyEffectsFromMainThread(animatedNode->layer(), now, animatedNode->backdropRootIsOpaque());
+        auto* animationStack = animatedNode->animationStack();
+        animationStack->applyEffectsFromMainThread(animatedNode->layer(), animatedNode->backdropRootIsOpaque());
 
         // We can clear the effect stack if it's empty, but the previous
         // call to applyEffects() is important so that the base values
         // were re-applied.
-        if (effectStack->hasEffects())
+        if (!animationStack->isEmpty())
             m_animatedNodeLayerIDs.add(animatedNodeLayerID);
     }
 }

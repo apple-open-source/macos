@@ -41,7 +41,8 @@
 #endif
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-#import <WebCore/AcceleratedEffectStack.h>
+#import "RemoteAnimation.h"
+#import "RemoteAnimationStack.h"
 #endif
 
 namespace WebKit {
@@ -86,11 +87,12 @@ RemoteLayerTreeNode::RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier layerI
 
 RemoteLayerTreeNode::~RemoteLayerTreeNode()
 {
+    RetainPtr layer = this->layer();
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (RefPtr effectStack = m_effectStack)
-        effectStack->clear(layer());
+    if (RefPtr animationStack = m_animationStack)
+        animationStack->clear(layer.get());
 #endif
-    [layer() setValue:nil forKey:WKRemoteLayerTreeNodePropertyKey];
+    [layer setValue:nil forKey:WKRemoteLayerTreeNodePropertyKey];
 #if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS)
     removeInteractionRegionsContainer();
 #endif
@@ -113,7 +115,7 @@ void RemoteLayerTreeNode::detachFromParent()
         return;
     }
 #endif
-    [layer() removeFromSuperlayer];
+    [protectedLayer() removeFromSuperlayer];
 }
 
 void RemoteLayerTreeNode::setEventRegion(const WebCore::EventRegion& eventRegion)
@@ -123,14 +125,15 @@ void RemoteLayerTreeNode::setEventRegion(const WebCore::EventRegion& eventRegion
 
 void RemoteLayerTreeNode::initializeLayer()
 {
-    [layer() setValue:[NSValue valueWithPointer:this] forKey:WKRemoteLayerTreeNodePropertyKey];
+    RetainPtr layer = this->layer();
+    [layer setValue:[NSValue valueWithPointer:this] forKey:WKRemoteLayerTreeNodePropertyKey];
 #if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS)
-    if (![layer() isKindOfClass:[CATransformLayer class]])
-        [layer() setHitTestsContentsAlphaChannel:YES];
+    if (![layer isKindOfClass:[CATransformLayer class]])
+        [layer setHitTestsContentsAlphaChannel:YES];
 #endif
 }
 
-void RemoteLayerTreeNode::applyBackingStore(RemoteLayerTreeHost* host, LayerContentsType layerContentsType, RemoteLayerBackingStoreProperties& properties)
+void RemoteLayerTreeNode::applyBackingStore(RemoteLayerTreeHost* host, RemoteLayerBackingStoreProperties& properties)
 {
     if (asyncContentsIdentifier() && properties.contentsRenderingResourceIdentifier() && *asyncContentsIdentifier() >= *properties.contentsRenderingResourceIdentifier())
         return;
@@ -140,8 +143,7 @@ void RemoteLayerTreeNode::applyBackingStore(RemoteLayerTreeHost* host, LayerCont
     hostingView = uiView();
 #endif
 
-    properties.updateCachedBuffers(*this, layerContentsType, hostingView);
-    properties.applyBackingStoreToLayer(layer(), layerContentsType, host->replayDynamicContentScalingDisplayListsIntoBackingStore(), hostingView);
+    properties.applyBackingStoreToNode(*this, host->replayDynamicContentScalingDisplayListsIntoBackingStore(), hostingView);
 
     if (auto identifier = properties.contentsRenderingResourceIdentifier())
         setAsyncContentsIdentifier(*identifier);
@@ -214,7 +216,8 @@ void RemoteLayerTreeNode::repositionInteractionRegionsContainerIfNeeded()
         if (auto *subnode = forCALayer(subview.layer)) {
             if (subnode->hasInteractionRegions())
                 break;
-        }
+        } else
+            break; // Don't go above views we don't own.
 
         insertionPoint++;
     }
@@ -286,7 +289,7 @@ void RemoteLayerTreeNode::addToHostingNode(RemoteLayerTreeNode& hostingNode)
 #if PLATFORM(IOS_FAMILY)
     [hostingNode.uiView() addSubview:uiView()];
 #else
-    [hostingNode.layer() addSublayer:layer()];
+    [hostingNode.protectedLayer() addSublayer:protectedLayer().get()];
 #endif
 }
 
@@ -295,7 +298,7 @@ void RemoteLayerTreeNode::removeFromHostingNode()
 #if PLATFORM(IOS_FAMILY)
     [uiView() removeFromSuperview];
 #else
-    [layer() removeFromSuperlayer];
+    [protectedLayer() removeFromSuperlayer];
 #endif
 }
 
@@ -304,30 +307,34 @@ void RemoteLayerTreeNode::setAcceleratedEffectsAndBaseValues(const WebCore::Acce
 {
     ASSERT(isUIThread());
 
-    if (RefPtr effectStack = m_effectStack)
-        effectStack->clear(layer());
+    RetainPtr layer = this->layer();
+    if (RefPtr animationStack = m_animationStack)
+        animationStack->clear(layer.get());
     host.animationsWereRemovedFromNode(*this);
 
     if (effects.isEmpty())
         return;
 
-    Ref effectStack = RemoteAcceleratedEffectStack::create(layer().bounds, host.acceleratedTimelineTimeOrigin(m_layerID.processIdentifier()));
-    m_effectStack = effectStack.copyRef();
-
-    auto clonedEffects = effects;
-    auto clonedBaseValues = baseValues.clone();
-
-    effectStack->setEffects(WTFMove(clonedEffects));
-    effectStack->setBaseValues(WTFMove(clonedBaseValues));
+    Ref animationStack = RemoteAnimationStack::create(effects.map([&](const Ref<AcceleratedEffect>& effect) {
+        RefPtr timeline = host.timeline(m_layerID.processIdentifier());
+        ASSERT(timeline);
+        return RemoteAnimation::create(Ref { effect }.get(), *timeline);
+    }), baseValues.clone(), layer.get().bounds);
+    m_animationStack = animationStack.copyRef();
 
 #if PLATFORM(IOS_FAMILY)
-    effectStack->applyEffectsFromMainThread(layer(), host.animationCurrentTime(m_layerID.processIdentifier()), backdropRootIsOpaque());
+    animationStack->applyEffectsFromMainThread(layer.get(), backdropRootIsOpaque());
 #else
-    effectStack->initEffectsFromMainThread(layer(), host.animationCurrentTime(m_layerID.processIdentifier()));
+    animationStack->initEffectsFromMainThread(layer.get());
 #endif
 
     host.animationsWereAddedToNode(*this);
 }
 #endif
+
+RetainPtr<CALayer> RemoteLayerTreeNode::protectedLayer() const
+{
+    return layer();
+}
 
 }

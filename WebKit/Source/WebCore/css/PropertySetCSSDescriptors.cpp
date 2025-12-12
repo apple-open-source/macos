@@ -34,6 +34,7 @@
 #include "DeprecatedCSSOMValueList.h"
 #include "Document.h"
 #include "MutableStyleProperties.h"
+#include "NodeInlines.h"
 #include "Settings.h"
 #include "StyleAttributeMutationScope.h"
 #include "StyleSheetContents.h"
@@ -112,6 +113,9 @@ RefPtr<DeprecatedCSSOMValue> PropertySetCSSDescriptors::getPropertyCSSValue(cons
 
 String PropertySetCSSDescriptors::getPropertyValue(const String& propertyName)
 {
+    if (styleDeclarationType() == StyleDeclarationType::Function && isCustomPropertyName(propertyName))
+        return protectedPropertySet()->getCustomPropertyValue(propertyName);
+
     auto propertyID = cssPropertyID(propertyName);
     if (!isExposed(propertyID))
         return String();
@@ -246,6 +250,11 @@ RefPtr<DeprecatedCSSOMValue> PropertySetCSSDescriptors::wrapForDeprecatedCSSOM(C
 
 bool PropertySetCSSDescriptors::willMutate()
 {
+    if (styleDeclarationType() == StyleDeclarationType::Function) {
+        // FIXME: Use <declaration-rule-list> parsing.
+        return false;
+    }
+
     RefPtr strongParentRule = m_parentRule.get();
     ASSERT(strongParentRule);
     if (!strongParentRule)

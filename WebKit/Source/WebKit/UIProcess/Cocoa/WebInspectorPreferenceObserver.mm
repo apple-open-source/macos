@@ -51,10 +51,10 @@
     if (!(self = [super init]))
         return nil;
 
-    RetainPtr sandboxBrokerBundleIdentifier = WebKit::bundleIdentifierForSandboxBroker();
-    m_userDefaults = adoptNS([[NSUserDefaults alloc] initWithSuiteName:bridge_cast(sandboxBrokerBundleIdentifier.get())]);
+    RetainPtr sandboxBrokerBundleIdentifier = bridge_cast(WebKit::bundleIdentifierForSandboxBrokerSingleton());
+    m_userDefaults = adoptNS([[NSUserDefaults alloc] initWithSuiteName:sandboxBrokerBundleIdentifier.get()]);
     if (!m_userDefaults) {
-        WTFLogAlways("Could not init user defaults instance for domain %s.", sandboxBrokerBundleIdentifier.get());
+        WTFLogAlways("Could not init user defaults instance for domain %@.", sandboxBrokerBundleIdentifier.get());
         return self;
     }
     [m_userDefaults.get() addObserver:self forKeyPath:@"ShowDevelopMenu" options:NSKeyValueObservingOptionNew context:nil];

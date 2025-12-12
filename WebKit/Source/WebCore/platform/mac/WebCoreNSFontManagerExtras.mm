@@ -99,8 +99,8 @@ static FontChanges computedFontChanges(NSFontManager *fontManager, NSFont *origi
 
 FontChanges computedFontChanges(NSFontManager *fontManager)
 {
-    NSFont *originalFontA = firstFontConversionSpecimen(fontManager);
-    return computedFontChanges(fontManager, originalFontA, [fontManager convertFont:originalFontA], [fontManager convertFont:secondFontConversionSpecimen(fontManager)]);
+    RetainPtr originalFontA = firstFontConversionSpecimen(fontManager);
+    return computedFontChanges(fontManager, originalFontA.get(), [fontManager convertFont:originalFontA.get()], [fontManager convertFont:RetainPtr { secondFontConversionSpecimen(fontManager) }.get()]);
 }
 
 FontAttributeChanges computedFontAttributeChanges(NSFontManager *fontManager, id attributeConverter)
@@ -110,8 +110,8 @@ FontAttributeChanges computedFontAttributeChanges(NSFontManager *fontManager, id
     auto shadow = adoptNS([[NSShadow alloc] init]);
     [shadow setShadowOffset:NSMakeSize(1, 1)];
 
-    NSFont *originalFontA = firstFontConversionSpecimen(fontManager);
-    NSDictionary *originalAttributesA = @{ NSFontAttributeName : originalFontA };
+    RetainPtr originalFontA = firstFontConversionSpecimen(fontManager);
+    NSDictionary *originalAttributesA = @{ NSFontAttributeName : originalFontA.get() };
     NSDictionary *originalAttributesB = @{
         NSBackgroundColorAttributeName : NSColor.blackColor,
         NSFontAttributeName : secondFontConversionSpecimen(fontManager),
@@ -125,20 +125,20 @@ FontAttributeChanges computedFontAttributeChanges(NSFontManager *fontManager, id
     NSDictionary *convertedAttributesA = [attributeConverter convertAttributes:originalAttributesA];
     NSDictionary *convertedAttributesB = [attributeConverter convertAttributes:originalAttributesB];
 
-    NSColor *convertedBackgroundColorA = [convertedAttributesA objectForKey:NSBackgroundColorAttributeName];
+    RetainPtr convertedBackgroundColorA = [convertedAttributesA objectForKey:NSBackgroundColorAttributeName];
     if (convertedBackgroundColorA == [convertedAttributesB objectForKey:NSBackgroundColorAttributeName])
-        changes.setBackgroundColor(colorFromCocoaColor(convertedBackgroundColorA ?: NSColor.clearColor));
+        changes.setBackgroundColor(colorFromCocoaColor(convertedBackgroundColorA ? convertedBackgroundColorA.get() : RetainPtr { NSColor.clearColor }.get()));
 
-    changes.setFontChanges(computedFontChanges(fontManager, originalFontA, [convertedAttributesA objectForKey:NSFontAttributeName], [convertedAttributesB objectForKey:NSFontAttributeName]));
+    changes.setFontChanges(computedFontChanges(fontManager, originalFontA.get(), [convertedAttributesA objectForKey:NSFontAttributeName], [convertedAttributesB objectForKey: NSFontAttributeName]));
 
-    NSColor *convertedForegroundColorA = [convertedAttributesA objectForKey:NSForegroundColorAttributeName];
+    RetainPtr convertedForegroundColorA = [convertedAttributesA objectForKey:NSForegroundColorAttributeName];
     if (convertedForegroundColorA == [convertedAttributesB objectForKey:NSForegroundColorAttributeName])
-        changes.setForegroundColor(colorFromCocoaColor(convertedForegroundColorA ?: NSColor.blackColor));
+        changes.setForegroundColor(colorFromCocoaColor(convertedForegroundColorA ? convertedForegroundColorA.get() : RetainPtr { NSColor.blackColor }.get()));
 
-    NSShadow *convertedShadow = [convertedAttributesA objectForKey:NSShadowAttributeName];
+    RetainPtr<NSShadow> convertedShadow = [convertedAttributesA objectForKey:NSShadowAttributeName];
     if (convertedShadow) {
-        FloatSize offset { LayoutUnit::fromFloatRound(static_cast<float>(convertedShadow.shadowOffset.width)).toFloat(), LayoutUnit::fromFloatRound(static_cast<float>(convertedShadow.shadowOffset.height)).toFloat() };
-        changes.setShadow({ colorFromCocoaColor(convertedShadow.shadowColor ?: NSColor.blackColor), offset, convertedShadow.shadowBlurRadius });
+        FloatSize offset { LayoutUnit::fromFloatRound(static_cast<float>([convertedShadow shadowOffset].width)).toFloat(), LayoutUnit::fromFloatRound(static_cast<float>([convertedShadow shadowOffset].height)).toFloat() };
+        changes.setShadow({ colorFromCocoaColor(RetainPtr { [convertedShadow shadowColor] ?: NSColor.blackColor }.get()), offset, [convertedShadow shadowBlurRadius] });
     } else if (![convertedAttributesB objectForKey:NSShadowAttributeName])
         changes.setShadow({ });
 

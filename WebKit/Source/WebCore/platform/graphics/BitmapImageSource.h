@@ -40,7 +40,7 @@ class ImageFrameAnimator;
 class ImageObserver;
 
 class BitmapImageSource final : public ImageSource, public CanMakeCheckedPtr<BitmapImageSource> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(BitmapImageSource);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(BitmapImageSource);
 public:
     static Ref<BitmapImageSource> create(BitmapImage&, AlphaOption, GammaAndColorProfileOption);
@@ -177,6 +177,10 @@ private:
 
 #if ENABLE(SPATIAL_IMAGE_DETECTION)
     bool isSpatial() const final { return m_descriptor.isSpatial(); }
+#endif
+
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+    bool isMaybePanoramic() const final { return m_descriptor.isMaybePanoramic(); }
 #endif
 
     // ImageFrame metadata

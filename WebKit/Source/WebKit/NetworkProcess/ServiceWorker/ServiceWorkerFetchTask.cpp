@@ -625,6 +625,15 @@ RefPtr<NetworkResourceLoader> ServiceWorkerFetchTask::protectedLoader() const
     return m_loader.get();
 }
 
+std::optional<SharedPreferencesForWebProcess> ServiceWorkerFetchTask::sharedPreferencesForWebProcess() const
+{
+    RefPtr loader = m_loader.get();
+    if (!loader)
+        return std::nullopt;
+
+    return loader->connectionToWebProcess().sharedPreferencesForWebProcess();
+}
+
 } // namespace WebKit
 
 #undef SWFETCH_RELEASE_LOG

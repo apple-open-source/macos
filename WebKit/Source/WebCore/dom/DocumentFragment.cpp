@@ -29,6 +29,7 @@
 #include "HTMLDocumentParser.h"
 #include "HTMLDocumentParserFastPath.h"
 #include "Page.h"
+#include "SerializedNode.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "XMLDocumentParser.h"
 #include "markup.h"
@@ -76,7 +77,7 @@ bool DocumentFragment::childTypeAllowed(NodeType type) const
     }
 }
 
-Ref<Node> DocumentFragment::cloneNodeInternal(Document& document, CloningOperation type, CustomElementRegistry* registry)
+Ref<Node> DocumentFragment::cloneNodeInternal(Document& document, CloningOperation type, CustomElementRegistry* registry) const
 {
     Ref clone = create(document);
     switch (type) {
@@ -120,15 +121,30 @@ Element* DocumentFragment::getElementById(const AtomString& id) const
 
     // Fast path for ShadowRoot, where we are both a DocumentFragment and a TreeScope.
     if (isTreeScope())
-        return protectedTreeScope()->getElementById(id).get();
+        return protectedTreeScope()->getElementById(id).unsafeGet();
 
     // Otherwise, fall back to iterating all of the element descendants.
     for (Ref element : descendantsOfType<Element>(*this)) {
         if (element->getIdAttribute() == id)
-            return const_cast<Element*>(element.ptr());
+            return const_cast<Element*>(element.unsafePtr());
     }
 
     return nullptr;
+}
+
+SerializedNode DocumentFragment::serializeNode(CloningOperation type) const
+{
+    Vector<SerializedNode> children;
+    switch (type) {
+    case CloningOperation::SelfOnly:
+    case CloningOperation::SelfWithTemplateContent:
+        break;
+    case CloningOperation::Everything:
+        children = serializeChildNodes();
+        break;
+    }
+
+    return { SerializedNode::DocumentFragment { WTFMove(children) } };
 }
 
 }

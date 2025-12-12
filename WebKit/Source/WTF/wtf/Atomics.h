@@ -47,7 +47,7 @@ ALWAYS_INLINE bool hasFence(std::memory_order order)
 
 template<typename T>
 struct Atomic {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Atomic);
 
     // Don't pass a non-default value for the order parameter unless you really know
     // what you are doing and have thought about it very hard. The cost of seq_cst
@@ -342,7 +342,7 @@ inline InternalDependencyType opaqueMixture(T value, Arguments... arguments)
 }
 
 class Dependency {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(Dependency);
 public:
     constexpr Dependency()
         : m_value(0)
@@ -368,11 +368,11 @@ public:
         // ordering. This forces weak memory order CPUs to observe `location` and
         // dependent loads in their store order without the reader using a barrier
         // or an acquire load.
-        asm("eor %w[out], %w[in], %w[in]"
+        __asm__("eor %w[out], %w[in], %w[in]"
             : [out] "=r"(output)
             : [in] "r"(input));
 #elif CPU(ARM)
-        asm("eor %[out], %[in], %[in]"
+        __asm__("eor %[out], %[in], %[in]"
             : [out] "=r"(output)
             : [in] "r"(input));
 #else
@@ -454,7 +454,7 @@ private:
 
 template<typename InputType, typename ValueType>
 struct InputAndValue {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(InputAndValue);
 
     InputAndValue() { }
     

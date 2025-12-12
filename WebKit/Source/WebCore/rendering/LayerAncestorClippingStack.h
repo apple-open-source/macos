@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "LayoutRect.h"
-#include "RenderLayer.h"
-#include "ScrollTypes.h"
+#include <WebCore/LayoutRect.h>
+#include <WebCore/RenderLayer.h>
+#include <WebCore/ScrollTypes.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>

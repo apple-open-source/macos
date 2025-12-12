@@ -30,7 +30,7 @@
 
 - (void)dealloc
 {
-    [_exclusionRules release];
+    SUPPRESS_UNRETAINED_ARG [_exclusionRules release];
     _exclusionRules = nil;
 
     [super dealloc];

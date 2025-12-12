@@ -32,6 +32,7 @@
 #include "LocalFrame.h"
 #include "Page.h"
 #include "PaintInfo.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
@@ -81,7 +82,7 @@ TextPaintStyle computeTextPaintStyle(const RenderText& renderer, const RenderSty
     paintStyle.paintOrder = lineStyle.paintOrder();
     paintStyle.lineJoin = lineStyle.joinStyle();
     paintStyle.lineCap = lineStyle.capStyle();
-    paintStyle.miterLimit = lineStyle.strokeMiterLimit();
+    paintStyle.miterLimit = lineStyle.strokeMiterLimit().value.value;
     
     if (paintInfo.forceTextColor()) {
         paintStyle.fillColor = paintInfo.forcedTextColor();
@@ -101,10 +102,14 @@ TextPaintStyle computeTextPaintStyle(const RenderText& renderer, const RenderSty
         }
     }
 
-    if (lineStyle.insideDisabledSubmitButton()) {
+    if (lineStyle.insideSubmitButton()) {
         RefPtr page = renderer.frame().page();
-        if (page && page->focusController().isActive()) {
-            paintStyle.fillColor = RenderTheme::singleton().disabledSubmitButtonTextColor();
+        auto focusControllerActive = true;
+#if PLATFORM(MAC)
+        focusControllerActive = page && page->focusController().isActive();
+#endif
+        if (focusControllerActive) {
+            paintStyle.fillColor = RenderTheme::singleton().submitButtonTextColor(renderer);
             return paintStyle;
         }
     }
@@ -120,7 +125,7 @@ TextPaintStyle computeTextPaintStyle(const RenderText& renderer, const RenderSty
             forceBackgroundToWhite = false;
 
         if (forceBackgroundToWhite) {
-            if (renderer.checkedStyle()->hasAnyBackgroundClipText())
+            if (renderer.checkedStyle()->backgroundLayers().hasAnyBackgroundClipText())
                 paintStyle.fillColor = Color::black;
         }
     }

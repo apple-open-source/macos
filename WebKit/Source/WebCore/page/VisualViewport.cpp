@@ -29,15 +29,14 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "ContextDestructionObserver.h"
-#include "Document.h"
+#include "DocumentPage.h"
+#include "DocumentView.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "EventTargetInterfaces.h"
-#include "FrameInlines.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
-#include "Page.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {

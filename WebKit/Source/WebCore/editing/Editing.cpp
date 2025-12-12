@@ -29,11 +29,12 @@
 
 #include "AXObjectCache.h"
 #include "CachedImage.h"
-#include "DocumentInlines.h"
+#include "ContainerNodeInlines.h"
 #include "EditingInlines.h"
 #include "Editor.h"
 #include "ElementChildIteratorInlines.h"
 #include "ElementInlines.h"
+#include "FrameDestructionObserverInlines.h"
 #include "GraphicsLayer.h"
 #include "HTMLBodyElement.h"
 #include "HTMLDListElement.h"
@@ -202,7 +203,7 @@ Element* unsplittableElementForPosition(const Position& position)
     // Since enclosingNodeOfType won't search beyond the highest root editable node,
     // this code works even if the closest table cell was outside of the root editable node.
     if (auto enclosingCell = downcast<Element>(enclosingNodeOfType(position, &isTableCell)))
-        return enclosingCell.get();
+        return enclosingCell.unsafeGet();
     return editableRootForPosition(position);
 }
 
@@ -367,7 +368,7 @@ int lastOffsetForEditing(const Node& node)
     return editingIgnoresContent(node) ? 1 : 0;
 }
 
-bool isAmbiguousBoundaryCharacter(UChar character)
+bool isAmbiguousBoundaryCharacter(char16_t character)
 {
     // These are characters that can behave as word boundaries, but can appear within words.
     // If they are just typed, i.e. if they are immediately followed by a caret, we want to delay text checking until the next character has been typed.
@@ -387,7 +388,7 @@ String stringWithRebalancedWhitespace(const String& string, bool startIsStartOfP
             previousCharacterWasSpace = false;
             continue;
         }
-        LChar selectedWhitespaceCharacter;
+        Latin1Character selectedWhitespaceCharacter;
         // We need to ensure there is no next sibling text node. See https://bugs.webkit.org/show_bug.cgi?id=123163
         if (previousCharacterWasSpace || (!i && startIsStartOfParagraph) || (i == length - 1 && shouldEmitNBSPbeforeEnd)) {
             selectedWhitespaceCharacter = noBreakSpace;
@@ -488,7 +489,7 @@ VisiblePosition closestEditablePositionInElementForAbsolutePoint(const Element& 
     auto absoluteBoundingBox = renderer->absoluteBoundingBoxRect();
     auto constrainedAbsolutePoint = point.constrainedBetween(absoluteBoundingBox.minXMinYCorner(), absoluteBoundingBox.maxXMaxYCorner());
     auto localPoint = renderer->absoluteToLocal(constrainedAbsolutePoint, UseTransforms);
-    auto visiblePosition = renderer->positionForPoint(flooredLayoutPoint(localPoint), HitTestSource::User, nullptr);
+    auto visiblePosition = renderer->visiblePositionForPoint(flooredLayoutPoint(localPoint), HitTestSource::User);
     return isEditablePosition(visiblePosition.deepEquivalent()) ? visiblePosition : VisiblePosition { };
 }
 
@@ -1176,7 +1177,7 @@ LayoutRect localCaretRectInRendererForCaretPainting(const VisiblePosition& caret
         return LayoutRect();
     ASSERT(caretPosition.deepEquivalent().deprecatedNode()->renderer());
     auto [localRect, renderer] = caretPosition.localCaretRect();
-    return localCaretRectInRendererForRect(localRect, caretPosition.deepEquivalent().deprecatedNode(), renderer, caretPainter);
+    return localCaretRectInRendererForRect(localRect, caretPosition.deepEquivalent().deprecatedNode(), renderer.get(), caretPainter);
 }
 
 LayoutRect localCaretRectInRendererForRect(LayoutRect& localRect, Node* node, RenderObject* renderer, RenderBlock*& caretPainter)

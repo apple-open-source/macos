@@ -27,7 +27,7 @@
 
 #if ENABLE(WEB_RTC)
 
-#include "DocumentInlines.h"
+#include "DocumentSecurityOrigin.h"
 #include "RTCNetworkManager.h"
 #include "RTCPeerConnection.h"
 #include "WebRTCProvider.h"

@@ -46,9 +46,6 @@ class CDMSessionMediaSourceAVFObjC : public LegacyCDMSession, public SourceBuffe
 public:
     virtual ~CDMSessionMediaSourceAVFObjC();
 
-    virtual void addParser(AVStreamDataParser*) = 0;
-    virtual void removeParser(AVStreamDataParser*) = 0;
-
     // LegacyCDMSession
     const String& sessionId() const override { return m_sessionId; }
 
@@ -56,10 +53,8 @@ public:
     void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 
     // SourceBufferPrivateAVFObjCErrorClient
-    void videoRendererDidReceiveError(WebSampleBufferVideoRendering *, NSError *, bool& shouldIgnore) override;
-ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
-    void audioRendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *, bool& shouldIgnore) override;
-ALLOW_NEW_API_WITHOUT_GUARDS_END
+    void videoRendererDidReceiveError(NSError *, bool& shouldIgnore) final;
+    void audioRendererDidReceiveError(NSError *, bool& shouldIgnore) final;
 
     void addSourceBuffer(SourceBufferPrivateAVFObjC*);
     void removeSourceBuffer(SourceBufferPrivateAVFObjC*);

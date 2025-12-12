@@ -28,8 +28,8 @@
     JSGenerateToNativeObject,
     JSGenerateToJSObject,
 ] dictionary AuthenticatorSelectionCriteria {
-    AuthenticatorAttachment      authenticatorAttachment;
-    ResidentKeyRequirement       residentKey;
+    [ImplementedAs=authenticatorAttachmentString] DOMString      authenticatorAttachment;
+    [ImplementedAs=residentKeyString]             DOMString      residentKey;
     boolean                      requireResidentKey = false;
-    UserVerificationRequirement  userVerification = "preferred";
+    [ImplementedAs=userVerificationString] DOMString  userVerification = "preferred";
 };

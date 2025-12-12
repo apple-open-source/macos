@@ -41,6 +41,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/StringToIntegerConversion.h>
 
@@ -623,7 +624,7 @@ void ScreenCaptureKitCaptureSource::streamDidOutputVideoSampleBuffer(RetainPtr<C
         if (!m_transferSession)
             m_transferSession = ImageTransferSessionVT::create(preferedPixelBufferFormat());
 
-        m_transferSession->setCroppingRectangle(contentRect);
+        m_transferSession->setCroppingRectangle(contentRect, intrinsicSize);
         if (auto newFrame = m_transferSession->convertCMSampleBuffer(m_currentFrame.get(), IntSize { contentRect.size() })) {
             m_currentFrame = WTFMove(newFrame);
             intrinsicSize = FloatSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(PAL::CMSampleBufferGetFormatDescription(m_currentFrame.get()), true, true));

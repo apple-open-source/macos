@@ -51,7 +51,7 @@ struct WebPushMessage {
 
 #if PLATFORM(COCOA)
     static std::optional<WebPushMessage> fromDictionary(NSDictionary *);
-    NSDictionary *toDictionary() const;
+    RetainPtr<NSDictionary> toDictionary() const;
 #endif
 };
 

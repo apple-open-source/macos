@@ -58,4 +58,17 @@ FocusEvent::FocusEvent(const AtomString& type, const Init& initializer)
 
 FocusEvent::~FocusEvent() = default;
 
+String FocusEvent::debugDescription() const
+{
+    String focusTargetDescription = "null"_s;
+    if (RefPtr node = dynamicDowncast<Node>(m_relatedTarget))
+        focusTargetDescription = node->debugDescription();
+    else if (m_relatedTarget) {
+        TextStream stream;
+        stream << "EventTarget "_s << m_relatedTarget.get();
+        focusTargetDescription = stream.release();
+    }
+    return makeString(UIEvent::debugDescription(), ", focus target: "_s, focusTargetDescription);
+}
+
 } // namespace WebCore

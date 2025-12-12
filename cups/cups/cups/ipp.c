@@ -2952,34 +2952,6 @@ ippReadIO(void       *src,		/* I - Data source */
 	  */
 
           tag = (ipp_tag_t)buffer[0];
-          if (tag == IPP_TAG_EXTENSION)
-          {
-           /*
-            * Read 32-bit "extension" tag...
-            */
-
-	    if ((*cb)(src, buffer, 4) < 4)
-	    {
-	      DEBUG_puts("1ippReadIO: Callback returned EOF/error");
-	      _cupsBufferRelease((char *)buffer);
-	      return (IPP_STATE_ERROR);
-	    }
-
-	    tag = (ipp_tag_t)((((((buffer[0] << 8) | buffer[1]) << 8) |
-	                        buffer[2]) << 8) | buffer[3]);
-
-            if (tag & IPP_TAG_CUPS_CONST)
-            {
-             /*
-              * Fail if the high bit is set in the tag...
-              */
-
-	      _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("IPP extension tag larger than 0x7FFFFFFF."), 1);
-	      DEBUG_printf(("1ippReadIO: bad tag 0x%x.", tag));
-	      _cupsBufferRelease((char *)buffer);
-	      return (IPP_STATE_ERROR);
-            }
-          }
 
 	  if (tag == IPP_TAG_END)
 	  {
@@ -3233,7 +3205,8 @@ ippReadIO(void       *src,		/* I - Data source */
 
 	    if ((*cb)(src, buffer, (size_t)n) < n)
 	    {
-	      DEBUG_puts("1ippReadIO: unable to read name.");
+              _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Unable to read IPP attribute name."), 1);
+	      DEBUG_puts("1ippReadIO: unable to read IPP attribute name.");
 	      _cupsBufferRelease((char *)buffer);
 	      return (IPP_STATE_ERROR);
 	    }

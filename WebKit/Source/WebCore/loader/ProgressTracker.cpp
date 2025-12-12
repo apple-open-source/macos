@@ -63,7 +63,7 @@ static const unsigned minumumBytesPerHeartbeatForProgress = 1024;
 static const Seconds progressNotificationTimeInterval { 200_ms };
 
 struct ProgressItem {
-    WTF_MAKE_NONCOPYABLE(ProgressItem); WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_MAKE_NONCOPYABLE(ProgressItem); WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ProgressItem, Loader);
 public:
     explicit ProgressItem(long long length)
         : bytesReceived(0)
@@ -174,7 +174,7 @@ void ProgressTracker::finalProgressComplete()
 
     // Before resetting progress value be sure to send client a least one notification
     // with final progress value.
-    if (!m_finalProgressChangedSent) {
+    if (frame && !m_finalProgressChangedSent) {
         m_progressValue = 1;
         progressEstimateChanged(*frame);
     }

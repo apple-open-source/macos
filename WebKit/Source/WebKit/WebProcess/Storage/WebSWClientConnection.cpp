@@ -45,13 +45,14 @@
 #include <WebCore/BackgroundFetchRequest.h>
 #include <WebCore/CookieChangeSubscription.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
-#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/DocumentPage.h>
+#include <WebCore/EventLoop.h>
+#include <WebCore/ExceptionOr.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameInlines.h>
 #include <WebCore/LocalFrame.h>
-#include <WebCore/Page.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SerializedScriptValue.h>
@@ -110,6 +111,21 @@ void WebSWClientConnection::removeServiceWorkerRegistrationInServer(ServiceWorke
     if (WebProcess::singleton().removeServiceWorkerRegistration(identifier)) {
         RunLoop::mainSingleton().dispatch([identifier, connection = Ref { *this }]() {
             connection->send(Messages::WebSWServerConnection::RemoveServiceWorkerRegistrationInServer { identifier });
+        });
+    }
+}
+
+void WebSWClientConnection::registerServiceWorkerInServer(ServiceWorkerIdentifier identifier)
+{
+    if (WebProcess::singleton().registerServiceWorker(identifier))
+        send(Messages::WebSWServerConnection::RegisterServiceWorkerInServer { identifier });
+}
+
+void WebSWClientConnection::unregisterServiceWorkerInServer(ServiceWorkerIdentifier identifier)
+{
+    if (WebProcess::singleton().unregisterServiceWorker(identifier)) {
+        RunLoop::mainSingleton().dispatch([identifier, connection = Ref { *this }]() {
+            connection->send(Messages::WebSWServerConnection::UnregisterServiceWorkerInServer { identifier });
         });
     }
 }
@@ -456,7 +472,8 @@ void WebSWClientConnection::focusServiceWorkerClient(ScriptExecutionContextIdent
                 }
 
                 page->focusController().setFocusedFrame(frame.get());
-                callback(ServiceWorkerClientData::from(*document));
+                // FIXME: This is a safer cpp false positive.
+                SUPPRESS_UNCOUNTED_ARG callback(ServiceWorkerClientData::from(*document));
             });
         };
 

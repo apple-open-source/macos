@@ -27,9 +27,9 @@
 
 #if ENABLE(CONTEXT_MENUS)
 
+#include "GtkVersioning.h"
 #include "WebContextMenuItemGlib.h"
 #include "WebContextMenuProxy.h"
-#include <WebCore/GtkVersioning.h>
 #include <WebCore/IntPoint.h>
 #include <wtf/HashMap.h>
 #include <wtf/glib/GRefPtr.h>

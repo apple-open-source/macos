@@ -286,11 +286,6 @@ NetworkProcessProxy::NetworkProcessProxy()
 
 NetworkProcessProxy::~NetworkProcessProxy()
 {
-#if ENABLE(CONTENT_EXTENSIONS)
-    for (Ref proxy : m_webUserContentControllerProxies)
-        proxy->removeNetworkProcess(*this);
-#endif
-
     if (RefPtr downloadProxyMap = m_downloadProxyMap.get())
         downloadProxyMap->invalidate();
     networkProcessesSet().remove(*this);
@@ -1377,6 +1372,11 @@ void NetworkProcessProxy::sendProcessWillSuspendImminentlyForTesting()
         sendSync(Messages::NetworkProcess::ProcessWillSuspendImminentlyForTestingSync(), 0);
 }
 
+void NetworkProcessProxy::isStorageSuspendedForTesting(PAL::SessionID sessionID, CompletionHandler<void(bool)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::IsStorageSuspendedForTesting(sessionID), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
+}
+
 static bool s_suspensionAllowedForTesting { true };
 void NetworkProcessProxy::setSuspensionAllowedForTesting(bool allowed)
 {
@@ -1438,7 +1438,6 @@ WebsiteDataStore* NetworkProcessProxy::websiteDataStoreFromSessionID(PAL::Sessio
 void NetworkProcessProxy::contentExtensionRules(UserContentControllerIdentifier identifier)
 {
     if (RefPtr webUserContentControllerProxy = WebUserContentControllerProxy::get(identifier)) {
-        m_webUserContentControllerProxies.add(*webUserContentControllerProxy);
         webUserContentControllerProxy->addNetworkProcess(*this);
 
         auto rules = WTF::map(webUserContentControllerProxy->contentExtensionRules(), [](auto&& keyValue) -> std::pair<WebCompiledContentRuleListData, URL> {
@@ -1453,7 +1452,6 @@ void NetworkProcessProxy::contentExtensionRules(UserContentControllerIdentifier 
 void NetworkProcessProxy::didDestroyWebUserContentControllerProxy(WebUserContentControllerProxy& proxy)
 {
     send(Messages::NetworkContentRuleListManager::Remove { proxy.identifier() }, 0);
-    m_webUserContentControllerProxies.remove(proxy);
 }
 #endif
 
@@ -2056,6 +2054,13 @@ void NetworkProcessProxy::setDefaultRequestTimeoutInterval(double timeoutInterva
     if (canSendMessage())
         send(Messages::NetworkProcess::SetDefaultRequestTimeoutInterval(timeoutInterval), 0);
 }
+
+#if HAVE(WEBCONTENTRESTRICTIONS)
+void NetworkProcessProxy::allowEvaluatedURL(const WebCore::ParentalControlsURLFilterParameters& parameters, CompletionHandler<void(bool)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::AllowEvaluatedURL(parameters), WTFMove(completionHandler));
+}
+#endif
 
 } // namespace WebKit
 

@@ -49,7 +49,14 @@ vm_swapfile_open(const char *path, vnode_t *vp)
 	int error = 0;
 	vfs_context_t   ctx = vfs_context_kernel();
 
-	if ((error = vnode_open(path, (O_CREAT | O_TRUNC | FREAD | FWRITE), S_IRUSR | S_IWUSR, 0, vp, ctx))) {
+	error = vnode_open(
+		path,
+		(O_CREAT | O_TRUNC | O_NOFOLLOW_ANY | FREAD | FWRITE),
+		S_IRUSR | S_IWUSR,
+		0,
+		vp,
+		ctx);
+	if (error) {
 		printf("Failed to open swap file %d\n", error);
 		*vp = NULL;
 		return;

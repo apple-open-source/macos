@@ -32,7 +32,8 @@ namespace WebCore {
 enum class FilterRenderingMode : uint8_t {
     Software        = 1 << 0,
     Accelerated     = 1 << 1,
-    GraphicsContext = 1 << 2
+    GraphicsContext = 1 << 2,
+    GraphicsContextBlur = 1 << 3 // FIXME: Remove this mode once the CG blur filter is enabled by default.
 };
 
 constexpr OptionSet<FilterRenderingMode> allFilterRenderingModes = {

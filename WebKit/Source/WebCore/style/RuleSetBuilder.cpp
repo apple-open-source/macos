@@ -37,7 +37,6 @@
 #include "CSSSelectorParser.h"
 #include "CSSViewTransitionRule.h"
 #include "Document.h"
-#include "DocumentInlines.h"
 #include "MediaQueryEvaluator.h"
 #include "MutableCSSSelector.h"
 #include "StyleCustomPropertyRegistry.h"
@@ -47,6 +46,7 @@
 #include "StyleSheetContents.h"
 #include <ranges>
 #include <wtf/CryptographicallyRandomNumber.h>
+#include <wtf/SetForScope.h>
 
 namespace WebCore {
 namespace Style {
@@ -204,9 +204,16 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
     }
 
     case StyleRuleType::StartingStyle: {
-        SetForScope startingStyleScope { m_isStartingStyle, IsStartingStyle::Yes };
+        SetForScope startingStyleScope { m_usedRuleTypes, m_usedRuleTypes | UsedRuleType::StartingStyle };
         auto startingStyleRule = uncheckedDowncast<StyleRuleStartingStyle>(WTFMove(rule));
         addChildRules(startingStyleRule->childRules());
+        return;
+    }
+
+    case StyleRuleType::InternalBaseAppearance: {
+        SetForScope scope { m_usedRuleTypes, m_usedRuleTypes | UsedRuleType::BaseAppearance };
+        auto internalBaseAppearanceRule = uncheckedDowncast<StyleRuleInternalBaseAppearance>(WTFMove(rule));
+        addChildRules(internalBaseAppearanceRule->childRules());
         return;
     }
 
@@ -234,6 +241,8 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
     case StyleRuleType::Margin:
     case StyleRuleType::Namespace:
     case StyleRuleType::FontFeatureValuesBlock:
+    case StyleRuleType::Function:
+    case StyleRuleType::FunctionDeclarations:
         return;
 
     case StyleRuleType::Charset:
@@ -276,9 +285,13 @@ void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
 void RuleSetBuilder::resolveSelectorListWithNesting(StyleRuleWithNesting& rule)
 {
     const CSSSelectorList* parentResolvedSelectorList = nullptr;
-    if (m_selectorListStack.size())
+    bool parentIsScopeRule = false;
+    if (m_selectorListStack.size()) {
         parentResolvedSelectorList = m_selectorListStack.last();
-    auto resolvedSelectorList = CSSSelectorParser::resolveNestingParent(rule.originalSelectorList(), parentResolvedSelectorList);
+        parentIsScopeRule = m_ancestorStack.last() == CSSParserEnum::NestedContextType::Scope;
+    }
+
+    auto resolvedSelectorList = CSSSelectorParser::resolveNestingParent(rule.originalSelectorList(), parentResolvedSelectorList, parentIsScopeRule);
     rule.wrapperAdoptSelectorList(WTFMove(resolvedSelectorList));
 }
 
@@ -289,7 +302,7 @@ void RuleSetBuilder::addStyleRuleWithSelectorList(const CSSSelectorList& selecto
     ASSERT(!selectorList.isEmpty());
     unsigned selectorListIndex = 0;
     for (size_t selectorIndex = 0; selectorIndex != notFound; selectorIndex = selectorList.indexOfNextSelectorAfter(selectorIndex)) {
-        RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleSet->ruleCount(), m_isStartingStyle);
+        RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleSet->ruleCount(), m_usedRuleTypes);
         m_mediaQueryCollector.addRuleIfNeeded(ruleData);
         m_ruleSet->addRule(WTFMove(ruleData), m_currentCascadeLayerIdentifier, m_currentContainerQueryIdentifier, m_currentScopeIdentifier);
         ++selectorListIndex;

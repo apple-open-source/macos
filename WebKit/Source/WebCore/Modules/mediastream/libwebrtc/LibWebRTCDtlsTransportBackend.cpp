@@ -30,7 +30,6 @@
 #include "LibWebRTCIceTransportBackend.h"
 #include "LibWebRTCProvider.h"
 #include <JavaScriptCore/ArrayBuffer.h>
-#include <webrtc/api/dtls_transport_interface.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -58,28 +57,27 @@ static inline RTCDtlsTransportState toRTCDtlsTransportState(webrtc::DtlsTranspor
 
 class LibWebRTCDtlsTransportBackendObserver final : public ThreadSafeRefCounted<LibWebRTCDtlsTransportBackendObserver>, public webrtc::DtlsTransportObserverInterface {
 public:
-    static Ref<LibWebRTCDtlsTransportBackendObserver> create(RTCDtlsTransportBackendClient& client, webrtc::scoped_refptr<webrtc::DtlsTransportInterface>& backend) { return adoptRef(*new LibWebRTCDtlsTransportBackendObserver(client, backend)); }
+    static Ref<LibWebRTCDtlsTransportBackendObserver> create(RTCDtlsTransportBackendClient& client, Ref<webrtc::DtlsTransportInterface>&& backend) { return adoptRef(*new LibWebRTCDtlsTransportBackendObserver(client, WTFMove(backend))); }
 
     void start();
     void stop();
 
 private:
-    LibWebRTCDtlsTransportBackendObserver(RTCDtlsTransportBackendClient&, webrtc::scoped_refptr<webrtc::DtlsTransportInterface>&);
+    LibWebRTCDtlsTransportBackendObserver(RTCDtlsTransportBackendClient&, Ref<webrtc::DtlsTransportInterface>&&);
 
     void OnStateChange(webrtc::DtlsTransportInformation) final;
     void OnError(webrtc::RTCError) final;
 
     void updateState(webrtc::DtlsTransportInformation&&);
 
-    webrtc::scoped_refptr<webrtc::DtlsTransportInterface> m_backend;
+    const Ref<webrtc::DtlsTransportInterface> m_backend;
     WeakPtr<RTCDtlsTransportBackendClient> m_client;
 };
 
-LibWebRTCDtlsTransportBackendObserver::LibWebRTCDtlsTransportBackendObserver(RTCDtlsTransportBackendClient& client, webrtc::scoped_refptr<webrtc::DtlsTransportInterface>& backend)
-    : m_backend(backend)
+LibWebRTCDtlsTransportBackendObserver::LibWebRTCDtlsTransportBackendObserver(RTCDtlsTransportBackendClient& client, Ref<webrtc::DtlsTransportInterface>&& backend)
+    : m_backend(WTFMove(backend))
     , m_client(client)
 {
-    ASSERT(m_backend);
 }
 
 void LibWebRTCDtlsTransportBackendObserver::updateState(webrtc::DtlsTransportInformation&& info)
@@ -135,10 +133,9 @@ void LibWebRTCDtlsTransportBackendObserver::OnError(webrtc::RTCError)
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCDtlsTransportBackend);
 
-LibWebRTCDtlsTransportBackend::LibWebRTCDtlsTransportBackend(webrtc::scoped_refptr<webrtc::DtlsTransportInterface>&& backend)
+LibWebRTCDtlsTransportBackend::LibWebRTCDtlsTransportBackend(Ref<webrtc::DtlsTransportInterface>&& backend)
     : m_backend(WTFMove(backend))
 {
-    ASSERT(m_backend);
 }
 
 LibWebRTCDtlsTransportBackend::~LibWebRTCDtlsTransportBackend()
@@ -155,7 +152,7 @@ UniqueRef<RTCIceTransportBackend> LibWebRTCDtlsTransportBackend::iceTransportBac
 void LibWebRTCDtlsTransportBackend::registerClient(RTCDtlsTransportBackendClient& client)
 {
     ASSERT(!m_observer);
-    m_observer = LibWebRTCDtlsTransportBackendObserver::create(client, m_backend);
+    lazyInitialize(m_observer, LibWebRTCDtlsTransportBackendObserver::create(client, m_backend.get()));
     m_observer->start();
 }
 

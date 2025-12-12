@@ -23,13 +23,14 @@
 
 #pragma once
 
-#include "Color.h"
-#include "FontCascade.h"
-#include "RenderElement.h"
-#include "RenderTextLineBoxes.h"
-#include "Text.h"
+#include <WebCore/Color.h>
+#include <WebCore/FontCascade.h>
+#include <WebCore/RenderElement.h>
+#include <WebCore/RenderTextLineBoxes.h>
+#include <WebCore/Text.h>
 #include <wtf/Forward.h>
 #include <wtf/Markable.h>
+#include <wtf/Platform.h>
 #include <wtf/text/TextBreakIterator.h>
 
 namespace WebCore {
@@ -98,7 +99,7 @@ public:
 
     bool hasEmptyText() const { return m_text.isEmpty(); }
 
-    UChar characterAt(unsigned) const;
+    char16_t characterAt(unsigned) const;
     size_t length() const { return text().length(); }
 
     float width(unsigned from, unsigned length, const FontCascade&, float xPos, SingleThreadWeakHashSet<const Font>* fallbackFonts = nullptr, GlyphOverflow* = nullptr) const;
@@ -127,7 +128,7 @@ public:
     float hangablePunctuationEndWidth(unsigned index) const;
     unsigned firstCharacterIndexStrippingSpaces() const;
     unsigned lastCharacterIndexStrippingSpaces() const;
-    static bool isHangableStopOrComma(UChar);
+    static bool isHangableStopOrComma(char16_t);
     
     WEBCORE_EXPORT virtual IntRect linesBoundingBox() const;
     WEBCORE_EXPORT IntPoint firstRunLocation() const;
@@ -184,8 +185,6 @@ public:
     template <typename MeasureTextCallback>
     static float measureTextConsideringPossibleTrailingSpace(bool currentCharacterIsSpace, unsigned startIndex, unsigned wordLength, WordTrailingSpace&, SingleThreadWeakHashSet<const Font>& fallbackFonts, MeasureTextCallback&&);
 
-    static std::optional<bool> emphasisMarkExistsAndIsAbove(const RenderText&, const RenderStyle&);
-
     void resetMinMaxWidth();
 
     void setCanUseSimplifiedTextMeasuring(bool canUseSimplifiedTextMeasuring) { m_canUseSimplifiedTextMeasuring = canUseSimplifiedTextMeasuring; }
@@ -200,7 +199,7 @@ protected:
     void willBeDestroyed() override;
 
     virtual void setRenderedText(const String&);
-    virtual Vector<UChar> previousCharacter() const;
+    virtual Vector<char16_t> previousCharacter() const;
 
     virtual void setTextInternal(const String&, bool force);
 
@@ -211,7 +210,7 @@ private:
 
     bool canHaveChildren() const final { return false; }
 
-    VisiblePosition positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
+    PositionWithAffinity positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
 
     void setSelectionState(HighlightState) final;
     LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent = true) final;
@@ -226,7 +225,7 @@ private:
     float widthFromCache(const FontCascade&, unsigned start, unsigned len, float xPos, SingleThreadWeakHashSet<const Font>* fallbackFonts, GlyphOverflow*, const RenderStyle&) const;
     bool computeUseBackslashAsYenSymbol() const;
 
-    void secureText(UChar mask);
+    void secureText(char16_t mask);
 
     LayoutRect collectSelectionGeometriesForLineBoxes(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent, Vector<FloatQuad>*);
 
@@ -269,14 +268,14 @@ private:
     unsigned m_fontCodePath : 2 { 0 };
 };
 
-String applyTextTransform(const RenderStyle&, const String&, Vector<UChar> previousCharacter);
+String applyTextTransform(const RenderStyle&, const String&, Vector<char16_t> previousCharacter);
 String applyTextTransform(const RenderStyle&, const String&);
-String capitalize(const String&, Vector<UChar> previousCharacter);
+String capitalize(const String&, Vector<char16_t> previousCharacter);
 String capitalize(const String&);
 TextBreakIterator::LineMode::Behavior mapLineBreakToIteratorMode(LineBreak);
 TextBreakIterator::ContentAnalysis mapWordBreakToContentAnalysis(WordBreak);
 
-inline UChar RenderText::characterAt(unsigned i) const
+inline char16_t RenderText::characterAt(unsigned i) const
 {
     return i >= length() ? 0 : text()[i];
 }

@@ -39,8 +39,6 @@
 #include <wtf/URL.h>
 #include <wtf/Vector.h>
 
-typedef struct objc_object* id;
-
 OBJC_CLASS CALayer;
 OBJC_CLASS NSArray;
 OBJC_CLASS NSAttributedString;

@@ -22,10 +22,10 @@
 
 #pragma once
 
-#include "GlyphDisplayListCacheRemoval.h"
-#include "LegacyInlineBox.h"
-#include "TextBoxSelectableRange.h"
-#include "TextRun.h"
+#include <WebCore/GlyphDisplayListCacheRemoval.h>
+#include <WebCore/LegacyInlineBox.h>
+#include <WebCore/TextBoxSelectableRange.h>
+#include <WebCore/TextRun.h>
 
 namespace WebCore {
 

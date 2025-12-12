@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "SQLValue.h"
-#include "SQLiteDatabase.h"
+#include <WebCore/SQLValue.h>
+#include <WebCore/SQLiteDatabase.h>
 #include <span>
 #include <wtf/CheckedRef.h>
 #include <wtf/TZoneMalloc.h>

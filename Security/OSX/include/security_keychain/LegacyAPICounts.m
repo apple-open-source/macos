@@ -160,3 +160,22 @@ void countLegacyMDSPlugin(const char* path, const char* guid) {
         }];
     }
 }
+
+void countLegacyKeychainUserDefaults(const bool defaultModified, const bool loginModified, const int8_t searchListLength, const int8_t defaultLoginIndex, const int8_t currentLoginIndex, const int8_t firstSymlinkIndex, const int8_t firstOutsideIndex) {
+    setup();
+
+    secnotice("keychainUserDefaults", "user defaults: defaultModified:%{bool}d loginModified:%{bool}d searchListLength:%i defaultLoginIndex:%i currentLoginIndex:%i firstSymlinkIndex:%i firstOutsideIndex:%i", defaultModified, loginModified, searchListLength, defaultLoginIndex, currentLoginIndex, firstSymlinkIndex, firstOutsideIndex);
+
+    [SecCoreAnalytics sendEventLazy:@"com.apple.security.LegacyKeychainUserDefaults" builder:^NSDictionary<NSString *,NSObject *> * _Nonnull{
+        return @{
+            @"app" : identifier,
+            @"defaultModified" : @(defaultModified),
+            @"loginModified" : @(loginModified),
+            @"searchListLength" : @(searchListLength),
+            @"defaultLoginIndex" : @(defaultLoginIndex),
+            @"currentLoginIndex" : @(currentLoginIndex),
+            @"firstSymlinkIndex" : @(firstSymlinkIndex),
+            @"firstOutsideIndex" : @(firstOutsideIndex),
+        };
+    }];
+}

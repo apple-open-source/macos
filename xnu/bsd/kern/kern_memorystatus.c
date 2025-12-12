@@ -9480,18 +9480,17 @@ memstat_insert_list_locked(
 	for (i = list_sz - 1; i >= 0; i--) {
 		p = proc_find_locked(pid_list[i]);
 
-		if (p == NULL || p == before) {
+		if (p == NULL) {
+			continue;
+		}
+
+		if ((p == before) || (p->p_memstat_effectivepriority != bucket_idx)) {
 			/*
 			 * We can encounter p == before when we try to sort a coalition with an in-
 			 * progress exec of the leader, such that the leader and the exec-ing
 			 * member have the same PID. Just skip over it for now, since this member
 			 * will soon be removed from the proc list anyway.
 			 */
-			continue;
-		}
-
-		if (p->p_memstat_effectivepriority != bucket_idx) {
-			/* proc not in bucket, skip it */
 			proc_rele(p);
 			continue;
 		}

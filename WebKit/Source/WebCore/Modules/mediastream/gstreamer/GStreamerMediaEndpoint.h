@@ -73,6 +73,7 @@ public:
 
     void addIceCandidate(GStreamerIceCandidate&, PeerConnectionBackend::AddIceCandidateCallback&&);
 
+    void prepareForClose();
     void close();
     void stop();
     bool isStopped() const { return !m_pipeline; }

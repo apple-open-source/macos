@@ -47,7 +47,7 @@ namespace WebKit {
 class PDFPluginBase;
 
 class PDFPluginAnnotation : public RefCounted<PDFPluginAnnotation>, public CanMakeCheckedPtr<PDFPluginAnnotation> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(PDFPluginAnnotation);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PDFPluginAnnotation);
 public:
     static RefPtr<PDFPluginAnnotation> create(PDFAnnotation *, PDFPluginBase*);

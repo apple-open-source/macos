@@ -30,6 +30,7 @@
 #include "config.h"
 #include "FetchResponse.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "FetchRequest.h"
 #include "FetchResponseBodyLoader.h"
 #include "HTTPParsers.h"
@@ -195,7 +196,7 @@ FetchResponse::FetchResponse(ScriptExecutionContext* context, std::optional<Fetc
 {
 }
 
-ExceptionOr<Ref<FetchResponse>> FetchResponse::clone()
+ExceptionOr<Ref<FetchResponse>> FetchResponse::clone(JSDOMGlobalObject& globalObject)
 {
     if (isDisturbedOrLocked())
         return Exception { ExceptionCode::TypeError, "Body is disturbed or locked"_s };
@@ -218,7 +219,7 @@ ExceptionOr<Ref<FetchResponse>> FetchResponse::clone()
 
     Ref headers = FetchHeaders::create(this->headers());
     auto clone = FetchResponse::create(context.get(), std::nullopt, WTFMove(headers), ResourceResponse { m_internalResponse });
-    clone->cloneBody(*this);
+    clone->cloneBody(globalObject, *this);
     clone->m_opaqueLoadIdentifier = m_opaqueLoadIdentifier;
     clone->m_bodySizeWithPadding = m_bodySizeWithPadding;
     return clone;

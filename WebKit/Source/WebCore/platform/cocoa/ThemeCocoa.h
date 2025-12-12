@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "Theme.h"
+#include <WebCore/Theme.h>
 
 namespace WebCore {
 

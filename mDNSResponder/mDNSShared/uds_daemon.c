@@ -49,6 +49,7 @@
 
 
 
+
 #if MDNSRESPONDER_SUPPORTS(COMMON, LOCAL_DNS_RESOLVER_DISCOVERY)
 #include "discover_resolver.h"
 #endif
@@ -3446,14 +3447,17 @@ exit:
 mDNSlocal void resolve_termination_callback(request_state *request)
 {
     request_resolve *const resolve = request->resolve;
+    mDNSBool has_split_awdl_query = mDNSfalse;
 
     UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
         "DNSServiceResolve STOP",
-        &resolve->qtxt.qname, request, mDNStrue, "SRV name: " PRI_DM_NAME, DM_NAME_PARAM_NONNULL(&resolve->qtxt.qname));
+        &resolve->qtxt.qname, request, mDNStrue, "SRV name: " PRI_DM_NAME ", split AWDL query: " PUB_BOOL,
+        DM_NAME_PARAM_NONNULL(&resolve->qtxt.qname), BOOL_PARAM(has_split_awdl_query));
 
     mDNS_StopQuery(&mDNSStorage, &resolve->qtxt);
     mDNS_StopQuery(&mDNSStorage, &resolve->qsrv);
     LogMcastQ(&resolve->qsrv, request, q_stop);
+
 }
 
 typedef struct {
@@ -3464,25 +3468,39 @@ typedef struct {
 
 mDNSlocal mStatus _handle_resolve_request_start(request_state *const request, const _resolve_start_params_t *const params)
 {
-    mStatus err;
+    mStatus err = mStatus_NoError;
 
-    request_resolve *const resolve = request->resolve;
-    err = mDNS_StartQuery(&mDNSStorage, &resolve->qsrv);
+    request_resolve *const resolve_list[] =
+    {
+        request->resolve,
+    };
+
+    for (mDNSu32 i = 0; i < mdns_countof(resolve_list) && !err; i++)
+    {
+        request_resolve *const resolve = resolve_list[i];
+        if (!resolve) continue;
+
+        err = mDNS_StartQuery(&mDNSStorage, &resolve->qsrv);
+        if (!err)
+        {
+            err = mDNS_StartQuery(&mDNSStorage, &resolve->qtxt);
+            if (err)
+            {
+                mDNS_StopQuery(&mDNSStorage, &resolve->qsrv);
+            }
+            else
+            {
+                LogMcastQ(&resolve->qsrv, request, q_start);
+            }
+        }
+    }
 
     if (!err)
     {
-        err = mDNS_StartQuery(&mDNSStorage, &resolve->qtxt);
-        if (err)
-        {
-            mDNS_StopQuery(&mDNSStorage, &resolve->qsrv);
-        }
-        else
-        {
-            request->terminate = resolve_termination_callback;
-            LogMcastQ(&resolve->qsrv, request, q_start);
-            (void)params;
-        }
+        request->terminate = resolve_termination_callback;
+        (void)params;
     }
+
     return err;
 }
 
@@ -3608,13 +3626,18 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     request_state *const req = question->QuestionContext;
     const mDNSu32 name_hash = mDNS_DomainNameFNV1aHash(&question->qname);
     const mDNSBool isMDNSQuestion = mDNSOpaque16IsZero(question->TargetQID);
+    const mDNSBool is_split_awdl_query = (req->resolve_awdl && question->InterfaceID == AWDLInterfaceID);
     UDS_LOG_ANSWER_EVENT(isMDNSQuestion ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
         req, question, answer, mDNSfalse, "DNSServiceResolve result", AddRecord);
 
     const mDNSu16 rrtype = answer->rrtype;
     mdns_require_return((rrtype == kDNSType_SRV) || (rrtype == kDNSType_TXT));
 
-    request_resolve *const resolve = req->resolve;
+    // Determine which resolve structure to use based on the question's interface
+    request_resolve *resolve;
+    {
+        resolve = req->resolve;
+    }
     resolve_result_save_answer(resolve, answer, AddRecord);
     if (!resolve_result_is_complete(resolve))
     {
@@ -3690,22 +3713,72 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     {
         LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT, "[R%u->(Q%u, Q%u)] DNSServiceResolve RESULT -- "
             "instance: " PRI_DM_NAME "(" PRI_HEX_INT "), ifindex: %u, target host: " PRI_DM_NAME "(" PRI_HEX_INT
-            "), port: %u, negative txt: " PUB_BOOL ", txt rdlength: %u",
+            "), port: %u, negative txt: " PUB_BOOL ", txt rdlength: %u, split AWDL query: " PUB_BOOL,
             req->request_id, mDNSVal16(resolve->qsrv.TargetQID), mDNSVal16(resolve->qtxt.TargetQID),
             DM_NAME_PARAM_NONNULL(answer->name), name_hash, interface_index,
             DM_NAME_PARAM_NONNULL(resolve->srv_target_name), target_name_hash, mDNSVal16(srv_port),
-            BOOL_PARAM(resolve->txt_negative), txt_rdlength);
+            BOOL_PARAM(resolve->txt_negative), txt_rdlength, BOOL_PARAM(is_split_awdl_query));
     }
     else
     {
         LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT, "[R%u->(Q%u, Q%u)] DNSServiceResolve NoSuchRecord -- "
-            "instance: " PRI_DM_NAME "(" PRI_HEX_INT ")",
+            "instance: " PRI_DM_NAME "(" PRI_HEX_INT "), split AWDL query: " PUB_BOOL,
             req->request_id, mDNSVal16(resolve->qsrv.TargetQID), mDNSVal16(resolve->qtxt.TargetQID),
-            DM_NAME_PARAM_NONNULL(answer->name), name_hash);
+            DM_NAME_PARAM_NONNULL(answer->name), name_hash, BOOL_PARAM(is_split_awdl_query));
     }
     append_reply(req, rep);
 }
 
+
+mDNSlocal void _initialize_request_resolve(request_resolve *const resolve, const mDNSInterfaceID InterfaceID,
+    const DNSServiceFlags flags, const domainname *const fqdn, request_state *const request)
+{
+    // Configure SRV query
+    resolve->qsrv.InterfaceID      = InterfaceID;
+    resolve->qsrv.flags            = flags;
+    AssignDomainName(&resolve->qsrv.qname, fqdn);
+    resolve->qsrv.qtype            = kDNSType_SRV;
+    resolve->qsrv.qclass           = kDNSClass_IN;
+    resolve->qsrv.LongLived        = (flags & kDNSServiceFlagsLongLivedQuery     ) != 0;
+    resolve->qsrv.ExpectUnique     = mDNStrue;
+    resolve->qsrv.ForceMCast       = (flags & kDNSServiceFlagsForceMulticast     ) != 0;
+    resolve->qsrv.ReturnIntermed   = (flags & kDNSServiceFlagsReturnIntermediates) != 0;
+    resolve->qsrv.SuppressUnusable = mDNSfalse;
+    resolve->qsrv.AppendSearchDomains = 0;
+    resolve->qsrv.TimeoutQuestion  = 0;
+    resolve->qsrv.WakeOnResolve    = (flags & kDNSServiceFlagsWakeOnResolve) != 0;
+    resolve->qsrv.UseBackgroundTraffic = (flags & kDNSServiceFlagsBackgroundTrafficClass) != 0;
+    resolve->qsrv.ProxyQuestion    = 0;
+    resolve->qsrv.pid              = request->process_id;
+    resolve->qsrv.euid             = request->uid;
+    resolve->qsrv.QuestionCallback = resolve_result_callback;
+    resolve->qsrv.QuestionContext  = request;
+
+    // Configure TXT query
+    resolve->qtxt.InterfaceID      = InterfaceID;
+    resolve->qtxt.flags            = flags;
+    AssignDomainName(&resolve->qtxt.qname, fqdn);
+    resolve->qtxt.qtype            = kDNSType_TXT;
+    resolve->qtxt.qclass           = kDNSClass_IN;
+    resolve->qtxt.LongLived        = (flags & kDNSServiceFlagsLongLivedQuery     ) != 0;
+    resolve->qtxt.ExpectUnique     = mDNStrue;
+    resolve->qtxt.ForceMCast       = (flags & kDNSServiceFlagsForceMulticast     ) != 0;
+    resolve->qtxt.ReturnIntermed   = (flags & kDNSServiceFlagsReturnIntermediates) != 0;
+    resolve->qtxt.SuppressUnusable = mDNSfalse;
+    resolve->qtxt.AppendSearchDomains = 0;
+    resolve->qtxt.TimeoutQuestion  = 0;
+    resolve->qtxt.WakeOnResolve    = 0;
+    resolve->qtxt.UseBackgroundTraffic = (flags & kDNSServiceFlagsBackgroundTrafficClass) != 0;
+    resolve->qtxt.ProxyQuestion    = 0;
+    resolve->qtxt.pid              = request->process_id;
+    resolve->qtxt.euid             = request->uid;
+    resolve->qtxt.QuestionCallback = resolve_result_callback;
+    resolve->qtxt.QuestionContext  = request;
+
+    resolve->result_ifindex        = 0;
+    resolve->ReportTime            = NonZeroTime(mDNS_TimeNow(&mDNSStorage) + 130 * mDNSPlatformOneSecond);
+    resolve->external_advertise    = mDNSfalse;
+}
 
 mDNSlocal mStatus handle_resolve_request(request_state *request)
 {
@@ -3767,57 +3840,17 @@ mDNSlocal mStatus handle_resolve_request(request_state *request)
 
     // format questions
     request_resolve *const resolve = request->resolve;
-    resolve->qsrv.InterfaceID      = params.InterfaceID;
-    resolve->qsrv.flags            = flags;
-    AssignDomainName(&resolve->qsrv.qname, &params.fqdn);
-    resolve->qsrv.qtype            = kDNSType_SRV;
-    resolve->qsrv.qclass           = kDNSClass_IN;
-    resolve->qsrv.LongLived        = (flags & kDNSServiceFlagsLongLivedQuery     ) != 0;
-    resolve->qsrv.ExpectUnique     = mDNStrue;
-    resolve->qsrv.ForceMCast       = (flags & kDNSServiceFlagsForceMulticast     ) != 0;
-    resolve->qsrv.ReturnIntermed   = (flags & kDNSServiceFlagsReturnIntermediates) != 0;
-    resolve->qsrv.SuppressUnusable = mDNSfalse;
-    resolve->qsrv.AppendSearchDomains = 0;
-    resolve->qsrv.TimeoutQuestion  = 0;
-    resolve->qsrv.WakeOnResolve    = (flags & kDNSServiceFlagsWakeOnResolve) != 0;
-    resolve->qsrv.UseBackgroundTraffic = (flags & kDNSServiceFlagsBackgroundTrafficClass) != 0;
-    resolve->qsrv.ProxyQuestion    = 0;
-    resolve->qsrv.pid              = request->process_id;
-    resolve->qsrv.euid             = request->uid;
-    resolve->qsrv.QuestionCallback = resolve_result_callback;
-    resolve->qsrv.QuestionContext  = request;
+    _initialize_request_resolve(resolve, params.InterfaceID, flags, &params.fqdn, request);
 
-    resolve->qtxt.InterfaceID      = params.InterfaceID;
-    resolve->qtxt.flags            = flags;
-    AssignDomainName(&resolve->qtxt.qname, &params.fqdn);
-    resolve->qtxt.qtype            = kDNSType_TXT;
-    resolve->qtxt.qclass           = kDNSClass_IN;
-    resolve->qtxt.LongLived        = (flags & kDNSServiceFlagsLongLivedQuery     ) != 0;
-    resolve->qtxt.ExpectUnique     = mDNStrue;
-    resolve->qtxt.ForceMCast       = (flags & kDNSServiceFlagsForceMulticast     ) != 0;
-    resolve->qtxt.ReturnIntermed   = (flags & kDNSServiceFlagsReturnIntermediates) != 0;
-    resolve->qtxt.SuppressUnusable = mDNSfalse;
-    resolve->qtxt.AppendSearchDomains = 0;
-    resolve->qtxt.TimeoutQuestion  = 0;
-    resolve->qtxt.WakeOnResolve    = 0;
-    resolve->qtxt.UseBackgroundTraffic = (flags & kDNSServiceFlagsBackgroundTrafficClass) != 0;
-    resolve->qtxt.ProxyQuestion    = 0;
-    resolve->qtxt.pid              = request->process_id;
-    resolve->qtxt.euid             = request->uid;
-    resolve->qtxt.QuestionCallback = resolve_result_callback;
-    resolve->qtxt.QuestionContext  = request;
-
-    resolve->result_ifindex        = 0;
-    resolve->ReportTime            = NonZeroTime(mDNS_TimeNow(&mDNSStorage) + 130 * mDNSPlatformOneSecond);
-
-    resolve->external_advertise    = mDNSfalse;
+    mDNSBool has_split_awdl_query = mDNSfalse;
 
 #if 0
     if (!AuthorizedDomain(request, &fqdn, AutoBrowseDomains)) return(mStatus_NoError);
 #endif
 
     UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "DNSServiceResolve START",
-        &resolve->qsrv.qname, request, mDNSfalse, "SRV name: " PRI_DM_NAME, DM_NAME_PARAM(&resolve->qsrv.qname));
+        &resolve->qsrv.qname, request, mDNSfalse, "SRV name: " PRI_DM_NAME ", split AWDL query: " PUB_BOOL,
+        DM_NAME_PARAM(&resolve->qsrv.qname), BOOL_PARAM(has_split_awdl_query));
 
     request->terminate = NULL;
     err = _handle_resolve_request_start(request, &params);

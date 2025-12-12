@@ -28,6 +28,7 @@
 
 #include "CSSAnimation.h"
 #include "CSSTransition.h"
+#include "KeyframeEffect.h"
 #include "KeyframeEffectStack.h"
 #include "RenderStyle.h"
 #include "ScriptExecutionContext.h"
@@ -55,7 +56,7 @@ void ElementAnimationRareData::setAnimationsCreatedByMarkup(CSSAnimationCollecti
 {
     if (m_keyframeEffectStack) {
         for (auto& animation : m_animationsCreatedByMarkup) {
-            if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect()))
+            if (RefPtr keyframeEffect = animation->keyframeEffect())
                 m_keyframeEffectStack->removeEffect(*keyframeEffect);
         }
     }

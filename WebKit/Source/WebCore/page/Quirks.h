@@ -25,10 +25,12 @@
 
 #pragma once
 
-#include "Event.h"
-#include "QuirksData.h"
+#include <WebCore/Event.h>
+#include <WebCore/QuirksData.h>
+#include <WebCore/RegistrableDomain.h>
 #include <optional>
 #include <wtf/Forward.h>
+#include <wtf/Platform.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -44,8 +46,8 @@ class KeyframeEffect;
 class LayoutUnit;
 class LocalFrame;
 class Node;
+class NodeList;
 class PlatformMouseEvent;
-class RegistrableDomain;
 class ResourceRequest;
 class RenderStyle;
 class SecurityOriginData;
@@ -87,7 +89,6 @@ public:
 
     bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscape() const;
     bool shouldFlipScreenDimensions() const;
-    bool shouldAllowDownloadsInSpiteOfCSP() const;
     bool requirePageVisibilityToPlayAudioQuirk() const;
 
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
@@ -121,7 +122,6 @@ public:
     WEBCORE_EXPORT bool static shouldDisableBlobFileAccessEnforcement();
 
     bool needsGMailOverflowScrollQuirk() const;
-    bool needsIPadSkypeOverflowScrollQuirk() const;
     bool needsYouTubeOverflowScrollQuirk() const;
     bool needsFullscreenDisplayNoneQuirk() const;
     bool needsFullscreenObjectFitQuirk() const;
@@ -148,16 +148,21 @@ public:
     WEBCORE_EXPORT static bool shouldTranscodeHeicImagesForURL(const URL&);
 
 #if ENABLE(MEDIA_STREAM)
+    bool shouldEnableFacebookFlagQuirk() const;
+    Ref<NodeList> applyFacebookFlagQuirk(Document&, NodeList&);
     bool shouldEnableLegacyGetUserMediaQuirk() const;
     bool shouldDisableImageCaptureQuirk() const;
     bool shouldEnableSpeakerSelectionPermissionsPolicyQuirk() const;
     bool shouldEnableEnumerateDeviceQuirk() const;
+    bool shouldEnableCameraAndMicrophonePermissionStateQuirk() const;
 #endif
+#if ENABLE(WEB_RTC)
+    bool shouldEnableRTCEncodedStreamsQuirk() const;
+#endif
+
     bool shouldUnloadHeavyFrame() const;
 
     bool needsCanPlayAfterSeekedQuirk() const;
-
-    bool shouldAvoidPastingImagesAsWebContent() const;
 
     bool shouldNotAutoUpgradeToHTTPSNavigation(const URL&);
 
@@ -252,6 +257,8 @@ public:
     WEBCORE_EXPORT bool needsPointerTouchCompatibility(const Element&) const;
     bool shouldTreatAddingMouseOutEventListenerAsContentChange() const;
     WEBCORE_EXPORT bool shouldHideSoftTopScrollEdgeEffectDuringFocus(const Element&) const;
+
+    bool needsClaudeSidebarViewportUnitQuirk(Element&, const RenderStyle&) const;
 #endif
 
     bool needsMozillaFileTypeForDataTransfer() const;
@@ -271,9 +278,11 @@ public:
 
     WEBCORE_EXPORT bool needsNowPlayingFullscreenSwapQuirk() const;
 
-    bool needsWebKitMediaTextTrackDisplayQuirk() const;
 
-    bool needsTextInputBoxSizingBorderBoxQuirk() const;
+    enum class TikTokOverflowingContentQuirkType : bool { VideoSectionQuirk, CommentsSectionQuirk };
+    std::optional<TikTokOverflowingContentQuirkType> needsTikTokOverflowingContentQuirk(const Element&, const RenderStyle& parentStyle) const;
+
+    bool needsWebKitMediaTextTrackDisplayQuirk() const;
 
     bool shouldSupportHoverMediaQueries() const;
 
@@ -285,6 +294,8 @@ public:
     bool shouldEnterNativeFullscreenWhenCallingElementRequestFullscreenQuirk() const;
 
     bool shouldDisableDOMAudioSessionQuirk() const;
+
+    bool needsSuppressPostLayoutBoundaryEventsQuirk() const;
 
     void determineRelevantQuirks();
 

@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "JSDOMPromiseDeferredForward.h"
-#include "NavigatorBase.h"
-#include "Supplementable.h"
+#include <WebCore/JSDOMPromiseDeferredForward.h>
+#include <WebCore/NavigatorBase.h>
+#include <WebCore/Supplementable.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {

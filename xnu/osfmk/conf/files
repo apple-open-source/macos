@@ -400,5 +400,11 @@ osfmk/corecrypto/ccsha256_K.c	standard
 osfmk/corecrypto/ccsha256_ltc_compress.c	standard
 osfmk/corecrypto/ccsha256_ltc_di.c	standard
 
+osfmk/corecrypto/ccsha512_di.c	standard
+osfmk/corecrypto/ccsha512_initial_state.c	standard
+osfmk/corecrypto/ccsha512_K.c	standard
+osfmk/corecrypto/ccsha512_ltc_compress.c	standard
+osfmk/corecrypto/ccsha512_ltc_di.c	standard
+
 osfmk/prng/prng_random.c	standard
 osfmk/prng/entropy.c   standard

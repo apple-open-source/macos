@@ -52,6 +52,8 @@ public:
 
     DECLARE_INFO;
 
+    DECLARE_VISIT_CHILDREN;
+
     void initializeLocale(JSGlobalObject*, const String& tag, JSValue optionsValue);
     void initializeLocale(JSGlobalObject*, JSValue tagValue, JSValue optionsValue);
     const String& maximal();
@@ -82,7 +84,6 @@ public:
 private:
     IntlLocale(VM&, Structure*);
     DECLARE_DEFAULT_FINISH_CREATION;
-    DECLARE_VISIT_CHILDREN;
 
     String keywordValue(ASCIILiteral, bool isBoolean = false) const;
 

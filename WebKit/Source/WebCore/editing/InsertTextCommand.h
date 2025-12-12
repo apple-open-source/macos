@@ -75,6 +75,8 @@ private:
     bool performOverwrite(const String&, bool selectInsertedText);
     void setEndingSelectionWithoutValidation(const Position& startPosition, const Position& endPosition);
 
+    bool applySmartListsIfNeeded();
+
     friend class TypingCommand;
 
     String m_text;

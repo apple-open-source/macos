@@ -197,6 +197,8 @@ bool TrackBuffer::reenqueueMediaForTime(const MediaTime& time, const MediaTime& 
     clearDecodeQueue();
     m_enqueueDiscontinuityBoundary = time + m_discontinuityTolerance;
 
+    m_needsReenqueueing = false;
+
     if (m_samples.empty())
         return false;
 
@@ -260,8 +262,6 @@ bool TrackBuffer::reenqueueMediaForTime(const MediaTime& time, const MediaTime& 
                 m_hasOutOfOrderFrames = true;
         }
     }
-
-    m_needsReenqueueing = false;
 
     return true;
 }

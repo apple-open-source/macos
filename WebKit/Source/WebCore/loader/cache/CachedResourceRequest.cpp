@@ -38,6 +38,7 @@
 #include "HTTPHeaderValues.h"
 #include "ImageDecoder.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "OriginAccessPatterns.h"
@@ -193,6 +194,8 @@ String CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type typ
         return acceptHeaderValueForImageResource(usingSecureProtocol);
     case CachedResource::Type::CSSStyleSheet:
         return "text/css,*/*;q=0.1"_s;
+    case CachedResource::Type::JSON:
+        return "application/json,*/*;q=0.5"_s;
     case CachedResource::Type::SVGDocumentResource:
         return "image/svg+xml"_s;
 #if ENABLE(XSLT)
@@ -305,7 +308,7 @@ void CachedResourceRequest::updateReferrerAndOriginHeaders(FrameLoader& frameLoa
     if (!m_resourceRequest.httpOrigin().isEmpty())
         return;
 
-    auto* document = frameLoader.frame().document();
+    RefPtr document = frameLoader.frame().document();
     auto actualOrigin = (document && m_options.destination == FetchOptionsDestination::EmptyString && m_initiatorType == cachedResourceRequestInitiatorTypes().fetch) ? Ref { document->securityOrigin() } : SecurityOrigin::create(outgoingReferrerURL);
     String outgoingOrigin;
     if (m_options.mode == FetchOptions::Mode::Cors)

@@ -31,6 +31,7 @@
 #include "AudioSampleFormat.h"
 #include "CAAudioStreamDescription.h"
 #include "CMUtilities.h"
+#include "Logging.h"
 #include "MediaSampleAVFObjC.h"
 #include "NotImplemented.h"
 #include "SharedBuffer.h"

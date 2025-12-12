@@ -1326,10 +1326,17 @@ void NetworkStorageManager::suspend(CompletionHandler<void()>&& completionHandle
         for (auto& manager : m_originStorageManagers.values()) {
             if (auto localStorageManager = manager->existingLocalStorageManager())
                 localStorageManager->syncLocalStorage();
-            if (auto idbStorageManager = manager->existingIDBStorageManager())
+            if (CheckedPtr idbStorageManager = manager->existingIDBStorageManager())
                 idbStorageManager->stopDatabaseActivitiesForSuspend();
         }
     }, WTFMove(completionHandler));
+}
+
+bool NetworkStorageManager::isSuspended() const
+{
+    ASSERT(RunLoop::isMain());
+
+    return workQueue().isSuspended();
 }
 
 void NetworkStorageManager::resume()
@@ -1353,7 +1360,7 @@ void NetworkStorageManager::handleLowMemoryWarning()
         for (auto& manager : m_originStorageManagers.values()) {
             if (auto localStorageManager = manager->existingLocalStorageManager())
                 localStorageManager->handleLowMemoryWarning();
-            if (auto idbStorageManager = manager->existingIDBStorageManager())
+            if (CheckedPtr idbStorageManager = manager->existingIDBStorageManager())
                 idbStorageManager->handleLowMemoryWarning();
         }
     });
@@ -1572,6 +1579,8 @@ void NetworkStorageManager::connectToStorageArea(IPC::Connection& connection, We
     ASSERT(!RunLoop::isMain());
     MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { origin.topOrigin }), connection, completionHandler(std::nullopt, { }, StorageAreaBase::nextMessageIdentifier()));
 
+    MESSAGE_CHECK_COMPLETION(isStorageTypeEnabled(connection, type), connection, completionHandler(std::nullopt, { }, StorageAreaBase::nextMessageIdentifier()));
+
     auto connectionIdentifier = connection.uniqueID();
     // StorageArea may be connected due to LocalStorage prewarming, so do not write origin file eagerly.
     CheckedRef originStorageManager = this->originStorageManager(origin, ShouldWriteOriginFile::No);
@@ -1665,7 +1674,7 @@ void NetworkStorageManager::setItem(IPC::Connection& connection, StorageAreaIden
 
     MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTFMove(allItems)));
 
-    MESSAGE_CHECK_BASE(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection);
+    MESSAGE_CHECK_COMPLETION(isStorageAreaTypeEnabled(connection, storageArea->storageType()), connection, completionHandler(true, HashMap<String, String> { }));
 
     auto result = storageArea->setItem(connection.uniqueID(), implIdentifier, WTFMove(key), WTFMove(value), WTFMove(urlString));
     hasError = !result;
@@ -1688,6 +1697,8 @@ void NetworkStorageManager::removeItem(IPC::Connection& connection, StorageAreaI
 
     MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTFMove(allItems)));
 
+    MESSAGE_CHECK_COMPLETION(isStorageAreaTypeEnabled(connection, storageArea->storageType()), connection, completionHandler(true, HashMap<String, String> { }));
+
     auto result = storageArea->removeItem(connection.uniqueID(), implIdentifier, WTFMove(key), WTFMove(urlString));
     hasError = !result;
     if (hasError)
@@ -1707,6 +1718,8 @@ void NetworkStorageManager::clear(IPC::Connection& connection, StorageAreaIdenti
 
     MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler());
 
+    MESSAGE_CHECK_COMPLETION(isStorageAreaTypeEnabled(connection, storageArea->storageType()), connection, completionHandler());
+
     storageArea->clear(connection.uniqueID(), implIdentifier, WTFMove(urlString));
     completionHandler();
 
@@ -1715,19 +1728,21 @@ void NetworkStorageManager::clear(IPC::Connection& connection, StorageAreaIdenti
 
 void NetworkStorageManager::openDatabase(IPC::Connection& connection, const WebCore::IDBOpenRequestData& requestData)
 {
+    MESSAGE_CHECK(requestData.requestIdentifier().connectionIdentifier(), connection);
     Ref connectionToClient = m_idbStorageRegistry->ensureConnectionToClient(connection.uniqueID(), *requestData.requestIdentifier().connectionIdentifier());
-    checkedOriginStorageManager(requestData.databaseIdentifier().origin())->idbStorageManager(*m_idbStorageRegistry).openDatabase(connectionToClient, requestData);
+    checkedOriginStorageManager(requestData.databaseIdentifier().origin())->checkedIDBStorageManager(*m_idbStorageRegistry)->openDatabase(connectionToClient, requestData);
 }
 
 void NetworkStorageManager::openDBRequestCancelled(const WebCore::IDBOpenRequestData& requestData)
 {
-    checkedOriginStorageManager(requestData.databaseIdentifier().origin())->idbStorageManager(*m_idbStorageRegistry).openDBRequestCancelled(requestData);
+    checkedOriginStorageManager(requestData.databaseIdentifier().origin())->checkedIDBStorageManager(*m_idbStorageRegistry)->openDBRequestCancelled(requestData);
 }
 
 void NetworkStorageManager::deleteDatabase(IPC::Connection& connection, const WebCore::IDBOpenRequestData& requestData)
 {
+    MESSAGE_CHECK(requestData.requestIdentifier().connectionIdentifier(), connection);
     Ref connectionToClient = m_idbStorageRegistry->ensureConnectionToClient(connection.uniqueID(), *requestData.requestIdentifier().connectionIdentifier());
-    checkedOriginStorageManager(requestData.databaseIdentifier().origin())->idbStorageManager(*m_idbStorageRegistry).deleteDatabase(connectionToClient, requestData);
+    checkedOriginStorageManager(requestData.databaseIdentifier().origin())->checkedIDBStorageManager(*m_idbStorageRegistry)->deleteDatabase(connectionToClient, requestData);
 }
 
 void NetworkStorageManager::establishTransaction(WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier, const WebCore::IDBTransactionInfo& transactionInfo)
@@ -1744,8 +1759,18 @@ void NetworkStorageManager::databaseConnectionPendingClose(WebCore::IDBDatabaseC
 
 void NetworkStorageManager::databaseConnectionClosed(WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier)
 {
-    if (RefPtr connection = m_idbStorageRegistry->connection(databaseConnectionIdentifier))
+    RefPtr connection = m_idbStorageRegistry->connection(databaseConnectionIdentifier);
+    if (!connection)
+        return;
+
+    WebCore::IDBDatabaseIdentifier databaseIdentifier;
+    if (CheckedPtr database = connection->database()) {
+        databaseIdentifier = database->identifier();
         connection->connectionClosedFromClient();
+    }
+
+    if (databaseIdentifier.isValid())
+        checkedOriginStorageManager(databaseIdentifier.origin())->checkedIDBStorageManager(*m_idbStorageRegistry)->tryCloseDatabase(databaseIdentifier);
 }
 
 void NetworkStorageManager::abortOpenAndUpgradeNeeded(WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier, const std::optional<WebCore::IDBResourceIdentifier>& transactionIdentifier)
@@ -1938,7 +1963,7 @@ void NetworkStorageManager::getAllDatabaseNamesAndVersions(IPC::Connection& conn
 {
     MESSAGE_CHECK(requestIdentifier.connectionIdentifier(), connection);
     Ref connectionToClient = m_idbStorageRegistry->ensureConnectionToClient(connection.uniqueID(), *requestIdentifier.connectionIdentifier());
-    auto result = checkedOriginStorageManager(origin)->idbStorageManager(*m_idbStorageRegistry).getAllDatabaseNamesAndVersions();
+    auto result = checkedOriginStorageManager(origin)->checkedIDBStorageManager(*m_idbStorageRegistry)->getAllDatabaseNamesAndVersions();
     connectionToClient->didGetAllDatabaseNamesAndVersions(requestIdentifier, WTFMove(result));
 }
 
@@ -2254,6 +2279,39 @@ bool NetworkStorageManager::shouldManageServiceWorkerRegistrationsByOrigin()
 RefPtr<FileSystemStorageHandleRegistry> NetworkStorageManager::protectedFileSystemStorageHandleRegistry()
 {
     return m_fileSystemStorageHandleRegistry;
+}
+
+bool NetworkStorageManager::isStorageTypeEnabled(IPC::Connection& connection, WebCore::StorageType storageType) const
+{
+    auto preferences = sharedPreferencesForWebProcess(connection);
+    if (!preferences)
+        return true;
+
+    switch (storageType) {
+    case WebCore::StorageType::Local:
+    case WebCore::StorageType::TransientLocal:
+        return preferences->localStorageEnabled;
+    case WebCore::StorageType::Session:
+        return preferences->sessionStorageEnabled;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool NetworkStorageManager::isStorageAreaTypeEnabled(IPC::Connection& connection, StorageAreaBase::StorageType storageType) const
+{
+    auto preferences = sharedPreferencesForWebProcess(connection);
+    if (!preferences)
+        return true;
+
+    switch (storageType) {
+    case StorageAreaBase::StorageType::Local:
+        return preferences->localStorageEnabled;
+    case StorageAreaBase::StorageType::Session:
+        return preferences->sessionStorageEnabled;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 std::optional<SharedPreferencesForWebProcess> NetworkStorageManager::sharedPreferencesForWebProcess(IPC::Connection& connection) const

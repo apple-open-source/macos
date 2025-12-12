@@ -220,6 +220,17 @@ final class GNICollector {
 		let vpnInfoCopyTable: [(String, String)] = [("/var/log/vpnd.log", "vpnd.txt"),
 							    ("/var/log/racoon.log", "racoon.txt")]
 		copyInformation(vpnInfoCopyTable)
+
+		// ("/usr/sbin/scutil --rank \"\"",					"interface-rank-assertions.txt",false)
+		// ("/usr/sbin/scutil --advisory \"\"",					"interface-advisories.txt",	false)
+		// These require passing empty string arguments which can't be done via the run() string parser
+		for (flag, outputFile) in [("--rank", "interface-rank-assertions.txt"),
+		                            ("--advisory", "interface-advisories.txt")] {
+			let (success, _) = gnisr.runWithArgs(binaryPath: "/usr/sbin/scutil", arguments: [flag, ""], stdout: outputFile)
+			if !success {
+				gnisr.errorlog("FAILED: '/usr/sbin/scutil \(flag) \"\"'")
+			}
+		}
 	}
 
 	func collectNDFInformation() -> Void {

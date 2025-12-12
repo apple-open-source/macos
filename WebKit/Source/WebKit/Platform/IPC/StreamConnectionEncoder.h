@@ -56,8 +56,6 @@ public:
         m_buffer = stream.subspan(bytes.size());
     }
 
-    ~StreamConnectionEncoder() = default;
-
     template<typename T, size_t Extent>
     bool encodeSpan(std::span<T, Extent> span)
     {

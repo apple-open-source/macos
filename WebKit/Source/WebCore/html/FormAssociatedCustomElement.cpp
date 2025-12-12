@@ -28,6 +28,7 @@
 
 #include "CustomElementReactionQueue.h"
 #include "ElementAncestorIteratorInlines.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLFieldSetElement.h"
 #include "HTMLFormElement.h"
 #include "NodeRareData.h"

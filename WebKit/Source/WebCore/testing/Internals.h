@@ -34,12 +34,12 @@
 #include "EpochTimeStamp.h"
 #include "EventTrackingRegions.h"
 #include "ExceptionOr.h"
+#include "FrameConsoleClient.h"
 #include "HEVCUtilities.h"
 #include "IDLTypes.h"
 #include "ImageBufferResourceLimits.h"
 #include "NowPlayingInfo.h"
 #include "OrientationNotifier.h"
-#include "PageConsoleClient.h"
 #include "RealtimeMediaSource.h"
 #include "RenderingMode.h"
 #include "ResourceMonitorChecker.h"
@@ -110,6 +110,7 @@ class InternalsSetLike;
 class LocalFrame;
 class Location;
 class MallocStatistics;
+class MediaSessionManagerInterface;
 class MediaStream;
 class MediaStreamTrack;
 class MemoryInfo;
@@ -679,8 +680,6 @@ public:
     void setCanvasNoiseInjectionSalt(HTMLCanvasElement&, unsigned long long salt);
     bool doesCanvasHavePendingCanvasNoiseInjection(HTMLCanvasElement&) const;
 
-    WEBCORE_TESTSUPPORT_EXPORT void setApplicationCacheOriginQuota(unsigned long long);
-
     void registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme);
     void removeURLSchemeRegisteredAsBypassingContentSecurityPolicy(const String& scheme);
 
@@ -801,8 +800,6 @@ public:
     void simulateAudioInterruption(HTMLMediaElement&);
     ExceptionOr<bool> mediaElementHasCharacteristic(HTMLMediaElement&, const String&);
     void enterViewerMode(HTMLVideoElement&);
-    void beginSimulatedHDCPError(HTMLMediaElement&);
-    void endSimulatedHDCPError(HTMLMediaElement&);
     ExceptionOr<bool> mediaPlayerRenderingCanBeAccelerated(HTMLMediaElement&);
 
     bool elementShouldBufferData(HTMLMediaElement&);
@@ -810,6 +807,7 @@ public:
     void setMediaElementBufferingPolicy(HTMLMediaElement&, const String&);
     double privatePlayerVolume(const HTMLMediaElement&);
     bool privatePlayerMuted(const HTMLMediaElement&);
+    double privatePlayerCurrentTime(HTMLMediaElement&);
     bool isMediaElementHidden(const HTMLMediaElement&);
     double elementEffectivePlaybackRate(const HTMLMediaElement&);
 
@@ -929,7 +927,6 @@ public:
     ExceptionOr<String> pathStringWithShrinkWrappedRects(const Vector<double>& rectComponents, double radius);
 
 #if ENABLE(VIDEO)
-    String getCurrentMediaControlsStatusForElement(HTMLMediaElement&);
     void setMediaControlsMaximumRightContainerButtonCountOverride(HTMLMediaElement&, size_t);
     void setMediaControlsHidePlaybackRates(HTMLMediaElement&, bool);
 #endif // ENABLE(VIDEO)
@@ -1348,6 +1345,51 @@ public:
     void setCookie(CookieData&&);
     Vector<CookieData> getCookies() const;
 
+    // This attempts to implement https://w3c.github.io/webdriver/#cookies but that specification
+    // is not the clearest.
+    struct WebDriverCookieData {
+        String name;
+        String value;
+        String path { "/"_s };
+        String domain;
+        bool secure { false };
+        bool httpOnly { false };
+        std::optional<double> expiry { std::nullopt }; // Cookie's expires field in seconds.
+        String sameSite { "None"_s };
+
+        WebDriverCookieData(Cookie cookie)
+            : name(cookie.name)
+            , value(cookie.value)
+            , path(cookie.path)
+            , domain(cookie.domain)
+            , secure(cookie.secure)
+            , httpOnly(cookie.httpOnly)
+            , expiry(cookie.expires ? std::make_optional(*cookie.expires / 1000) : std::nullopt)
+        {
+            // Due to how CFNetwork handles host-only cookies, we may need to prepend a '.' to the domain when
+            // setting a cookie (see CookieStore::set). So we must strip this '.' when returning the cookie.
+            if (domain.startsWith('.'))
+                domain = domain.substring(1, domain.length() - 1);
+
+            switch (cookie.sameSite) {
+            case Cookie::SameSitePolicy::Strict:
+                sameSite = "Strict"_s;
+                break;
+            case Cookie::SameSitePolicy::Lax:
+                sameSite = "Lax"_s;
+                break;
+            case Cookie::SameSitePolicy::None:
+                sameSite = "None"_s;
+                break;
+            }
+        }
+
+        WebDriverCookieData()
+        { }
+    };
+
+    Vector<WebDriverCookieData> webDriverGetCookies(Document&) const;
+
     void setAlwaysAllowLocalWebarchive(bool);
     void processWillSuspend();
     void processDidResume();
@@ -1618,6 +1660,8 @@ private:
     CachedResource* resourceFromMemoryCache(const String& url);
 
     bool hasMarkerFor(DocumentMarkerType, int from, int length);
+
+    RefPtr<MediaSessionManagerInterface> sessionManager() const;
 
 #if ENABLE(MEDIA_STREAM)
     // RealtimeMediaSourceObserver API

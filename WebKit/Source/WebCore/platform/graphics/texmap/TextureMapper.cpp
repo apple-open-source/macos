@@ -34,7 +34,6 @@
 #include "GraphicsContext.h"
 #include "GraphicsTypesGL.h"
 #include "Image.h"
-#include "LengthFunctions.h"
 #include "TextureMapperFlags.h"
 #include "TextureMapperShaderProgram.h"
 #include <wtf/HashMap.h>
@@ -982,8 +981,8 @@ void TextureMapper::drawBlurred(const BitmapTexture& sourceTexture, const FloatR
 RefPtr<BitmapTexture> TextureMapper::applyBlurFilter(RefPtr<BitmapTexture>& sourceTexture, const BlurFilterOperation& blurFilter)
 {
     const auto& textureSize = sourceTexture->size();
-    float radiusX = floatValueForLength(blurFilter.stdDeviation(), textureSize.width());
-    float radiusY = floatValueForLength(blurFilter.stdDeviation(), textureSize.height());
+    float radiusX = blurFilter.stdDeviation();
+    float radiusY = blurFilter.stdDeviation();
 
     if (radiusX < MinBlurRadius && radiusY < MinBlurRadius)
         return sourceTexture;

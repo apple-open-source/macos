@@ -311,6 +311,7 @@ VariablePermissionEntry gVariablePermissions[] = {
 	 .p.Bits.NeverAllowedToDelete = 1},
 	{"boot-image", .p.Bits.UserWrite = 1},
 	{"com.apple.System.fp-state", .p.Bits.KernelOnly = 1},
+	{"enable-ephdm", .p.Bits.RestoreModifyOnly = 1},
 	{"fm-account-masked", .p.Bits.RootRequired = 1,
 	 .p.Bits.NeverAllowedToDelete = 1},
 	{"fm-activation-locked", .p.Bits.RootRequired = 1,

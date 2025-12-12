@@ -31,22 +31,26 @@ endif
 SDK=$(PLATFORM)internal
 SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
 CC = xcrun -sdk $(SDK) cc  -fno-color-diagnostics
+PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
 
 
 all : ifnamer snapshot
 
 # ---------- ---------- ---------- ---------- ----------
 
-InterfaceNamerControlPrefs.o : ../../Plugins/common/InterfaceNamerControlPrefs.c ../../Plugins/common/InterfaceNamerControlPrefs.h Makefile
-	$(CC) -DOS_ACTIVITY_OBJECT_API=1 -I../../SystemConfiguration.fproj -I../../IPMonitorControl -I../../Plugins/common ${EXTRA} -I${SYSROOT}/System/Library/Frameworks/System.framework/PrivateHeaders -Wall -g -O0 -c ../../Plugins/common/InterfaceNamerControlPrefs.c
+InterfaceNamerControlPrefs.o : Control/InterfaceNamerControlPrefs.c
+	$(CC) -DOS_ACTIVITY_OBJECT_API=1 -I./Control -I../../SystemConfiguration.fproj -I../../IPMonitorControl -I../../common ${EXTRA} -I${SYSROOT}/System/Library/Frameworks/System.framework/PrivateHeaders -Wall -g -O0 -c Control/InterfaceNamerControlPrefs.c
 
-# ---------- ---------- ---------- ---------- ----------
+NetworkInterfaceUtil.o : NetworkInterfaceUtil.c
+	$(CC) -DOS_ACTIVITY_OBJECT_API=1 -I../../SystemConfiguration.fproj ${EXTRA} -I${SYSROOT}/System/Library/Frameworks/System.framework/PrivateHeaders -Wall -g -O0 -c NetworkInterfaceUtil.c
 
-ifnamer.o: ifnamer.c Makefile
-	$(CC) -DOS_ACTIVITY_OBJECT_API=1 -I../../SystemConfiguration.fproj -I../../IPMonitorControl -I../../Plugins/common ${EXTRA} -I${SYSROOT}/System/Library/Frameworks/System.framework/PrivateHeaders -Wall -g -DTEST_INTERFACE_ASSIGNMENT -O0 -c ifnamer.c
 
-ifnamer: ifnamer.o InterfaceNamerControlPrefs.o Makefile
-	$(CC) -o ifnamer ifnamer.o InterfaceNamerControlPrefs.o ${EXTRA} -framework CoreFoundation -framework SystemConfiguration -framework IOKit
+ifnamer.o: ifnamer.c
+	$(CC) $(PF_INC) -isysroot $(SYSROOT) -DOS_ACTIVITY_OBJECT_API=1 -I./Control -I../../SystemConfiguration.fproj -I../../IPMonitorControl -I../../Plugins/common ${EXTRA} -I${SYSROOT}/System/Library/Frameworks/System.framework/PrivateHeaders -Wall -g -DTEST_INTERFACE_ASSIGNMENT -O0 -c ifnamer.c
+
+ifnamer: ifnamer.o InterfaceNamerControlPrefs.o NetworkInterfaceUtil.o
+	$(CC) $(PF_INC) -o ifnamer ifnamer.o InterfaceNamerControlPrefs.o NetworkInterfaceUtil.o ${EXTRA} -framework CoreFoundation -framework SystemConfiguration -framework IOKit -framework SoftLinking -llockdown
+	codesign -s - $@
 
 # ---------- ---------- ---------- ---------- ----------
 

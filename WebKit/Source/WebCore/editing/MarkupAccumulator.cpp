@@ -37,6 +37,7 @@
 #include "Editor.h"
 #include "ElementInlines.h"
 #include "ElementRareData.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "HTMLElement.h"
 #include "HTMLFrameElement.h"
@@ -49,6 +50,7 @@
 #include "NodeName.h"
 #include "ProcessingInstruction.h"
 #include "ScriptController.h"
+#include "Settings.h"
 #include "ShadowRoot.h"
 #include "TemplateContentDocumentFragment.h"
 #include "XLinkNames.h"
@@ -189,9 +191,9 @@ void MarkupAccumulator::appendCharactersReplacingEntities(StringBuilder& result,
         return;
 
     if (source.is8Bit())
-        appendCharactersReplacingEntitiesInternal<LChar>(result, source, entityMask);
+        appendCharactersReplacingEntitiesInternal<Latin1Character>(result, source, entityMask);
     else
-        appendCharactersReplacingEntitiesInternal<UChar>(result, source, entityMask);
+        appendCharactersReplacingEntitiesInternal<char16_t>(result, source, entityMask);
 }
 
 MarkupAccumulator::MarkupAccumulator(Vector<Ref<Node>>* nodes, ResolveURLs resolveURLs, SerializationSyntax serializationSyntax, SerializeShadowRoots serializeShadowRoots, Vector<Ref<ShadowRoot>>&& explicitShadowRoots, const Vector<MarkupExclusionRule>& exclusionRules)
@@ -305,7 +307,7 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
                 }
             }
 
-            if (auto* child = firstChild(*current)) {
+            if (RefPtr child = firstChild(*current)) {
                 current = child;
                 namespaceStack.append(namespaceStack.last());
                 continue;
@@ -326,7 +328,7 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
             if (shouldIncludeShadowRoots() && current->isShadowRoot()) {
                 current = current->shadowHost();
                 if (m_serializeShadowRoots != SerializeShadowRoots::AllForInterchange) {
-                    if (auto* child = firstChild(*current)) {
+                    if (RefPtr child = firstChild(*current)) {
                         current = child;
                         namespaceStack.append(namespaceStack.last());
                         break;
@@ -387,7 +389,7 @@ const ShadowRoot* MarkupAccumulator::suitableShadowRoot(const Node& node)
     RefPtr shadowRoot = dynamicDowncast<ShadowRoot>(node);
     if (!shadowRoot || !includeShadowRoot(*shadowRoot))
         return nullptr;
-    return shadowRoot.get();
+    return shadowRoot.unsafeGet();
 }
 
 void MarkupAccumulator::startAppendingNode(const Node& node, Namespaces* namespaces)
@@ -401,7 +403,7 @@ void MarkupAccumulator::startAppendingNode(const Node& node, Namespaces* namespa
         if (m_serializationContext && is<HTMLHeadElement>(element))
             m_markup.append("<meta charset=\"UTF-8\"><!-- Encoding specified by WebKit -->"_s);
 
-    } else if (auto* shadowRoot = suitableShadowRoot(node)) {
+    } else if (RefPtr shadowRoot = suitableShadowRoot(node)) {
         m_markup.append("<template shadowrootmode=\""_s);
         switch (shadowRoot->mode()) {
         case ShadowRootMode::Open:

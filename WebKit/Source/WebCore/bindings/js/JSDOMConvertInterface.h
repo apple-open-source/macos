@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "IDLTypes.h"
-#include "JSDOMConvertBase.h"
-#include "JSDOMGlobalObject.h"
 #include <JavaScriptCore/Error.h>
+#include <WebCore/IDLTypes.h>
+#include <WebCore/JSDOMConvertBase.h>
+#include <WebCore/JSDOMGlobalObject.h>
 
 namespace WebCore {
 

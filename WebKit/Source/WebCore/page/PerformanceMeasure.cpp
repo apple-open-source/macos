@@ -26,7 +26,9 @@
 #include "config.h"
 #include "PerformanceMeasure.h"
 
+#include "ExceptionOr.h"
 #include "SerializedScriptValue.h"
+#include <JavaScriptCore/JSGlobalObject.h>
 
 namespace WebCore {
 

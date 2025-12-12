@@ -31,8 +31,8 @@
 
 #if ENABLE(WEB_AUTHN)
 
-#include "AuthenticatorSupportedOptions.h"
-#include "FidoConstants.h"
+#include <WebCore/AuthenticatorSupportedOptions.h>
+#include <WebCore/FidoConstants.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {

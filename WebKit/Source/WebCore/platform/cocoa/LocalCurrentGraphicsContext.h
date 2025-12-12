@@ -19,10 +19,11 @@
 
 #pragma once
 
-#include "CGContextStateSaver.h"
-#include "GraphicsContextCG.h"
-#include "GraphicsContextStateSaver.h"
+#include <WebCore/CGContextStateSaver.h>
+#include <WebCore/GraphicsContextCG.h>
+#include <WebCore/GraphicsContextStateSaver.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/Platform.h>
 
 #if PLATFORM(COCOA)
 

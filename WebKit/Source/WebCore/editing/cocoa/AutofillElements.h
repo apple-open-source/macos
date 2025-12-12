@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "HTMLInputElement.h"
+#include <WebCore/HTMLInputElement.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -39,9 +39,9 @@ public:
     const HTMLInputElement* username() const { return m_username.get(); }
 private:
     AutofillElements(RefPtr<HTMLInputElement>&&, RefPtr<HTMLInputElement>&&, RefPtr<HTMLInputElement>&&);
-    RefPtr<HTMLInputElement> m_username;
-    RefPtr<HTMLInputElement> m_password;
-    RefPtr<HTMLInputElement> m_secondPassword;
+    const RefPtr<HTMLInputElement> m_username;
+    const RefPtr<HTMLInputElement> m_password;
+    const RefPtr<HTMLInputElement> m_secondPassword;
 };
 
 } // namespace WebCore

@@ -83,3 +83,7 @@ private:
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRulePositionTry)
 static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isPositionTryRule(); }
 SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CSSPositionTryRule)
+static bool isType(const WebCore::CSSRule& rule) { return rule.styleRuleType() == WebCore::StyleRuleType::PositionTry; }
+SPECIALIZE_TYPE_TRAITS_END()

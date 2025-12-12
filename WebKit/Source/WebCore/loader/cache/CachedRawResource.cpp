@@ -293,6 +293,7 @@ static bool shouldIgnoreHeaderForCacheReuse(HTTPHeaderName name)
     case HTTPHeaderName::Pragma:
     case HTTPHeaderName::Referer:
     case HTTPHeaderName::SecPurpose:
+    case HTTPHeaderName::SecSpeculationTags:
     case HTTPHeaderName::UserAgent:
         return true;
 

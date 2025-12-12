@@ -30,6 +30,7 @@
 #define _NETINET_TCP_SYSCTLS_H_
 
 #include <sys/types.h>
+#include <stdint.h>
 
 extern int tcp_cubic_tcp_friendliness;
 extern int tcp_cubic_fast_convergence;
@@ -52,5 +53,8 @@ extern int tcp_rledbat;
 extern int tcp_cc_debug;
 extern int tcp_use_ledbat;
 extern int tcp_use_newreno;
+
+extern int tcp_use_rto_deadline;
+extern int tcp_rto_sojourn_factor;
 
 #endif /* _NETINET_TCP_SYSCTLS_H_ */

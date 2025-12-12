@@ -22,8 +22,8 @@
 
 #if ENABLE(Condition1) || ENABLE(Condition2)
 
-#include "JSDOMWrapper.h"
 #include "TestSerializedScriptValueInterface.h"
+#include <WebCore/JSDOMWrapper.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {

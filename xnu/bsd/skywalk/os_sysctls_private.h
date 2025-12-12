@@ -123,7 +123,9 @@
 	X(int32_t, rst_rlc_enable, 1)                                   \
 	X(uint32_t, rst_rlc_bucket_ms, 100)                             \
 	X(int32_t, rst_rlc_use_ts, 1)                                   \
-	X(int32_t, rst_rlc_verbose, 0)
+	X(int32_t, rst_rlc_verbose, 0)                                  \
+	X(int32_t, use_rto_deadline, 0)                                  \
+	X(int32_t, rto_deadline_sojourn_factor, 75)
 
 #define SKMEM_SYSCTL_KERN_IPC_LIST                                      \
 	X(uint32_t, throttle_best_effort, 0)
@@ -141,6 +143,7 @@
 #define SKMEM_SYSCTL_TCP_HAS_LINK_HEURISTICS 1
 #define SKMEM_SYSCTL_TCP_HAS_REFACTORED_ECN 1
 #define SKMEM_SYSCTL_TCP_HAS_RST_RLC 1
+#define SKMEM_SYSCTL_TCP_HAS_RTO_DEADLINE 1
 
 /*
  * When adding a new type above, be sure to add a corresponding

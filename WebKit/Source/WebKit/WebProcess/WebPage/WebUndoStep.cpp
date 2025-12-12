@@ -39,8 +39,6 @@ Ref<WebUndoStep> WebUndoStep::create(Ref<WebCore::UndoStep>&& step)
     return adoptRef(*new WebUndoStep(WTFMove(step), generateUndoStep()));
 }
 
-WebUndoStep::~WebUndoStep()
-{
-}
+WebUndoStep::~WebUndoStep() = default;
 
 } // namespace WebKit

@@ -31,6 +31,12 @@
 #import "WebURLSchemeHandlerCocoa.h"
 #import <WebCore/WebCoreObjCExtras.h>
 
+
+static Ref<API::InspectorConfiguration> protectedConfiguration(_WKInspectorConfiguration* configuration)
+{
+    return *configuration->_configuration;
+}
+
 @implementation _WKInspectorConfiguration
 
 - (instancetype)init
@@ -47,7 +53,7 @@
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKInspectorConfiguration.class, self))
         return;
-    _configuration->API::InspectorConfiguration::~InspectorConfiguration();
+    SUPPRESS_UNRETAINED_ARG _configuration->API::InspectorConfiguration::~InspectorConfiguration();
     [super dealloc];
 }
 
@@ -58,18 +64,18 @@
 
 - (void)setURLSchemeHandler:(id <WKURLSchemeHandler>)urlSchemeHandler forURLScheme:(NSString *)urlScheme
 {
-    _configuration->addURLSchemeHandler(WebKit::WebURLSchemeHandlerCocoa::create(urlSchemeHandler), urlScheme);
+    protectedConfiguration(self)->addURLSchemeHandler(WebKit::WebURLSchemeHandlerCocoa::create(urlSchemeHandler), urlScheme);
 }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (void)setProcessPool:(WKProcessPool *)processPool
 {
-    _configuration->setProcessPool(processPool ? processPool->_processPool.get() : nullptr);
+    protectedConfiguration(self)->setProcessPool(RefPtr { processPool ? processPool->_processPool.get() : nullptr });
 }
 
 - (WKProcessPool *)processPool
 {
-    return wrapper(_configuration->processPool());
+    return wrapper(protectedConfiguration(self)->processPool());
 }
 ALLOW_DEPRECATED_DECLARATIONS_END
 
@@ -77,7 +83,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     for (auto pair : _configuration->urlSchemeHandlers()) {
         Ref handler = downcast<WebKit::WebURLSchemeHandlerCocoa>(pair.first.get());
-        [configuration setURLSchemeHandler:handler->apiHandler() forURLScheme:pair.second.createNSString().get()];
+        [configuration setURLSchemeHandler:handler->protectedAPIHandler().get() forURLScheme:pair.second.createNSString().get()];
     }
 
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -95,7 +101,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     for (auto pair : _configuration->urlSchemeHandlers()) {
         Ref handler = downcast<WebKit::WebURLSchemeHandlerCocoa>(pair.first.get());
-        [configuration setURLSchemeHandler:handler->apiHandler() forURLScheme:pair.second.createNSString().get()];
+        [configuration setURLSchemeHandler:handler->protectedAPIHandler().get() forURLScheme:pair.second.createNSString().get()];
     }
 
     if (auto* processPool = self.processPool)

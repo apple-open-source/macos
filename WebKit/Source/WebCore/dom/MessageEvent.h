@@ -50,7 +50,7 @@ public:
     static Ref<MessageEvent> createForBindings();
 
     struct MessageEventWithStrongData {
-        Ref<MessageEvent> event;
+        const Ref<MessageEvent> event;
         JSC::Strong<JSC::JSObject> strongWrapper; // Keep the wrapper alive until the event is fired, since it is what keeps `data` alive.
     };
 

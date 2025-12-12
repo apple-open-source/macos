@@ -27,7 +27,7 @@
 
 #include "PreviewConverterClient.h"
 #include "PreviewConverterProvider.h"
-#include "SharedBuffer.h"
+#include <WebCore/SharedBuffer.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
@@ -40,7 +40,7 @@ class ResourceLoader;
 class ResourceResponse;
 
 class LegacyPreviewLoader final : private PreviewConverterClient, private PreviewConverterProvider {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(LegacyPreviewLoader, Loader);
     WTF_MAKE_NONCOPYABLE(LegacyPreviewLoader);
 public:
     LegacyPreviewLoader(ResourceLoader&, const ResourceResponse&);

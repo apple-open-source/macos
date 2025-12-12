@@ -112,6 +112,9 @@ WK_EXPORT WKStringRef WKPreferencesCopyFantasyFontFamily(WKPreferencesRef prefer
 WK_EXPORT void WKPreferencesSetPictographFontFamily(WKPreferencesRef preferencesRef, WKStringRef family);
 WK_EXPORT WKStringRef WKPreferencesCopyPictographFontFamily(WKPreferencesRef preferencesRef);
 
+WK_EXPORT void WKPreferencesSetMathFontFamily(WKPreferencesRef preferencesRef, WKStringRef family);
+WK_EXPORT WKStringRef WKPreferencesCopyMathFontFamily(WKPreferencesRef preferencesRef);
+
 // Defaults to 16.
 WK_EXPORT void WKPreferencesSetDefaultFontSize(WKPreferencesRef preferencesRef, uint32_t);
 WK_EXPORT uint32_t WKPreferencesGetDefaultFontSize(WKPreferencesRef preferencesRef);
@@ -313,8 +316,6 @@ WK_EXPORT void WKPreferencesSetDNSPrefetchingEnabled(WKPreferencesRef, bool) WK_
 WK_EXPORT bool WKPreferencesGetDNSPrefetchingEnabled(WKPreferencesRef) WK_C_API_DEPRECATED;
 WK_EXPORT bool WKPreferencesGetRestrictedHTTPResponseAccess(WKPreferencesRef) WK_C_API_DEPRECATED;
 WK_EXPORT void WKPreferencesSetRestrictedHTTPResponseAccess(WKPreferencesRef, bool) WK_C_API_DEPRECATED;
-WK_EXPORT void WKPreferencesSetOfflineWebApplicationCacheEnabled(WKPreferencesRef, bool) WK_C_API_DEPRECATED;
-WK_EXPORT bool WKPreferencesGetOfflineWebApplicationCacheEnabled(WKPreferencesRef) WK_C_API_DEPRECATED;
 WK_EXPORT void WKPreferencesSetXSSAuditorEnabled(WKPreferencesRef, bool) WK_C_API_DEPRECATED;
 WK_EXPORT bool WKPreferencesGetXSSAuditorEnabled(WKPreferencesRef) WK_C_API_DEPRECATED;
 WK_EXPORT void WKPreferencesSetPluginsEnabled(WKPreferencesRef, bool) WK_C_API_DEPRECATED;

@@ -579,7 +579,7 @@ template <typename CharacterType>
 static inline void appendLineTerminatorEscape(StringBuilder&, CharacterType);
 
 template <>
-inline void appendLineTerminatorEscape<LChar>(StringBuilder& builder, LChar lineTerminator)
+inline void appendLineTerminatorEscape<Latin1Character>(StringBuilder& builder, Latin1Character lineTerminator)
 {
     if (lineTerminator == '\n')
         builder.append('n');

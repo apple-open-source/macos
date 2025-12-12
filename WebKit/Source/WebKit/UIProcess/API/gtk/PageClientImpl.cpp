@@ -30,9 +30,11 @@
 
 #include "Clipboard.h"
 #include "DrawingAreaProxyCoordinatedGraphics.h"
+#include "GtkUtilities.h"
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebMouseEvent.h"
 #include "NativeWebWheelEvent.h"
+#include "ValidationBubbleGtk.h"
 #include "ViewSnapshotStore.h"
 #include "WebColorPickerGtk.h"
 #include "WebContextMenuProxyGtk.h"
@@ -47,17 +49,14 @@
 #include "WebKitWebViewPrivate.h"
 #include "WebPageProxy.h"
 #include "WebProcessPool.h"
-#include <WebCore/Cursor.h>
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/EventNames.h>
-#include <WebCore/GtkUtilities.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PasteboardCustomData.h>
 #include <WebCore/RefPtrCairo.h>
 #include <WebCore/Region.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/SystemSettings.h>
-#include <WebCore/ValidationBubble.h>
 #include <wtf/Compiler.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/GWeakPtr.h>
@@ -177,22 +176,7 @@ void PageClientImpl::setCursor(const WebCore::Cursor& cursor)
     if (!gtk_widget_get_realized(m_viewWidget))
         return;
 
-    // [GTK] Widget::setCursor() gets called frequently
-    // http://bugs.webkit.org/show_bug.cgi?id=16388
-    // Setting the cursor may be an expensive operation in some backends,
-    // so don't re-set the cursor if it's already set to the target value.
-#if USE(GTK4)
-    GdkCursor* currentCursor = gtk_widget_get_cursor(m_viewWidget);
-    GRefPtr<GdkCursor> newCursor = cursor.platformCursor();
-    if (currentCursor != newCursor.get())
-        gtk_widget_set_cursor(m_viewWidget, newCursor.get());
-#else
-    GdkWindow* window = gtk_widget_get_window(m_viewWidget);
-    GdkCursor* currentCursor = gdk_window_get_cursor(window);
-    GRefPtr<GdkCursor> newCursor = cursor.platformCursor();
-    if (currentCursor != newCursor.get())
-        gdk_window_set_cursor(window, newCursor.get());
-#endif
+    webkitWebViewBaseSetCursor(WEBKIT_WEB_VIEW_BASE(m_viewWidget), cursor);
 }
 
 void PageClientImpl::setCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
@@ -325,9 +309,7 @@ RefPtr<WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestions
 
 Ref<ValidationBubble> PageClientImpl::createValidationBubble(String&& message, const ValidationBubble::Settings& settings)
 {
-    return ValidationBubble::create(m_viewWidget, WTFMove(message), settings, [](GtkWidget* webView, bool shouldNotifyFocusEvents) {
-        webkitWebViewBaseSetShouldNotifyFocusEvents(WEBKIT_WEB_VIEW_BASE(webView), shouldNotifyFocusEvents);
-    });
+    return ValidationBubbleGtk::create(m_viewWidget, WTFMove(message), settings);
 }
 
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
@@ -628,19 +610,19 @@ WebCore::Color PageClientImpl::accentColor()
 
     // libadwaita
     if (gtk_style_context_lookup_color(context, "accent_bg_color", &accentColor))
-        return WebCore::Color(accentColor);
+        return gdkRGBAToColor(accentColor);
 
     // elementary OS 6.x
     if (gtk_style_context_lookup_color(context, "accent_color", &accentColor))
-        return WebCore::Color(accentColor);
+        return gdkRGBAToColor(accentColor);
 
     // elementary OS 5.x
     if (gtk_style_context_lookup_color(context, "accentColor", &accentColor))
-        return WebCore::Color(accentColor);
+        return gdkRGBAToColor(accentColor);
 
     // Legacy
     if (gtk_style_context_lookup_color(context, "theme_selected_bg_color", &accentColor))
-        return WebCore::Color(accentColor);
+        return gdkRGBAToColor(accentColor);
 
     return SRGBA<uint8_t> { 52, 132, 228 };
 }

@@ -2350,7 +2350,8 @@ void Loader::applyFixupsGeneric(Diagnostics& diag, RuntimeState& state, uint64_t
 #else
   #if !TARGET_OS_SIMULATOR
         // only do page in linking, if binary has standard chained fixups, config allows, and not so many targets that is wastes wired memory
-        if ( (state.config.process.pageInLinkingMode != 0) && ma->hasChainedFixupsLoadCommand() && (bindTargets.count() < 100'000) && !this->hasFuncVarFixups ) {
+        // limit max to 64K so that bind targets array will fit in 512KB dyld TPRO stack size
+        if ( (state.config.process.pageInLinkingMode != 0) && ma->hasChainedFixupsLoadCommand() && (bindTargets.count() < 64'000) && !this->hasFuncVarFixups ) {
             this->setUpPageInLinking(diag, state, slide, sliceOffset, bindTargets);
             // if we cannot do page-in-linking, then do fixups now
             applyFixupsNow = diag.hasError();

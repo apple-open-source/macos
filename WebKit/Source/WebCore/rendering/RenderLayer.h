@@ -44,16 +44,17 @@
 
 #pragma once
 
-#include "ClipRect.h"
-#include "GraphicsLayer.h"
-#include "LayerFragment.h"
-#include "LayoutRect.h"
-#include "PaintFrequencyTracker.h"
-#include "PaintInfo.h"
-#include "RenderBox.h"
-#include "RenderPtr.h"
-#include "RenderSVGModelObject.h"
-#include "ScrollBehavior.h"
+#include <WebCore/ClipRect.h>
+#include <WebCore/GraphicsLayerEnums.h>
+#include <WebCore/LayerFragment.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/PaintFrequencyTracker.h>
+#include <WebCore/PaintInfo.h>
+#include <WebCore/RenderBox.h>
+#include <WebCore/RenderPtr.h>
+#include <WebCore/RenderSVGModelObject.h>
+#include <WebCore/ScrollBehavior.h>
+#include <WebCore/TransformationMatrix.h>
 #include <memory>
 #include <wtf/CheckedRef.h>
 #include <wtf/Markable.h>
@@ -67,7 +68,6 @@ void outputLayerPositionTreeRecursive(TextStream&, const WebCore::RenderLayer&, 
 
 namespace WebCore {
 
-class CSSFilter;
 class ClipRects;
 class ClipRectsCache;
 class HitTestRequest;
@@ -159,7 +159,7 @@ enum class UpdateBackingSharingFlags {
 using ScrollingScope = uint64_t;
 
 class RenderLayer final : public CanMakeSingleThreadWeakPtr<RenderLayer>, public CanMakeCheckedPtr<RenderLayer> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderLayer);
+    WTF_MAKE_PREFERABLY_COMPACT_TZONE_OR_ISO_ALLOCATED(RenderLayer);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderLayer);
 public:
     friend class RenderReplica;
@@ -453,10 +453,10 @@ public:
 
     // Indicate that the layer contents need to be repainted. Only has an effect
     // if layer compositing is being used.
-    void setBackingNeedsRepaint(GraphicsLayer::ShouldClipToLayer = GraphicsLayer::ClipToLayer);
+    void setBackingNeedsRepaint(GraphicsLayerShouldClipToLayer = GraphicsLayerShouldClipToLayer::Clip);
 
     // The rect is in the coordinate space of the layer's render object.
-    void setBackingNeedsRepaintInRect(const LayoutRect&, GraphicsLayer::ShouldClipToLayer = GraphicsLayer::ClipToLayer);
+    void setBackingNeedsRepaintInRect(const LayoutRect&, GraphicsLayerShouldClipToLayer = GraphicsLayerShouldClipToLayer::Clip);
     void repaintIncludingNonCompositingDescendants(const RenderLayerModelObject* repaintContainer);
 
     void styleChanged(StyleDifference, const RenderStyle* oldStyle);
@@ -521,7 +521,8 @@ public:
 
     // Notification from the renderer that its content changed (e.g. current frame of image changed).
     // Allows updates of layer content without repainting.
-    void contentChanged(ContentChangeType);
+    // Also, allows specifying the changed rectangle to limit the painting when patform supports it.
+    void contentChanged(ContentChangeType, const std::optional<FloatRect>& = std::nullopt);
 
     bool canRender3DTransforms() const;
 
@@ -567,11 +568,8 @@ public:
     void setBehavesAsFixed(bool);
     bool behavesAsFixed() const { return m_behavesAsFixed; }
 
-    bool behavesAsSticky() const { return m_hasStickyAncestor || renderer().isStickilyPositioned(); }
-
     struct PaintedContentRequest {
         PaintedContentRequest() = default;
-        PaintedContentRequest(const RenderLayer& owningLayer);
 
         void setHasPaintedContent() { hasPaintedContent = RequestState::True; }
         void makePaintedContentUndetermined() { hasPaintedContent = RequestState::Undetermined; }
@@ -581,7 +579,8 @@ public:
 #if HAVE(SUPPORT_HDR_DISPLAY)
         void setHasHDRContent() { hasHDRContent = RequestState::True; }
         void makeHDRContentFalse() { hasHDRContent = RequestState::False; }
-        void makeHDRContentUnknown() { hasHDRContent = RequestState::Unknown; }
+
+        void setHDRRequestState(RequestState state) { hasHDRContent = state; }
         bool isHDRContentSatisfied() const { return hasHDRContent != RequestState::Unknown; }
 #endif
 
@@ -601,6 +600,7 @@ public:
     };
 
     bool isVisibilityHiddenOrOpacityZero() const;
+    bool isSubtreeVisibilityHiddenOrOpacityZero() const;
 
     // Returns true if this layer has visible content (ignoring any child layers).
     bool isVisuallyNonEmpty(PaintedContentRequest* = nullptr) const;
@@ -723,7 +723,7 @@ public:
     // |rootLayer|. It also computes our background and foreground clip rects
     // for painting/event handling.
     // Pass offsetFromRoot if known.
-    void calculateRects(const ClipRectsContext&, const LayoutRect& paintDirtyRect, LayoutRect& layerBounds, ClipRect& backgroundRect, ClipRect& foregroundRect, const LayoutSize& offsetFromRoot) const;
+    LayerFragment::Rects calculateRects(const ClipRectsContext&, const LayoutSize& offsetFromRoot, const LayoutRect& paintDirtyRect = LayoutRect::infiniteRect()) const;
 
     // Public just for RenderTreeAsText.
     void collectFragments(LayerFragments&, const RenderLayer* rootLayer, const LayoutRect& dirtyRect,
@@ -1030,7 +1030,7 @@ private:
 
     LayoutPoint paintOffsetForRenderer(const LayerFragment& fragment, const LayerPaintingInfo& paintingInfo) const
     {
-        return toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + paintingInfo.subpixelOffset);
+        return toLayoutPoint(fragment.layerBounds().location() - rendererLocation() + paintingInfo.subpixelOffset);
     }
 
     // Compute, cache and return clip rects computed with the given layer as the root.
@@ -1284,6 +1284,9 @@ private:
 
     RefPtr<ClipRects> parentClipRects(const ClipRectsContext&) const;
     ClipRect backgroundClipRect(const ClipRectsContext&) const;
+    ClipRect calculateBackgroundClipRect(const ClipRectsContext&, const LayoutSize& offsetFromRoot) const;
+    ClipRect calculateBackgroundRect(const ClipRectsContext&, const LayoutSize& offsetFromRoot) const;
+    ClipRect calculateForegroundRect(const ClipRectsContext&, const LayoutSize& offsetFromRoot) const;
 
     RenderLayer* enclosingTransformedAncestor() const;
 

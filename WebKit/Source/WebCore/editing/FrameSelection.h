@@ -25,17 +25,18 @@
 
 #pragma once
 
-#include "AXTextStateChangeIntent.h"
-#include "CaretAnimator.h"
-#include "Color.h"
-#include "IntRect.h"
-#include "LayoutRect.h"
-#include "ScrollAlignment.h"
-#include "ScrollBehavior.h"
-#include "ScrollTypes.h"
-#include "VisibleSelection.h"
+#include <WebCore/AXTextStateChangeIntent.h>
+#include <WebCore/CaretAnimator.h>
+#include <WebCore/Color.h>
+#include <WebCore/IntRect.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/ScrollAlignment.h>
+#include <WebCore/ScrollBehavior.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/VisibleSelection.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/Platform.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -117,6 +118,14 @@ private:
     void clearCaretPositionWithoutUpdatingStyle();
 
     VisiblePosition m_position;
+};
+
+struct RevealSelectionOptions {
+    SelectionRevealMode selectionRevealMode { SelectionRevealMode::Reveal };
+    ScrollAlignment scrollAlignment { ScrollAlignment::alignCenterIfNeeded };
+    RevealExtentOption revealExtentOption { RevealExtentOption::DoNotRevealExtent };
+    ScrollBehavior scrollBehavior { ScrollBehavior::Instant };
+    OnlyAllowForwardScrolling onlyAllowForwardScrolling { OnlyAllowForwardScrolling::No };
 };
 
 class FrameSelection final : private CaretBase, public CaretAnimationClient, public CanMakeCheckedPtr<FrameSelection> {
@@ -242,7 +251,7 @@ public:
     WEBCORE_EXPORT void expandSelectionToWordContainingCaretSelection();
     WEBCORE_EXPORT std::optional<SimpleRange> wordRangeContainingCaretSelection();
     WEBCORE_EXPORT void expandSelectionToStartOfWordContainingCaretSelection();
-    WEBCORE_EXPORT UChar characterInRelationToCaretSelection(int amount) const;
+    WEBCORE_EXPORT char16_t characterInRelationToCaretSelection(int amount) const;
     WEBCORE_EXPORT bool selectionAtSentenceStart() const;
     WEBCORE_EXPORT bool selectionAtWordStart() const;
     WEBCORE_EXPORT std::optional<SimpleRange> rangeByMovingCurrentSelection(int amount) const;
@@ -275,7 +284,7 @@ public:
 
     WEBCORE_EXPORT RefPtr<HTMLFormElement> currentForm() const;
 
-    WEBCORE_EXPORT void revealSelection(SelectionRevealMode = SelectionRevealMode::Reveal, const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, RevealExtentOption = RevealExtentOption::DoNotRevealExtent, ScrollBehavior = ScrollBehavior::Instant, OnlyAllowForwardScrolling =  OnlyAllowForwardScrolling::No);
+    WEBCORE_EXPORT void revealSelection(const RevealSelectionOptions& = { });
     WEBCORE_EXPORT void setSelectionFromNone();
 
     bool shouldShowBlockCursor() const { return m_shouldShowBlockCursor; }

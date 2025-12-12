@@ -52,22 +52,22 @@ enum class MessageType : uint8_t {
 static constexpr unsigned long pushActionSetting = 0x8054000;
 
 #ifdef __OBJC__
-inline NSString *pushActionVersionKey()
+inline NSString *pushActionVersionKeySingleton()
 {
     return @"WebPushActionVersion";
 }
 
-inline NSNumber *currentPushActionVersion()
+inline NSNumber *currentPushActionVersionSingleton()
 {
     return @1;
 }
 
-inline NSString *pushActionPartitionKey()
+inline NSString *pushActionPartitionKeySingleton()
 {
     return @"WebPushActionPartition";
 }
 
-inline NSString *pushActionTypeKey()
+inline NSString *pushActionTypeKeySingleton()
 {
     return @"WebPushActionType";
 }

@@ -27,10 +27,10 @@
 
 #if ENABLE(WEB_AUTHN)
 
-#include "AuthenticationResponseJSON.h"
-#include "BasicCredential.h"
-#include "IDLTypes.h"
-#include "RegistrationResponseJSON.h"
+#include <WebCore/AuthenticationResponseJSON.h>
+#include <WebCore/BasicCredential.h>
+#include <WebCore/IDLTypes.h>
+#include <WebCore/RegistrationResponseJSON.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {

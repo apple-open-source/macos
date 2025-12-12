@@ -53,13 +53,9 @@ WebGamepadProvider& WebGamepadProvider::singleton()
     return provider;
 }
 
-WebGamepadProvider::WebGamepadProvider()
-{
-}
+WebGamepadProvider::WebGamepadProvider() = default;
 
-WebGamepadProvider::~WebGamepadProvider()
-{
-}
+WebGamepadProvider::~WebGamepadProvider() = default;
 
 void WebGamepadProvider::setInitialGamepads(const Vector<std::optional<GamepadData>>& gamepadDatas)
 {

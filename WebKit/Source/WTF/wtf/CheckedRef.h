@@ -38,9 +38,15 @@
 
 namespace WTF {
 
+#define USING_CAN_MAKE_CHECKEDPTR(BASE) \
+    using BASE::checkedPtrCount; \
+    using BASE::checkedPtrCountWithoutThreadCheck; \
+    using BASE::incrementCheckedPtrCount; \
+    using BASE::decrementCheckedPtrCount
+
 template<typename T, typename PtrTraits>
 class CheckedRef {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(CheckedRef);
 public:
 
     ~CheckedRef()
@@ -228,7 +234,7 @@ inline ExpectedType& downcast(CheckedRef<ArgType, ArgPtrTraits>& source)
 }
 
 template<typename ExpectedType, typename ArgType, typename ArgPtrTraits>
-inline const ExpectedType& downcast(const CheckedRef<ArgType, ArgPtrTraits>& source)
+inline ExpectedType& downcast(const CheckedRef<ArgType, ArgPtrTraits>& source)
 {
     return downcast<ExpectedType>(source.get());
 }
@@ -278,8 +284,6 @@ public:
     CanMakeCheckedPtrBase(const CanMakeCheckedPtrBase&) { }
     CanMakeCheckedPtrBase& operator=(const CanMakeCheckedPtrBase&) { return *this; }
 
-    ~CanMakeCheckedPtrBase() = default;
-
     PtrCounterType checkedPtrCount() const { return m_checkedPtrCount; }
     void incrementCheckedPtrCount() const { ++m_checkedPtrCount; }
     ALWAYS_INLINE void decrementCheckedPtrCount() const
@@ -308,7 +312,7 @@ class CanMakeCheckedPtr : public CanMakeCheckedPtrBase<SingleThreadIntegralWrapp
 public:
     ~CanMakeCheckedPtr()
     {
-        static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "Objects that use CanMakeCheckedPtr must use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
+        static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "Objects that use CanMakeCheckedPtr must use FastMalloc (WTF_DEPRECATED_MAKE_FAST_ALLOCATED)");
         static_assert(std::is_same<typename T::WTFDidOverrideDeleteForCheckedPtr, int>::value, "Objects that use CanMakeCheckedPtr must use WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR");
     }
 
@@ -324,7 +328,7 @@ class CanMakeThreadSafeCheckedPtr : public CanMakeCheckedPtrBase<std::atomic<uin
 public:
     ~CanMakeThreadSafeCheckedPtr()
     {
-        static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "Objects that use CanMakeCheckedPtr must use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
+        static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "Objects that use CanMakeCheckedPtr must use FastMalloc (WTF_DEPRECATED_MAKE_FAST_ALLOCATED)");
         static_assert(std::is_same<typename T::WTFDidOverrideDeleteForCheckedPtr, int>::value, "Objects that use CanMakeCheckedPtr must use WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR");
     }
 

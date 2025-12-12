@@ -21,10 +21,10 @@
 
 #pragma once
 
-#include "HTMLFrameOwnerElement.h"
-#include "OverlapTestRequestClient.h"
-#include "RenderReplaced.h"
-#include "Widget.h"
+#include <WebCore/HTMLFrameOwnerElement.h>
+#include <WebCore/OverlapTestRequestClient.h>
+#include <WebCore/RenderReplaced.h>
+#include <WebCore/Widget.h>
 
 namespace WebCore {
 

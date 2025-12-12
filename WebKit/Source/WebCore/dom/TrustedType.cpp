@@ -33,6 +33,7 @@
 #include "JSDOMExceptionHandling.h"
 #include "JSTrustedScript.h"
 #include "LocalDOMWindow.h"
+#include "MathMLNames.h"
 #include "SVGNames.h"
 #include "TrustedTypePolicy.h"
 #include "TrustedTypePolicyFactory.h"
@@ -246,7 +247,7 @@ AttributeTypeAndSink trustedTypeForAttribute(const String& elementName, const St
     QualifiedName element(nullAtom(), AtomString(localName), elementNS);
     QualifiedName attribute(nullAtom(), AtomString(attributeName), attributeNS);
 
-    if (attributeNS.isNull() && !attributeName.isNull()) {
+    if (attributeNS.isNull() && !attributeName.isNull() && (elementNS == HTMLNames::xhtmlNamespaceURI || elementNS == SVGNames::svgNamespaceURI || elementNS == MathMLNames::mathmlNamespaceURI)) {
         if (isEventHandlerAttribute(attribute)) {
             returnValues.sink = makeString("Element "_s, attributeName);
             returnValues.attributeType = trustedTypeToString(TrustedType::TrustedScript);

@@ -30,6 +30,7 @@
 #include "CompiledContentExtension.h"
 #include "ContentExtensionParser.h"
 #include "ContentExtensionsBackend.h"
+#include "ProcessWarming.h"
 #include "StyleSheetContents.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -66,7 +67,7 @@ uint32_t ContentExtension::findFirstIgnoreRule() const
     }
     return std::numeric_limits<uint32_t>::max();
 }
-    
+
 StyleSheetContents* ContentExtension::globalDisplayNoneStyleSheet()
 {
     return m_globalDisplayNoneStyleSheet.get();
@@ -74,6 +75,8 @@ StyleSheetContents* ContentExtension::globalDisplayNoneStyleSheet()
 
 void ContentExtension::compileGlobalDisplayNoneStyleSheet()
 {
+    ProcessWarming::initializeNames();
+
     uint32_t firstIgnoreRule = findFirstIgnoreRule();
 
     auto serializedActions = m_compiledExtension->serializedActions();

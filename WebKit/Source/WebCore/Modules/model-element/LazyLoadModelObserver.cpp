@@ -28,12 +28,12 @@
 
 #if ENABLE(MODEL_ELEMENT)
 
-#include "DocumentInlines.h"
 #include "HTMLModelElement.h"
 #include "IntersectionObserverCallback.h"
 #include "IntersectionObserverEntry.h"
 #include "LocalFrame.h"
 #include "Logging.h"
+#include "NodeDocument.h"
 #include <limits>
 #include <wtf/TZoneMallocInlines.h>
 namespace WebCore {

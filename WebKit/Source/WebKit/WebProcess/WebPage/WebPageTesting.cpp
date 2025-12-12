@@ -35,6 +35,7 @@
 #include "WebPageTestingMessages.h"
 #include "WebProcess.h"
 #include <WebCore/BackForwardController.h>
+#include <WebCore/DocumentView.h>
 #include <WebCore/Editor.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/IntPoint.h>

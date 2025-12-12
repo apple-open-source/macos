@@ -18,6 +18,7 @@ namespace gl
 {
 class Context;
 class PrivateState;
+class PrivateStateCache;
 class ErrorSet;
 
 // GL_AMD_performance_monitor
@@ -242,7 +243,8 @@ bool ValidateDrawElementsInstancedANGLE(const Context *context,
                                         DrawElementsType typePacked,
                                         const void *indices,
                                         GLsizei primcount);
-bool ValidateVertexAttribDivisorANGLE(const Context *context,
+bool ValidateVertexAttribDivisorANGLE(const PrivateState &state,
+                                      ErrorSet *errors,
                                       angle::EntryPoint entryPoint,
                                       GLuint index,
                                       GLuint divisor);
@@ -1034,6 +1036,8 @@ bool ValidateReleaseTexturesANGLE(const Context *context,
 
 // GL_ARM_shader_framebuffer_fetch_depth_stencil
 
+// GL_ARM_texture_unnormalized_coordinates
+
 // GL_CHROMIUM_bind_uniform_location
 bool ValidateBindUniformLocationCHROMIUM(const Context *context,
                                          angle::EntryPoint entryPoint,
@@ -1437,12 +1441,12 @@ bool ValidateGetFragmentShadingRatesEXT(const Context *context,
 bool ValidateShadingRateEXT(const PrivateState &state,
                             ErrorSet *errors,
                             angle::EntryPoint entryPoint,
-                            GLenum rate);
+                            ShadingRate ratePacked);
 bool ValidateShadingRateCombinerOpsEXT(const PrivateState &state,
                                        ErrorSet *errors,
                                        angle::EntryPoint entryPoint,
-                                       GLenum combinerOp0,
-                                       GLenum combinerOp1);
+                                       CombinerOp combinerOp0Packed,
+                                       CombinerOp combinerOp1Packed);
 
 // GL_EXT_geometry_shader
 bool ValidateFramebufferTextureEXT(const Context *context,
@@ -1455,7 +1459,8 @@ bool ValidateFramebufferTextureEXT(const Context *context,
 // GL_EXT_gpu_shader5
 
 // GL_EXT_instanced_arrays
-bool ValidateVertexAttribDivisorEXT(const Context *context,
+bool ValidateVertexAttribDivisorEXT(const PrivateState &state,
+                                    ErrorSet *errors,
                                     angle::EntryPoint entryPoint,
                                     GLuint index,
                                     GLuint divisor);
@@ -2942,7 +2947,7 @@ bool ValidateFramebufferFoveationParametersQCOM(const Context *context,
 bool ValidateShadingRateQCOM(const PrivateState &state,
                              ErrorSet *errors,
                              angle::EntryPoint entryPoint,
-                             GLenum rate);
+                             ShadingRate ratePacked);
 
 // GL_QCOM_texture_foveated
 bool ValidateTextureFoveationParametersQCOM(const Context *context,

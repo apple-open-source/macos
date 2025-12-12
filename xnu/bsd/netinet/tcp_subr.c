@@ -744,6 +744,10 @@ tcp_init(struct protosw *pp, struct domain *dp)
 		SYSCTL_SKMEM_UPDATE_FIELD(tcp.autosndbufmax, tcp_autosndbuf_max);
 	}
 
+	if (serverperfmode) {
+		tcp_syncookie = 1;
+	}
+
 	/* Initialize the TCP CCA array */
 	tcp_cc_init();
 

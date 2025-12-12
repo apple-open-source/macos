@@ -29,6 +29,7 @@
 #include "AutomationProtocolObjects.h"
 #include "CoordinateSystem.h"
 #include "WebAutomationDOMWindowObserver.h"
+#include "WebAutomationSessionMacros.h"
 #include "WebAutomationSessionMessages.h"
 #include "WebAutomationSessionProxyMessages.h"
 #include "WebAutomationSessionProxyScriptSource.h"
@@ -49,6 +50,8 @@
 #include <WebCore/CookieJar.h>
 #include <WebCore/DOMRect.h>
 #include <WebCore/DOMRectList.h>
+#include <WebCore/DocumentPage.h>
+#include <WebCore/DocumentView.h>
 #include <WebCore/ElementAncestorIteratorInlines.h>
 #include <WebCore/File.h>
 #include <WebCore/FileList.h>
@@ -64,7 +67,7 @@
 #include <WebCore/HitTestSource.h>
 #include <WebCore/JSElement.h>
 #include <WebCore/LocalDOMWindow.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/RenderElement.h>
 #include <wtf/StdLibExtras.h>
@@ -367,8 +370,8 @@ WebCore::AccessibilityObject* WebAutomationSessionProxy::getAccessibilityObjectF
         // the accessibility object for this element will not be created (because it doesn't yet have its renderer).
         axObjectCache->performDeferredCacheUpdate(ForceLayout::Yes);
 
-        if (RefPtr<WebCore::AccessibilityObject> axObject = axObjectCache->getOrCreate(coreElement.get()))
-            return axObject.get();
+        if (RefPtr<WebCore::AccessibilityObject> axObject = axObjectCache->exportedGetOrCreate(*coreElement))
+            return axObject.unsafeGet();
     }
 
     errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::InternalError);
@@ -636,26 +639,26 @@ void WebAutomationSessionProxy::resolveParentFrame(WebCore::PageIdentifier pageI
     completionHandler(std::nullopt, parentFrame->frameID());
 }
 
-void WebAutomationSessionProxy::focusFrame(WebCore::PageIdentifier pageID, WebCore::FrameIdentifier frameID, CompletionHandler<void(std::optional<String>)>&& completionHandler)
+void WebAutomationSessionProxy::focusFrame(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, CompletionHandler<void(Inspector::CommandResult<void>)>&& callback)
 {
-    RefPtr page = WebProcess::singleton().webPage(pageID);
-    if (!page || !page->corePage()) {
-        String windowNotFoundErrorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::WindowNotFound);
-        completionHandler(windowNotFoundErrorType);
-        return;
+    RefPtr<WebCore::Frame> coreFrame;
+    if (frameID) {
+        RefPtr frame = WebProcess::singleton().webFrame(*frameID);
+        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!frame, FrameNotFound);
+        coreFrame = frame->coreFrame();
+    } else {
+        RefPtr page = WebProcess::singleton().webPage(pageID);
+        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!page || !page->corePage(), WindowNotFound);
+        coreFrame = page->mainFrame();
     }
 
     // If frame is no longer connected to the page, then it is
     // closing and it's not possible to focus the frame.
-    RefPtr frame = WebProcess::singleton().webFrame(frameID);
-    if (!frame || !frame->coreFrame() || !frame->coreFrame()->page()) {
-        String frameNotFoundErrorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::FrameNotFound);
-        completionHandler(frameNotFoundErrorType);
-        return;
-    }
+    ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!coreFrame || !coreFrame->page(), FrameNotFound);
 
-    page->corePage()->focusController().setFocusedFrame(frame->protectedCoreFrame().get());
-    completionHandler(std::nullopt);
+    coreFrame->page()->focusController().setFocusedFrame(coreFrame.get());
+
+    callback({ });
 }
 
 static WebCore::Element* containerElementForElement(WebCore::Element& element)
@@ -664,16 +667,16 @@ static WebCore::Element* containerElementForElement(WebCore::Element& element)
     // https://w3c.github.io/webdriver/webdriver-spec.html#dfn-container.
     if (is<WebCore::HTMLOptionElement>(element)) {
         if (RefPtr parentElement = WebCore::ancestorsOfType<WebCore::HTMLDataListElement>(element).first())
-            return parentElement.get();
+            return parentElement.unsafeGet();
         if (RefPtr parentElement = downcast<WebCore::HTMLOptionElement>(element).ownerSelectElement())
-            return parentElement.get();
+            return parentElement.unsafeGet();
 
         return nullptr;
     }
 
     if (RefPtr optgroup = dynamicDowncast<WebCore::HTMLOptGroupElement>(element)) {
         if (RefPtr parentElement = optgroup->ownerSelectElement())
-            return parentElement.get();
+            return parentElement.unsafeGet();
 
         return nullptr;
     }
@@ -952,7 +955,7 @@ static WebCore::IntRect snapshotElementRectForScreenshot(WebPage& page, WebCore:
             return { };
 
         WebCore::LayoutRect topLevelRect;
-        WebCore::IntRect elementRect = WebCore::snappedIntRect(element->renderer()->paintingRootRect(topLevelRect));
+        WebCore::IntRect elementRect = WebCore::snappedIntRect(element->checkedRenderer()->paintingRootRect(topLevelRect));
         if (clipToViewport)
             elementRect.intersect(frameView->visibleContentRect());
 

@@ -58,6 +58,8 @@ public:
 
     DECLARE_INFO;
 
+    DECLARE_VISIT_CHILDREN;
+
     void initializeCollator(JSGlobalObject*, JSValue locales, JSValue optionsValue);
     UCollationResult compareStrings(JSGlobalObject*, StringView, StringView) const;
     JSObject* resolvedOptions(JSGlobalObject*) const;
@@ -81,7 +83,6 @@ public:
 private:
     IntlCollator(VM&, Structure*);
     DECLARE_DEFAULT_FINISH_CREATION;
-    DECLARE_VISIT_CHILDREN;
 
     bool updateCanDoASCIIUCADUCETComparison() const;
 

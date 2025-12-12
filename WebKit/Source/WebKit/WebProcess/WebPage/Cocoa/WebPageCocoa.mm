@@ -34,6 +34,7 @@
 #import "PDFPlugin.h"
 #import "PluginView.h"
 #import "PrintInfo.h"
+#import "SharedBufferReference.h"
 #import "TextAnimationController.h"
 #import "UserMediaCaptureManager.h"
 #import "WKAccessibilityWebPageObjectBase.h"
@@ -45,12 +46,14 @@
 #import "WebPreferencesKeys.h"
 #import "WebProcess.h"
 #import "WebRemoteObjectRegistry.h"
+#import <WebCore/AXObjectCache.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ChromeClient.h>
 #import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DictionaryLookup.h>
-#import <WebCore/DocumentInlines.h>
 #import <WebCore/DocumentMarkerController.h>
+#import <WebCore/DocumentMarkers.h>
+#import <WebCore/DocumentView.h>
 #import <WebCore/DragImage.h>
 #import <WebCore/Editing.h>
 #import <WebCore/EditingHTMLConverter.h>
@@ -59,6 +62,7 @@
 #import <WebCore/EventNames.h>
 #import <WebCore/FixedContainerEdges.h>
 #import <WebCore/FocusController.h>
+#import <WebCore/FrameDestructionObserverInlines.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContextCG.h>
@@ -71,10 +75,12 @@
 #import <WebCore/ImageOverlay.h>
 #import <WebCore/ImageUtilities.h>
 #import <WebCore/LegacyWebArchive.h>
+#import <WebCore/LocalFrameInlines.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MutableStyleProperties.h>
 #import <WebCore/NetworkExtensionContentFilter.h>
+#import <WebCore/NodeDocument.h>
 #import <WebCore/NodeHTMLConverter.h>
 #import <WebCore/NodeRenderStyle.h>
 #import <WebCore/NotImplemented.h>
@@ -85,6 +91,7 @@
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderedDocumentMarker.h>
+#import <WebCore/Settings.h>
 #import <WebCore/StylePropertiesInlines.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/UTIRegistry.h>
@@ -193,9 +200,9 @@ void WebPage::platformDidReceiveLoadParameters(const LoadParameters& parameters)
 
 void WebPage::requestActiveNowPlayingSessionInfo(CompletionHandler<void(bool, WebCore::NowPlayingInfo&&)>&& completionHandler)
 {
-    if (RefPtr sharedManager = WebCore::PlatformMediaSessionManager::singletonIfExists()) {
-        if (auto nowPlayingInfo = sharedManager->nowPlayingInfo()) {
-            bool registeredAsNowPlayingApplication = sharedManager->registeredAsNowPlayingApplication();
+    if (RefPtr manager = mediaSessionManagerIfExists()) {
+        if (auto nowPlayingInfo = manager->nowPlayingInfo()) {
+            bool registeredAsNowPlayingApplication = manager->registeredAsNowPlayingApplication();
             completionHandler(registeredAsNowPlayingApplication, WTFMove(*nowPlayingInfo));
             return;
         }
@@ -478,7 +485,7 @@ void WebPage::accessibilityManageRemoteElementStatus(bool registerStatus, int pr
 #endif
 }
 
-void WebPage::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, Vector<uint8_t> dataToken, CompletionHandler<void(Vector<uint8_t>, int)>&& completionHandler)
+void WebPage::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, WebCore::AccessibilityRemoteToken dataToken, CompletionHandler<void(WebCore::AccessibilityRemoteToken, int)>&& completionHandler)
 {
     RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
     if (!webFrame) {
@@ -497,11 +504,11 @@ void WebPage::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::Fram
         return completionHandler({ }, 0);
     }
 
-    registerRemoteFrameAccessibilityTokens(processIdentifier, dataToken.span(), frameID);
+    registerRemoteFrameAccessibilityTokens(processIdentifier, dataToken, frameID);
 
     // Get our remote token data and send back to the RemoteFrame.
 #if PLATFORM(MAC)
-    completionHandler({ span(accessibilityRemoteTokenData().get()) }, getpid());
+    completionHandler({ makeVector(accessibilityRemoteTokenData().get()) }, getpid());
 #else
     completionHandler({ dataToken }, getpid());
 #endif
@@ -589,36 +596,6 @@ void WebPage::updateMockAccessibilityElementAfterCommittingLoad()
     RefPtr mainFrame = dynamicDowncast<WebCore::LocalFrame>(this->mainFrame());
     RefPtr document = mainFrame ? mainFrame->document() : nullptr;
     [m_mockAccessibilityElement setHasMainFramePlugin:document ? document->isPluginDocument() : false];
-}
-
-void WebPage::pdfSnapshotAtSize(LocalFrame& localMainFrame, GraphicsContext& context, const IntRect& snapshotRect, SnapshotOptions options)
-{
-    Ref frameView = *localMainFrame.view();
-
-    auto rect = snapshotRect;
-    auto bitmapSize = rect.size();
-
-    int64_t remainingHeight = bitmapSize.height();
-    int64_t nextRectY = rect.y();
-    while (remainingHeight > 0) {
-        // PDFs have a per-page height limit of 200 inches at 72dpi.
-        // We'll export one PDF page at a time, up to that maximum height.
-        static const int64_t maxPageHeight = 72 * 200;
-        bitmapSize.setHeight(std::min(remainingHeight, maxPageHeight));
-        rect.setHeight(bitmapSize.height());
-        rect.setY(nextRectY);
-
-        context.beginPage(bitmapSize);
-        context.scale({ 1, -1 });
-        context.translate(0, -bitmapSize.height());
-
-        paintSnapshotAtSize(rect, bitmapSize, options, localMainFrame, frameView, context);
-
-        context.endPage();
-
-        nextRectY += bitmapSize.height();
-        remainingHeight -= maxPageHeight;
-    }
 }
 
 void WebPage::getProcessDisplayName(CompletionHandler<void(String&&)>&& completionHandler)
@@ -1321,7 +1298,7 @@ static void drawPDFPage(PDFDocument *pdfDocument, CFIndex pageIndex, CGContextRe
     CGAffineTransform transform = CGContextGetCTM(context);
 
     for (PDFAnnotation *annotation in [pdfPage annotations]) {
-        if (![[annotation valueForAnnotationKey:get_PDFKit_PDFAnnotationKeySubtype()] isEqualToString:get_PDFKit_PDFAnnotationSubtypeLink()])
+        if (![[annotation valueForAnnotationKey:get_PDFKit_PDFAnnotationKeySubtypeSingleton()] isEqualToString:get_PDFKit_PDFAnnotationSubtypeLinkSingleton()])
             continue;
 
         NSURL *url = annotation.URL;
@@ -1353,18 +1330,16 @@ void WebPage::drawPDFDocument(CGContextRef context, PDFDocument *pdfDocument, co
     }
 }
 
-void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef context, PDFDocument *pdfDocument, const PrintInfo& printInfo, uint32_t first, uint32_t count)
+void WebPage::drawPagesToPDFFromPDFDocument(GraphicsContext& context, PDFDocument *pdfDocument, const PrintInfo& printInfo, const WebCore::FloatRect& mediaBox, uint32_t first, uint32_t count)
 {
     NSUInteger pageCount = [pdfDocument pageCount];
     for (uint32_t page = first; page < first + count; ++page) {
         if (page >= pageCount)
             break;
 
-        RetainPtr pageInfo = adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-        CGPDFContextBeginPage(context, pageInfo.get());
-        drawPDFPage(pdfDocument, page, context, printInfo.pageSetupScaleFactor, CGSizeMake(printInfo.availablePaperWidth, printInfo.availablePaperHeight));
-        CGPDFContextEndPage(context);
+        context.beginPage(mediaBox);
+        drawPDFPage(pdfDocument, page, context.platformContext(), printInfo.pageSetupScaleFactor, CGSizeMake(printInfo.availablePaperWidth, printInfo.availablePaperHeight));
+        context.endPage();
     }
 }
 
@@ -1380,7 +1355,7 @@ void WebPage::computePagesForPrintingPDFDocument(WebCore::FrameIdentifier, const
     notImplemented();
 }
 
-void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef, PDFDocument *, const PrintInfo&, uint32_t, uint32_t)
+void WebPage::drawPagesToPDFFromPDFDocument(GraphicsContext&, PDFDocument *, const PrintInfo&, const WebCore::FloatRect&, uint32_t, uint32_t)
 {
     notImplemented();
 }
@@ -1407,28 +1382,32 @@ BoxSideSet WebPage::sidesRequiringFixedContainerEdges() const
     auto sides = m_page->fixedContainerEdges().fixedEdges();
 
     if ((additionalHeight + obscuredInsets.top()) > 0)
-        sides.add(BoxSideFlag::Top);
+        sides.add(BoxSide::Top);
 
     if (obscuredInsets.left() > 0)
-        sides.add(BoxSideFlag::Left);
+        sides.add(BoxSide::Left);
 
     if (obscuredInsets.right() > 0)
-        sides.add(BoxSideFlag::Right);
+        sides.add(BoxSide::Right);
 
     if (obscuredInsets.bottom() > 0)
-        sides.add(BoxSideFlag::Bottom);
+        sides.add(BoxSide::Bottom);
 
     return sides;
 }
 
-void WebPage::getWebArchives(CompletionHandler<void(HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&&)>&& completionHandler)
+void WebPage::getWebArchivesForFrames(const Vector<WebCore::FrameIdentifier>& frameIdentifiers, CompletionHandler<void(HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&&)>&& completionHandler)
 {
     if (!m_page)
         return completionHandler({ });
 
     HashMap<WebCore::FrameIdentifier, Ref<LegacyWebArchive>> result;
-    for (RefPtr<Frame> frame = m_mainFrame->coreFrame(); frame; frame = frame->tree().traverseNext()) {
-        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
+    for (auto& frameIdentifier : frameIdentifiers) {
+        RefPtr frame = WebFrame::webFrame(frameIdentifier);
+        if (!frame)
+            continue;
+
+        RefPtr localFrame = frame->coreLocalFrame();
         if (!localFrame)
             continue;
 
@@ -1444,6 +1423,24 @@ void WebPage::getWebArchives(CompletionHandler<void(HashMap<WebCore::FrameIdenti
             result.add(localFrame->frameID(), archive.releaseNonNull());
     }
     completionHandler(WTFMove(result));
+}
+
+void WebPage::getWebArchiveData(CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&& completionHandler)
+{
+    RetainPtr<CFDataRef> data = m_mainFrame->webArchiveData(nullptr, nullptr);
+    completionHandler(IPC::SharedBufferReference(SharedBuffer::create(data.get())));
+}
+
+void WebPage::processSystemWillSleep() const
+{
+    if (RefPtr manager = mediaSessionManagerIfExists())
+        manager->processSystemWillSleep();
+}
+
+void WebPage::processSystemDidWake() const
+{
+    if (RefPtr manager = mediaSessionManagerIfExists())
+        manager->processSystemDidWake();
 }
 
 NSObject *WebPage::accessibilityObjectForMainFramePlugin()

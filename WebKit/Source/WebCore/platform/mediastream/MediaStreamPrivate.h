@@ -36,8 +36,8 @@
 
 #if ENABLE(MEDIA_STREAM)
 
-#include "FloatSize.h"
-#include "MediaStreamTrackPrivate.h"
+#include <WebCore/FloatSize.h>
+#include <WebCore/MediaStreamTrackPrivate.h>
 #include <wtf/Function.h>
 #include <wtf/MediaTime.h>
 #include <wtf/RefPtr.h>

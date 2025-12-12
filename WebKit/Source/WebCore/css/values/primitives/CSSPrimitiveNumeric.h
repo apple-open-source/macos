@@ -24,10 +24,10 @@
 
 #pragma once
 
-#include "CSSPrimitiveData.h"
-#include "CSSPrimitiveNumericConcepts.h"
-#include "CSSPrimitiveNumericRaw.h"
-#include "CSSUnevaluatedCalc.h"
+#include <WebCore/CSSPrimitiveData.h>
+#include <WebCore/CSSPrimitiveNumericConcepts.h>
+#include <WebCore/CSSPrimitiveNumericRaw.h>
+#include <WebCore/CSSUnevaluatedCalc.h>
 #include <limits>
 #include <type_traits>
 #include <wtf/Brigand.h>

@@ -289,12 +289,12 @@ AtomString AVTrackPrivateAVFObjCImpl::label() const
     if (![commonMetadata count] && m_mediaSelectionOption)
         commonMetadata = [m_mediaSelectionOption->avMediaSelectionOption() commonMetadata];
 
-    NSArray *titles = [PAL::getAVMetadataItemClass() metadataItemsFromArray:commonMetadata withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
+    NSArray *titles = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:commonMetadata withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
     if (![titles count])
         return emptyAtom();
 
     // If possible, return a title in one of the user's preferred languages.
-    NSArray *titlesForPreferredLanguages = [PAL::getAVMetadataItemClass() metadataItemsFromArray:titles filteredAndSortedAccordingToPreferredLanguages:[NSLocale preferredLanguages]];
+    NSArray *titlesForPreferredLanguages = [PAL::getAVMetadataItemClassSingleton() metadataItemsFromArray:titles filteredAndSortedAccordingToPreferredLanguages:[NSLocale preferredLanguages]];
     if ([titlesForPreferredLanguages count])
         return [[titlesForPreferredLanguages objectAtIndex:0] stringValue];
     return [[titles objectAtIndex:0] stringValue];

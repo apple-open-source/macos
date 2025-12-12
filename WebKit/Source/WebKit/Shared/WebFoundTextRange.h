@@ -62,7 +62,9 @@ struct WebFoundTextRange {
     bool operator==(const WebFoundTextRange& other) const;
 };
 
-TextStream& operator<<(TextStream&, const WebKit::WebFoundTextRange::PDFData&);
+TextStream& operator<<(TextStream&, const WebFoundTextRange&);
+TextStream& operator<<(TextStream&, const WebFoundTextRange::DOMData&);
+TextStream& operator<<(TextStream&, const WebFoundTextRange::PDFData&);
 
 } // namespace WebKit
 

@@ -131,7 +131,7 @@ void IPIntPlan::compileFunction(FunctionCodeIndex functionIndex)
         auto callee = IPIntCallee::create(*m_wasmInternalFunctions[functionIndex], functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace));
         ASSERT(!callee->entrypoint());
         bool usesSIMD = m_moduleInformation->usesSIMD(functionIndex);
-        if (usesSIMD && !Options::useBBQJIT()) {
+        if (usesSIMD && !Options::useBBQJIT() && !Options::useWasmIPIntSIMD()) {
             Locker locker { m_lock };
             Base::fail(makeString("JIT is disabled, but the entrypoint for "_s, functionIndex.rawIndex(), " requires JIT"_s));
             return;
@@ -140,10 +140,10 @@ void IPIntPlan::compileFunction(FunctionCodeIndex functionIndex)
         CodePtr<WasmEntryPtrTag> entrypoint { };
 #if ENABLE(JIT)
         if (Options::useJIT()) {
-            if (usesSIMD)
-                entrypoint = LLInt::inPlaceInterpreterSIMDEntryThunk().retaggedCode<WasmEntryPtrTag>();
-            else
+            if (!usesSIMD || Options::useWasmIPIntSIMD())
                 entrypoint = LLInt::inPlaceInterpreterEntryThunk().retaggedCode<WasmEntryPtrTag>();
+            else
+                entrypoint = LLInt::inPlaceInterpreterSIMDEntryThunk().retaggedCode<WasmEntryPtrTag>();
         }
 #endif
         if (!entrypoint)
@@ -173,7 +173,7 @@ bool IPIntPlan::ensureEntrypoint(IPIntCallee&, FunctionCodeIndex functionIndex)
     if (m_entrypoints[functionIndex])
         return true;
 
-    m_entrypoints[functionIndex] = JSEntrypointCallee::create(m_moduleInformation->internalFunctionTypeIndices[functionIndex], m_moduleInformation->usesSIMD(functionIndex));
+    m_entrypoints[functionIndex] = JSToWasmCallee::create(m_moduleInformation->internalFunctionTypeIndices[functionIndex], m_moduleInformation->usesSIMD(functionIndex));
     return true;
 }
 
@@ -202,9 +202,8 @@ void IPIntPlan::didCompleteCompilation()
             }
         }
         if (auto& callee = m_entrypoints[functionIndex]) {
-            if (callee->compilationMode() == CompilationMode::JSToWasmEntrypointMode)
-                static_cast<JSEntrypointCallee*>(callee.get())->setWasmCallee(CalleeBits::encodeNativeCallee(&m_callees[functionIndex].get()));
-            m_jsEntrypointCallees.add(functionIndex, callee);
+            callee->setWasmCallee(CalleeBits::encodeNativeCallee(&m_callees[functionIndex].get()));
+            m_jsToWasmCallees.add(functionIndex, callee);
         }
     }
 

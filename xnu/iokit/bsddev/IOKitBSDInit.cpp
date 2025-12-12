@@ -1810,6 +1810,28 @@ IOVnodeGetBooleanEntitlement(
 	return true;
 }
 
+extern boolean_t
+IOVnodeGetIntegerEntitlement(struct vnode *vnode, int64_t off, const char *entitlement, uint64_t *value)
+{
+	OSObject *obj;
+	boolean_t ret = false;
+	off_t offset = (off_t)off;
+
+	obj = IOUserClient::copyClientEntitlementVnode(vnode, offset, entitlement);
+	if (!obj) {
+		return ret;
+	}
+
+	OSNumber *num = OSDynamicCast(OSNumber, obj);
+	if (num) {
+		*value = num->unsigned64BitValue();
+		ret = true;
+	}
+
+	obj->release();
+	return ret;
+}
+
 extern "C" char *
 IOVnodeGetEntitlement(vnode_t vnode, int64_t off, const char *entitlement)
 {

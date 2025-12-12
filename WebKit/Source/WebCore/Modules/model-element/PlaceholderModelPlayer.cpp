@@ -43,9 +43,7 @@ Ref<PlaceholderModelPlayer> PlaceholderModelPlayer::create(bool suspended, const
 PlaceholderModelPlayer::PlaceholderModelPlayer(bool suspended, const ModelPlayerAnimationState& animationState, std::unique_ptr<ModelPlayerTransformState>&& transformState)
     : m_animationState(animationState)
     , m_transformState(WTFMove(transformState))
-#if ENABLE(MODEL_PROCESS)
     , m_id(ModelPlayerIdentifier::generate())
-#endif
 {
     ASSERT(m_transformState);
 
@@ -89,6 +87,8 @@ void PlaceholderModelPlayer::reload(Model&, LayoutSize, ModelPlayerAnimationStat
     RELEASE_ASSERT_NOT_REACHED();
 }
 
+#if ENABLE(MODEL_ELEMENT_BOUNDING_BOX)
+
 std::optional<WebCore::FloatPoint3D> PlaceholderModelPlayer::boundingBoxCenter() const
 {
     return m_transformState->boundingBoxCenter();
@@ -99,6 +99,10 @@ std::optional<WebCore::FloatPoint3D> PlaceholderModelPlayer::boundingBoxExtents(
     return m_transformState->boundingBoxExtents();
 }
 
+#endif
+
+#if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
+
 std::optional<WebCore::TransformationMatrix> PlaceholderModelPlayer::entityTransform() const
 {
     return m_transformState->entityTransform();
@@ -107,7 +111,7 @@ std::optional<WebCore::TransformationMatrix> PlaceholderModelPlayer::entityTrans
 /// This comes from JS side, so we need to tell Model Process about it. Not to be confused with didUpdateEntityTransform().
 void PlaceholderModelPlayer::setEntityTransform(WebCore::TransformationMatrix transform)
 {
-#if ENABLE(MODEL_PROCESS)
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
     ASSERT(m_transformState->stageMode() == StageModeOperation::None);
 #endif
     m_transformState->setEntityTransform(transform);
@@ -118,7 +122,10 @@ bool PlaceholderModelPlayer::supportsTransform(WebCore::TransformationMatrix tra
     return m_transformState->isEntityTransformSupported(transform);
 }
 
-#if ENABLE(MODEL_PROCESS)
+#endif
+
+#if ENABLE(MODEL_ELEMENT_ANIMATIONS_CONTROL)
+
 void PlaceholderModelPlayer::setAutoplay(bool autoplay)
 {
     m_animationState.setAutoplay(autoplay);
@@ -174,15 +181,24 @@ void PlaceholderModelPlayer::setCurrentTime(Seconds currentTime, CompletionHandl
     completionHandler();
 }
 
+#endif
+
+#if ENABLE(MODEL_ELEMENT_PORTAL)
+
 void PlaceholderModelPlayer::setHasPortal(bool hasPortal)
 {
     m_transformState->setHasPortal(hasPortal);
 }
 
+#endif
+
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
+
 void PlaceholderModelPlayer::setStageMode(WebCore::StageModeOperation stageModeOperation)
 {
     m_transformState->setStageMode(stageModeOperation);
 }
+
 #endif
 
 // Empty implementation
@@ -264,11 +280,27 @@ void PlaceholderModelPlayer::setIsMuted(bool, CompletionHandler<void(bool succes
 {
 }
 
-#if PLATFORM(COCOA)
-Vector<RetainPtr<id>> PlaceholderModelPlayer::accessibilityChildren()
+#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
+
+ModelPlayerAccessibilityChildren PlaceholderModelPlayer::accessibilityChildren()
 {
     return { };
 }
+
 #endif
 
+#if ENABLE(GPU_PROCESS_MODEL)
+
+const MachSendRight* PlaceholderModelPlayer::displayBuffer() const
+{
+    return nullptr;
 }
+
+GraphicsLayerContentsDisplayDelegate* PlaceholderModelPlayer::contentsDisplayDelegate()
+{
+    return nullptr;
+}
+
+#endif
+
+} // namespace WebCore

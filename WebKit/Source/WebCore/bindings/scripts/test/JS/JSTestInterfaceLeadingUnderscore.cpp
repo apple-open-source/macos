@@ -148,7 +148,7 @@ JSValue JSTestInterfaceLeadingUnderscore::getConstructor(VM& vm, const JSGlobalO
 
 void JSTestInterfaceLeadingUnderscore::destroy(JSC::JSCell* cell)
 {
-    JSTestInterfaceLeadingUnderscore* thisObject = static_cast<JSTestInterfaceLeadingUnderscore*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestInterfaceLeadingUnderscore* thisObject = static_cast<JSTestInterfaceLeadingUnderscore*>(cell);
     thisObject->JSTestInterfaceLeadingUnderscore::~JSTestInterfaceLeadingUnderscore();
 }
 
@@ -204,7 +204,7 @@ bool JSTestInterfaceLeadingUnderscoreOwner::isReachableFromOpaqueRoots(JSC::Hand
 
 void JSTestInterfaceLeadingUnderscoreOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestInterfaceLeadingUnderscore = static_cast<JSTestInterfaceLeadingUnderscore*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestInterfaceLeadingUnderscore = static_cast<JSTestInterfaceLeadingUnderscore*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestInterfaceLeadingUnderscore->protectedWrapped().ptr(), jsTestInterfaceLeadingUnderscore);
 }
@@ -218,7 +218,7 @@ extern "C" { extern void (*const __identifier("??_7TestInterfaceLeadingUnderscor
 extern "C" { extern void* _ZTVN7WebCore30TestInterfaceLeadingUnderscoreE[]; }
 #endif
 template<std::same_as<TestInterfaceLeadingUnderscore> T>
-static inline void verifyVTable(TestInterfaceLeadingUnderscore* ptr) 
+static inline void verifyVTable(TestInterfaceLeadingUnderscore* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -238,8 +238,9 @@ static inline void verifyVTable(TestInterfaceLeadingUnderscore* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestInterfaceLeadingUnderscore>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestInterfaceLeadingUnderscore>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestInterfaceLeadingUnderscore>(impl.ptr());
 #endif

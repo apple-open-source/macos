@@ -33,6 +33,7 @@
 #include "UseDownloadPlaceholder.h"
 #include <WebCore/LocalFrameLoaderClient.h>
 #include <WebCore/NotImplemented.h>
+#include <wtf/AbstractCanMakeCheckedPtr.h>
 #include <wtf/AbstractRefCounted.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
@@ -68,18 +69,12 @@ enum class CallDownloadDidStart : bool { No, Yes };
 
 class DownloadManager : public CanMakeCheckedPtr<DownloadManager> {
     WTF_MAKE_NONCOPYABLE(DownloadManager);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(DownloadManager);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DownloadManager);
 public:
-    class Client : public AbstractRefCounted {
+    class Client : public AbstractRefCounted, public AbstractCanMakeCheckedPtr {
     public:
         virtual ~Client() { }
-
-        // CheckedPtr interface
-        virtual uint32_t checkedPtrCount() const = 0;
-        virtual uint32_t checkedPtrCountWithoutThreadCheck() const = 0;
-        virtual void incrementCheckedPtrCount() const = 0;
-        virtual void decrementCheckedPtrCount() const = 0;
 
         virtual void didCreateDownload() = 0;
         virtual void didDestroyDownload() = 0;

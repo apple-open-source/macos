@@ -32,6 +32,7 @@
 
 #include "DOMMatrixReadOnly.h"
 #include "DOMPoint.h"
+#include "ScriptWrappableInlines.h"
 #include "WebCoreOpaqueRoot.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -60,6 +61,8 @@ WebCoreOpaqueRoot root(DOMPointReadOnly* point)
 {
     return WebCoreOpaqueRoot { point };
 }
+
+DOMPointReadOnly::~DOMPointReadOnly() = default;
 
 } // namespace WebCore
 

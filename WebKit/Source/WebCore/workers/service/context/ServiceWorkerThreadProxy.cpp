@@ -28,13 +28,14 @@
 
 #include "BadgeClient.h"
 #include "CacheStorageProvider.h"
-#include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentSettingsValues.h"
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "FetchLoader.h"
 #include "FetchLoaderClient.h"
 #include "FrameLoader.h"
+#include "IDBConnectionProxy.h"
 #include "LoaderStrategy.h"
 #include "LocalFrame.h"
 #include "Logging.h"
@@ -42,10 +43,11 @@
 #include "NotificationData.h"
 #include "NotificationPayload.h"
 #include "PlatformStrategies.h"
-#include "ScriptExecutionContextIdentifier.h"
+#include "ScriptExecutionContextInlines.h"
 #include "ServiceWorkerClientData.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "Settings.h"
+#include "SocketProvider.h"
 #include "WebRTCProvider.h"
 #include "WorkerGlobalScope.h"
 #include <wtf/CrossThreadCopier.h>
@@ -60,6 +62,11 @@ static inline IDBClient::IDBConnectionProxy* idbConnectionProxy(Document& docume
     return document.idbConnectionProxy();
 }
 
+static inline RefPtr<IDBClient::IDBConnectionProxy> protectedIDBConnectionProxy(Document& document)
+{
+    return idbConnectionProxy(document);
+}
+
 static ThreadSafeWeakHashSet<ServiceWorkerThreadProxy>& allServiceWorkerThreadProxies()
 {
     static MainThreadNeverDestroyed<ThreadSafeWeakHashSet<ServiceWorkerThreadProxy>> set;
@@ -72,7 +79,7 @@ ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(Ref<Page>&& page, ServiceWork
 #if ENABLE(REMOTE_INSPECTOR)
     , m_remoteDebuggable(ServiceWorkerDebuggable::create(*this, contextData))
 #endif
-    , m_serviceWorkerThread(ServiceWorkerThread::create(WTFMove(contextData), WTFMove(workerData), WTFMove(userAgent), workerThreadMode, m_document->settingsValues(), *this, *this, *this, idbConnectionProxy(m_document), m_document->socketProvider(), WTFMove(notificationClient), m_page->sessionID(), m_document->noiseInjectionHashSalt(), m_document->advancedPrivacyProtections()))
+    , m_serviceWorkerThread(ServiceWorkerThread::create(WTFMove(contextData), WTFMove(workerData), WTFMove(userAgent), workerThreadMode, m_document->settingsValues(), *this, *this, *this, protectedIDBConnectionProxy(m_document).get(), m_document->protectedSocketProvider().get(), WTFMove(notificationClient), m_page->sessionID(), m_document->noiseInjectionHashSalt(), m_document->advancedPrivacyProtections()))
     , m_cacheStorageProvider(cacheStorageProvider)
     , m_inspectorProxy(*this)
 {
@@ -186,7 +193,7 @@ void ServiceWorkerThreadProxy::notifyNetworkStateChange(bool isOnline)
     postTaskForModeToWorkerOrWorkletGlobalScope([isOnline] (ScriptExecutionContext& context) {
         auto& globalScope = downcast<WorkerGlobalScope>(context);
         globalScope.setIsOnline(isOnline);
-        globalScope.eventLoop().queueTask(TaskSource::DOMManipulation, [globalScope = Ref { globalScope }, isOnline] {
+        globalScope.checkedEventLoop()->queueTask(TaskSource::DOMManipulation, [globalScope = Ref { globalScope }, isOnline] {
             globalScope->dispatchEvent(Event::create(isOnline ? eventNames().onlineEvent : eventNames().offlineEvent, Event::CanBubble::No, Event::IsCancelable::No));
         });
     }, WorkerRunLoop::defaultMode());

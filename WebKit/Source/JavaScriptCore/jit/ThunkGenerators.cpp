@@ -860,7 +860,7 @@ typedef MathThunkCallingConvention(*MathThunk)(MathThunkCallingConvention);
 #if CPU(X86_64) && COMPILER(GCC_COMPATIBLE) && (OS(DARWIN) || OS(LINUX))
 
 #define defineUnaryDoubleOpWrapper(function) \
-    asm( \
+    __asm__( \
         ".text\n" \
         ".globl " SYMBOL_STRING(function##Thunk) "\n" \
         HIDE_SYMBOL(function##Thunk) "\n" \
@@ -880,7 +880,7 @@ typedef MathThunkCallingConvention(*MathThunk)(MathThunkCallingConvention);
 #elif CPU(ARM_THUMB2) && COMPILER(GCC_COMPATIBLE) && OS(DARWIN)
 
 #define defineUnaryDoubleOpWrapper(function) \
-    asm( \
+    __asm__( \
         ".text\n" \
         ".align 2\n" \
         ".globl " SYMBOL_STRING(function##Thunk) "\n" \
@@ -905,7 +905,7 @@ typedef MathThunkCallingConvention(*MathThunk)(MathThunkCallingConvention);
 #elif CPU(ARM64)
 
 #define defineUnaryDoubleOpWrapper(function) \
-    asm( \
+    __asm__( \
         ".text\n" \
         ".align 2\n" \
         ".globl " SYMBOL_STRING(function##Thunk) "\n" \
@@ -1299,7 +1299,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> boundFunctionCallGenerator(VM& vm)
         jit.loadPtr(CCallHelpers::Address(GPRInfo::regT0, JSBoundFunction::offsetOfBoundArgs()), GPRInfo::regT3);
         CCallHelpers::Label loopBound = jit.label();
         jit.sub32(CCallHelpers::TrustedImm32(1), GPRInfo::regT1);
-        jit.loadValue(CCallHelpers::BaseIndex(GPRInfo::regT3, GPRInfo::regT1, CCallHelpers::TimesEight, JSImmutableButterfly::offsetOfData()), valueRegs);
+        jit.loadValue(CCallHelpers::BaseIndex(GPRInfo::regT3, GPRInfo::regT1, CCallHelpers::TimesEight, JSCellButterfly::offsetOfData()), valueRegs);
         jit.storeValue(valueRegs, CCallHelpers::calleeArgumentSlot(1).indexedBy(GPRInfo::regT1, CCallHelpers::TimesEight));
         jit.branchTest32(CCallHelpers::NonZero, GPRInfo::regT1).linkTo(loopBound, &jit);
         argsPushed.append(jit.jump());

@@ -95,14 +95,6 @@ LayoutUnit RenderMathMLBlock::mirrorIfNeeded(LayoutUnit horizontalOffset, Layout
     return horizontalOffset;
 }
 
-LayoutUnit RenderMathMLBlock::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
-{
-    if (linePositionMode == PositionOfInteriorLineBoxes)
-        return 0;
-
-    return firstLineBaseline().value_or(RenderBlock::baselinePosition(firstLine, direction, linePositionMode));
-}
-
 LayoutUnit toUserUnits(const MathMLElement::Length& length, const RenderStyle& style, const LayoutUnit& referenceValue)
 {
     switch (length.type) {
@@ -222,9 +214,6 @@ void RenderMathMLBlock::layoutBlock(RelayoutChildren relayoutChildren, LayoutUni
 
     repainter.repaintAfterLayout();
 
-    updateScrollInfoAfterLayout();
-
-    clearNeedsLayout();
 }
 
 void RenderMathMLBlock::computeAndSetBlockDirectionMarginsOfChildren()
@@ -291,12 +280,12 @@ RenderMathMLBlock::SizeAppliedToMathContent RenderMathMLBlock::sizeAppliedToMath
     // FIXME: Resolve percentages.
     // https://github.com/w3c/mathml-core/issues/76
     if (auto fixedLogicalWidth = style().logicalWidth().tryFixed())
-        sizes.logicalWidth = fixedLogicalWidth->value;
+        sizes.logicalWidth = fixedLogicalWidth->resolveZoom(Style::ZoomNeeded { });
 
     // FIXME: Resolve percentages.
     // https://github.com/w3c/mathml-core/issues/77
     if (auto fixedLogicalHeight = style().logicalHeight().tryFixed(); phase == LayoutPhase::Layout && fixedLogicalHeight)
-        sizes.logicalHeight = fixedLogicalHeight->value;
+        sizes.logicalHeight = fixedLogicalHeight->resolveZoom(Style::ZoomNeeded { });
 
     return sizes;
 }

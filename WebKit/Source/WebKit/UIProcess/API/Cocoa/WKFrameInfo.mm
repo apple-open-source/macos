@@ -38,12 +38,17 @@
 
 WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
+- (Ref<API::FrameInfo>)_protectedFrameInfo
+{
+    return *_frameInfo;
+}
+
 - (void)dealloc
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKFrameInfo.class, self))
         return;
 
-    _frameInfo->~FrameInfo();
+    SUPPRESS_UNCOUNTED_ARG self._protectedFrameInfo->~FrameInfo();
 
     [super dealloc];
 }
@@ -72,7 +77,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (WKWebView *)webView
 {
-    RefPtr page = _frameInfo->page();
+    RefPtr page = self._protectedFrameInfo->page();
     return page ? page->cocoaView().autorelease() : nil;
 }
 
@@ -94,12 +99,12 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (_WKFrameHandle *)_handle
 {
-    return wrapper(_frameInfo->handle()).autorelease();
+    return wrapper(self._protectedFrameInfo->handle()).autorelease();
 }
 
 - (_WKFrameHandle *)_parentFrameHandle
 {
-    return wrapper(_frameInfo->parentFrameHandle()).autorelease();
+    return wrapper(self._protectedFrameInfo->parentFrameHandle()).autorelease();
 }
 
 - (NSUUID *)_documentIdentifier
@@ -129,7 +134,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSString *)_title
 {
-    return _frameInfo->title().createNSString().autorelease();
+    return self._protectedFrameInfo->title().createNSString().autorelease();
 }
 
 - (BOOL)_isScrollable
@@ -155,6 +160,13 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 - (SecTrustRef)_serverTrust
 {
     return _frameInfo->frameInfoData().certificateInfo.trust().get();
+}
+
+- (BOOL)_isSameFrame:(WKFrameInfo *)frame
+{
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    return self._handle.frameID == frame._handle.frameID;
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 @end

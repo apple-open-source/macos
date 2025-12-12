@@ -1431,7 +1431,7 @@ shared_region_pager_purge(
 	assert(object != VM_OBJECT_NULL);
 	vm_object_lock(object);
 	pages_purged = object->resident_page_count;
-	vm_object_reap_pages(object, REAP_DATA_FLUSH);
+	vm_object_reap_pages(object, REAP_DATA_FLUSH_CLEAN);
 	pages_purged -= object->resident_page_count;
 //	printf("     %s:%d pager %p object %p purged %llu left %d\n", __FUNCTION__, __LINE__, pager, object, pages_purged, object->resident_page_count);
 	vm_object_unlock(object);

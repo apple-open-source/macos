@@ -123,7 +123,7 @@ public:
     void hasAudio(CompletionHandler<void(std::optional<bool>&&)>&&) final;
     void isMuted(CompletionHandler<void(std::optional<bool>&&)>&&) final;
     void setIsMuted(bool, CompletionHandler<void(bool success)>&&) final;
-    Vector<RetainPtr<id>> accessibilityChildren() final;
+    WebCore::ModelPlayerAccessibilityChildren accessibilityChildren() final;
     void setAutoplay(bool) final;
     void setLoop(bool) final;
     void setPlaybackRate(double, CompletionHandler<void(double effectivePlaybackRate)>&&) final;

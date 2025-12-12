@@ -28,10 +28,10 @@
 
 #if ENABLE(DRAG_SUPPORT) && USE(GTK4)
 
+#include "GtkUtilities.h"
 #include "SandboxExtension.h"
 #include "WebKitWebViewBasePrivate.h"
 #include <WebCore/DragData.h>
-#include <WebCore/GtkUtilities.h>
 #include <WebCore/PasteboardCustomData.h>
 #include <gtk/gtk.h>
 #include <wtf/glib/GSpanExtras.h>
@@ -245,7 +245,7 @@ void DropTarget::accept(GdkDrop* drop, std::optional<WebCore::IntPoint> position
 
 template<typename T>
 struct DropReadAsyncData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(DropReadAsyncData);
 
     DropReadAsyncData(GCancellable* cancellable, CompletionHandler<T>&& handler)
         : cancellable(cancellable)

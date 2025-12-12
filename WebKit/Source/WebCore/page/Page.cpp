@@ -20,7 +20,9 @@
 #include "config.h"
 #include "Page.h"
 
+#include "AXIsolatedTree.h"
 #include "AXLogger.h"
+#include "AXObjectCacheInlines.h"
 #include "ActivityStateChangeObserver.h"
 #include "AdvancedPrivacyProtections.h"
 #include "AlternativeTextClient.h"
@@ -28,7 +30,6 @@
 #include "AnimationFrameRate.h"
 #include "AnimationTimelinesController.h"
 #include "AppHighlightStorage.h"
-#include "ApplicationCacheStorage.h"
 #include "ArchiveResource.h"
 #include "AsyncNodeDeletionQueueInlines.h"
 #include "AttachmentElementClient.h"
@@ -42,7 +43,6 @@
 #include "BroadcastChannelRegistry.h"
 #include "CacheStorageProvider.h"
 #include "CachedImage.h"
-#include "CachedResourceLoader.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "CommonAtomStrings.h"
@@ -56,17 +56,24 @@
 #include "CryptoClient.h"
 #include "DOMRect.h"
 #include "DOMRectList.h"
+#include "DOMTimer.h"
 #include "DatabaseProvider.h"
 #include "DebugOverlayRegions.h"
 #include "DebugPageOverlays.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "DisplayRefreshMonitorManager.h"
+#include "DocumentEventLoop.h"
 #include "DocumentFullscreen.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
+#include "DocumentPage.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentSyncClient.h"
 #include "DocumentSyncData.h"
+#include "DocumentView.h"
+#include "DocumentWindow.h"
 #include "DragController.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -83,10 +90,13 @@
 #include "FocusController.h"
 #include "FontCache.h"
 #include "FragmentDirectiveGenerator.h"
+#include "FrameConsoleClient.h"
+#include "FrameInlines.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "FrameTree.h"
 #include "GeolocationController.h"
+#include "GraphicsLayer.h"
 #include "HTMLElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLMediaElement.h"
@@ -102,6 +112,7 @@
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "IntelligenceTextEffectsSupport.h"
+#include "KeyboardScrollingAnimator.h"
 #include "LayoutDisallowedScope.h"
 #include "LegacySchemeRegistry.h"
 #include "LoaderStrategy.h"
@@ -112,6 +123,7 @@
 #include "LoginStatus.h"
 #include "LowPowerModeNotifier.h"
 #include "MediaCanStartListener.h"
+#include "MediaEngineConfigurationFactory.h"
 #include "MemoryCache.h"
 #include "ModelPlayerProvider.h"
 #include "NavigationScheduler.h"
@@ -120,7 +132,6 @@
 #include "OpportunisticTaskScheduler.h"
 #include "PageColorSampler.h"
 #include "PageConfiguration.h"
-#include "PageConsoleClient.h"
 #include "PageDebuggable.h"
 #include "PageGroup.h"
 #include "PageOverlayController.h"
@@ -136,8 +147,6 @@
 #include "PluginViewBase.h"
 #include "PointerCaptureController.h"
 #include "PointerLockController.h"
-#include "ProcessSyncClient.h"
-#include "ProcessSyncData.h"
 #include "ProgressTracker.h"
 #include "RTCController.h"
 #include "Range.h"
@@ -173,6 +182,7 @@
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
 #include "StorageProvider.h"
+#include "StringCallback.h"
 #include "StyleAdjuster.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
@@ -204,7 +214,6 @@
 #include <JavaScriptCore/VM.h>
 #include <ranges>
 #include <wtf/FileSystem.h>
-#include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -271,12 +280,21 @@ unsigned Page::nonUtilityPageCount()
     return gNonUtilityPageCount;
 }
 
-DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, pageCounter, ("Page"));
-
 void Page::forEachPage(NOESCAPE const Function<void(Page&)>& function)
 {
     for (auto& page : allPages())
         function(Ref { page.get() });
+}
+
+Page* Page::fromPageIdentifier(PageIdentifier identifier)
+{
+    Page* result = nullptr;
+    forEachPage([identifier, &result](auto& page) {
+        if (identifier == page.identifier())
+            result = &page;
+    });
+
+    return result;
 }
 
 void Page::updateValidationBubbleStateIfNeeded()
@@ -333,7 +351,7 @@ GCC_MAYBE_NO_INLINE static Ref<Frame> createMainFrame(Page& page, PageConfigurat
 {
     page.relaxAdoptionRequirement();
     return switchOn(WTFMove(clientCreator), [&] (PageConfiguration::LocalMainFrameCreationParameters&& creationParameters) -> Ref<Frame> {
-        return LocalFrame::createMainFrame(page, WTFMove(creationParameters.clientCreator), identifier, creationParameters.effectiveSandboxFlags, mainFrameOpener.get(), WTFMove(frameTreeSyncData));
+        return LocalFrame::createMainFrame(page, WTFMove(creationParameters.clientCreator), identifier, creationParameters.effectiveSandboxFlags, creationParameters.effectiveReferrerPolicy, mainFrameOpener.get(), WTFMove(frameTreeSyncData));
     }, [&] (CompletionHandler<UniqueRef<RemoteFrameClient>(RemoteFrame&)>&& remoteFrameClientCreator) -> Ref<Frame> {
         return RemoteFrame::createMainFrame(page, WTFMove(remoteFrameClientCreator), identifier, mainFrameOpener.get(), WTFMove(frameTreeSyncData));
     });
@@ -345,7 +363,7 @@ Ref<Page> Page::create(PageConfiguration&& pageConfiguration)
 }
 
 struct Page::Internals {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Page);
 
     Region topRelevantPaintedRegion;
     Region bottomRelevantPaintedRegion;
@@ -367,13 +385,13 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_inspectorController(makeUniqueRefWithoutRefCountedCheck<InspectorController>(*this, WTFMove(pageConfiguration.inspectorBackendClient)))
     , m_pointerCaptureController(makeUniqueRef<PointerCaptureController>(*this))
 #if ENABLE(POINTER_LOCK)
-    , m_pointerLockController(makeUniqueRef<PointerLockController>(*this))
+    , m_pointerLockController(makeUniqueRefWithoutRefCountedCheck<PointerLockController>(*this))
 #endif
     , m_elementTargetingController(makeUniqueRef<ElementTargetingController>(*this))
     , m_settings(Settings::create(this))
     , m_cryptoClient(WTFMove(pageConfiguration.cryptoClient))
     , m_progress(makeUniqueRef<ProgressTracker>(*this, WTFMove(pageConfiguration.progressTrackerClient)))
-    , m_processSyncClient(WTFMove(pageConfiguration.processSyncClient))
+    , m_documentSyncClient(WTFMove(pageConfiguration.documentSyncClient))
     , m_backForwardController(makeUniqueRef<BackForwardController>(*this, WTFMove(pageConfiguration.backForwardClient)))
     , m_editorClient(WTFMove(pageConfiguration.editorClient))
     , m_mainFrame(createMainFrame(*this, WTFMove(pageConfiguration.mainFrameCreationParameters), WTFMove(pageConfiguration.mainFrameOpener), pageConfiguration.mainFrameIdentifier, FrameTreeSyncData::create()))
@@ -393,13 +411,11 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_domTimerAlignmentIntervalIncreaseTimer(*this, &Page::domTimerAlignmentIntervalIncreaseTimerFired)
     , m_activityState(pageInitialActivityState())
     , m_alternativeTextClient(WTFMove(pageConfiguration.alternativeTextClient))
-    , m_consoleClient(makeUniqueRef<PageConsoleClient>(*this))
 #if ENABLE(REMOTE_INSPECTOR)
     , m_inspectorDebuggable(PageDebuggable::create(*this))
 #endif
     , m_socketProvider(WTFMove(pageConfiguration.socketProvider))
     , m_cookieJar(WTFMove(pageConfiguration.cookieJar))
-    , m_applicationCacheStorage(WTFMove(pageConfiguration.applicationCacheStorage))
     , m_cacheStorageProvider(WTFMove(pageConfiguration.cacheStorageProvider))
     , m_databaseProvider(*WTFMove(pageConfiguration.databaseProvider))
     , m_pluginInfoProvider(*WTFMove(pageConfiguration.pluginInfoProvider))
@@ -426,7 +442,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_paymentCoordinator(PaymentCoordinator::create(WTFMove(pageConfiguration.paymentCoordinatorClient)))
 #endif
 #if ENABLE(WEB_AUTHN)
-    , m_authenticatorCoordinator(makeUniqueRef<AuthenticatorCoordinator>(WTFMove(pageConfiguration.authenticatorCoordinatorClient)))
+    , m_authenticatorCoordinator(makeUniqueRefWithoutRefCountedCheck<AuthenticatorCoordinator>(*this, WTFMove(pageConfiguration.authenticatorCoordinatorClient)))
 #endif
 #if HAVE(DIGITAL_CREDENTIALS_UI)
     , m_credentialRequestCoordinator(CredentialRequestCoordinator::create(WTFMove(pageConfiguration.credentialRequestCoordinatorClient), *this))
@@ -468,11 +484,12 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #if PLATFORM(COCOA)
     , m_presentingApplicationBundleIdentifier(WTFMove(pageConfiguration.presentingApplicationBundleIdentifier))
 #endif
+    , m_mediaSessionManagerFactory(WTFMove(pageConfiguration.mediaSessionManagerFactory))
 {
     updateTimerThrottlingState();
 
     protectedPluginInfoProvider()->addPage(*this);
-    protectedUserContentProvider()->addPage(*this);
+    Ref { m_userContentProvider }->addPage(*this);
     protectedVisitedLinkStore()->addPage(*this);
 
     static bool firstTimeInitializationRan = false;
@@ -488,10 +505,6 @@ Page::Page(PageConfiguration&& pageConfiguration)
         ++gNonUtilityPageCount;
         MemoryPressureHandler::setPageCount(gNonUtilityPageCount);
     }
-
-#ifndef NDEBUG
-    pageCounter.increment();
-#endif
 
     protectedStorageNamespaceProvider()->setSessionStorageQuota(m_settings->sessionStorageQuota());
 
@@ -521,6 +534,11 @@ Page::Page(PageConfiguration&& pageConfiguration)
         m_throttlingReasons.add(ThrottlingReason::ThermalMitigation);
         m_throttlingReasons.set(ThrottlingReason::AggressiveThermalMitigation, settings().respondToThermalPressureAggressively());
     }
+
+#if ENABLE(IMAGE_ANALYSIS)
+    if (pageConfiguration.imageTranslationLanguageIdentifiers)
+        imageAnalysisQueue().setTranslationLanguageIdentifiers(WTFMove(*pageConfiguration.imageTranslationLanguageIdentifiers));
+#endif
 }
 
 Page::~Page()
@@ -559,12 +577,8 @@ Page::~Page()
     if (!isUtilityPage())
         BackForwardCache::singleton().removeAllItemsForPage(*this);
 
-#ifndef NDEBUG
-    pageCounter.decrement();
-#endif
-
     protectedPluginInfoProvider()->removePage(*this);
-    protectedUserContentProvider()->removePage(*this);
+    Ref { m_userContentProvider }->removePage(*this);
     protectedVisitedLinkStore()->removePage(*this);
 }
 
@@ -784,6 +798,16 @@ Ref<DOMRectList> Page::passiveTouchEventListenerRectsForTesting()
     return DOMRectList::create(quads);
 }
 
+void Page::setConsoleMessageListenerForTesting(RefPtr<StringCallback>&& listener)
+{
+    m_consoleMessageListenerForTesting = listener;
+}
+
+RefPtr<StringCallback> Page::consoleMessageListenerForTesting() const
+{
+    return m_consoleMessageListenerForTesting;
+}
+
 void Page::settingsDidChange()
 {
 #if ENABLE(WEB_RTC)
@@ -809,8 +833,9 @@ std::optional<AXTreeData> Page::accessibilityTreeData(IncludeDOMInfo includeDOMI
 void Page::clearAccessibilityIsolatedTree()
 {
     if (CheckedPtr cache = axObjectCache()) {
-        if (std::optional identifier = this->identifier())
-            AXIsolatedTree::removeTreeForPageID(*identifier);
+        forEachLocalFrame([] (LocalFrame& frame) {
+            AXIsolatedTree::removeTreeForFrameID(frame.frameID());
+        });
     }
 }
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -840,6 +865,9 @@ void Page::setMainFrame(Ref<Frame>&& frame)
         document = localFrame->document();
 
     m_topDocumentSyncData = document ? document->syncData() : DocumentSyncData::create();
+
+    // Notify the web page that the frame changed, so that we can re-intitialize the remote token.
+    chrome().client().mainFrameDidChange();
 }
 
 void Page::setMainFrameURLAndOrigin(const URL& url, RefPtr<SecurityOrigin>&& origin)
@@ -866,14 +894,14 @@ void Page::setMainFrameURLAndOrigin(const URL& url, RefPtr<SecurityOrigin>&& ori
     if (!origin)
         RELEASE_ASSERT(!m_topDocumentSyncData->documentSecurityOrigin);
 
-    processSyncClient().broadcastTopDocumentSyncDataToOtherProcesses(m_topDocumentSyncData.get());
+    documentSyncClient().broadcastAllDocumentSyncDataToOtherProcesses(m_topDocumentSyncData.get());
 }
 
 void Page::setIsClosing()
 {
     m_topDocumentSyncData->isClosing = true;
     if (settings().siteIsolationEnabled())
-        processSyncClient().broadcastIsClosingToOtherProcesses(true);
+        documentSyncClient().broadcastIsClosingToOtherProcesses(true);
 }
 
 bool Page::isClosing() const
@@ -886,7 +914,7 @@ void Page::setAudioSessionType(DOMAudioSessionType audioSessionType)
 {
     m_topDocumentSyncData->audioSessionType = audioSessionType;
     if (settings().siteIsolationEnabled())
-        processSyncClient().broadcastAudioSessionTypeToOtherProcesses(audioSessionType);
+        documentSyncClient().broadcastAudioSessionTypeToOtherProcesses(audioSessionType);
 }
 
 DOMAudioSessionType Page::audioSessionType() const
@@ -904,7 +932,7 @@ void Page::setUserDidInteractWithPage(bool didInteract)
 
     m_topDocumentSyncData->userDidInteractWithPage = didInteract;
     if (settings().siteIsolationEnabled())
-        processSyncClient().broadcastUserDidInteractWithPageToOtherProcesses(didInteract);
+        documentSyncClient().broadcastUserDidInteractWithPageToOtherProcesses(didInteract);
 }
 
 bool Page::userDidInteractWithPage() const
@@ -919,7 +947,7 @@ void Page::setAutofocusProcessed()
 
     m_topDocumentSyncData->isAutofocusProcessed = true;
     if (settings().siteIsolationEnabled())
-        processSyncClient().broadcastIsAutofocusProcessedToOtherProcesses(true);
+        documentSyncClient().broadcastIsAutofocusProcessedToOtherProcesses(true);
 }
 
 bool Page::autofocusProcessed() const
@@ -944,27 +972,24 @@ void Page::setHasInjectedUserScript()
 
     m_topDocumentSyncData->hasInjectedUserScript = true;
     if (settings().siteIsolationEnabled())
-        processSyncClient().broadcastHasInjectedUserScriptToOtherProcesses(true);
+        documentSyncClient().broadcastHasInjectedUserScriptToOtherProcesses(true);
 }
 
-void Page::updateProcessSyncData(const ProcessSyncData& data)
+void Page::updateTopDocumentSyncData(const DocumentSyncSerializationData& data)
 {
     switch (data.type) {
-    case ProcessSyncDataType::DocumentClasses:
-    case ProcessSyncDataType::DocumentSecurityOrigin:
-    case ProcessSyncDataType::DocumentURL:
-    case ProcessSyncDataType::HasInjectedUserScript:
-    case ProcessSyncDataType::IsAutofocusProcessed:
-    case ProcessSyncDataType::IsClosing:
-    case ProcessSyncDataType::UserDidInteractWithPage:
+    case DocumentSyncDataType::DocumentClasses:
+    case DocumentSyncDataType::DocumentSecurityOrigin:
+    case DocumentSyncDataType::DocumentURL:
+    case DocumentSyncDataType::HasInjectedUserScript:
+    case DocumentSyncDataType::IsAutofocusProcessed:
+    case DocumentSyncDataType::IsClosing:
+    case DocumentSyncDataType::UserDidInteractWithPage:
 #if ENABLE(DOM_AUDIO_SESSION)
-    case ProcessSyncDataType::AudioSessionType:
+    case DocumentSyncDataType::AudioSessionType:
 #endif
         protectedTopDocumentSyncData()->update(data);
         break;
-    case ProcessSyncDataType::FrameCanCreatePaymentSession:
-    case ProcessSyncDataType::FrameDocumentSecurityOrigin:
-        ASSERT_NOT_REACHED();
     }
 }
 
@@ -996,6 +1021,11 @@ SecurityOrigin& Page::mainFrameOrigin() const
     if (!m_topDocumentSyncData->documentSecurityOrigin)
         return SecurityOrigin::opaqueOrigin();
     return *m_topDocumentSyncData->documentSecurityOrigin;
+}
+
+Ref<SecurityOrigin> Page::protectedMainFrameOrigin() const
+{
+    return mainFrameOrigin();
 }
 
 bool Page::openedByDOM() const
@@ -1084,6 +1114,12 @@ void Page::updateStyleForAllPagesAfterGlobalChangeInEnvironment()
         Ref { page.get() }->updateStyleAfterChangeInEnvironment();
 }
 
+void Page::updateControlTintsForAllPages()
+{
+    for (auto& page : allPages())
+        Ref { page.get() }->updateControlTints();
+}
+
 void Page::setNeedsRecalcStyleInAllFrames()
 {
     // FIXME: Figure out what this function is actually trying to add in different call sites.
@@ -1170,10 +1206,10 @@ static Frame* incrementFrame(Frame* current, bool forward, CanWrap canWrap, DidW
         : current->tree().traversePrevious(canWrap, didWrap);
 }
 
-std::optional<FrameIdentifier> Page::findString(const String& target, FindOptions options, DidWrap* didWrap)
+Page::FindStringData Page::findString(const String& target, FindOptions options, DidWrap* didWrap)
 {
     if (target.isEmpty())
-        return std::nullopt;
+        return { std::nullopt, std::nullopt };
 
     CanWrap canWrap = options.contains(FindOption::WrapAround) ? CanWrap::Yes : CanWrap::No;
     RefPtr frame = m_focusController->focusedFrame() ? m_focusController->focusedFrame() : m_mainFrame.ptr();
@@ -1185,13 +1221,14 @@ std::optional<FrameIdentifier> Page::findString(const String& target, FindOption
             frame = incrementFrame(frame.get(), !options.contains(FindOption::Backwards), canWrap, didWrap);
             continue;
         }
-        if (localFrame->protectedEditor()->findString(target, (options - FindOption::WrapAround) | FindOption::StartInSelection)) {
+        auto foundRange = localFrame->protectedEditor()->findString(target, (options - FindOption::WrapAround) | FindOption::StartInSelection);
+        if (foundRange) {
             if (!options.contains(FindOption::DoNotSetSelection)) {
                 if (focusedLocalFrame && localFrame != focusedLocalFrame)
                     focusedLocalFrame->checkedSelection()->clear();
                 m_focusController->setFocusedFrame(localFrame.get());
             }
-            return localFrame->frameID();
+            return { std::make_optional(localFrame->frameID()), foundRange };
         }
         frame = incrementFrame(frame.get(), !options.contains(FindOption::Backwards), canWrap, didWrap);
     } while (frame && frame != startFrame);
@@ -1201,13 +1238,15 @@ std::optional<FrameIdentifier> Page::findString(const String& target, FindOption
     if (canWrap == CanWrap::Yes && focusedLocalFrame && !focusedLocalFrame->selection().isNone()) {
         if (didWrap)
             *didWrap = DidWrap::Yes;
-        bool found = focusedLocalFrame->protectedEditor()->findString(target, options | FindOption::WrapAround | FindOption::StartInSelection);
+        auto foundRange = focusedLocalFrame->protectedEditor()->findString(target, options | FindOption::WrapAround | FindOption::StartInSelection);
         if (!options.contains(FindOption::DoNotSetSelection))
             m_focusController->setFocusedFrame(frame.get());
-        return found ? std::make_optional(focusedLocalFrame->frameID()) : std::nullopt;
+        if (!foundRange)
+            return { std::nullopt, std::nullopt };
+        return { std::make_optional(focusedLocalFrame->frameID()), foundRange };
     }
 
-    return std::nullopt;
+    return { std::nullopt, std::nullopt };
 }
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -1216,9 +1255,7 @@ void Page::analyzeImagesForFindInPage(Function<void()>&& callback)
     if (settings().imageAnalysisDuringFindInPageEnabled()) {
         Ref imageAnalysisQueue = this->imageAnalysisQueue();
         imageAnalysisQueue->setDidBecomeEmptyCallback(WTFMove(callback));
-        RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-        if (RefPtr mainDocument = localMainFrame ? localMainFrame->document() : nullptr)
-            imageAnalysisQueue->enqueueAllImagesIfNeeded(*mainDocument, { }, { });
+        imageAnalysisQueue->enqueueAllImagesIfNeeded(m_mainFrame.get(), { }, { });
     }
 }
 #endif
@@ -1609,7 +1646,7 @@ void Page::logMediaDiagnosticMessage(const RefPtr<FormData>& formData) const
     if (!imageOrMediaFilesCount)
         return;
     auto message = makeString(imageOrMediaFilesCount, imageOrMediaFilesCount == 1 ? " media file has been submitted"_s : " media files have been submitted"_s);
-    diagnosticLoggingClient().logDiagnosticMessageWithDomain(message, DiagnosticLoggingDomain::Media);
+    checkedDiagnosticLoggingClient()->logDiagnosticMessageWithDomain(message, DiagnosticLoggingDomain::Media);
 }
 
 void Page::setMediaVolume(float volume)
@@ -1675,8 +1712,9 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
         }
 
         if (mainFrameView && mainFrameView->scrollPosition() != origin && !delegatesScaling() && mainDocument->renderView() && mainDocument->renderView()->needsLayout() && mainFrameView->didFirstLayout()) {
-            mainFrameView->layoutContext().layout();
-            mainFrameView->layoutContext().updateCompositingLayersAfterLayoutIfNeeded();
+            CheckedRef layoutContext = mainFrameView->layoutContext();
+            layoutContext->layout();
+            layoutContext->updateCompositingLayersAfterLayoutIfNeeded();
         }
     }
 
@@ -2092,7 +2130,7 @@ void Page::scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedSteps
 void Page::scheduleRenderingUpdateInternal()
 {
     if (!chrome().client().scheduleRenderingUpdate())
-        renderingUpdateScheduler().scheduleRenderingUpdate();
+        checkedRenderingUpdateScheduler()->scheduleRenderingUpdate();
     m_renderingUpdateIsScheduled = true;
 }
 
@@ -2332,8 +2370,12 @@ void Page::doAfterUpdateRendering()
             frame->eventHandler().updateCursorIfNeeded();
     });
 
-    forEachRenderableDocument([] (Document& document) {
+    runProcessingStep(RenderingUpdateStep::PaintTiming, [] (Document& document) {
         document.enqueuePaintTimingEntryIfNeeded();
+    });
+
+    runProcessingStep(RenderingUpdateStep::EventTiming, [] (Document& document) {
+        document.enqueueEventTimingEntriesIfNeeded();
     });
 
     forEachRenderableDocument([] (Document& document) {
@@ -2381,15 +2423,15 @@ void Page::doAfterUpdateRendering()
     if (shouldUpdateAccessibilityRegions()) {
         m_lastAccessibilityObjectRegionsUpdate = m_lastRenderingUpdateTimestamp;
 
-        if (m_axObjectCache)
-            m_axObjectCache->onAccessibilityPaintStarted();
+        if (CheckedPtr axObjectCache = existingAXObjectCache())
+            axObjectCache->onAccessibilityPaintStarted();
 
         forEachRenderableDocument([] (Document& document) {
             document.updateAccessibilityObjectRegions();
         });
 
-        if (m_axObjectCache)
-            m_axObjectCache->onAccessibilityPaintFinished();
+        if (CheckedPtr axObjectCache = existingAXObjectCache())
+            axObjectCache->onAccessibilityPaintFinished();
     }
 #endif
 
@@ -2508,7 +2550,8 @@ void Page::didCompleteRenderingFrame()
 
     // FIXME: This is where we'd call requestPostAnimationFrame callbacks: webkit.org/b/249798.
     // FIXME: Run WindowEventLoop tasks from here: webkit.org/b/249684.
-    InspectorInstrumentation::didCompleteRenderingFrame(m_mainFrame);
+    if (RefPtr localMainFrame = this->localMainFrame())
+        InspectorInstrumentation::didCompleteRenderingFrame(*localMainFrame);
 }
 
 void Page::didUpdateRendering()
@@ -3032,11 +3075,60 @@ void Page::schedulePlaybackControlsManagerUpdate()
 #endif
 }
 
+#if ENABLE(MODEL_PROCESS)
+
+void Page::incrementModelElementCount()
+{
+    m_modelElementCount++;
+    if (m_modelElementCount == 1)
+        chrome().client().setHasModelElement(true);
+}
+
+void Page::decrementModelElementCount(unsigned count)
+{
+    m_modelElementCount -= count;
+    if (!m_modelElementCount) {
+        chrome().client().setHasModelElement(false);
+        return;
+    }
+
+    if (m_modelElementCount < 0) [[unlikely]] {
+        m_modelElementCount = 0;
+        ASSERT_NOT_REACHED();
+    }
+}
+
+#endif
+
 #if ENABLE(VIDEO)
+
+RefPtr<HTMLMediaElement> Page::bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose purpose, Document* document)
+{
+    RefPtr manager = mediaSessionManager();
+    if (!manager)
+        return nullptr;
+
+    auto selectedSession = manager->bestEligibleSessionForRemoteControls([document] (auto& session) {
+        auto* mediaElementSession = dynamicDowncast<MediaElementSession>(session);
+        if (!mediaElementSession)
+            return false;
+
+        RefPtr element = mediaElementSession->element().get();
+        if (!element)
+            return false;
+
+        return !document || &element->document() == document;
+    }, purpose);
+
+    if (RefPtr mediaElementSession = dynamicDowncast<MediaElementSession>(selectedSession.get()))
+        return mediaElementSession->protectedElement();
+
+    return nullptr;
+}
 
 void Page::playbackControlsManagerUpdateTimerFired()
 {
-    if (auto bestMediaElement = HTMLMediaElement::bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose::ControlsManager))
+    if (auto bestMediaElement = bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose::ControlsManager, nullptr))
         chrome().client().setUpPlaybackControlsManager(*bestMediaElement);
     else
         chrome().client().clearPlaybackControlsManager();
@@ -3078,9 +3170,12 @@ void Page::setShouldSuppressHDR(bool shouldSuppressHDR)
         return;
 
     m_shouldSuppressHDR = shouldSuppressHDR;
+
+#if ENABLE(VIDEO)
     forEachDocument([](auto& document) {
         document.shouldSuppressHDRDidChange();
     });
+#endif
 }
 
 #if ENABLE(MEDIA_STREAM)
@@ -3134,8 +3229,8 @@ void Page::stopMediaCapture(MediaProducerMediaCaptureKind kind)
 bool Page::mediaPlaybackExists()
 {
 #if ENABLE(VIDEO)
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        return !platformMediaSessionManager->hasNoSession();
+    if (RefPtr sessionManager = mediaSessionManagerIfExists())
+        return !sessionManager->hasNoSession();
 #endif
     return false;
 }
@@ -3143,8 +3238,8 @@ bool Page::mediaPlaybackExists()
 bool Page::mediaPlaybackIsPaused()
 {
 #if ENABLE(VIDEO)
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        return platformMediaSessionManager->mediaPlaybackIsPaused(mediaSessionGroupIdentifier());
+    if (RefPtr sessionManager = mediaSessionManagerIfExists())
+        return sessionManager->mediaPlaybackIsPaused(mediaSessionGroupIdentifier());
 #endif
     return false;
 }
@@ -3152,8 +3247,8 @@ bool Page::mediaPlaybackIsPaused()
 void Page::pauseAllMediaPlayback()
 {
 #if ENABLE(VIDEO)
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        platformMediaSessionManager->pauseAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
+    if (RefPtr sessionManager = mediaSessionManagerIfExists())
+        sessionManager->pauseAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
 #endif
 }
 
@@ -3164,8 +3259,8 @@ void Page::suspendAllMediaPlayback()
     if (m_mediaPlaybackIsSuspended)
         return;
 
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        platformMediaSessionManager->suspendAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
+    if (RefPtr sessionManager = mediaSessionManagerIfExists())
+        sessionManager->suspendAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
 
     // FIXME: We cannot set m_mediaPlaybackIsSuspended before, see https://bugs.webkit.org/show_bug.cgi?id=192829#c7.
     m_mediaPlaybackIsSuspended = true;
@@ -3189,8 +3284,8 @@ void Page::resumeAllMediaPlayback()
         return;
     m_mediaPlaybackIsSuspended = false;
 
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        platformMediaSessionManager->resumeAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
+    if (RefPtr sessionManager = mediaSessionManagerIfExists())
+        sessionManager->resumeAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
 #endif
 }
 
@@ -3202,8 +3297,8 @@ void Page::suspendAllMediaBuffering()
         return;
     m_mediaBufferingIsSuspended = true;
 
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        platformMediaSessionManager->suspendAllMediaBufferingForGroup(mediaSessionGroupIdentifier());
+    if (RefPtr sessionManager = mediaSessionManagerIfExists())
+        sessionManager->suspendAllMediaBufferingForGroup(mediaSessionGroupIdentifier());
 #endif
 }
 
@@ -3214,8 +3309,8 @@ void Page::resumeAllMediaBuffering()
         return;
     m_mediaBufferingIsSuspended = false;
 
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        platformMediaSessionManager->resumeAllMediaBufferingForGroup(mediaSessionGroupIdentifier());
+    if (RefPtr sessionManager = mediaSessionManagerIfExists())
+        sessionManager->resumeAllMediaBufferingForGroup(mediaSessionGroupIdentifier());
 #endif
 }
 
@@ -3266,7 +3361,8 @@ void Page::setActivityState(OptionSet<ActivityState> activityState)
         observer.activityStateDidChange(oldActivityState, m_activityState);
 
     if (wasVisibleAndActive != isVisibleAndActive()) {
-        PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary();
+        if (RefPtr manager = mediaSessionManager())
+            manager->updateNowPlayingInfoIfNecessary();
         stopKeyboardScrollAnimation();
     }
 
@@ -3597,7 +3693,7 @@ void Page::setUnderPageBackgroundColorOverride(Color&& underPageBackgroundColorO
     if (RefPtr frameView = localMainFrame ? localMainFrame->view() : nullptr) {
         if (CheckedPtr renderView = frameView->renderView()) {
             if (renderView->usesCompositing())
-                renderView->compositor().updateLayerForOverhangAreasBackgroundColor();
+                renderView->checkedCompositor()->updateLayerForOverhangAreasBackgroundColor();
         }
     }
 #endif // HAVE(RUBBER_BANDING)
@@ -3661,7 +3757,7 @@ void Page::addRelevantRepaintedObject(const RenderObject& object, const LayoutRe
     if (&object.frame() != &mainFrame())
         return;
 
-    LayoutRect relevantRect = relevantViewRect(&object.view());
+    LayoutRect relevantRect = relevantViewRect(object.checkedView().ptr());
 
     // The objects are only relevant if they are being painted within the viewRect().
     if (!objectPaintRect.intersects(snappedIntRect(relevantRect)))
@@ -3719,7 +3815,7 @@ void Page::addRelevantUnpaintedObject(const RenderObject& object, const LayoutRe
         return;
 
     // The objects are only relevant if they are being painted within the relevantViewRect().
-    if (!objectPaintRect.intersects(snappedIntRect(relevantViewRect(&object.view()))))
+    if (!objectPaintRect.intersects(snappedIntRect(relevantViewRect(object.checkedView().ptr()))))
         return;
 
     m_relevantUnpaintedRenderObjects.add(object);
@@ -3869,15 +3965,18 @@ void Page::logNavigation(const Navigation& navigation)
     case FrameLoadType::ReloadExpiredOnly:
         navigationDescription = "reloadRevalidatingExpired"_s;
         break;
-    case FrameLoadType::Replace:
+    case FrameLoadType::NavigationAPIReplace:
+        navigationDescription = "navigationAPIReplace"_s;
+        break;
+    case FrameLoadType::MultipartReplace:
     case FrameLoadType::RedirectWithLockedBackForwardList:
         // Not logging those for now.
         return;
     }
-    diagnosticLoggingClient().logDiagnosticMessage(DiagnosticLoggingKeys::navigationKey(), navigationDescription, ShouldSample::No);
+    checkedDiagnosticLoggingClient()->logDiagnosticMessage(DiagnosticLoggingKeys::navigationKey(), navigationDescription, ShouldSample::No);
 
     if (!navigation.domain.isEmpty())
-        diagnosticLoggingClient().logDiagnosticMessageWithEnhancedPrivacy(DiagnosticLoggingKeys::domainVisitedKey(), navigation.domain.string(), ShouldSample::Yes);
+        checkedDiagnosticLoggingClient()->logDiagnosticMessageWithEnhancedPrivacy(DiagnosticLoggingKeys::domainVisitedKey(), navigation.domain.string(), ShouldSample::Yes);
 }
 
 void Page::mainFrameLoadStarted(const URL& destinationURL, FrameLoadType type)
@@ -3914,21 +4013,16 @@ Ref<PluginInfoProvider> Page::protectedPluginInfoProvider() const
     return m_pluginInfoProvider;
 }
 
-UserContentProvider& Page::userContentProvider()
+Ref<UserContentProvider> Page::protectedUserContentProviderForFrame()
 {
     return m_userContentProvider;
 }
 
-Ref<UserContentProvider> Page::protectedUserContentProvider()
+void Page::setUserContentProviderForWebKitLegacy(Ref<UserContentProvider>&& userContentProvider)
 {
-    return m_userContentProvider;
-}
-
-void Page::setUserContentProvider(Ref<UserContentProvider>&& userContentProvider)
-{
-    protectedUserContentProvider()->removePage(*this);
+    Ref { m_userContentProvider }->removePage(*this);
     m_userContentProvider = WTFMove(userContentProvider);
-    protectedUserContentProvider()->addPage(*this);
+    Ref { m_userContentProvider }->addPage(*this);
 
     invalidateInjectedStyleSheetCacheInAllFrames();
 }
@@ -4203,20 +4297,28 @@ void Page::appearanceDidChange()
 
 void Page::clearAXObjectCache()
 {
-    m_axObjectCache = nullptr;
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
+    RefPtr mainFrameDocument = localMainFrame ? localMainFrame->document() : nullptr;
+    if (mainFrameDocument)
+        mainFrameDocument->clearAXObjectCache();
+}
+
+AXObjectCache* Page::existingAXObjectCache()
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
+    RefPtr mainFrameDocument = localMainFrame ? localMainFrame->document() : nullptr;
+    return mainFrameDocument ? mainFrameDocument->existingAXObjectCache() : nullptr;
 }
 
 AXObjectCache* Page::axObjectCache()
 {
-    if (!m_axObjectCache) {
-        RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-        RefPtr mainFrameDocument = localMainFrame ? localMainFrame->document() : nullptr;
-        if (mainFrameDocument && !mainFrameDocument->hasLivingRenderTree())
-            return nullptr;
-        m_axObjectCache = makeUnique<AXObjectCache>(*this, mainFrameDocument.get());
-        Document::hasEverCreatedAnAXObjectCache = true;
-    }
-    return m_axObjectCache.get();
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
+    RefPtr mainFrameDocument = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!mainFrameDocument)
+        return nullptr;
+
+    // Always try to get or create the cache from the main frame document
+    return mainFrameDocument->axObjectCache();
 }
 
 void Page::setUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)
@@ -4352,7 +4454,7 @@ Document* Page::outermostFullscreenDocument() const
 
         currentDocument = fullscreenFrame->contentDocument();
     }
-    return outermostFullscreenDocument.get();
+    return outermostFullscreenDocument.unsafeGet();
 #else
     return nullptr;
 #endif
@@ -4408,7 +4510,7 @@ void Page::didChangeMainDocument(Document* newDocument)
     m_topDocumentSyncData = newDocument ? newDocument->syncData() : DocumentSyncData::create();
 
     if (settings().siteIsolationEnabled())
-        processSyncClient().broadcastTopDocumentSyncDataToOtherProcesses(protectedTopDocumentSyncData().get());
+        documentSyncClient().broadcastAllDocumentSyncDataToOtherProcesses(protectedTopDocumentSyncData().get());
 
 #if ENABLE(WEB_RTC)
     m_rtcController->reset(m_shouldEnableICECandidateFilteringByDefault);
@@ -4427,6 +4529,11 @@ RenderingUpdateScheduler& Page::renderingUpdateScheduler()
     if (!m_renderingUpdateScheduler)
         m_renderingUpdateScheduler = RenderingUpdateScheduler::create(*this);
     return *m_renderingUpdateScheduler;
+}
+
+CheckedRef<RenderingUpdateScheduler> Page::checkedRenderingUpdateScheduler()
+{
+    return renderingUpdateScheduler();
 }
 
 RenderingUpdateScheduler* Page::existingRenderingUpdateScheduler()
@@ -4778,14 +4885,15 @@ void Page::recomputeTextAutoSizingInAllFrames()
     ASSERT(settings().textAutosizingEnabled() && settings().textAutosizingUsesIdempotentMode());
     forEachDocument([] (Document& document) {
         if (CheckedPtr renderView = document.renderView()) {
-            for (auto& renderer : descendantsOfType<RenderElement>(*renderView)) {
+            for (CheckedRef renderer : descendantsOfType<RenderElement>(*renderView)) {
                 // Use the fact that descendantsOfType() returns parent nodes before child nodes.
                 // The adjustment is only valid if the parent nodes have already been updated.
-                if (RefPtr element = renderer.element()) {
-                    if (auto adjustment = Style::Adjuster::adjustmentForTextAutosizing(renderer.style(), *element)) {
-                        auto newStyle = RenderStyle::clone(renderer.style());
+                if (RefPtr element = renderer->element()) {
+                    CheckedRef style = renderer->style();
+                    if (auto adjustment = Style::Adjuster::adjustmentForTextAutosizing(style, *element)) {
+                        auto newStyle = RenderStyle::clone(style);
                         Style::Adjuster::adjustForTextAutosizing(newStyle, adjustment);
-                        renderer.setStyle(WTFMove(newStyle));
+                        renderer->setStyle(WTFMove(newStyle));
                     }
                 }
             }
@@ -4795,21 +4903,34 @@ void Page::recomputeTextAutoSizingInAllFrames()
 
 #endif
 
-OptionSet<FilterRenderingMode> Page::preferredFilterRenderingModes() const
+OptionSet<FilterRenderingMode> Page::preferredFilterRenderingModes(const GraphicsContext& context) const
 {
     OptionSet<FilterRenderingMode> modes = FilterRenderingMode::Software;
 #if USE(CORE_IMAGE)
     if (settings().acceleratedFiltersEnabled())
         modes.add(FilterRenderingMode::Accelerated);
 #endif
+
 #if USE(SKIA)
     if (settings().acceleratedCompositingEnabled())
         modes.add(FilterRenderingMode::Accelerated);
 #endif
+
+    UNUSED_PARAM(context);
+
 #if USE(GRAPHICS_CONTEXT_FILTERS)
-    if (settings().graphicsContextFiltersEnabled())
-        modes.add(FilterRenderingMode::GraphicsContext);
+#if !HAVE(FIX_FOR_RADAR_104392017)
+    if (context.renderingMode() == RenderingMode::Accelerated || !context.knownToHaveFloatBasedBacking()) {
 #endif
+        if (settings().graphicsContextFiltersEnabled())
+            modes.add(FilterRenderingMode::GraphicsContext);
+        if (settings().graphicsContextBlurFilterEnabled())
+            modes.add(FilterRenderingMode::GraphicsContextBlur);
+#if !HAVE(FIX_FOR_RADAR_104392017)
+    }
+#endif
+#endif
+
     return modes;
 }
 
@@ -4838,7 +4959,7 @@ void Page::revealCurrentSelection()
     RefPtr focusedOrMainFrame = focusController().focusedOrMainFrame();
     if (!focusedOrMainFrame)
         return;
-    focusedOrMainFrame->checkedSelection()->revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded);
+    focusedOrMainFrame->checkedSelection()->revealSelection({ SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded });
 }
 
 void Page::injectUserStyleSheet(UserStyleSheet& userStyleSheet)
@@ -4846,8 +4967,7 @@ void Page::injectUserStyleSheet(UserStyleSheet& userStyleSheet)
 #if ENABLE(APP_BOUND_DOMAINS)
     if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get())) {
         if (localMainFrame->loader().client().shouldEnableInAppBrowserPrivacyProtections()) {
-            if (RefPtr document = localMainFrame->document())
-                document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "Ignoring user style sheet for non-app bound domain."_s);
+            localMainFrame->console().addMessage(MessageSource::Security, MessageLevel::Warning, "Ignoring user style sheet for non-app bound domain."_s);
             return;
         }
         localMainFrame->loader().client().notifyPageOfAppBoundBehavior();
@@ -4918,6 +5038,8 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
     case RenderingUpdateStep::AnimationFrameCallbacks: ts << "AnimationFrameCallbacks"_s; break;
     case RenderingUpdateStep::PerformPendingViewTransitions: ts << "PerformPendingViewTransitions"_s; break;
     case RenderingUpdateStep::IntersectionObservations: ts << "IntersectionObservations"_s; break;
+    case RenderingUpdateStep::PaintTiming: ts << "PaintTiming"_s; break;
+    case RenderingUpdateStep::EventTiming: ts << "EventTiming"_s; break;
     case RenderingUpdateStep::UpdateContentRelevancy: ts << "UpdateContentRelevancy"_s; break;
     case RenderingUpdateStep::ResizeObservations: ts << "ResizeObservations"_s; break;
     case RenderingUpdateStep::Images: ts << "Images"_s; break;
@@ -4989,7 +5111,7 @@ void Page::updateElementsWithTextRecognitionResults()
         if (!protectedElement->isConnected())
             continue;
 
-        auto renderer = protectedElement->renderer();
+        CheckedPtr renderer = protectedElement->renderer();
         if (!is<RenderImage>(renderer))
             continue;
 
@@ -5268,7 +5390,7 @@ void Page::deleteRemovedNodesAndDetachedRenderers()
         RefPtr frameView = document->view();
         if (!frameView)
             return;
-        frameView->layoutContext().deleteDetachedRenderersNow();
+        frameView->checkedLayoutContext()->deleteDetachedRenderersNow();
     });
 }
 
@@ -5351,22 +5473,21 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
             || document->parsing();
 
         if (scrollOffset.y() < minimumOffset.y() || !canSampleTopEdge)
-            sidesToSample.remove(BoxSideFlag::Top);
+            sidesToSample.remove(BoxSide::Top);
 
         if (scrollOffset.y() > maximumOffset.y())
-            sidesToSample.remove(BoxSideFlag::Bottom);
+            sidesToSample.remove(BoxSide::Bottom);
 
         if (scrollOffset.x() < minimumOffset.x())
-            sidesToSample.remove(BoxSideFlag::Left);
+            sidesToSample.remove(BoxSide::Left);
 
         if (scrollOffset.x() > maximumOffset.x())
-            sidesToSample.remove(BoxSideFlag::Right);
+            sidesToSample.remove(BoxSide::Right);
 
         return sidesToSample;
     }());
 
-    for (auto sideFlag : sides) {
-        auto side = boxSideFromFlag(sideFlag);
+    for (auto side : sides) {
         if (!edges.hasFixedEdge(side) || (!edges.predominantColor(side).isVisible() && fixedContainerEdges().predominantColor(side).isVisible())) {
             WeakPtr lastElement = m_fixedContainerEdgesAndElements.second.at(side);
             if (!lastElement)
@@ -5376,7 +5497,9 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
             if (!renderer)
                 continue;
 
-            if (renderer->style().usedVisibility() != Visibility::Visible)
+            if (renderer->style().usedVisibility() != Visibility::Visible
+                && (side != BoxSide::Top || !lastElement->hasTagName(HTMLNames::headerTag))
+                && (side != BoxSide::Bottom || !lastElement->hasTagName(HTMLNames::footerTag)))
                 continue;
 
             elements.setAt(side, WTFMove(lastElement));
@@ -5391,7 +5514,7 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
     if (RefPtr layer = frameView->setWantsLayerForTopOverhangColorExtension(topOverhangColor.isVisible())) {
         layer->setBackgroundColor(WTFMove(topOverhangColor));
         if (CheckedPtr renderView = frameView->renderView())
-            renderView->compositor().updateSizeAndPositionForTopOverhangColorExtensionLayer();
+            renderView->checkedCompositor()->updateSizeAndPositionForTopOverhangColorExtensionLayer();
     }
 #endif
 }
@@ -5660,11 +5783,11 @@ void Page::updateActiveNowPlayingSessionNow()
     if (m_activeNowPlayingSessionUpdateTimer.isActive())
         m_activeNowPlayingSessionUpdateTimer.stop();
 
-    RefPtr mediaSessionManager = PlatformMediaSessionManager::singletonIfExists();
-    if (!mediaSessionManager)
+    RefPtr manager = mediaSessionManagerIfExists();
+    if (!manager)
         return;
 
-    bool hasActiveNowPlayingSession = mediaSessionManager->hasActiveNowPlayingSessionInGroup(mediaSessionGroupIdentifier());
+    bool hasActiveNowPlayingSession = manager->hasActiveNowPlayingSessionInGroup(mediaSessionGroupIdentifier());
     if (hasActiveNowPlayingSession == m_hasActiveNowPlayingSession)
         return;
 
@@ -5680,7 +5803,7 @@ void Page::setLastAuthentication(LoginStatus::AuthenticationType authType)
     m_lastAuthentication = loginStatus.releaseReturnValue().moveToUniquePtr();
 
     if (RefPtr document = localMainFrame() ? localMainFrame()->document() : nullptr)
-        ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(*document);
+        ResourceLoadObserver::singleton().logUserInteractionWithReducedTimeResolution(*document);
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -5716,6 +5839,19 @@ void Page::flushDeferredScrollEvents()
     });
 }
 
+void Page::startDeferringIntersectionObservations()
+{
+    m_shouldDeferIntersectionObservations = true;
+}
+
+void Page::flushDeferredIntersectionObservations()
+{
+    m_shouldDeferIntersectionObservations = false;
+    forEachDocument([&] (Document& document) {
+        document.flushDeferredIntersectionObservations();
+    });
+}
+
 bool Page::reportScriptTrackingPrivacy(const URL& url, ScriptTrackingPrivacyCategory category)
 {
     return !url.isEmpty() && m_scriptTrackingPrivacyReports.add({ url, category }).isNewEntry;
@@ -5731,29 +5867,12 @@ bool Page::requiresScriptTrackingPrivacyProtections(const URL& scriptURL) const
     if (!advancedPrivacyProtections().contains(AdvancedPrivacyProtections::ScriptTrackingPrivacy))
         return false;
 
-    return chrome().client().requiresScriptTrackingPrivacyProtections(scriptURL, mainFrameOrigin());
+    return chrome().client().requiresScriptTrackingPrivacyProtections(scriptURL, protectedMainFrameOrigin());
 }
 
 void Page::applyWindowFeatures(const WindowFeatures& features)
 {
     Ref frame = mainFrame();
-    chrome().setToolbarsVisible(features.toolBarVisible || features.locationBarVisible);
-
-    if (!frame->page())
-        return;
-    if (features.statusBarVisible)
-        chrome().setStatusbarVisible(*features.statusBarVisible);
-
-    if (!frame->page())
-        return;
-    if (features.scrollbarsVisible)
-        chrome().setScrollbarsVisible(*features.scrollbarsVisible);
-
-    if (!frame->page())
-        return;
-    if (features.menuBarVisible)
-        chrome().setMenubarVisible(*features.menuBarVisible);
-
     if (!frame->page())
         return;
     if (features.resizable)
@@ -5845,7 +5964,7 @@ void Page::setPresentingApplicationAuditToken(std::optional<audit_token_t> prese
 
 bool Page::requiresUserGestureForAudioPlayback() const
 {
-    auto autoplayPolicy = m_mainFrame->autoplayPolicy();
+    auto autoplayPolicy = protectedMainFrame()->autoplayPolicy();
     if (autoplayPolicy != AutoplayPolicy::Default)
         return autoplayPolicy == AutoplayPolicy::AllowWithoutSound || autoplayPolicy == AutoplayPolicy::Deny;
     return m_settings->requiresUserGestureForAudioPlayback();
@@ -5853,11 +5972,65 @@ bool Page::requiresUserGestureForAudioPlayback() const
 
 bool Page::requiresUserGestureForVideoPlayback() const
 {
-    auto autoplayPolicy = m_mainFrame->autoplayPolicy();
+    auto autoplayPolicy = protectedMainFrame()->autoplayPolicy();
     if (autoplayPolicy != AutoplayPolicy::Default)
         return autoplayPolicy == AutoplayPolicy::Deny;
     return m_settings->requiresUserGestureForVideoPlayback();
 }
+
+static RefPtr<PlatformMediaSessionManager>& mediaSessionManagerSingleton()
+{
+    static NeverDestroyed<RefPtr<PlatformMediaSessionManager>> manager;
+    return manager.get();
+}
+
+RefPtr<MediaSessionManagerInterface> Page::mediaSessionManager()
+{
+    if (!m_identifier)
+        return nullptr;
+
+    if (!m_mediaSessionManager) {
+        if (!m_mediaSessionManagerFactory) {
+            m_mediaSessionManagerFactory = [](PageIdentifier identifier) {
+                RefPtr<PlatformMediaSessionManager>& manager = mediaSessionManagerSingleton();
+                if (!manager) {
+                    manager = PlatformMediaSessionManager::create(identifier);
+                    manager->resetRestrictions();
+                }
+                return manager;
+            };
+        }
+
+        m_mediaSessionManager = m_mediaSessionManagerFactory.value()(*m_identifier);
+
+        MediaEngineConfigurationFactory::setMediaSessionManagerProvider([] (PageIdentifier identifier) {
+            return Page::mediaSessionManagerForPageIdentifier(identifier);
+        });
+    }
+
+    return *m_mediaSessionManager;
+}
+
+MediaSessionManagerInterface* Page::mediaSessionManagerIfExists() const
+{
+    return m_mediaSessionManager.get();
+}
+
+RefPtr<MediaSessionManagerInterface> Page::mediaSessionManagerForPageIdentifier(PageIdentifier identifier)
+{
+    if (RefPtr page = Page::fromPageIdentifier(identifier))
+        return page->mediaSessionManager().get();
+
+    return nullptr;
+}
+
+#if PLATFORM(IOS_FAMILY)
+void Page::clearIsShowingInputView()
+{
+    if (CheckedPtr cache = existingAXObjectCache())
+        cache->setWillPresentDatePopover(false);
+}
+#endif
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
 bool Page::drawsHDRContent() const
@@ -5896,5 +6069,13 @@ void Page::updateDisplayEDRHeadroom()
 }
 
 #endif
+
+void Page::updateControlTints()
+{
+    forEachLocalFrame([] (LocalFrame& frame) {
+        if (RefPtr view = frame.view())
+            view->updateControlTints();
+    });
+}
 
 } // namespace WebCore

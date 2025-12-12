@@ -28,6 +28,7 @@
 
 #if ENABLE(APPLE_PAY)
 
+#import <JavaScriptCore/JSGlobalObject.h>
 #import <JavaScriptCore/JSONObject.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 

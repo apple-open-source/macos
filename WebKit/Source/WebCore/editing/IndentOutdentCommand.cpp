@@ -167,12 +167,12 @@ void IndentOutdentCommand::outdentParagraph()
         // outdentRegion() assumes it is operating on the first paragraph of an enclosing blockquote, but if there are multiply nested blockquotes and we've
         // just removed one, then this assumption isn't true. By splitting the next containing blockquote after this node, we keep this assumption true
         if (splitPoint) {
-            if (ContainerNode* splitPointParent = splitPoint->parentNode()) {
+            if (RefPtr splitPointParent = dynamicDowncast<Element>(splitPoint->parentNode())) {
                 if (splitPointParent->hasTagName(blockquoteTag)
                     && !splitPoint->hasTagName(blockquoteTag)
                     && splitPointParent->parentNode()
                     && splitPointParent->parentNode()->hasEditableStyle()) // We can't outdent if there is no place to go!
-                    splitElement(downcast<Element>(*splitPointParent), *splitPoint);
+                    splitElement(*splitPointParent, *splitPoint);
             }
         }
 

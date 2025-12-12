@@ -51,7 +51,7 @@ AuthenticatorPresenterCoordinator::AuthenticatorPresenterCoordinator(const Authe
 {
 #if HAVE(ASC_AUTH_UI)
     m_context = adoptNS([allocASCAuthorizationPresentationContextInstance() initWithRequestContext:nullptr appIdentifier:nullptr]);
-    if ([getASCAuthorizationPresentationContextClass() instancesRespondToSelector:@selector(setServiceName:)])
+    if ([getASCAuthorizationPresentationContextClassSingleton() instancesRespondToSelector:@selector(setServiceName:)])
         [m_context setServiceName:rpId.createNSString().get()];
 
     switch (type) {

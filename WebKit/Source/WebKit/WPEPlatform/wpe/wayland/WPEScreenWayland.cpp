@@ -28,16 +28,6 @@
 
 #include <wtf/glib/WTFGType.h>
 
-#if USE(LIBDRM)
-#include "WPEScreenSyncObserverDRM.h"
-#include <errno.h>
-#include <fcntl.h>
-#include <optional>
-#include <wtf/glib/GRefPtr.h>
-#include <xf86drm.h>
-#include <xf86drmMode.h>
-#endif
-
 /**
  * WPEScreenWayland:
  *
@@ -51,19 +41,14 @@ struct _WPEScreenWaylandPrivate {
         int height;
         int scale;
     } pendingScreenUpdate;
-
-#if USE(LIBDRM)
-    GRefPtr<WPEScreenSyncObserver> syncObserver;
-#endif
 };
 WEBKIT_DEFINE_FINAL_TYPE(WPEScreenWayland, wpe_screen_wayland, WPE_TYPE_SCREEN, WPEScreen)
 
 static void wpeScreenWaylandInvalidate(WPEScreen* screen)
 {
+    WPE_SCREEN_CLASS(wpe_screen_wayland_parent_class)->invalidate(screen);
+
     auto* priv = WPE_SCREEN_WAYLAND(screen)->priv;
-#if USE(LIBDRM)
-    priv->syncObserver = nullptr;
-#endif
     if (priv->wlOutput) {
         if (wl_output_get_version(priv->wlOutput) >= WL_OUTPUT_RELEASE_SINCE_VERSION)
             wl_output_release(priv->wlOutput);
@@ -72,80 +57,6 @@ static void wpeScreenWaylandInvalidate(WPEScreen* screen)
         priv->wlOutput = nullptr;
     }
 }
-
-#if USE(LIBDRM)
-static std::optional<uint32_t> findCrtc(WPEScreen* screen, int fd)
-{
-    drmModeRes* resources = drmModeGetResources(fd);
-    if (!resources)
-        return std::nullopt;
-
-    std::optional<uint32_t> crtcIndex;
-    uint32_t widthMM = wpe_screen_get_physical_width(screen);
-    uint32_t heightMM = wpe_screen_get_physical_height(screen);
-    for (int i = 0; i < resources->count_connectors && !crtcIndex; ++i) {
-        auto* connector = drmModeGetConnector(fd, resources->connectors[i]);
-        if (!connector)
-            continue;
-
-        if (connector->connection != DRM_MODE_CONNECTED || !connector->encoder_id || !connector->count_modes) {
-            drmModeFreeConnector(connector);
-            continue;
-        }
-
-        if (widthMM != connector->mmWidth || heightMM != connector->mmHeight) {
-            drmModeFreeConnector(connector);
-            continue;
-        }
-
-        // FIXME: if there are multiple connectors matching the size, check other properties.
-        if (drmModeEncoder* encoder = drmModeGetEncoder(fd, connector->encoder_id)) {
-            for (int i = 0; i < resources->count_crtcs; ++i) {
-                if (resources->crtcs[i] == encoder->crtc_id) {
-                    crtcIndex = i;
-                    break;
-                }
-            }
-            drmModeFreeEncoder(encoder);
-        }
-        drmModeFreeConnector(connector);
-    }
-    drmModeFreeResources(resources);
-
-    return crtcIndex;
-}
-
-static void wpeScreenWaylandTryEnsureSyncObserver(WPEScreenWayland* screen)
-{
-    drmDevicePtr devices[64];
-    const int devicesNum = drmGetDevices2(0, devices, std::size(devices));
-    if (devicesNum <= 0)
-        return;
-
-    for (int i = 0; i < devicesNum; i++) {
-        if (!(devices[i]->available_nodes & (1 << DRM_NODE_PRIMARY)))
-            continue;
-        auto fd = UnixFileDescriptor { open(devices[i]->nodes[DRM_NODE_PRIMARY], O_RDWR | O_CLOEXEC), UnixFileDescriptor::Adopt };
-        if (!fd)
-            continue;
-
-        if (auto crtcIndex = findCrtc(WPE_SCREEN(screen), fd.value())) {
-            screen->priv->syncObserver = adoptGRef(wpeScreenSyncObserverDRMCreate(WTFMove(fd), *crtcIndex));
-            break;
-        }
-    }
-    drmFreeDevices(devices, devicesNum);
-}
-
-static WPEScreenSyncObserver* wpeScreenWaylandGetSyncObserver(WPEScreen* screen)
-{
-    auto* screenWayland = WPE_SCREEN_WAYLAND(screen);
-    auto* priv = screenWayland->priv;
-    if (!priv->syncObserver)
-        wpeScreenWaylandTryEnsureSyncObserver(screenWayland);
-    return priv->syncObserver.get();
-}
-#endif
 
 static void wpeScreenWaylandDispose(GObject* object)
 {
@@ -161,9 +72,6 @@ static void wpe_screen_wayland_class_init(WPEScreenWaylandClass* screenWaylandCl
 
     WPEScreenClass* screenClass = WPE_SCREEN_CLASS(screenWaylandClass);
     screenClass->invalidate = wpeScreenWaylandInvalidate;
-#if USE(LIBDRM)
-    screenClass->get_sync_observer = wpeScreenWaylandGetSyncObserver;
-#endif
 }
 
 static const struct wl_output_listener outputListener = {

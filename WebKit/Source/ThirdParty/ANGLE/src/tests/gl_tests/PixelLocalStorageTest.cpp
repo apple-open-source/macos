@@ -4,6 +4,10 @@
 // found in the LICENSE file.
 //
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include <sstream>
 #include <string>
 #include "common/string_utils.h"
@@ -1062,7 +1066,7 @@ TEST_P(PixelLocalStorageTest, LoadOps)
            << "));\n";
     }
     fs << "}";
-    mProgram.compile(fs.str().c_str());
+    mProgram.compile(fs.str());
 
     // Create pls textures and clear them to red.
     glClearColor(1, 0, 0, 1);
@@ -1543,7 +1547,7 @@ TEST_P(PixelLocalStorageTest, MaxCombinedDrawBuffersAndPLSPlanes)
             fs << "out" << i << " = uvec4(aux1) + uvec4(" << i << ");\n";
         }
         fs << "}";
-        mProgram.compile(fs.str().c_str());
+        mProgram.compile(fs.str());
 
         glViewport(0, 0, W, H);
 

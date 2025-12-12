@@ -33,6 +33,7 @@
 #include <thread>
 
 #if BENABLE(LIBPAS)
+#include "pas_mte.h"
 #include "pas_system_heap.h"
 #endif
 
@@ -42,7 +43,7 @@ SystemHeap* systemHeapCache { nullptr };
 
 DEFINE_STATIC_PER_PROCESS_STORAGE(SystemHeap);
 
-#if BOS(DARWIN)
+#if BENABLE(MALLOC_HEAP_BREAKDOWN) || BOS(DARWIN)
 
 static bool shouldUseDefaultMallocZone()
 {
@@ -273,6 +274,7 @@ void* pas_system_heap_malloc(size_t size)
 {
     auto systemHeap = SystemHeap::getExisting();
     PAS_PROFILE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, 0, pas_non_compact_allocation_mode);
+    PAS_MTE_HANDLE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, 0, pas_non_compact_allocation_mode);
     return systemHeap->malloc(size, FailureAction::ReturnNull);
 }
 
@@ -280,6 +282,7 @@ void* pas_system_heap_memalign(size_t alignment, size_t size)
 {
     auto systemHeap = SystemHeap::getExisting();
     PAS_PROFILE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, alignment, pas_non_compact_allocation_mode);
+    PAS_MTE_HANDLE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, alignment, pas_non_compact_allocation_mode);
     return systemHeap->memalign(alignment, size, FailureAction::ReturnNull);
 }
 
@@ -287,6 +290,7 @@ void* pas_system_heap_realloc(void* ptr, size_t size)
 {
     auto systemHeap = SystemHeap::getExisting();
     PAS_PROFILE(SYSTEM_HEAP_REALLOCATION, systemHeap, ptr, size, pas_non_compact_allocation_mode);
+    PAS_MTE_HANDLE(SYSTEM_HEAP_REALLOCATION, systemHeap, ptr, size, pas_non_compact_allocation_mode);
     return systemHeap->realloc(ptr, size, FailureAction::ReturnNull);
 }
 
@@ -294,6 +298,7 @@ void* pas_system_heap_malloc_compact(size_t size)
 {
     auto systemHeap = SystemHeap::getExisting();
     PAS_PROFILE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, 0, pas_always_compact_allocation_mode);
+    PAS_MTE_HANDLE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, 0, pas_always_compact_allocation_mode);
     return systemHeap->malloc(size, FailureAction::ReturnNull);
 }
 
@@ -301,6 +306,7 @@ void* pas_system_heap_memalign_compact(size_t alignment, size_t size)
 {
     auto systemHeap = SystemHeap::getExisting();
     PAS_PROFILE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, alignment, pas_always_compact_allocation_mode);
+    PAS_MTE_HANDLE(SYSTEM_HEAP_ALLOCATION, systemHeap, size, alignment, pas_always_compact_allocation_mode);
     return systemHeap->memalign(alignment, size, FailureAction::ReturnNull);
 }
 
@@ -308,6 +314,7 @@ void* pas_system_heap_realloc_compact(void* ptr, size_t size)
 {
     auto systemHeap = SystemHeap::getExisting();
     PAS_PROFILE(SYSTEM_HEAP_REALLOCATION, systemHeap, ptr, size, pas_always_compact_allocation_mode);
+    PAS_MTE_HANDLE(SYSTEM_HEAP_REALLOCATION, systemHeap, ptr, size, pas_always_compact_allocation_mode);
     return systemHeap->realloc(ptr, size, FailureAction::ReturnNull);
 }
 

@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "InspectorFrontendAPIDispatcher.h"
-#include "InspectorFrontendClient.h"
+#include <WebCore/InspectorFrontendAPIDispatcher.h>
+#include <WebCore/InspectorFrontendClient.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
@@ -145,6 +145,7 @@ private:
     friend class FrontendMenuProvider;
     std::optional<bool> evaluationResultToBoolean(InspectorFrontendAPIDispatcher::EvaluationResult);
 
+    RefPtr<Page> protectedFrontendPage() const;
     RefPtr<InspectorController> protectedInspectedPageController() const;
 
     WeakPtr<InspectorController> m_inspectedPageController;

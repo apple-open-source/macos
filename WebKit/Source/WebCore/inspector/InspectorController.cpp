@@ -75,6 +75,7 @@
 #include <JavaScriptCore/InspectorAgent.h>
 #include <JavaScriptCore/InspectorBackendDispatcher.h>
 #include <JavaScriptCore/InspectorBackendDispatchers.h>
+#include <JavaScriptCore/InspectorFrontendChannel.h>
 #include <JavaScriptCore/InspectorFrontendDispatchers.h>
 #include <JavaScriptCore/InspectorFrontendRouter.h>
 #include <JavaScriptCore/InspectorScriptProfilerAgent.h>
@@ -133,7 +134,7 @@ PageAgentContext InspectorController::pageAgentContext()
     AgentContext baseContext = {
         *this,
         m_injectedScriptManager,
-        m_frontendRouter,
+        m_frontendRouter.get(),
         m_backendDispatcher
     };
 
@@ -413,6 +414,11 @@ bool InspectorController::enabled() const
 Page& InspectorController::inspectedPage() const
 {
     return m_page;
+}
+
+Ref<Page> InspectorController::protectedInspectedPage() const
+{
+    return inspectedPage();
 }
 
 void InspectorController::dispatchMessageFromFrontend(const String& message)

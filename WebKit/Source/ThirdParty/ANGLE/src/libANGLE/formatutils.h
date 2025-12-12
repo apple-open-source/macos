@@ -9,6 +9,10 @@
 #ifndef LIBANGLE_FORMATUTILS_H_
 #define LIBANGLE_FORMATUTILS_H_
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include <stdint.h>
 #include <cstddef>
 #include <ostream>
@@ -176,7 +180,20 @@ struct InternalFormat
 
     [[nodiscard]] bool computeBufferRowLength(uint32_t width, uint32_t *resultOut) const;
     [[nodiscard]] bool computeBufferImageHeight(uint32_t height, uint32_t *resultOut) const;
-
+    // FIXME: When computePackUnpackEndByte does not call this, change PixelStoreStateBase
+    // to glPixelUnpackState.
+    [[nodiscard]] bool computeRowDepthSkipBytes(GLenum formatType,
+                                                const Extents &size,
+                                                const gl::PixelStoreStateBase &unpack,
+                                                bool is3D,
+                                                GLuint *rowPitchOut,
+                                                GLuint *depthPitchOut,
+                                                GLuint *skipBytesOut) const;
+    [[nodiscard]] bool computeRowSkipBytes(GLenum formatType,
+                                           GLsizei width,
+                                           const gl::PixelPackState &pack,
+                                           GLuint *rowPitchOut,
+                                           GLuint *skipBytesOut) const;
     [[nodiscard]] bool computeRowPitch(GLenum formatType,
                                        GLsizei width,
                                        GLint alignment,
@@ -205,12 +222,12 @@ struct InternalFormat
     [[nodiscard]] bool computeCompressedImageSize(const Extents &size, GLuint *resultOut) const;
 
     [[nodiscard]] std::pair<GLuint, GLuint> getCompressedImageMinBlocks() const;
-
     [[nodiscard]] bool computeSkipBytes(GLenum formatType,
                                         GLuint rowPitch,
                                         GLuint depthPitch,
-                                        const PixelStoreStateBase &state,
-                                        bool is3D,
+                                        GLuint skipRows,
+                                        GLuint skipPixels,
+                                        GLuint skipImages,
                                         GLuint *resultOut) const;
 
     [[nodiscard]] bool computePackUnpackEndByte(GLenum formatType,
@@ -351,9 +368,6 @@ ANGLE_INLINE int GetNativeVisualID(const InternalFormat &internalFormat)
 #if defined(ANGLE_PLATFORM_ANDROID)
     nativeVisualId =
         angle::android::GLInternalFormatToNativePixelFormat(internalFormat.internalFormat);
-#endif
-#if defined(ANGLE_PLATFORM_LINUX) && defined(ANGLE_USES_GBM)
-    nativeVisualId = angle::GLInternalFormatToGbmFourCCFormat(internalFormat.internalFormat);
 #endif
 
     return nativeVisualId;

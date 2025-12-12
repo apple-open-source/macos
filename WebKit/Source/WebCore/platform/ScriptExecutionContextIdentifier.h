@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ProcessQualified.h"
+#include <WebCore/ProcessQualified.h>
 #include <wtf/Forward.h>
 #include <wtf/UUID.h>
 

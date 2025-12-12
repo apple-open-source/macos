@@ -24,8 +24,8 @@
 #include "WebKitContextMenu.h"
 
 #if PLATFORM(GTK)
-#include <WebCore/GRefPtrGtk.h>
-#include <WebCore/GUniquePtrGtk.h>
+#include "GRefPtrGtk.h"
+#include "GUniquePtrGtk.h"
 #endif
 
 WebKitContextMenu* webkitContextMenuCreate(const Vector<WebKit::WebContextMenuItemData>&);

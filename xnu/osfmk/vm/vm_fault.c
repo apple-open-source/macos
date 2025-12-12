@@ -4452,7 +4452,7 @@ vm_fault_internal(
 	vm_object_offset_t      offset;         /* Top-level offset */
 	vm_prot_t               prot;           /* Protection for mapping */
 	vm_object_t             old_copy_object; /* Saved copy object */
-	uint32_t                old_copy_version;
+	uint64_t                old_copy_version;
 	vm_page_t               result_page;    /* Result of vm_fault_page */
 	vm_page_t               top_page;       /* Placeholder page */
 	kern_return_t           kr;
@@ -4658,6 +4658,19 @@ RetryFault:
 		 * with that even if this is not a "write" fault.
 		 */
 		need_copy = TRUE;
+		/*
+		 * If the top object is COPY_DELAYED and has a "copy" object,
+		 * we would have to push our zero-filled page to this copy
+		 * object before allowing it to be modified, so let's consider
+		 * this as a read-only fault for now.  If this was a write
+		 * fault, we'll fault again on the read-only zero-filled page
+		 * and fulfill our copy-on-write obligations then.
+		 */
+		fault_type = VM_PROT_READ;
+		/*
+		 * We need the object's exclusive lock to insert the
+		 * zero-filled page.
+		 */
 		object_lock_type = OBJECT_LOCK_EXCLUSIVE;
 		vm_fault_resilient_media_retry++;
 	}
@@ -4833,17 +4846,8 @@ RetryFault:
 	if ((object->copy_strategy == MEMORY_OBJECT_COPY_DELAY ||
 	    object->copy_strategy == MEMORY_OBJECT_COPY_DELAY_FORK) &&
 	    object->vo_copy != VM_OBJECT_NULL && (fault_type & VM_PROT_WRITE)) {
-		if (resilient_media_retry && object && object->internal) {
-			/*
-			 * We're handling a "resilient media retry" and we
-			 * just want to insert of zero-filled page in this
-			 * top object (if there's not already a page there),
-			 * so this is not a real "write" and we want to stay
-			 * on this code path.
-			 */
-		} else {
-			goto handle_copy_delay;
-		}
+		assert(!resilient_media_retry); /* should be read-only fault */
+		goto handle_copy_delay;
 	}
 
 	cur_object = object;
@@ -5955,7 +5959,7 @@ FastPmapEnter:
 				}
 
 				vm_object_t saved_copy_object;
-				uint32_t saved_copy_version;
+				uint64_t saved_copy_version;
 				saved_copy_object = object->vo_copy;
 				saved_copy_version = object->vo_copy_version;
 
@@ -6065,7 +6069,7 @@ FastPmapEnter:
 							    fault_info->pmap_options & PMAP_OPTIONS_TRANSLATED_ALLOW_EXECUTE,
 							    prot)) {
 								/* we should not do CoW on pmap_has_prot_policy mappings */
-								panic("%s: map %p va 0x%llx obj %p,%u saved %p,%u: unexpected CoW",
+								panic("%s: map %p va 0x%llx obj %p,%llu saved %p,%llu: unexpected CoW",
 								    __FUNCTION__,
 								    map, (uint64_t)vaddr,
 								    object, object->vo_copy_version,
@@ -7620,7 +7624,7 @@ vm_fault_copy(
 
 	vm_map_size_t           amount_left;
 	vm_object_t             old_copy_object;
-	uint32_t                old_copy_version;
+	uint64_t                old_copy_version;
 	vm_object_t             result_page_object = NULL;
 	kern_return_t           error = 0;
 	vm_fault_return_t       result;

@@ -27,9 +27,9 @@
 
 #if ENABLE(MEDIA_STREAM) && USE(AVFOUNDATION)
 
-#include "CaptureDeviceManager.h"
-#include "RealtimeMediaSource.h"
-#include "RealtimeMediaSourceSupportedConstraints.h"
+#include <WebCore/CaptureDeviceManager.h>
+#include <WebCore/RealtimeMediaSource.h>
+#include <WebCore/RealtimeMediaSourceSupportedConstraints.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/WorkQueue.h>

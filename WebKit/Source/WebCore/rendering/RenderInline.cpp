@@ -3,6 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2014 Google Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,6 +39,7 @@
 #include "RenderBlock.h"
 #include "RenderBoxInlines.h"
 #include "RenderChildIterator.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderFragmentedFlow.h"
 #include "RenderGeometryMap.h"
@@ -210,8 +212,8 @@ bool RenderInline::mayAffectLayout() const
     auto hasHardLineBreakChildOnly = firstChild() && firstChild() == lastChild() && firstChild()->isBR();
     bool checkFonts = document().inNoQuirksMode();
     auto mayAffectLayout = (parentRenderInline && parentRenderInline->mayAffectLayout())
-        || (parentRenderInline && parentStyle->verticalAlign() != VerticalAlign::Baseline)
-        || style().verticalAlign() != VerticalAlign::Baseline
+        || (parentRenderInline && !WTF::holdsAlternative<CSS::Keyword::Baseline>(parentStyle->verticalAlign()))
+        || !WTF::holdsAlternative<CSS::Keyword::Baseline>(style().verticalAlign())
         || !style().textEmphasisStyle().isNone()
         || (checkFonts && (!parentStyle->fontCascade().metricsOfPrimaryFont().hasIdenticalAscentDescentAndLineGap(style().fontCascade().metricsOfPrimaryFont())
         || parentStyle->lineHeight() != style().lineHeight()))
@@ -222,7 +224,7 @@ bool RenderInline::mayAffectLayout() const
         parentStyle = &parent()->firstLineStyle();
         auto& childStyle = firstLineStyle();
         mayAffectLayout = !parentStyle->fontCascade().metricsOfPrimaryFont().hasIdenticalAscentDescentAndLineGap(childStyle.fontCascade().metricsOfPrimaryFont())
-            || childStyle.verticalAlign() != VerticalAlign::Baseline
+            || !WTF::holdsAlternative<CSS::Keyword::Baseline>(childStyle.verticalAlign())
             || parentStyle->lineHeight() != childStyle.lineHeight();
     }
     return mayAffectLayout;
@@ -348,7 +350,9 @@ LayoutPoint RenderInline::firstInlineBoxTopLeft() const
 
 static LayoutUnit computeMargin(const RenderInline* renderer, const Style::MarginEdge& margin)
 {
-    return Style::evaluateMinimum(margin, [&] ALWAYS_INLINE_LAMBDA { return std::max<LayoutUnit>(0, renderer->containingBlock()->contentBoxLogicalWidth()); });
+    return Style::evaluateMinimum<LayoutUnit>(margin, [&] ALWAYS_INLINE_LAMBDA {
+        return std::max<LayoutUnit>(0, renderer->containingBlock()->contentBoxLogicalWidth());
+    }, Style::ZoomNeeded { });
 }
 
 LayoutUnit RenderInline::marginLeft() const
@@ -414,7 +418,7 @@ bool RenderInline::nodeAtPoint(const HitTestRequest& request, HitTestResult& res
     return false;
 }
 
-VisiblePosition RenderInline::positionForPoint(const LayoutPoint& point, HitTestSource source, const RenderFragmentContainer* fragment)
+PositionWithAffinity RenderInline::positionForPoint(const LayoutPoint& point, HitTestSource source, const RenderFragmentContainer* fragment)
 {
     auto& containingBlock = *this->containingBlock();
 
@@ -577,7 +581,7 @@ LayoutRect RenderInline::clippedOverflowRect(const RenderLayerModelObject* repai
         }
         return false;
     };
-    ASSERT_UNUSED(insideSelfPaintingInlineBox, !view().frameView().layoutContext().isPaintOffsetCacheEnabled() || style().pseudoElementType() == PseudoId::FirstLetter || insideSelfPaintingInlineBox());
+    ASSERT_UNUSED(insideSelfPaintingInlineBox, !view().frameView().layoutContext().isPaintOffsetCacheEnabled() || style().pseudoElementType() == PseudoElementType::FirstLetter || insideSelfPaintingInlineBox());
 #endif
 
     auto knownEmpty = [&] {
@@ -667,7 +671,7 @@ auto RenderInline::computeVisibleRectsUsingPaintOffset(const RepaintRects& rects
 auto RenderInline::computeVisibleRectsInContainer(const RepaintRects& rects, const RenderLayerModelObject* container, VisibleRectContext context) const -> std::optional<RepaintRects>
 {
     // Repaint offset cache is only valid for root-relative repainting
-    if (view().frameView().layoutContext().isPaintOffsetCacheEnabled() && !container && !context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
+    if (view().frameView().layoutContext().isPaintOffsetCacheEnabled() && !container && !context.options.contains(VisibleRectContext::Option::UseEdgeInclusiveIntersection))
         return computeVisibleRectsUsingPaintOffset(rects);
 
     if (container == this)
@@ -690,10 +694,10 @@ auto RenderInline::computeVisibleRectsInContainer(const RepaintRects& rects, con
 
     if (localContainer->hasNonVisibleOverflow()) {
         // FIXME: Respect the value of context.options.
-        SetForScope change(context.options, context.options | VisibleRectContextOption::ApplyCompositedContainerScrolls);
+        SetForScope change(context.options, context.options | VisibleRectContext::Option::ApplyCompositedContainerScrolls);
         bool isEmpty = !downcast<RenderLayerModelObject>(*localContainer).applyCachedClipAndScrollPosition(adjustedRects, container, context);
         if (isEmpty) {
-            if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
+            if (context.options.contains(VisibleRectContext::Option::UseEdgeInclusiveIntersection))
                 return std::nullopt;
             return adjustedRects;
         }
@@ -795,6 +799,7 @@ void RenderInline::updateHitTestResult(HitTestResult& result, const LayoutPoint&
         result.setInnerNode(node.get());
         if (!result.innerNonSharedNode())
             result.setInnerNonSharedNode(node.get());
+        result.setPseudoElementIdentifier(style().pseudoElementIdentifier());
         result.setLocalPoint(localPoint);
     }
 }
@@ -815,19 +820,6 @@ LegacyInlineFlowBox* RenderInline::createAndAppendInlineFlowBox()
     auto flowBox = newFlowBox.get();
     m_legacyLineBoxes.appendLineBox(WTFMove(newFlowBox));
     return flowBox;
-}
-
-LayoutUnit RenderInline::lineHeight(bool firstLine, LineDirectionMode /*direction*/, LinePositionMode /*linePositionMode*/) const
-{
-    auto& lineStyle = firstLine ? firstLineStyle() : style();
-    return LayoutUnit::fromFloatCeil(lineStyle.computedLineHeight());
-}
-
-LayoutUnit RenderInline::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
-{
-    auto& style = firstLine ? firstLineStyle() : this->style();
-    auto& fontMetrics = style.metricsOfPrimaryFont();
-    return LayoutUnit { fontMetrics.ascent() + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2 };
 }
 
 LayoutSize RenderInline::offsetForInFlowPositionedInline(const RenderBox* child) const
@@ -882,11 +874,18 @@ LayoutSize RenderInline::offsetForInFlowPositionedInline(const RenderBox* child)
     return writingMode().isHorizontal() ? logicalOffset : logicalOffset.transposedSize();
 }
 
-void RenderInline::imageChanged(WrappedImagePtr, const IntRect*)
+void RenderInline::imageChanged(WrappedImagePtr image, const IntRect*)
 {
     if (!parent())
         return;
-        
+
+    bool isNonEmpty;
+    RefPtr styleImage = style().backgroundLayers().findLayerUsedImage(image, isNonEmpty);
+    if (styleImage && isNonEmpty) {
+        if (auto styleable = Styleable::fromRenderer(*this))
+            protectedDocument()->didLoadImage(styleable->protectedElement().get(), styleImage->cachedImage());
+    }
+
     // FIXME: We can do better.
     repaint();
 }

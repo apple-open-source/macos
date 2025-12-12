@@ -26,14 +26,15 @@
 #include "config.h"
 #include "StyleOriginatedAnimation.h"
 
-#include "Animation.h"
 #include "CSSAnimation.h"
 #include "CSSTransition.h"
 #include "DocumentTimeline.h"
 #include "Element.h"
 #include "EventNames.h"
+#include "EventTargetInlines.h"
 #include "KeyframeEffect.h"
 #include "Logging.h"
+#include "NodeDocument.h"
 #include "RenderStyle.h"
 #include "StyleOriginatedAnimationEvent.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -43,11 +44,10 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(StyleOriginatedAnimation);
 
-StyleOriginatedAnimation::StyleOriginatedAnimation(const Styleable& styleable, const Animation& backingAnimation)
+StyleOriginatedAnimation::StyleOriginatedAnimation(const Styleable& styleable)
     : WebAnimation(styleable.element.document())
     , m_owningElement(styleable.element)
     , m_owningPseudoElementIdentifier(styleable.pseudoElementIdentifier)
-    , m_backingAnimation(const_cast<Animation&>(backingAnimation))
 {
 }
 
@@ -97,12 +97,6 @@ void StyleOriginatedAnimation::disassociateFromOwningElement()
     m_owningElement = nullptr;
 }
 
-void StyleOriginatedAnimation::setBackingAnimation(const Animation& backingAnimation)
-{
-    m_backingAnimation = const_cast<Animation&>(backingAnimation);
-    syncPropertiesWithBackingAnimation();
-}
-
 void StyleOriginatedAnimation::initialize(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext& resolutionContext)
 {
     WebAnimation::initialize();
@@ -119,7 +113,7 @@ void StyleOriginatedAnimation::initialize(const RenderStyle* oldStyle, const Ren
     setTimeline(&m_owningElement->document().timeline());
     effect->computeStyleOriginatedAnimationBlendingKeyframes(oldStyle, newStyle, resolutionContext);
     syncPropertiesWithBackingAnimation();
-    if (backingAnimation().playState() == AnimationPlayState::Playing)
+    if (backingAnimationPlayState() == AnimationPlayState::Running)
         play();
     else
         pause();
@@ -187,7 +181,7 @@ ExceptionOr<void> StyleOriginatedAnimation::bindingsPause()
 
 void StyleOriginatedAnimation::flushPendingStyleChanges() const
 {
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(effect())) {
+    if (RefPtr keyframeEffect = this->keyframeEffect()) {
         if (RefPtr target = keyframeEffect->target())
             target->document().updateStyleIfNeeded();
     }

@@ -23,7 +23,7 @@
 
 #include "ActiveDOMObject.h"
 #include "ContextDestructionObserverInlines.h"
-#include "DocumentInlines.h"
+#include "DocumentSettingsValues.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -279,7 +279,7 @@ JSValue JSTestEnabledBySetting::getConstructor(VM& vm, const JSGlobalObject* glo
 
 void JSTestEnabledBySetting::destroy(JSC::JSCell* cell)
 {
-    JSTestEnabledBySetting* thisObject = static_cast<JSTestEnabledBySetting*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestEnabledBySetting* thisObject = static_cast<JSTestEnabledBySetting*>(cell);
     thisObject->JSTestEnabledBySetting::~JSTestEnabledBySetting();
 }
 
@@ -490,7 +490,7 @@ bool JSTestEnabledBySettingOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Un
 
 void JSTestEnabledBySettingOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestEnabledBySetting = static_cast<JSTestEnabledBySetting*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestEnabledBySetting = static_cast<JSTestEnabledBySetting*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestEnabledBySetting->protectedWrapped().ptr(), jsTestEnabledBySetting);
 }
@@ -504,7 +504,7 @@ extern "C" { extern void (*const __identifier("??_7TestEnabledBySetting@WebCore@
 extern "C" { extern void* _ZTVN7WebCore20TestEnabledBySettingE[]; }
 #endif
 template<std::same_as<TestEnabledBySetting> T>
-static inline void verifyVTable(TestEnabledBySetting* ptr) 
+static inline void verifyVTable(TestEnabledBySetting* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -524,8 +524,9 @@ static inline void verifyVTable(TestEnabledBySetting* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestEnabledBySetting>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestEnabledBySetting>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestEnabledBySetting>(impl.ptr());
 #endif

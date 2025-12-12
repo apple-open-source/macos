@@ -31,6 +31,8 @@
                 "CancelAnimationFrame",
                 "FireAnimationFrame",
                 "ObserverCallback",
+                "FirstContentfulPaint",
+                "LargestContentfulPaint",
                 "Screenshot"
             ]
         },

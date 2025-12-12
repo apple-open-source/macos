@@ -97,6 +97,7 @@
 #include <sys/codesign.h>
 #include <sys/kernel_types.h>
 #include <sys/ubc.h>
+#include <kern/assert.h>
 #include <kern/clock.h>
 #include <kern/debug.h>
 #include <kern/kalloc.h>
@@ -129,6 +130,7 @@
 #include <libkern/amfi/amfi.h>
 #include <mach-o/loader.h>
 #include <os/base.h>            /* OS_STRINGIFY */
+#include <os/overflow.h>
 
 #if CONFIG_CSR
 #include <sys/csr.h>
@@ -286,64 +288,142 @@ procinit(void)
 }
 STARTUP(EARLY_BOOT, STARTUP_RANK_FIRST, procinit);
 
-/*
- * Change the count associated with number of processes
- * a given user is using. This routine protects the uihash
- * with the list lock
- */
-size_t
-chgproccnt(uid_t uid, int diff)
+static struct uidinfo *
+uidinfo_find_locked(uid_t uid)
 {
 	struct uidinfo *uip;
-	struct uidinfo *newuip = NULL;
 	struct uihashhead *uipp;
-	size_t retval;
-
-again:
-	proc_list_lock();
 	uipp = UIHASH(uid);
 	for (uip = uipp->lh_first; uip != 0; uip = uip->ui_hash.le_next) {
 		if (uip->ui_uid == uid) {
 			break;
 		}
 	}
+	return uip;
+}
+
+/* sysctl for debug kernels only */
+#if DEBUG || DEVELOPMENT
+
+static int
+_debug_test_read_proccnt_for_uid(int64_t in, int64_t *out)
+{
+	uid_t uid = (uid_t)in;
+
+	proc_list_lock();
+	struct uidinfo * uip = uidinfo_find_locked(uid);
 	if (uip) {
-		uip->ui_proccnt += diff;
-		if (uip->ui_proccnt > 0) {
-			retval = uip->ui_proccnt;
-			proc_list_unlock();
-			goto out;
-		}
-		LIST_REMOVE(uip, ui_hash);
-		retval = 0;
-		proc_list_unlock();
-		kfree_type(struct uidinfo, uip);
-		goto out;
-	}
-	if (diff <= 0) {
-		if (diff == 0) {
-			retval = 0;
-			proc_list_unlock();
-			goto out;
-		}
-		panic("chgproccnt: lost user");
-	}
-	if (newuip != NULL) {
-		uip = newuip;
-		newuip = NULL;
-		LIST_INSERT_HEAD(uipp, uip, ui_hash);
-		uip->ui_uid = uid;
-		uip->ui_proccnt = diff;
-		retval = diff;
-		proc_list_unlock();
-		goto out;
+		*out = uip->ui_proccnt;
+	} else {
+		*out = 0;
 	}
 	proc_list_unlock();
-	newuip = kalloc_type(struct uidinfo, Z_WAITOK | Z_NOFAIL);
-	goto again;
+
+	return 0;
+}
+
+/* For tests */
+SYSCTL_TEST_REGISTER(proccnt_uid, _debug_test_read_proccnt_for_uid);
+
+#endif /* DEBUG || DEVELOPMENT */
+
+
+/* See declaration in header file for details */
+size_t
+chgproccnt(uid_t uid, int diff)
+{
+	struct uidinfo *uip, *newuip = NULL;
+	size_t ret = 0;
+	proc_list_lock();
+	uip = uidinfo_find_locked(uid);
+	if (!uip) {
+		if (diff == 0) {
+			goto out;
+		}
+
+		if (diff < 0) {
+			panic("chgproccnt: lost user");
+		}
+
+		if (diff > 0) {
+			/* need to allocate */
+			proc_list_unlock();
+			newuip = kalloc_type(struct uidinfo, Z_WAITOK | Z_NOFAIL);
+			proc_list_lock();
+		}
+	}
+
+	if (diff == 0) {
+		ret = uip->ui_proccnt;
+		uip = NULL;
+		goto out;
+	}
+
+	uip = chgproccnt_locked(uid, diff, newuip, &ret);
+
 out:
-	kfree_type(struct uidinfo, newuip);
-	return retval;
+	proc_list_unlock();
+
+	if (uip) {
+		/* despite if diff > 0 or diff < 0 - returned val points to element to be freed */
+		kfree_type(struct uidinfo, uip);
+	}
+
+	return ret;
+}
+
+/* See declaration in header file for details */
+struct uidinfo *
+chgproccnt_locked(uid_t uid, int diff, struct uidinfo *newuip, size_t *out)
+{
+	struct uidinfo *uip;
+	struct uihashhead *uipp;
+
+	assert(newuip == NULL || diff > 0); // new uip can be passed only with positive diff
+	if (diff == 0) {
+		panic("chgproccnt_locked: diff == 0");
+	}
+
+	proc_list_lock_held();
+
+	uipp = UIHASH(uid);
+	uip = uidinfo_find_locked(uid);
+
+	/* if element is missing - we expect new one to be provided */
+	if (!uip) {
+		/* this should never be reachable, we must've taken care of this case in caller */
+		assert(newuip != NULL); // chgproccnt_locked: missing new uidinfo element
+		LIST_INSERT_HEAD(uipp, newuip, ui_hash);
+		uip = newuip;
+		newuip->ui_uid = uid;
+		newuip->ui_proccnt = 0;
+		newuip = NULL;
+	}
+	if (os_add_overflow((long long)uip->ui_proccnt, (long long)diff, &uip->ui_proccnt)) {
+		panic("chgproccnt_locked: overflow");
+	}
+
+	if (uip->ui_proccnt > 0) {
+		if (out) {
+			*out = uip->ui_proccnt;
+		}
+		/* no need to deallocate the uip */
+		uip = NULL;
+	} else {
+		assert(diff < 0);
+		/* ui_proccnt == 0 */
+		LIST_REMOVE(uip, ui_hash);
+		if (out) {
+			*out = 0;
+		}
+		/* implicitly leaving uip intact - it will be returned and deallocated */
+	}
+
+	if (diff < 0) {
+		return uip;
+	} else { /* diff > 0 */
+		return newuip;
+	}
 }
 
 /*

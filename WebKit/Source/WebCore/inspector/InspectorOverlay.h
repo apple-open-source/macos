@@ -29,13 +29,13 @@
 
 #pragma once
 
-#include "Color.h"
-#include "FloatLine.h"
-#include "FloatQuad.h"
-#include "FloatRect.h"
-#include "InspectorOverlayLabel.h"
-#include "Path.h"
-#include "Timer.h"
+#include <WebCore/Color.h>
+#include <WebCore/FloatLine.h>
+#include <WebCore/FloatQuad.h>
+#include <WebCore/FloatRect.h>
+#include <WebCore/InspectorOverlayLabel.h>
+#include <WebCore/Path.h>
+#include <WebCore/Timer.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Deque.h>
 #include <wtf/MonotonicTime.h>
@@ -66,7 +66,7 @@ class NodeList;
 class Page;
 
 struct InspectorOverlayHighlight {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(InspectorOverlayHighlight);
 
     enum class Type : uint8_t {
         None, // Provides only non-quad information, including grid overlays.
@@ -76,7 +76,7 @@ struct InspectorOverlayHighlight {
     };
 
     struct Config {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Config);
         Color content;
         Color contentOutline;
         Color padding;
@@ -87,10 +87,10 @@ struct InspectorOverlayHighlight {
     };
 
     struct GridHighlightOverlay {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(GridHighlightOverlay);
 
         struct Area {
-            WTF_MAKE_STRUCT_FAST_ALLOCATED;
+            WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Area);
             String name;
             FloatQuad quad;
         };
@@ -103,7 +103,7 @@ struct InspectorOverlayHighlight {
     };
 
     struct FlexHighlightOverlay {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(FlexHighlightOverlay);
 
         Color color;
         FloatQuad containerBounds;
@@ -152,10 +152,10 @@ public:
     using Highlight = InspectorOverlayHighlight;
 
     struct Grid {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Grid);
 
         struct Config {
-            WTF_MAKE_STRUCT_FAST_ALLOCATED;
+            WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Config);
 
             Color gridColor;
             bool showLineNames;
@@ -170,10 +170,10 @@ public:
     };
 
     struct Flex {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Flex);
 
         struct Config {
-            WTF_MAKE_STRUCT_FAST_ALLOCATED;
+            WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(Config);
 
             Color flexColor;
             bool showOrderNumbers;

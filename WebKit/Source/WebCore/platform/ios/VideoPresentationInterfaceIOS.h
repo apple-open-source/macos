@@ -25,18 +25,19 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 #if PLATFORM(IOS_FAMILY)
 
-#include "EventListener.h"
-#include "HTMLMediaElementEnums.h"
-#include "MediaPlayerIdentifier.h"
-#include "PlatformImage.h"
-#include "PlatformLayer.h"
-#include "PlaybackSessionInterfaceIOS.h"
-#include "SpatialVideoMetadata.h"
-#include "VideoFullscreenCaptions.h"
-#include "VideoPresentationLayerProvider.h"
-#include "VideoPresentationModel.h"
+#include <WebCore/EventListener.h>
+#include <WebCore/HTMLMediaElementEnums.h>
+#include <WebCore/MediaPlayerIdentifier.h>
+#include <WebCore/PlatformImage.h>
+#include <WebCore/PlatformLayer.h>
+#include <WebCore/PlaybackSessionInterfaceIOS.h>
+#include <WebCore/SpatialVideoMetadata.h>
+#include <WebCore/VideoFullscreenCaptions.h>
+#include <WebCore/VideoPresentationLayerProvider.h>
+#include <WebCore/VideoPresentationModel.h>
 #include <objc/objc.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
@@ -86,6 +87,7 @@ public:
     WEBCORE_EXPORT void videoDimensionsChanged(const FloatSize&) override;
     WEBCORE_EXPORT void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>) override;
     WEBCORE_EXPORT void audioSessionCategoryChanged(WebCore::AudioSessionCategory, WebCore::AudioSessionMode, WebCore::RouteSharingPolicy) override;
+    WEBCORE_EXPORT void routingContextUIDChanged(const String&) final;
 
     // PlaybackSessionModelClient
     WEBCORE_EXPORT void externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) override;
@@ -167,8 +169,8 @@ public:
     WEBCORE_EXPORT virtual void prepareForPictureInPictureStopWithCompletionHandler(void (^)(BOOL));
     virtual bool isPlayingVideoInEnhancedFullscreen() const = 0;
 
-    WEBCORE_EXPORT void setMode(HTMLMediaElementEnums::VideoFullscreenMode, bool shouldNotifyModel);
-    void clearMode(HTMLMediaElementEnums::VideoFullscreenMode, bool shouldNotifyModel);
+    WEBCORE_EXPORT void setMode(HTMLMediaElementEnums::VideoFullscreenMode, VideoPresentationModel::ShouldNotifyMediaElement);
+    void clearMode(HTMLMediaElementEnums::VideoFullscreenMode, VideoPresentationModel::ShouldNotifyMediaElement);
     bool hasMode(HTMLMediaElementEnums::VideoFullscreenMode mode) const { return m_currentMode.hasMode(mode); }
     WEBCORE_EXPORT UIViewController *presentingViewController();
     UIViewController *fullscreenViewController() const { return m_viewController.get(); }

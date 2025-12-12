@@ -56,7 +56,7 @@ ErrorInstance* ErrorInstance::create(JSGlobalObject* globalObject, String&& mess
     return instance;
 }
 
-ErrorInstance* ErrorInstance::create(JSGlobalObject* globalObject, Structure* structure, JSValue message, JSValue options, SourceAppender appender, RuntimeType type, ErrorType errorType, bool useCurrentFrame)
+ErrorInstance* ErrorInstance::create(JSGlobalObject* globalObject, Structure* structure, JSValue message, JSValue options, SourceAppender appender, RuntimeType type, ErrorType errorType, bool useCurrentFrame, JSCell* subclassCaller)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -71,7 +71,7 @@ ErrorInstance* ErrorInstance::create(JSGlobalObject* globalObject, Structure* st
         RETURN_IF_EXCEPTION(scope, nullptr);
     }
 
-    return create(vm, structure, messageString, cause, appender, type, errorType, useCurrentFrame);
+    return create(vm, structure, messageString, cause, appender, type, errorType, useCurrentFrame, subclassCaller);
 }
 
 String appendSourceToErrorMessage(CodeBlock* codeBlock, BytecodeIndex bytecodeIndex, const String& message, RuntimeType type, ErrorInstance::SourceAppender appender)
@@ -107,7 +107,7 @@ String appendSourceToErrorMessage(CodeBlock* codeBlock, BytecodeIndex bytecodeIn
     return appender(message, codeBlock->source().provider()->getRange(start, stop), type, ErrorInstance::FoundApproximateSource);
 }
 
-void ErrorInstance::finishCreation(VM& vm, const String& message, JSValue cause, SourceAppender appender, RuntimeType type, bool useCurrentFrame)
+void ErrorInstance::finishCreation(VM& vm, const String& message, JSValue cause, SourceAppender appender, RuntimeType type, bool useCurrentFrame, JSCell* subclassCaller)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(info()));
@@ -115,7 +115,7 @@ void ErrorInstance::finishCreation(VM& vm, const String& message, JSValue cause,
     m_sourceAppender = appender;
     m_runtimeTypeForCause = type;
 
-    std::unique_ptr<Vector<StackFrame>> stackTrace = getStackTrace(vm, this, useCurrentFrame);
+    std::unique_ptr<Vector<StackFrame>> stackTrace = getStackTrace(vm, this, useCurrentFrame, nullptr, nullptr, subclassCaller);
     {
         Locker locker { cellLock() };
         m_stackTrace = WTFMove(stackTrace);

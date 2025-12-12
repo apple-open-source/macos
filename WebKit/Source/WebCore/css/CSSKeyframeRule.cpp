@@ -88,7 +88,7 @@ MutableStyleProperties& StyleRuleKeyframe::mutableProperties()
     if (auto* mutableProperties = dynamicDowncast<MutableStyleProperties>(m_properties.get()))
         return *mutableProperties;
     Ref mutableProperties = m_properties->mutableCopy();
-    auto& mutablePropertiesRef = mutableProperties.get();
+    auto& mutablePropertiesRef = mutableProperties.unsafeGet();
     m_properties = WTFMove(mutableProperties);
     return mutablePropertiesRef;
 }

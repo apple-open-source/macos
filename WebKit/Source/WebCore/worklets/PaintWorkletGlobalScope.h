@@ -50,7 +50,7 @@ class JSDOMGlobalObject;
 
 // All paint definitions must be destroyed before the vm is destroyed, because otherwise they will point to freed memory.
 struct PaintDefinition : public CanMakeWeakPtr<PaintDefinition> {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(PaintDefinition);
     PaintDefinition(const AtomString& name, JSC::JSObject* paintConstructor, Ref<CSSPaintCallback>&&, Vector<AtomString>&& inputProperties, Vector<String>&& inputArguments);
 
     const AtomString name;
@@ -62,6 +62,7 @@ struct PaintDefinition : public CanMakeWeakPtr<PaintDefinition> {
 
 class PaintWorkletGlobalScope final : public WorkletGlobalScope {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(PaintWorkletGlobalScope);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PaintWorkletGlobalScope);
 public:
     static RefPtr<PaintWorkletGlobalScope> tryCreate(Document&, ScriptSourceCode&&);
 

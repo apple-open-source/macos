@@ -36,8 +36,8 @@ static inline LibWebRTCRtpReceiverTransformBackend::MediaType mediaTypeFromRecei
     return receiver.media_type() == webrtc::MediaType::AUDIO ? RTCRtpTransformBackend::MediaType::Audio : RTCRtpTransformBackend::MediaType::Video;
 }
 
-LibWebRTCRtpReceiverTransformBackend::LibWebRTCRtpReceiverTransformBackend(webrtc::scoped_refptr<webrtc::RtpReceiverInterface> rtcReceiver)
-    : LibWebRTCRtpTransformBackend(mediaTypeFromReceiver(*rtcReceiver), Side::Receiver)
+LibWebRTCRtpReceiverTransformBackend::LibWebRTCRtpReceiverTransformBackend(Ref<webrtc::RtpReceiverInterface>&& rtcReceiver)
+    : LibWebRTCRtpTransformBackend(mediaTypeFromReceiver(rtcReceiver), Side::Receiver)
     , m_rtcReceiver(WTFMove(rtcReceiver))
 {
 }

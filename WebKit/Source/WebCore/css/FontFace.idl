@@ -50,7 +50,7 @@ dictionary FontFaceDescriptors {
 ] interface FontFace {
     [CallWith=CurrentScriptExecutionContext] constructor(DOMString family, (DOMString or BinaryData) source, optional FontFaceDescriptors descriptors = {});
 
-    [SetterCallWith=CurrentScriptExecutionContext] attribute DOMString family;
+    attribute DOMString family;
     [SetterCallWith=CurrentScriptExecutionContext] attribute DOMString style;
     [SetterCallWith=CurrentScriptExecutionContext] attribute DOMString weight;
     [SetterCallWith=CurrentScriptExecutionContext] attribute DOMString width;

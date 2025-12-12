@@ -58,7 +58,7 @@ SOFT_LINK_CLASS_OPTIONAL(AVKit, __AVPlayerLayerView)
 
 namespace WebCore {
 class WebAVPlayerLayerPresentationModelClient final : public VideoPresentationModelClient, public CanMakeCheckedPtr<WebAVPlayerLayerPresentationModelClient> {
-    WTF_MAKE_FAST_ALLOCATED(WebAVPlayerLayerPresentationModelClient);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(WebAVPlayerLayerPresentationModelClient);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebAVPlayerLayerPresentationModelClient);
 public:
     WebAVPlayerLayerPresentationModelClient(WebAVPlayerLayer* playerLayer)
@@ -122,7 +122,7 @@ private:
 
 - (VideoPresentationModel*)presentationModel
 {
-    return _presentationModel.get().get();
+    return _presentationModel.get().unsafeGet();
 }
 
 - (void)setPresentationModel:(VideoPresentationModel*)presentationModel
@@ -152,7 +152,7 @@ private:
 
 - (void)setPlayerController:(AVPlayerController *)playerController
 {
-    ASSERT(!playerController || [playerController isKindOfClass:webAVPlayerControllerClass()]);
+    ASSERT(!playerController || [playerController isKindOfClass:webAVPlayerControllerClassSingleton()]);
     _playerController = (WebAVPlayerController *)playerController;
 }
 

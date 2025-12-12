@@ -30,24 +30,15 @@
 
 #if ENABLE(ENCRYPTED_MEDIA)
 
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Forward.h>
-#include <wtf/WeakPtr.h>
-
-namespace WebCore {
-class CDMClient;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::CDMClient> : std::true_type { };
-}
 
 namespace WebCore {
 
 class CDMInstance;
 class SharedBuffer;
 
-class CDMClient : public CanMakeWeakPtr<CDMClient> {
+class CDMClient : public AbstractRefCountedAndCanMakeWeakPtr<CDMClient> {
 public:
     virtual ~CDMClient() = default;
 

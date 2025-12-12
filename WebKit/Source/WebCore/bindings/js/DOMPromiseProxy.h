@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
-#include "JSDOMGlobalObject.h"
-#include "JSDOMPromiseDeferred.h"
+#include <WebCore/ExceptionOr.h>
+#include <WebCore/JSDOMGlobalObject.h>
+#include <WebCore/JSDOMPromiseDeferred.h>
 #include <wtf/Function.h>
 #include <wtf/Vector.h>
 
@@ -38,9 +38,6 @@ class DOMPromiseProxy {
     WTF_MAKE_TZONE_ALLOCATED_TEMPLATE(DOMPromiseProxy);
 public:
     using Value = typename IDLType::StorageType;
-
-    DOMPromiseProxy() = default;
-    ~DOMPromiseProxy() = default;
 
     JSC::JSValue promise(JSC::JSGlobalObject&, JSDOMGlobalObject&);
 
@@ -65,9 +62,6 @@ template<>
 class DOMPromiseProxy<IDLUndefined> {
     WTF_MAKE_TZONE_ALLOCATED_TEMPLATE(DOMPromiseProxy);
 public:
-    DOMPromiseProxy() = default;
-    ~DOMPromiseProxy() = default;
-
     JSC::JSValue promise(JSC::JSGlobalObject&, JSDOMGlobalObject&);
 
     void clear();

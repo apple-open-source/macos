@@ -247,7 +247,7 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     // A special view used for texture copies that shouldn't perform swizzle.
     const vk::ImageView &getCopyImageView() const;
-    angle::Result getStorageImageView(vk::ErrorContext *context,
+    angle::Result getStorageImageView(ContextVk *contextVk,
                                       const gl::ImageUnit &binding,
                                       const vk::ImageView **imageViewOut);
 
@@ -563,7 +563,7 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                               gl::LevelIndex level,
                                               GLuint layerIndex,
                                               GLuint layerCount);
-    angle::Result getLevelLayerImageView(vk::ErrorContext *context,
+    angle::Result getLevelLayerImageView(ContextVk *contextVk,
                                          gl::LevelIndex levelGL,
                                          size_t layer,
                                          const vk::ImageView **imageViewOut);
@@ -684,6 +684,11 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     using MultiSampleImageViews =
         gl::RenderToTextureImageMap<gl::TexLevelArray<vk::ImageViewHelper>>;
     std::unique_ptr<MultiSampleImageViews> mMultisampledImageViews;
+
+    // Implicit RGB image to be used in YUV rendering when
+    // nullColorAttachmentWithExternalFormatResolve is not supported.
+    std::unique_ptr<vk::ImageHelper> mRgbDrawImageForYuvResolve;
+    std::unique_ptr<vk::ImageViewHelper> mRgbDrawImageViewsForYuvResolve;
 
     // Texture buffers create texel buffer views instead.  |BufferViewHelper| contains the views
     // corresponding to the attached buffer range.

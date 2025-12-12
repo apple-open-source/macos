@@ -64,6 +64,7 @@
 #if PLATFORM(COCOA)
 #include "DefaultWebBrowserChecks.h"
 #include "NetworkSessionCocoa.h"
+#include "WebPrivacyHelpers.h"
 #endif
 #if USE(SOUP)
 #include "NetworkSessionSoup.h"
@@ -167,6 +168,9 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     , m_shouldRunServiceWorkersOnMainThreadForTesting(parameters.shouldRunServiceWorkersOnMainThreadForTesting)
     , m_overrideServiceWorkerRegistrationCountTestingValue(parameters.overrideServiceWorkerRegistrationCountTestingValue)
     , m_inspectionForServiceWorkersAllowed(parameters.inspectionForServiceWorkersAllowed)
+    , m_sharedWorkerServer([](NetworkSession& session, auto& ref) {
+        ref.set(makeUniqueRef<WebSharedWorkerServer>(session));
+    })
     , m_storageManager(createNetworkStorageManager(networkProcess, parameters))
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
     , m_notificationManager(NetworkNotificationManager::create(parameters.sessionID.isEphemeral() ? String { } : parameters.webPushMachServiceName, configurationWithHostAuditToken(networkProcess, parameters.webPushDaemonConnectionConfiguration), networkProcess))
@@ -212,7 +216,7 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     setTrackingPreventionEnabled(parameters.resourceLoadStatisticsParameters.enabled);
 
     setShouldSendPrivateTokenIPCForTesting(parameters.shouldSendPrivateTokenIPCForTesting);
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     setOptInCookiePartitioningEnabled(parameters.isOptInCookiePartitioningEnabled);
 #endif
 
@@ -315,6 +319,22 @@ void NetworkSession::forwardResourceLoadStatisticsSettings()
 bool NetworkSession::isTrackingPreventionEnabled() const
 {
     return !!m_resourceLoadStatistics;
+}
+
+IsKnownCrossSiteTracker NetworkSession::isRequestToKnownCrossSiteTracker(const ResourceRequest& request)
+{
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    return WebKit::isRequestToKnownCrossSiteTracker(request);
+#else
+    return IsKnownCrossSiteTracker::No;
+#endif
+}
+
+IsKnownCrossSiteTracker NetworkSession::isResourceFromKnownCrossSiteTracker(const URL& firstParty, const URL& resource)
+{
+    ResourceRequest request { URL { resource } };
+    request.setFirstPartyForCookies(firstParty);
+    return isRequestToKnownCrossSiteTracker(request);
 }
 
 void NetworkSession::deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType> dataTypes, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&& domains, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&& completionHandler)
@@ -540,7 +560,7 @@ void NetworkSession::setShouldSendPrivateTokenIPCForTesting(bool enabled)
     m_shouldSendPrivateTokenIPCForTesting = enabled;
 }
 
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
 void NetworkSession::setOptInCookiePartitioningEnabled(bool enabled)
 {
     if (!m_resourceLoadStatistics)
@@ -742,13 +762,6 @@ bool NetworkSession::hasServiceWorkerDatabasePath() const
 void NetworkSession::requestBackgroundFetchPermission(const ClientOrigin& origin, CompletionHandler<void(bool)>&& callback)
 {
     m_networkProcess->requestBackgroundFetchPermission(m_sessionID, origin, WTFMove(callback));
-}
-
-WebSharedWorkerServer& NetworkSession::ensureSharedWorkerServer()
-{
-    if (!m_sharedWorkerServer)
-        lazyInitialize(m_sharedWorkerServer, makeUnique<WebSharedWorkerServer>(*this));
-    return *m_sharedWorkerServer;
 }
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)

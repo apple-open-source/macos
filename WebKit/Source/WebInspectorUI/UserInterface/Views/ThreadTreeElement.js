@@ -46,6 +46,10 @@ WI.ThreadTreeElement = class ThreadTreeElement extends WI.GeneralTreeElement
 
         let targetData = WI.debuggerManager.dataForTarget(this._target);
 
+        // FIXME <https://webkit.org/b/298909> Remove this null-check after implementing the Debugger domain for frame targets.
+        if (!targetData)
+            return;
+
         if (targetData.pausing || !targetData.stackTrace?.callFrames.length) {
             this.appendChild(this._idleTreeElement);
             this.expand();
@@ -74,10 +78,10 @@ WI.ThreadTreeElement = class ThreadTreeElement extends WI.GeneralTreeElement
     populateContextMenu(contextMenu, event)
     {
         let targetData = WI.debuggerManager.dataForTarget(this._target);
-
-        contextMenu.appendItem(WI.UIString("Resume Thread"), () => {
-            WI.debuggerManager.continueUntilNextRunLoop(this._target);
-        }, !targetData.paused);
+        if (targetData)
+            contextMenu.appendItem(WI.UIString("Resume Thread"), () => {
+                WI.debuggerManager.continueUntilNextRunLoop(this._target);
+            }, !targetData.paused);
 
         super.populateContextMenu(contextMenu, event);
     }
@@ -92,7 +96,7 @@ WI.ThreadTreeElement = class ThreadTreeElement extends WI.GeneralTreeElement
             return;
 
         let targetData = WI.debuggerManager.dataForTarget(this._target);
-        if (!targetData.paused)
+        if (!targetData?.paused)
             return;
 
         if (!this._statusButton) {

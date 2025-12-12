@@ -164,6 +164,11 @@ static WebCore::ModalContainerObservationPolicy coreModalContainerObservationPol
 
 } // namespace WebKit
 
+static Ref<API::WebsitePolicies> protectedWebsitePolicies(WKWebpagePreferences *preferences)
+{
+    return *preferences->_websitePolicies;
+}
+
 @implementation WKWebpagePreferences
 
 WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
@@ -178,7 +183,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebpagePreferences.class, self))
         return;
 
-    _websitePolicies->API::WebsitePolicies::~WebsitePolicies();
+    SUPPRESS_UNRETAINED_ARG _websitePolicies->API::WebsitePolicies::~WebsitePolicies();
 
     [super dealloc];
 }
@@ -196,7 +201,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 - (void)_setContentBlockersEnabled:(BOOL)contentBlockersEnabled
 {
     auto defaultEnablement = contentBlockersEnabled ? WebCore::ContentExtensionDefaultEnablement::Enabled : WebCore::ContentExtensionDefaultEnablement::Disabled;
-    _websitePolicies->setContentExtensionEnablement({ defaultEnablement, { } });
+    protectedWebsitePolicies(self)->setContentExtensionEnablement({ defaultEnablement, { } });
 }
 
 - (BOOL)_contentBlockersEnabled
@@ -214,7 +219,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
         exceptions.add(identifier);
 
     auto defaultEnablement = enabled ? WebCore::ContentExtensionDefaultEnablement::Enabled : WebCore::ContentExtensionDefaultEnablement::Disabled;
-    _websitePolicies->setContentExtensionEnablement({ defaultEnablement, WTFMove(exceptions) });
+    protectedWebsitePolicies(self)->setContentExtensionEnablement({ defaultEnablement, WTFMove(exceptions) });
 }
 
 - (void)_setActiveContentRuleListActionPatterns:(NSDictionary<NSString *, NSSet<NSString *> *> *)patterns
@@ -227,7 +232,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
             vector.append(pattern);
         map.add(key, WTFMove(vector));
     }];
-    _websitePolicies->setActiveContentRuleListActionPatterns(WTFMove(map));
+    protectedWebsitePolicies(self)->setActiveContentRuleListActionPatterns(WTFMove(map));
 }
 
 - (NSDictionary<NSString *, NSSet<NSString *> *> *)_activeContentRuleListActionPatterns
@@ -401,7 +406,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
         _WKCustomHeaderFields *element = fields[i];
         return downcast<API::CustomHeaderFields>([element _apiObject]).coreFields();
     });
-    _websitePolicies->setCustomHeaderFields(WTFMove(vector));
+    protectedWebsitePolicies(self)->setCustomHeaderFields(WTFMove(vector));
 }
 
 - (WKWebsiteDataStore *)_websiteDataStore
@@ -411,7 +416,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (void)_setWebsiteDataStore:(WKWebsiteDataStore *)websiteDataStore
 {
-    _websitePolicies->setWebsiteDataStore(websiteDataStore->_websiteDataStore.get());
+    protectedWebsitePolicies(self)->setWebsiteDataStore(websiteDataStore->_websiteDataStore.get());
 }
 
 - (WKUserContentController *)_userContentController
@@ -421,7 +426,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (void)_setUserContentController:(WKUserContentController *)userContentController
 {
-    _websitePolicies->setUserContentController(userContentController->_userContentControllerProxy.get());
+    protectedWebsitePolicies(self)->setUserContentController(userContentController ? userContentController->_userContentControllerProxy.get() : nullptr);
 }
 
 - (void)_setCustomUserAgent:(NSString *)customUserAgent
@@ -494,6 +499,16 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     }
 }
 
+- (void)_setEnhancedSecurityEnabled:(BOOL)enhancedSecurityEnabled
+{
+    _websitePolicies->setEnhancedSecurityEnabled(enhancedSecurityEnabled ? true : false);
+}
+
+- (BOOL)_enhancedSecurityEnabled
+{
+    return _websitePolicies->enhancedSecurityEnabled();
+}
+
 - (void)_setCaptivePortalModeEnabled:(BOOL)enabled
 {
 #if PLATFORM(IOS_FAMILY)
@@ -507,7 +522,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (BOOL)_captivePortalModeEnabled
 {
-    return _websitePolicies->lockdownModeEnabled();
+    return protectedWebsitePolicies(self)->lockdownModeEnabled();
 }
 
 - (void)_setAllowPrivacyProxy:(BOOL)allow
@@ -584,7 +599,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 - (BOOL)isLockdownModeEnabled
 {
 #if ENABLE(LOCKDOWN_MODE_API)
-    return _websitePolicies->lockdownModeEnabled();
+    return protectedWebsitePolicies(self)->lockdownModeEnabled();
 #else
     return NO;
 #endif
@@ -656,6 +671,9 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     if (webCorePolicy.contains(WebCore::AdvancedPrivacyProtections::FailClosedForAllHosts))
         policy |= _WKWebsiteNetworkConnectionIntegrityPolicyFailClosedForAllHosts;
 
+    if (webCorePolicy.contains(WebCore::AdvancedPrivacyProtections::StrictFailClosed))
+        policy |= _WKWebsiteNetworkConnectionIntegrityPolicyStrictFailClosed;
+
     if (webCorePolicy.contains(WebCore::AdvancedPrivacyProtections::WebSearchContent))
         policy |= _WKWebsiteNetworkConnectionIntegrityPolicyWebSearchContent;
 
@@ -693,6 +711,9 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     if (advancedPrivacyProtections & _WKWebsiteNetworkConnectionIntegrityPolicyFailClosedForAllHosts)
         webCorePolicy.add(WebCore::AdvancedPrivacyProtections::FailClosedForAllHosts);
 
+    if (advancedPrivacyProtections & _WKWebsiteNetworkConnectionIntegrityPolicyStrictFailClosed)
+        webCorePolicy.add(WebCore::AdvancedPrivacyProtections::StrictFailClosed);
+
     if (advancedPrivacyProtections & _WKWebsiteNetworkConnectionIntegrityPolicyWebSearchContent)
         webCorePolicy.add(WebCore::AdvancedPrivacyProtections::WebSearchContent);
 
@@ -724,7 +745,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
         }
         result.append(WTFMove(selectorsForElement));
     }
-    _websitePolicies->setVisibilityAdjustmentSelectors(WTFMove(result));
+    protectedWebsitePolicies(self)->setVisibilityAdjustmentSelectors(WTFMove(result));
 }
 
 - (NSArray<NSArray<NSSet<NSString *> *> *> *)_visibilityAdjustmentSelectorsIncludingShadowHosts
@@ -766,6 +787,16 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     return selectors.autorelease();
 }
 
+- (BOOL)_allowSharedProcess
+{
+    return _websitePolicies->allowSharedProcess();
+}
+
+- (void)_setAllowSharedProcess:(BOOL)allowSharedProcess
+{
+    _websitePolicies->setAllowSharedProcess(allowSharedProcess);
+}
+
 - (BOOL)_pushAndNotificationAPIEnabled
 {
     return _websitePolicies->pushAndNotificationsEnabledPolicy() == WebKit::WebsitePushAndNotificationsEnabledPolicy::Yes;
@@ -774,6 +805,27 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 - (void)_setPushAndNotificationAPIEnabled:(BOOL)enabled
 {
     _websitePolicies->setPushAndNotificationsEnabledPolicy(enabled ? WebKit::WebsitePushAndNotificationsEnabledPolicy::Yes : WebKit::WebsitePushAndNotificationsEnabledPolicy::No);
+}
+
+- (void)_setAlternateRequest:(NSURLRequest *)request
+{
+    protectedWebsitePolicies(self)->setAlternateRequest(request);
+}
+
+- (NSURLRequest *)_alternateRequest
+{
+    return protectedWebsitePolicies(self)->alternateRequest().nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
+}
+
+
+- (void)_setAllowsJSHandleCreationInPageWorld:(BOOL)allows
+{
+    _websitePolicies->setAllowsJSHandleCreationInPageWorld(allows);
+}
+
+- (BOOL)_allowsJSHandleCreationInPageWorld
+{
+    return _websitePolicies->allowsJSHandleCreationInPageWorld();
 }
 
 @end

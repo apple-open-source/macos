@@ -1265,6 +1265,12 @@ proc_list_unlock(void)
 }
 
 void
+proc_list_lock_held(void)
+{
+	lck_mtx_assert(&proc_list_mlock, LCK_MTX_ASSERT_OWNED);
+}
+
+void
 proc_ucred_lock(proc_t p)
 {
 	lck_mtx_lock(&p->p_ucred_mlock);

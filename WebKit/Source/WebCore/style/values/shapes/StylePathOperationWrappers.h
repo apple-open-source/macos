@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include "PathOperation.h"
+#include <WebCore/PathOperation.h>
 
 namespace WebCore {
 namespace Style {
@@ -206,7 +206,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, const BoxPath&);
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::RayPath> = true;
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ReferencePath> = true;
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::BasicShapePath> = true;
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::BoxPath> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::RayPath)
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::ReferencePath)
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::BasicShapePath)
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::BoxPath)

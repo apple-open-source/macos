@@ -43,9 +43,8 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DrawingAreaProxy);
 
-DrawingAreaProxy::DrawingAreaProxy(DrawingAreaType type, WebPageProxy& webPageProxy, WebProcessProxy& webProcessProxy)
-    : m_type(type)
-    , m_webPageProxy(webPageProxy)
+DrawingAreaProxy::DrawingAreaProxy(WebPageProxy& webPageProxy, WebProcessProxy& webProcessProxy)
+    : m_webPageProxy(webPageProxy)
     , m_webProcessProxy(webProcessProxy)
     , m_size(webPageProxy.viewSize())
 #if PLATFORM(MAC)
@@ -66,6 +65,13 @@ void DrawingAreaProxy::stopReceivingMessages(WebProcessProxy& process)
 {
     for (auto& name : messageReceiverNames())
         process.removeMessageReceiver(name, identifier());
+
+    for (auto [connectionID, callbackID] : m_outstandingPresentationUpdateCallbacks) {
+        if (RefPtr connection = IPC::Connection::connection(connectionID)) {
+            if (auto callback = connection->takeAsyncReplyHandler(callbackID))
+                callback(nullptr, nullptr);
+        }
+    }
 }
 
 std::span<IPC::ReceiverName> DrawingAreaProxy::messageReceiverNames() const
@@ -151,5 +157,15 @@ void DrawingAreaProxy::viewExposedRectChangedTimerFired()
     m_lastSentViewExposedRect = viewExposedRect;
 }
 #endif // PLATFORM(MAC)
+
+void DrawingAreaProxy::addOutstandingPresentationUpdateCallback(IPC::Connection& connection, AsyncReplyID callbackID)
+{
+    m_outstandingPresentationUpdateCallbacks.add({ connection.uniqueID(), callbackID });
+}
+
+void DrawingAreaProxy::removeOutstandingPresentationUpdateCallback(IPC::Connection& connection, AsyncReplyID callbackID)
+{
+    m_outstandingPresentationUpdateCallbacks.remove({ connection.uniqueID(), callbackID });
+}
 
 } // namespace WebKit

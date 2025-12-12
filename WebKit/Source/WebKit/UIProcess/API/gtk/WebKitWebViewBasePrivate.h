@@ -28,8 +28,10 @@
 #pragma once
 
 #include "APIPageConfiguration.h"
+#include "GRefPtrGtk.h"
+#include "GUniquePtrGtk.h"
 #include "InputMethodState.h"
-#include "RendererBufferFormat.h"
+#include "RendererBufferDescription.h"
 #include "SameDocumentNavigationType.h"
 #include "ViewGestureController.h"
 #include "ViewSnapshotStore.h"
@@ -40,9 +42,8 @@
 #include "WebKitWebViewBase.h"
 #include "WebKitWebViewBaseInternal.h"
 #include "WebPageProxy.h"
+#include <WebCore/Cursor.h>
 #include <WebCore/DragActions.h>
-#include <WebCore/GRefPtrGtk.h>
-#include <WebCore/GUniquePtrGtk.h>
 #include <WebCore/SelectionData.h>
 #include <WebCore/ShareableBitmap.h>
 
@@ -122,7 +123,7 @@ void webkitWebViewBaseDidRestoreScrollPosition(WebKitWebViewBase*);
 
 void webkitWebViewBaseShowEmojiChooser(WebKitWebViewBase*, const WebCore::IntRect&, CompletionHandler<void(String)>&&);
 
-void webkitWebViewBaseRequestPointerLock(WebKitWebViewBase*);
+void webkitWebViewBaseRequestPointerLock(WebKitWebViewBase*, CompletionHandler<void(bool)>&&);
 void webkitWebViewBaseDidLosePointerLock(WebKitWebViewBase*);
 
 void webkitWebViewBaseSetInputMethodContext(WebKitWebViewBase*, WebKitInputMethodContext*);
@@ -144,4 +145,5 @@ void webkitWebViewBaseCallAfterNextPresentationUpdate(WebKitWebViewBase*, Comple
 void webkitWebViewBaseSetPlugID(WebKitWebViewBase*, const String&);
 #endif
 
-WebKit::RendererBufferFormat webkitWebViewBaseGetRendererBufferFormat(WebKitWebViewBase*);
+WebKit::RendererBufferDescription webkitWebViewBaseGetRendererBufferDescription(WebKitWebViewBase*);
+void webkitWebViewBaseSetCursor(WebKitWebViewBase*, const WebCore::Cursor&);

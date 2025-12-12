@@ -108,7 +108,7 @@ public:
     bool hasFormStateRestoreCallback() const { return !!m_formStateRestoreCallback; }
     void invokeFormStateRestoreCallback(Element&, CustomElementFormValue state);
 
-    ScriptExecutionContext* scriptExecutionContext() const { return ContextDestructionObserver::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const;
     JSC::JSObject* constructor() { return m_constructor.get(); }
 
     const QualifiedName& name() const { return m_name; }

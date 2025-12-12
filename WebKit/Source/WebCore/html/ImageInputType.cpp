@@ -24,6 +24,7 @@
 #include "ImageInputType.h"
 
 #include "CachedImage.h"
+#include "ContainerNodeInlines.h"
 #include "DOMFormData.h"
 #include "ElementInlines.h"
 #include "HTMLFormElement.h"
@@ -34,7 +35,7 @@
 #include "InputTypeNames.h"
 #include "MouseEvent.h"
 #include "RenderBoxInlines.h"
-#include "RenderElementInlines.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderImage.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>

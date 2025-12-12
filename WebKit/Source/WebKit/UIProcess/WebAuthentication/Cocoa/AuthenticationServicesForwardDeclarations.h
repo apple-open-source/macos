@@ -428,4 +428,10 @@ typedef NS_ERROR_ENUM(ASAuthorizationErrorDomain, ASAuthorizationError) {
     ASAuthorizationErrorMatchedExcludedCredential = 1006,
 };
 
+#if HAVE(WEB_AUTHN_PUBLIC_KEY_CREDENTIAL_MANAGER)
+@interface ASAuthorizationWebBrowserPublicKeyCredentialManager : NSObject
+@property (class, nonatomic, readonly) BOOL isDeviceConfiguredForPasskeys;
+@end
+#endif
+
 NS_ASSUME_NONNULL_END

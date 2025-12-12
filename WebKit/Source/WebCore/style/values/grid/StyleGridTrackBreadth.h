@@ -32,7 +32,7 @@
 
 #pragma once
 
-#include "StyleLengthWrapper.h"
+#include <WebCore/StyleLengthWrapper.h>
 
 namespace WebCore {
 namespace Style {
@@ -43,6 +43,10 @@ using namespace CSS::Literals;
 
 struct GridTrackBreadthLength : LengthWrapperBase<LengthPercentage<CSS::Nonnegative>, CSS::Keyword::MinContent, CSS::Keyword::MaxContent, CSS::Keyword::Auto> {
     using Base::Base;
+
+    ALWAYS_INLINE bool isMinContent() const { return holdsAlternative<CSS::Keyword::MinContent>(); }
+    ALWAYS_INLINE bool isMaxContent() const { return holdsAlternative<CSS::Keyword::MaxContent>(); }
+    ALWAYS_INLINE bool isAuto() const { return holdsAlternative<CSS::Keyword::Auto>(); }
 };
 
 // <track-breadth> = <length-percentage [0,inf]> | <flex [0,inf]> | min-content | max-content | auto
@@ -134,6 +138,15 @@ public:
     bool isContentSized() const { return m_type == GridTrackBreadthType::Length && (m_length.isAuto() || m_length.isMinContent() || m_length.isMaxContent()); }
     bool isAuto() const { return m_type == GridTrackBreadthType::Length && m_length.isAuto(); }
 
+    template<typename... F> decltype(auto) switchOn(F&&... f) const
+    {
+        auto visitor = WTF::makeVisitor(std::forward<F>(f)...);
+
+        if (isFlex())
+            return visitor(m_flex);
+        return WTF::switchOn(m_length, [&](const auto& value) { return visitor(value); });
+    }
+
     bool operator==(const GridTrackBreadth&) const = default;
 
 private:
@@ -144,7 +157,18 @@ private:
     GridTrackBreadthType m_type;
 };
 
+// MARK: - Conversion
+
+template<> struct CSSValueConversion<GridTrackBreadth> { auto operator()(BuilderState&, const CSSPrimitiveValue&) -> GridTrackBreadth; };
+
+// MARK: - Blending
+
+template<> struct Blending<GridTrackBreadth> {
+    auto blend(const GridTrackBreadth&, const GridTrackBreadth&, const BlendingContext&) -> GridTrackBreadth;
+};
+
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::GridTrackBreadthLength> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::GridTrackBreadthLength)
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::GridTrackBreadth)

@@ -38,7 +38,7 @@
 
 - (NSObject *)_web_createTarget
 {
-    Ref challenge = *reinterpret_cast<WebKit::AuthenticationChallengeProxy*>(&self._apiObject);
+    Ref challenge = downcast<WebKit::AuthenticationChallengeProxy>(self._apiObject);
 
     static dispatch_once_t token;
     static NeverDestroyed<RetainPtr<WKNSURLAuthenticationChallengeSender>> sender;
@@ -46,12 +46,12 @@
         sender.get() = adoptNS([[WKNSURLAuthenticationChallengeSender alloc] init]);
     });
 
-    return [[NSURLAuthenticationChallenge alloc] initWithAuthenticationChallenge:mac(challenge->core()) sender:sender.get().get()];
+    SUPPRESS_RETAINPTR_CTOR_ADOPT return [[NSURLAuthenticationChallenge alloc] initWithAuthenticationChallenge:mac(challenge->core()) sender:sender.get().get()];
 }
 
 - (WebKit::AuthenticationChallengeProxy&)_web_authenticationChallengeProxy
 {
-    return *reinterpret_cast<WebKit::AuthenticationChallengeProxy*>(&self._apiObject);
+    return downcast<WebKit::AuthenticationChallengeProxy>(self._apiObject);
 }
 
 @end

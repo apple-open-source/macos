@@ -22,6 +22,7 @@
 
 #if ENABLE(WEB_RTC) && USE(GSTREAMER_WEBRTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "GStreamerDTMFSenderBackend.h"
 #include "GStreamerDtlsTransportBackend.h"
 #include "GStreamerPeerConnectionBackend.h"
@@ -134,6 +135,8 @@ void GStreamerRtpSenderBackend::tearDown()
         source->teardown();
     }, [&](std::nullptr_t&) {
     });
+
+    m_rtcSender = nullptr;
 }
 
 bool GStreamerRtpSenderBackend::replaceTrack(RTCRtpSender& sender, MediaStreamTrack* track)

@@ -29,9 +29,11 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 #include "Connection.h"
+#include "Logging.h"
 #include "RemoteCaptureSampleManagerMessages.h"
 #include "RemoteVideoFrameObjectHeap.h"
 #include "SharedCARingBuffer.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "UserMediaCaptureManagerMessages.h"
 #include "UserMediaCaptureManagerProxyMessages.h"
 #include <WebCore/AudioSession.h>
@@ -128,7 +130,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
         m_providePresentingApplicationPIDFunction();
 #endif
-        Ref session = AudioSession::sharedSession();
+        Ref session = AudioSession::singleton();
         session->setCategory(AudioSession::CategoryType::PlayAndRecord, AudioSession::Mode::VideoChat, RouteSharingPolicy::Default);
         session->tryToSetActive(true);
     }
@@ -397,7 +399,7 @@ private:
             m_writeOffset = 0;
             m_remainingFrameCount = 0;
             m_startTime = time;
-            m_frameChunkSize = std::max(WebCore::AudioUtilities::renderQuantumSize, AudioSession::protectedSharedSession()->preferredBufferSize());
+            m_frameChunkSize = std::max(WebCore::AudioUtilities::renderQuantumSize, AudioSession::singleton().preferredBufferSize());
 
             ASSERT(descriptionChanged || m_audioHandle);
 
@@ -445,7 +447,6 @@ private:
     bool m_isObservingMedia { false };
     bool m_isStopped { false };
     bool m_isEnded { false };
-    bool m_shouldApplyRotation { false };
     std::atomic<bool> m_shouldReset { false };
 
     RealtimeMediaSourceIdentifier m_id;

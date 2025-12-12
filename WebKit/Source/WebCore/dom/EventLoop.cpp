@@ -29,6 +29,7 @@
 #include "JSExecState.h"
 #include "Microtasks.h"
 #include "ScriptExecutionContext.h"
+#include <JavaScriptCore/JSGlobalObject.h>
 #include <JavaScriptCore/MicrotaskQueueInlines.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -408,10 +409,10 @@ Markable<MonotonicTime> EventLoop::nextTimerFireTime() const
 }
 
 class JSMicrotaskDispatcher final : public WebCoreMicrotaskDispatcher {
-    WTF_MAKE_TZONE_ALLOCATED(JSMicrotaskDispatcher);
+    WTF_MAKE_COMPACT_TZONE_ALLOCATED(JSMicrotaskDispatcher);
 public:
     JSMicrotaskDispatcher(EventLoopTaskGroup& group)
-        : WebCoreMicrotaskDispatcher(Type::JavaScript, group)
+        : WebCoreMicrotaskDispatcher(Type::WebCoreJS, group)
     {
     }
 
@@ -431,7 +432,32 @@ public:
     }
 };
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL(JSMicrotaskDispatcher);
+class JSDebuggableMicrotaskDispatcher final : public WebCoreMicrotaskDispatcher {
+    WTF_MAKE_COMPACT_TZONE_ALLOCATED(JSDebuggableMicrotaskDispatcher);
+public:
+    JSDebuggableMicrotaskDispatcher(EventLoopTaskGroup& group)
+        : WebCoreMicrotaskDispatcher(Type::WebCoreJSDebuggable, group)
+    {
+    }
+
+    ~JSDebuggableMicrotaskDispatcher() final = default;
+
+    JSC::QueuedTask::Result run(JSC::QueuedTask& task) final
+    {
+        auto runnability = currentRunnability();
+        if (runnability == JSC::QueuedTask::Result::Executed)
+            JSExecState::runTaskWithDebugger(task.globalObject(), task);
+        return runnability;
+    }
+
+    static Ref<JSDebuggableMicrotaskDispatcher> create(EventLoopTaskGroup& group)
+    {
+        return adoptRef(*new JSDebuggableMicrotaskDispatcher(group));
+    }
+};
+
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(JSMicrotaskDispatcher);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(JSDebuggableMicrotaskDispatcher);
 
 EventLoopTaskGroup::EventLoopTaskGroup(EventLoop& eventLoop)
     : m_eventLoop(eventLoop)
@@ -444,6 +470,13 @@ EventLoopTaskGroup::~EventLoopTaskGroup()
 {
     if (RefPtr eventLoop = m_eventLoop.get())
         eventLoop->unregisterGroup(*this);
+}
+
+Ref<JSC::MicrotaskDispatcher> EventLoopTaskGroup::jsMicrotaskDispatcher(JSC::QueuedTask& task)
+{
+    if (task.globalObject()->debugger()) [[unlikely]]
+        return JSDebuggableMicrotaskDispatcher::create(*this);
+    return m_jsMicrotaskDispatcher;
 }
 
 void EventLoopTaskGroup::markAsReadyToStop()
@@ -529,10 +562,10 @@ void EventLoopTaskGroup::queueTask(TaskSource source, EventLoop::TaskFunction&& 
 }
 
 class EventLoopFunctionMicrotaskDispatcher final : public WebCoreMicrotaskDispatcher {
-    WTF_MAKE_TZONE_ALLOCATED(EventLoopFunctionMicrotaskDispatcher);
+    WTF_MAKE_COMPACT_TZONE_ALLOCATED(EventLoopFunctionMicrotaskDispatcher);
 public:
     EventLoopFunctionMicrotaskDispatcher(EventLoopTaskGroup& group, EventLoop::TaskFunction&& function)
-        : WebCoreMicrotaskDispatcher(Type::Function, group)
+        : WebCoreMicrotaskDispatcher(Type::WebCoreFunction, group)
         , m_function(WTFMove(function))
     {
     }
@@ -556,7 +589,7 @@ private:
     EventLoop::TaskFunction m_function;
 };
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL(EventLoopFunctionMicrotaskDispatcher);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(EventLoopFunctionMicrotaskDispatcher);
 
 void EventLoopTaskGroup::queueMicrotask(EventLoop::TaskFunction&& function)
 {

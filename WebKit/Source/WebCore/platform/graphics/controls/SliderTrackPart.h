@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "ControlPart.h"
-#include "IntRect.h"
+#include <WebCore/ControlPart.h>
+#include <WebCore/IntRect.h>
 
 namespace WebCore {
 

@@ -36,6 +36,7 @@
 #include "MediaRecorderPrivateOptions.h"
 #include "MediaRecorderPrivateWriter.h"
 #include "MediaSampleAVFObjC.h"
+#include "MediaSamplesBlock.h"
 #include "MediaUtilities.h"
 #include "WebAudioBufferList.h"
 

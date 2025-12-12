@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,11 +25,11 @@
  */
 
 #import "config.h"
-#import "AccessibilityObject.h"
+#import "AccessibilityObjectInlines.h"
 
 #if PLATFORM(COCOA)
 
-#import "AXObjectCache.h"
+#import "AXObjectCacheInlines.h"
 #import "TextIterator.h"
 #import "WebAccessibilityObjectWrapperBase.h"
 #import <wtf/cocoa/TypeCastsCocoa.h>
@@ -146,7 +147,7 @@ RetainPtr<NSArray> AccessibilityObject::contentForRange(const SimpleRange& range
         } else {
             if (RefPtr replacedNode = it.node()) {
                 auto* cache = axObjectCache();
-                if (RefPtr object = cache ? cache->getOrCreate(replacedNode->renderer()) : nullptr)
+                if (RefPtr object = cache ? cache->getOrCreate(*replacedNode) : nullptr)
                     addObjectWrapperToArray(*object, result.get());
             }
         }
@@ -188,7 +189,7 @@ RetainPtr<NSAttributedString> AccessibilityObject::attributedStringForRange(cons
 
 RetainPtr<CTFontRef> fontFrom(const RenderStyle& style)
 {
-    return style.fontCascade().primaryFont()->getCTFont();
+    return style.fontCascade().primaryFont()->ctFont();
 }
 
 Color textColorFrom(const RenderStyle& style)
@@ -231,13 +232,13 @@ Color AccessibilityObject::backgroundColor() const
 bool AccessibilityObject::isSubscript() const
 {
     const auto* style = this->style();
-    return style && style->verticalAlign() == VerticalAlign::Sub;
+    return style && WTF::holdsAlternative<CSS::Keyword::Sub>(style->verticalAlign());
 }
 
 bool AccessibilityObject::isSuperscript() const
 {
     const auto* style = this->style();
-    return style && style->verticalAlign() == VerticalAlign::Super;
+    return style && WTF::holdsAlternative<CSS::Keyword::Super>(style->verticalAlign());
 }
 
 bool AccessibilityObject::hasTextShadow() const
@@ -258,13 +259,13 @@ AttributedStringStyle AccessibilityObject::stylesForAttributedString() const
     if (!style)
         return { };
 
-    auto alignment = style->verticalAlign();
+    auto& alignment = style->verticalAlign();
     return {
         fontFrom(*style),
         textColorFrom(*style),
         backgroundColorFrom(*style),
-        alignment == VerticalAlign::Sub,
-        alignment == VerticalAlign::Super,
+        WTF::holdsAlternative<CSS::Keyword::Sub>(alignment),
+        WTF::holdsAlternative<CSS::Keyword::Super>(alignment),
         style->hasTextShadow(),
         lineDecorationStyle()
     };

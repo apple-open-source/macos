@@ -624,6 +624,7 @@ NS_ASSUME_NONNULL_BEGIN
                          isBackgroundCheck:(BOOL)isBackgroundCheck
                                     flowID:(NSString* _Nullable)flowID
                            deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                 rateLimit:(NSInteger)rateLimit
                                      reply:(void (^)(OTEscrowCheckCallResult* _Nullable result, NSError* _Nullable))reply;
 
 - (void)getSupportAppInfoWithSpecificUser:(TPSpecificUser* _Nullable)specificUser

@@ -13,8 +13,12 @@
 #include <algorithm>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 #include "absl/algorithm/container.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
+#include "api/field_trials_view.h"
 #include "api/jsep.h"
 #include "api/media_types.h"
 #include "api/uma_metrics.h"
@@ -81,6 +85,18 @@ SdpMungingType DetermineTransportModification(
           transport_infos_to_set[i].description.transport_options.end();
       if (!created_renomination && set_renomination) {
         return SdpMungingType::kIceOptionsRenomination;
+      }
+      bool created_trickle =
+          absl::c_find(
+              last_created_transport_infos[i].description.transport_options,
+              ICE_OPTION_TRICKLE) !=
+          last_created_transport_infos[i].description.transport_options.end();
+      bool set_trickle =
+          absl::c_find(transport_infos_to_set[i].description.transport_options,
+                       ICE_OPTION_TRICKLE) !=
+          transport_infos_to_set[i].description.transport_options.end();
+      if (created_trickle && !set_trickle) {
+        return SdpMungingType::kIceOptionsTrickle;
       }
       return SdpMungingType::kIceOptions;
     }
@@ -408,6 +424,12 @@ SdpMungingType DetermineSdpMungingType(
     }
     // Validate video and audio contents.
     MediaType media_type = last_created_media_description->type();
+    bool is_rtp =
+        media_type == MediaType::AUDIO || media_type == MediaType::VIDEO;
+    if (!is_rtp) {
+      // The checks that follow only apply for RTP-based contents.
+      continue;
+    }
     if (media_type == MediaType::VIDEO) {
       type = DetermineVideoSdpMungingType(last_created_media_description,
                                           media_description_to_set);
@@ -420,6 +442,22 @@ SdpMungingType DetermineSdpMungingType(
       if (type != SdpMungingType::kNoModification) {
         return type;
       }
+    }
+
+    // rtcp-mux.
+    if (last_created_media_description->rtcp_mux() !=
+        media_description_to_set->rtcp_mux()) {
+      RTC_LOG(LS_WARNING) << "SDP munging: rtcp-mux modified.";
+      return SdpMungingType::kRtcpMux;
+    }
+
+    // rtcp-rsize.
+    if (last_created_media_description->rtcp_reduced_size() !=
+        media_description_to_set->rtcp_reduced_size()) {
+      RTC_LOG(LS_WARNING) << "SDP munging: rtcp-rsize modified.";
+      return media_type == MediaType::AUDIO
+                 ? SdpMungingType::kAudioCodecsRtcpReducedSize
+                 : SdpMungingType::kVideoCodecsRtcpReducedSize;
     }
 
     // Validate codecs. We should have bailed out earlier if codecs were added
@@ -466,6 +504,7 @@ SdpMungingType DetermineSdpMungingType(
       }
     }
 
+    // sendrecv et al.
     if (last_created_media_description->direction() !=
         media_description_to_set->direction()) {
       RTC_LOG(LS_WARNING) << "SDP munging: transceiver direction modified.";
@@ -561,6 +600,35 @@ bool HasUfragSdpMunging(const SessionDescriptionInterface* sdesc,
     }
   }
   return false;
+}
+
+bool IsSdpMungingAllowed(SdpMungingType sdp_munging_type,
+                         const FieldTrialsView& trials) {
+  if (sdp_munging_type == SdpMungingType::kNoModification) {
+    return true;
+  }
+  std::string type_as_string =
+      std::to_string(static_cast<int>(sdp_munging_type));
+
+  std::string trial;
+  // NoSdpMangleReject is for rollout, disallowing specific types of munging
+  // via Finch. It is a comma-separated list of SdpMungingTypes
+  if (trials.IsEnabled("WebRTC-NoSdpMangleReject")) {
+    trial = trials.Lookup("WebRTC-NoSdpMangleReject");
+    const std::vector<absl::string_view> rejected_types =
+        absl::StrSplit(trial, ',');
+    return absl::c_find(rejected_types, type_as_string) == rejected_types.end();
+  }
+  // NoSdpMangleAllowForTesting is for running E2E tests which should reject
+  // by default with a test-supplied list of exceptions as a comma-separated
+  // list.
+  if (!trials.IsEnabled("WebRTC-NoSdpMangleAllowForTesting")) {
+    return true;
+  }
+  trial = trials.Lookup("WebRTC-NoSdpMangleAllowForTesting");
+  const std::vector<absl::string_view> allowed_types =
+      absl::StrSplit(trial, ',');
+  return absl::c_find(allowed_types, type_as_string) != allowed_types.end();
 }
 
 }  // namespace webrtc

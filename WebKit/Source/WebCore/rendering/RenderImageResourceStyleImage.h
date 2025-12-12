@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "RenderImageResource.h"
-#include "StyleImage.h"
+#include <WebCore/RenderImageResource.h>
+#include <WebCore/StyleImage.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {

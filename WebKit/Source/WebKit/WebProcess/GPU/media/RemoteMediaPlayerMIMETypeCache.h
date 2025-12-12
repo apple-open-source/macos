@@ -48,7 +48,6 @@ class RemoteMediaPlayerMIMETypeCache final : public CanMakeThreadSafeCheckedPtr<
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteMediaPlayerMIMETypeCache);
 public:
     RemoteMediaPlayerMIMETypeCache(RemoteMediaPlayerManager&, WebCore::MediaPlayerEnums::MediaEngineIdentifier);
-    ~RemoteMediaPlayerMIMETypeCache() = default;
 
     HashSet<String>& supportedTypes();
     WebCore::MediaPlayerEnums::SupportsType supportsTypeAndCodecs(const WebCore::MediaEngineSupportParameters&);

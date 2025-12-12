@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "JSDestructibleObject.h"
-#include "StackFrame.h"
+#include <JavaScriptCore/JSDestructibleObject.h>
+#include <JavaScriptCore/StackFrame.h>
 #include <wtf/Vector.h>
 
 namespace JSC {

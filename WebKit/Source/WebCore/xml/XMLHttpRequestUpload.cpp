@@ -68,6 +68,13 @@ void XMLHttpRequestUpload::dispatchProgressEvent(const AtomString& type, unsigne
     dispatchEvent(XMLHttpRequestProgressEvent::create(type, !!total, loaded, total));
 }
 
+ScriptExecutionContext* XMLHttpRequestUpload::scriptExecutionContext() const
+{
+    if (RefPtr request = m_request.ptr())
+        return request->scriptExecutionContext();
+    return nullptr;
+}
+
 WebCoreOpaqueRoot root(XMLHttpRequestUpload* upload)
 {
     return WebCoreOpaqueRoot { upload };

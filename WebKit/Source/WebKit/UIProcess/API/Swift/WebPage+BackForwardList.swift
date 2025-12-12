@@ -123,13 +123,13 @@ extension WebPage {
             /// The title of the page this item represents.
             ///
             /// If the resource this item represents does not have a title specified, this value will be `nil`.
-            public let title: String?
+            public let title: Swift.String?
 
             /// The url of the page this item represents, after having resolved all redirects.
-            public let url: URL
+            public let url: Foundation.URL
 
             /// The source URL that originally asked to load the resource.
-            public let initialURL: URL
+            public let initialURL: Foundation.URL
 
             @MainActor
             let wrapped: WKBackForwardListItem

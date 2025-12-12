@@ -30,9 +30,9 @@
 
 #pragma once
 
-#include "FloatSize.h"
-#include "IntSize.h"
-#include "LayoutUnit.h"
+#include <WebCore/FloatSize.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/LayoutUnit.h>
 
 namespace WTF {
 class TextStream;

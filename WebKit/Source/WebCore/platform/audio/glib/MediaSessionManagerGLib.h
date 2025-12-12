@@ -36,7 +36,7 @@ class MediaSessionManagerGLib
     , private NowPlayingManagerClient {
     WTF_MAKE_TZONE_ALLOCATED(MediaSessionManagerGLib);
 public:
-    MediaSessionManagerGLib(GRefPtr<GDBusNodeInfo>&&);
+    MediaSessionManagerGLib(GRefPtr<GDBusNodeInfo>&&, PageIdentifier);
     ~MediaSessionManagerGLib();
 
     void beginInterruption(PlatformMediaSession::InterruptionType) final;

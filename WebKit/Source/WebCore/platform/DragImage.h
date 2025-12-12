@@ -25,14 +25,15 @@
 
 #pragma once
 
-#include "FloatSize.h"
-#include "ImageOrientation.h"
-#include "IntSize.h"
-#include "Path.h"
-#include "TextFlags.h"
-#include "TextIndicator.h"
+#include <WebCore/FloatSize.h>
+#include <WebCore/ImageOrientation.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/Path.h>
+#include <WebCore/TextFlags.h>
+#include <WebCore/TextIndicator.h>
 #include <wtf/Forward.h>
 
+#include <wtf/Platform.h>
 #if PLATFORM(IOS_FAMILY)
 #include <wtf/RetainPtr.h>
 typedef struct CGImage *CGImageRef;
@@ -90,17 +91,16 @@ DragImageRef dissolveDragImageToFraction(DragImageRef, float delta);
 DragImageRef createDragImageFromImage(Image*, ImageOrientation, GraphicsClient* = nullptr, float deviceScaleFactor = 1);
 DragImageRef createDragImageIconForCachedImageFilename(const String&);
 
-// FIXME: These platform helpers should be refactored to avoid using `LocalFrame` and `Node`.
-WEBCORE_EXPORT DragImageRef createDragImageForNode(LocalFrame&, Node&);
-WEBCORE_EXPORT DragImageRef createDragImageForSelection(LocalFrame&, TextIndicatorData&, bool forceBlackText = false);
-WEBCORE_EXPORT DragImageRef createDragImageForRange(LocalFrame&, const SimpleRange&, bool forceBlackText = false);
-DragImageRef createDragImageForColor(const Color&, const FloatRect&, float, Path&);
-DragImageRef createDragImageForImage(LocalFrame&, Node&, IntRect& imageRect, IntRect& elementRect);
-
 struct DragImageData {
     DragImageRef dragImageRef;
     RefPtr<TextIndicator> textIndicator;
 };
+// FIXME: These platform helpers should be refactored to avoid using `LocalFrame` and `Node`.
+WEBCORE_EXPORT DragImageRef createDragImageForNode(LocalFrame&, Node&);
+WEBCORE_EXPORT DragImageData createDragImageForSelection(LocalFrame&, bool forceBlackText = false);
+WEBCORE_EXPORT DragImageRef createDragImageForRange(LocalFrame&, const SimpleRange&, bool forceBlackText = false);
+DragImageRef createDragImageForColor(const Color&, const FloatRect&, float, Path&);
+DragImageRef createDragImageForImage(LocalFrame&, Node&, IntRect& imageRect, IntRect& elementRect);
 
 DragImageData createDragImageForLink(Element&, URL&, const String& label, float deviceScaleFactor);
 void deleteDragImage(DragImageRef);

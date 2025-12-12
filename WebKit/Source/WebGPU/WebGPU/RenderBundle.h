@@ -56,6 +56,7 @@ class Device;
 class RenderBundleEncoder;
 class RenderPassEncoder;
 class RenderPipeline;
+class TextureOrTextureView;
 class TextureView;
 
 // https://gpuweb.github.io/gpuweb/#gpurenderbundle
@@ -84,7 +85,7 @@ public:
 
     void replayCommands(RenderPassEncoder&) const;
     void updateMinMaxDepths(float minDepth, float maxDepth);
-    bool validateRenderPass(bool depthReadOnly, bool stencilReadOnly, const WGPURenderPassDescriptor&, const Vector<RefPtr<TextureView>>&, const RefPtr<TextureView>&) const;
+    bool validateRenderPass(bool depthReadOnly, bool stencilReadOnly, const WGPURenderPassDescriptor&, const Vector<TextureOrTextureView>&, const std::optional<TextureOrTextureView>&) const;
     bool validatePipeline(const RenderPipeline*);
     uint64_t drawCount() const;
     NSString* lastError() const;

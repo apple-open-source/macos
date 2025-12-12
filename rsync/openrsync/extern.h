@@ -215,8 +215,8 @@ enum dryrun {
 struct flist;
 struct sess;
 
-#ifdef __APPLE__
 extern int syslog_trace;
+#ifdef __APPLE__
 extern os_log_t syslog_trace_obj;
 #endif
 

@@ -25,10 +25,14 @@
 
 internal import WebKit_Internal
 
+#if USE_APPLE_INTERNAL_SDK
 #if canImport(UIKit)
 @_weakLinked @_spi(Private) @_spi(ForUIKitOnly) internal import SwiftUI
 #else
 @_weakLinked @_spi(Private) @_spi(ForAppKitOnly) internal import SwiftUI
+#endif
+#else
+internal import SwiftUI_SPI
 #endif
 
 #if canImport(UIKit)
@@ -93,6 +97,8 @@ private struct MaterialHostingView<P: MaterialHostingProvider>: View {
             return nil
         case .glass:
             return ._glass(.regular)
+        case .clearGlass:
+            return ._glass(.clear)
         case .subduedGlass:
             return ._glass(.regular.forceSubdued())
         case .mediaControlsGlass:

@@ -28,8 +28,8 @@
 
 #if ENABLE(VIDEO)
 
-#include "TrackBase.h"
-#include "VideoTrackPrivateClient.h"
+#include <WebCore/TrackBase.h>
+#include <WebCore/VideoTrackPrivateClient.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
 
@@ -54,7 +54,7 @@ public:
     static const AtomString& signKeyword();
 
     bool selected() const { return m_selected; }
-    virtual void setSelected(const bool);
+    void setSelected(const bool);
 
     void addClient(VideoTrackClient&);
     void clearClient(VideoTrackClient&);

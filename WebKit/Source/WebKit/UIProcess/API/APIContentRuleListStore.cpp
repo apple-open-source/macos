@@ -515,7 +515,7 @@ static WTF::String getContentRuleListSourceFromMappedFile(const MappedData& mapp
     size_t length = sourceSizeBytes - sizeof(bool);
 
     if (is8Bit)
-        return dataSpan.subspan(start, length);
+        return byteCast<Latin1Character>(dataSpan.subspan(start, length));
 
     if (length % sizeof(char16_t)) {
         ASSERT_NOT_REACHED();

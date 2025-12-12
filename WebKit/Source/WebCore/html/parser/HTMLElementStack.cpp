@@ -70,6 +70,8 @@ inline bool isScopeMarker(HTMLStackItem& item)
     case SVG::desc:
     case SVG::title:
         return true;
+    case HTML::select:
+        return item.node().document().settings().htmlEnhancedSelectParsingEnabled();
     default:
         break;
     }

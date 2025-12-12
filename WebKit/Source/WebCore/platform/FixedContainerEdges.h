@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "Color.h"
-#include "RectEdges.h"
+#include <WebCore/Color.h>
+#include <WebCore/RectEdges.h>
 
 namespace WebCore {
 

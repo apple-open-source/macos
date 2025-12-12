@@ -45,7 +45,7 @@ public:
         return adoptRef(*new WebSpeechSynthesisClient(webPage));
     }
 
-    virtual ~WebSpeechSynthesisClient() { }
+    virtual ~WebSpeechSynthesisClient() = default;
 
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }

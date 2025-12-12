@@ -48,12 +48,14 @@
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(COCOA)
 #include <notify.h>
+#include <wtf/darwin/DispatchExtras.h>
 #endif
 
 namespace WebKit {
@@ -127,7 +129,7 @@ Cache::Cache(NetworkProcess& networkProcess, const String& storageDirectory, Ref
 #if PLATFORM(COCOA)
         // Triggers with "notifyutil -p com.apple.WebKit.Cache.dump".
         int token;
-        notify_register_dispatch("com.apple.WebKit.Cache.dump", &token, dispatch_get_main_queue(), ^(int) {
+        notify_register_dispatch("com.apple.WebKit.Cache.dump", &token, mainDispatchQueueSingleton(), ^(int) {
             dumpContentsToFile();
         });
 #endif
@@ -403,6 +405,7 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, std::optional<Glob
     auto priority = static_cast<unsigned>(request.priority());
 
     RetrieveInfo info;
+    info.url = request.url();
     info.startTime = MonotonicTime::now();
     info.priority = priority;
 
@@ -412,23 +415,27 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, std::optional<Glob
         speculativeLoadManager->registerLoad(*frameID, request, storageKey, isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections);
 
     auto retrieveDecision = makeRetrieveDecision(request);
+    info.retrieveDecision = retrieveDecision;
     if (retrieveDecision != RetrieveDecision::Yes) {
         completeRetrieve(WTFMove(completionHandler), nullptr, info);
         return;
     }
 
+    info.speculativeLoadDecision = SpeculativeLoadDecision::NoDueToCannotUse;
     if (canUseSpeculativeRevalidation && speculativeLoadManager->canRetrieve(storageKey, request, *frameID)) {
-        speculativeLoadManager->retrieve(storageKey, [networkProcess = Ref { networkProcess() }, request, completionHandler = WTFMove(completionHandler), info = WTFMove(info), sessionID = m_sessionID](std::unique_ptr<Entry> entry) mutable {
-            info.wasSpeculativeLoad = true;
-            if (entry && WebCore::verifyVaryingRequestHeaders(networkProcess->checkedStorageSession(sessionID).get(), entry->varyingRequestHeaders(), request))
+        speculativeLoadManager->retrieve(storageKey, [networkProcess = Ref { networkProcess() }, request, completionHandler = WTFMove(completionHandler), info = crossThreadCopy(WTFMove(info)), sessionID = m_sessionID](std::unique_ptr<Entry> entry) mutable {
+            if (entry && WebCore::verifyVaryingRequestHeaders(networkProcess->checkedStorageSession(sessionID).get(), entry->varyingRequestHeaders(), request)) {
+                info.speculativeLoadDecision = SpeculativeLoadDecision::Yes;
                 completeRetrieve(WTFMove(completionHandler), WTFMove(entry), info);
-            else
+            } else {
+                info.speculativeLoadDecision = SpeculativeLoadDecision::NoDueToVaryingHeaderMismatch;
                 completeRetrieve(WTFMove(completionHandler), nullptr, info);
+            }
         });
         return;
     }
 
-    m_storage->retrieve(storageKey, priority, [this, protectedThis = Ref { *this }, request, completionHandler = WTFMove(completionHandler), info = WTFMove(info), storageKey, networkProcess = Ref { networkProcess() }, sessionID = m_sessionID, frameID, isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections](auto record, auto timings) mutable {
+    m_storage->retrieve(storageKey, priority, [this, protectedThis = Ref { *this }, request, completionHandler = WTFMove(completionHandler), info = crossThreadCopy(WTFMove(info)), storageKey, networkProcess = Ref { networkProcess() }, sessionID = m_sessionID, frameID, isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections](auto record, auto timings) mutable {
         info.storageTimings = timings;
 
         if (record.isNull()) {
@@ -442,6 +449,8 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, std::optional<Glob
         auto entry = Entry::decodeStorageRecord(record);
 
         auto useDecision = entry ? makeUseDecision(networkProcess, sessionID, *entry, request) : UseDecision::NoDueToDecodeFailure;
+        info.useDecision = useDecision;
+
         switch (useDecision) {
         case UseDecision::AsyncRevalidate: {
             auto entryCopy = makeUnique<Entry>(*entry);
@@ -471,6 +480,23 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, std::optional<Glob
 void Cache::completeRetrieve(RetrieveCompletionHandler&& handler, std::unique_ptr<Entry> entry, RetrieveInfo& info)
 {
     info.completionTime = MonotonicTime::now();
+
+#if ENABLE(NETWORK_CACHE_SIGNPOSTS)
+    if (WTFSignpostsEnabled()) [[unlikely]] {
+        auto retrieveDecision = info.retrieveDecision ? static_cast<int>(*info.retrieveDecision) : -1;
+        auto speculativeLoadDecision = info.speculativeLoadDecision ? static_cast<int>(*info.speculativeLoadDecision) : -1;
+        auto useDecision = info.useDecision ? static_cast<int>(*info.useDecision) : -1;
+
+        if (entry) {
+            WTFBeginSignpostAlwaysWithTimeDelta(&info, NetworkCacheHit, info.startTime - info.completionTime, "Network cache hit for %" PRIVATE_LOG_STRING " retrieveDecision: %d speculativeLoadDecision: %d useDecision: %d", info.url.string().ascii().data(), retrieveDecision, speculativeLoadDecision, useDecision);
+            WTFEndSignpostAlways(&info, NetworkCacheHit);
+        } else {
+            WTFBeginSignpostAlwaysWithTimeDelta(&info, NetworkCacheMiss, info.startTime - info.completionTime, "Network cache miss for %" PRIVATE_LOG_STRING " retrieveDecision: %d speculativeLoadDecision: %d useDecision: %d", info.url.string().ascii().data(), retrieveDecision, speculativeLoadDecision, useDecision);
+            WTFEndSignpostAlways(&info, NetworkCacheMiss);
+        }
+    }
+#endif
+
     handler(WTFMove(entry), info);
 }
     
@@ -644,8 +670,8 @@ void Cache::dumpContentsToFile()
     if (!fileHandle)
         return;
 
-    constexpr auto prologue = "{\n\"entries\": [\n"_s;
-    fileHandle.write(prologue.span8());
+    constexpr auto prologue = "{\n\"entries\": [\n"_span;
+    fileHandle.write(byteCast<uint8_t>(prologue));
 
     struct Totals {
         unsigned count { 0 };

@@ -40,6 +40,8 @@
 #include <dispatch/dispatch.h>
 #include <Security/SecBase.h>
 
+#include "trust/trustd/SecRevocationCRLite.h"
+
 __BEGIN_DECLS
 
 /* issuer group data format */
@@ -231,6 +233,29 @@ CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyUpdateSource(void);
 
 CFIndex SecRevocationDbGetGeneration(void);
 void SecRevocationDbSetGeneration(CFIndex generation);
+
+/*!
+	@function SecRevocationDbCopyMatchingCRLite
+	@abstract Returns a SecCRLiteInfoRef reference if revocation info was found, or NULL if no info was found.
+	@param certificate The certificate whose validity status is being requested. The certificate should not be self-signed.
+	@param issuer The issuing CA certificate.
+	@param additionalSCTs Any additional SCTs to be used for the CRLite check. These should be SCTs that are *not* embedded in the certificate.
+	@result A SecCRLiteInfoRef if there was matching revocation info. NULL is returned if no info was found.
+ */
+SecCRLiteInfoRef SecRevocationDbCopyMatchingCRLite(SecCertificateRef certificate, SecCertificateRef issuer, CFArrayRef additionalSCTs);
+
+/*!
+	@function SecRevocationDbRemoveAllCRLiteEntries
+	@abstract Removes all CRLite data from the database.
+	@param error The error.
+ */
+bool SecRevocationDbRemoveAllCRLiteEntries(CFErrorRef *error);
+
+/*!
+	@function SecRevocationDbHasCRLiteSupport
+	@abstract Returns whether we have CRLite support available. For testing.
+ */
+bool SecRevocationDbHasCRLiteSupport();
 
 __END_DECLS
 

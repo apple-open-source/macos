@@ -28,9 +28,8 @@
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
 
-#import "AddEventListenerOptions.h"
+#import "AddEventListenerOptionsInlines.h"
 #import "DocumentFullscreen.h"
-#import "DocumentInlines.h"
 #import "Event.h"
 #import "EventListener.h"
 #import "EventNames.h"
@@ -40,7 +39,7 @@
 #import "LocalDOMWindow.h"
 #import "Logging.h"
 #import "MediaControlsHost.h"
-#import "NodeInlines.h"
+#import "NodeDocument.h"
 #import "Page.h"
 #import "PlaybackSessionModelMediaElement.h"
 #import "TextTrackList.h"
@@ -353,8 +352,9 @@ const AtomString& VideoPresentationModelVideoElement::eventNameAll()
     return sEventNameAll;
 }
 
-void VideoPresentationModelVideoElement::fullscreenModeChanged(HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode)
+void VideoPresentationModelVideoElement::fullscreenModeChanged(HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode, ShouldNotifyMediaElement shouldNotifyMediaElement)
 {
+    ASSERT_UNUSED(shouldNotifyMediaElement, shouldNotifyMediaElement == ShouldNotifyMediaElement::Yes);
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, videoFullscreenMode);
     if (RefPtr videoElement = m_videoElement) {
         UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, &videoElement->document());
@@ -364,8 +364,7 @@ void VideoPresentationModelVideoElement::fullscreenModeChanged(HTMLMediaElementE
 
 void VideoPresentationModelVideoElement::requestRouteSharingPolicyAndContextUID(CompletionHandler<void(RouteSharingPolicy, String)>&& completionHandler)
 {
-    Ref session = AudioSession::sharedSession();
-    completionHandler(session->routeSharingPolicy(), session->routingContextUID());
+    completionHandler(AudioSession::singleton().routeSharingPolicy(), AudioSession::singleton().routingContextUID());
 }
 
 void VideoPresentationModelVideoElement::addClient(VideoPresentationModelClient& client)
@@ -474,6 +473,12 @@ void VideoPresentationModelVideoElement::audioSessionCategoryChanged(AudioSessio
 {
     for (auto& client : copyToVector(m_clients))
         client->audioSessionCategoryChanged(category, mode, policy);
+}
+
+void VideoPresentationModelVideoElement::routingContextUIDChanged(const String& routingContextUID)
+{
+    for (auto& client : copyToVector(m_clients))
+        client->routingContextUIDChanged(routingContextUID);
 }
 
 #if !RELEASE_LOG_DISABLED

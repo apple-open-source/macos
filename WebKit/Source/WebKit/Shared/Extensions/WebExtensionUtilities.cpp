@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "WebExtensionUtilities.h"
+#include "JSWebExtensionWrapper.h"
 #include <wtf/text/MakeString.h>
 
 #if ENABLE(WK_WEB_EXTENSIONS)
@@ -204,6 +205,11 @@ ALLOW_NONLITERAL_FORMAT_END
         return formatString("Invalid call to %s. %s.", callingAPIName.utf8().data(), uppercaseFirst(formattedUnderlyingErrorString).utf8().data());
 
     return formattedUnderlyingErrorString;
+}
+
+JSObjectRef toJSError(JSContextRef context, const String& callingAPIName, const String& sourceKey, const String& underlyingErrorString)
+{
+    return toJSError(context, toErrorString(callingAPIName, sourceKey, underlyingErrorString));
 }
 
 } // namespace WebKit

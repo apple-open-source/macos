@@ -50,7 +50,7 @@ CurlFormDataStream::CurlFormDataStream(const RefPtr<FormData>& formData)
     m_formData = formData->isolatedCopy();
 
     // Resolve the blob elements so the formData can correctly report it's size.
-    m_formData = m_formData->resolveBlobReferences(blobRegistry().blobRegistryImpl());
+    m_formData = m_formData->resolveBlobReferences(blobRegistry()->blobRegistryImpl());
 }
 
 CurlFormDataStream::~CurlFormDataStream()

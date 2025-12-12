@@ -75,7 +75,7 @@ public:
     virtual void writeDictionaryEnd(size_t resultFromWriteDictionaryStart) = 0;
 
 protected:
-    virtual ~BinaryPropertyListObjectStream() { }
+    virtual ~BinaryPropertyListObjectStream() = default;
 };
 
 class BinaryPropertyListWriter {
@@ -86,7 +86,7 @@ public:
     void writePropertyList();
 
 protected:
-    virtual ~BinaryPropertyListWriter() { }
+    virtual ~BinaryPropertyListWriter() = default;
 
 private:
     // Called by writePropertyList.

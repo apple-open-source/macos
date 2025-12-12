@@ -40,6 +40,9 @@ enum class WebExtensionEventListenerType : uint8_t {
     CommandsOnChanged,
     CommandsOnCommand,
     CookiesOnChanged,
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+    DeclarativeNetRequestOnRuleMatchedDebug,
+#endif
     DevToolsElementsPanelOnSelectionChanged,
     DevToolsExtensionPanelOnHidden,
     DevToolsExtensionPanelOnSearch,
@@ -112,6 +115,10 @@ inline String toAPIString(WebExtensionEventListenerType eventType)
         return "onCommand"_s;
     case WebExtensionEventListenerType::CookiesOnChanged:
         return "onChanged"_s;
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+    case WebExtensionEventListenerType::DeclarativeNetRequestOnRuleMatchedDebug:
+        return "onRuleMatchedDebug"_s;
+#endif
     case WebExtensionEventListenerType::DevToolsElementsPanelOnSelectionChanged:
         return "onSelectionChanged"_s;
     case WebExtensionEventListenerType::DevToolsExtensionPanelOnHidden:

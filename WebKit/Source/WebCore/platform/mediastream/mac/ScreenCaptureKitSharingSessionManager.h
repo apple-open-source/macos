@@ -26,7 +26,7 @@
 
 #if HAVE(SCREEN_CAPTURE_KIT)
 
-#include "DisplayCapturePromptType.h"
+#include <WebCore/DisplayCapturePromptType.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RetainPtr.h>
@@ -42,13 +42,11 @@ OBJC_CLASS SCStreamDelegate;
 OBJC_CLASS WebDisplayMediaPromptHelper;
 
 namespace WebCore {
-class ScreenCaptureKitSharingSessionManager;
 class ScreenCaptureSessionSourceObserver;
 }
 
 namespace WTF {
 template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::ScreenCaptureKitSharingSessionManager> : std::true_type { };
 template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::ScreenCaptureSessionSourceObserver> : std::true_type { };
 }
 

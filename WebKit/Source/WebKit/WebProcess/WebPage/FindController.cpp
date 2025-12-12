@@ -35,17 +35,20 @@
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include <WebCore/BoundaryPointInlines.h>
-#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentMarkerController.h>
+#include <WebCore/DocumentMarkers.h>
+#include <WebCore/DocumentView.h>
 #include <WebCore/FindRevealAlgorithms.h>
 #include <WebCore/FloatQuad.h>
 #include <WebCore/FocusController.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameSelection.h>
 #include <WebCore/GeometryUtilities.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/ImageAnalysisQueue.h>
+#include <WebCore/ImageBuffer.h>
 #include <WebCore/ImageOverlay.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlayController.h>
@@ -68,9 +71,7 @@ FindController::FindController(WebPage* webPage)
 {
 }
 
-FindController::~FindController()
-{
-}
+FindController::~FindController() = default;
 
 #if ENABLE(PDF_PLUGIN)
 
@@ -132,7 +133,8 @@ RefPtr<LocalFrame> FindController::frameWithSelection(Page* page)
         auto* localFrame = dynamicDowncast<LocalFrame>(frame.get());
         if (!localFrame)
             continue;
-        if (localFrame->selection().isRange())
+
+        if (localFrame->selection().isCaretOrRange())
             return localFrame;
     }
     return nullptr;
@@ -291,7 +293,6 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
         if (RefPtr selectedFrame = frameWithSelection(webPage->protectedCorePage().get())) {
             if (selectedFrame->checkedSelection()->selectionBounds().isEmpty()) {
                 auto result = webPage->protectedCorePage()->findTextMatches(string, coreOptions, maxMatchCount);
-                m_findMatches = WTFMove(result.ranges);
                 m_foundStringMatchIndex = result.indexForSelection;
                 foundStringStartsAfterSelection = true;
             }
@@ -302,6 +303,7 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
 
     bool found;
     std::optional<FrameIdentifier> idOfFrameContainingString;
+    std::optional<SimpleRange> foundRange;
     auto didWrap = WebCore::DidWrap::No;
 #if ENABLE(PDF_PLUGIN)
     if (pluginView) {
@@ -311,8 +313,16 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
     } else
 #endif
     {
-        idOfFrameContainingString = webPage->protectedCorePage()->findString(string, coreOptions, &didWrap);
+        auto [frameID, range] = webPage->protectedCorePage()->findString(string, coreOptions, &didWrap);
+        idOfFrameContainingString = frameID;
+        foundRange = range;
         found = idOfFrameContainingString.has_value();
+
+        RefPtr selectedFrame = frameWithSelection(webPage->protectedCorePage().get());
+        if (foundRange && selectedFrame) {
+            m_lastFoundRange = foundRange;
+            m_lastSelection = selectedFrame->checkedSelection()->selection().toNormalizedRange();
+        }
     }
 
     if (found && !options.contains(FindOptions::DoNotSetSelection)) {
@@ -347,28 +357,6 @@ void FindController::findStringMatches(const String& string, OptionSet<FindOptio
 
     bool found = !m_findMatches.isEmpty();
     webPage->protectedDrawingArea()->dispatchAfterEnsuringUpdatedScrollPosition([webPage, found, string, options, maxMatchCount]() {
-        webPage->findController().updateFindUIAfterPageScroll(found, string, options, maxMatchCount, WebCore::DidWrap::No, std::nullopt);
-    });
-}
-
-void FindController::findRectsForStringMatches(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<FloatRect>&&)>&& completionHandler)
-{
-    RefPtr webPage { m_webPage.get() };
-    auto result = webPage->protectedCorePage()->findTextMatches(string, core(options), maxMatchCount);
-    m_findMatches = WTFMove(result.ranges);
-
-    auto rects = m_findMatches.map([&] (auto& range) {
-        FloatRect rect = unionRect(RenderObject::absoluteTextRects(range));
-        return range.startContainer().document().frame()->view()->contentsToRootView(rect);
-    });
-
-    completionHandler(WTFMove(rects));
-
-    if (!options.contains(FindOptions::ShowOverlay) && !options.contains(FindOptions::ShowFindIndicator))
-        return;
-
-    bool found = !m_findMatches.isEmpty();
-    webPage->protectedDrawingArea()->dispatchAfterEnsuringUpdatedScrollPosition([webPage, found, string, options, maxMatchCount] () {
         webPage->findController().updateFindUIAfterPageScroll(found, string, options, maxMatchCount, WebCore::DidWrap::No, std::nullopt);
     });
 }
@@ -439,6 +427,9 @@ void FindController::hideFindUI()
     hideFindIndicator();
     resetMatchIndex();
 
+    m_lastFoundRange = std::nullopt;
+    m_lastSelection = std::nullopt;
+
 #if ENABLE(IMAGE_ANALYSIS)
     if (RefPtr imageAnalysisQueue = m_webPage->corePage()->imageAnalysisQueueIfExists())
         imageAnalysisQueue->clearDidBecomeEmptyCallback();
@@ -459,8 +450,12 @@ bool FindController::updateFindIndicator(bool isShowingOverlay, bool shouldAnima
             return { webPage->mainFrame(), pluginView->textIndicatorForCurrentSelection(textIndicatorOptions, presentationTransition) };
 #endif
         if (RefPtr selectedFrame = frameWithSelection(webPage->protectedCorePage().get())) {
-            if (auto selectedRange = selectedFrame->checkedSelection()->selection().range(); selectedRange && ImageOverlay::isInsideOverlay(*selectedRange))
+            auto selectedRange = selectedFrame->checkedSelection()->selection().toNormalizedRange();
+            if (selectedRange && ImageOverlay::isInsideOverlay(*selectedRange))
                 textIndicatorOptions.add({ TextIndicatorOption::PaintAllContent, TextIndicatorOption::PaintBackgrounds });
+
+            if (selectedRange && selectedRange->collapsed() && selectedRange == m_lastSelection)
+                return { selectedFrame, TextIndicator::createWithRange(*m_lastFoundRange, textIndicatorOptions, presentationTransition) };
 
             return { selectedFrame, TextIndicator::createWithSelectionInFrame(*selectedFrame, textIndicatorOptions, presentationTransition) };
         }

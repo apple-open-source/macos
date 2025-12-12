@@ -27,8 +27,8 @@
 
 #if ENABLE(REMOTE_INSPECTOR)
 
-#include "JSRemoteInspector.h"
-#include "RemoteControllableTarget.h"
+#include <JavaScriptCore/JSRemoteInspector.h>
+#include <JavaScriptCore/RemoteControllableTarget.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TypeCasts.h>

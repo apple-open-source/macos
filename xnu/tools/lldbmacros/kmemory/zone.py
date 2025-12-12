@@ -342,6 +342,11 @@ class ZoneHeapMemoryObject(MemoryObject):
         marks  = { self.address: '>' }
         phex   = print_hex_data
 
+        def append_tag(addr):
+            t = Pmap.kernel_pmap().get_tag(addr)
+            return None if t is None else "{:#x}".format(t)
+        def phex(a, b, c, d):
+            print_hex_data(a, b, c, d, extra=append_tag)
 
         if rz > 16:
             print(" " + "=" * 88)
@@ -396,6 +401,9 @@ class ZoneHeapMemoryObject(MemoryObject):
         meta.describe()
 
         print("Zone Heap Object Info")
+        tagged_addr = Pmap.kernel_pmap().ldg(self.address)
+        if self.address != tagged_addr:
+            print(" tagged address       : {:#x}".format(tagged_addr))
 
         print(" element index        : {}".format(self.elem_idx))
         print(" chunk offset         : {}".format(self.address - meta.page_addr))

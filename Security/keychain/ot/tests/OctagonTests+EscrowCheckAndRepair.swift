@@ -52,6 +52,31 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
+        let escrowCheckFailLocallyValidateResponse = { (validateResponse: @escaping (OTEscrowCheckCallResult) -> Void) in
+            let escrowCheckCallback = self.expectation(description: "escrowCheck callback occurs")
+            self.manager.escrowCheck(OTControlArguments(configuration: self.otcliqueContext), isBackgroundCheck: false) { response, error in
+                XCTAssertNotNil(response, "response should not be nil")
+                XCTAssertNotNil(error, "error should not be nil")
+                if let response {
+                    XCTAssertFalse(response.secureTermsNeeded) // TODO: always false, this is a client-side decision (for now)
+                    XCTAssertEqual(response.repairReason, self.fakeCuttlefishServer.returnEscrowCheckRepairReason.rawValue)
+                    validateResponse(response)
+                }
+                escrowCheckCallback.fulfill()
+            }
+            self.wait(for: [escrowCheckCallback], timeout: 10)
+            self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        }
+
+        // Peer untrusted in locally repair
+        escrowCheckFailLocallyValidateResponse { response in
+            XCTAssertFalse(response.needsReenroll)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.notTrustedLocally.rawValue)
+            XCTAssertNil(response.moveRequest)
+            XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
+            XCTAssertFalse(SecMockAKS.cacheFlowEnabled())    // repair was not triggered
+        }
+
         let clique: OTClique
         do {
             clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
@@ -108,7 +133,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
         XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange))
         escrowCheckAndValidateResponse { response in
             XCTAssertFalse(response.needsReenroll)
-            XCTAssertTrue(response.octagonTrusted)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
 
@@ -128,7 +153,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
         self.fakeCuttlefishServer.returnEscrowCheckNa = true
         escrowCheckAndValidateResponse { response in
             XCTAssertFalse(response.needsReenroll)
-            XCTAssertFalse(response.octagonTrusted)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.unknown.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
 
@@ -147,7 +172,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             // Move is allowed (no CFU, cache flow enabled)
             escrowCheckAndValidateResponse { response in
                 XCTAssertTrue(response.needsReenroll)
-                XCTAssertTrue(response.octagonTrusted)
+                XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
                 XCTAssertNotNil(response.moveRequest)
                 XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.secureTerms))
                 if isFeatureEnabled(SecurityFeatures.EscrowCheckMigration) {
@@ -162,7 +187,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             self.mockSecureBackupAdapter.moveError = NSError(domain: kCloudServicesErrorDomain, code: Int(kCloudServicesMissingSecureTerms.rawValue), userInfo: nil)
             escrowCheckAndValidateResponse { response in
                 XCTAssertTrue(response.needsReenroll)
-                XCTAssertTrue(response.octagonTrusted)
+                XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
                 XCTAssertNotNil(response.moveRequest)
                 if isFeatureEnabled(SecurityFeatures.EscrowCheckMigration) {
                     XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.secureTerms))
@@ -178,7 +203,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             self.mockSecureBackupAdapter.moveError = NSError(domain: kCloudServicesErrorDomain, code: Int(kCloudServicesUnknownFederation.rawValue), userInfo: nil)
             escrowCheckAndValidateResponse { response in
                 XCTAssertTrue(response.needsReenroll)
-                XCTAssertTrue(response.octagonTrusted)
+                XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
                 XCTAssertNotNil(response.moveRequest)
                 XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.secureTerms))
                 XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
@@ -190,11 +215,33 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             self.fakeCuttlefishServer.returnEscrowCheckMoveRequest = false
         }
 
+        // Graph needs validation repair
+        self.fakeCuttlefishServer.returnEscrowCheckGraphNeedsRepair = true
+        escrowCheckAndValidateResponse { response in
+            XCTAssertTrue(response.needsReenroll)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.graphNeedsRepair.rawValue)
+            XCTAssertNil(response.moveRequest)
+            XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
+            XCTAssertTrue(SecMockAKS.cacheFlowEnabled())    // repair was triggered
+        }
+        self.fakeCuttlefishServer.returnEscrowCheckGraphNeedsRepair = false
+
+        // Peer untrusted in Cuttlefish repair
+        self.fakeCuttlefishServer.returnEscrowCheckPeerNotTrusted = true
+        escrowCheckAndValidateResponse { response in
+            XCTAssertTrue(response.needsReenroll)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.notTrustedCuttlefish.rawValue)
+            XCTAssertNil(response.moveRequest)
+            XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
+            XCTAssertTrue(SecMockAKS.cacheFlowEnabled())    // repair was triggered
+        }
+        self.fakeCuttlefishServer.returnEscrowCheckPeerNotTrusted = false
+
         // Normal repair
         self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = true
         escrowCheckAndValidateResponse { response in
             XCTAssertTrue(response.needsReenroll)
-            XCTAssertTrue(response.octagonTrusted)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
             XCTAssertTrue(SecMockAKS.cacheFlowEnabled())    // repair was actually triggered!
@@ -207,7 +254,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
         self.fakeCuttlefishServer.returnEscrowCheckRepairDisabled = true
         escrowCheckAndValidateResponse { response in
             XCTAssertTrue(response.needsReenroll)
-            XCTAssertTrue(response.octagonTrusted)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertTrue(response.repairDisabled)          // repair disabled, thus
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())   // repair was not triggered
@@ -219,20 +266,33 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.accountMetadataStore.persistLastEscrowRepairAttempted(Date.now))
         SecMockAKS.resetCacheFlow()
 
-        self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = true
         // Rate-limited repair attempt (CFU). No test for CFU, because in this case, the CFU is posted by CoreCDP. radar:148048053
+        self.fakeCuttlefishServer.expectRateLimitListener = { request in
+            XCTAssertTrue(request.rateLimited > 0, "Expected a rate-limit in request")
+            return nil
+        }
+        self.fakeCuttlefishServer.expectRateLimitListener = nil
+        self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = true
+
         escrowCheckAndValidateResponse { response in
             XCTAssertTrue(response.needsReenroll)
-            XCTAssertTrue(response.octagonTrusted)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
         }
 
         // Rate-limited on an older version, so we should repair anyway.
+        self.fakeCuttlefishServer.expectRateLimitListener = { request in
+            XCTAssertTrue(request.rateLimited > 0, "Expected a rate-limit in request")
+            return nil
+        }
+        self.fakeCuttlefishServer.expectRateLimitListener = nil
+        self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = true
+
         XCTAssertNoThrow(try self.cuttlefishContext.accountMetadataStore._persistEscrowRepairAttemptVersion(-1))
         escrowCheckAndValidateResponse { response in
             XCTAssertTrue(response.needsReenroll)
-            XCTAssertTrue(response.octagonTrusted)
+            XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertTrue(SecMockAKS.cacheFlowEnabled())
         }

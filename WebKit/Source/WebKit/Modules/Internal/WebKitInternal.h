@@ -32,7 +32,7 @@
 #import "WKPreferencesInternal.h"
 #import "WKScrollGeometry.h"
 #import "WKSeparatedImageView.h"
-#import "WKTextExtractionItem.h"
 #import "WKUIDelegateInternal.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewInternal.h"
+#import "_WKTextExtractionInternal.h"

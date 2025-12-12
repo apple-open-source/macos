@@ -6,6 +6,11 @@
 // VulkanPerformanceCounterTest:
 //   Validates specific GL call patterns with ANGLE performance counters.
 //   For example we can verify a certain call set doesn't break the render pass.
+//
+
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
 
 #include "include/platform/Feature.h"
 #include "test_utils/ANGLETest.h"
@@ -5803,7 +5808,7 @@ void main()
 
     GLsizei offset = 0;
 
-    uint64_t expectedShaderResourcesCacheMisses = 0;
+    uint64_t expectedUniformBuffersCacheMisses = 0;
 
     for (int iteration = 0; iteration < kIterations; ++iteration)
     {
@@ -5823,15 +5828,15 @@ void main()
         // Capture the allocations counter after the first run.
         if (iteration == 0)
         {
-            expectedShaderResourcesCacheMisses =
-                getPerfCounters().shaderResourcesDescriptorSetCacheMisses;
+            expectedUniformBuffersCacheMisses =
+                getPerfCounters().uniformBuffersDescriptorSetCacheMisses;
         }
     }
 
     ASSERT_GL_NO_ERROR();
     if (isFeatureEnabled(Feature::DescriptorSetCache))
     {
-        EXPECT_GT(expectedShaderResourcesCacheMisses, 0u);
+        EXPECT_GT(expectedUniformBuffersCacheMisses, 0u);
     }
 
     // Verify correctness first.
@@ -5849,9 +5854,9 @@ void main()
     if (isFeatureEnabled(Feature::DescriptorSetCache))
     {
         // Check for unnecessary descriptor set allocations.
-        uint64_t actualShaderResourcesCacheMisses =
-            getPerfCounters().shaderResourcesDescriptorSetCacheMisses;
-        EXPECT_EQ(expectedShaderResourcesCacheMisses, actualShaderResourcesCacheMisses);
+        uint64_t actualUniformBuffersCacheMisses =
+            getPerfCounters().uniformBuffersDescriptorSetCacheMisses;
+        EXPECT_EQ(expectedUniformBuffersCacheMisses, actualUniformBuffersCacheMisses);
     }
 }
 
@@ -7649,7 +7654,7 @@ void main() {
 
     ASSERT_GL_NO_ERROR();
 
-    GLuint expectedCacheMisses = getPerfCounters().shaderResourcesDescriptorSetCacheMisses;
+    GLuint expectedCacheMisses = getPerfCounters().uniformBuffersDescriptorSetCacheMisses;
     GLuint totalAllocationsAtFirstProgram = getPerfCounters().descriptorSetAllocations;
     if (isFeatureEnabled(Feature::DescriptorSetCache))
     {
@@ -7667,7 +7672,7 @@ void main() {
 
     if (isFeatureEnabled(Feature::DescriptorSetCache))
     {
-        GLuint actualCacheMisses = getPerfCounters().shaderResourcesDescriptorSetCacheMisses;
+        GLuint actualCacheMisses = getPerfCounters().uniformBuffersDescriptorSetCacheMisses;
         EXPECT_EQ(expectedCacheMisses, actualCacheMisses);
     }
     else

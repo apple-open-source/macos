@@ -74,10 +74,10 @@ function generate_Android_bp_file() {
             # Use system lib(std)c++, since the Chromium library breaks std::string
             "use_custom_libcxx = false"
 
-            # TODO(b/279980674): re-enable end2end tests
+            # Test the system EGL loader
+            "angle_test_enable_system_egl = true"
             "build_angle_end2end_tests_library = true"
             "build_angle_trace_tests = false"
-            "angle_test_enable_system_egl = true"
         )
 
         if [[ "$1" == "--enableApiTrace" ]]; then
@@ -161,6 +161,7 @@ copy_to_aosp_paths=(
     "build"
     "third_party/abseil-cpp"
     "third_party/glslang/src"
+    "third_party/re2/src"
     "third_party/rapidjson/src"
     "third_party/spirv-headers/src"
     "third_party/spirv-tools/src"

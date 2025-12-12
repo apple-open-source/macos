@@ -23,13 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if ENABLE(WEBXR) && USE(OPENXR)
-
 #include "config.h"
 #include "PlatformXRSystem.h"
 
+#if ENABLE(WEBXR) && USE(OPENXR)
+
 #include "PlatformXROpenXR.h"
+#include "WebPageProxy.h"
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
@@ -41,6 +43,18 @@ PlatformXRCoordinator* PlatformXRSystem::xrCoordinator()
         xrCoordinator.construct();
     });
     return &xrCoordinator.get();
+}
+
+void PlatformXRSystem::createLayerProjection(IPC::Connection&, uint32_t width, uint32_t height, bool alpha)
+{
+    ASSERT(RunLoop::isMain());
+
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+
+    if (auto* xrCoordinator = PlatformXRSystem::xrCoordinator())
+        xrCoordinator->createLayerProjection(width, height, alpha);
 }
 
 } // namespace WebKit

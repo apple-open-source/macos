@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "FileSystemHandle.h"
-#include "FileSystemSyncAccessHandleIdentifier.h"
-#include "FileSystemWritableFileStreamIdentifier.h"
+#include <WebCore/FileSystemHandle.h>
+#include <WebCore/FileSystemSyncAccessHandleIdentifier.h>
+#include <WebCore/FileSystemWritableFileStreamIdentifier.h>
 
 namespace WebCore {
 

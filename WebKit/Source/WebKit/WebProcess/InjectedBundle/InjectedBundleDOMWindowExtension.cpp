@@ -72,11 +72,8 @@ InjectedBundleDOMWindowExtension::~InjectedBundleDOMWindowExtension()
 
 RefPtr<WebFrame> InjectedBundleDOMWindowExtension::frame() const
 {
-    auto* frame = m_coreExtension->frame();
-    if (!frame)
-        return nullptr;
-
-    return WebFrame::fromCoreFrame(*frame);
+    RefPtr frame = m_coreExtension->frame();
+    return frame ? WebFrame::fromCoreFrame(*frame) : nullptr;
 }
 
 InjectedBundleScriptWorld* InjectedBundleDOMWindowExtension::world() const

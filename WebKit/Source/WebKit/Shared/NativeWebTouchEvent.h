@@ -36,8 +36,8 @@
 #if PLATFORM(IOS_FAMILY)
 #include "WKTouchEventsGestureRecognizerTypes.h"
 #elif PLATFORM(GTK)
-#include <WebCore/GRefPtrGtk.h>
-#include <WebCore/GUniquePtrGtk.h>
+#include "GRefPtrGtk.h"
+#include "GUniquePtrGtk.h"
 #elif USE(LIBWPE)
 #include <wpe/wpe.h>
 #endif

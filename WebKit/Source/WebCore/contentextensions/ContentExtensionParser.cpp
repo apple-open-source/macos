@@ -83,7 +83,7 @@ static Expected<Vector<String>, std::error_code> getDomainList(const JSON::Array
             domain = domain.substring(1);
         }
 
-        std::array<std::pair<UChar, ASCIILiteral>, 9> escapeTable { {
+        std::array<std::pair<char16_t, ASCIILiteral>, 9> escapeTable { {
             { '\\', "\\\\"_s },
             { '{', "\\{"_s },
             { '}', "\\}"_s },
@@ -300,6 +300,25 @@ static std::optional<Expected<ContentExtensionRule, std::error_code>> loadRule(c
     return { { { WTFMove(trigger.value()), WTFMove(action->value()) } } };
 }
 
+static std::optional<Expected<ContentExtensionRule, std::error_code>> loadRuleIdentifier(const JSON::Object& ruleObject)
+{
+    auto identifierValue = ruleObject.getValue("_identifier"_s);
+    if (!identifierValue || !identifierValue->asValue())
+        return std::nullopt;
+
+    auto identifier = identifierValue->asValue()->asDouble();
+    if (!identifier.has_value())
+        return makeUnexpected(ContentExtensionError::JSONInvalidRuleIdentifier);
+
+    auto rulesetIdentifier = ruleObject.getString("_rulesetIdentifier"_s);
+
+    auto trigger = loadTrigger(ruleObject);
+    if (!trigger.has_value())
+        return makeUnexpected(trigger.error());
+
+    return { { { WTFMove(trigger.value()), Action { ReportIdentifierAction { rulesetIdentifier, identifier.value() } } } } };
+}
+
 static Expected<Vector<ContentExtensionRule>, std::error_code> loadEncodedRules(const String& ruleJSON, CSSSelectorsAllowed selectorsAllowed)
 {
     auto decodedRules = JSON::Value::parseJSON(ruleJSON);
@@ -312,7 +331,6 @@ static Expected<Vector<ContentExtensionRule>, std::error_code> loadEncodedRules(
         return makeUnexpected(ContentExtensionError::JSONTopLevelStructureNotAnArray);
 
     Vector<ContentExtensionRule> ruleList;
-
     constexpr size_t maxRuleCount = 150000;
     if (topLevelArray->length() > maxRuleCount)
         return makeUnexpected(ContentExtensionError::JSONTooManyRules);
@@ -328,6 +346,13 @@ static Expected<Vector<ContentExtensionRule>, std::error_code> loadEncodedRules(
         if (!rule->has_value())
             return makeUnexpected(rule->error());
         ruleList.append(WTFMove(rule->value()));
+
+        auto ruleIdentifier = loadRuleIdentifier(*ruleObject);
+        if (!ruleIdentifier)
+            continue;
+        if (!ruleIdentifier->has_value())
+            return makeUnexpected(ruleIdentifier->error());
+        ruleList.append(WTFMove(ruleIdentifier->value()));
     }
 
     return ruleList;

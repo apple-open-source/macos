@@ -30,14 +30,18 @@
 
 #include "LibWebRTCNetworkMessages.h"
 #include "Logging.h"
+#include "NetworkRTCUtilitiesCocoa.h"
+#include "RTCSocketCreationFlags.h"
 #include <WebCore/STUNMessageParsing.h>
 #include <dispatch/dispatch.h>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <pal/spi/cocoa/NetworkSPI.h>
+#include <webrtc/rtc_base/async_packet_socket.h>
 #include <webrtc/rtc_base/time_utils.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/SoftLinking.h>
+#include <wtf/SystemFree.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/cocoa/SpanCocoa.h>
@@ -51,7 +55,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkRTCUDPSocketCocoa);
 
 class NetworkRTCUDPSocketCocoaConnections : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<NetworkRTCUDPSocketCocoaConnections> {
 public:
-    static Ref<NetworkRTCUDPSocketCocoaConnections> create(WebCore::LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& provider, const webrtc::SocketAddress& address, Ref<IPC::Connection>&& connection, String&& attributedBundleIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain) { return adoptRef(*new NetworkRTCUDPSocketCocoaConnections(identifier, provider, address, WTFMove(connection), WTFMove(attributedBundleIdentifier), isFirstParty, isRelayDisabled, domain)); }
+    static Ref<NetworkRTCUDPSocketCocoaConnections> create(WebCore::LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& provider, const webrtc::SocketAddress& address, Ref<IPC::Connection>&& connection, String&& attributedBundleIdentifier, RTCSocketCreationFlags flags, const WebCore::RegistrableDomain& domain) { return adoptRef(*new NetworkRTCUDPSocketCocoaConnections(identifier, provider, address, WTFMove(connection), WTFMove(attributedBundleIdentifier), flags, domain)); }
 
     ~NetworkRTCUDPSocketCocoaConnections();
 
@@ -73,7 +77,7 @@ public:
     };
 
 private:
-    NetworkRTCUDPSocketCocoaConnections(WebCore::LibWebRTCSocketIdentifier, NetworkRTCProvider&, const webrtc::SocketAddress&, Ref<IPC::Connection>&&, String&& attributedBundleIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain&);
+    NetworkRTCUDPSocketCocoaConnections(WebCore::LibWebRTCSocketIdentifier, NetworkRTCProvider&, const webrtc::SocketAddress&, Ref<IPC::Connection>&&, String&& attributedBundleIdentifier, RTCSocketCreationFlags, const WebCore::RegistrableDomain&);
 
     std::pair<RetainPtr<nw_connection_t>, Ref<ConnectionStateTracker>> createNWConnection(const webrtc::SocketAddress&);
     void setupNWConnection(nw_connection_t, ConnectionStateTracker&, const webrtc::SocketAddress&);
@@ -85,6 +89,7 @@ private:
     bool m_isFirstParty { false };
     bool m_isKnownTracker { false };
     bool m_shouldBypassRelay { false };
+    bool m_enableServiceClass { false };
 
     CString m_sourceApplicationBundleIdentifier;
     std::optional<audit_token_t> m_sourceApplicationAuditToken;
@@ -98,20 +103,20 @@ private:
     std::optional<uint32_t> m_trafficClass;
 };
 
-static dispatch_queue_t udpSocketQueue()
+static dispatch_queue_t udpSocketQueueSingleton()
 {
     static LazyNeverDestroyed<RetainPtr<dispatch_queue_t>> queue;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        queue.construct(adoptNS(dispatch_queue_create("WebRTC UDP socket queue", DISPATCH_QUEUE_CONCURRENT)));
+        queue.construct(adoptNS(dispatch_queue_create("WebRTC UDP socket queue", RetainPtr { DISPATCH_QUEUE_CONCURRENT }.get())));
     });
     return queue.get().get();
 }
 
-NetworkRTCUDPSocketCocoa::NetworkRTCUDPSocketCocoa(WebCore::LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& rtcProvider, const webrtc::SocketAddress& address, Ref<IPC::Connection>&& connection, String&& attributedBundleIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain)
+NetworkRTCUDPSocketCocoa::NetworkRTCUDPSocketCocoa(WebCore::LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& rtcProvider, const webrtc::SocketAddress& address, Ref<IPC::Connection>&& connection, String&& attributedBundleIdentifier, RTCSocketCreationFlags flags, const WebCore::RegistrableDomain& domain)
     : m_rtcProvider(rtcProvider)
     , m_identifier(identifier)
-    , m_connections(NetworkRTCUDPSocketCocoaConnections::create(identifier, rtcProvider, address, WTFMove(connection), WTFMove(attributedBundleIdentifier), isFirstParty, isRelayDisabled, domain))
+    , m_connections(NetworkRTCUDPSocketCocoaConnections::create(identifier, rtcProvider, address, WTFMove(connection), WTFMove(attributedBundleIdentifier), flags, domain))
 {
 }
 
@@ -169,9 +174,8 @@ static webrtc::SocketAddress socketAddressFromIncomingConnection(nw_connection_t
     auto endpoint = adoptNS(nw_connection_copy_endpoint(connection));
     auto type = nw_endpoint_get_type(endpoint.get());
     if (type == nw_endpoint_type_address) {
-        auto* ipAddress = nw_endpoint_copy_address_string(endpoint.get());
-        webrtc::SocketAddress remoteAddress { ipAddress, nw_endpoint_get_port(endpoint.get()) };
-        free(ipAddress);
+        auto ipAddress = adoptSystemMalloc(nw_endpoint_copy_address_string(endpoint.get()));
+        webrtc::SocketAddress remoteAddress { ipAddress.get(), nw_endpoint_get_port(endpoint.get()) };
         return remoteAddress;
     }
     return webrtc::SocketAddress { nw_endpoint_get_hostname(endpoint.get()), nw_endpoint_get_port(endpoint.get()) };
@@ -213,12 +217,13 @@ static std::string computeHostAddress(const webrtc::SocketAddress& address)
     return "0.0.0.0";
 }
 
-NetworkRTCUDPSocketCocoaConnections::NetworkRTCUDPSocketCocoaConnections(WebCore::LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& rtcProvider, const webrtc::SocketAddress& address, Ref<IPC::Connection>&& connection, String&& attributedBundleIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain)
+NetworkRTCUDPSocketCocoaConnections::NetworkRTCUDPSocketCocoaConnections(WebCore::LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& rtcProvider, const webrtc::SocketAddress& address, Ref<IPC::Connection>&& connection, String&& attributedBundleIdentifier, RTCSocketCreationFlags flags, const WebCore::RegistrableDomain& domain)
     : m_identifier(identifier)
     , m_connection(WTFMove(connection))
-    , m_isFirstParty(isFirstParty)
+    , m_isFirstParty(flags.isFirstParty)
     , m_isKnownTracker(isKnownTracker(domain))
-    , m_shouldBypassRelay(isRelayDisabled)
+    , m_shouldBypassRelay(flags.isRelayDisabled)
+    , m_enableServiceClass(flags.enableServiceClass)
     , m_sourceApplicationBundleIdentifier(rtcProvider.applicationBundleIdentifier())
     , m_sourceApplicationAuditToken(rtcProvider.sourceApplicationAuditToken())
     , m_attributedBundleIdentifier(WTFMove(attributedBundleIdentifier))
@@ -233,7 +238,7 @@ NetworkRTCUDPSocketCocoaConnections::NetworkRTCUDPSocketCocoaConnections(WebCore
     configureParameters(parameters.get(), address.family() == AF_INET ? nw_ip_version_4 : nw_ip_version_6);
 
     m_nwListener = adoptNS(nw_listener_create(parameters.get()));
-    nw_listener_set_queue(m_nwListener.get(), udpSocketQueue());
+    nw_listener_set_queue(m_nwListener.get(), udpSocketQueueSingleton());
 
     // The callback holds a reference to the nw_listener and we clear it when going in nw_listener_state_cancelled state, which is triggered when closing the socket.
     nw_listener_set_state_changed_handler(m_nwListener.get(), makeBlockPtr([nwListener = m_nwListener, connection = m_connection.copyRef(), protectedRTCProvider = Ref { rtcProvider }, identifier = m_identifier, weakThis = ThreadSafeWeakPtr { *this }](nw_listener_state_t state, nw_error_t error) mutable {
@@ -301,6 +306,11 @@ void NetworkRTCUDPSocketCocoaConnections::configureParameters(nw_parameters_t pa
     setNWParametersTrackerOptions(parameters, m_shouldBypassRelay, m_isFirstParty, m_isKnownTracker);
 
     nw_parameters_set_reuse_local_address(parameters, true);
+
+    if (m_enableServiceClass) {
+        fprintf(stderr, "m_enableServiceClass\n");
+        nw_parameters_set_service_class(parameters, nw_service_class_interactive_video);
+    }
 }
 
 void NetworkRTCUDPSocketCocoaConnections::close()
@@ -388,7 +398,7 @@ std::pair<RetainPtr<nw_connection_t>, Ref<NetworkRTCUDPSocketCocoaConnections::C
 
 void NetworkRTCUDPSocketCocoaConnections::setupNWConnection(nw_connection_t nwConnection, ConnectionStateTracker& connectionStateTracker, const webrtc::SocketAddress& remoteAddress)
 {
-    nw_connection_set_queue(nwConnection, udpSocketQueue());
+    nw_connection_set_queue(nwConnection, udpSocketQueueSingleton());
 
     nw_connection_set_state_changed_handler(nwConnection, makeBlockPtr([connectionStateTracker = Ref  { connectionStateTracker }](nw_connection_state_t state, _Nullable nw_error_t error) {
         RELEASE_LOG_ERROR_IF(state == nw_connection_state_failed, WebRTC, "NetworkRTCUDPSocketCocoaConnections connection failed with error %d", error ? nw_error_get_error_code(error) : 0);

@@ -27,7 +27,9 @@
 #include "BackForwardController.h"
 
 #include "BackForwardClient.h"
+#include "Frame.h"
 #include "HistoryItem.h"
+#include "LocalFrame.h"
 #include "Page.h"
 #include "ShouldTreatAsContinuingLoad.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -173,15 +175,9 @@ RefPtr<HistoryItem> BackForwardController::itemAtIndex(int i, std::optional<Fram
     return m_client->itemAtIndex(i, frameID.value_or(m_page->mainFrame().frameID()));
 }
 
-Vector<Ref<HistoryItem>> BackForwardController::allItems()
+Vector<Ref<HistoryItem>> BackForwardController::allItems(std::optional<FrameIdentifier> frameID)
 {
-    Vector<Ref<HistoryItem>> historyItems;
-    for (int index = -1 * static_cast<int>(backCount()); index <= static_cast<int>(forwardCount()); index++) {
-        if (RefPtr item = itemAtIndex(index))
-            historyItems.append(item.releaseNonNull());
-    }
-
-    return historyItems;
+    return m_client->allItems(frameID.value_or(m_page->mainFrame().frameID()));
 }
 
 void BackForwardController::close()

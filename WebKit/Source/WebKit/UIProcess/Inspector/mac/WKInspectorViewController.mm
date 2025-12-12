@@ -35,6 +35,7 @@
 #import "WKInspectorWKWebView.h"
 #import "WKOpenPanelParameters.h"
 #import "WKProcessPoolInternal.h"
+#import "WKWebViewInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WebInspectorUIProxy.h"
 #import "WebInspectorUtilities.h"
@@ -47,7 +48,6 @@
 #import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKUIDelegatePrivate.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
-#import <WebKit/WKWebViewPrivate.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 
@@ -169,6 +169,9 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 
     preferences._diagnosticLoggingEnabled = YES;
 
+    // Disable Site Isolation for Web Inspector View.
+    preferences._siteIsolationEnabled = NO;
+
     [_configuration applyToWebViewConfiguration:configuration.get()];
     
     if (!!_delegate && [_delegate respondsToSelector:@selector(inspectorViewControllerInspectorIsUnderTest:)]) {
@@ -228,10 +231,15 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
     RetainPtr attachedView = [self _horizontallyAttachedInspectedWebView];
     [_webView _setOverrideTopScrollEdgeEffectColor:[attachedView _topScrollPocket].captureColor];
-    [_webView _setAlwaysPrefersSolidColorHardPocket:!!attachedView];
+
+    if (attachedView)
+        [_webView _addReasonToPreferSolidColorHardPocket:WebKit::PreferSolidColorHardPocketReason::AttachedInspector];
+    else
+        [_webView _removeReasonToPreferSolidColorHardPocket:WebKit::PreferSolidColorHardPocketReason::AttachedInspector];
+
     [_webView _setOverflowHeightForTopScrollEdgeEffect:[attachedView _overflowHeightForTopScrollEdgeEffect]];
     [_webView _updateHiddenScrollPocketEdges];
-#endif
+#endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 }
 
 - (WKWebView *)_horizontallyAttachedInspectedWebView
@@ -240,7 +248,7 @@ static void* const safeAreaInsetsKVOContext = (void*)&safeAreaInsetsKVOContext;
         return nil;
 
     if (RefPtr inspectedPage = _inspectedPage.get())
-        return inspectedPage->cocoaView().get();
+        return inspectedPage->cocoaView().unsafeGet();
 
     return nil;
 }

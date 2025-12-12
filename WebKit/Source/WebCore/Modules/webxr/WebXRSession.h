@@ -32,6 +32,7 @@
 #include "EventTarget.h"
 #include "EventTargetInterfaces.h"
 #include "JSDOMPromiseDeferredForward.h"
+#include "VisibilityChangeClient.h"
 #include "WebXRFrame.h"
 #include "WebXRInputSourceArray.h"
 #include "WebXRRenderState.h"
@@ -54,9 +55,10 @@ class WebCoreOpaqueRoot;
 class WebXRSystem;
 class WebXRView;
 class WebXRViewerSpace;
+struct XRCanvasConfiguration;
 struct XRRenderStateInit;
 
-class WebXRSession final : public RefCounted<WebXRSession>, public EventTarget, public ActiveDOMObject, public PlatformXR::TrackingAndRenderingClient {
+class WebXRSession final : public RefCounted<WebXRSession>, public EventTarget, public ActiveDOMObject, public PlatformXR::TrackingAndRenderingClient, VisibilityChangeClient {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebXRSession);
 public:
     void ref() const final { RefCounted::ref(); }
@@ -114,6 +116,8 @@ public:
     bool isHandTrackingEnabled() const;
 #endif
 
+    void initializeTrackingAndRendering(std::optional<XRCanvasConfiguration>&&);
+
 private:
     WebXRSession(Document&, WebXRSystem&, XRSessionMode, PlatformXR::Device&, FeatureList&&);
 
@@ -129,6 +133,9 @@ private:
     void sessionDidInitializeInputSources(Vector<PlatformXR::FrameData::InputSource>&&) final;
     void sessionDidEnd() final;
     void updateSessionVisibilityState(PlatformXR::VisibilityState) final;
+
+    // VisibilityChangeClient
+    void visibilityStateChanged() final;
 
     enum class InitiatedBySystem : bool { No, Yes };
     void shutdown(InitiatedBySystem);

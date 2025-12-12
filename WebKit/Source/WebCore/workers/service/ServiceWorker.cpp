@@ -26,9 +26,11 @@
 #include "config.h"
 #include "ServiceWorker.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "EventNames.h"
 #include "EventTargetInterfaces.h"
+#include "ExceptionOr.h"
 #include "Logging.h"
 #include "MessagePort.h"
 #include "SWClientConnection.h"
@@ -76,6 +78,9 @@ ServiceWorker::ServiceWorker(ScriptExecutionContext& context, ServiceWorkerData&
 
 ServiceWorker::~ServiceWorker()
 {
+    if (m_isStopped)
+        return;
+
     if (RefPtr context = scriptExecutionContext())
         context->unregisterServiceWorker(*this);
 }
@@ -100,6 +105,11 @@ SWClientConnection& ServiceWorker::swConnection()
     return ServiceWorkerProvider::singleton().serviceWorkerConnection();
 }
 
+Ref<SWClientConnection> ServiceWorker::protectedSWConnection()
+{
+    return swConnection();
+}
+
 ExceptionOr<void> ServiceWorker::postMessage(JSC::JSGlobalObject& globalObject, JSC::JSValue messageValue, StructuredSerializeOptions&& options)
 {
     if (m_isStopped)
@@ -119,12 +129,12 @@ ExceptionOr<void> ServiceWorker::postMessage(JSC::JSGlobalObject& globalObject, 
     // FIXME: Maybe we could use a ScriptExecutionContextIdentifier for service workers too.
     ServiceWorkerOrClientIdentifier sourceIdentifier = [&]() -> ServiceWorkerOrClientIdentifier {
         if (RefPtr serviceWorker = dynamicDowncast<ServiceWorkerGlobalScope>(context))
-            return serviceWorker->thread().identifier();
+            return serviceWorker->thread()->identifier();
         return context->identifier();
     }();
 
     MessageWithMessagePorts message { messageData.releaseReturnValue(), portsOrException.releaseReturnValue() };
-    swConnection().postMessageToServiceWorker(identifier(), WTFMove(message), sourceIdentifier);
+    protectedSWConnection()->postMessageToServiceWorker(identifier(), WTFMove(message), sourceIdentifier);
     return { };
 }
 
@@ -142,7 +152,7 @@ void ServiceWorker::stop()
 {
     m_isStopped = true;
     removeAllEventListeners();
-    scriptExecutionContext()->unregisterServiceWorker(*this);
+    protectedScriptExecutionContext()->unregisterServiceWorker(*this);
     updatePendingActivityForEventDispatch();
 }
 

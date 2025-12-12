@@ -29,6 +29,7 @@
 #if USE(CG)
 
 #include "IntRect.h"
+#include "PixelBuffer.h"
 #include <CoreGraphics/CoreGraphics.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
@@ -60,10 +61,10 @@ ImageBufferCGBackend::ImageBufferCGBackend(const Parameters& parameters, std::un
 
 ImageBufferCGBackend::~ImageBufferCGBackend() = default;
 
-unsigned ImageBufferCGBackend::calculateBytesPerRow(const IntSize& backendSize)
+unsigned ImageBufferCGBackend::calculateBytesPerRow(const IntSize& backendSize, PixelFormat pixelFormat)
 {
     ASSERT(!backendSize.isEmpty());
-    return CheckedUint32(backendSize.width()) * 4;
+    return CheckedUint32(backendSize.width()) * PixelBuffer::bytesPerPixel(pixelFormat);
 }
 
 std::unique_ptr<ThreadSafeImageBufferFlusher> ImageBufferCGBackend::createFlusher()

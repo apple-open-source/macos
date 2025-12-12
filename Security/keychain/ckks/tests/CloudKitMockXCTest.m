@@ -476,6 +476,11 @@
     }];
  }
 
+- (NSString*)fetchPETForUsername:(NSString*)username error:(NSError**)error
+{
+    return @"🐶";
+}
+
 @end
 
 

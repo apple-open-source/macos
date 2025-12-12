@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "FontCascadeCache.h"
 #include <CoreText/CoreText.h>
+#include <WebCore/FontCascadeCache.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
 

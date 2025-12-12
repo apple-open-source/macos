@@ -79,8 +79,6 @@ public:
 
     bool hasSelectedVideo() const;
 
-    void willSeek();
-
     FloatSize naturalSize() const;
 
     void hasSelectedVideoChanged(SourceBufferPrivateAVFObjC&);
@@ -89,12 +87,7 @@ public:
     void videoRendererWillReconfigure(VideoMediaSampleRenderer&);
     void videoRendererDidReconfigure(VideoMediaSampleRenderer&);
 
-#if PLATFORM(IOS_FAMILY)
-    void applicationWillResignActive();
-    void applicationDidBecomeActive();
-#endif
-
-    void flushActiveSourceBuffersIfNeeded();
+    void flushAndReenqueueActiveVideoSourceBuffers();
 
 #if ENABLE(ENCRYPTED_MEDIA)
     void cdmInstanceAttached(CDMInstance&);

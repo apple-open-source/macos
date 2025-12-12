@@ -456,7 +456,7 @@ const std::array<WebXRExternalAttachments, 2>* WebXROpaqueFramebuffer::reusableD
     return &m_displayAttachmentsSets[reusableTextureIndex];
 }
 
-void WebXROpaqueFramebuffer::bindCompositorTexturesForDisplay(GraphicsContextGL& gl, const PlatformXR::FrameData::LayerData& layerData)
+void WebXROpaqueFramebuffer::bindCompositorTexturesForDisplay(GraphicsContextGL& gl, PlatformXR::FrameData::LayerData& layerData)
 {
     int layerCount = (m_displayLayout == PlatformXR::Layout::Layered) ? 2 : 1;
 

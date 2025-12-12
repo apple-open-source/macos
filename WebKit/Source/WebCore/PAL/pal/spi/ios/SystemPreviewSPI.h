@@ -76,7 +76,7 @@ NS_ASSUME_NONNULL_END
 
 NS_ASSUME_NONNULL_BEGIN
 
-#if PLATFORM(VISION)
+#if PLATFORM(VISION) && !HAVE(LIQUID_GLASS)
 @interface ARQuickLookPreviewItem : NSObject
 @property (nonatomic, strong, nullable) NSURL *canonicalWebPageURL;
 - (instancetype)initWithFileAtURL:(NSURL *)url;

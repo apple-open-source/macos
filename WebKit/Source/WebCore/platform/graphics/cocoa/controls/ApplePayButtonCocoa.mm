@@ -111,7 +111,7 @@ void ApplePayButtonCocoa::draw(GraphicsContext& context, const FloatRoundedRect&
     Ref applePayButtonPart = owningApplePayButtonPart();
     
     PKDrawApplePayButtonWithCornerRadius(
-        context.platformContext(),
+        RetainPtr { context.platformContext() }.get(),
         CGRectMake(logicalRect.x(), -logicalRect.maxY(), logicalRect.width(), logicalRect.height()),
         1.0,
         largestCornerRadius,

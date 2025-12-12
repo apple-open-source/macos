@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "FloatRoundedRect.h"
-#include "PathElement.h"
-#include "PathSegment.h"
+#include <WebCore/FloatRoundedRect.h>
+#include <WebCore/PathElement.h>
+#include <WebCore/PathSegment.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>

@@ -52,7 +52,7 @@ private:
     void derefEventTarget() final { deref(); }
 
     enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::XMLHttpRequestUpload; }
-    ScriptExecutionContext* scriptExecutionContext() const final { return m_request->scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
 
     WeakRef<XMLHttpRequest, WeakPtrImplWithEventTargetData> m_request;
 };

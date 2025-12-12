@@ -65,7 +65,7 @@ public:
     static Ref<FontFace> create(ScriptExecutionContext*, CSSFontFace&);
     virtual ~FontFace();
 
-    ExceptionOr<void> setFamily(ScriptExecutionContext&, const String&);
+    ExceptionOr<void> setFamily(const String&);
     ExceptionOr<void> setStyle(ScriptExecutionContext&, const String&);
     ExceptionOr<void> setWeight(ScriptExecutionContext&, const String&);
     ExceptionOr<void> setWidth(ScriptExecutionContext&, const String&);

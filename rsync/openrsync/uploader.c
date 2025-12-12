@@ -2067,8 +2067,8 @@ upload_ack_complete(struct upload *p, struct sess *sess, int fdout)
 	for (idx = p->nextack; idx < p->idx; idx++) {
 		fl = &p->fl[idx];
 
-		/* Skip over non-files */
-		if (!S_ISREG(fl->st.mode))
+		/* Skip dirs */
+		if (S_ISDIR(fl->st.mode))
 			continue;
 
 		/* Entry not yet processed by the downloader. */

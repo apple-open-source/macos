@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "CryptoAlgorithmIdentifier.h"
-#include "CryptoKeyType.h"
-#include "CryptoKeyUsage.h"
-#include "JsonWebKey.h"
+#include <WebCore/CryptoAlgorithmIdentifier.h>
+#include <WebCore/CryptoKeyType.h>
+#include <WebCore/CryptoKeyUsage.h>
+#include <WebCore/JsonWebKey.h>
 
 namespace WebCore {
 

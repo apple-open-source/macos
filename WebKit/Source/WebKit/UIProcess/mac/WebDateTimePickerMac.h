@@ -43,11 +43,11 @@ public:
     ~WebDateTimePickerMac();
 
     void didChooseDate(StringView);
+    void endPicker() final;
 
 private:
     WebDateTimePickerMac(WebPageProxy&, NSView *);
 
-    void endPicker() final;
     void showDateTimePicker(WebCore::DateTimeChooserParameters&&) final;
 
     WeakObjCPtr<NSView> m_view;

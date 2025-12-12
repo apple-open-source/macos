@@ -32,6 +32,11 @@
 
 namespace WebCore {
 
+Ref<MessagePortChannelProviderImpl> MessagePortChannelProviderImpl::create()
+{
+    return adoptRef(*new MessagePortChannelProviderImpl);
+}
+
 MessagePortChannelProviderImpl::MessagePortChannelProviderImpl() = default;
 
 MessagePortChannelProviderImpl::~MessagePortChannelProviderImpl()

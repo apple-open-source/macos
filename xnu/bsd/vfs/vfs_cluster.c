@@ -1015,7 +1015,7 @@ cluster_ioerror(upl_t upl, int upl_offset, int abort_size, int error, int io_fla
 		} else if (page_in) {
 			upl_abort_code = UPL_ABORT_FREE_ON_EMPTY | UPL_ABORT_ERROR;
 		} else {
-			upl_abort_code = UPL_ABORT_FREE_ON_EMPTY | UPL_ABORT_DUMP_PAGES;
+			upl_abort_code = UPL_ABORT_FREE_ON_EMPTY /* | UPL_ABORT_DUMP_PAGES */;
 		}
 
 		ubc_upl_abort_range(upl, upl_offset, abort_size, upl_abort_code);

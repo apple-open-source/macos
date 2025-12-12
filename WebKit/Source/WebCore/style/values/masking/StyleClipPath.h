@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "StylePathOperationWrappers.h"
-#include "StyleValueTypes.h"
+#include <WebCore/StylePathOperationWrappers.h>
+#include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
 namespace Style {
@@ -149,4 +149,4 @@ template<> struct Blending<ClipPath> {
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ClipPath> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::ClipPath)

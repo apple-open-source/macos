@@ -51,9 +51,7 @@ public:
         initialize(client);
     }
 
-    virtual ~PageBannerClientImpl()
-    {
-    }
+    virtual ~PageBannerClientImpl() = default;
 
 private:
     // PageBanner::Client.

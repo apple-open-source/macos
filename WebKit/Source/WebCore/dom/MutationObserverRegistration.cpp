@@ -34,6 +34,7 @@
 
 #include "Document.h"
 #include "JSNodeCustom.h"
+#include "NodeDocument.h"
 #include "QualifiedName.h"
 #include "WebCoreOpaqueRootInlines.h"
 #include <wtf/TZoneMallocInlines.h>

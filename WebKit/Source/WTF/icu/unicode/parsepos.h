@@ -1,7 +1,7 @@
 // © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
-* Copyright (C) 1997-2005, International Business Machines Corporation and others. All rights reserved.
+* Copyright (C) 1997-2005, International Business Machines Corporation and others. All Rights Reserved.
 *******************************************************************************
 *
 * File PARSEPOS.H
@@ -112,7 +112,7 @@ public:
     /**
      * Clone this object.
      * Clones can be used concurrently in multiple threads.
-     * If an error occurs, then NULL is returned.
+     * If an error occurs, then nullptr is returned.
      * The caller must delete the clone.
      *
      * @return a clone of this object

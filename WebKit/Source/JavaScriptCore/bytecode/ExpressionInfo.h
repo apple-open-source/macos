@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "LineColumn.h"
+#include <JavaScriptCore/LineColumn.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>
 #include <wtf/IterationStatus.h>
@@ -42,7 +42,7 @@ namespace JSC {
 
 class ExpressionInfo {
     WTF_MAKE_NONCOPYABLE(ExpressionInfo);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(ExpressionInfo);
 public:
     enum class FieldID : uint8_t { InstPC, Divot, Start, End, Line, Column };
 

@@ -37,6 +37,7 @@
 #include "CustomElementRegistry.h"
 #include "DataTransfer.h"
 #include "DocumentInlines.h"
+#include "DocumentQuirks.h"
 #include "DocumentType.h"
 #include "ElementIterator.h"
 #include "ElementRareData.h"
@@ -46,6 +47,7 @@
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
+#include "FrameInlines.h"
 #include "GCReachableRef.h"
 #include "HTMLAreaElement.h"
 #include "HTMLBodyElement.h"
@@ -95,7 +97,6 @@
 #include "XMLNames.h"
 #include <JavaScriptCore/HeapInlines.h>
 #include <wtf/HexNumber.h>
-#include <wtf/RefCountedLeakCounter.h>
 #include <wtf/SHA1.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -110,7 +111,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
+WTF_MAKE_PREFERABLY_COMPACT_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
 
 using namespace HTMLNames;
 
@@ -326,7 +327,6 @@ void Node::dumpStatistics()
         SAFE_PRINTF("  %s: %zu\n", stringForRareDataUseType(static_cast<NodeRareData::UseType>(it.key)), it.value);
     printf("\n");
 
-
     printf("NodeType distribution:\n");
     printf("  Number of Element nodes: %zu\n", elementNodes);
     printf("  Number of Attribute nodes: %zu\n", attrNodes);
@@ -353,42 +353,8 @@ void Node::dumpStatistics()
 #endif // DUMP_NODE_STATISTICS
 }
 
-DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, nodeCounter, ("WebCoreNode"));
-
-#ifndef NDEBUG
-static bool shouldIgnoreLeaks = false;
-
-static WeakHashSet<Node, WeakPtrImplWithEventTargetData>& ignoreSet()
-{
-    static NeverDestroyed<WeakHashSet<Node, WeakPtrImplWithEventTargetData>> ignore;
-    return ignore;
-}
-
-#endif
-
-void Node::startIgnoringLeaks()
-{
-#ifndef NDEBUG
-    shouldIgnoreLeaks = true;
-#endif
-}
-
-void Node::stopIgnoringLeaks()
-{
-#ifndef NDEBUG
-    shouldIgnoreLeaks = false;
-#endif
-}
-
 void Node::trackForDebugging()
 {
-#ifndef NDEBUG
-    if (shouldIgnoreLeaks)
-        ignoreSet().add(*this);
-    else
-        nodeCounter.increment();
-#endif
-
 #if DUMP_NODE_STATISTICS
     liveNodeSet().add(*this);
 #endif
@@ -426,6 +392,12 @@ Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
 #endif
 }
 
+static HashMap<WeakRef<Node, WeakPtrImplWithEventTargetData>, NodeIdentifier>& nodeIdentifiersMap()
+{
+    static MainThreadNeverDestroyed<HashMap<WeakRef<Node, WeakPtrImplWithEventTargetData>, NodeIdentifier>> map;
+    return map;
+}
+
 Node::~Node()
 {
     ASSERT(isMainThread());
@@ -434,10 +406,10 @@ Node::~Node()
 
     InspectorInstrumentation::willDestroyDOMNode(*this);
 
-#ifndef NDEBUG
-    if (!ignoreSet().remove(*this))
-        nodeCounter.decrement();
-#endif
+    if (hasStateFlag(StateFlag::HasNodeIdentifier)) [[unlikely]]
+        nodeIdentifiersMap().remove(*this);
+    else
+        ASSERT(!nodeIdentifiersMap().contains(*this));
 
 #if DUMP_NODE_STATISTICS
     liveNodeSet().remove(*this);
@@ -460,11 +432,11 @@ Node::~Node()
             document.decrementReferencingNodeCount(); // This may destroy the document.
     }
 
-#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY) && (ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS))
+#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY) && ASSERT_ENABLED
     for (auto& document : Document::allDocuments()) {
-        ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventListenersContain(*this));
-        ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventHandlersContain(*this));
-        ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventTargetsContain(*this));
+        ASSERT(!document->touchEventListenersContain(*this));
+        ASSERT(!document->touchEventHandlersContain(*this));
+        ASSERT(!document->touchEventTargetsContain(*this));
     }
 #endif
 
@@ -815,14 +787,14 @@ ExceptionOr<void> Node::normalize()
     return { };
 }
 
-Ref<Node> Node::cloneNode(bool deep)
+Ref<Node> Node::cloneNode(bool deep) const
 {
     ASSERT(!isShadowRoot());
     RefPtr registry = CustomElementRegistry::registryForNodeOrTreeScope(*this, treeScope());
     return cloneNodeInternal(document(), deep ? CloningOperation::Everything : CloningOperation::SelfOnly, registry.get());
 }
 
-ExceptionOr<Ref<Node>> Node::cloneNodeForBindings(bool deep)
+ExceptionOr<Ref<Node>> Node::cloneNodeForBindings(bool deep) const
 {
     if (isShadowRoot()) [[unlikely]]
         return Exception { ExceptionCode::NotSupportedError };
@@ -3115,6 +3087,23 @@ TextStream& operator<<(TextStream& ts, const Node& node)
 {
     ts << node.debugDescription();
     return ts;
+}
+
+NodeIdentifier Node::nodeIdentifier() const
+{
+    return nodeIdentifiersMap().ensure(const_cast<Node&>(*this), [&] {
+        setStateFlag(StateFlag::HasNodeIdentifier);
+        return NodeIdentifier::generate();
+    }).iterator->value;
+}
+
+Node* Node::fromIdentifier(NodeIdentifier identifier)
+{
+    for (auto& [node, nodeIdentifier] : nodeIdentifiersMap()) {
+        if (nodeIdentifier == identifier)
+            return node.ptr();
+    }
+    return nullptr;
 }
 
 } // namespace WebCore

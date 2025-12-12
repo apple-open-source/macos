@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "GraphicsContext.h"
-#include "IntRect.h"
-#include "ScrollTypes.h"
+#include <WebCore/GraphicsContext.h>
+#include <WebCore/IntRect.h>
+#include <WebCore/ScrollTypes.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {

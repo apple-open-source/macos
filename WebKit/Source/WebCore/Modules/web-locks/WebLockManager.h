@@ -77,7 +77,7 @@ private:
     void suspend(ReasonForSuspension) final;
 
     class MainThreadBridge;
-    RefPtr<MainThreadBridge> m_mainThreadBridge;
+    const RefPtr<MainThreadBridge> m_mainThreadBridge;
 
     HashMap<WebLockIdentifier, RefPtr<DeferredPromise>> m_releasePromises;
 

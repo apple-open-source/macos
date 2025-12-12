@@ -25,12 +25,13 @@
 
 #pragma once
 
+#import <wtf/Platform.h>
+
 #if ENABLE(DATA_DETECTION) && PLATFORM(MAC)
 
-#import "GraphicsLayer.h"
-#import "GraphicsLayerClient.h"
-#import "SimpleRange.h"
-#import "Timer.h"
+#import <WebCore/GraphicsLayerClient.h>
+#import <WebCore/SimpleRange.h>
+#import <WebCore/Timer.h>
 #import <wtf/RefCountedAndCanMakeWeakPtr.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>

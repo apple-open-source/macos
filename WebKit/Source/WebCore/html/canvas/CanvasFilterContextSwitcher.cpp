@@ -37,7 +37,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(CanvasFilterContextSwitcher);
 
 std::unique_ptr<CanvasFilterContextSwitcher> CanvasFilterContextSwitcher::create(CanvasRenderingContext2DBase& context, const FloatRect& bounds)
 {
-    if (context.state().filterOperations.isEmpty())
+    if (context.state().filter.isNone())
         return nullptr;
 
     auto filter = context.createFilter(bounds);

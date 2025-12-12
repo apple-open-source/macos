@@ -30,7 +30,6 @@
 #if ENABLE(MATHML)
 
 #include "RenderMathMLBlock.h"
-#include "RenderObjectInlines.h"
 
 namespace WebCore {
 
@@ -62,11 +61,8 @@ private:
     bool isChildAllowed(const RenderObject&, const RenderStyle&) const final { return true; };
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
     void updateMathVariantGlyph();
-    void setMathVariantGlyphDirty()
-    {
-        m_mathVariantGlyphDirty = true;
-        setNeedsLayoutAndPreferredWidthsUpdate();
-    }
+    void setMathVariantGlyphDirty();
+
     std::optional<char32_t> m_mathVariantCodePoint { std::nullopt };
     bool m_mathVariantIsMirrored { false };
     bool m_mathVariantGlyphDirty { false };

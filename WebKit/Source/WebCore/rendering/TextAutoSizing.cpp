@@ -30,17 +30,18 @@
 
 #include "CSSFontSelector.h"
 #include "Document.h"
-#include "DocumentInlines.h"
 #include "FontCascade.h"
 #include "Logging.h"
 #include "RenderBlock.h"
 #include "RenderListMarker.h"
+#include "RenderObjectInlines.h"
 #include "RenderText.h"
 #include "RenderTextFragment.h"
 #include "RenderTreeBuilder.h"
 #include "Settings.h"
+#include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StyleResolver.h"
-#include "TextSizeAdjustment.h"
+#include "StyleTextSizeAdjust.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -53,7 +54,7 @@ static RenderStyle cloneRenderStyleWithState(const RenderStyle& currentStyle)
     auto newStyle = RenderStyle::clone(currentStyle);
 
     // FIXME: This should probably handle at least ::first-line too.
-    if (auto* firstLetterStyle = currentStyle.getCachedPseudoStyle({ PseudoId::FirstLetter }))
+    if (auto* firstLetterStyle = currentStyle.getCachedPseudoStyle({ PseudoElementType::FirstLetter }))
         newStyle.addCachedPseudoStyle(makeUnique<RenderStyle>(RenderStyle::clone(*firstLetterStyle)));
 
     if (currentStyle.lastChildState())
@@ -150,20 +151,29 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
         auto& parentStyle = parentRenderer->style();
         auto& lineHeightLength = parentStyle.specifiedLineHeight();
 
-        int specifiedLineHeight;
-        if (lineHeightLength.isPercent())
-            specifiedLineHeight = minimumValueForLength(lineHeightLength, fontDescription.specifiedSize());
-        else
-            specifiedLineHeight = lineHeightLength.value();
+        int specifiedLineHeight = WTF::switchOn(lineHeightLength,
+            [&](const CSS::Keyword::Normal&) {
+                return 0;
+            },
+            [&](const Style::LineHeight::Fixed& fixed) {
+                return Style::evaluate<LayoutUnit>(fixed, Style::ZoomFactor { 1.0f }).toInt();
+            },
+            [&](const Style::LineHeight::Percentage& percentage) {
+                return Style::evaluate<LayoutUnit>(percentage, LayoutUnit { fontDescription.specifiedSize() }).toInt();
+            },
+            [&](const Style::LineHeight::Calc&) {
+                return 0;
+            }
+        );
 
         // This calculation matches the line-height computed size calculation in StyleBuilderCustom::applyValueLineHeight().
         int lineHeight = specifiedLineHeight * scaleChange;
-        if (lineHeightLength.isFixed() && lineHeightLength.value() == lineHeight)
+        if (auto fixedLineHeight = lineHeightLength.tryFixed(); fixedLineHeight && fixedLineHeight->resolveZoom(Style::ZoomFactor { 1.0f }) == lineHeight)
             continue;
 
         auto newParentStyle = cloneRenderStyleWithState(parentStyle);
-        newParentStyle.setLineHeight(lineHeightLength.isNormal() ? Length(lineHeightLength) : Length(lineHeight, LengthType::Fixed));
-        newParentStyle.setSpecifiedLineHeight(Length { lineHeightLength });
+        newParentStyle.setLineHeight(lineHeightLength.isNormal() ? Style::LineHeight { lineHeightLength } : Style::LineHeight { Style::LineHeight::Fixed { static_cast<float>(lineHeight) } });
+        newParentStyle.setSpecifiedLineHeight(Style::LineHeight { lineHeightLength });
         newParentStyle.setFontDescription(WTFMove(fontDescription));
         parentRenderer->setStyle(WTFMove(newParentStyle));
 
@@ -181,7 +191,7 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
         auto [firstLetter, firstLetterContainer] = block->firstLetterAndContainer();
         if (firstLetter && firstLetter->parent() && firstLetter->parent()->parent()) {
             auto& parentStyle = firstLetter->parent()->parent()->style();
-            auto* firstLetterStyle = parentStyle.getCachedPseudoStyle({ PseudoId::FirstLetter });
+            auto* firstLetterStyle = parentStyle.getCachedPseudoStyle({ PseudoElementType::FirstLetter });
             if (!firstLetterStyle)
                 continue;
             auto fontDescription = firstLetterStyle->fontDescription();
@@ -231,7 +241,7 @@ void TextAutoSizingValue::reset()
             continue;
 
         auto newParentStyle = cloneRenderStyleWithState(parentStyle);
-        newParentStyle.setLineHeight(Length { originalLineHeight });
+        newParentStyle.setLineHeight(Style::LineHeight { originalLineHeight });
         newParentStyle.setFontDescription(WTFMove(fontDescription));
         parentRenderer->setStyle(WTFMove(newParentStyle));
     }

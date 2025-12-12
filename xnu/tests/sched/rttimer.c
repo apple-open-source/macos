@@ -238,6 +238,7 @@ calibration(__unused void * arg)
 
 T_DECL(rttimer, "Check that realtime thread timer's average miss is <= 0.5ms",
     T_META_TAG_VM_NOT_ELIGIBLE, XNU_T_META_SOC_SPECIFIC,
+    XNU_T_META_REQUIRES_DEVELOPMENT_KERNEL,     /* needed to set workload config */
     T_META_CHECK_LEAKS(false), /* could affect timing */
     T_META_RUN_CONCURRENTLY(false),
     T_META_ASROOT(true) /* needed to set workload config */

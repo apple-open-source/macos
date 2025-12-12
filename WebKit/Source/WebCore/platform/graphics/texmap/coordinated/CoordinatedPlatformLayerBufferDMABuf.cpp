@@ -263,7 +263,7 @@ void CoordinatedPlatformLayerBufferDMABuf::paintToTextureMapper(TextureMapper& t
     waitForContentsIfNeeded();
 
     if (m_fenceFD) {
-        if (auto fence = GLFence::importFD(WTFMove(m_fenceFD)))
+        if (auto fence = GLFence::importFD(PlatformDisplay::sharedDisplay().glDisplay(), WTFMove(m_fenceFD)))
             fence->serverWait();
     }
 

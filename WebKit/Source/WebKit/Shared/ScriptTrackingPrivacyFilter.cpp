@@ -31,7 +31,7 @@
 
 namespace WebKit {
 
-static void initializeFilterRules(Vector<ScriptTrackingPrivacyHost>&& source, HostToAllowedCategoriesMap& target, ScriptTrackingPrivacyFlags& categoriesWithAllowedHosts)
+static void initializeFilterRules(Vector<ScriptTrackingPrivacyHost>&& source, HostToAllowedCategoriesMap& target, WebCore::ScriptTrackingPrivacyFlags& categoriesWithAllowedHosts)
 {
     target.reserveInitialCapacity(source.size());
     for (auto&& [host, allowedCategories] : WTFMove(source)) {
@@ -87,7 +87,7 @@ bool ScriptTrackingPrivacyFilter::matches(const URL& url, const WebCore::Securit
     return lookup(url, topOrigin).foundMatch;
 }
 
-bool ScriptTrackingPrivacyFilter::shouldAllowAccess(const URL& url, const WebCore::SecurityOrigin& topOrigin, ScriptTrackingPrivacyCategory category)
+bool ScriptTrackingPrivacyFilter::shouldAllowAccess(const URL& url, const WebCore::SecurityOrigin& topOrigin, WebCore::ScriptTrackingPrivacyCategory category)
 {
     if (url.isEmpty())
         return false;

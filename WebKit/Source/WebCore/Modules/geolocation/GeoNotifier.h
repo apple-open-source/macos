@@ -28,11 +28,10 @@
 
 #if ENABLE(GEOLOCATION)
 
-#include "PositionOptions.h"
-#include "Timer.h"
+#include <WebCore/PositionOptions.h>
+#include <WebCore/Timer.h>
 #include <wtf/Forward.h>
-#include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 
 namespace WebCore {
 
@@ -42,7 +41,7 @@ class GeolocationPositionError;
 class PositionCallback;
 class PositionErrorCallback;
 
-class GeoNotifier : public RefCounted<GeoNotifier> {
+class GeoNotifier : public RefCountedAndCanMakeWeakPtr<GeoNotifier> {
 public:
     static Ref<GeoNotifier> create(Geolocation& geolocation, Ref<PositionCallback>&& positionCallback, RefPtr<PositionErrorCallback>&& positionErrorCallback, PositionOptions&& options)
     {

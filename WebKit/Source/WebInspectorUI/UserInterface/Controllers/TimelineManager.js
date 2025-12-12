@@ -851,15 +851,26 @@ WI.TimelineManager = class TimelineManager extends WI.Object
 
         case InspectorBackend.Enum.Timeline.EventType.Layout:
             var layoutRecordType = sourceCodeLocation ? WI.LayoutTimelineRecord.EventType.ForcedLayout : WI.LayoutTimelineRecord.EventType.Layout;
-            var quad = new WI.Quad(recordPayload.data.root);
-            return new WI.LayoutTimelineRecord(layoutRecordType, startTime, endTime, stackTrace, sourceCodeLocation, quad);
+            return new WI.LayoutTimelineRecord(layoutRecordType, startTime, endTime, stackTrace, sourceCodeLocation, {
+                quad: new WI.Quad(recordPayload.data.root),
+            });
 
         case InspectorBackend.Enum.Timeline.EventType.Paint:
-            var quad = new WI.Quad(recordPayload.data.clip);
-            return new WI.LayoutTimelineRecord(WI.LayoutTimelineRecord.EventType.Paint, startTime, endTime, stackTrace, sourceCodeLocation, quad);
+            return new WI.LayoutTimelineRecord(WI.LayoutTimelineRecord.EventType.Paint, startTime, endTime, stackTrace, sourceCodeLocation, {
+                quad: new WI.Quad(recordPayload.data.clip),
+            });
 
         case InspectorBackend.Enum.Timeline.EventType.Composite:
             return new WI.LayoutTimelineRecord(WI.LayoutTimelineRecord.EventType.Composite, startTime, endTime, stackTrace, sourceCodeLocation);
+
+        case InspectorBackend.Enum.Timeline.EventType.FirstContentfulPaint:
+            return new WI.LayoutTimelineRecord(WI.LayoutTimelineRecord.EventType.FirstContentfulPaint, startTime, startTime, stackTrace, sourceCodeLocation);
+
+        case InspectorBackend.Enum.Timeline.EventType.LargestContentfulPaint:
+            return new WI.LayoutTimelineRecord(WI.LayoutTimelineRecord.EventType.LargestContentfulPaint, startTime, startTime, stackTrace, sourceCodeLocation, {
+                area: recordPayload.data.area,
+                domNode: WI.domManager.nodeForId(recordPayload.data.nodeId),
+            });
 
         case InspectorBackend.Enum.Timeline.EventType.RenderingFrame:
             if (!recordPayload.children || !recordPayload.children.length)

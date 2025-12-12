@@ -1748,6 +1748,7 @@ sksegment_freelist_remove(struct skmem_region *skr, struct sksegment *sg,
 #pragma unused(skmflag)
 	mach_vm_address_t segstart;
 	IOReturn err;
+	int ret;
 
 	SKR_LOCK_ASSERT_HELD(skr);
 
@@ -1857,7 +1858,36 @@ sksegment_freelist_remove(struct skmem_region *skr, struct sksegment *sg,
 	 * Try to find out if it's wired and set the right state.
 	 */
 	if (skr->skr_seg_ctor != NULL) {
-		skr->skr_seg_ctor(sg, sg->sg_md, skr->skr_private);
+		ret = skr->skr_seg_ctor(sg, sg->sg_md, skr->skr_private);
+		/* Handle segment creation failure from driver power down */
+		if (__improbable(ret != 0)) {
+			SK_ERR("segment constructor for sg %p failed, err %d", sg, ret);
+			if (ret == ENOMEM) {
+				/*
+				 * Undo IOSKMemoryBufferCreate, IOSKMemoryReclaim,
+				 * IOSKMemoryWire, and IOSKRegionSetBuffer.
+				 */
+				IOSKMemoryBufferRef __single md;
+				IOSKRegionClearBufferDebug(skr->skr_reg, sg->sg_index, &md);
+				VERIFY(sg->sg_md == md);
+				if ((skr->skr_mode & SKR_MODE_PERSISTENT) &&
+				    !(skr->skr_mode & SKR_MODE_MEMTAG)) {
+					err = IOSKMemoryUnwire(md);
+					if (err != kIOReturnSuccess) {
+						panic("Fail to unwire md %p, err %d", md, err);
+					}
+				}
+				/* mark memory as empty/discarded for consistency */
+				if (!(skr->skr_mode & SKR_MODE_MEMTAG)) {
+					err = IOSKMemoryDiscard(md);
+					if (err != kIOReturnSuccess) {
+						panic("Fail to discard md %p, err %d", md, err);
+					}
+				}
+				IOSKMemoryDestroy(md);
+				return NULL;
+			}
+		}
 	}
 
 	sg->sg_state = IOSKBufferIsWired(sg->sg_md) ?

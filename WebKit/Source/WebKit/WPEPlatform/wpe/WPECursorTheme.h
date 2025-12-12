@@ -37,7 +37,6 @@ public:
     static std::unique_ptr<CursorTheme> create();
 
     CursorTheme(GUniquePtr<char>&&, uint32_t, Vector<GUniquePtr<char>>&&);
-    ~CursorTheme() = default;
 
     uint32_t size() const { return m_size; }
 

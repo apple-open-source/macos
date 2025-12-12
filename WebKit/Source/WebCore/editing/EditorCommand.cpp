@@ -29,17 +29,20 @@
 #include "config.h"
 #include "Editor.h"
 
+#include "ContainerNodeInlines.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSValueList.h"
 #include "Chrome.h"
 #include "CreateLinkCommand.h"
 #include "DocumentFragment.h"
+#include "DocumentPage.h"
 #include "Editing.h"
 #include "EditorClient.h"
 #include "ElementInlines.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "FormatBlockCommand.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "HTMLFontElement.h"
 #include "HTMLHRElement.h"
@@ -48,10 +51,9 @@
 #include "IndentOutdentCommand.h"
 #include "InsertListCommand.h"
 #include "InsertNestedListCommand.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "MutableStyleProperties.h"
-#include "Page.h"
 #include "PagePasteboardContext.h"
 #include "Pasteboard.h"
 #include "Range.h"
@@ -382,7 +384,7 @@ static bool executeDeleteWordForward(LocalFrame& frame, Event*, EditorCommandSou
 
 static bool executeFindString(LocalFrame& frame, Event*, EditorCommandSource, const String& value)
 {
-    return frame.editor().findString(value, { FindOption::CaseInsensitive, FindOption::WrapAround, FindOption::DoNotTraverseFlatTree });
+    return frame.editor().findString(value, { FindOption::CaseInsensitive, FindOption::WrapAround, FindOption::DoNotTraverseFlatTree }).has_value();
 }
 
 static bool executeFontName(LocalFrame& frame, Event*, EditorCommandSource source, const String& value)

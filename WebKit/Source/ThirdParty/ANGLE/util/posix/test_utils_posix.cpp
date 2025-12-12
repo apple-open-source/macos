@@ -6,6 +6,10 @@
 
 // test_utils_posix.cpp: Implementation of OS-specific functions for Posix systems
 
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
+
 #include "util/test_utils.h"
 
 #include <dlfcn.h>
@@ -75,6 +79,7 @@ enum class ReadResult
     GotData,
 };
 
+#if !defined(ANGLE_PLATFORM_APPLETV)
 ReadResult ReadFromFile(int fd, std::string *out)
 {
     constexpr size_t kBufSize = 2048;
@@ -321,6 +326,7 @@ class PosixProcess : public Process
     int mExitCode = 0;
     pid_t mPID    = -1;
 };
+#endif
 }  // anonymous namespace
 
 void Sleep(unsigned int milliseconds)
@@ -402,7 +408,11 @@ bool DeleteSystemFile(const char *path)
 
 Process *LaunchProcess(const std::vector<const char *> &args, ProcessOutputCapture captureOutput)
 {
+#if !defined(ANGLE_PLATFORM_APPLETV)
     return new PosixProcess(args, captureOutput);
+#else
+    return nullptr;
+#endif
 }
 
 int NumberOfProcessors()

@@ -324,7 +324,7 @@ extern "C" { extern void (*const __identifier("??_7TestPromiseRejectionEvent@Web
 extern "C" { extern void* _ZTVN7WebCore25TestPromiseRejectionEventE[]; }
 #endif
 template<std::same_as<TestPromiseRejectionEvent> T>
-static inline void verifyVTable(TestPromiseRejectionEvent* ptr) 
+static inline void verifyVTable(TestPromiseRejectionEvent* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -344,8 +344,9 @@ static inline void verifyVTable(TestPromiseRejectionEvent* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestPromiseRejectionEvent>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestPromiseRejectionEvent>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestPromiseRejectionEvent>(impl.ptr());
 #endif

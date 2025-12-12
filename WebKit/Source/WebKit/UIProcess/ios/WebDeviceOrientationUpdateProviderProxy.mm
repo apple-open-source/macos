@@ -57,12 +57,8 @@ WebDeviceOrientationUpdateProviderProxy::~WebDeviceOrientationUpdateProviderProx
         page->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::WebDeviceOrientationUpdateProviderProxy::messageReceiverName(), page->webPageIDInMainFrameProcess());
 }
 
-void WebDeviceOrientationUpdateProviderProxy::startUpdatingDeviceOrientation(const WebCore::SecurityOriginData& origin)
+void WebDeviceOrientationUpdateProviderProxy::startUpdatingDeviceOrientation()
 {
-    RefPtr page = m_page.get();
-    if (!page || !page->originHasDeviceOrientationAndMotionAccess(origin))
-        return;
-
     [[WebCoreMotionManager sharedManager] addOrientationClient:this];
 }
 
@@ -71,12 +67,8 @@ void WebDeviceOrientationUpdateProviderProxy::stopUpdatingDeviceOrientation()
     [[WebCoreMotionManager sharedManager] removeOrientationClient:this];
 }
 
-void WebDeviceOrientationUpdateProviderProxy::startUpdatingDeviceMotion(const WebCore::SecurityOriginData& origin)
+void WebDeviceOrientationUpdateProviderProxy::startUpdatingDeviceMotion()
 {
-    RefPtr page = m_page.get();
-    if (!page || !page->originHasDeviceOrientationAndMotionAccess(origin))
-        return;
-
     [[WebCoreMotionManager sharedManager] addMotionClient:this];
 }
 

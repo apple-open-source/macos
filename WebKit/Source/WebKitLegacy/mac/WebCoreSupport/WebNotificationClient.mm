@@ -74,7 +74,7 @@ bool WebNotificationClient::show(ScriptExecutionContext&, NotificationData&& not
 
 void WebNotificationClient::cancel(NotificationData&& notification)
 {
-    WebNotification *webNotification = m_notificationMap.get(notification.notificationID).get();
+    WebNotification *webNotification = m_notificationMap.get(notification.notificationID).unsafeGet();
     if (!webNotification)
         return;
 

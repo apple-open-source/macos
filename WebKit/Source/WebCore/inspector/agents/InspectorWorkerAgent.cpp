@@ -51,12 +51,12 @@ InspectorWorkerAgent::~InspectorWorkerAgent()
 
 void InspectorWorkerAgent::didCreateFrontendAndBackend()
 {
-    m_instrumentingAgents.setPersistentWorkerAgent(this);
+    Ref { m_instrumentingAgents.get() }->setPersistentWorkerAgent(this);
 }
 
 void InspectorWorkerAgent::willDestroyFrontendAndBackend(DisconnectReason)
 {
-    m_instrumentingAgents.setPersistentWorkerAgent(nullptr);
+    Ref { m_instrumentingAgents.get() }->setPersistentWorkerAgent(nullptr);
 
     disable();
 }

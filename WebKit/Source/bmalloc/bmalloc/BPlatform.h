@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,20 @@
 #include <Availability.h>
 #include <AvailabilityMacros.h>
 #include <TargetConditionals.h>
+#endif
+
+#if defined(__has_include)
+#if __has_include(<WebKitAdditions/pas_mte_additions.h>)
+#include <WebKitAdditions/pas_mte_additions.h>
+#endif // __has_include(<WebKitAdditions/pas_mte_additions.h>)
+#endif // defined(__has_include)
+
+#ifndef BASSERT_ENABLED
+#ifdef NDEBUG
+#define BASSERT_ENABLED 0
+#else
+#define BASSERT_ENABLED 1
+#endif
 #endif
 
 #define BPLATFORM(PLATFORM) (defined BPLATFORM_##PLATFORM && BPLATFORM_##PLATFORM)
@@ -106,24 +120,30 @@
 #define BPLATFORM_WIN 1
 #endif
 
+/* ==== Platform adaptation macros: these describe properties of the target environment. ==== */
+
+/* BHAVE() - specific system features (headers, functions or similar) that are present or not */
+#define BHAVE(_FEATURE) (defined BHAVE_##_FEATURE && BHAVE_##_FEATURE)
+
 /* ==== Feature decision macros: these define feature choices for a particular port. ==== */
 
-#define BENABLE(WTF_FEATURE) (defined BENABLE_##WTF_FEATURE && BENABLE_##WTF_FEATURE)
+/* BENABLE() - turn on a specific feature of bmalloc */
+#define BENABLE(_FEATURE) (defined BENABLE_##_FEATURE && BENABLE_##_FEATURE)
 
 /* ==== Policy decision macros: these define policy choices for a particular port. ==== */
 
 /* BUSE() - use a particular third-party library or optional OS service */
-#define BUSE(FEATURE) (defined BUSE_##FEATURE && BUSE_##FEATURE)
+#define BUSE(_FEATURE) (defined BUSE_##_FEATURE && BUSE_##_FEATURE)
 
 /* ==== Compiler adaptation macros: these describe the capabilities of the compiler. ==== */
 
 /* BCOMPILER_SUPPORTS() - check for a compiler feature */
-#define BCOMPILER_SUPPORTS(FEATURE) (defined BCOMPILER_SUPPORTS_##FEATURE && BCOMPILER_SUPPORTS_##FEATURE)
+#define BCOMPILER_SUPPORTS(_FEATURE) (defined BCOMPILER_SUPPORTS_##_FEATURE && BCOMPILER_SUPPORTS_##_FEATURE)
 
 /* ==== Platform adaptation macros: these describe properties of the target environment. ==== */
 
 /* BCPU() - the target CPU architecture */
-#define BCPU(_FEATURE) (defined BCPU_##_FEATURE  && BCPU_##_FEATURE)
+#define BCPU(_FEATURE) (defined BCPU_##_FEATURE && BCPU_##_FEATURE)
 
 /* BCPU(X86) - i386 / x86 32-bit */
 #if defined(__i386__) \
@@ -297,14 +317,20 @@
 #error "Unsupported compiler for bmalloc"
 #endif
 
+#if BCPU(ADDRESS64) && BPLATFORM(IOS_FAMILY) && !BPLATFORM(IOS_FAMILY_SIMULATOR) && !BPLATFORM(MACCATALYST)
+#define BHAVE_36BIT_ADDRESS 1
+#endif
+
 #if BCPU(ADDRESS64)
-#if BOS(DARWIN) && !BPLATFORM(IOS_FAMILY_SIMULATOR)
+#if BHAVE(36BIT_ADDRESS)
+#define BOS_EFFECTIVE_ADDRESS_WIDTH 36
+#elif BOS(DARWIN)
 #define BOS_EFFECTIVE_ADDRESS_WIDTH (bmalloc::getMSBSetConstexpr(MACH_VM_MAX_ADDRESS) + 1)
 #else
 /* We strongly assume that effective address width is <= 48 in 64bit architectures (e.g. NaN boxing). */
 #define BOS_EFFECTIVE_ADDRESS_WIDTH 48
 #endif
-#else
+#else /* not BCPU(ADDRESS64) */
 #define BOS_EFFECTIVE_ADDRESS_WIDTH 32
 #endif
 
@@ -336,6 +362,17 @@
 #define BENABLE_MALLOC_HEAP_BREAKDOWN 0
 #endif
 
+#if BPLATFORM(COCOA)
+/* Should be aligned with the definition in WTF/wtf/PlatformUse.h */
+#if defined __has_include && __has_include(<CoreFoundation/CFPriv.h>)
+#define BUSE_APPLE_INTERNAL_SDK 1
+#else
+#define BUSE_APPLE_INTERNAL_SDK 0
+#endif
+#else // BPLATFORM(COCOA)
+#define BUSE_APPLE_INTERNAL_SDK 0
+#endif // !BPLATFORM(COCOA)
+
 /* This is used for debugging when hacking on how bmalloc calculates its physical footprint. */
 #define ENABLE_PHYSICAL_PAGE_MAP 0
 
@@ -360,6 +397,19 @@
 #endif
 #endif
 
+#if BUSE_LIBPAS
+#ifndef BUSE_OPENSOURCE_MTE
+#define BUSE_OPENSOURCE_MTE 1
+#endif // BUSE_OPENSOURCE_MTE
+
+#ifndef BENABLE_MTE
+#define BENABLE_MTE (BUSE(APPLE_INTERNAL_SDK) && BPLATFORM(IOS_FAMILY) && BCPU(ARM64E) && BUSE_OPENSOURCE_MTE)
+#endif // !defined(BENABLE_MTE)
+#else // !BUSE_LIBPAS
+#define BENABLE_MTE 0
+#define BUSE_OPENSOURCE_MTE 0
+#endif // BUSE_LIBPAS
+
 #if !defined(BUSE_PRECOMPUTED_CONSTANTS_VMPAGE4K)
 #define BUSE_PRECOMPUTED_CONSTANTS_VMPAGE4K 1
 #endif
@@ -382,5 +432,13 @@
 #define BUSE_TZONE 1
 #else
 #define BUSE_TZONE 0
+#endif
+#endif
+
+#if !defined(BUSE_DYNAMIC_TZONE_COMPACTION)
+#if BUSE(TZONE) && (BASAN_ENABLED || BASSERT_ENABLED)
+#define BUSE_DYNAMIC_TZONE_COMPACTION 1
+#else
+#define BUSE_DYNAMIC_TZONE_COMPACTION 0
 #endif
 #endif

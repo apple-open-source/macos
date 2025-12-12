@@ -148,9 +148,13 @@ set(bmalloc_C_SOURCES
     libpas/src/libpas/pas_lock_free_read_ptr_ptr_hashtable.c
     libpas/src/libpas/pas_log.c
     libpas/src/libpas/pas_malloc_stack_logging.c
+    libpas/src/libpas/pas_mar_registry.c
+    libpas/src/libpas/pas_mar_report_crash.c
     libpas/src/libpas/pas_medium_megapage_cache.c
     libpas/src/libpas/pas_megapage_cache.c
     libpas/src/libpas/pas_monotonic_time.c
+    libpas/src/libpas/pas_mte.c
+    libpas/src/libpas/pas_mte_config.c
     libpas/src/libpas/pas_page_base.c
     libpas/src/libpas/pas_page_base_config.c
     libpas/src/libpas/pas_page_header_table.c
@@ -545,11 +549,16 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_lock.h
     libpas/src/libpas/pas_log.h
     libpas/src/libpas/pas_malloc_stack_logging.h
+    libpas/src/libpas/pas_mar_crash_reporter_report.h
+    libpas/src/libpas/pas_mar_registry.h
+    libpas/src/libpas/pas_mar_report_crash.h
     libpas/src/libpas/pas_medium_megapage_cache.h
     libpas/src/libpas/pas_megapage_cache.h
     libpas/src/libpas/pas_min_heap.h
     libpas/src/libpas/pas_mmap_capability.h
     libpas/src/libpas/pas_monotonic_time.h
+    libpas/src/libpas/pas_mte.h
+    libpas/src/libpas/pas_mte_config.h
     libpas/src/libpas/pas_mutation_count.h
     libpas/src/libpas/pas_object_kind.h
     libpas/src/libpas/pas_page_base_and_kind.h
@@ -682,6 +691,7 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_versioned_field.h
     libpas/src/libpas/pas_virtual_range.h
     libpas/src/libpas/pas_virtual_range_min_heap.h
+    libpas/src/libpas/pas_zero_memory.h
     libpas/src/libpas/pas_zero_mode.h
     libpas/src/libpas/thingy_heap_config.h
     libpas/src/libpas/thingy_heap.h
@@ -690,6 +700,7 @@ set(bmalloc_PUBLIC_HEADERS
 
 if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     list(APPEND bmalloc_SOURCES
+        bmalloc/TZoneLog.cpp
         bmalloc/Zone.cpp
     )
 endif ()
@@ -699,6 +710,7 @@ set(bmalloc_LIBRARIES
 )
 
 if (ENABLE_MALLOC_HEAP_BREAKDOWN)
+    list(APPEND bmalloc_DEFINITIONS BENABLE_MALLOC_HEAP_BREAKDOWN=1)
     list(APPEND bmalloc_LIBRARIES ${MALLOC_HEAP_BREAKDOWN_LIBRARIES})
 endif ()
 
@@ -721,10 +733,6 @@ add_definitions(-DPAS_BMALLOC=1)
 if (MSVC)
     add_compile_options(/wd4206)
     add_compile_options(-mcx16)
-endif ()
-
-if (ENABLE_MALLOC_HEAP_BREAKDOWN)
-    add_definitions(-DBENABLE_MALLOC_HEAP_BREAKDOWN=1)
 endif ()
 
 WEBKIT_FRAMEWORK_DECLARE(bmalloc)

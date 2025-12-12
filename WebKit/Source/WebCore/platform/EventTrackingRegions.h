@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "Region.h"
+#include <WebCore/Region.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/StringHash.h>

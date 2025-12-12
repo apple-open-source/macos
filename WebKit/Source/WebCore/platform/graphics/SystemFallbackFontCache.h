@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "TextFlags.h"
+#include <WebCore/TextFlags.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>
 #include <wtf/Hasher.h>

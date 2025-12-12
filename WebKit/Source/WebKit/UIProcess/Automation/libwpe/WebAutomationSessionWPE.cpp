@@ -39,8 +39,8 @@
 
 
 #if ENABLE(WPE_PLATFORM)
-#include "GRefPtrWPE.h"
 #include "Logging.h"
+#include <wpe/GRefPtrWPE.h>
 #include <wpe/wpe-platform.h>
 #endif
 

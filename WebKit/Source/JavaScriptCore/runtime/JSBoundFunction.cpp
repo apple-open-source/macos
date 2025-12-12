@@ -64,7 +64,7 @@ JSC_DEFINE_HOST_FUNCTION(boundThisNoArgsFunctionCall, (JSGlobalObject* globalObj
         // Force the executable to cache its arity entrypoint.
         executable->entrypointFor(CodeSpecializationKind::CodeForCall, ArityCheckMode::MustCheckArity);
     }
-    auto callData = JSC::getCallData(targetFunction);
+    auto callData = JSC::getCallDataInline(targetFunction);
     ASSERT(callData.type != CallData::Type::None);
     return JSValue::encode(call(globalObject, targetFunction, callData, boundFunction->boundThis(), args));
 }
@@ -95,7 +95,7 @@ JSC_DEFINE_HOST_FUNCTION(boundFunctionCall, (JSGlobalObject* globalObject, CallF
     }
 
     JSObject* targetFunction = boundFunction->targetFunction();
-    auto callData = JSC::getCallData(targetFunction);
+    auto callData = JSC::getCallDataInline(targetFunction);
     ASSERT(callData.type != CallData::Type::None);
     RELEASE_AND_RETURN(scope, JSValue::encode(call(globalObject, targetFunction, callData, boundFunction->boundThis(), args)));
 }
@@ -198,7 +198,7 @@ JSBoundFunction* JSBoundFunction::create(VM& vm, JSGlobalObject* globalObject, J
             for (unsigned index = 0, size = args.size(); index < size; ++index)
                 boundArgs[index] = args.at(index);
         } else {
-            JSImmutableButterfly* butterfly = JSImmutableButterfly::tryCreate(vm, vm.immutableButterflyStructure(CopyOnWriteArrayWithContiguous), args.size());
+            JSCellButterfly* butterfly = JSCellButterfly::tryCreate(vm, vm.cellButterflyStructure(CopyOnWriteArrayWithContiguous), args.size());
             if (!butterfly) [[unlikely]] {
                 throwOutOfMemoryError(globalObject, scope);
                 return nullptr;

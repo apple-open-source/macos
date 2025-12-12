@@ -2047,7 +2047,7 @@ static void testFMaxMin()
         BasicBlock* root = proc.addBlock();
         Value* a;
         Value* b;
-        if (std::is_same_v<FloatType, float>) {
+        if constexpr (std::same_as<FloatType, float>) {
             a = root->appendNew<ConstFloatValue>(proc, Origin(), arg1);
             b = root->appendNew<ConstFloatValue>(proc, Origin(), arg2);
         } else {

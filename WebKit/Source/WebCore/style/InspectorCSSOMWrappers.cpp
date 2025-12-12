@@ -133,6 +133,7 @@ void InspectorCSSOMWrappers::collectDocumentWrappers(ExtensionStyleSheets& exten
         collectFromStyleSheetContents(UserAgentStyle::quirksStyleSheet);
         collectFromStyleSheetContents(UserAgentStyle::svgStyleSheet);
         collectFromStyleSheetContents(UserAgentStyle::mathMLStyleSheet);
+        collectFromStyleSheetContents(UserAgentStyle::mathMLCoreExtrasStyleSheet);
         collectFromStyleSheetContents(UserAgentStyle::horizontalFormControlsStyleSheet);
         collectFromStyleSheetContents(UserAgentStyle::viewTransitionsStyleSheet);
         collectFromStyleSheetContents(UserAgentStyle::htmlSwitchControlStyleSheet);

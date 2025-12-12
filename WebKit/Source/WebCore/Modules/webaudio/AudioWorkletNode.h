@@ -104,4 +104,6 @@ private:
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_AUDIONODE(AudioWorkletNode, NodeTypeWorklet);
+
 #endif // ENABLE(WEB_AUDIO)

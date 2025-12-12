@@ -30,6 +30,7 @@
 #include "APIFrameInfo.h"
 #include "APISecurityOrigin.h"
 #include "WKAPICast.h"
+#include "WebPageProxy.h"
 
 WKTypeID WKFrameInfoGetTypeID()
 {
@@ -50,4 +51,9 @@ WKSecurityOriginRef WKFrameInfoCopySecurityOrigin(WKFrameInfoRef frameInfo)
 bool WKFrameInfoGetIsMainFrame(WKFrameInfoRef frameInfo)
 {
     return WebKit::toImpl(frameInfo)->isMainFrame();
+}
+
+WKPageRef WKFrameInfoGetPage(WKFrameInfoRef frameInfo)
+{
+    return WebKit::toAPI(RefPtr { WebKit::toProtectedImpl(frameInfo)->page() }.get());
 }

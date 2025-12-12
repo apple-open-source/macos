@@ -1395,4 +1395,11 @@ void testMulHigh64();
 void testUMulHigh32();
 void testUMulHigh64();
 
+void testMemoryCopy();
+void testMemoryCopyConstant();
+void testMemoryFill();
+void testMemoryFillConstant();
+
+void testLoadImmutable();
+
 #endif // ENABLE(B3_JIT)

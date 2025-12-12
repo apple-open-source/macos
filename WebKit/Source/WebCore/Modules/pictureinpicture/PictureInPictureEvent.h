@@ -28,7 +28,7 @@
 
 #if ENABLE(PICTURE_IN_PICTURE_API)
 
-#include "Event.h"
+#include <WebCore/Event.h>
 
 namespace WebCore {
 

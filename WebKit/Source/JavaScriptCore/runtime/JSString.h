@@ -22,17 +22,17 @@
 
 #pragma once
 
-#include "ArgList.h"
-#include "CallFrame.h"
-#include "CommonIdentifiers.h"
-#include "EnsureStillAliveHere.h"
-#include "GCOwnedDataScope.h"
-#include "GetVM.h"
-#include "Identifier.h"
-#include "PropertyDescriptor.h"
-#include "PropertySlot.h"
-#include "Structure.h"
-#include "ThrowScope.h"
+#include <JavaScriptCore/ArgList.h>
+#include <JavaScriptCore/CallFrame.h>
+#include <JavaScriptCore/CommonIdentifiers.h>
+#include <JavaScriptCore/EnsureStillAliveHere.h>
+#include <JavaScriptCore/GCOwnedDataScope.h>
+#include <JavaScriptCore/GetVM.h>
+#include <JavaScriptCore/Identifier.h>
+#include <JavaScriptCore/PropertyDescriptor.h>
+#include <JavaScriptCore/PropertySlot.h>
+#include <JavaScriptCore/Structure.h>
+#include <JavaScriptCore/ThrowScope.h>
 #include <array>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/ForbidHeapAllocation.h>
@@ -62,7 +62,7 @@ JSString* jsString(VM&, Ref<AtomStringImpl>&&);
 JSString* jsString(VM&, Ref<StringImpl>&&);
 
 JSString* jsSingleCharacterString(VM&, char16_t);
-JSString* jsSingleCharacterString(VM&, LChar);
+JSString* jsSingleCharacterString(VM&, Latin1Character);
 JSString* jsSubstring(VM&, const String&, unsigned offset, unsigned length);
 
 // Non-trivial strings are two or more characters long.
@@ -308,7 +308,7 @@ private:
     friend JSString* jsString(JSGlobalObject*, const String&, const String&, const String&);
     friend JS_EXPORT_PRIVATE JSString* jsStringWithCacheSlowCase(VM&, StringImpl&);
     friend JSString* jsSingleCharacterString(VM&, char16_t);
-    friend JSString* jsSingleCharacterString(VM&, LChar);
+    friend JSString* jsSingleCharacterString(VM&, Latin1Character);
     friend JSString* jsNontrivialString(VM&, const String&);
     friend JSString* jsNontrivialString(VM&, String&&);
     friend JSString* jsSubstring(VM&, const String&, unsigned, unsigned);
@@ -811,7 +811,7 @@ ALWAYS_INLINE JSString* jsSingleCharacterString(VM& vm, char16_t c)
     return JSString::create(vm, StringImpl::create(std::span { &c, 1 }));
 }
 
-ALWAYS_INLINE JSString* jsSingleCharacterString(VM& vm, LChar c)
+ALWAYS_INLINE JSString* jsSingleCharacterString(VM& vm, Latin1Character c)
 {
     if constexpr (validateDFGDoesGC)
         vm.verifyCanGC();

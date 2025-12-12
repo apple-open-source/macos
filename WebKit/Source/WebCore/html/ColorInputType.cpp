@@ -38,6 +38,8 @@
 #include "Color.h"
 #include "ColorSerialization.h"
 #include "ColorTypes.h"
+#include "ContainerNodeInlines.h"
+#include "DocumentView.h"
 #include "ElementRareData.h"
 #include "Event.h"
 #include "HTMLDataListElement.h"
@@ -354,6 +356,11 @@ IntRect ColorInputType::elementRectRelativeToRootView() const
     if (!renderer)
         return IntRect();
     return element->protectedDocument()->protectedView()->contentsToRootView(renderer->absoluteBoundingBoxRect());
+}
+
+std::optional<FrameIdentifier> ColorInputType::rootFrameID() const
+{
+    return element()->protectedDocument()->protectedView()->rootFrameID();
 }
 
 bool ColorInputType::supportsAlpha() const

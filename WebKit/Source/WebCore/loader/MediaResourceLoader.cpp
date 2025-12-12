@@ -30,17 +30,17 @@
 #if ENABLE(VIDEO)
 
 #include "CachedRawResource.h"
-#include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
 #include "CrossOriginAccessControl.h"
-#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentSecurityOrigin.h"
 #include "Element.h"
 #include "FrameDestructionObserverInlines.h"
 #include "HTTPHeaderNames.h"
 #include "InspectorInstrumentation.h"
 #include "LocalFrameLoaderClient.h"
 #include "OriginAccessPatterns.h"
-#include "Quirks.h"
 #include "SecurityOrigin.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SortedArrayMap.h>

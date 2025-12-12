@@ -4,7 +4,11 @@
 // found in the LICENSE file.
 //
 
-// validationES.h: Validation functions for generic OpenGL ES entry point parameters
+// validationES.cpp: Validation functions for generic OpenGL ES entry point parameters
+
+#ifdef UNSAFE_BUFFERS_BUILD
+#    pragma allow_unsafe_buffers
+#endif
 
 #include "libANGLE/validationES.h"
 
@@ -503,10 +507,10 @@ bool ValidateFragmentShaderColorBufferTypeMatch(const Context *context)
     const ProgramExecutable *executable = context->getState().getLinkedProgramExecutable(context);
     const Framebuffer *framebuffer      = context->getState().getDrawFramebuffer();
 
-    return ValidateComponentTypeMasks(executable->getFragmentOutputsTypeMask().to_ulong(),
-                                      framebuffer->getDrawBufferTypeMask().to_ulong(),
-                                      executable->getActiveOutputVariablesMask().to_ulong(),
-                                      framebuffer->getDrawBufferMask().to_ulong());
+    return ValidateComponentTypeMasks(executable->getFragmentOutputsTypeMask().bits(),
+                                      framebuffer->getDrawBufferTypeMask().bits(),
+                                      executable->getActiveOutputVariablesMask().bits(),
+                                      framebuffer->getDrawBufferMask().bits());
 }
 
 bool ValidateVertexShaderAttributeTypeMatch(const Context *context)
@@ -520,17 +524,16 @@ bool ValidateVertexShaderAttributeTypeMatch(const Context *context)
         return false;
     }
 
-    unsigned long stateCurrentValuesTypeBits = glState.getCurrentValuesTypeMask().to_ulong();
-    unsigned long vaoAttribTypeBits          = vao->getAttributesTypeMask().to_ulong();
-    unsigned long vaoAttribEnabledMask       = vao->getAttributesMask().to_ulong();
+    uint64_t stateCurrentValuesTypeBits = glState.getCurrentValuesTypeMask().bits();
+    uint64_t vaoAttribTypeBits          = vao->getAttributesTypeMask().bits();
+    uint64_t vaoAttribEnabledMask       = vao->getAttributesMask().bits();
 
     vaoAttribEnabledMask |= vaoAttribEnabledMask << kMaxComponentTypeMaskIndex;
     vaoAttribTypeBits = (vaoAttribEnabledMask & vaoAttribTypeBits);
     vaoAttribTypeBits |= (~vaoAttribEnabledMask & stateCurrentValuesTypeBits);
 
-    return ValidateComponentTypeMasks(executable->getAttributesTypeMask().to_ulong(),
-                                      vaoAttribTypeBits, executable->getAttributesMask().to_ulong(),
-                                      0xFFFF);
+    return ValidateComponentTypeMasks(executable->getAttributesTypeMask().bits(), vaoAttribTypeBits,
+                                      executable->getAttributesMask().bits(), 0xFFFF);
 }
 
 bool IsCompatibleDrawModeWithGeometryShader(PrimitiveMode drawMode,
@@ -893,9 +896,8 @@ bool ValidateTransformFeedbackPrimitiveMode(const Context *context,
 {
     ASSERT(context);
 
-    if ((!context->getExtensions().geometryShaderAny() ||
-         !context->getExtensions().tessellationShaderAny()) &&
-        context->getClientVersion() < ES_3_2)
+    if (!context->getExtensions().geometryShaderAny() &&
+        !context->getExtensions().tessellationShaderAny() && context->getClientVersion() < ES_3_2)
     {
         // It is an invalid operation to call DrawArrays or DrawArraysInstanced with a draw mode
         // that does not match the current transform feedback object's draw mode (if transform
@@ -3308,16 +3310,44 @@ bool ValidateCopyImageSubDataTargetRegion(const Context *context,
 
 bool ValidateCompressedRegion(const Context *context,
                               angle::EntryPoint entryPoint,
+                              const gl::Texture &Texture,
+                              GLenum textureTarget,
+                              const GLint textureLevel,
                               const InternalFormat &formatInfo,
-                              GLsizei width,
-                              GLsizei height)
+                              const GLint offsetX,
+                              const GLint offsetY,
+                              const GLint offsetZ,
+                              const GLsizei width,
+                              const GLsizei height,
+                              const GLsizei depth)
 {
     ASSERT(formatInfo.compressed);
 
+    bool subregionAlignedWithCompressedBlock = false;
+    if (textureTarget == GL_TEXTURE_CUBE_MAP)
+    {
+        // Use GL_TEXTURE_CUBE_MAP_POSITIVE_X to properly gather the textureWidth/textureHeight
+        textureTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+    }
+    const gl::TextureTarget textureTargetPacked = gl::PackParam<gl::TextureTarget>(textureTarget);
+    ASSERT(textureTargetPacked != gl::TextureTarget::InvalidEnum);
+
+    const gl::Extents &textureExtents   = Texture.getExtents(textureTargetPacked, textureLevel);
+    subregionAlignedWithCompressedBlock = ((offsetX % formatInfo.compressedBlockWidth) == 0) &&
+                                          ((offsetX + width == textureExtents.width) ||
+                                           (width % formatInfo.compressedBlockWidth == 0));
+    subregionAlignedWithCompressedBlock = subregionAlignedWithCompressedBlock &&
+                                          ((offsetY % formatInfo.compressedBlockHeight) == 0) &&
+                                          ((offsetY + height == textureExtents.height) ||
+                                           (height % formatInfo.compressedBlockHeight == 0));
+    subregionAlignedWithCompressedBlock = subregionAlignedWithCompressedBlock &&
+                                          ((offsetZ % formatInfo.compressedBlockDepth) == 0) &&
+                                          ((offsetZ + depth == textureExtents.depth) ||
+                                           (depth % formatInfo.compressedBlockDepth == 0));
+
     // INVALID_VALUE is generated if the image format is compressed and the dimensions of the
     // subregion fail to meet the alignment constraints of the format.
-    if ((width % formatInfo.compressedBlockWidth != 0) ||
-        (height % formatInfo.compressedBlockHeight != 0))
+    if (!subregionAlignedWithCompressedBlock)
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kInvalidCompressedRegionSize);
         return false;
@@ -3794,43 +3824,18 @@ bool ValidateCopyImageSubDataBase(const Context *context,
         return false;
     }
 
-    bool srcFillsEntireMip            = false;
     gl::Texture *srcTexture           = context->getTexture({srcName});
-    gl::TextureTarget srcTargetPacked = gl::PackParam<gl::TextureTarget>(srcTarget);
-    if (srcTargetPacked != gl::TextureTarget::InvalidEnum)
-    {
-        const gl::Extents &srcExtents = srcTexture->getExtents(srcTargetPacked, srcLevel);
-        srcFillsEntireMip             = srcX == 0 && srcY == 0 && srcWidth == srcExtents.width &&
-                            srcHeight == srcExtents.height;
-        // srcFillsEntireMap doesn't consider depth, this is only valid if
-        // srcFormatInfo->compressedBlockDepth <= 1
-        ASSERT(srcFormatInfo->compressedBlockDepth <= 1);
-    }
-
-    if (srcFormatInfo->compressed && !srcFillsEntireMip &&
-        !ValidateCompressedRegion(context, entryPoint, *srcFormatInfo, srcWidth, srcHeight))
+    if (srcFormatInfo->compressed &&
+        !ValidateCompressedRegion(context, entryPoint, *srcTexture, srcTarget, srcLevel,
+                                  *srcFormatInfo, srcX, srcY, srcZ, srcWidth, srcHeight, srcDepth))
     {
         return false;
     }
 
-    bool dstFillsEntireMip            = false;
     gl::Texture *dstTexture           = context->getTexture({dstName});
-    gl::TextureTarget dstTargetPacked = gl::PackParam<gl::TextureTarget>(dstTarget);
-    // TODO(http://anglebug.com/42264179): Some targets (e.g., GL_TEXTURE_CUBE_MAP, GL_RENDERBUFFER)
-    // are unsupported when used with compressed formats due to gl::PackParam() returning
-    // TextureTarget::InvalidEnum.
-    if (dstTargetPacked != gl::TextureTarget::InvalidEnum)
-    {
-        const gl::Extents &dstExtents = dstTexture->getExtents(dstTargetPacked, dstLevel);
-        dstFillsEntireMip             = dstX == 0 && dstY == 0 && dstWidth == dstExtents.width &&
-                            dstHeight == dstExtents.height;
-        // dstFillsEntireMip doesn't consider depth, this is only valid if
-        // dstFormatInfo->compressedBlockDepth <= 1
-        ASSERT(dstFormatInfo->compressedBlockDepth <= 1);
-    }
-
-    if (dstFormatInfo->compressed && !dstFillsEntireMip &&
-        !ValidateCompressedRegion(context, entryPoint, *dstFormatInfo, dstWidth, dstHeight))
+    if (dstFormatInfo->compressed &&
+        !ValidateCompressedRegion(context, entryPoint, *dstTexture, dstTarget, dstLevel,
+                                  *dstFormatInfo, dstX, dstY, dstZ, dstWidth, dstHeight, dstDepth))
     {
         return false;
     }
@@ -4292,7 +4297,7 @@ const char *ValidateDrawStates(const Context *context, GLenum *outErrorCode)
         }
     }
 
-    if (ANGLE_UNLIKELY(context->getStateCache().hasAnyEnabledClientAttrib()))
+    if (ANGLE_UNLIKELY(context->hasAnyEnabledClientAttrib()))
     {
         if (extensions.webglCompatibilityANGLE || !state.areClientArraysEnabled())
         {
@@ -7518,16 +7523,14 @@ bool ValidateReadPixelsBase(const Context *context,
                             GLsizei *rows,
                             const void *pixels)
 {
-    if (length != nullptr)
+    ASSERT((length == nullptr && columns == nullptr && rows == nullptr) ||
+           (length != nullptr && columns != nullptr && rows != nullptr));
+    const bool isRobust = (length != nullptr);
+
+    if (isRobust)
     {
-        *length = 0;
-    }
-    if (rows != nullptr)
-    {
-        *rows = 0;
-    }
-    if (columns != nullptr)
-    {
+        *length  = 0;
+        *rows    = 0;
         *columns = 0;
     }
 
@@ -7647,12 +7650,8 @@ bool ValidateReadPixelsBase(const Context *context,
     }
 
     auto getClippedExtent = [](GLint start, GLsizei length, int bufferSize, GLsizei *outExtent) {
-        angle::CheckedNumeric<int> clippedExtent(length);
-        if (start < 0)
-        {
-            // "subtract" the area that is less than 0
-            clippedExtent += start;
-        }
+        ASSERT(length >= 0);
+        ASSERT(bufferSize >= 0);
 
         angle::CheckedNumeric<int> readExtent = start;
         readExtent += length;
@@ -7661,43 +7660,60 @@ bool ValidateReadPixelsBase(const Context *context,
             return false;
         }
 
-        if (readExtent.ValueOrDie() > bufferSize)
+        if (outExtent == nullptr)
         {
+            // Only perform integer overflow validation when robust read is not used.
+            return true;
+        }
+
+        int clippedExtent = length;
+        if (start < 0)
+        {
+            // "subtract" the area that is less than 0
+            // Can't cause the overflow since |length| can't be negative.
+            clippedExtent += start;
+        }
+
+        const int readExtentValue = readExtent.ValueOrDie();
+        if (readExtentValue > bufferSize)
+        {
+            ASSERT(readExtentValue > 0);
+            ASSERT((start <= 0 && clippedExtent == readExtentValue) ||
+                   (start > 0 && clippedExtent == length && readExtentValue == start + length));
             // Subtract the region to the right of the read buffer
-            clippedExtent -= (readExtent - bufferSize);
+            clippedExtent -= (readExtentValue - bufferSize);
+            // Integer overflow is not possible.
+            ASSERT((start <= 0 && clippedExtent == bufferSize) ||
+                   (start > 0 && clippedExtent >= -start));
         }
 
-        if (!clippedExtent.IsValid())
-        {
-            return false;
-        }
-
-        *outExtent = std::max<int>(clippedExtent.ValueOrDie(), 0);
+        *outExtent = std::max<int>(clippedExtent, 0);
         return true;
     };
 
-    GLsizei writtenColumns = 0;
-    if (!getClippedExtent(x, width, readBuffer->getSize().width, &writtenColumns))
+    Extents readBufferSize;
+    if (isRobust)
+    {
+        // Only get size when robust read is used, since buffer size does not affect the integer
+        // overflow validation part of getClippedExtent() lambda.
+        if (readBuffer->ensureSizeResolved(context) == angle::Result::Stop)
+        {
+            // Context error must be generated by the failed call itself.
+            return false;
+        }
+        readBufferSize = readBuffer->getSize();
+    }
+
+    if (!getClippedExtent(x, width, readBufferSize.width, columns))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kIntegerOverflow);
         return false;
     }
 
-    GLsizei writtenRows = 0;
-    if (!getClippedExtent(y, height, readBuffer->getSize().height, &writtenRows))
+    if (!getClippedExtent(y, height, readBufferSize.height, rows))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kIntegerOverflow);
         return false;
-    }
-
-    if (columns != nullptr)
-    {
-        *columns = writtenColumns;
-    }
-
-    if (rows != nullptr)
-    {
-        *rows = writtenRows;
     }
 
     return true;
@@ -8735,6 +8751,14 @@ bool ValidateGetTexLevelParameterBase(const Context *context,
         case GL_TEXTURE_COMPRESSED:
             break;
 
+        case GL_MEMORY_SIZE_ANGLE:
+            if (!context->getExtensions().memorySizeANGLE)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kEnumNotSupported);
+                return false;
+            }
+            break;
+
         case GL_TEXTURE_DEPTH:
             if (context->getClientVersion() < ES_3_0 && !context->getExtensions().texture3DOES)
             {
@@ -8827,10 +8851,8 @@ bool ValidateSampleMaskiBase(const PrivateState &state,
 void RecordDrawAttribsError(const Context *context, angle::EntryPoint entryPoint)
 {
     // An overflow can happen when adding the offset. Check against a special constant.
-    if (context->getStateCache().getNonInstancedVertexElementLimit() ==
-            VertexAttribute::kIntegerOverflow ||
-        context->getStateCache().getInstancedVertexElementLimit() ==
-            VertexAttribute::kIntegerOverflow)
+    if (context->getNonInstancedVertexElementLimit() == VertexAttribute::kIntegerOverflow ||
+        context->getInstancedVertexElementLimit() == VertexAttribute::kIntegerOverflow)
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kIntegerOverflow);
     }

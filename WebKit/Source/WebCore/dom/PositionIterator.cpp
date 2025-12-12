@@ -35,6 +35,7 @@
 #include "RenderBoxInlines.h"
 #include "RenderFlexibleBox.h"
 #include "RenderGrid.h"
+#include "RenderObjectStyle.h"
 #include "RenderText.h"
 
 namespace WebCore {

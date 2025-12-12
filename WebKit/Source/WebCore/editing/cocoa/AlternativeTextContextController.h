@@ -23,8 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "DictationContext.h"
-#import "PlatformTextAlternatives.h"
+#import <WebCore/DictationContext.h>
+#import <WebCore/PlatformTextAlternatives.h>
 #import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
 

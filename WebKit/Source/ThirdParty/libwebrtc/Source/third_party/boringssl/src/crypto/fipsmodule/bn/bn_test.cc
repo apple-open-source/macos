@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 #include <utility>
 
@@ -44,7 +45,7 @@
 
 namespace {
 
-static int HexToBIGNUM(bssl::UniquePtr<BIGNUM> *out, const char *in) {
+static int HexToBIGNUMWithReturn(bssl::UniquePtr<BIGNUM> *out, const char *in) {
   BIGNUM *raw = NULL;
   int ret = BN_hex2bn(&raw, in);
   out->reset(raw);
@@ -88,7 +89,7 @@ class BIGNUMFileTest {
     }
 
     bssl::UniquePtr<BIGNUM> ret;
-    if (HexToBIGNUM(&ret, hex.c_str()) != static_cast<int>(hex.size())) {
+    if (HexToBIGNUMWithReturn(&ret, hex.c_str()) != static_cast<int>(hex.size())) {
       t_->PrintLine("Could not decode '%s'.", hex.c_str());
       return nullptr;
     }
@@ -603,8 +604,9 @@ static void TestModMul(BIGNUMFileTest *t, BN_CTX *ctx) {
     bssl::UniquePtr<BN_MONT_CTX> mont2(BN_MONT_CTX_new_consttime(m.get(), ctx));
     ASSERT_TRUE(mont2);
     EXPECT_BIGNUMS_EQUAL("RR (mod M) (constant-time)", &mont->RR, &mont2->RR);
-    EXPECT_EQ(mont->n0[0], mont2->n0[0]);
-    EXPECT_EQ(mont->n0[1], mont2->n0[1]);
+    for (size_t i = 0; i < std::size(mont->n0); i++) {
+      EXPECT_EQ(mont->n0[i], mont2->n0[i]);
+    }
 
     bssl::UniquePtr<BIGNUM> a_tmp(BN_new()), b_tmp(BN_new());
     ASSERT_TRUE(a_tmp);
@@ -1171,27 +1173,27 @@ TEST_F(BNTest, Dec2BN) {
 
 TEST_F(BNTest, Hex2BN) {
   bssl::UniquePtr<BIGNUM> bn;
-  int ret = HexToBIGNUM(&bn, "0");
+  int ret = HexToBIGNUMWithReturn(&bn, "0");
   ASSERT_EQ(1, ret);
   EXPECT_TRUE(BN_is_zero(bn.get()));
   EXPECT_FALSE(BN_is_negative(bn.get()));
 
-  ret = HexToBIGNUM(&bn, "256");
+  ret = HexToBIGNUMWithReturn(&bn, "256");
   ASSERT_EQ(3, ret);
   EXPECT_TRUE(BN_is_word(bn.get(), 0x256));
   EXPECT_FALSE(BN_is_negative(bn.get()));
 
-  ret = HexToBIGNUM(&bn, "-42");
+  ret = HexToBIGNUMWithReturn(&bn, "-42");
   ASSERT_EQ(3, ret);
   EXPECT_TRUE(BN_abs_is_word(bn.get(), 0x42));
   EXPECT_TRUE(BN_is_negative(bn.get()));
 
-  ret = HexToBIGNUM(&bn, "-0");
+  ret = HexToBIGNUMWithReturn(&bn, "-0");
   ASSERT_EQ(2, ret);
   EXPECT_TRUE(BN_is_zero(bn.get()));
   EXPECT_FALSE(BN_is_negative(bn.get()));
 
-  ret = HexToBIGNUM(&bn, "abctrailing garbage is ignored");
+  ret = HexToBIGNUMWithReturn(&bn, "abctrailing garbage is ignored");
   ASSERT_EQ(3, ret);
   EXPECT_TRUE(BN_is_word(bn.get(), 0xabc));
   EXPECT_FALSE(BN_is_negative(bn.get()));
@@ -1723,7 +1725,7 @@ TEST_F(BNTest, SetGetU64) {
     bssl::UniquePtr<BIGNUM> bn(BN_new()), expected;
     ASSERT_TRUE(bn);
     ASSERT_TRUE(BN_set_u64(bn.get(), test.value));
-    ASSERT_TRUE(HexToBIGNUM(&expected, test.hex));
+    ASSERT_TRUE(HexToBIGNUMWithReturn(&expected, test.hex));
     EXPECT_BIGNUMS_EQUAL("BN_set_u64", expected.get(), bn.get());
 
     uint64_t tmp;
@@ -2015,7 +2017,7 @@ TEST_F(BNTest, PrimeChecking) {
   int is_probably_prime_1 = 0, is_probably_prime_2 = 0;
   enum bn_primality_result_t result_3;
 
-  const int max_prime = kPrimes[OPENSSL_ARRAY_SIZE(kPrimes) - 1];
+  const int max_prime = kPrimes[std::size(kPrimes) - 1];
   size_t next_prime_index = 0;
 
   for (int i = 0; i <= max_prime; i++) {
@@ -2299,7 +2301,7 @@ TEST_F(BNTest, PrimeChecking) {
   };
   for (const char *str : kPrimesHex) {
     SCOPED_TRACE(str);
-    EXPECT_NE(0, HexToBIGNUM(&p, str));
+    EXPECT_NE(0, HexToBIGNUMWithReturn(&p, str));
 
     ASSERT_TRUE(BN_primality_test(
         &is_probably_prime_1, p.get(), BN_prime_checks_for_generation, ctx(),
@@ -2481,32 +2483,27 @@ TEST_F(BNTest, LessThanWords) {
 
   // Determine where the single-word values stop.
   size_t one_word;
-  for (one_word = 0; one_word < OPENSSL_ARRAY_SIZE(kTestVectors); one_word++) {
-    int is_word = 1;
-    for (size_t i = 1; i < OPENSSL_ARRAY_SIZE(kTestVectors[one_word]); i++) {
-      if (kTestVectors[one_word][i] != 0) {
-        is_word = 0;
-        break;
-      }
-    }
-    if (!is_word) {
+  for (one_word = 0; one_word < std::size(kTestVectors); one_word++) {
+    if (std::any_of(std::begin(kTestVectors[one_word]) + 1,
+                    std::end(kTestVectors[one_word]),
+                    [](BN_ULONG w) { return w != 0; })) {
       break;
     }
   }
 
-  for (size_t i = 0; i < OPENSSL_ARRAY_SIZE(kTestVectors); i++) {
+  for (size_t i = 0; i < std::size(kTestVectors); i++) {
     SCOPED_TRACE(i);
-    for (size_t j = 0; j < OPENSSL_ARRAY_SIZE(kTestVectors); j++) {
+    for (size_t j = 0; j < std::size(kTestVectors); j++) {
       SCOPED_TRACE(j);
       EXPECT_EQ(i < j ? 1 : 0,
                 bn_less_than_words(kTestVectors[i], kTestVectors[j],
-                                   OPENSSL_ARRAY_SIZE(kTestVectors[i])));
+                                   std::size(kTestVectors[i])));
       for (size_t k = 0; k < one_word; k++) {
         SCOPED_TRACE(k);
         EXPECT_EQ(k <= i && i < j ? 1 : 0,
                   bn_in_range_words(kTestVectors[i], kTestVectors[k][0],
                                     kTestVectors[j],
-                                    OPENSSL_ARRAY_SIZE(kTestVectors[i])));
+                                    std::size(kTestVectors[i])));
       }
     }
   }
@@ -2857,10 +2854,10 @@ TEST_F(BNTest, BNMulMontABI) {
     CHECK_ABI(bn_mul_mont_nohw, r.data(), a.data(), a.data(), mont->N.d,
               mont->n0, words);
 #else
-    CHECK_ABI(bn_mul_mont, r.data(), a.data(), b.data(), mont->N.d, mont->n0,
-              words);
-    CHECK_ABI(bn_mul_mont, r.data(), a.data(), a.data(), mont->N.d, mont->n0,
-              words);
+    CHECK_ABI(bn_mul_mont_words, r.data(), a.data(), b.data(), mont->N.d,
+              mont->n0, words);
+    CHECK_ABI(bn_mul_mont_words, r.data(), a.data(), a.data(), mont->N.d,
+              mont->n0, words);
 #endif
   }
 }
@@ -2883,10 +2880,11 @@ TEST_F(BNTest, BNMulMont5ABI) {
     a[0] = 1;
     b[0] = 42;
 
-    bn_mul_mont(r.data(), a.data(), b.data(), mont->N.d, mont->n0, words);
+    bn_mul_mont_words(r.data(), a.data(), b.data(), mont->N.d, mont->n0, words);
     CHECK_ABI(bn_scatter5, r.data(), words, table.data(), 13);
     for (size_t i = 0; i < 32; i++) {
-      bn_mul_mont(r.data(), a.data(), b.data(), mont->N.d, mont->n0, words);
+      bn_mul_mont_words(r.data(), a.data(), b.data(), mont->N.d, mont->n0,
+                        words);
       bn_scatter5(r.data(), words, table.data(), i);
     }
     CHECK_ABI(bn_gather5, r.data(), words, table.data(), 13);

@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 *   Copyright (C) 2010-2016, International Business Machines
-*   Corporation and others.  All rights reserved.
+*   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *   file name:  bytestriebuilder.h
 *   encoding:   UTF-8
@@ -129,8 +129,8 @@ public:
 private:
     friend class ::BytesTrieTest;
 
-    BytesTrieBuilder(const BytesTrieBuilder &other);  // no copy constructor
-    BytesTrieBuilder &operator=(const BytesTrieBuilder &other);  // no assignment operator
+    BytesTrieBuilder(const BytesTrieBuilder &other) = delete;  // no copy constructor
+    BytesTrieBuilder &operator=(const BytesTrieBuilder &other) = delete;  // no assignment operator
 
     void buildBytes(UStringTrieBuildOption buildOption, UErrorCode &errorCode);
 

@@ -67,9 +67,8 @@ static int __netns_inited = 0;
 #define LEN_TO_AF(len)          (((len == sizeof (struct in_addr)) ? \
 	                            AF_INET : AF_INET6))
 #define NS_PORT_ERR(_fmt, ...) do { \
-	proc_t _p = current_proc(); \
-	SK_ERR("%s(%d) port %u: " _fmt, sk_proc_name(_p), sk_proc_pid(_p), \
-	    port, ##__VA_ARGS__); \
+	SK_ERR("%s(%d) port %u: " _fmt, sk_proc_name(current_proc()), \
+	    sk_proc_pid(current_proc()), port, ##__VA_ARGS__); \
 } while (0);
 
 /*

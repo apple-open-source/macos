@@ -64,29 +64,12 @@ private:
     std::string session_id() const final { return ""; }
     std::string session_version() const final { return ""; }
     std::string type() const final { return ""; }
-    bool AddCandidate(const webrtc::IceCandidateInterface*) final { return true; }
+    bool AddCandidate(const webrtc::IceCandidate*) final { return true; }
+    bool RemoveCandidate(const webrtc::IceCandidate*) final { return true; }
     size_t number_of_mediasections() const final { return 0; }
     const webrtc::IceCandidateCollection* candidates(size_t) const final { return nullptr; }
 
     std::string m_sdp;
-};
-
-class MockLibWebRTCIceCandidate : public webrtc::IceCandidateInterface {
-public:
-    explicit MockLibWebRTCIceCandidate(const char* sdp, const char* sdpMid)
-        : m_sdp(sdp)
-        , m_sdpMid(sdpMid) { }
-
-private:
-    std::string sdp_mid() const final { return m_sdpMid; }
-    int sdp_mline_index() const final { return 0; }
-    const webrtc::Candidate& candidate() const final { return m_candidate; }
-    bool ToString(std::string* out) const final { *out = m_sdp; return true; }
-
-protected:
-    const char* m_sdp;
-    const char* m_sdpMid;
-    webrtc::Candidate m_candidate;
 };
 
 class MockLibWebRTCAudioTrack : public webrtc::AudioTrackInterface {
@@ -308,8 +291,9 @@ private:
     webrtc::scoped_refptr<webrtc::StreamCollectionInterface> remote_streams() override { return nullptr; }
     const webrtc::SessionDescriptionInterface* local_description() const override { return nullptr; }
     const webrtc::SessionDescriptionInterface* remote_description() const override { return nullptr; }
-    bool AddIceCandidate(const webrtc::IceCandidateInterface*) override { return true; }
-    void AddIceCandidate(std::unique_ptr<webrtc::IceCandidateInterface>, std::function<void(webrtc::RTCError)> callback) override { callback({ }); }
+    bool AddIceCandidate(const webrtc::IceCandidate*) override { return true; }
+    void AddIceCandidate(std::unique_ptr<webrtc::IceCandidate>, std::function<void(webrtc::RTCError)> callback) override { callback({ }); }
+    bool RemoveIceCandidate(const webrtc::IceCandidate*) override { return true; }
     SignalingState signaling_state() override;
     IceConnectionState ice_connection_state() override { return kIceConnectionNew; }
     IceGatheringState ice_gathering_state() override { return kIceGatheringNew; }

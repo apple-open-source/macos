@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "ResourceResponseBase.h"
+#include <WebCore/ResourceResponseBase.h>
 
 #include <libsoup/soup.h>
 #include <wtf/glib/GRefPtr.h>

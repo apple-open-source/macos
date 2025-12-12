@@ -28,7 +28,6 @@
 
 #if PLATFORM(COCOA)
 
-#import "DoubleGeometry.h"
 #import <WebCore/AttributedString.h>
 
 #if USE(APPKIT)

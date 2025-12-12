@@ -35,6 +35,7 @@
 #include <wtf/StringPrintStream.h>
 #include <wtf/UUID.h>
 #include <wtf/cf/TypeCastsCF.h>
+#include <wtf/darwin/DispatchExtras.h>
 #include <wtf/spi/cf/CFPrivSPI.h>
 #include <wtf/spi/darwin/dyldSPI.h>
 
@@ -72,7 +73,7 @@ private:
     void logJSONPayload(const JSON::Object&);
     void logString(std::span<const String> path, const String&);
     void logObject(std::span<const String> path, Ref<JSON::Object>&&);
-    void logError(const char*, ...);
+    void logError(const char*, ...) WTF_ATTRIBUTE_PRINTF(2, 3);
 
     void logExecutablePath(void);
     void logDYLDSharedCacheInfo(void);
@@ -286,7 +287,7 @@ void initializeLibraryPathDiagnostics(void)
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
         int token = -1;
-        notify_register_dispatch(notificationName, &token, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(int token) {
+        notify_register_dispatch(notificationName, &token, globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(int token) {
             UNUSED_PARAM(token);
             logLibraryPathDiagnostics();
         });

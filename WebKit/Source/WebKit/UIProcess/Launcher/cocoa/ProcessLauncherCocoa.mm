@@ -48,6 +48,7 @@
 #import <wtf/SoftLinking.h>
 #import <wtf/Threading.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/darwin/XPCExtras.h>
 #import <wtf/spi/cf/CFBundleSPI.h>
 #import <wtf/text/CString.h>
@@ -63,7 +64,6 @@
 #import <BrowserEngineKit/BENetworkingProcess.h>
 #import <BrowserEngineKit/BERenderingProcess.h>
 #import <BrowserEngineKit/BEWebContentProcess.h>
-
 #endif // USE(EXTENSIONKIT)
 
 namespace WebKit {
@@ -75,12 +75,25 @@ static std::pair<ASCIILiteral, RetainPtr<NSString>> serviceNameAndIdentifier(Pro
     switch (processType) {
     case ProcessLauncher::ProcessType::Web: {
         bool useCaptivePortal = client && client->shouldEnableLockdownMode();
+        bool useEnhancedSecurity = client && client->shouldEnableEnhancedSecurity();
         if (!hasExtensionsInAppBundle) {
-            if (!useCaptivePortal)
+            if (!useCaptivePortal && !useEnhancedSecurity)
                 return { "com.apple.WebKit.WebContent"_s, @"com.apple.WebKit.WebContent" };
+
+            if (useEnhancedSecurity)
+                return { "com.apple.WebKit.WebContent"_s, @"com.apple.WebKit.WebContent.EnhancedSecurity" };
+
             return { "com.apple.WebKit.WebContent"_s, @"com.apple.WebKit.WebContent.CaptivePortal" };
         }
-        NSString *webContentAppex = !useCaptivePortal ? @"WebContentExtension" : @"WebContentCaptivePortalExtension";
+        NSString *webContentAppex = nil;
+
+        if (useCaptivePortal)
+            webContentAppex = @"WebContentCaptivePortalExtension";
+        else if (useEnhancedSecurity)
+            webContentAppex = @"WebContentEnhancedSecurityExtension";
+        else
+            webContentAppex = @"WebContentExtension";
+
         return { "com.apple.WebKit.WebContent"_s, [NSString stringWithFormat:@"%@.%@", [[NSBundle mainBundle] bundleIdentifier], webContentAppex] };
     }
     case ProcessLauncher::ProcessType::Network:
@@ -147,6 +160,9 @@ static ASCIILiteral webContentServiceName(const ProcessLauncher::LaunchOptions& 
 {
     if (client && client->shouldEnableLockdownMode())
         return "com.apple.WebKit.WebContent.CaptivePortal"_s;
+
+    if (client && client->shouldEnableEnhancedSecurity())
+        return "com.apple.WebKit.WebContent.EnhancedSecurity"_s;
 
     return launchOptions.nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development"_s : "com.apple.WebKit.WebContent"_s;
 }
@@ -326,15 +342,21 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     }
 
 #if PLATFORM(IOS_FAMILY)
-    // Clients that set these environment variables explicitly do not have the values automatically forwarded by libxpc.
-    auto containerEnvironmentVariables = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
-    if (const char* environmentHOME = getenv("HOME"))
-        xpc_dictionary_set_string(containerEnvironmentVariables.get(), "HOME", environmentHOME);
-    if (const char* environmentCFFIXED_USER_HOME = getenv("CFFIXED_USER_HOME"))
-        xpc_dictionary_set_string(containerEnvironmentVariables.get(), "CFFIXED_USER_HOME", environmentCFFIXED_USER_HOME);
-    if (const char* environmentTMPDIR = getenv("TMPDIR"))
-        xpc_dictionary_set_string(containerEnvironmentVariables.get(), "TMPDIR", environmentTMPDIR);
-    xpc_dictionary_set_value(bootstrapMessage.get(), "ContainerEnvironmentVariables", containerEnvironmentVariables.get());
+    bool isWebContentExtension = false;
+#if USE(EXTENSIONKIT)
+    isWebContentExtension = (m_launchOptions.processType == ProcessLauncher::ProcessType::Web);
+#endif
+    if (!isWebContentExtension) {
+        // Clients that set these environment variables explicitly do not have the values automatically forwarded by libxpc.
+        auto containerEnvironmentVariables = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
+        if (const char* environmentHOME = getenv("HOME"))
+            xpc_dictionary_set_string(containerEnvironmentVariables.get(), "HOME", environmentHOME);
+        if (const char* environmentCFFIXED_USER_HOME = getenv("CFFIXED_USER_HOME"))
+            xpc_dictionary_set_string(containerEnvironmentVariables.get(), "CFFIXED_USER_HOME", environmentCFFIXED_USER_HOME);
+        if (const char* environmentTMPDIR = getenv("TMPDIR"))
+            xpc_dictionary_set_string(containerEnvironmentVariables.get(), "TMPDIR", environmentTMPDIR);
+        xpc_dictionary_set_value(bootstrapMessage.get(), "ContainerEnvironmentVariables", containerEnvironmentVariables.get());
+    }
 #endif
 
     CheckedPtr client = m_client;
@@ -459,7 +481,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     }
 
     ref();
-    xpc_connection_send_message_with_reply(m_xpcConnection.get(), bootstrapMessage.get(), dispatch_get_main_queue(), ^(xpc_object_t reply) {
+    xpc_connection_send_message_with_reply(m_xpcConnection.get(), bootstrapMessage.get(), mainDispatchQueueSingleton(), ^(xpc_object_t reply) {
         // Errors are handled in the event handler.
         // It is possible for this block to be called after the error event handler, in which case we're no longer
         // launching and we already took care of cleaning things up.

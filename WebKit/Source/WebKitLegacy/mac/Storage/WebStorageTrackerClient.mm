@@ -41,13 +41,9 @@ WebStorageTrackerClient* WebStorageTrackerClient::sharedWebStorageTrackerClient(
     return sharedClient;
 }
 
-WebStorageTrackerClient::WebStorageTrackerClient()
-{
-}
+WebStorageTrackerClient::WebStorageTrackerClient() = default;
 
-WebStorageTrackerClient::~WebStorageTrackerClient()
-{
-}
+WebStorageTrackerClient::~WebStorageTrackerClient() = default;
 
 void WebStorageTrackerClient::dispatchDidModifyOrigin(SecurityOrigin* origin)
 {

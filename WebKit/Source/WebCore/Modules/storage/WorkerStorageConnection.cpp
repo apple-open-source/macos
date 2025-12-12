@@ -63,16 +63,17 @@ void WorkerStorageConnection::scopeClosed()
 
 void WorkerStorageConnection::getPersisted(ClientOrigin&& origin, StorageConnection::PersistCallback&& completionHandler)
 {
-    ASSERT(m_scope);
+    RefPtr scope = m_scope.get();
+    ASSERT(scope);
 
-    auto* workerLoaderProxy = m_scope->thread().workerLoaderProxy();
+    auto* workerLoaderProxy = scope->thread()->workerLoaderProxy();
     if (!workerLoaderProxy)
         return completionHandler(false);
 
     auto callbackIdentifier = ++m_lastCallbackIdentifier;
     m_getPersistedCallbacks.add(callbackIdentifier, WTFMove(completionHandler));
 
-    workerLoaderProxy->postTaskToLoader([callbackIdentifier, contextIdentifier = m_scope->identifier(), origin = WTFMove(origin).isolatedCopy()](auto& context) mutable {
+    workerLoaderProxy->postTaskToLoader([callbackIdentifier, contextIdentifier = scope->identifier(), origin = WTFMove(origin).isolatedCopy()](auto& context) mutable {
         ASSERT(isMainThread());
 
         auto& document = downcast<Document>(context);
@@ -97,16 +98,17 @@ void WorkerStorageConnection::didGetPersisted(uint64_t callbackIdentifier, bool 
 
 void WorkerStorageConnection::getEstimate(ClientOrigin&& origin, StorageConnection::GetEstimateCallback&& completionHandler)
 {
-    ASSERT(m_scope);
+    RefPtr scope = m_scope.get();
+    ASSERT(scope);
 
-    auto* workerLoaderProxy = m_scope->thread().workerLoaderProxy();
+    auto* workerLoaderProxy = scope->thread()->workerLoaderProxy();
     if (!workerLoaderProxy)
         return completionHandler(Exception { ExceptionCode::InvalidStateError });
 
     auto callbackIdentifier = ++m_lastCallbackIdentifier;
     m_getEstimateCallbacks.add(callbackIdentifier, WTFMove(completionHandler));
 
-    workerLoaderProxy->postTaskToLoader([callbackIdentifier, contextIdentifier = m_scope->identifier(), origin = WTFMove(origin).isolatedCopy()](auto& context) mutable {
+    workerLoaderProxy->postTaskToLoader([callbackIdentifier, contextIdentifier = scope->identifier(), origin = WTFMove(origin).isolatedCopy()](auto& context) mutable {
         ASSERT(isMainThread());
 
         auto& document = downcast<Document>(context);
@@ -131,9 +133,10 @@ void WorkerStorageConnection::didGetEstimate(uint64_t callbackIdentifier, Except
 
 void WorkerStorageConnection::fileSystemGetDirectory(ClientOrigin&& origin, StorageConnection::GetDirectoryCallback&& completionHandler)
 {
-    ASSERT(m_scope);
+    RefPtr scope = m_scope.get();
+    ASSERT(scope);
 
-    auto* workerLoaderProxy = m_scope->thread().workerLoaderProxy();
+    auto* workerLoaderProxy = scope->thread()->workerLoaderProxy();
     if (!workerLoaderProxy)
         return completionHandler(Exception { ExceptionCode::InvalidStateError });
     
@@ -172,11 +175,12 @@ void WorkerStorageConnection::didGetDirectory(uint64_t callbackIdentifier, Excep
     if (result.hasException())
         return callback(WTFMove(result));
 
-    if (!m_scope)
+    RefPtr scope = m_scope.get();
+    if (!scope)
         return callback(Exception { ExceptionCode::InvalidStateError });
     releaseConnectionScope.release();
 
-    Ref workerFileSystemStorageConnection = m_scope->getFileSystemStorageConnection(Ref { *mainThreadFileSystemStorageConnection });
+    Ref workerFileSystemStorageConnection = scope->getFileSystemStorageConnection(Ref { *mainThreadFileSystemStorageConnection });
     callback(StorageConnection::DirectoryInfo { result.returnValue().first, workerFileSystemStorageConnection });
 }
 

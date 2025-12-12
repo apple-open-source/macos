@@ -47,6 +47,7 @@
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
 #include "RenderObjectInlines.h"
+#include "Settings.h"
 #include "StyleOriginatedAnimation.h"
 #include "WebAnimationTypes.h"
 
@@ -210,6 +211,11 @@ void DocumentTimeline::styleOriginatedAnimationsWereCreated()
     scheduleAnimationResolution();
 }
 
+void DocumentTimeline::pendingStartTimeWasSetOnAnimation()
+{
+    scheduleAnimationResolution();
+}
+
 bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
 {
     // https://drafts.csswg.org/web-animations/#removing-replaced-animations
@@ -225,7 +231,7 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
         return false;
 
     // - has an associated animation effect whose target element is a descendant of doc, and
-    RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation.effect());
+    RefPtr keyframeEffect = animation.keyframeEffect();
     if (!keyframeEffect)
         return false;
 
@@ -265,7 +271,7 @@ IGNORE_GCC_WARNINGS_END
             break;
 
         if (animationWithHigherCompositeOrder && animationWithHigherCompositeOrder->isReplaceable()) {
-            if (RefPtr keyframeEffectWithHigherCompositeOrder = dynamicDowncast<KeyframeEffect>(animationWithHigherCompositeOrder->effect())) {
+            if (RefPtr keyframeEffectWithHigherCompositeOrder = animationWithHigherCompositeOrder->keyframeEffect()) {
                 for (auto property : keyframeEffectWithHigherCompositeOrder->animatedProperties()) {
                     if (propertiesToMatch.remove(resolvedProperty(property)) && propertiesToMatch.isEmpty())
                         break;
@@ -325,7 +331,7 @@ void DocumentTimeline::removeReplacedAnimations()
 void DocumentTimeline::transitionDidComplete(Ref<CSSTransition>&& transition)
 {
     removeAnimation(transition.get());
-    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(transition->effect())) {
+    if (RefPtr keyframeEffect = transition->keyframeEffect()) {
         if (auto styleable = keyframeEffect->targetStyleable()) {
             auto property = transition->property();
             if (styleable->hasRunningTransitionForProperty(property))
@@ -424,7 +430,7 @@ void DocumentTimeline::applyPendingAcceleratedAnimations()
 
     bool hasForcedLayout = false;
     for (auto& animation : acceleratedAnimationsPendingRunningStateChange) {
-        if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+        if (RefPtr keyframeEffect = animation->keyframeEffect()) {
             if (!hasForcedLayout)
                 hasForcedLayout |= keyframeEffect->forceLayoutIfNeeded();
 

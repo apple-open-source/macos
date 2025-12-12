@@ -29,9 +29,9 @@
 
 #pragma once
 
-#include "Exception.h"
-#include "InjectedScript.h"
-#include "InspectorEnvironment.h"
+#include <JavaScriptCore/Exception.h>
+#include <JavaScriptCore/InjectedScript.h>
+#include <JavaScriptCore/InspectorEnvironment.h>
 #include <wtf/Expected.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>

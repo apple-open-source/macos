@@ -48,10 +48,10 @@ public:
     void ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
 
-    void startUpdatingDeviceOrientation(const WebCore::SecurityOriginData&);
+    void startUpdatingDeviceOrientation();
     void stopUpdatingDeviceOrientation();
 
-    void startUpdatingDeviceMotion(const WebCore::SecurityOriginData&);
+    void startUpdatingDeviceMotion();
     void stopUpdatingDeviceMotion();
 
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess(IPC::Connection&) const;

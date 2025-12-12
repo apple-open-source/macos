@@ -33,17 +33,17 @@
 namespace WebCore {
 namespace Style {
 
-float TextUnderlineOffset::resolve(float fontSize, float autoValue) const
+float TextUnderlineOffset::resolve(const RenderStyle& style, float autoValue) const
 {
     return WTF::switchOn(*this,
         [&](const CSS::Keyword::Auto&) -> float {
             return autoValue;
         },
         [&](const Fixed& fixed) -> float {
-            return fixed.value;
+            return Style::evaluate<float>(fixed, style.usedZoomForLength());
         },
         [&](const auto& percentage) -> float {
-            return Style::evaluate(percentage, fontSize);
+            return Style::evaluate<float>(percentage, style.computedFontSize());
         }
     );
 }
@@ -55,21 +55,17 @@ auto Blending<TextUnderlineOffset>::canBlend(const TextUnderlineOffset& a, const
     if (a.isAuto() || b.isAuto())
         return false;
 
-    auto aValue = a.resolve(aStyle.computedFontSize());
-    auto bValue = b.resolve(bStyle.computedFontSize());
-    return aValue != bValue;
+    return a.resolve(aStyle) != b.resolve(bStyle);
 }
 
 auto Blending<TextUnderlineOffset>::blend(const TextUnderlineOffset& a, const TextUnderlineOffset& b, const RenderStyle& aStyle, const RenderStyle& bStyle, const BlendingContext& context) -> TextUnderlineOffset
 {
-    if (context.isDiscrete)
+    if (context.isDiscrete) {
+        ASSERT(!context.progress || context.progress == 1.0);
         return context.progress ? b : a;
+    }
 
-    auto aValue = a.resolve(aStyle.computedFontSize());
-    auto bValue = b.resolve(bStyle.computedFontSize());
-
-    auto blendedValue = WebCore::blend(aValue, bValue, context);
-    return TextUnderlineOffset::Fixed { clampTo<float>(blendedValue, minValueForCssLength, maxValueForCssLength) };
+    return TextUnderlineOffset { TextUnderlineOffset::Fixed { WebCore::blend(a.resolve(aStyle), b.resolve(bStyle), context) } };
 }
 
 } // namespace Style

@@ -26,7 +26,8 @@
 #include "ContainerQueryFeatures.h"
 
 #include "BoxSides.h"
-#include "CalculationCategory.h"
+#include "CSSCustomPropertyValue.h"
+#include "CSSPrimitiveNumericCategory.h"
 #include "ComputedStyleDependencies.h"
 #include "ContainerQueryEvaluator.h"
 #include "RenderBoxInlines.h"
@@ -40,6 +41,13 @@
 namespace WebCore::CQ {
 
 using namespace MQ;
+
+static LayoutUnit unscaledSizeForPrincipleBox(const Style::PreferredSize& computedSize, LayoutUnit usedSize, UsesSVGZoomRulesForLength usesSVGZoomRulesForLength, float usedZoom)
+{
+    if (usesSVGZoomRulesForLength == UsesSVGZoomRulesForLength::Yes || !computedSize.isFixed())
+        return usedSize;
+    return LayoutUnit { usedSize / usedZoom };
+}
 
 struct SizeFeatureSchema : public FeatureSchema {
     SizeFeatureSchema(const AtomString& name, Type type, ValueType valueType, OptionSet<MediaQueryDynamicDependency> dependencies, FixedVector<CSSValueID>&& valueIdentifiers = { })
@@ -78,7 +86,11 @@ struct WidthFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        return evaluateLengthFeature(feature, renderer.contentBoxWidth(), conversionData);
+        auto& renderStyle = renderer.style();
+        auto usesSVGZoomRulesForLength = renderStyle.useSVGZoomRulesForLength() ? UsesSVGZoomRulesForLength::Yes : UsesSVGZoomRulesForLength::No;
+
+        auto width = unscaledSizeForPrincipleBox(renderStyle.width(), renderer.contentBoxWidth(), usesSVGZoomRulesForLength, renderStyle.usedZoom());
+        return evaluateLengthFeature(feature, width, conversionData);
     }
 };
 
@@ -92,7 +104,11 @@ struct HeightFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        return evaluateLengthFeature(feature, renderer.contentBoxHeight(), conversionData);
+        auto& renderStyle = renderer.style();
+        auto usesSVGZoomRulesForLength = renderStyle.useSVGZoomRulesForLength() ? UsesSVGZoomRulesForLength::Yes : UsesSVGZoomRulesForLength::No;
+
+        auto height = unscaledSizeForPrincipleBox(renderStyle.height(), renderer.contentBoxHeight(), usesSVGZoomRulesForLength, renderStyle.usedZoom());
+        return evaluateLengthFeature(feature, height, conversionData);
     }
 };
 
@@ -106,7 +122,11 @@ struct InlineSizeFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        return evaluateLengthFeature(feature, renderer.contentBoxLogicalWidth(), conversionData);
+        auto& renderStyle = renderer.style();
+        auto usesSVGZoomRulesForLength = renderStyle.useSVGZoomRulesForLength() ? UsesSVGZoomRulesForLength::Yes : UsesSVGZoomRulesForLength::No;
+
+        auto logicalWidth = unscaledSizeForPrincipleBox(renderStyle.logicalWidth(), renderer.contentBoxLogicalWidth(), usesSVGZoomRulesForLength, renderStyle.usedZoom());
+        return evaluateLengthFeature(feature, logicalWidth, conversionData);
     }
 };
 
@@ -120,7 +140,11 @@ struct BlockSizeFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        return evaluateLengthFeature(feature, renderer.contentBoxLogicalHeight(), conversionData);
+        auto& renderStyle = renderer.style();
+        auto usesSVGZoomRulesForLength = renderStyle.useSVGZoomRulesForLength() ? UsesSVGZoomRulesForLength::Yes : UsesSVGZoomRulesForLength::No;
+
+        auto logicalHeight = unscaledSizeForPrincipleBox(renderStyle.logicalHeight(), renderer.contentBoxLogicalHeight(), usesSVGZoomRulesForLength, renderStyle.usedZoom());
+        return evaluateLengthFeature(feature, logicalHeight, conversionData);
     }
 };
 
@@ -187,7 +211,7 @@ struct StyleFeatureSchema : public FeatureSchema {
             auto dummyStyle = RenderStyle::clone(style);
             auto dummyMatchResult = Style::MatchResult::create();
 
-            auto styleBuilder = Style::Builder { dummyStyle, WTFMove(builderContext), dummyMatchResult, { } };
+            auto styleBuilder = Style::Builder { dummyStyle, WTFMove(builderContext), dummyMatchResult };
             return styleBuilder.resolveCustomPropertyForContainerQueries(*featureValue);
         }();
 

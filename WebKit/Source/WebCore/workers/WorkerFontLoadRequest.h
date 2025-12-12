@@ -26,10 +26,10 @@
 
 #pragma once
 
-#include "FontLoadRequest.h"
-#include "ResourceLoaderOptions.h"
-#include "SharedBuffer.h"
-#include "ThreadableLoaderClient.h"
+#include <WebCore/FontLoadRequest.h>
+#include <WebCore/ResourceLoaderOptions.h>
+#include <WebCore/SharedBuffer.h>
+#include <WebCore/ThreadableLoaderClient.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
@@ -47,7 +47,6 @@ class WorkerFontLoadRequest final : public FontLoadRequest, public ThreadableLoa
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WorkerFontLoadRequest);
 public:
     WorkerFontLoadRequest(URL&&, LoadedFromOpaqueSource);
-    ~WorkerFontLoadRequest() = default;
 
     void load(WorkerGlobalScope&);
 

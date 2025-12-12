@@ -25,11 +25,11 @@
 #include "FEDiffuseLighting.h"
 #include "NodeName.h"
 #include "RenderElement.h"
-#include "RenderStyle.h"
+#include "RenderStyleInlines.h"
 #include "SVGFELightElement.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
-#include "SVGRenderStyle.h"
+#include "SVGPropertyOwnerRegistry.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -90,7 +90,7 @@ bool SVGFEDiffuseLightingElement::setFilterEffectAttribute(FilterEffect& filterE
     switch (attrName.nodeName()) {
     case AttributeNames::lighting_colorAttr: {
         auto& style = renderer()->style();
-        auto color = style.colorWithColorFilter(style.svgStyle().lightingColor());
+        auto color = style.colorWithColorFilter(style.lightingColor());
         return effect.setLightingColor(color);
     }
     case AttributeNames::surfaceScaleAttr:
@@ -167,7 +167,7 @@ RefPtr<FilterEffect> SVGFEDiffuseLightingElement::createFilterEffect(const Filte
     Ref lightSource = lightElement->lightSource();
     auto& style = renderer->style();
 
-    Color color = style.colorWithColorFilter(style.svgStyle().lightingColor());
+    Color color = style.colorWithColorFilter(style.lightingColor());
 
     return FEDiffuseLighting::create(color, surfaceScale(), diffuseConstant(), kernelUnitLengthX(), kernelUnitLengthY(), WTFMove(lightSource));
 }

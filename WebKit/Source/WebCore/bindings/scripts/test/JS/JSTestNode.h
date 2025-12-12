@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include "JSDOMWrapper.h"
 #include "JSNode.h"
 #include "TestNode.h"
+#include <WebCore/JSDOMWrapper.h>
 
 namespace WebCore {
 

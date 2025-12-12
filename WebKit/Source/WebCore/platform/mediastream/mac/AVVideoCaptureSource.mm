@@ -51,7 +51,8 @@
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/Scope.h>
 #import <wtf/WorkQueue.h>
-#include <wtf/cocoa/VectorCocoa.h>
+#import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 
 #import "CoreVideoSoftLink.h"
 #import <pal/cocoa/AVFoundationSoftLink.h>
@@ -101,12 +102,22 @@ using namespace WebCore;
 
 namespace WebCore {
 
+static IntSize toIntSize(const CMVideoDimensions& dimensions)
+{
+    return { dimensions.width, dimensions.height };
+}
+
+static CMVideoDimensions toCMVideoDimensions(const IntSize& size)
+{
+    return { size.width(), size.height() };
+}
+
 static dispatch_queue_t globaVideoCaptureSerialQueue()
 {
     static dispatch_queue_t globalQueue;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        globalQueue = dispatch_queue_create_with_target("WebCoreAVVideoCaptureSource video capture queue", DISPATCH_QUEUE_SERIAL, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
+        globalQueue = dispatch_queue_create_with_target("WebCoreAVVideoCaptureSource video capture queue", DISPATCH_QUEUE_SERIAL, globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
     });
     return globalQueue;
 }
@@ -221,7 +232,7 @@ void AVVideoCaptureSource::setUseAVCaptureDeviceRotationCoordinatorAPI(bool valu
 
 CaptureSourceOrError AVVideoCaptureSource::create(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
-    auto *avDevice = [PAL::getAVCaptureDeviceClass() deviceWithUniqueID:device.persistentId().createNSString().get()];
+    auto *avDevice = [PAL::getAVCaptureDeviceClassSingleton() deviceWithUniqueID:device.persistentId().createNSString().get()];
     if (!avDevice)
         return CaptureSourceOrError({ "No AVVideoCaptureSource device"_s , MediaAccessDenialReason::PermissionDenied });
 
@@ -642,27 +653,31 @@ IntSize AVVideoCaptureSource::maxPhotoSizeForCurrentPreset(IntSize requestedSize
 {
     ASSERT(isMainThread());
 
-    CMVideoDimensions bestMaxPhotoSize;
-
     auto *format = [m_device activeFormat];
-    if ([format respondsToSelector:@selector(supportedMaxPhotoDimensions)]) {
-        NSArray<NSValue*> *maxPhotoDimensions = format.supportedMaxPhotoDimensions;
-        if (!maxPhotoDimensions.count)
-            return { };
+    if ([format respondsToSelector:@selector(supportedMaxPhotoDimensions)])
+        return maxPhotoSizeForActiveFormat(format, requestedSize);
 
-        bestMaxPhotoSize = maxPhotoDimensions.firstObject.CMVideoDimensionsValue;
-        for (NSValue *value in maxPhotoDimensions) {
-            CMVideoDimensions dimensions = value.CMVideoDimensionsValue;
-            if (dimensions.width >= requestedSize.width() && dimensions.height >= requestedSize.height()) {
-                if (dimensions.width * dimensions.height < bestMaxPhotoSize.width * bestMaxPhotoSize.height)
-                    bestMaxPhotoSize = dimensions;
-            }
-        }
-    } else {
-        if (!m_currentPreset)
-            return { };
-
+    if (m_currentPreset)
         return m_currentPreset->size();
+
+    return { };
+}
+
+IntSize AVVideoCaptureSource::maxPhotoSizeForActiveFormat(AVCaptureDeviceFormat *format, IntSize requestedSize) const
+{
+    ASSERT([format respondsToSelector:@selector(supportedMaxPhotoDimensions)]);
+
+    NSArray<NSValue*> *maxPhotoDimensions = format.supportedMaxPhotoDimensions;
+    if (!maxPhotoDimensions.count)
+        return { };
+
+    auto bestMaxPhotoSize = maxPhotoDimensions.firstObject.CMVideoDimensionsValue;
+    for (NSValue *value in maxPhotoDimensions) {
+        CMVideoDimensions dimensions = value.CMVideoDimensionsValue;
+        if (dimensions.width >= requestedSize.width() && dimensions.height >= requestedSize.height()) {
+            if (dimensions.width * dimensions.height < bestMaxPhotoSize.width * bestMaxPhotoSize.height)
+                bestMaxPhotoSize = dimensions;
+        }
     }
 
     return { bestMaxPhotoSize.width, bestMaxPhotoSize.height };
@@ -676,7 +691,7 @@ RetainPtr<AVCapturePhotoSettings> AVVideoCaptureSource::photoConfiguration(const
     if (photoSettings.imageHeight && photoSettings.imageWidth)
         requestedPhotoDimensions = { static_cast<int>(*photoSettings.imageWidth), static_cast<int>(*photoSettings.imageHeight) };
 
-    AVCapturePhotoSettings* avPhotoSettings = [PAL::getAVCapturePhotoSettingsClass() photoSettingsWithFormat:@{
+    AVCapturePhotoSettings* avPhotoSettings = [PAL::getAVCapturePhotoSettingsClassSingleton() photoSettingsWithFormat:@{
         AVVideoCodecKey : AVVideoCodecTypeJPEG,
         AVVideoCompressionPropertiesKey : @{ AVVideoQualityKey : @(1) }
     }];
@@ -730,16 +745,16 @@ auto AVVideoCaptureSource::takePhotoInternal(PhotoSettings&& photoSettings) -> R
         return TakePhotoNativePromise::createAndReject("Internal error"_s);
     }
 
-    photoQueueSingleton().dispatch([protectedThis = Ref { *this }, this, avPhotoSettings = WTFMove(avPhotoSettings), photoOutput = WTFMove(photoOutput)] {
+    photoQueueSingleton().dispatch([protectedThis = Ref { *this }, this, avPhotoSettings = WTFMove(avPhotoSettings), photoOutput = WTFMove(photoOutput), device = m_device] {
         ASSERT(!isMainThread());
 
         if ([avPhotoSettings respondsToSelector:@selector(setMaxPhotoDimensions:)]) {
-            auto requestedPhotoDimensions = [avPhotoSettings maxPhotoDimensions];
-            if (requestedPhotoDimensions.width && requestedPhotoDimensions.height) {
-                auto currentMaxPhotoDimensions = [photoOutput maxPhotoDimensions];
-                if (requestedPhotoDimensions.width > currentMaxPhotoDimensions.width || requestedPhotoDimensions.height > currentMaxPhotoDimensions.height)
-                    [photoOutput setMaxPhotoDimensions:requestedPhotoDimensions];
-            }
+            auto *format = [device activeFormat];
+            auto maxDimensions = [avPhotoSettings maxPhotoDimensions];
+
+            auto requestedPhotoDimensions = maxPhotoSizeForActiveFormat(format, toIntSize(maxDimensions));
+            if (!requestedPhotoDimensions.isEmpty())
+                [photoOutput setMaxPhotoDimensions:toCMVideoDimensions(requestedPhotoDimensions)];
         }
 
         [photoOutput capturePhotoWithSettings:avPhotoSettings.get() delegate:m_objcObserver.get()];
@@ -1089,7 +1104,7 @@ bool AVVideoCaptureSource::setupSession()
     String mediaEnvironment = RealtimeMediaSourceCenter::singleton().currentMediaEnvironment();
     WARNING_LOG_IF(loggerPtr() && mediaEnvironment.isEmpty(), "Media environment is empty");
     // FIXME (119325252): Remove staging code for -[AVCaptureSession initWithMediaEnvironment:]
-    if (!mediaEnvironment.isEmpty() && [PAL::getAVCaptureSessionClass() instancesRespondToSelector:@selector(initWithMediaEnvironment:)])
+    if (!mediaEnvironment.isEmpty() && [PAL::getAVCaptureSessionClassSingleton() instancesRespondToSelector:@selector(initWithMediaEnvironment:)])
         m_session = adoptNS([PAL::allocAVCaptureSessionInstance() initWithMediaEnvironment:mediaEnvironment.createNSString().get()]);
 #endif
 
@@ -1098,7 +1113,7 @@ bool AVVideoCaptureSource::setupSession()
         auto identity = RealtimeMediaSourceCenter::singleton().identity();
         ERROR_LOG_IF(loggerPtr() && !identity, LOGIDENTIFIER, "RealtimeMediaSourceCenter::identity() returned null!");
 
-        if (identity && [PAL::getAVCaptureSessionClass() instancesRespondToSelector:@selector(initWithAssumedIdentity:)])
+        if (identity && [PAL::getAVCaptureSessionClassSingleton() instancesRespondToSelector:@selector(initWithAssumedIdentity:)])
             m_session = adoptNS([PAL::allocAVCaptureSessionInstance() initWithAssumedIdentity:identity.get()]);
     }
 #endif

@@ -308,11 +308,6 @@ void RemoteSourceBufferProxy::computeSeekTime(const SeekTarget& target, Completi
     protectedSourceBufferPrivate()->computeSeekTime(target)->whenSettled(RunLoop::currentSingleton(), WTFMove(completionHandler));
 }
 
-void RemoteSourceBufferProxy::seekToTime(const MediaTime& time)
-{
-    protectedSourceBufferPrivate()->seekToTime(time);
-}
-
 void RemoteSourceBufferProxy::updateTrackIds(Vector<std::pair<TrackID, TrackID>>&& trackIdPairs)
 {
     if (!trackIdPairs.isEmpty())

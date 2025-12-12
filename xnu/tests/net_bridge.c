@@ -2734,6 +2734,7 @@ bridge_cleanup(const char * bridge, u_int n_ports, bool fail_on_error);
 static int fake_bsd_mode;
 static int fake_fcs;
 static int fake_trailer_length;
+static int fake_nxattach;
 
 static void
 fake_set_trailers_fcs(bool enable)
@@ -2805,6 +2806,32 @@ fake_restore_bsd_mode(void)
 	    NULL, 0, &fake_bsd_mode, sizeof(fake_bsd_mode));
 	T_LOG("sysctl net.link.fake.bsd_mode=%d returned %d",
 	    fake_bsd_mode, error);
+}
+
+static void
+fake_set_nxattach(bool enable)
+{
+	int     error;
+	int     nxattach;
+	size_t  len;
+
+	nxattach = (enable) ? 1 : 0;
+	len = sizeof(fake_nxattach);
+	error = sysctlbyname("net.link.fake.nxattach",
+	    &fake_nxattach, &len,
+	    &nxattach, sizeof(nxattach));
+	T_ASSERT_EQ(error, 0, "sysctl net.link.fake.nxattach %d", nxattach);
+}
+
+static void
+fake_restore_nxattach(void)
+{
+	int     error;
+
+	error = sysctlbyname("net.link.fake.nxattach",
+	    NULL, 0, &fake_nxattach, sizeof(fake_nxattach));
+	T_LOG("sysctl net.link.fake.nxatach=%d returned %d",
+	    fake_nxattach, error);
 }
 
 static void
@@ -2902,6 +2929,7 @@ bridge_setup(char * bridge, u_int n_ports, u_int num_addrs,
 	}
 	list = switch_port_list_alloc(n_ports, mac_nat);
 	fake_set_bsd_mode(true);
+	fake_set_nxattach(false);
 	fake_set_trailers_fcs(trailers);
 	for (u_int i = 0; i < n_ports; i++) {
 		bool    do_mac_nat;
@@ -2997,6 +3025,7 @@ bridge_cleanup(const char * bridge, u_int n_ports, bool fail_on_error)
 	S_n_ports = 0;
 	fake_restore_trailers_fcs();
 	fake_restore_bsd_mode();
+	fake_restore_nxattach();
 	return;
 }
 

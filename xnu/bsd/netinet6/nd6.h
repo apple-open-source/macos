@@ -962,6 +962,8 @@ extern int defrtrlist_ioctl(u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)));
 extern void defrtrlist_del(struct nd_defrouter *, struct nd_drhead *);
 extern int defrtrlist_add_static(struct nd_defrouter *);
 extern int defrtrlist_del_static(struct nd_defrouter *);
+extern void nd_prefix_busy_wait(void);
+extern void nd_prefix_busy_signal(void);
 extern void prelist_remove(struct nd_prefix *);
 extern int prelist_update(struct nd_prefix *, struct nd_defrouter *,
     struct mbuf *, int);
@@ -970,7 +972,7 @@ extern int nd6_prelist_add(struct nd_prefix *, struct nd_defrouter *,
 extern int nd6_prefix_onlink(struct nd_prefix *);
 extern int nd6_prefix_onlink_scoped(struct nd_prefix *, unsigned int);
 extern int nd6_prefix_offlink(struct nd_prefix *);
-extern void pfxlist_onlink_check(void);
+extern void pfxlist_onlink_check(bool);
 extern void defrouter_set_reachability(struct in6_addr *, struct ifnet *, boolean_t);
 extern struct nd_defrouter *defrouter_lookup(struct nd_drhead *,
     struct in6_addr *, struct ifnet *);

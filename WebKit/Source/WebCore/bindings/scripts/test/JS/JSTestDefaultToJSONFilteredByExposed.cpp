@@ -179,7 +179,7 @@ JSValue JSTestDefaultToJSONFilteredByExposed::getConstructor(VM& vm, const JSGlo
 
 void JSTestDefaultToJSONFilteredByExposed::destroy(JSC::JSCell* cell)
 {
-    JSTestDefaultToJSONFilteredByExposed* thisObject = static_cast<JSTestDefaultToJSONFilteredByExposed*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSTestDefaultToJSONFilteredByExposed* thisObject = static_cast<JSTestDefaultToJSONFilteredByExposed*>(cell);
     thisObject->JSTestDefaultToJSONFilteredByExposed::~JSTestDefaultToJSONFilteredByExposed();
 }
 
@@ -289,7 +289,7 @@ bool JSTestDefaultToJSONFilteredByExposedOwner::isReachableFromOpaqueRoots(JSC::
 
 void JSTestDefaultToJSONFilteredByExposedOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsTestDefaultToJSONFilteredByExposed = static_cast<JSTestDefaultToJSONFilteredByExposed*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsTestDefaultToJSONFilteredByExposed = static_cast<JSTestDefaultToJSONFilteredByExposed*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsTestDefaultToJSONFilteredByExposed->protectedWrapped().ptr(), jsTestDefaultToJSONFilteredByExposed);
 }
@@ -303,7 +303,7 @@ extern "C" { extern void (*const __identifier("??_7TestDefaultToJSONFilteredByEx
 extern "C" { extern void* _ZTVN7WebCore34TestDefaultToJSONFilteredByExposedE[]; }
 #endif
 template<std::same_as<TestDefaultToJSONFilteredByExposed> T>
-static inline void verifyVTable(TestDefaultToJSONFilteredByExposed* ptr) 
+static inline void verifyVTable(TestDefaultToJSONFilteredByExposed* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -323,8 +323,9 @@ static inline void verifyVTable(TestDefaultToJSONFilteredByExposed* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestDefaultToJSONFilteredByExposed>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<TestDefaultToJSONFilteredByExposed>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<TestDefaultToJSONFilteredByExposed>(impl.ptr());
 #endif

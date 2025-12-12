@@ -46,7 +46,7 @@
 
 static bool setCommandEncoder(auto& buffer, auto& renderPassEncoder)
 {
-    buffer.setCommandEncoder(renderPassEncoder->protectedParentEncoder().get());
+    buffer.setCommandEncoder(renderPassEncoder->parentEncoder());
     return !!renderPassEncoder->renderCommandEncoder();
 }
 
@@ -130,7 +130,7 @@ static RenderBundleICBWithResources* makeRenderBundleICBWithResources(id<MTLIndi
 
 Ref<RenderBundleEncoder> Device::createRenderBundleEncoder(const WGPURenderBundleEncoderDescriptor& descriptor)
 {
-    if (descriptor.nextInChain || !isValid())
+    if (!isValid())
         return RenderBundleEncoder::createInvalid(*this, @"createRenderBundleEncoder: invalid device");
 
     MTLIndirectCommandBufferDescriptor *icbDescriptor = [MTLIndirectCommandBufferDescriptor new];
@@ -316,7 +316,7 @@ bool RenderBundleEncoder::executePreDrawCommands(bool needsValidationLayerWorkar
 
     if (needsValidationLayerWorkaround) {
         pipeline = pipeline->recomputeLastStrideAsStride();
-        m_currentPipelineState = pipeline->renderPipelineState();
+        m_currentPipelineState = pipeline->icbRenderPipelineState();
     }
 
     if (!m_currentPipelineState)
@@ -339,12 +339,11 @@ bool RenderBundleEncoder::executePreDrawCommands(bool needsValidationLayerWorkar
         [commandEncoder setDepthClipMode:m_depthClipMode];
         [commandEncoder setDepthBias:m_depthBias slopeScale:m_depthBiasSlopeScale clamp:m_depthBiasClamp];
 
-        for (auto& [groupIndex, weakBindGroup] : m_bindGroups) {
-            if (!weakBindGroup.get())
+        for (auto& [groupIndex, bindGroup] : m_bindGroups) {
+            if (!bindGroup)
                 continue;
 
-            auto& group = *weakBindGroup.get();
-            for (const auto& resource : group.resources()) {
+            for (const auto& resource : bindGroup->resources()) {
                 ASSERT(resource.mtlResources.size() == resource.resourceUsages.size());
                 for (size_t i = 0, resourceCount = resource.resourceUsages.size(); i < resourceCount; ++i) {
                     if (resource.renderStages && resource.mtlResources[i])
@@ -359,7 +358,7 @@ bool RenderBundleEncoder::executePreDrawCommands(bool needsValidationLayerWorkar
         if (!group)
             continue;
 
-        auto pipelineOptionalBindGroupLayout = pipelineLayout->optionalBindGroupLayout(groupIndex);
+        auto pipelineOptionalBindGroupLayout = pipelineLayout->protectedOptionalBindGroupLayout(groupIndex);
         const Vector<uint32_t>* dynamicOffsets = nullptr;
         if (m_bindGroupDynamicOffsets) {
             if (auto it = m_bindGroupDynamicOffsets->find(groupIndex); it != m_bindGroupDynamicOffsets->end())
@@ -370,11 +369,11 @@ bool RenderBundleEncoder::executePreDrawCommands(bool needsValidationLayerWorkar
             return false;
         }
 
-        if (protectedGroup && (protectedGroup->makeSubmitInvalid(ShaderStage::Vertex, pipelineOptionalBindGroupLayout) || protectedGroup->makeSubmitInvalid(ShaderStage::Fragment, pipelineOptionalBindGroupLayout)))
+        if (protectedGroup && (protectedGroup->makeSubmitInvalid(ShaderStage::Vertex, pipelineOptionalBindGroupLayout.get()) || protectedGroup->makeSubmitInvalid(ShaderStage::Fragment, pipelineOptionalBindGroupLayout.get())))
             m_makeSubmitInvalid = true;
     }
 
-    if (NSString* error = pipeline->protectedPipelineLayout()->errorValidatingBindGroupCompatibility(m_bindGroups)) {
+    if (NSString* error = pipeline->pipelineLayout().errorValidatingBindGroupCompatibility(m_bindGroups)) {
         makeInvalid(error);
         return false;
     }
@@ -1315,14 +1314,14 @@ void RenderBundleEncoder::setPipeline(const RenderPipeline& pipeline)
     }
 
     id<MTLRenderPipelineState> previousRenderPipelineState = m_currentPipelineState;
-    m_currentPipelineState = pipeline.renderPipelineState();
+    m_currentPipelineState = pipeline.icbRenderPipelineState();
 
     if (replayingCommands()) {
         auto currentPipeline = m_pipeline;
         if (m_pipeline && m_currentCommandIndex && icbNeedsToBeSplit(*currentPipeline, pipeline)) {
             m_currentPipelineState = previousRenderPipelineState;
             splitICB(false);
-            m_currentPipelineState = pipeline.renderPipelineState();
+            m_currentPipelineState = pipeline.icbRenderPipelineState();
         }
 
         id<MTLDepthStencilState> previousDepthStencilState = m_depthStencilState;
@@ -1370,7 +1369,7 @@ void RenderBundleEncoder::setPipeline(const RenderPipeline& pipeline)
             [commandEncoder setDepthBias:m_depthBias slopeScale:m_depthBiasSlopeScale clamp:m_depthBiasClamp];
         }
     } else {
-        if (!pipeline.renderPipelineState())
+        if (!pipeline.icbRenderPipelineState())
             return;
 
         if (!pipeline.validateRenderBundle(m_descriptor)) {

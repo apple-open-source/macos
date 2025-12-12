@@ -777,6 +777,8 @@ Status WebMParser::OnClusterBegin(const ElementMetadata&, const Cluster& cluster
 
 Status WebMParser::OnTrackEntry(const ElementMetadata&, const TrackEntry& trackEntry)
 {
+    static constexpr size_t kMaxNumberOfTracksAllowed = 127;
+
     if (!trackEntry.track_type.is_present() || !trackEntry.codec_id.is_present())
         return Status(Status::kOkCompleted);
 
@@ -796,12 +798,20 @@ Status WebMParser::OnTrackEntry(const ElementMetadata&, const TrackEntry& trackE
     }
 
     if (trackType == TrackType::kVideo) {
-        auto track = VideoTrackPrivateWebM::create(TrackEntry(trackEntry));
+        if (m_initializationSegment->videoTracks.size() >= kMaxNumberOfTracksAllowed) {
+            ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, "Encountered too many video tracks for codec ID ", codecId);
+            return Status(Status::Code(ErrorCode::InvalidInitSegment));
+        }
+        Ref track = VideoTrackPrivateWebM::create(TrackEntry(trackEntry));
         if (RefPtr logger = m_logger)
             track->setLogger(*logger, LoggerHelper::childLogIdentifier(m_logIdentifier, ++m_nextChildIdentifier));
         m_initializationSegment->videoTracks.append({ MediaDescriptionWebM::create(TrackEntry(trackEntry)), WTFMove(track) });
     } else if (trackType == TrackType::kAudio) {
-        auto track = AudioTrackPrivateWebM::create(TrackEntry(trackEntry));
+        if (m_initializationSegment->audioTracks.size() >= kMaxNumberOfTracksAllowed) {
+            ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, "Encountered too many audio tracks for codec ID ", codecId);
+            return Status(Status::Code(ErrorCode::InvalidInitSegment));
+        }
+        Ref track = AudioTrackPrivateWebM::create(TrackEntry(trackEntry));
         if (RefPtr logger = m_logger)
             track->setLogger(*logger, LoggerHelper::childLogIdentifier(m_logIdentifier, ++m_nextChildIdentifier));
         m_initializationSegment->audioTracks.append({ MediaDescriptionWebM::create(TrackEntry(trackEntry)), WTFMove(track) });

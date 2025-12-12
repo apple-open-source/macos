@@ -28,10 +28,9 @@
 
 #if ENABLE(DRAG_SUPPORT) && !USE(GTK4)
 
+#include "GRefPtrGtk.h"
+#include "GtkUtilities.h"
 #include "WebKitWebViewBasePrivate.h"
-#include <WebCore/GRefPtrGtk.h>
-#include <WebCore/GdkSkiaUtilities.h>
-#include <WebCore/GtkUtilities.h>
 #include <WebCore/PasteboardCustomData.h>
 #include <gtk/gtk.h>
 
@@ -69,7 +68,7 @@ DragSource::DragSource(GtkWidget* webView)
             break;
         }
         case DragTargetType::Image: {
-            auto pixbuf = drag.m_selectionData->image()->adapter().gdkPixbuf();
+            auto pixbuf = selectionDataImageAsGdkPixbuf(*drag.m_selectionData);
             gtk_selection_data_set_pixbuf(data, pixbuf.get());
             break;
         }

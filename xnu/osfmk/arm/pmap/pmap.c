@@ -5510,7 +5510,8 @@ pmap_protect_options_internal(
 			if (pmap_allows_xo(pmap)) {
 				break;
 			}
-		/* Fall through and panic if this pmap shouldn't be allowed to have XO mappings. */
+			/* Fall through and panic if this pmap shouldn't be allowed to have XO mappings. */
+			OS_FALLTHROUGH;
 		default:
 			should_have_removed = TRUE;
 		}
@@ -5761,7 +5762,8 @@ pmap_protect_options(
 			if (pmap_allows_xo(pmap)) {
 				break;
 			}
-		/* Fall through and remove the mapping if XO is requested and [pmap] doesn't allow it. */
+			/* Fall through and remove the mapping if XO is requested and [pmap] doesn't allow it. */
+			OS_FALLTHROUGH;
 		default:
 			pmap_remove_options(pmap, b, e, options);
 			return;

@@ -28,6 +28,7 @@
 #include "WorkerNavigator.h"
 
 #include "Chrome.h"
+#include "ContextDestructionObserverInlines.h"
 #include "GPU.h"
 #include "JSDOMPromiseDeferred.h"
 #include "NavigatorUAData.h"
@@ -102,7 +103,7 @@ void WorkerNavigator::setAppBadge(std::optional<unsigned long long> badge, Ref<D
         return;
     }
 
-    if (auto* workerBadgeProxy = scope->thread().workerBadgeProxy())
+    if (auto* workerBadgeProxy = scope->thread()->workerBadgeProxy())
         workerBadgeProxy->setAppBadge(badge);
     promise->resolve();
 }

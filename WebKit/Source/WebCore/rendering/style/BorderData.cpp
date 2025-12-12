@@ -28,6 +28,7 @@
 #include "BorderData.h"
 
 #include "RenderStyle.h"
+#include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
 #include <wtf/PointerComparison.h>
 #include <wtf/text/TextStream.h>
@@ -79,13 +80,13 @@ void BorderData::dump(TextStream& ts, DumpStyleValues behavior) const
 
     ts.dumpProperty("image"_s, image());
 
-    if (behavior == DumpStyleValues::All || !Style::isZero(topLeftRadius()))
+    if (behavior == DumpStyleValues::All || !Style::isKnownZero(topLeftRadius()))
         ts.dumpProperty("top-left"_s, topLeftRadius());
-    if (behavior == DumpStyleValues::All || !Style::isZero(topRightRadius()))
+    if (behavior == DumpStyleValues::All || !Style::isKnownZero(topRightRadius()))
         ts.dumpProperty("top-right"_s, topRightRadius());
-    if (behavior == DumpStyleValues::All || !Style::isZero(bottomLeftRadius()))
+    if (behavior == DumpStyleValues::All || !Style::isKnownZero(bottomLeftRadius()))
         ts.dumpProperty("bottom-left"_s, bottomLeftRadius());
-    if (behavior == DumpStyleValues::All || !Style::isZero(bottomRightRadius()))
+    if (behavior == DumpStyleValues::All || !Style::isKnownZero(bottomRightRadius()))
         ts.dumpProperty("bottom-right"_s, bottomRightRadius());
 }
 

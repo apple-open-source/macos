@@ -24,8 +24,8 @@
 
 #pragma once
 
-#include "HTMLFormControlElement.h"
-#include "PointerEventTypeNames.h"
+#include <WebCore/HTMLFormControlElement.h>
+#include <WebCore/PointerEventTypeNames.h>
 #include <wtf/ValueOrReference.h>
 
 namespace WebCore {
@@ -106,6 +106,7 @@ public:
 
     bool selectionChanged(bool shouldFireSelectEvent);
     WEBCORE_EXPORT bool lastChangeWasUserEdit() const;
+    bool wasEverChangedByUserEdit() const;
     void setInnerTextValue(String&&);
     String innerTextValue() const;
 
@@ -149,6 +150,8 @@ protected:
     void internalSetMaxLength(int maxLength) { m_maxLength = maxLength; }
     void internalSetMinLength(int minLength) { m_minLength = minLength; }
 
+    bool shouldApplyScriptTrackingPrivacyProtection() const;
+
 private:
     TextFieldSelectionDirection cachedSelectionDirection() const { return static_cast<TextFieldSelectionDirection>(m_cachedSelectionDirection); }
 
@@ -177,6 +180,7 @@ private:
     unsigned m_lastChangeWasUserEdit : 1 { false };
     unsigned m_isPlaceholderVisible : 1 { false };
     unsigned m_canShowPlaceholder : 1 { true };
+    unsigned m_wasEverChangedByUserEdit : 1 { false };
 
     int m_maxLength { -1 };
     int m_minLength { -1 };

@@ -27,8 +27,8 @@
 
 #if USE(CG)
 
-#include "ColorSpaceCG.h"
-#include "GraphicsContext.h"
+#include <WebCore/ColorSpaceCG.h>
+#include <WebCore/GraphicsContext.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -54,6 +54,7 @@ public:
     void save(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore) final;
     void restore(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore) final;
 
+    void drawNativeImage(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { }) final;
     void drawRect(const FloatRect&, float borderThickness = 1) final;
     void drawLine(const FloatPoint&, const FloatPoint&) final;
     void drawEllipse(const FloatRect&) final;
@@ -83,6 +84,7 @@ public:
     void strokeEllipse(const FloatRect& ellipse) final;
 
     bool isCALayerContext() const final;
+    bool knownToHaveFloatBasedBacking() const final;
 
     RenderingMode renderingMode() const final;
 
@@ -122,7 +124,7 @@ public:
 
     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
 
-    void beginPage(const IntSize& pageSize) final;
+    void beginPage(const FloatRect& pageRect) final;
     void endPage() final;
 
     void setURLForRect(const URL&, const FloatRect&) final;
@@ -154,14 +156,15 @@ public:
     void setMaxEDRHeadroom(std::optional<float>) final;
 #endif
 
-protected:
-    void setCGShadow(const std::optional<GraphicsDropShadow>&, bool shadowsIgnoreTransforms);
+private:
+    void setCGDropShadow(const std::optional<GraphicsDropShadow>&, bool shadowsIgnoreTransforms);
+    void clearCGDropShadow();
+#if HAVE(CGSTYLE_COLORMATRIX_BLUR)
+    void setCGGaussianBlur(const GraphicsGaussianBlur&, bool shadowsIgnoreTransforms);
+    void setCGColorMatrix(const GraphicsColorMatrix&);
+#endif
     void setCGStyle(const std::optional<GraphicsStyle>&, bool shadowsIgnoreTransforms);
 
-private:
-    void drawNativeImageInternal(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { }) final;
-
-    void clearCGShadow();
     // Returns the platform context for purposes of context state change, not draws.
     CGContextRef contextForState() const;
 
@@ -181,6 +184,6 @@ CGAffineTransform getUserToBaseCTM(CGContextRef);
 
 } // namespace WebCore
 
-#include "CGContextStateSaver.h"
+#include <WebCore/CGContextStateSaver.h>
 
 #endif // USE(CG)

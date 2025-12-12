@@ -26,9 +26,13 @@
 #include "config.h"
 #include "AccessibilityMenuList.h"
 
+#include "AXNotifications.h"
+#include "AccessibilityObjectInlines.h"
 #include "AXObjectCache.h"
 #include "AccessibilityMenuListPopup.h"
+#include "FrameDestructionObserverInlines.h"
 #include "RenderMenuList.h"
+#include "RenderObjectDocument.h"
 #include <wtf/Scope.h>
 
 namespace WebCore {

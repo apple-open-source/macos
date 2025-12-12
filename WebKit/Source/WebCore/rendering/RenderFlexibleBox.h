@@ -30,9 +30,8 @@
 
 #pragma once
 
-#include "OrderIterator.h"
-#include "RenderBlock.h"
-#include "RenderStyleInlines.h"
+#include <WebCore/OrderIterator.h>
+#include <WebCore/RenderBlock.h>
 #include <wtf/WeakHashSet.h>
 
 namespace WebCore {
@@ -56,40 +55,15 @@ public:
     bool canDropAnonymousBlockChild() const final { return false; }
     void layoutBlock(RelayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) final;
 
-    LayoutUnit baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const override;
     std::optional<LayoutUnit> firstLineBaseline() const override;
     std::optional<LayoutUnit> lastLineBaseline() const override;
-    std::optional<LayoutUnit> inlineBlockBaseline(LineDirectionMode) const override;
 
     void styleDidChange(StyleDifference, const RenderStyle*) override;
     bool hitTestChildren(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint& adjustedLocation, HitTestAction) override;
     void paintChildren(PaintInfo& forSelf, const LayoutPoint&, PaintInfo& forChild, bool usePrintRect) override;
 
     bool isHorizontalFlow() const;
-    inline Direction crossAxisDirection() const
-    {
-        switch (writingMode().blockDirection()) {
-        case FlowDirection::TopToBottom:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::BottomToTop : Direction::TopToBottom;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::RightToLeft : Direction::LeftToRight;
-        case FlowDirection::BottomToTop:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::TopToBottom : Direction::BottomToTop;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::RightToLeft : Direction::LeftToRight;
-        case FlowDirection::LeftToRight:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::RightToLeft : Direction::LeftToRight;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::BottomToTop : Direction::TopToBottom;
-        case FlowDirection::RightToLeft:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::LeftToRight : Direction::RightToLeft;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::BottomToTop : Direction::TopToBottom;
-        default:
-            ASSERT_NOT_REACHED();
-            return Direction::TopToBottom;
-        }
-    }
+    Direction crossAxisDirection() const;
 
     const OrderIterator& orderIterator() const { return m_orderIterator; }
 
@@ -99,7 +73,6 @@ public:
     
     std::optional<LayoutUnit> usedFlexItemOverridingLogicalHeightForPercentageResolution(const RenderBox&);
     bool canUseFlexItemForPercentageResolution(const RenderBox&);
-    bool canUseFlexItemForPercentageResolutionByStyle(const RenderBox&);
 
     void clearCachedMainSizeForFlexItem(const RenderBox& flexItem);
     
@@ -130,49 +103,22 @@ public:
 
     bool shouldResetFlexItemLogicalHeightBeforeLayout() const { return m_shouldResetFlexItemLogicalHeightBeforeLayout; }
 
+    bool isColumnOrRowReverse() const;
+    bool isWrapReverse() const;
+
 protected:
     void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
 
 private:
     class FlexLayoutItem {
     public:
-        FlexLayoutItem(RenderBox& flexItem, LayoutUnit flexBaseContentSize, LayoutUnit mainAxisBorderAndPadding, LayoutUnit mainAxisMargin, std::pair<LayoutUnit, LayoutUnit> minMaxSizes, bool everHadLayout)
-            : renderer(flexItem)
-            , flexBaseContentSize(flexBaseContentSize)
-            , mainAxisBorderAndPadding(mainAxisBorderAndPadding)
-            , mainAxisMargin(mainAxisMargin)
-            , minMaxSizes(minMaxSizes)
-            , hypotheticalMainContentSize(constrainSizeByMinMax(flexBaseContentSize))
-            , frozen(false)
-            , everHadLayout(everHadLayout)
-        {
-            ASSERT(!flexItem.isOutOfFlowPositioned());
-        }
+        FlexLayoutItem(RenderBox&, LayoutUnit, LayoutUnit, LayoutUnit, std::pair<LayoutUnit, LayoutUnit>, bool);
 
-        LayoutUnit hypotheticalMainAxisMarginBoxSize() const
-        {
-            return hypotheticalMainContentSize + mainAxisBorderAndPadding + mainAxisMargin;
-        }
-
-        LayoutUnit flexBaseMarginBoxSize() const
-        {
-            return flexBaseContentSize + mainAxisBorderAndPadding + mainAxisMargin;
-        }
-
-        LayoutUnit flexedMarginBoxSize() const
-        {
-            return flexedContentSize + mainAxisBorderAndPadding + mainAxisMargin;
-        }
-
-        const RenderStyle& style() const
-        {
-            return renderer->style();
-        }
-
-        LayoutUnit constrainSizeByMinMax(const LayoutUnit size) const
-        {
-            return std::max(minMaxSizes.first, std::min(size, minMaxSizes.second));
-        }
+        LayoutUnit hypotheticalMainAxisMarginBoxSize() const;
+        LayoutUnit flexBaseMarginBoxSize() const;
+        LayoutUnit flexedMarginBoxSize() const;
+        const RenderStyle& style() const;
+        LayoutUnit constrainSizeByMinMax(const LayoutUnit size) const;
 
         CheckedRef<RenderBox> renderer;
         LayoutUnit flexBaseContentSize;
@@ -202,7 +148,6 @@ private:
 
     bool mainAxisIsFlexItemInlineAxis(const RenderBox&) const;
     bool isColumnFlow() const;
-    bool isColumnOrRowReverse() const;
     bool isLeftToRightFlow() const;
     bool isMultiline() const;
     Style::FlexBasis flexBasisForFlexItem(const RenderBox& flexItem) const;
@@ -239,6 +184,7 @@ private:
     LayoutUnit crossAxisMarginExtentForFlexItem(const RenderBox& flexItem) const;
     LayoutUnit mainAxisMarginExtentForFlexItem(const RenderBox& flexItem) const;
     LayoutUnit crossAxisScrollbarExtent() const;
+    LayoutUnit mainAxisScrollbarExtent() const;
     LayoutUnit crossAxisScrollbarExtentForFlexItem(const RenderBox& flexItem) const;
     LayoutPoint flowAwareLocationForFlexItem(const RenderBox& flexItem) const;
 
@@ -334,8 +280,8 @@ private:
     void resetHasDefiniteHeight() { m_hasDefiniteHeight = SizeDefiniteness::Unknown; }
     const RenderBox* flexItemForFirstBaseline() const;
     const RenderBox* flexItemForLastBaseline() const;
-    const RenderBox* firstBaselineCandidateOnLine(OrderIterator, ItemPosition baselinePosition, size_t numberOfItemsOnLine) const;
-    const RenderBox* lastBaselineCandidateOnLine(OrderIterator, ItemPosition baselinePosition, size_t numberOfItemsOnLine) const;
+    const RenderBox* firstBaselineCandidateOnLine(OrderIterator, size_t numberOfItemsOnLine) const;
+    const RenderBox* lastBaselineCandidateOnLine(OrderIterator, size_t numberOfItemsOnLine) const;
 
     bool layoutUsingFlexFormattingContext();
 
@@ -371,8 +317,9 @@ private:
     // This is SizeIsUnknown outside of layoutBlock()
     SizeDefiniteness m_hasDefiniteHeight { SizeDefiniteness::Unknown };
     bool m_inLayout { false };
-    bool m_inCrossAxisLayout { false };
-    bool m_inFlexItemLayout { false };
+    bool m_afterMainAxisItemSizing { false };
+    bool m_afterCrossAxisItemSizing { false };
+    bool m_inSimplifiedLayout { false };
     bool m_inPostFlexUpdateScrollbarLayout { false };
     mutable bool m_inFlexItemIntrinsicWidthComputation { false };
     bool m_shouldResetFlexItemLogicalHeightBeforeLayout { false };

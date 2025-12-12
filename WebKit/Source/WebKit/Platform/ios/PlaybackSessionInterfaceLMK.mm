@@ -67,19 +67,19 @@
 
 - (void)linearMediaPlayerPlay:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->play();
 }
 
 - (void)linearMediaPlayerPause:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->pause();
 }
 
 - (void)linearMediaPlayerTogglePlayback:(WKSLinearMediaPlayer *)player
 {
-    auto model = _model.get();
+    CheckedPtr model = _model.get();
     if (!model)
         return;
 
@@ -91,7 +91,7 @@
 
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player setPlaybackRate:(double)playbackRate
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->setPlaybackRate(playbackRate);
 }
 
@@ -103,13 +103,13 @@
 
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player seekByDelta:(NSTimeInterval)delta
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->seekToTime(player.currentTime + delta);
 }
 
 - (NSTimeInterval)linearMediaPlayer:(WKSLinearMediaPlayer *)player seekToDestination:(NSTimeInterval)destination fromSource:(NSTimeInterval)source
 {
-    auto model = _model.get();
+    CheckedPtr model = _model.get();
     if (!model)
         return 0;
 
@@ -122,89 +122,107 @@
     // FIXME: The intent of this method is to seek the contents of LinearMediaPlayer's thumbnailLayer,
     // which LMPlayableViewController displays in a popover when scrubbing. Since we don't currently
     // provide a thumbnail layer, fast seek the main content instead.
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->fastSeek(time);
 }
 
 - (void)linearMediaPlayerBeginScrubbing:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->beginScrubbing();
 }
 
 - (void)linearMediaPlayerEndScrubbing:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->endScrubbing();
 }
 
 - (void)linearMediaPlayerBeginScanningForward:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->beginScanningForward();
 }
 
 - (void)linearMediaPlayerEndScanningForward:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->endScanning();
 }
 
 - (void)linearMediaPlayerBeginScanningBackward:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->beginScanningBackward();
 }
 
 - (void)linearMediaPlayerEndScanningBackward:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->endScanning();
 }
 
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player setVolume:(double)volume
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->setVolume(volume);
 }
 
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player setMuted:(BOOL)muted
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->setMuted(muted);
 }
 
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player setAudioTrack:(WKSLinearMediaTrack * _Nullable)audioTrack
 {
-    auto model = _model.get();
+    CheckedPtr model = _model.get();
     if (!model)
         return;
 
     NSUInteger index = audioTrack ? [player.audioTracks indexOfObject:audioTrack] : 0;
-    if (index != NSNotFound)
-        model->selectAudioMediaOption(index);
+    if (index == NSNotFound) {
+        RetainPtr indexSet = [player.audioTracks indexesOfObjectsPassingTest:^(WKSLinearMediaTrack *track, NSUInteger, BOOL*) {
+            return [track.localizedDisplayName isEqualToString:audioTrack.localizedDisplayName];
+        }];
+        ASSERT([indexSet count] < 2);
+        index = [indexSet firstIndex];
+        if (index == NSNotFound)
+            return;
+    }
+
+    model->selectAudioMediaOption(index);
 }
 
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player setLegibleTrack:(WKSLinearMediaTrack * _Nullable)legibleTrack
 {
-    auto model = _model.get();
+    CheckedPtr model = _model.get();
     if (!model)
         return;
 
     NSUInteger index = legibleTrack ? [player.legibleTracks indexOfObject:legibleTrack] : 0;
-    if (index != NSNotFound)
-        model->selectLegibleMediaOption(index);
+    if (index == NSNotFound) {
+        RetainPtr indexSet = [player.legibleTracks indexesOfObjectsPassingTest:^(WKSLinearMediaTrack *track, NSUInteger, BOOL*) {
+            return [track.localizedDisplayName isEqualToString:legibleTrack.localizedDisplayName];
+        }];
+        ASSERT([indexSet count] < 2);
+        index = [indexSet firstIndex];
+        if (index == NSNotFound)
+            return;
+    }
+
+    model->selectLegibleMediaOption(index);
 }
 
 - (void)linearMediaPlayerEnterFullscreen:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->enterFullscreen();
 }
 
 - (void)linearMediaPlayerExitFullscreen:(WKSLinearMediaPlayer *)player
 {
-    auto model = _model.get();
+    CheckedPtr model = _model.get();
     if (!model)
         return;
 
@@ -214,14 +232,24 @@
 
 - (void)linearMediaPlayer:(WKSLinearMediaPlayer *)player setVideoReceiverEndpoint:(xpc_object_t)videoReceiverEndpoint
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->setVideoReceiverEndpoint(videoReceiverEndpoint);
 }
 
 - (void)linearMediaPlayerClearVideoReceiverEndpoint:(WKSLinearMediaPlayer *)player
 {
-    if (auto model = _model.get())
+    if (CheckedPtr model = _model.get())
         model->setVideoReceiverEndpoint(nullptr);
+}
+
+- (uint64_t)linearMediaPlayerLogIdentifier:(WKSLinearMediaPlayer *)player
+{
+#if !RELEASE_LOG_DISABLED
+    if (CheckedPtr model = _model.get())
+        return model->logIdentifier();
+#endif
+
+    return 0;
 }
 
 @end
@@ -291,6 +319,7 @@ void PlaybackSessionInterfaceLMK::currentTimeChanged(double currentTime, double)
 void PlaybackSessionInterfaceLMK::rateChanged(OptionSet<WebCore::PlaybackSessionModel::PlaybackState> playbackState, double playbackRate, double)
 {
     [m_player setSelectedPlaybackRate:playbackRate];
+    [m_player setIsLoading:playbackState.contains(WebCore::PlaybackSessionModel::PlaybackState::Stalled)];
     if (!playbackState.contains(WebCore::PlaybackSessionModel::PlaybackState::Stalled))
         [m_player setPlaybackRate:playbackState.contains(WebCore::PlaybackSessionModel::PlaybackState::Playing) ? playbackRate : 0];
 }

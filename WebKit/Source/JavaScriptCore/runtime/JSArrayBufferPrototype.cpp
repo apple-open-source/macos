@@ -386,7 +386,7 @@ static JSArrayBuffer* arrayBufferProtoFuncTransferImpl(JSGlobalObject* globalObj
         if (!thisObject->impl()->isDetached())
             newByteLength = thisObject->impl()->byteLength();
     } else {
-        newByteLength = newLengthValue.toTypedArrayIndex(globalObject, "newLength"_s);
+        newByteLength = newLengthValue.toIndex(globalObject, "newLength"_s);
         RETURN_IF_EXCEPTION(scope, { });
     }
 

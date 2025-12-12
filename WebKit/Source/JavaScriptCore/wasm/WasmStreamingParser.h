@@ -28,8 +28,8 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "WasmFormat.h"
-#include "WasmSections.h"
+#include <JavaScriptCore/WasmFormat.h>
+#include <JavaScriptCore/WasmSections.h>
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/SHA1.h>
 #include <wtf/TZoneMalloc.h>

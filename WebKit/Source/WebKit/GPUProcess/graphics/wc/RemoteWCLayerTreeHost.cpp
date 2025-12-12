@@ -35,6 +35,7 @@
 #include "StreamConnectionWorkQueue.h"
 #include "WCScene.h"
 #include "WCUpdateInfo.h"
+#include <WebCore/ProcessIdentifier.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {

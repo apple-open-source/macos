@@ -77,7 +77,7 @@ void WebExtensionSQLiteDatabase::reportErrorWithCode(int errorCode, const String
     ASSERT(errorCode != SQLITE_OK);
 
     if (!query.isEmpty())
-        RELEASE_LOG_ERROR(Extensions, "SQLite error (%d) occurred with query: %{private}s", errorCode, query.utf8().data());
+        RELEASE_LOG_ERROR(Extensions, "SQLite error (%d) occurred with query: %" PRIVATE_LOG_STRING, errorCode, query.utf8().data());
     else
         RELEASE_LOG_ERROR(Extensions, "SQLite error (%d) occurred", errorCode);
 
@@ -97,7 +97,7 @@ void WebExtensionSQLiteDatabase::reportErrorWithCode(int errorCode, sqlite3_stmt
         }
     }
 
-    reportErrorWithCode(errorCode, { }, outError);
+    reportErrorWithCode(errorCode, emptyString(), outError);
 }
 
 RefPtr<API::Error> WebExtensionSQLiteDatabase::errorWithSQLiteErrorCode(int errorCode)

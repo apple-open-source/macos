@@ -23,6 +23,7 @@
 
 #include "AXObjectCache.h"
 #include "HTMLInputElement.h"
+#include "NodeDocument.h"
 #include "Range.h"
 #include <ranges>
 #include <wtf/HashSet.h>
@@ -203,6 +204,11 @@ bool RadioButtonGroup::contains(HTMLInputElement& button) const
 // so we can compile the header without including the definition of RadioButtonGroup.
 RadioButtonGroups::RadioButtonGroups() = default;
 RadioButtonGroups::~RadioButtonGroups() = default;
+
+void RadioButtonGroups::clear()
+{
+    m_nameToGroupMap.clear();
+}
 
 void RadioButtonGroups::addButton(HTMLInputElement& element)
 {

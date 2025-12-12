@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ *  Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -29,6 +29,12 @@
 #define OSObjectPtr OSObjectPtrArc
 #define RetainPtr RetainPtrArc
 #endif
+#endif
+
+#ifndef __OBJC__
+WTF_EXTERN_C_BEGIN
+typedef struct objc_object* id;
+WTF_EXTERN_C_END
 #endif
 
 namespace WTF {
@@ -100,6 +106,11 @@ using SegmentedVectorMalloc = FastMalloc;
 using HashTableMalloc = FastMalloc;
 #endif
 
+enum class ConcurrencyTag : uint8_t {
+    None,
+    Atomic
+};
+
 template<typename> struct DefaultRefDerefTraits;
 
 template<typename> class Awaitable;
@@ -107,12 +118,14 @@ template<typename> class CompactPtr;
 template<typename> class CompletionHandler;
 template<typename, size_t = 0> class Deque;
 template<typename Key, typename, Key> class EnumeratedArray;
+template<typename> class EnumSet;
 template<typename, typename = EmbeddedFixedVectorMalloc> class FixedVector;
 template<typename, size_t = 8, typename = SegmentedVectorMalloc> class SegmentedVector;
 template<typename> class Function;
 template<typename> struct FlatteningVariantTraits;
 template<typename> struct IsSmartPtr;
 template<typename, typename = AnyThreadsAccessTraits> class LazyNeverDestroyed;
+template<typename, typename> class LazyUniqueRef;
 template<typename> struct MarkableTraits;
 template<typename T, typename Traits = MarkableTraits<T>> class Markable;
 template<typename, typename = AnyThreadsAccessTraits> class NeverDestroyed;
@@ -121,7 +134,7 @@ template<typename, typename, typename> class ObjectIdentifierGeneric;
 template<typename T, typename RawValue = uint64_t> using ObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierMainThreadAccessTraits<RawValue>, RawValue>;
 template<typename T, typename RawValue = uint64_t> using AtomicObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierThreadSafeAccessTraits<RawValue>, RawValue>;
 template<typename> class Observer;
-template<typename> class OptionSet;
+template<typename, ConcurrencyTag = ConcurrencyTag::None> class OptionSet;
 template<typename> class Packed;
 template<typename T, size_t = alignof(T)> class PackedAlignedPtr;
 template<typename> struct RawPtrTraits;
@@ -153,7 +166,7 @@ using SaVector = Vector<T, 0, CrashOnOverflow, 16, SequesteredArenaMalloc>;
 
 template<typename> struct DefaultHash;
 template<> struct DefaultHash<AtomString>;
-template<typename T> struct DefaultHash<OptionSet<T>>;
+template<typename T, ConcurrencyTag C> struct DefaultHash<OptionSet<T, C>>;
 template<> struct DefaultHash<String>;
 template<> struct DefaultHash<StringImpl*>;
 template<> struct DefaultHash<URL>;
@@ -210,8 +223,10 @@ using WTF::Awaitable;
 using WTF::BinarySemaphore;
 using WTF::CString;
 using WTF::CompletionHandler;
+using WTF::ConcurrencyTag;
 using WTF::ConcurrentWorkQueue;
 using WTF::Deque;
+using WTF::EnumSet;
 using WTF::EnumeratedArray;
 using WTF::FixedVector;
 using WTF::Function;
@@ -222,6 +237,7 @@ using WTF::HashMap;
 using WTF::HashSet;
 using WTF::Hasher;
 using WTF::LazyNeverDestroyed;
+using WTF::LazyUniqueRef;
 using WTF::ListHashSet;
 using WTF::Lock;
 using WTF::Logger;

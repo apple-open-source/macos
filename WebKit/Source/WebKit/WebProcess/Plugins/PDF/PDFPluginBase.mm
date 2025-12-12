@@ -58,15 +58,19 @@
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/ContainerNodeInlines.h>
 #import <WebCore/Cursor.h>
-#import <WebCore/Document.h>
+#import <WebCore/DocumentPage.h>
+#import <WebCore/DocumentView.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/Frame.h>
+#import <WebCore/FrameDestructionObserverInlines.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/GraphicsContext.h>
+#import <WebCore/GraphicsLayer.h>
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LoaderNSURLExtras.h>
+#import <WebCore/LocalFrameInlines.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PageIdentifier.h>
@@ -80,6 +84,7 @@
 #import <WebCore/RenderLayerScrollableArea.h>
 #import <WebCore/ResourceResponse.h>
 #import <WebCore/ScrollAnimator.h>
+#import <WebCore/Settings.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/VoidCallback.h>
 #import <wtf/CheckedArithmetic.h>
@@ -246,14 +251,20 @@ void PDFPluginBase::createPDFDocument()
 
 bool PDFPluginBase::isFullFramePlugin() const
 {
-    // <object> or <embed> plugins will appear to be in their parent frame, so we have to
-    // check whether our frame's widget is exactly our PluginView.
-    RefPtr frame = m_frame.get();
-    if (!frame || !frame->coreLocalFrame())
-        return false;
+    if (!m_cachedIsFullFramePlugin) [[unlikely]] {
+        m_cachedIsFullFramePlugin = [&] {
+            // <object> or <embed> plugins will appear to be in their parent frame,
+            // so we have to check whether our frame's widget is exactly our PluginView.
+            RefPtr frame = m_frame.get();
+            if (!frame || !frame->coreLocalFrame())
+                return false;
 
-    RefPtr document = dynamicDowncast<PluginDocument>(frame->coreLocalFrame()->document());
-    return document && document->pluginWidget() == m_view;
+            RefPtr document = dynamicDowncast<PluginDocument>(frame->coreLocalFrame()->document());
+            return document && document->pluginWidget() == m_view;
+        }();
+    }
+
+    return *m_cachedIsFullFramePlugin;
 }
 
 bool PDFPluginBase::handlesPageScaleFactor() const
@@ -1330,7 +1341,7 @@ bool PDFPluginBase::showContextMenuAtPoint(const IntPoint& point)
     if (!frameView)
         return false;
     IntPoint contentsPoint = frameView->contentsToRootView(point);
-    WebMouseEvent event({ WebEventType::MouseDown, OptionSet<WebEventModifier> { }, WallTime::now() }, WebMouseEventButton::Right, 0, contentsPoint, contentsPoint, 0, 0, 0, 1, WebCore::ForceAtClick);
+    WebMouseEvent event({ WebEventType::MouseDown, OptionSet<WebEventModifier> { }, MonotonicTime::now() }, WebMouseEventButton::Right, 0, contentsPoint, contentsPoint, 0, 0, 0, 1, WebCore::ForceAtClick);
     return handleContextMenuEvent(event);
 }
 
@@ -1368,7 +1379,7 @@ WebCore::AXObjectCache* PDFPluginBase::axObjectCache() const
 WebCore::IntPoint PDFPluginBase::lastKnownMousePositionInView() const
 {
     if (m_lastMouseEvent)
-        return convertFromRootViewToPlugin(m_lastMouseEvent->position());
+        return convertFromRootViewToPlugin(flooredIntPoint(m_lastMouseEvent->position()));
     return { };
 }
 

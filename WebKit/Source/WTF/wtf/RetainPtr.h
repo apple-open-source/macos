@@ -57,10 +57,6 @@
 #define NS_RETURNS_RETAINED
 #endif
 
-#ifndef __OBJC__
-typedef struct objc_object *id;
-#endif
-
 // Because ARC enablement is a compile-time choice, and we compile this header
 // both ways, we need a separate copy of our code when ARC is enabled.
 #if __has_feature(objc_arc)
@@ -127,9 +123,10 @@ public:
     id bridgingAutorelease();
 #endif
 
-    constexpr PtrType get() const { return m_ptr; }
-    constexpr PtrType operator->() const { return m_ptr; }
-    constexpr explicit operator PtrType() const { return m_ptr; }
+    constexpr PtrType get() const LIFETIME_BOUND { return m_ptr; }
+    constexpr PtrType unsafeGet() const { return m_ptr; } // FIXME: Replace with get() then remove.
+    constexpr PtrType operator->() const LIFETIME_BOUND { return m_ptr; }
+    constexpr explicit operator PtrType() const LIFETIME_BOUND { return m_ptr; }
     constexpr explicit operator bool() const { return m_ptr; }
 
     constexpr bool operator!() const { return !m_ptr; }

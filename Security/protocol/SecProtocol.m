@@ -6,6 +6,7 @@
 #include <Security/SecProtocolPriv.h>
 #include <Security/SecProtocolRestrictedOptionsGoAwayIfNotApprovedForEPSKsPriv.h>
 #include "SecProtocolInternal.h"
+#include "SecProtocolTypesPriv.h"
 
 #define SEC_PROTOCOL_METADATA_VALIDATE(m,r)                                  \
     if ((m == NULL) || ((size_t)m == 0)) {                                    \
@@ -204,6 +205,35 @@ sec_protocol_options_get_raw_external_pre_shared_keys_enabled(sec_protocol_optio
         return true;
     });
     return raw_epsks_enabled;
+}
+
+bool
+sec_protocol_options_get_external_pre_shared_keys_enabled(sec_protocol_options_t options) {
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, false);
+    __block bool epsks_enabled = false;
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        epsks_enabled = content->external_pre_shared_keys != NULL || content->external_psk_selection_block != NULL;
+        return true;
+    });
+    return epsks_enabled;
+}
+
+bool
+sec_protocol_options_get_pake_configured(sec_protocol_options_t options) {
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, false);
+    __block bool pake_configured = false;
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        sec_identity_type_t identity_type = sec_identity_copy_type(content->identity);
+        if (identity_type == SEC_PROTOCOL_IDENTITY_TYPE_SPAKE2PLUSV1 || content->pake_challenge_block != NULL) {
+            pake_configured = true;
+        }
+        return true;
+    });
+    return pake_configured;
 }
 
 SecSessionInfo*

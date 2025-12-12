@@ -233,6 +233,47 @@ static bool isSCTValidForLogData(CFDictionaryRef logData, size_t entry_type, CFA
     return true;
 }
 
+/*
+Greatly abbreviated version of getSCTValidatingLog that extracts only the logID and timestamp of the given SCT. Used by CRLite.
+*/
+bool SecCertificateTransparencyExtractSCTLogIDAndTimestamp(CFDataRef sct, CFDataRef *outLogID, CFDateRef *outTimestamp)
+{
+    uint8_t version;
+    const uint8_t *logID;
+    const uint8_t *timestampData;
+    uint64_t timestamp;
+    bool result = false;
+
+    const uint8_t *p = CFDataGetBytePtr(sct);
+    size_t len = (size_t)CFDataGetLength(sct);
+
+    require(len>=43 && len < LONG_MAX, out);
+
+    version = p[0]; p++;
+    logID = p; p+=32;
+    timestampData = p;
+
+    timestamp = SSLDecodeUint64(timestampData);
+    
+    if (version != 0) {
+        secerror("SCT version unsupported: %d\n", version);
+        goto out;
+    }
+
+    if (outLogID) {
+        *outLogID = CFDataCreate(NULL, logID, 32);
+    }
+
+    if (outTimestamp) {
+        *outTimestamp = CFDateCreate(NULL, TimestampToCFAbsoluteTime(timestamp));
+    }
+    
+    result = true;
+
+out:
+    return result;
+}
+
 
 /*
    If the 'sct' is valid, add it to the validatingLogs dictionary.

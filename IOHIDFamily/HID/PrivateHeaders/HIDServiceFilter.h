@@ -164,10 +164,14 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * @discussion
  * The cancellation handler *must* be invoked after the service filter has been
- * cancelled. This will allow for any asynchronous events to finish. If there
- * are no pending asynchronous events, the filter may call the cancellation
- * handler directly from the cancel method. The cancel handler should be invoked
- * on the dispatch queue provided in the setDispatchQueue method.
+ * cancelled. This will allow for any asynchronous events to finish. Failing to
+ * invoke the cancel handler will cause the filter and associated service to be
+ * leaked.
+ *
+ * If there are no pending asynchronous events, the filter may call the
+ * cancellation handler directly from the cancel method. The cancel handler
+ * should be invoked on the dispatch queue provided in the setDispatchQueue
+ * method.
  *
  * Please note: The dispatch queue provided here should be used only for filter
  * related work. Kernel calls, or calls that make take some time should be made

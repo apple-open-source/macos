@@ -215,7 +215,7 @@ JSValue JSExposedToWorkerAndWindow::getConstructor(VM& vm, const JSGlobalObject*
 
 void JSExposedToWorkerAndWindow::destroy(JSC::JSCell* cell)
 {
-    JSExposedToWorkerAndWindow* thisObject = static_cast<JSExposedToWorkerAndWindow*>(cell);
+    SUPPRESS_MEMORY_UNSAFE_CAST JSExposedToWorkerAndWindow* thisObject = static_cast<JSExposedToWorkerAndWindow*>(cell);
     thisObject->JSExposedToWorkerAndWindow::~JSExposedToWorkerAndWindow();
 }
 
@@ -273,7 +273,7 @@ bool JSExposedToWorkerAndWindowOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC
 
 void JSExposedToWorkerAndWindowOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    auto* jsExposedToWorkerAndWindow = static_cast<JSExposedToWorkerAndWindow*>(handle.slot()->asCell());
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* jsExposedToWorkerAndWindow = static_cast<JSExposedToWorkerAndWindow*>(handle.slot()->asCell());
     auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, jsExposedToWorkerAndWindow->protectedWrapped().ptr(), jsExposedToWorkerAndWindow);
 }
@@ -287,7 +287,7 @@ extern "C" { extern void (*const __identifier("??_7ExposedToWorkerAndWindow@WebC
 extern "C" { extern void* _ZTVN7WebCore24ExposedToWorkerAndWindowE[]; }
 #endif
 template<std::same_as<ExposedToWorkerAndWindow> T>
-static inline void verifyVTable(ExposedToWorkerAndWindow* ptr) 
+static inline void verifyVTable(ExposedToWorkerAndWindow* ptr)
 {
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
@@ -307,8 +307,9 @@ static inline void verifyVTable(ExposedToWorkerAndWindow* ptr)
 #endif
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<ExposedToWorkerAndWindow>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<ExposedToWorkerAndWindow>&& impl)
 {
+    UNUSED_PARAM(lexicalGlobalObject);
 #if ENABLE(BINDING_INTEGRITY)
     verifyVTable<ExposedToWorkerAndWindow>(impl.ptr());
 #endif

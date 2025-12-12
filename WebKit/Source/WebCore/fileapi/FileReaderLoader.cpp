@@ -49,6 +49,7 @@
 #include "ThreadableBlobRegistry.h"
 #include "ThreadableLoader.h"
 #include <JavaScriptCore/ArrayBuffer.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
@@ -57,6 +58,8 @@
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
+
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(FileReaderLoader);
 
 const int defaultBufferLength = 32768;
 
@@ -330,7 +333,7 @@ String FileReaderLoader::stringResult()
         // No conversion is needed.
         break;
     case ReadAsBinaryString:
-        m_stringResult = protectedRawData()->span().first(m_bytesLoaded);
+        m_stringResult = byteCast<Latin1Character>(protectedRawData()->span().first(m_bytesLoaded));
         break;
     case ReadAsText:
         convertToText();

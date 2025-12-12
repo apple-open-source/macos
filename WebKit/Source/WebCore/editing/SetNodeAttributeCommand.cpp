@@ -28,6 +28,7 @@
 
 #include "CompositeEditCommand.h"
 #include "Element.h"
+#include "NodeDocument.h"
 #include <wtf/Assertions.h>
 
 namespace WebCore {

@@ -26,11 +26,16 @@
 #include "config.h"
 #include "AXObjectCache.h"
 
+#include "AXNotifications.h"
 #include "AccessibilityObject.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "DocumentPage.h"
+#include "DocumentView.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLSelectElement.h"
 #include "LocalFrame.h"
+#include "NodeDocument.h"
 #include "Page.h"
 
 namespace WebCore {

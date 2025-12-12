@@ -38,6 +38,7 @@ namespace WebKit {
 
 class BidiBrowserAgent;
 class BidiBrowsingContextAgent;
+class BidiPermissionsAgent;
 class BidiScriptAgent;
 class BidiStorageAgent;
 class WebAutomationSession;
@@ -71,6 +72,7 @@ private:
 
     const UniqueRef<BidiBrowserAgent> m_browserAgent;
     const UniqueRef<BidiBrowsingContextAgent> m_browsingContextAgent;
+    const UniqueRef<BidiPermissionsAgent> m_permissionsAgent;
     const UniqueRef<BidiScriptAgent> m_scriptAgent;
     const UniqueRef<BidiStorageAgent> m_storageAgent;
     const UniqueRef<Inspector::BidiBrowsingContextFrontendDispatcher> m_browsingContextDomainNotifier;

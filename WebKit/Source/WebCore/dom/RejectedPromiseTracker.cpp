@@ -29,6 +29,7 @@
 
 #include "EventNames.h"
 #include "EventTarget.h"
+#include "EventTargetInlines.h"
 #include "JSDOMGlobalObject.h"
 #include "JSDOMPromise.h"
 #include "Node.h"
@@ -108,7 +109,7 @@ void RejectedPromiseTracker::promiseRejected(JSDOMGlobalObject& globalObject, JS
 {
     // https://html.spec.whatwg.org/multipage/webappapis.html#the-hostpromiserejectiontracker-implementation
 
-    JSValue reason = promise.result(globalObject.vm());
+    JSValue reason = promise.result();
     m_aboutToBeNotifiedRejectedPromises.append(UnhandledPromise { globalObject, promise, createScriptCallStackFromReason(globalObject, reason) });
 }
 
@@ -160,13 +161,13 @@ void RejectedPromiseTracker::reportUnhandledRejections(Vector<UnhandledPromise>&
         auto& lexicalGlobalObject = *domPromise.globalObject();
         auto& promise = *domPromise.promise();
 
-        if (promise.isHandled(vm))
+        if (promise.isHandled())
             continue;
 
         PromiseRejectionEvent::Init initializer;
         initializer.cancelable = true;
         initializer.promise = domPromise;
-        initializer.reason = promise.result(vm);
+        initializer.reason = promise.result();
 
         Ref event = PromiseRejectionEvent::create(eventNames().unhandledrejectionEvent, initializer);
         RefPtr target = m_context->errorEventTarget();
@@ -175,7 +176,7 @@ void RejectedPromiseTracker::reportUnhandledRejections(Vector<UnhandledPromise>&
         if (!event->defaultPrevented())
             m_context->reportUnhandledPromiseRejection(lexicalGlobalObject, promise, unhandledPromise.callStack());
 
-        if (!promise.isHandled(vm))
+        if (!promise.isHandled())
             m_outstandingRejectedPromises.set(&promise, &promise);
     }
 }
@@ -194,7 +195,7 @@ void RejectedPromiseTracker::reportRejectionHandled(Ref<DOMPromise>&& rejectedPr
 
     PromiseRejectionEvent::Init initializer;
     initializer.promise = rejectedPromise.ptr();
-    initializer.reason = promise.result(vm);
+    initializer.reason = promise.result();
 
     Ref event = PromiseRejectionEvent::create(eventNames().rejectionhandledEvent, initializer);
     RefPtr target = m_context->errorEventTarget();

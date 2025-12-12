@@ -34,7 +34,6 @@
 
 ALLOW_UNUSED_PARAMETERS_BEGIN
 
-#include <webrtc/api/ice_transport_interface.h>
 #include <webrtc/p2p/base/ice_transport_internal.h>
 
 ALLOW_UNUSED_PARAMETERS_END
@@ -81,13 +80,13 @@ static inline RTCIceGatheringState toRTCIceGatheringState(webrtc::IceGatheringSt
 
 class LibWebRTCIceTransportBackendObserver final : public ThreadSafeRefCounted<LibWebRTCIceTransportBackendObserver>, public sigslot::has_slots<> {
 public:
-    static Ref<LibWebRTCIceTransportBackendObserver> create(RTCIceTransportBackendClient& client, webrtc::scoped_refptr<webrtc::IceTransportInterface> backend) { return adoptRef(*new LibWebRTCIceTransportBackendObserver(client, WTFMove(backend))); }
+    static Ref<LibWebRTCIceTransportBackendObserver> create(RTCIceTransportBackendClient& client, Ref<webrtc::IceTransportInterface> backend) { return adoptRef(*new LibWebRTCIceTransportBackendObserver(client, WTFMove(backend))); }
 
     void start();
     void stop();
 
 private:
-    LibWebRTCIceTransportBackendObserver(RTCIceTransportBackendClient&, webrtc::scoped_refptr<webrtc::IceTransportInterface>&&);
+    LibWebRTCIceTransportBackendObserver(RTCIceTransportBackendClient&, Ref<webrtc::IceTransportInterface>&&);
 
     void onIceTransportStateChanged(webrtc::IceTransportInternal*);
     void onGatheringStateChanged(webrtc::IceTransportInternal*);
@@ -95,15 +94,14 @@ private:
 
     void processSelectedCandidatePairChanged(const webrtc::Candidate&, const webrtc::Candidate&);
 
-    webrtc::scoped_refptr<webrtc::IceTransportInterface> m_backend;
+    const Ref<webrtc::IceTransportInterface> m_backend;
     WeakPtr<RTCIceTransportBackendClient> m_client;
 };
 
-LibWebRTCIceTransportBackendObserver::LibWebRTCIceTransportBackendObserver(RTCIceTransportBackendClient& client, webrtc::scoped_refptr<webrtc::IceTransportInterface>&& backend)
+LibWebRTCIceTransportBackendObserver::LibWebRTCIceTransportBackendObserver(RTCIceTransportBackendClient& client, Ref<webrtc::IceTransportInterface>&& backend)
     : m_backend(WTFMove(backend))
     , m_client(client)
 {
-    ASSERT(m_backend);
 }
 
 void LibWebRTCIceTransportBackendObserver::start()
@@ -186,9 +184,8 @@ void LibWebRTCIceTransportBackendObserver::processSelectedCandidatePairChanged(c
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCIceTransportBackend);
 
 LibWebRTCIceTransportBackend::LibWebRTCIceTransportBackend(webrtc::scoped_refptr<webrtc::IceTransportInterface>&& backend)
-    : m_backend(WTFMove(backend))
+    : m_backend(toRef(WTFMove(backend)))
 {
-    ASSERT(m_backend);
 }
 
 LibWebRTCIceTransportBackend::~LibWebRTCIceTransportBackend()
@@ -198,7 +195,7 @@ LibWebRTCIceTransportBackend::~LibWebRTCIceTransportBackend()
 void LibWebRTCIceTransportBackend::registerClient(RTCIceTransportBackendClient& client)
 {
     ASSERT(!m_observer);
-    m_observer = LibWebRTCIceTransportBackendObserver::create(client, m_backend);
+    lazyInitialize(m_observer, LibWebRTCIceTransportBackendObserver::create(client, m_backend.get()));
     m_observer->start();
 }
 

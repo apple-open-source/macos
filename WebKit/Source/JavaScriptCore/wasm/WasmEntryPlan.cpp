@@ -320,10 +320,7 @@ bool EntryPlan::generateWasmToWasmStubs()
         }
 #endif // ENABLE(JIT)
 
-        if (Options::useWasmIPInt())
-            m_wasmToWasmExitStubs[importFunctionIndex++] = LLInt::getCodeRef<WasmEntryPtrTag>(wasm_to_wasm_ipint_wrapper_entry);
-        else
-            m_wasmToWasmExitStubs[importFunctionIndex++] = LLInt::getCodeRef<WasmEntryPtrTag>(wasm_to_wasm_wrapper_entry);
+        m_wasmToWasmExitStubs[importFunctionIndex++] = LLInt::getCodeRef<WasmEntryPtrTag>(wasm_to_wasm_ipint_wrapper_entry);
     }
     ASSERT(importFunctionIndex == m_wasmToWasmExitStubs.size());
     return true;

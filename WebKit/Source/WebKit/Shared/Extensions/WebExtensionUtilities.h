@@ -64,6 +64,9 @@ Unexpected<WebExtensionError> toWebExtensionError(const String& callingAPIName, 
     return makeUnexpected(toErrorString(callingAPIName, sourceKey, underlyingErrorString, std::forward<Args>(args)...));
 }
 
+/// Returns an error object that combines the provided information into a single, descriptive message.
+JSObjectRef toJSError(JSContextRef, const String& callingAPIName, const String& sourceKey, const String& underlyingErrorString);
+
 #ifdef __OBJC__
 
 /// Verifies that a dictionary:
@@ -85,9 +88,6 @@ bool validateDictionary(NSDictionary<NSString *, id> *, NSString *sourceKey, NSA
 ///  - The `callingAPIName` and `sourceKey` parameters are used to reference the object within a larger context. When an error occurs, this key helps identify the source of the problem in the `outExceptionString`.
 /// If the object is valid, returns `YES`. Otherwise returns `NO` and sets `outExceptionString` to a message describing what validation failed.
 bool validateObject(NSObject *, NSString *sourceKey, id valueTypes, NSString **outExceptionString);
-
-/// Returns an error object that combines the provided information into a single, descriptive message.
-JSObjectRef toJSError(JSContextRef, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString);
 
 /// Returns a rejected Promise object that combines the provided information into a single, descriptive error message.
 JSObjectRef toJSRejectedPromise(JSContextRef, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString);

@@ -34,6 +34,8 @@
 #include "trust/trustd/trustdFileLocations.h"
 #include "trust/trustd/trustdVariants.h"
 #include "trust/trustd/trustd_spi.h"
+#include "trust/trustd/CertificateTransparency.h"
+#include "featureflags/featureflags.h"
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecCMS.h>
 #include <Security/SecFramework.h>
@@ -61,6 +63,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
 #include <utilities/SecDbInternal.h>
+#include <utilities/SecIOFormat.h>
 #include <sqlite3.h>
 #include <zlib.h>
 #include <malloc/malloc.h>
@@ -74,6 +77,45 @@
 #include <CFNetwork/CFHTTPMessage.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFUtilities.h>
+#include "trust/trustd/SecRevocationCRLite.h"
+
+/* Weak linking for SwiftCRLite */
+
+#if __has_include(<SwiftCRLite/SwiftCRLite.h>) && !TARGET_OS_BRIDGE && !TARGET_OS_SIMULATOR
+#include <SwiftCRLite/SwiftCRLite.h>
+
+#ifdef SWIFTCRLITE_HAS_CLUBCARD
+#define _HAS_SWIFTCRLITE 1
+#endif
+
+#endif /* __has_include(<SwiftCRLite/SwiftCRLite.h>) && !TARGET_OS_BRIDGE && !TARGET_OS_SIMULATOR */
+
+#if _HAS_SWIFTCRLITE
+#include <SoftLinking/WeakLinking.h>
+WEAK_LINK_FORCE_IMPORT(SecCRLiteCreate);
+WEAK_LINK_FORCE_IMPORT(SecCRLiteDestroy);
+WEAK_LINK_FORCE_IMPORT(SecCRLiteLoadFilter);
+WEAK_LINK_FORCE_IMPORT(SecCRLiteGetCoverageInfo);
+WEAK_LINK_FORCE_IMPORT(SecCRLiteCertStatus);
+
+static bool _hasWeakLinkedSwiftCRLite() {
+    return (
+        (&SecCRLiteCreate != NULL) &&
+        (&SecCRLiteDestroy != NULL) &&
+        (&SecCRLiteLoadFilter != NULL) &&
+        (&SecCRLiteGetCoverageInfo != NULL) &&
+        (&SecCRLiteCertStatus != NULL)
+    );
+}
+#endif /* _HAS_SWIFTCRLITE */
+
+bool SecRevocationDbHasCRLiteSupport() {
+    #if _HAS_SWIFTCRLITE
+    return _hasWeakLinkedSwiftCRLite();
+    #else
+    return false;
+    #endif
+}
 
 /*
  ==============================================================================
@@ -284,13 +326,14 @@ typedef CF_OPTIONS(CFOptionFlags, SecValidInfoFlags) {
    v5 = add date constraints table, with updated group flags
    v6 = explicitly set autovacuum and journal modes at db creation
    v7 = add policies column to groups table (policy constraints)
+   v8 = add crlite tables
 
    Note: kSecRevocationDbMinSchemaVersion is the lowest version whose
    results can be used. This allows revocation results to be obtained
    from an existing db before the next update interval occurs, at which
    time we'll update to the current version (kSecRevocationDbSchemaVersion).
 */
-#define kSecRevocationDbSchemaVersion       7  /* current version we support */
+#define kSecRevocationDbSchemaVersion       8  /* current version we support */
 #define kSecRevocationDbMinSchemaVersion    7  /* minimum version we can use */
 
 /* update file format
@@ -298,13 +341,15 @@ typedef CF_OPTIONS(CFOptionFlags, SecValidInfoFlags) {
 CF_ENUM(CFIndex) {
     kSecValidUpdateFormatG1               = 1, /* initial version */
     kSecValidUpdateFormatG2               = 2, /* signed content, single plist */
-    kSecValidUpdateFormatG3               = 3  /* signed content, multiple plists */
+    kSecValidUpdateFormatG3               = 3, /* signed content, multiple plists */
+    kSecValidUpdateFormatG8               = 8, /* signed content, multiple plists, CRLite filters */
 };
 
-#define kSecRevocationDbUpdateFormat        3  /* current version we support */
+#define kSecRevocationDbUpdateFormat        8  /* current version we support */
 #define kSecRevocationDbMinUpdateFormat     2  /* minimum version we can use */
 
-#define kSecRevocationDbCacheSize           100
+#define kSecRevocationDbInfoCacheSize              100
+#define kSecRevocationDbCRLiteFilterCacheSize      5
 
 typedef struct __SecRevocationDb *SecRevocationDbRef;
 struct __SecRevocationDb {
@@ -316,6 +361,9 @@ struct __SecRevocationDb {
     CFMutableArrayRef info_cache_list;
     CFMutableDictionaryRef info_cache;
     os_unfair_lock info_cache_lock;
+    CFMutableArrayRef crlite_filter_cache_list;
+    CFMutableDictionaryRef crlite_filter_cache;
+    os_unfair_lock crlite_filter_cache_lock;
 };
 
 typedef struct __SecRevocationDbConnection *SecRevocationDbConnectionRef;
@@ -330,6 +378,8 @@ struct __SecRevocationDbConnection {
 
 bool SecRevocationDbVerifyUpdate(void *update, CFIndex length);
 bool SecRevocationDbIngestUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex chunkVersion, CFIndex *outVersion, CFIndex generation, CFErrorRef *error);
+bool SecRevocationDbIngestCRLiteUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef updateMetadata, CFDataRef updateData, CFIndex generation, CFErrorRef *error);
+bool _SecRevocationDbRemoveAllCRLiteEntries(SecRevocationDbConnectionRef dbc, CFErrorRef *error);
 bool SecRevocationDbCheckGeneration(CFDictionaryRef update, CFIndex *generation, CFErrorRef *error);
 bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex version, CFIndex generation, CFErrorRef *error);
 CFAbsoluteTime SecRevocationDbComputeNextUpdateTime(CFIndex updateInterval);
@@ -358,7 +408,6 @@ static bool _SecRevocationDbSetHashes(SecRevocationDbConnectionRef dbc, CFArrayR
 static void SecRevocationDbResetCaches(void);
 static SecRevocationDbConnectionRef SecRevocationDbConnectionInit(SecRevocationDbRef db, SecDbConnectionRef dbconn, CFErrorRef *error);
 static bool SecRevocationDbComputeDigests(SecRevocationDbConnectionRef dbc, CFErrorRef *error);
-
 
 static CFDataRef copyInflatedData(CFDataRef data) {
     if (!data) {
@@ -611,6 +660,193 @@ static bool copyFilterComponents(CFDataRef xmlData, CFDataRef * CF_RETURNS_RETAI
  ==============================================================================
 */
 
+/*
+Processes the CRLite section of the update.
+
+All parsing and ingestion errors are fatal. The database connection should hold
+a transaction to ensure that the database is not left in an inconsistent state.
+*/
+static bool SecValidUpdateProcessCRLiteSection(SecRevocationDbConnectionRef dbc,
+                                               const UInt8 **cursor,
+                                               size_t *bytesRemainingPtr,
+                                               CFIndex generation,
+                                               CFErrorRef *localError,
+                                               CFErrorRef *error)
+{
+    const UInt8 *p = *cursor;
+    size_t bytesRemaining = *bytesRemainingPtr;
+
+    // Read total length of the CRLite section
+    if (bytesRemaining < sizeof(uint32_t)) {
+        secinfo("validupdate", "insufficient data for CRLite section length");
+        SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: missing CRLite section length"));
+        return false;
+    }
+    uint32_t crliteSectionLength = SecSwapInt32Ptr(p);
+    bytesRemaining -= sizeof(uint32_t);
+    p += sizeof(uint32_t);
+    if (crliteSectionLength > bytesRemaining || crliteSectionLength >= INT_MAX) {
+        secinfo("validupdate", "invalid CRLite section length: %u (remaining %zu)", crliteSectionLength, bytesRemaining);
+        SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: invalid CRLite section length"));
+        return false;
+    }
+    const UInt8 *crliteSectionEnd = p + crliteSectionLength;
+    size_t crliteBytesRemaining = (size_t)crliteSectionLength;
+
+    // Read the overall CRLite metadata plist
+    CFPropertyListRef overallCrliteMetadataPlist = NULL;
+    if (crliteBytesRemaining < sizeof(uint32_t)) {
+        secinfo("validupdate", "insufficient data for overall CRLite metadata length");
+        SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: missing overall CRLite metadata length"));
+        return false;
+    }
+    uint32_t crliteOverallMetadataLength = SecSwapInt32Ptr(p);
+    bytesRemaining -= sizeof(uint32_t);
+    crliteBytesRemaining -= sizeof(uint32_t);
+    p += sizeof(uint32_t);
+    if (crliteOverallMetadataLength > crliteBytesRemaining || crliteOverallMetadataLength >= INT_MAX) {
+        secinfo("validupdate", "failed to parse overall CRLite metadata (len %u, remaining %zu)", crliteOverallMetadataLength, crliteBytesRemaining);
+        SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: failed to parse overall CRLite metadata"));
+        return false;
+    }
+
+    // Parse the overall CRLite metadata plist
+    CFDataRef overallMetadata = CFDataCreate(NULL, p, (CFIndex)crliteOverallMetadataLength);
+    overallCrliteMetadataPlist = CFPropertyListCreateWithData(NULL, overallMetadata, kCFPropertyListImmutable, NULL, localError);
+    CFReleaseNull(overallMetadata);
+    bytesRemaining -= crliteOverallMetadataLength;
+    crliteBytesRemaining -= crliteOverallMetadataLength;
+    p += crliteOverallMetadataLength;
+    if (!isDictionary(overallCrliteMetadataPlist)) {
+        secinfo("validupdate", "failed to parse overall CRLite metadata");
+        SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: failed to parse overall CRLite metadata"));
+        CFReleaseSafe(overallCrliteMetadataPlist);
+        return false;
+    }
+
+    // If the overall CRLite metadata plist has "fullCRLiteUpdate" set to true, then we need to clear the CRLite database
+    CFTypeRef fullCRLiteUpdate = (CFBooleanRef)CFDictionaryGetValue(overallCrliteMetadataPlist, CFSTR("fullCRLiteUpdate"));
+    bool isFullCRLiteUpdate = isBoolean(fullCRLiteUpdate) && CFBooleanGetValue((CFBooleanRef)fullCRLiteUpdate);
+    if (isFullCRLiteUpdate) {
+        secdebug("validupdate", "Clearing CRLite database due to fullCRLiteUpdate");
+        if (!_SecRevocationDbRemoveAllCRLiteEntries(dbc, localError)) {
+            secinfo("validupdate", "failed to clear CRLite database due to fullCRLiteUpdate");
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: failed to clear CRLite database due to fullCRLiteUpdate"));
+            CFReleaseSafe(overallCrliteMetadataPlist);
+            return false;
+        }
+    }
+    CFReleaseSafe(overallCrliteMetadataPlist);
+
+    // Read the number of CRLite filters
+    uint32_t crliteCount = 0;
+    uint32_t crliteProcessed = 0;
+    if (crliteBytesRemaining < sizeof(uint32_t)) {
+        secinfo("validupdate", "insufficient data for CRLite filter count");
+        SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: missing CRLite filter count"));
+        return false;
+    }
+    crliteCount = SecSwapInt32Ptr(p);
+    bytesRemaining -= sizeof(uint32_t);
+    crliteBytesRemaining -= sizeof(uint32_t);
+    p += sizeof(uint32_t);
+
+    
+    // Process each CRLite filter
+    secdebug("validupdate", "Processing %u CRLite filters", crliteCount);
+    while (crliteCount > 0 && crliteBytesRemaining > 0) {
+        secdebug("validupdate", "Processing CRLite filter %u of %u", crliteProcessed + 1, crliteCount);
+
+        // Read the filter metadata
+        CFPropertyListRef filterMetadataPlist = NULL;
+        if (crliteBytesRemaining < sizeof(uint32_t)) {
+            secinfo("validupdate", "insufficient data for CRLite filter metadata length");
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: missing CRLite filter metadata length"));
+            return false;
+        }
+        uint32_t crliteMetadataLength = SecSwapInt32Ptr(p);
+        secdebug("validupdate", "CRLite filter metadata length: %u", crliteMetadataLength);
+        bytesRemaining -= sizeof(uint32_t);
+        crliteBytesRemaining -= sizeof(uint32_t);
+        p += sizeof(uint32_t);
+        if (crliteMetadataLength > crliteBytesRemaining || crliteMetadataLength >= INT_MAX) {
+            secinfo("validupdate", "Failed to deserialize CRLite filter metadata for filter %u of %u", crliteProcessed, crliteCount);
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: failed to parse CRLite filter metadata"));
+            CFReleaseSafe(filterMetadataPlist);
+            return false;
+        }
+
+        // Parse the filter metadata
+        CFDataRef metadata = CFDataCreate(NULL, p, (CFIndex)crliteMetadataLength);
+        filterMetadataPlist = CFPropertyListCreateWithData(NULL, metadata, kCFPropertyListImmutable, NULL, NULL);
+        CFReleaseNull(metadata);
+        bytesRemaining -= crliteMetadataLength;
+        crliteBytesRemaining -= crliteMetadataLength;
+        p += crliteMetadataLength;
+        if (!isDictionary(filterMetadataPlist)) {
+            secinfo("validupdate", "Failed to parse CRLite filter metadata for filter %u of %u", crliteProcessed, crliteCount);
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: failed to parse CRLite filter metadata"));
+            CFReleaseSafe(filterMetadataPlist);
+            return false;
+        }
+
+        // Read the filter data
+        if (crliteBytesRemaining < sizeof(uint32_t)) {
+            secinfo("validupdate", "insufficient data for CRLite filter data length");
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: missing CRLite filter data length"));
+            CFReleaseSafe(filterMetadataPlist);
+            return false;
+        }
+        uint32_t crliteDataLength = SecSwapInt32Ptr(p);
+        secdebug("validupdate", "CRLite filter data length: %u", crliteDataLength);
+        bytesRemaining -= sizeof(uint32_t);
+        crliteBytesRemaining -= sizeof(uint32_t);
+        p += sizeof(uint32_t);
+        if (crliteDataLength > crliteBytesRemaining || crliteDataLength >= INT_MAX) {
+            secinfo("validupdate", "invalid CRLite filter data length %u (remaining %zu)", crliteDataLength, crliteBytesRemaining);
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: invalid CRLite filter data length"));
+            CFReleaseSafe(filterMetadataPlist);
+            return false;
+        }
+
+        // Ingest the filter data
+        CFDataRef data = CFDataCreate(NULL, p, (CFIndex)crliteDataLength);
+        bool ingestOK = SecRevocationDbIngestCRLiteUpdate(dbc, (CFDictionaryRef)filterMetadataPlist, data, generation, localError);
+        CFReleaseNull(data);
+        CFReleaseSafe(filterMetadataPlist);
+        if (!ingestOK) {
+            secinfo("validupdate", "Failed to ingest CRLite filter for filter %u of %u", crliteProcessed, crliteCount);
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: failed to ingest CRLite filter"));
+            return false;
+        }
+
+        // Advance past data regardless of whether ingest succeeded
+        bytesRemaining -= crliteDataLength;
+        crliteBytesRemaining -= crliteDataLength;
+        p += crliteDataLength;
+
+        --crliteCount;
+        ++crliteProcessed;
+    }
+
+    // If there are any trailing bytes left in the CRLite section, skip them
+    if (p < crliteSectionEnd) {
+        size_t skip = (size_t)(crliteSectionEnd - p);
+        if (skip > bytesRemaining) {
+            secinfo("validupdate", "CRLite section trailing bytes exceed remaining buffer");
+            SecError(errSecParam, error, CFSTR("SecValidUpdateProcessCRLiteSection: CRLite section overrun"));
+            return false;
+        }
+
+        p += skip;
+        bytesRemaining -= skip;
+    }
+
+    *cursor = p;
+    *bytesRemainingPtr = bytesRemaining;
+    return true;
+}
+
 CFAbsoluteTime gUpdateStarted = 0.0;
 CFAbsoluteTime gNextUpdate = 0.0;
 static CFIndex gUpdateInterval = 0;
@@ -623,7 +859,15 @@ static _Atomic int64_t gSchemaVersion = -1;
         a. A 4-byte integer in network byte order, the count of plists to follow; and then for each plist:
             i. A 4-byte integer, the length of each plist
             ii. A plist, in binary form
-        b. There may be other data after the plists in the signed data, described by a future version of this specification.
+        b. A 4-byte integer, the length of all subsequent CRLite data, followed by:
+            i. A 4-byte integer, the length of the overall CRLite metadata plist, followed by:
+                - The overall CRLite metadata plist, in binary form
+            ii. A 4-byte integer, the number of CRLite filters, followed by, for each CRLite filter:
+                - A 4-byte integer, the length of the CRLite filter's metadata plist, followed by:
+                    - The CRLite filter's metadata plist, in binary form
+                - A 4-byte integer, the length of the CRLite filter's data, followed by:
+                    - The CRLite filter's data, in binary form
+        c. There may be other data after the plists in the signed data, described by a future version of this specification.
     3. The length of the following CMS blob, as a 4-byte integer in network byte order.
     4. A detached CMS signature of the signed data described above.
     5. There may be additional data after the CMS blob, described by a future version of this specification.
@@ -729,6 +973,15 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
         p += plistLength;
     }
 
+    /* process the CRLite filters, if applicable */
+    if (generation >= 8 && _SecTrustUseCRLite()) {
+        #if _HAS_SWIFTCRLITE
+        if (_hasWeakLinkedSwiftCRLite()) {
+            ok = ok && SecValidUpdateProcessCRLiteSection(dbc, &p, &bytesRemaining, generation, &localError, error);
+        }
+        #endif /* _HAS_SWIFTCRLITE */
+    }
+    
     if (ok && version > 0) {
         secdebug("validupdate", "Update received: v%ld", (long)version);
         atomic_store(&gLastVersion, version);
@@ -1626,7 +1879,6 @@ setVersionAndExit:
     return ok;
 }
 
-
 /* Database schema */
 
 /* admin table holds these key-value (or key-ival) pairs:
@@ -1681,6 +1933,19 @@ setVersionAndExit:
  notafter (real)       // issued certs are invalid after this date (or their notAfter, if earlier)
  --> entries in dates table are unique by groupid, and only exist if kSecValidInfoDateConstraints is true
 
+ crlitefilters table holds:
+ filterid (integer)       // identifier for CRLite filter (primary key, must be non-zero)
+ filterversion (integer)  // version number for the filter
+ data (blob)              // raw filter data
+ --> entries in crlitefilters table are unique by filterid
+
+ crlitefiltercoverage table holds:
+ filterid (integer)       // identifier for CRLite filter (part of primary key)
+ logid (blob)             // CT log id that this filter covers (part of primary key)
+ generatedat (real)       // when this filter data was generated
+ start (real)             // start of time period covered by this filter for this log
+ end (real)               // end of time period covered by this filter for this log
+ --> entries in crlitefiltercoverage table are unique by filterid and logid
  */
 #define createTablesSQL   CFSTR("CREATE TABLE IF NOT EXISTS admin(" \
                                     "key TEXT PRIMARY KEY NOT NULL," \
@@ -1713,6 +1978,19 @@ setVersionAndExit:
                                     "groupid INTEGER PRIMARY KEY NOT NULL," \
                                     "notbefore REAL," \
                                     "notafter REAL" \
+                                ");" \
+                                "CREATE TABLE IF NOT EXISTS crlitefilters(" \
+                                    "filterid INTEGER PRIMARY KEY NOT NULL," \
+                                    "filterversion INTEGER," \
+                                    "data BLOB" \
+                                ");" \
+                                "CREATE TABLE IF NOT EXISTS crlitefiltercoverage(" \
+                                    "filterid INTEGER NOT NULL," \
+                                    "logid BLOB NOT NULL," \
+                                    "generatedat REAL," \
+                                    "start REAL," \
+                                    "end REAL," \
+                                    "UNIQUE(filterid,logid)" \
                                 ");" \
                                 "CREATE TRIGGER IF NOT EXISTS group_del " \
                                     "BEFORE DELETE ON groups FOR EACH ROW " \
@@ -1773,6 +2051,19 @@ setVersionAndExit:
     "ADD COLUMN policies BLOB")
 #define updateGroupPoliciesSQL CFSTR("UPDATE OR IGNORE groups " \
     "SET policies=? WHERE groupid=?")
+#define insertCRLiteFilterSQL CFSTR("INSERT INTO crlitefilters " \
+    "(filterversion,data) VALUES (?,?)")
+#define insertCRLiteFilterCoverageSQL CFSTR("INSERT INTO crlitefiltercoverage " \
+    "(filterid,logid,generatedat,start,end) VALUES (?,?,?,?,?)")
+#define selectCRLiteFilterSQL CFSTR("SELECT data FROM crlitefilters " \
+    "WHERE filterid=?")
+// Given a logid and a timestamp, finds the most recently generated entry in crlitefiltercoverage that
+// has logid=logid and timestamp >= start and timestamp <= end
+#define selectCRLiteFilterCoverageForLogIDAndTimestampSQL CFSTR("SELECT * FROM crlitefiltercoverage " \
+    "WHERE logid=?1 AND ?2 >= start AND ?2 <= end ORDER BY generatedat DESC LIMIT 1")
+#define deleteAllCRLiteEntriesSQL CFSTR("" \
+    "DELETE FROM crlitefiltercoverage; " \
+    "DELETE FROM crlitefilters;")
 
 #define updateConstraintsTablesSQL CFSTR("" \
 "CREATE TABLE IF NOT EXISTS dates(" \
@@ -1793,6 +2084,8 @@ setVersionAndExit:
 
 #define deleteAllEntriesSQL CFSTR("" \
     "DELETE FROM groups; " \
+    "DELETE FROM crlitefiltercoverage; " \
+    "DELETE FROM crlitefilters;" \
     "DELETE FROM admin WHERE key='version'; " \
     "DELETE FROM sqlite_sequence")
 
@@ -1849,7 +2142,10 @@ static SecRevocationDbRef SecRevocationDbInit(CFStringRef db_name) {
     require(rdb->info_cache_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
     require(rdb->info_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
     rdb->info_cache_lock = OS_UNFAIR_LOCK_INIT;
-
+    require(rdb->crlite_filter_cache_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    require(rdb->crlite_filter_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+    rdb->crlite_filter_cache_lock = OS_UNFAIR_LOCK_INIT;
+    
     if (!isDbOwner()) {
         /* register for changes signaled by the db owner instance */
         int out_token = 0;
@@ -2018,7 +2314,7 @@ static void SecRevocationDbCacheWrite(SecRevocationDbRef db,
                                         CFRangeMake(0, CFArrayGetCount(db->info_cache_list)),
                                         cacheKey)) {
         CFDictionaryAddValue(db->info_cache, cacheKey, validInfo);
-        if (kSecRevocationDbCacheSize <= CFArrayGetCount(db->info_cache_list)) {
+        if (kSecRevocationDbCRLiteFilterCacheSize <= CFArrayGetCount(db->info_cache_list)) {
             // Remove least recently used cache entry.
             secdebug("validcache", "cache remove stale: %@", CFArrayGetValueAtIndex(db->info_cache_list, 0));
             CFDictionaryRemoveValue(db->info_cache, CFArrayGetValueAtIndex(db->info_cache_list, 0));
@@ -2042,6 +2338,86 @@ static void SecRevocationDbCachePurge(SecRevocationDbRef db) {
     CFDictionaryRemoveAllValues(db->info_cache);
     secdebug("validcache", "cache purge");
     os_unfair_lock_unlock(&db->info_cache_lock);
+}
+
+static CF_RETURNS_RETAINED CFNumberRef createCRLiteFilterCacheKey(int64_t filterId) {
+    return CFNumberCreate(NULL, kCFNumberLongLongType, &filterId);
+}
+
+#if _HAS_SWIFTCRLITE
+static CF_RETURNS_RETAINED CRLiteRef SecRevocationDbCRLiteFilterCacheRead(SecRevocationDbRef db, int64_t filterId) {
+    if (!db || !_hasWeakLinkedSwiftCRLite()) {
+        return NULL;
+    }
+    CRLiteRef result = NULL;
+    if (!db || !db->crlite_filter_cache || !db->crlite_filter_cache_list) {
+        return result;
+    }
+    CFIndex ix = kCFNotFound;
+    CFNumberRef cacheKey = createCRLiteFilterCacheKey(filterId);
+
+    os_unfair_lock_lock(&db->crlite_filter_cache_lock); // grab the cache lock before using the cache
+    if (0 <= (ix = CFArrayGetFirstIndexOfValue(db->crlite_filter_cache_list,
+                                               CFRangeMake(0, CFArrayGetCount(db->crlite_filter_cache_list)),
+                                               cacheKey))) {
+        result = (CRLiteRef)CFDictionaryGetValue(db->crlite_filter_cache, cacheKey);
+        if (result != NULL) {
+            // Cache hit. Move the entry to the bottom of the list.
+            CFArrayRemoveValueAtIndex(db->crlite_filter_cache_list, ix);
+            CFArrayAppendValue(db->crlite_filter_cache_list, cacheKey);
+            secdebug("crlitefiltercache", "cache hit: %@", cacheKey);
+        } else {
+            // Just remove this bad entry
+            CFArrayRemoveValueAtIndex(db->crlite_filter_cache_list, ix);
+            CFDictionaryRemoveValue(db->crlite_filter_cache, cacheKey);
+            secdebug("crlitefiltercache", "cache remove bad: %@", cacheKey);
+            secnotice("crlitefiltercache", "found a bad filter cache entry at %ld", (long)ix);
+        }
+    }
+    CFRetainSafe(result);
+    os_unfair_lock_unlock(&db->crlite_filter_cache_lock);
+    CFReleaseSafe(cacheKey);
+    return result;
+}
+
+static void SecRevocationDbCRLiteFilterCacheWrite(SecRevocationDbRef db, CRLiteRef crlite, int64_t filterId) {
+    if (!db || !crlite || !db->crlite_filter_cache || !db->crlite_filter_cache_list || !_hasWeakLinkedSwiftCRLite()) {
+        return;
+    }
+
+    CFNumberRef cacheKey = createCRLiteFilterCacheKey(filterId);
+
+    os_unfair_lock_lock(&db->crlite_filter_cache_lock); // grab the cache lock before using the cache
+    // check to make sure another thread didn't add this entry to the cache already
+    if (0 > CFArrayGetFirstIndexOfValue(db->crlite_filter_cache_list,
+                                        CFRangeMake(0, CFArrayGetCount(db->crlite_filter_cache_list)),
+                                        cacheKey)) {
+        CFDictionaryAddValue(db->crlite_filter_cache, cacheKey, crlite);
+        if (kSecRevocationDbCRLiteFilterCacheSize <= CFArrayGetCount(db->crlite_filter_cache_list)) {
+            // Remove least recently used cache entry.
+            secdebug("crlitefiltercache", "cache remove stale: %@", CFArrayGetValueAtIndex(db->crlite_filter_cache_list, 0));
+            CFDictionaryRemoveValue(db->crlite_filter_cache, CFArrayGetValueAtIndex(db->crlite_filter_cache_list, 0));
+            CFArrayRemoveValueAtIndex(db->crlite_filter_cache_list, 0);
+        }
+        CFArrayAppendValue(db->crlite_filter_cache_list, cacheKey);
+        secdebug("crlitefiltercache", "cache add: %@", cacheKey);
+    }
+    os_unfair_lock_unlock(&db->crlite_filter_cache_lock);
+    CFReleaseNull(cacheKey);
+}
+#endif /* _HAS_SWIFTCRLITE */
+
+static void SecRevocationDbCRLiteFilterCachePurge(SecRevocationDbRef db) {
+    if (!db || !db->crlite_filter_cache || !db->crlite_filter_cache_list) {
+        return;
+    }
+
+    /* grab the cache lock and clear all entries */
+    os_unfair_lock_lock(&db->crlite_filter_cache_lock);
+    CFArrayRemoveAllValues(db->crlite_filter_cache_list);
+    CFDictionaryRemoveAllValues(db->crlite_filter_cache);
+    secdebug("crlitefiltercache", "cache purge");
+    os_unfair_lock_unlock(&db->crlite_filter_cache_lock);
 }
 
 static int64_t _SecRevocationDbGetUpdateInterval(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
@@ -2294,6 +2670,7 @@ static void SecRevocationDbResetCaches(void) {
             return true;
         });
         SecRevocationDbCachePurge(db);
+        SecRevocationDbCRLiteFilterCachePurge(db);
     });
 }
 
@@ -2369,6 +2746,12 @@ static bool _SecRevocationDbUpdateSchema(SecRevocationDbConnectionRef dbc, CFErr
             return ok;
         });
         secdebug("validupdate", "applied schema update to v7 (%s)", (ok) ? "ok" : "failed!");
+    }
+
+    if (ok && db_version < 8) {
+        /* apply v8 changes (add crlite tables) */
+        /* NOP: handled in createTablesSQL with 'CREATE TABLE IF NOT EXISTS' */
+        secdebug("validupdate", "applied schema update to v8 (%s)", (ok) ? "ok" : "failed!");
     }
 
     if (!ok) {
@@ -3558,6 +3941,7 @@ bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryR
 
     /* purge the in-memory cache */
     SecRevocationDbCachePurge(dbc->db);
+    SecRevocationDbCRLiteFilterCachePurge(dbc->db);
 
     dbc->db->updateInProgress = false;
 
@@ -3825,6 +4209,294 @@ errOut:
     return result;
 }
 
+#if _HAS_SWIFTCRLITE
+
+/* Expected CRLite filter version */
+static const CFIndex expectedFilterVersion = 1;
+
+bool SecRevocationDbIngestCRLiteUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef updateMetadata, CFDataRef updateData, CFIndex generation, CFErrorRef *error) {
+    // Note: this function should only be called from within a transaction, and when _hasWeakLinkedSwiftCRLite() is true
+    // We are in a transaction in the usual call flow: 
+    // SecValidUpdateVerifyAndIngest -> SecRevocationDbPerformWrite [applies transaction] ->
+    // SecValidUpdateProcessData -> SecValidUpdateProcessCRLiteSection -> SecRevocationDbIngestCRLiteUpdate
+    
+    __block bool ok = (dbc != NULL) && isDictionary(updateMetadata) && isData(updateData);
+    __block CFErrorRef localError = NULL;
+    __block int64_t filterId = 0;
+
+    require_quiet(ok, errOut);
+
+    // Extract CRLite filter version from metadata (key: "version")
+    CFIndex filterVersion = 0;
+    CFTypeRef versionValue = (CFNumberRef)CFDictionaryGetValue(updateMetadata, CFSTR("version"));
+    if (isNumber(versionValue)) {
+        (void)CFNumberGetValue((CFNumberRef)versionValue, kCFNumberCFIndexType, &filterVersion);
+    }
+
+    if (filterVersion != expectedFilterVersion) {
+        secinfo("validupdate", "Invalid filter version in metadata; expected: %" PRIdCFIndex ", got: %" PRIdCFIndex, expectedFilterVersion, filterVersion);
+        SecError(errSecParam, error, CFSTR("SecValidUpdateProcessData: invalid filter version in metadata"));
+        return false;
+    }
+
+    // Extract generatedAt from metadata (key: "generatedAt")
+    CFAbsoluteTime generatedAt = 0.0;
+    CFTypeRef generatedAtValue = (CFDateRef)CFDictionaryGetValue(updateMetadata, CFSTR("generatedAt"));
+    if (isDate(versionValue)) {
+        generatedAt = CFDateGetAbsoluteTime((CFDateRef)generatedAtValue);
+    }
+
+    // Insert into crlitefilters: (filterid, filterversion, data)
+    ok = ok && SecDbWithSQL(dbc->dbconn, insertCRLiteFilterSQL, &localError, ^bool(sqlite3_stmt *insertFilter) {
+        ok = ok && SecDbBindInt64(insertFilter, 1, (int64_t)filterVersion, &localError);
+        ok = ok && SecDbBindBlob(insertFilter, 2,
+                                 CFDataGetBytePtr(updateData),
+                                 (size_t)CFDataGetLength(updateData),
+                                 SQLITE_TRANSIENT, &localError);
+        ok = ok && SecDbStep(dbc->dbconn, insertFilter, &localError, NULL);
+        if (ok) {
+            filterId = sqlite3_last_insert_rowid(SecDbHandle(dbc->dbconn));
+        }
+        return ok;
+    });
+    secdebug("validupdate", "Inserted CRLite filter %lld", filterId);
+    require_quiet(ok && filterId > 0, errOut);
+
+    // Extract the coverage (start end, logid) for this filter
+    // This requires temporarily loading the filter into a CRLiteRef object
+    CRLiteRef crlite = SecCRLiteCreate();
+    SecCRLiteLoadFilter(crlite, updateData, &localError);
+    require_quiet(ok && crlite, errOut);
+
+    // Dictionary of logid -> CFArray[CFDate]
+    CFDictionaryRef coverage = SecCRLiteGetCoverageInfo(crlite);
+    CFReleaseSafe(crlite);
+    require_quiet(ok && coverage, errOut);
+
+    // Iterate over the coverage dictionary, and insert all entries into the coverage table
+    CFDictionaryForEach(coverage, ^(const void *key, const void *value) {
+        CFDataRef logId = (CFDataRef)key;
+        CFArrayRef coverageInterval = (CFArrayRef)value; // pair of CFDateRef start and CFDateRef end
+        CFDateRef coverageStartDate = (CFDateRef)CFArrayGetValueAtIndex(coverageInterval, 0);
+        CFDateRef coverageEndDate = (CFDateRef)CFArrayGetValueAtIndex(coverageInterval, 1);
+
+        secdebug("validupdate", "Inserting coverage for filter %lld logID: %@, start: %@, end: %@", filterId, logId, coverageStartDate, coverageEndDate);
+
+        ok = ok && SecDbWithSQL(dbc->dbconn, insertCRLiteFilterCoverageSQL, &localError, ^bool(sqlite3_stmt *insertCoverage) {
+            ok = ok && SecDbBindInt64(insertCoverage, 1, (sqlite3_int64)filterId, &localError);
+            ok = ok && SecDbBindBlob(insertCoverage, 2,
+                                     CFDataGetBytePtr(logId),
+                                     (size_t)CFDataGetLength(logId),
+                                     SQLITE_TRANSIENT, &localError);
+            ok = ok && SecDbBindDouble(insertCoverage, 3, (double)generatedAt, &localError);
+            ok = ok && SecDbBindDouble(insertCoverage, 4, (double)(CFDateGetAbsoluteTime(coverageStartDate)), &localError);
+            ok = ok && SecDbBindDouble(insertCoverage, 5, (double)(CFDateGetAbsoluteTime(coverageEndDate)), &localError);
+            ok = ok && SecDbStep(dbc->dbconn, insertCoverage, &localError, NULL);
+            return ok;
+        });
+    });
+
+errOut:
+    if (!ok || localError) {
+        secerror("SecRevocationDbIngestCRLiteUpdate failed: %@", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return ok;
+}
+
+static int64_t _SecRevocationDbCRLiteGetMostRecentCoveringFilter(SecRevocationDbConnectionRef dbc, CFDataRef logID, CFDateRef timestamp, CFDateRef * CF_RETURNS_RETAINED outGeneratedAt, CFErrorRef *error) {
+    /* look up most recent filter that has coverage for the given logID and timestamp; returns filterId on success, -1 on error */
+    __block int64_t filterId = 0;
+    __block CFAbsoluteTime generatedAt = 0.0;
+    __block bool ok = (dbc != NULL);
+    __block CFErrorRef localError = NULL;
+    
+    ok = ok && SecDbWithSQL(dbc->dbconn, selectCRLiteFilterCoverageForLogIDAndTimestampSQL, &localError, ^bool(sqlite3_stmt *selectCoverage) {
+        ok &= SecDbBindBlob(selectCoverage, 1, CFDataGetBytePtr(logID), (size_t)CFDataGetLength(logID), SQLITE_TRANSIENT, &localError);
+        ok &= SecDbBindDouble(selectCoverage, 2, (double)CFDateGetAbsoluteTime(timestamp), &localError);
+        ok &= SecDbStep(dbc->dbconn, selectCoverage, &localError, ^(bool *stop) {
+            filterId = sqlite3_column_int64(selectCoverage, 0);
+            generatedAt = sqlite3_column_double(selectCoverage, 1);
+        });
+        return ok;
+    });
+
+    if (!ok || localError) {
+        secerror("_SecRevocationDbCRLiteGetMostRecentCoveringFilter failed: %@", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationRead, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+    
+    if (outGeneratedAt) {
+        *outGeneratedAt = CFDateCreate(NULL, generatedAt);
+    }
+    return filterId;
+}
+
+
+static CFIndex _SecRevocationDbGetCRLiteFilterIdForSCTs(SecRevocationDbConnectionRef dbc, CFArrayRef scts, CFErrorRef *error) {
+    // For each SCT, extract the logID and timestamp, and then issue an SQL query to find the most recently loaded filter that has coverage for that logID and timestamp
+    __block CFErrorRef localError = NULL;
+    __block int64_t filterId = 0;
+    __block CFDateRef generatedAt = NULL;
+    CFArrayForEach(scts, ^(const void *value) {
+        CFDataRef sct = (CFDataRef)value;
+        CFDataRef logID = NULL;
+        CFDateRef timestamp = NULL;
+        bool result = SecCertificateTransparencyExtractSCTLogIDAndTimestamp(sct, &logID, &timestamp);
+        if (!result) {
+            secerror("Failed to extract SCT logID and timestamp");
+            return;
+        }
+        
+        secdebug("validupdate", "SCT logID: %@, timestamp: %@", logID, timestamp);
+        
+        if (logID == NULL || timestamp == NULL) {
+            CFReleaseNull(logID);
+            CFReleaseNull(timestamp);
+            return;
+        }
+
+        // Now, we can use SQL to find the most recently loaded filter that has coverage for that logID and timestamp
+        CFDateRef localGeneratedAt = NULL;
+        int64_t localFilterId = _SecRevocationDbCRLiteGetMostRecentCoveringFilter(dbc, logID, timestamp, &localGeneratedAt, &localError);
+        CFReleaseNull(logID);
+        CFReleaseNull(timestamp);
+
+        // Stop looking once we find a filter that has coverage
+        if (localFilterId != 0 && localGeneratedAt != NULL) {
+            // Only update if we found a newer filter (based on generatedAt)
+            if (generatedAt == NULL || CFDateGetAbsoluteTime(localGeneratedAt) > CFDateGetAbsoluteTime(generatedAt)) {
+                filterId = localFilterId;
+                generatedAt = CFRetainSafe(localGeneratedAt);
+            }
+        }
+        CFReleaseNull(localGeneratedAt);
+    });
+
+    CFReleaseNull(generatedAt);
+    (void) CFErrorPropagate(localError, error);
+    return filterId;
+}
+
+static CF_RETURNS_RETAINED CFDataRef _SecRevocationDbGetCRLiteFilterData(SecRevocationDbConnectionRef dbc, CFIndex filterId, CFErrorRef *error) {
+    __block CFDataRef result = NULL;
+    __block CFErrorRef localError = NULL;
+    __block bool ok = true;
+    ok = ok && SecDbWithSQL(dbc->dbconn, selectCRLiteFilterSQL, &localError, ^bool(sqlite3_stmt *selectFilter) {
+        ok &= SecDbBindInt64(selectFilter, 1, (sqlite3_int64)filterId, &localError);
+        ok &= SecDbStep(dbc->dbconn, selectFilter, &localError, ^(bool *stop) {
+            result = CFDataCreate(kCFAllocatorDefault, sqlite3_column_blob(selectFilter, 0), sqlite3_column_bytes(selectFilter, 0));
+            
+        });
+        return ok;
+    });
+    if (!ok || localError) {
+        secerror("Failed to get CRLite filter data: %@", localError);
+        CFReleaseNull(result);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return result;
+}
+
+static CF_RETURNS_RETAINED CRLiteRef _SecRevocationDbGetCRLiteFilterDataWithCache(SecRevocationDbConnectionRef dbc, CFIndex filterId, CFErrorRef *error) {
+    /* first, attempt to read from the cache */
+    CRLiteRef crlite = SecRevocationDbCRLiteFilterCacheRead(dbc->db, filterId);
+    if (crlite) {
+        return crlite;
+    }
+
+    /* if not in the cache, read from the database */
+    CFDataRef filterData = _SecRevocationDbGetCRLiteFilterData(dbc, filterId, error);
+    if (filterData) {
+        /* create a new CRLiteRef object and load the filter data into it */
+        crlite = SecCRLiteCreate();
+        SecCRLiteLoadFilter(crlite, filterData, error);
+
+        /* write the new CRLiteRef object to the cache */
+        CFReleaseNull(filterData);
+        SecRevocationDbCRLiteFilterCacheWrite(dbc->db, crlite, filterId);
+        return crlite;
+    } else {
+        secerror("Failed to get CRLite filter data for filter %" PRIdCFIndex ": %@", filterId, error ? *error: nil);
+        return NULL;
+    }
+}
+
+static SecCRLiteInfoRef _SecRevocationDbCopyMatchingCRLite(SecRevocationDbConnectionRef dbc,
+                                                           SecCertificateRef certificate,
+                                                           SecCertificateRef issuer,
+                                                           CFArrayRef additionalSCTs) {
+    SecCRLiteInfoRef result = NULL;
+    CFErrorRef error = NULL;
+
+    // Store the generation and version used for this CRLite check
+    uint32_t generationUsed = (uint32_t)SecRevocationDbGetGeneration();
+    uint32_t versionUsed = (uint32_t)SecRevocationDbGetVersion();
+
+    // 1. Look at the SCTs, and gather the list of (logID, timestamp) pairs
+    // The actual CT trust evaluation happens later, in the path checks, so we need to gather SCTs here
+    // We can't gather OCSP SCTs here, but whatever
+    CFArrayRef embeddedScts = SecCertificateCopySignedCertificateTimestamps(certificate);
+    CFArrayRef builderScts = additionalSCTs;
+
+    // Combine these into a single array
+    CFMutableArrayRef scts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    if (embeddedScts != NULL) {
+        CFArrayAppendArray(scts, embeddedScts, CFRangeMake(0, CFArrayGetCount(embeddedScts)));
+    }
+    if (builderScts != NULL) {
+        CFArrayAppendArray(scts, builderScts, CFRangeMake(0, CFArrayGetCount(builderScts)));
+    }
+    CFReleaseSafe(embeddedScts);
+    CFReleaseSafe(builderScts);
+
+    secdebug("validupdate", "CRLite: found %" PRIdCFIndex " SCTs for cert", CFArrayGetCount(scts));
+
+    // 2. Search crlitefiltercoverage for a filterid that has coverage for any SCT, and choose the most recently generated filter
+    CFIndex filterId = _SecRevocationDbGetCRLiteFilterIdForSCTs(dbc, scts, &error);
+    if (filterId == 0) {
+        secdebug("validupdate", "CRLite: no filter found for cert");
+        return NULL;
+    }
+    secdebug("validupdate", "CRLite: found filter %" PRIdCFIndex " for cert", filterId);
+
+    // 3. Load the found filter into a CRLiteRef object by querying crlitefilters
+    // This does some caching internally
+    CRLiteRef crliteRef = _SecRevocationDbGetCRLiteFilterDataWithCache(dbc, filterId, &error);
+    if (error) {
+        secerror("Failed to load CRLite filter: %@", error);
+        CFReleaseSafe(crliteRef);
+        return NULL;
+    }
+
+    secdebug("validupdate", "CRLite: loaded filter %" PRIdCFIndex " for cert", filterId);
+
+    // 4. Consult the CRLite filter for revocation information using SecCRLiteCertStatus
+    // This will return NULL if the certificate is not covered by the filter
+    SecCRLiteStatus crliteStatus = SecCRLiteCertStatus(crliteRef, certificate, issuer, scts, &error);
+    if (error) {
+        secerror("Failed to evaluate CRLite certificate revocation status against filter %" PRIdCFIndex ": %@", filterId, error);
+        CFReleaseSafe(crliteRef);
+        return NULL;
+    }
+    CFReleaseSafe(crliteRef);
+    
+    if (crliteStatus == SecCRLiteStatusNotCovered) {
+        secdebug("validupdate", "CRLite: certificate is not covered by filter %" PRIdCFIndex, filterId);
+        return NULL;
+    }
+
+    bool isRevoked = crliteStatus == SecCRLiteStatusRevoked;
+    secdebug("validupdate", "CRLite: certificate is covered by filter %" PRIdCFIndex " and isRevoked = %d", filterId, isRevoked);
+    result = SecCRLiteInfoCreate(isRevoked, generationUsed, versionUsed);
+    return result;
+}
+#endif /* _HAS_SWIFTCRLITE */
+
 /* Return the update source as a retained CFStringRef.
    If the value cannot be obtained, NULL is returned.
 */
@@ -3987,6 +4659,44 @@ CFIndex SecRevocationDbGetUpdateFormat(void) {
         });
     });
     return result;
+}
+
+SecCRLiteInfoRef SecRevocationDbCopyMatchingCRLite(SecCertificateRef certificate, SecCertificateRef issuer, CFArrayRef additionalSCTs) {
+    #if _HAS_SWIFTCRLITE
+    if (!_hasWeakLinkedSwiftCRLite()) {
+        return NULL;
+    }
+    __block SecCRLiteInfoRef result = NULL;
+    SecRevocationDbWith(^(SecRevocationDbRef db) {
+        (void) SecRevocationDbPerformRead(db, NULL, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
+            result = _SecRevocationDbCopyMatchingCRLite(dbc, certificate, issuer, additionalSCTs);
+            return (bool)result;
+        });
+    });
+    return result;
+    #else /* !_HAS_SWIFTCRLITE */
+    return NULL;
+    #endif
+}
+
+bool _SecRevocationDbRemoveAllCRLiteEntries(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+    ok = ok && SecDbExec(dbc->dbconn, deleteAllCRLiteEntriesSQL, &localError);
+    (void) CFErrorPropagate(localError, error);
+    return ok;
+}
+
+bool SecRevocationDbRemoveAllCRLiteEntries(CFErrorRef *error) {
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+    SecRevocationDbWith(^(SecRevocationDbRef rdb) {
+        ok &= SecRevocationDbPerformWrite(rdb, &localError, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
+            return _SecRevocationDbRemoveAllCRLiteEntries(dbc, blockError);
+        });
+    });
+    (void) CFErrorPropagate(localError, error);
+    return ok;
 }
 
 // MARK: -

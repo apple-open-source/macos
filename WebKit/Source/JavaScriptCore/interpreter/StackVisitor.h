@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include "BytecodeIndex.h"
-#include "CalleeBits.h"
-#include "LineColumn.h"
-#include "SourceID.h"
-#include "WasmIndexOrName.h"
+#include <JavaScriptCore/BytecodeIndex.h>
+#include <JavaScriptCore/CalleeBits.h>
+#include <JavaScriptCore/LineColumn.h>
+#include <JavaScriptCore/SourceID.h>
+#include <JavaScriptCore/WasmIndexOrName.h>
 #include <wtf/Function.h>
 #include <wtf/Indenter.h>
 #include <wtf/IterationStatus.h>
@@ -41,6 +41,7 @@ struct EntryFrame;
 struct InlineCallFrame;
 
 class CallFrame;
+class CallSiteIndex;
 class CodeBlock;
 class CodeOrigin;
 class JSCell;
@@ -88,6 +89,9 @@ public:
             ASSERT(isNativeCalleeFrame());
             return m_wasmFunctionIndexOrName;
         }
+        size_t wasmFunctionIndex() const;
+
+        CallSiteIndex wasmCallSiteIndex() const;
 
         JS_EXPORT_PRIVATE String functionName() const;
         JS_EXPORT_PRIVATE String sourceURL() const;
@@ -135,6 +139,8 @@ public:
         bool m_callerIsEntryFrame : 1 { false };
         bool m_isWasmFrame : 1 { false };
         Wasm::IndexOrName m_wasmFunctionIndexOrName { };
+        size_t m_wasmFunctionIndex { 0 };
+        uint32_t m_wasmCallSiteIndexBits { };
 
         friend class StackVisitor;
     };

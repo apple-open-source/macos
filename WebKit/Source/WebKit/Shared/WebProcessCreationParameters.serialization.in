@@ -169,7 +169,7 @@
 #endif
 
 #if USE(GBM)
-    String renderDeviceFile;
+    WebCore::DRMDevice drmDevice;
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -230,5 +230,9 @@
 
 #if HAVE(LIQUID_GLASS)
     bool isLiquidGlassEnabled;
+#endif
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    bool isDebugLoggingEnabled;
 #endif
 };

@@ -33,6 +33,7 @@
 #import "WebPluginPackage.h"
 #import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/WebCoreJITOperations.h>
+#import <WebCore/WebCoreMainThread.h>
 #import <algorithm>
 #import <mach-o/arch.h>
 #import <mach-o/fat.h>
@@ -58,11 +59,7 @@ static constexpr auto QuickTimeCocoaPluginIdentifier = "com.apple.quicktime.webp
 
 + (void)initialize
 {
-#if !PLATFORM(IOS_FAMILY)
-    JSC::initialize();
-    WTF::initializeMainThread();
-    WebCore::populateJITOperations();
-#endif
+    WebCore::initializeMainThreadIfNeeded();
 }
 
 + (WebBasePluginPackage *)pluginWithPath:(NSString *)pluginPath

@@ -95,9 +95,11 @@ void WebExtensionContext::storageSet(WebPageProxyIdentifier webPageProxyIdentifi
     auto callingAPIName = makeString("browser.storage."_s, toAPIString(dataType), ".set()"_s);
 
     HashMap<String, String> data = { };
-    if (RefPtr json = JSON::Value::parseJSON(dataJSON); json->asObject()) {
-        for (const auto& key : json->asObject()->keys())
-            data.set(key, json->asObject()->getString(key));
+    if (RefPtr json = JSON::Value::parseJSON(dataJSON)) {
+        if (RefPtr object = json->asObject()) {
+            for (const auto& key : object->keys())
+                data.set(key, object->getString(key));
+        }
     }
 
     Ref storage = storageForType(dataType);
@@ -220,7 +222,8 @@ void WebExtensionContext::fireStorageChangedEventIfNeeded(HashMap<String, String
             RefPtr data = JSON::Object::create();
             if (parsedOldValue)
                 data->setValue(oldValueKey, *parsedOldValue);
-            data->setValue(newValueKey, *parsedNewValue);
+            if (parsedNewValue)
+                data->setValue(newValueKey, *parsedNewValue);
             changedData->setObject(key, *data);
         }
     }
@@ -231,8 +234,10 @@ void WebExtensionContext::fireStorageChangedEventIfNeeded(HashMap<String, String
         const auto& value = entry.value;
 
         if (!newKeysAndValues.contains(key)) {
+            RefPtr parsedNewValue = JSON::Value::parseJSON(value);
             RefPtr data = JSON::Object::create();
-            data->setValue(oldValueKey, *(JSON::Value::parseJSON(value)));
+            if (parsedNewValue)
+                data->setValue(oldValueKey, *parsedNewValue);
             changedData->setObject(key, *data);
         }
     }

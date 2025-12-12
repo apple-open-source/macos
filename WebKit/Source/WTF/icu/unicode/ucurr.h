@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 * Copyright (c) 2002-2016, International Business Machines
-* Corporation and others.  All rights reserved.
+* Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
 #ifndef _UCURR_H_

@@ -20,6 +20,7 @@
 #include <IOKit/hid/IOHIDEventData.h>
 #include <AssertMacros.h>
 #include <math.h>
+#include "IOHIDComplexEventDriver.h"
 #include "IOHIDTimeSyncService.h"
 #include "IOHIDTimeSyncKeys.h"
 #include <IOKit/IOKitKeys.h>
@@ -97,8 +98,6 @@ IOFastPathHIDService::start(IOService * provider)
         setProperty(kIOHIDPhysicalDeviceUniqueIDKey, prop.get());
     }
 
-    setupTimeSync();
-
     _sample = OSData::withCapacity(copyDescriptor()->getSampleSize());
     assert(_sample);
     _sample->appendBytes(NULL, copyDescriptor()->getSampleSize());
@@ -128,21 +127,6 @@ IOFastPathHIDService::willTerminate(IOService * provider, IOOptionBits options)
 void
 IOFastPathHIDService::cleanupHelper()
 {
-    // remove notifier first, to ensure no thread call is not entered again
-    if (_notifier) {
-        _notifier->remove();
-    }
-
-    // cancel thread call, to ensure the match callback is not in-progress
-    if (_serviceMatchThread) {
-        thread_call_cancel_wait(_serviceMatchThread);
-        thread_call_free(_serviceMatchThread);
-    }
-
-    if (_timeSync && _timeSync->isOpen(this)) {
-        _timeSync->close(this);
-    }
-
     if (_service->isOpen(this)) {
         _service->close(this);
     }
@@ -160,169 +144,33 @@ IOFastPathHIDService::copySample() const
     return _sample;
 }
 
-bool
-IOFastPathHIDService::supportsTimeSync() const
+UInt64
+IOFastPathHIDService::getSyncedTimestampForHIDEvent(IOHIDEvent * event)
 {
-    OSSharedPtr<OSBoolean> prop = OSDynamicPtrCast<OSBoolean>(_service->copyProperty(kIOHIDTimeSyncEnabledKey, gIOServicePlane));
-    return prop && prop == kOSBooleanTrue;
-}
+    UInt64 timestamp = 0;
 
-bool
-IOFastPathHIDService::sharesHIDDeviceWith(IOHIDTimeSyncService * service) const
-{
-    bool ret = false;
-    IOService * provider = nullptr;
-    IOHIDDevice * device = nullptr;
+    IOHIDEvent * child = getMatchingChildEvent(event, kIOHIDEventTypeVendorDefined, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_TimeSyncTimestamp);
+    require_quiet(child, exit); // no time sync child event
+    require_quiet(child->getDataValue(kIOHIDEventFieldVendorDefinedData), exit);
+    require_quiet(child->getIntegerValue(kIOHIDEventFieldVendorDefinedDataLength) == sizeof(UInt64), exit);
 
-    provider = service->getProvider();
-    while (provider) {
-        device = OSDynamicCast(IOHIDDevice, provider);
-        if (device) {
-            break;
-        }
-        provider = provider->getProvider();
-    }
-    require_quiet(device, exit);
-
-    provider = this->getProvider();
-    while (provider) {
-        if (device == OSDynamicCast(IOHIDDevice, provider)) {
-            ret = true;
-            break;
-        }
-        provider = provider->getProvider();
-    }
+    timestamp = *(UInt64 *)child->getDataValue(kIOHIDEventFieldVendorDefinedData);
 
 exit:
-    return ret;
-}
-
-void
-IOFastPathHIDService::setupTimeSync()
-{
-    if (!supportsTimeSync()) {
-        return;
-    }
-
-    OSSharedPtr<OSDictionary> matching = serviceMatching("IOHIDTimeSyncService");
-    assert(matching);
-
-    _serviceMatchThread = thread_call_allocate_with_options(OSMemberFunctionCast(thread_call_func_t, this, &IOFastPathHIDService::timeSyncServiceMatchHandler),
-                                                            this,
-                                                            THREAD_CALL_PRIORITY_KERNEL,
-                                                            THREAD_CALL_OPTIONS_ONCE);
-    assert(_serviceMatchThread);
-
-    IOServiceMatchingNotificationHandlerBlock handler = ^bool(IOService * newService, IONotifier * notifier) {
-        if (OSDynamicCast(IOHIDTimeSyncService, newService) && sharesHIDDeviceWith(OSDynamicCast(IOHIDTimeSyncService, newService))) {
-            os_atomic(UInt32) state = atomic_fetch_or(&_state, kStateTimeSyncMatched);
-            require_quiet(!(state & kStateTimeSyncMatched), exit);
-
-            assert(!_timeSync);
-            _timeSync = OSSharedPtr<IOHIDTimeSyncService>(OSDynamicCast(IOHIDTimeSyncService, newService), OSRetain);
-
-            thread_call_enter(_serviceMatchThread);
-            notifier->disable();
-        }
-    exit:
-        return true;
-    };
-
-    IONotifier * n = addMatchingNotification(gIOFirstPublishNotification, matching.get(), 0, handler);
-    _notifier = OSSharedPtr<IONotifier>(n, OSRetain);
-    assert(_notifier);
-
-    bool ok = setProperty(kIOHIDTimeSyncEnabledKey, kOSBooleanTrue);
-    assert(ok);
-}
-
-void
-IOFastPathHIDService::timeSyncServiceMatchHandler(thread_call_param_t param __unused)
-{
-    require_quiet(!isInactive(), exit);
-
-    getWorkLoop()->runActionBlock(^IOReturn{
-        if (!isInactive()) {
-            IOHIDTimeSyncService::EventHandler handler = ^(IOHIDTimeSyncService::Event event, IOHIDTimeSyncService::Precision precision) {
-                HIDServiceLog("TimeSync event:%d (precision:%d)", event, precision);
-                switch (event) {
-                    case IOHIDTimeSyncService::Event::EventActive:
-                        HIDServiceLog("%llu attempts to time-sync before active", tsNotActiveCnt);
-                        atomic_fetch_or(&_state, kStateTimeSyncActive);
-                        break;
-                    case IOHIDTimeSyncService::Event::EventInactive:
-                    case IOHIDTimeSyncService::Event::EventTerminating:
-                        if (_state & kStateTimeSyncActive) {
-                            HIDServiceLog("synced %llu remote, %llu local timestamps during session", tsToLocalCnt, tsToRemoteCnt);
-                            tsNotActiveCnt = 0;
-                            tsToLocalCnt = 0;
-                            tsToRemoteCnt = 0;
-                        }
-                        atomic_fetch_and(&_state, ~kStateTimeSyncActive);
-                        break;
-                    default:
-                        break;
-                }
-            };
-
-            bool ok = _timeSync->open(this, handler);
-            if (ok) {
-                HIDServiceLog("time-sync service opened (%llu earlier attempts to time-sync failed)", tsNotOpenCnt);
-            }
-            else {
-                HIDServiceLogError("IOHIDTimeSyncService::open failed");
-            }
-
-            atomic_fetch_or(&_state, kStateTimeSyncOpened);
-        }
-        return kIOReturnSuccess;
-    });
-
-exit:
-    return;
-}
-
-IOReturn
-IOFastPathHIDService::doTimeSyncForHIDEventGated(IOHIDEvent * event, UInt64 * outSyncedTime)
-{
-    IOReturn ret = kIOReturnInvalid;
-    IOHIDEvent * child = nullptr;
-    OSSharedPtr<OSData> tsTimestamp = nullptr;
-
-    assert(getWorkLoop()->inGate());
-    require_action_quiet(!isInactive(), exit, ret = kIOReturnOffline);
-    require_action_quiet(_state & kStateTimeSyncOpened, exit, tsNotOpenCnt++; ret = kIOReturnNotReady);
-    require_action_quiet(_state & kStateTimeSyncActive, exit, tsNotActiveCnt++; ret = kIOReturnNotReady);
-
-    child = getMatchingChildEvent(event, kIOHIDEventTypeVendorDefined, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_TimeSyncTimestamp);
-    require_action_quiet(child, exit, ret = kIOReturnUnsupported); // no time sync child event
-
-    tsTimestamp = OSData::withBytes(child->getDataValue(kIOHIDEventFieldVendorDefinedData), child->getIntegerValue(kIOHIDEventFieldVendorDefinedDataLength));
-    assert(tsTimestamp);
-
-    ret = _timeSync->toSyncedTime(tsTimestamp.get(), outSyncedTime);
-    if (ret == kIOReturnSuccess) {
-        ++tsToLocalCnt;
-    }
-
-exit:
-    return ret;
+    return timestamp;
 }
 
 IOReturn
 IOFastPathHIDService::doTimeSyncForLocalTimeGated(UInt64 timestamp, OSData ** outTime)
 {
     IOReturn ret = kIOReturnInvalid;
+    OSSharedPtr<IOHIDComplexEventDriver> service = OSDynamicPtrCast<IOHIDComplexEventDriver>(_service);
 
     assert(getWorkLoop()->inGate());
     require_action_quiet(!isInactive(), exit, ret = kIOReturnOffline);
-    require_action_quiet(_state & kStateTimeSyncOpened, exit, tsNotOpenCnt++; ret = kIOReturnNotReady);
-    require_action_quiet(_state & kStateTimeSyncActive, exit, tsNotActiveCnt++; ret = kIOReturnNotReady);
+    require_action_quiet(service, exit, ret = kIOReturnUnsupported);
 
-    ret = _timeSync->toTimeData(timestamp, outTime);
-    if (ret == kIOReturnSuccess) {
-        ++tsToRemoteCnt;
-    }
+    ret = service->convertMachToDeviceTimestamp(timestamp, outTime);
 
 exit:
     return ret;
@@ -388,7 +236,14 @@ void
 IOFastPathHIDAccelService::handleAccelerometerEvent(IOHIDEvent * event)
 {
     QueueEntry * entry = (QueueEntry *)copySample()->getBytesNoCopy();
-    parseSampleFromHIDEvent(event, entry);
+    *entry = (QueueEntry) {
+        .eventTimestamp = event->getTimeStamp(),
+        .sampleTimestamp = getSyncedTimestampForHIDEvent(event),
+        .sampleID = generation++,
+        .x = event->getDoubleValue(kIOHIDEventFieldAccelerometerX, 0),
+        .y = event->getDoubleValue(kIOHIDEventFieldAccelerometerY, 0),
+        .z = event->getDoubleValue(kIOHIDEventFieldAccelerometerZ, 0),
+    };
 
     IOHID_DEBUG(kIOHIDDebugCode_IOFastPath_EnqueueSample, event->getTimeStamp(), entry->sampleTimestamp, entry->sampleID, kIOHIDEventTypeAccelerometer);
 
@@ -397,32 +252,6 @@ IOFastPathHIDAccelService::handleAccelerometerEvent(IOHIDEvent * event)
         HIDServiceLogError("IOCircularDataQueueEnqueue:0x%x", ret);
     }
 }
-
-void
-IOFastPathHIDAccelService::parseSampleFromHIDEvent(IOHIDEvent * event, QueueEntry * sample)
-{
-    IOReturn ret = kIOReturnInvalid;
-    UInt64 synced = 0;
-
-    *sample = (QueueEntry) {
-        .eventTimestamp = event->getTimeStamp(),
-        .sampleTimestamp = 0,
-        .sampleID = generation++,
-        .x = event->getDoubleValue(kIOHIDEventFieldAccelerometerX, 0),
-        .y = event->getDoubleValue(kIOHIDEventFieldAccelerometerY, 0),
-        .z = event->getDoubleValue(kIOHIDEventFieldAccelerometerZ, 0),
-    };
-
-    ret = doTimeSyncForHIDEventGated(event, &synced);
-    require_quiet(ret != kIOReturnNotReady, exit); // too chatty before TS becomes available to log
-    require_noerr_action(ret, exit, HIDServiceLogError("toSyncedTime: 0x%x", ret));
-
-    sample->sampleTimestamp = synced;
-
-exit:
-    return;
-}
-
 
 #pragma mark - IOFastPathGyroHIDService
 
@@ -483,7 +312,14 @@ void
 IOFastPathHIDGyroService::handleGyroEvent(IOHIDEvent * event)
 {
     QueueEntry * entry = (QueueEntry *)copySample()->getBytesNoCopy();
-    parseSampleFromHIDEvent(event, entry);
+    *entry = (QueueEntry) {
+        .eventTimestamp = event->getTimeStamp(),
+        .sampleTimestamp = getSyncedTimestampForHIDEvent(event),
+        .sampleID = generation++,
+        .x = event->getDoubleValue(kIOHIDEventFieldGyroX, 0),
+        .y = event->getDoubleValue(kIOHIDEventFieldGyroY, 0),
+        .z = event->getDoubleValue(kIOHIDEventFieldGyroZ, 0),
+    };
 
     IOHID_DEBUG(kIOHIDDebugCode_IOFastPath_EnqueueSample, event->getTimeStamp(), entry->sampleTimestamp, entry->sampleID, kIOHIDEventTypeGyro);
 
@@ -491,31 +327,6 @@ IOFastPathHIDGyroService::handleGyroEvent(IOHIDEvent * event)
     if (ret != kIOReturnSuccess) {
         HIDServiceLogError("IOCircularDataQueueEnqueue:0x%x", ret);
     }
-}
-
-void
-IOFastPathHIDGyroService::parseSampleFromHIDEvent(IOHIDEvent * event, QueueEntry * sample)
-{
-    IOReturn ret = kIOReturnInvalid;
-    UInt64 synced = 0;
-
-    *sample = (QueueEntry) {
-        .eventTimestamp = event->getTimeStamp(),
-        .sampleTimestamp = 0,
-        .sampleID = generation++,
-        .x = event->getDoubleValue(kIOHIDEventFieldGyroX, 0),
-        .y = event->getDoubleValue(kIOHIDEventFieldGyroY, 0),
-        .z = event->getDoubleValue(kIOHIDEventFieldGyroZ, 0),
-    };
-
-    ret = doTimeSyncForHIDEventGated(event, &synced);
-    require_quiet(ret != kIOReturnNotReady, exit); // too chatty before TS becomes available to log
-    require_noerr_action(ret, exit, HIDServiceLogError("toSyncedTime: 0x%x", ret));
-
-    sample->sampleTimestamp = synced;
-
-exit:
-    return;
 }
 
 #if APPLE_FEATURE_P192
@@ -547,6 +358,7 @@ IOFastPathHIDButtonService::createDescriptor()
     fields->setObject(IOFastPathField::create(kIOHIDEventFieldButtonNumber, kIOFastPathFieldTypeInteger, offsetof(QueueEntry, number), sizeof(QueueEntry::number)));
     fields->setObject(IOFastPathField::create(kIOHIDEventFieldButtonState, kIOFastPathFieldTypeInteger, offsetof(QueueEntry, state), sizeof(QueueEntry::state)));
     fields->setObject(IOFastPathField::create(kIOHIDEventFieldButtonPressure, kIOFastPathFieldTypeDouble, offsetof(QueueEntry, pressure), sizeof(QueueEntry::pressure)));
+    fields->setObject(IOFastPathField::create(kIOFastPathFieldKeyButtonForce, kIOFastPathFieldTypeDouble, offsetof(QueueEntry, force), sizeof(QueueEntry::force)));
 
     return IOFastPathDescriptor::create(fields.get());
 }
@@ -584,6 +396,7 @@ IOFastPathHIDButtonService::handleButtonEvent(IOHIDEvent *event)
         .number = (UInt64)event->getIntegerValue(kIOHIDEventFieldButtonNumber),
         .state = (UInt64)event->getIntegerValue(kIOHIDEventFieldButtonState),
         .pressure = event->getDoubleValue(kIOHIDEventFieldButtonPressure, 0),
+        .force = getButtonForce(event),
     };
 
     IOHID_DEBUG(kIOHIDDebugCode_IOFastPath_EnqueueSample, event->getTimeStamp(), 0, 0, kIOHIDEventTypeButton);
@@ -592,6 +405,23 @@ IOFastPathHIDButtonService::handleButtonEvent(IOHIDEvent *event)
     if (ret != kIOReturnSuccess) {
         HIDServiceLogError("IOCircularDataQueueEnqueue:0x%x", ret);
     }
+}
+
+double
+IOFastPathHIDButtonService::getButtonForce(IOHIDEvent * event) const
+{
+    static const double kInvalidForceValue = NAN;
+    double force = kInvalidForceValue;
+
+    IOHIDEvent * forceEvent = getMatchingChildEvent(event, kIOHIDEventTypeVendorDefined, kHIDPage_Sensor, kHIDUsage_Snsr_Data_Mechanical_Force);
+    if (forceEvent && forceEvent->getIntegerValue(kIOHIDEventFieldVendorDefinedDataLength) >= sizeof(double)) {
+        const void * pForce = forceEvent->getDataValue(kIOHIDEventFieldVendorDefinedData);
+        if (pForce) {
+            memcpy(&force, pForce, sizeof(force));
+        }
+    }
+
+    return force;
 }
 
 #endif

@@ -46,6 +46,7 @@
 #include "ApplePayShippingContactUpdate.h"
 #include "ApplePayShippingMethod.h"
 #include "ApplePayShippingMethodUpdate.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "EventNames.h"
 #include "JSApplePayCouponCodeDetails.h"
@@ -447,7 +448,7 @@ Vector<Ref<ApplePayError>> ApplePayPaymentHandler::computeErrors(String&& error,
 
     computePayerErrors(WTFMove(payerErrors), errors);
 
-    auto scope = DECLARE_CATCH_SCOPE(scriptExecutionContext()->protectedVM().get());
+    auto scope = DECLARE_CATCH_SCOPE(protectedScriptExecutionContext()->protectedVM().get());
     auto exception = computePaymentMethodErrors(paymentMethodErrors, errors);
     if (exception.hasException()) {
         ASSERT(scope.exception());
@@ -461,7 +462,7 @@ Vector<Ref<ApplePayError>> ApplePayPaymentHandler::computeErrors(JSC::JSObject* 
 {
     Vector<Ref<ApplePayError>> errors;
 
-    auto scope = DECLARE_CATCH_SCOPE(scriptExecutionContext()->protectedVM().get());
+    auto scope = DECLARE_CATCH_SCOPE(protectedScriptExecutionContext()->protectedVM().get());
     auto exception = computePaymentMethodErrors(paymentMethodErrors, errors);
     if (exception.hasException()) {
         ASSERT(scope.exception());

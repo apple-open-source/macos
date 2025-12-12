@@ -28,12 +28,16 @@
 #endif
 (deny default)
 
+#ifndef NO_REPORT
+#define NO_REPORT (with no-report)
+#endif
+
 (deny nvram*)
 (deny system-privilege)
 (allow system-audit file-read-metadata)
 
 ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
-(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
+(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) NO_REPORT)
 
 #if USE(SANDBOX_VERSION_3)
 #if PLATFORM(MACCATALYST) || PLATFORM(VISION)

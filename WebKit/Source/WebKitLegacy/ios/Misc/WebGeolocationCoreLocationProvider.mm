@@ -45,8 +45,8 @@ SOFT_LINK_CLASS(CoreLocation, CLLocation)
 SOFT_LINK_CONSTANT(CoreLocation, kCLLocationAccuracyBest, double)
 SOFT_LINK_CONSTANT(CoreLocation, kCLLocationAccuracyHundredMeters, double)
 
-#define kCLLocationAccuracyBest getkCLLocationAccuracyBest()
-#define kCLLocationAccuracyHundredMeters getkCLLocationAccuracyHundredMeters()
+#define kCLLocationAccuracyBest getkCLLocationAccuracyBestSingleton()
+#define kCLLocationAccuracyHundredMeters getkCLLocationAccuracyHundredMetersSingleton()
 
 using namespace WebCore;
 
@@ -66,7 +66,7 @@ using namespace WebCore;
     ASSERT(!_locationManager);
 
     _locationManager = adoptNS([allocCLLocationManagerInstance() init]);
-    _lastAuthorizationStatus = [getCLLocationManagerClass() authorizationStatus];
+    _lastAuthorizationStatus = [getCLLocationManagerClassSingleton() authorizationStatus];
 
     [ _locationManager setDelegate:self];
 }
@@ -89,12 +89,12 @@ using namespace WebCore;
 
 - (void)requestGeolocationAuthorization
 {
-    if (![getCLLocationManagerClass() locationServicesEnabled]) {
+    if (![getCLLocationManagerClassSingleton() locationServicesEnabled]) {
         [_positionListener geolocationAuthorizationDenied];
         return;
     }
 
-    switch ([getCLLocationManagerClass() authorizationStatus]) {
+    switch ([getCLLocationManagerClassSingleton() authorizationStatus]) {
     case kCLAuthorizationStatusNotDetermined: {
         if (!_isWaitingForAuthorization) {
             _isWaitingForAuthorization = YES;
@@ -121,8 +121,8 @@ static bool isAuthorizationGranted(CLAuthorizationStatus authorizationStatus)
 
 - (void)start
 {
-    if (![getCLLocationManagerClass() locationServicesEnabled]
-        || !isAuthorizationGranted([getCLLocationManagerClass() authorizationStatus])) {
+    if (![getCLLocationManagerClassSingleton() locationServicesEnabled]
+        || !isAuthorizationGranted([getCLLocationManagerClassSingleton() authorizationStatus])) {
         [_locationManager stopUpdatingLocation];
         [_positionListener resetGeolocation];
         return;

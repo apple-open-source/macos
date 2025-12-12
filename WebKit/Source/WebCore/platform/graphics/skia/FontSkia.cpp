@@ -32,6 +32,7 @@
 #include "SkiaHarfBuzzFont.h"
 #include <skia/core/SkFont.h>
 #include <skia/core/SkFontMetrics.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -49,8 +50,7 @@ FloatRect Font::platformBoundsForGlyph(Glyph glyph) const
         return { };
 
     const auto& font = m_platformData.skFont();
-    SkRect bounds;
-    font.getBounds(&glyph, 1, &bounds, nullptr);
+    SkRect bounds = font.getBounds(glyph, nullptr);
     if (!font.isSubpixel()) {
         SkIRect rect;
         bounds.roundOut(&rect);
@@ -59,14 +59,35 @@ FloatRect Font::platformBoundsForGlyph(Glyph glyph) const
     return bounds;
 }
 
+Vector<FloatRect, Font::inlineGlyphRunCapacity> Font::platformBoundsForGlyphs(const Vector<Glyph, inlineGlyphRunCapacity>& glyphs) const
+{
+    if (!m_platformData.size())
+        return { };
+
+    static_assert(sizeof(Glyph) == sizeof(SkGlyphID));
+
+    Vector<SkRect, inlineGlyphRunCapacity> bounds(glyphs.size());
+    const auto& font = m_platformData.skFont();
+    font.getBounds(glyphs.span(), bounds.mutableSpan(), nullptr);
+    return bounds.map<Vector<FloatRect, inlineGlyphRunCapacity>>([&](const auto& boundsRect) -> auto {
+        if (font.isSubpixel())
+            return boundsRect;
+
+        SkRect returnValue = boundsRect;
+        SkIRect rect;
+        returnValue.roundOut(&rect);
+        returnValue.set(rect);
+        return returnValue;
+    });
+}
+
 float Font::platformWidthForGlyph(Glyph glyph) const
 {
     if (!m_platformData.size())
         return 0;
 
     const auto& font = m_platformData.skFont();
-    SkScalar width;
-    font.getWidths(&glyph, 1, &width);
+    SkScalar width = font.getWidth(glyph);
 
     if (!font.isSubpixel())
         width = SkScalarRoundToInt(width);
@@ -175,6 +196,66 @@ bool Font::platformSupportsCodePoint(char32_t character, std::optional<char32_t>
         return !!skiaHarfBuzzFont->glyph(character, variation);
 
     return m_platformData.skFont().getTypeface()->unicharToGlyph(character);
+}
+
+static inline SkFont::Edging edgingForFontSmoothingMode(const SkFont& font, FontSmoothingMode smoothingMode)
+{
+    switch (smoothingMode) {
+    case FontSmoothingMode::AutoSmoothing:
+        return font.getEdging();
+    case FontSmoothingMode::Antialiased:
+        return SkFont::Edging::kAntiAlias;
+    case FontSmoothingMode::SubpixelAntialiased:
+        return SkFont::Edging::kSubpixelAntiAlias;
+    case FontSmoothingMode::NoSmoothing:
+        return SkFont::Edging::kAlias;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+sk_sp<SkTextBlob> Font::buildTextBlob(std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, FontSmoothingMode smoothingMode) const
+{
+    if (!m_platformData.size() || !glyphs.size())
+        return nullptr;
+
+    const auto& font = m_platformData.skFont();
+    auto edging = allowsAntialiasing() ? edgingForFontSmoothingMode(font, smoothingMode) : SkFont::Edging::kAlias;
+    bool isVertical = m_platformData.orientation() == FontOrientation::Vertical;
+
+    SkTextBlobBuilder builder;
+    const auto& buffer = [&]() {
+        if (font.getEdging() == edging)
+            return isVertical ? builder.allocRunPos(font, glyphs.size()) : builder.allocRunPosH(font, glyphs.size(), 0);
+
+        SkFont copiedFont = font;
+        copiedFont.setEdging(edging);
+        return isVertical ? builder.allocRunPos(copiedFont, glyphs.size()) : builder.allocRunPosH(copiedFont, glyphs.size(), 0);
+    }();
+
+    auto bufferGlyphs = unsafeMakeSpan<SkGlyphID>(buffer.glyphs, glyphs.size());
+    auto bufferPositions = unsafeMakeSpan<SkScalar>(buffer.pos, glyphs.size() * (isVertical ? 2 : 1));
+
+    FloatSize glyphPosition;
+    for (size_t i = 0; i < glyphs.size(); ++i) {
+        bufferGlyphs[i] = glyphs[i];
+
+        if (isVertical) {
+            glyphPosition += advances[i];
+            bufferPositions[2 * i] = glyphPosition.height();
+            bufferPositions[2 * i + 1] = glyphPosition.width();
+        } else {
+            bufferPositions[i] = glyphPosition.width();
+            glyphPosition += advances[i];
+        }
+    }
+
+    return builder.make();
+}
+
+bool Font::enableAntialiasing(FontSmoothingMode smoothingMode) const
+{
+    return allowsAntialiasing() && edgingForFontSmoothingMode(m_platformData.skFont(), smoothingMode) != SkFont::Edging::kAlias;
 }
 
 } // namespace WebCore

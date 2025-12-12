@@ -216,7 +216,7 @@ io_write_nonblocking(int fd, const void *buf, size_t bsz,
  * Optionally allow errors to be suppressed in case we're called in a logging
  * path.
  */
-int
+static int
 io_write_blocking_impl(int fd, const void *buf, size_t sz, bool raise_errors)
 {
 	size_t		wsz;

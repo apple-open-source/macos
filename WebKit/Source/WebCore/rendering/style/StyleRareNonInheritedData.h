@@ -25,49 +25,58 @@
 
 #pragma once
 
-#include "CSSPropertyNames.h"
-#include "CounterDirectives.h"
-#include "LengthPoint.h"
-#include "LineClampValue.h"
-#include "NameScope.h"
-#include "NinePieceImage.h"
-#include "PositionArea.h"
-#include "PositionTryFallback.h"
-#include "ScopedName.h"
-#include "ScrollTypes.h"
-#include "ScrollbarGutter.h"
-#include "ShapeValue.h"
-#include "StyleAnchorName.h"
-#include "StyleClipPath.h"
-#include "StyleColor.h"
-#include "StyleContainIntrinsicSize.h"
-#include "StyleContainerName.h"
-#include "StyleContentAlignmentData.h"
-#include "StyleGapGutter.h"
-#include "StyleOffsetAnchor.h"
-#include "StyleOffsetDistance.h"
-#include "StyleOffsetPath.h"
-#include "StyleOffsetPosition.h"
-#include "StyleOffsetRotate.h"
-#include "StylePerspective.h"
-#include "StylePrimitiveNumericTypes.h"
-#include "StyleProgressTimelineAxes.h"
-#include "StyleProgressTimelineName.h"
-#include "StyleRotate.h"
-#include "StyleScale.h"
-#include "StyleScrollMargin.h"
-#include "StyleScrollPadding.h"
-#include "StyleScrollSnapPoints.h"
-#include "StyleScrollTimelines.h"
-#include "StyleSelfAlignmentData.h"
-#include "StyleTextEdge.h"
-#include "StyleTranslate.h"
-#include "StyleViewTimelineInsets.h"
-#include "StyleViewTimelines.h"
-#include "StyleViewTransitionClass.h"
-#include "TextDecorationThickness.h"
-#include "TouchAction.h"
-#include "ViewTransitionName.h"
+#include <WebCore/CSSPropertyNames.h>
+#include <WebCore/CounterDirectives.h>
+#include <WebCore/NameScope.h>
+#include <WebCore/PositionArea.h>
+#include <WebCore/PositionTryFallback.h>
+#include <WebCore/ScopedName.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/StyleAnchorName.h>
+#include <WebCore/StyleBlockStepSize.h>
+#include <WebCore/StyleClip.h>
+#include <WebCore/StyleClipPath.h>
+#include <WebCore/StyleColor.h>
+#include <WebCore/StyleContainIntrinsicSize.h>
+#include <WebCore/StyleContainerName.h>
+#include <WebCore/StyleContentAlignmentData.h>
+#include <WebCore/StyleGapGutter.h>
+#include <WebCore/StyleMaskBorder.h>
+#include <WebCore/StyleMaximumLines.h>
+#include <WebCore/StyleOffsetAnchor.h>
+#include <WebCore/StyleOffsetDistance.h>
+#include <WebCore/StyleOffsetPath.h>
+#include <WebCore/StyleOffsetPosition.h>
+#include <WebCore/StyleOffsetRotate.h>
+#include <WebCore/StylePageSize.h>
+#include <WebCore/StylePerspective.h>
+#include <WebCore/StylePerspectiveOrigin.h>
+#include <WebCore/StylePrimitiveNumericTypes.h>
+#include <WebCore/StyleProgressTimelineAxes.h>
+#include <WebCore/StyleProgressTimelineName.h>
+#include <WebCore/StyleRotate.h>
+#include <WebCore/StyleScale.h>
+#include <WebCore/StyleScrollBehavior.h>
+#include <WebCore/StyleScrollMargin.h>
+#include <WebCore/StyleScrollPadding.h>
+#include <WebCore/StyleScrollSnapAlign.h>
+#include <WebCore/StyleScrollSnapType.h>
+#include <WebCore/StyleScrollTimelines.h>
+#include <WebCore/StyleScrollbarGutter.h>
+#include <WebCore/StyleSelfAlignmentData.h>
+#include <WebCore/StyleShapeImageThreshold.h>
+#include <WebCore/StyleShapeMargin.h>
+#include <WebCore/StyleShapeOutside.h>
+#include <WebCore/StyleTextDecorationThickness.h>
+#include <WebCore/StyleTranslate.h>
+#include <WebCore/StyleViewTimelineInsets.h>
+#include <WebCore/StyleViewTimelines.h>
+#include <WebCore/StyleViewTransitionClass.h>
+#include <WebCore/StyleViewTransitionName.h>
+#include <WebCore/StyleWebKitBoxReflect.h>
+#include <WebCore/StyleWebKitInitialLetter.h>
+#include <WebCore/StyleWebKitLineClamp.h>
+#include <WebCore/TouchAction.h>
 #include <memory>
 #include <wtf/DataRef.h>
 #include <wtf/Markable.h>
@@ -81,8 +90,6 @@ namespace WebCore {
 
 using namespace CSS::Literals;
 
-class AnimationList;
-class ContentData;
 class PathOperation;
 class StyleCustomPropertyData;
 class StyleDeprecatedFlexibleBoxData;
@@ -91,34 +98,22 @@ class StyleFlexibleBoxData;
 class StyleGridData;
 class StyleGridItemData;
 class StyleMultiColData;
-class StyleReflection;
 class StyleResolver;
 class StyleTransformData;
 class WillChangeData;
 
-struct LengthSize;
 struct StyleMarqueeData;
 
 namespace Style {
 class CustomPropertyData;
 }
 
-// Page size type.
-// StyleRareNonInheritedData::pageSize is meaningful only when
-// StyleRareNonInheritedData::pageSizeType is PAGE_SIZE_RESOLVED.
-enum class PageSizeType : uint8_t {
-    Auto, // size: auto
-    AutoLandscape, // size: landscape
-    AutoPortrait, // size: portrait
-    Resolved // Size is fully resolved.
-};
-
 // This struct is for rarely used non-inherited CSS3, CSS2, and WebKit-specific properties.
 // By grouping them together, we save space, and only allocate this object when someone
 // actually uses one of these properties.
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRareNonInheritedData);
 class StyleRareNonInheritedData : public RefCounted<StyleRareNonInheritedData> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRareNonInheritedData);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleRareNonInheritedData, StyleRareNonInheritedData);
 public:
     static Ref<StyleRareNonInheritedData> create() { return adoptRef(*new StyleRareNonInheritedData); }
     Ref<StyleRareNonInheritedData> copy() const;
@@ -130,8 +125,6 @@ public:
     void dumpDifferences(TextStream&, const StyleRareNonInheritedData&) const;
 #endif
 
-    LengthPoint perspectiveOrigin() const { return { perspectiveOriginX, perspectiveOriginY }; }
-
     bool hasBackdropFilters() const;
     bool hasScrollTimelines() const { return !scrollTimelines.isEmpty() || !scrollTimelineNames.isNone(); }
     bool hasViewTimelines() const { return !viewTimelines.isEmpty() || !viewTimelineNames.isNone(); }
@@ -141,14 +134,11 @@ public:
     Style::ContainIntrinsicSize containIntrinsicWidth;
     Style::ContainIntrinsicSize containIntrinsicHeight;
 
-    Length perspectiveOriginX;
-    Length perspectiveOriginY;
-
-    LineClampValue lineClamp; // An Apple extension.
+    Style::WebkitLineClamp lineClamp;
 
     float zoom;
 
-    size_t maxLines { 0 };
+    Style::MaximumLines maxLines;
 
     OverflowContinue overflowContinue { OverflowContinue::Auto };
 
@@ -156,7 +146,7 @@ public:
     OptionSet<MarginTrimType> marginTrim;
     OptionSet<Containment> contain;
 
-    IntSize initialLetter;
+    Style::WebkitInitialLetter initialLetter;
 
     DataRef<StyleMarqueeData> marquee; // Marquee properties
 
@@ -165,8 +155,7 @@ public:
     DataRef<StyleGridData> grid;
     DataRef<StyleGridItemData> gridItem;
 
-    // Only meaningful when `hasClip` is true.
-    LengthBox clip;
+    Style::Clip clip { CSS::Keyword::Auto { } };
 
     Style::ScrollMarginBox scrollMargin { 0_css_px };
     Style::ScrollPaddingBox scrollPadding { CSS::Keyword::Auto { } };
@@ -174,22 +163,21 @@ public:
     CounterDirectiveMap counterDirectives;
 
     RefPtr<WillChangeData> willChange; // Null indicates 'auto'.
-    
-    RefPtr<StyleReflection> boxReflect;
 
-    NinePieceImage maskBorder;
+    Style::WebkitBoxReflect boxReflect;
 
-    LengthSize pageSize;
+    Style::MaskBorder maskBorder;
 
-    RefPtr<ShapeValue> shapeOutside;
-    Length shapeMargin;
-    float shapeImageThreshold;
+    Style::PageSize pageSize;
+
+    Style::ShapeOutside shapeOutside;
+    Style::ShapeMargin shapeMargin;
+    Style::ShapeImageThreshold shapeImageThreshold;
 
     Style::Perspective perspective;
+    Style::PerspectiveOrigin perspectiveOrigin;
 
     Style::ClipPath clipPath;
-
-    Style::Color textDecorationColor;
 
     DataRef<Style::CustomPropertyData> customProperties;
     HashSet<AtomString> customPaintWatchedProperties;
@@ -212,7 +200,8 @@ public:
     Style::OffsetAnchor offsetAnchor;
     Style::OffsetRotate offsetRotate;
 
-    TextDecorationThickness textDecorationThickness;
+    Style::Color textDecorationColor;
+    Style::TextDecorationThickness textDecorationThickness;
 
     Style::ScrollTimelines scrollTimelines;
     Style::ProgressTimelineAxes scrollTimelineAxes;
@@ -225,11 +214,11 @@ public:
 
     NameScope timelineScope;
 
-    ScrollbarGutter scrollbarGutter;
+    Style::ScrollbarGutter scrollbarGutter;
 
-    ScrollSnapType scrollSnapType;
-    ScrollSnapAlign scrollSnapAlign;
-    ScrollSnapStop scrollSnapStop { ScrollSnapStop::Normal };
+    Style::ScrollSnapType scrollSnapType;
+    Style::ScrollSnapAlign scrollSnapAlign;
+    ScrollSnapStop scrollSnapStop;
 
     AtomString pseudoElementNameArgument;
 
@@ -238,9 +227,9 @@ public:
     std::optional<Style::ScopedName> positionAnchor;
     std::optional<PositionArea> positionArea;
     FixedVector<Style::PositionTryFallback> positionTryFallbacks;
-    std::optional<size_t> lastSuccessfulPositionTryFallbackIndex;
+    std::optional<size_t> usedPositionOptionIndex;
 
-    std::optional<Length> blockStepSize;
+    Style::BlockStepSize blockStepSize;
     PREFERRED_TYPE(BlockStepAlign) unsigned blockStepAlign : 2;
     PREFERRED_TYPE(BlockStepInsert) unsigned blockStepInsert : 2;
     PREFERRED_TYPE(BlockStepRound) unsigned blockStepRound : 2;
@@ -248,12 +237,11 @@ public:
     PREFERRED_TYPE(OverscrollBehavior) unsigned overscrollBehaviorX : 2;
     PREFERRED_TYPE(OverscrollBehavior) unsigned overscrollBehaviorY : 2;
 
-    PREFERRED_TYPE(PageSizeType) unsigned pageSizeType : 2;
     PREFERRED_TYPE(TransformStyle3D) unsigned transformStyle3D : 2;
     PREFERRED_TYPE(bool) unsigned transformStyleForcedToFlat : 1; // The used value for transform-style is forced to flat by a grouping property.
     PREFERRED_TYPE(BackfaceVisibility) unsigned backfaceVisibility : 1;
 
-    PREFERRED_TYPE(ScrollBehavior) unsigned useSmoothScrolling : 1;
+    PREFERRED_TYPE(Style::ScrollBehavior) unsigned scrollBehavior : 1;
     PREFERRED_TYPE(TextDecorationStyle) unsigned textDecorationStyle : 3;
     PREFERRED_TYPE(TextGroupAlign) unsigned textGroupAlign : 3;
     PREFERRED_TYPE(ContentVisibility) unsigned contentVisibility : 2;
@@ -270,7 +258,6 @@ public:
     PREFERRED_TYPE(ContainerType) unsigned containerType : 2;
     PREFERRED_TYPE(TextBoxTrim) unsigned textBoxTrim : 2;
     PREFERRED_TYPE(OverflowAnchor) unsigned overflowAnchor : 1;
-    PREFERRED_TYPE(bool) unsigned hasClip : 1;
     PREFERRED_TYPE(Style::PositionTryOrder) unsigned positionTryOrder : 3;
     PREFERRED_TYPE(OptionSet<PositionVisibility>) unsigned positionVisibility : 3;
     PREFERRED_TYPE(FieldSizing) unsigned fieldSizing : 1;
@@ -280,9 +267,10 @@ public:
 #endif
     PREFERRED_TYPE(ScrollbarWidth) unsigned scrollbarWidth : 2;
     PREFERRED_TYPE(bool) unsigned usesAnchorFunctions : 1;
-    PREFERRED_TYPE(OptionSet<BoxAxisFlag>) unsigned anchorFunctionScrollCompensatedAxes : 2;
+    PREFERRED_TYPE(EnumSet<BoxAxis>) unsigned anchorFunctionScrollCompensatedAxes : 2;
     PREFERRED_TYPE(bool) unsigned usesTreeCountingFunctions : 1;
     PREFERRED_TYPE(bool) unsigned isPopoverInvoker : 1;
+    PREFERRED_TYPE(bool) unsigned useSVGZoomRulesForLength : 1;
 
 private:
     StyleRareNonInheritedData();

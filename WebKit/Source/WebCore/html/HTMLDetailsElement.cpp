@@ -24,7 +24,7 @@
 
 #include "AXObjectCache.h"
 #include "ContainerNodeInlines.h"
-#include "DocumentInlines.h"
+#include "DocumentView.h"
 #include "ElementChildIteratorInlines.h"
 #include "ElementRareData.h"
 #include "EventLoop.h"
@@ -71,6 +71,11 @@ void DetailsSlotAssignment::hostChildElementDidChange(const Element& childElemen
         // Don't check whether this is the first summary element
         // since we don't know the answer when this function is called inside Element::removedFrom.
         didChangeSlot(summarySlotName(), shadowRoot);
+
+        if (RefPtr associatedDetails = dynamicDowncast<HTMLDetailsElement>(shadowRoot.host())) {
+            if (CheckedPtr cache = associatedDetails->protectedDocument()->existingAXObjectCache())
+                cache->onDetailsSummarySlotChange(*associatedDetails);
+        }
     } else
         didChangeSlot(NamedSlotAssignment::defaultSlotName(), shadowRoot);
 }

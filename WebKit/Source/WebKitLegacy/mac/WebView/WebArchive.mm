@@ -37,6 +37,7 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreJITOperations.h>
+#import <WebCore/WebCoreMainThread.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
@@ -68,11 +69,7 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 
 + (void)initialize
 {
-#if !PLATFORM(IOS_FAMILY)
-    JSC::initialize();
-    WTF::initializeMainThread();
-    WebCore::populateJITOperations();
-#endif
+    WebCore::initializeMainThreadIfNeeded();
 }
 
 - (instancetype)init
@@ -80,7 +77,6 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
     self = [super init];
     if (!self)
         return nil;
-    coreArchive = LegacyWebArchive::create();
     return self;
 }
 
@@ -179,7 +175,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
     for (WebArchive *subframeArchive in subframeArchives)
         coreArchives.append(*[subframeArchive->_private coreArchive]);
 
-    [_private setCoreArchive:LegacyWebArchive::create([mainResource _coreResource].get(), WTFMove(coreResources), WTFMove(coreArchives))];
+    [_private setCoreArchive:LegacyWebArchive::create([mainResource _coreResource].get(), WTFMove(coreResources), WTFMove(coreArchives), std::nullopt)];
     return self;
 }
 

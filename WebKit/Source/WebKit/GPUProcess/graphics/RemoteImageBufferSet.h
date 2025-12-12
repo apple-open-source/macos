@@ -29,10 +29,10 @@
 
 #include "IPCEvent.h"
 #include "ImageBufferSet.h"
+#include "ImageBufferSetIdentifier.h"
 #include "PrepareBackingStoreBuffersData.h"
-#include "RemoteDisplayListRecorderIdentifier.h"
+#include "RemoteGraphicsContextIdentifier.h"
 #include "RemoteImageBufferSetConfiguration.h"
-#include "RemoteImageBufferSetIdentifier.h"
 #include "RenderingUpdateID.h"
 #include "ScopedActiveMessageReceiveQueue.h"
 #include "StreamConnectionWorkQueue.h"
@@ -45,12 +45,12 @@
 
 namespace WebKit {
 
-class RemoteDisplayListRecorder;
+class RemoteImageBufferGraphicsContext;
 class RemoteRenderingBackend;
 
 class RemoteImageBufferSet : public IPC::StreamMessageReceiver, public ImageBufferSet {
 public:
-    static Ref<RemoteImageBufferSet> create(RemoteImageBufferSetIdentifier, RemoteDisplayListRecorderIdentifier, RemoteRenderingBackend&);
+    static Ref<RemoteImageBufferSet> create(ImageBufferSetIdentifier, RemoteGraphicsContextIdentifier, RemoteRenderingBackend&);
     ~RemoteImageBufferSet();
     void stopListeningForIPC();
 
@@ -66,7 +66,8 @@ public:
     bool makeBuffersVolatile(OptionSet<BufferInSetType> requestedBuffers, OptionSet<BufferInSetType>& volatileBuffers, bool forcePurge);
 
 private:
-    RemoteImageBufferSet(RemoteImageBufferSetIdentifier, RemoteDisplayListRecorderIdentifier, RemoteRenderingBackend&);
+    RemoteImageBufferSet(ImageBufferSetIdentifier, RemoteGraphicsContextIdentifier, RemoteRenderingBackend&);
+
     void startListeningForIPC();
     IPC::StreamConnectionWorkQueue& workQueue() const;
 
@@ -84,19 +85,14 @@ private:
 
     bool isOpaque() const
     {
-        // FIXME: Use imageBufferPixelFormatIsOpaque().
-#if ENABLE(PIXEL_FORMAT_RGB10)
-        if (m_configuration.bufferFormat.pixelFormat == WebCore::ImageBufferPixelFormat::RGB10)
-            return true;
-#endif
-        return m_configuration.bufferFormat.pixelFormat == WebCore::ImageBufferPixelFormat::BGRX8;
+        return pixelFormatIsOpaque(m_configuration.bufferFormat.pixelFormat);
     }
 
-    const RemoteImageBufferSetIdentifier m_identifier;
-    const RemoteDisplayListRecorderIdentifier m_contextIdentifier;
+    const RemoteGraphicsContextIdentifier m_contextIdentifier;
     const Ref<RemoteRenderingBackend> m_renderingBackend;
     RemoteImageBufferSetConfiguration m_configuration;
-    IPC::ScopedActiveMessageReceiveQueue<RemoteDisplayListRecorder> m_context;
+    IPC::ScopedActiveMessageReceiveQueue<RemoteImageBufferGraphicsContext> m_context;
+
     std::optional<WebCore::IntRect> m_previouslyPaintedRect;
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     WebCore::DynamicContentScalingResourceCache m_dynamicContentScalingResourceCache;

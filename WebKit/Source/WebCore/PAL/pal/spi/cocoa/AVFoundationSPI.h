@@ -142,8 +142,6 @@ typedef NS_OPTIONS(NSUInteger, AVOutputDeviceFeatures) {
 @property (nonatomic, readonly) NSString *name;
 @property (nonatomic, readonly) NSString *deviceName;
 @property (nonatomic, readonly) AVOutputDeviceFeatures deviceFeatures;
-@property (nonatomic, readonly) BOOL supportsHeadTrackedSpatialAudio;
-- (BOOL)allowsHeadTrackedSpatialAudio;
 @end
 
 #if !PLATFORM(IOS_FAMILY)
@@ -270,14 +268,6 @@ typedef NS_ENUM(NSInteger, AVExternalContentProtectionStatus) {
 @end
 #endif // HAVE(AVCONTENTKEYREQUEST_PENDING_PROTECTION_STATUS)
 
-#if HAVE(AVCONTENTKEYREQUEST_COMPATABILITIY_MODE)
-NS_ASSUME_NONNULL_BEGIN
-@interface AVContentKeyRequest (AVContentKeyRequest_WebKitCompatibilityMode)
-+ (instancetype)contentKeySessionWithLegacyWebKitCompatibilityModeAndKeySystem:(AVContentKeySystem)keySystem storageDirectoryAtURL:(NSURL *)storageURL;
-@end
-NS_ASSUME_NONNULL_END
-#endif
-
 #endif // HAVE(AVCONTENTKEYSESSION)
 
 #endif // USE(APPLE_INTERNAL_SDK)
@@ -335,7 +325,6 @@ NS_ASSUME_NONNULL_END
 NS_ASSUME_NONNULL_BEGIN
 @interface AVSampleBufferDisplayLayer (VideoPerformanceMetrics)
 - (AVVideoPerformanceMetrics *)videoPerformanceMetrics;
-- (void)prerollDecodeWithCompletionHandler:(void (^)(BOOL success))block;
 @end
 NS_ASSUME_NONNULL_END
 #else
@@ -355,7 +344,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)requestMediaDataWhenReadyOnQueue:(dispatch_queue_t)queue usingBlock:(void (^)(void))block;
 - (void)stopRequestingMediaData;
 - (AVVideoPerformanceMetrics *)videoPerformanceMetrics;
-- (void)prerollDecodeWithCompletionHandler:(void (^)(BOOL success))block;
 @end
 NS_ASSUME_NONNULL_END
 #endif // __has_include(<AVFoundation/AVSampleBufferDisplayLayer.h>)
@@ -402,7 +390,6 @@ NS_ASSUME_NONNULL_END
 NS_ASSUME_NONNULL_BEGIN
 @interface AVSampleBufferVideoRenderer (SPI)
 - (AVVideoPerformanceMetrics *)videoPerformanceMetrics;
-- (void)prerollDecodeWithCompletionHandler:(void (^)(BOOL success))block;
 @property (nonatomic) BOOL preventsDisplaySleepDuringVideoPlayback;
 @property (nonatomic) BOOL preventsAutomaticBackgroundingDuringVideoPlayback;
 @end

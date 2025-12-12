@@ -61,16 +61,26 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 
 @interface WebCoreNSURLSessionTaskTransactionMetrics : NSObject
 - (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(GuaranteedSerialFunctionDispatcher*)targetDispatcher;
-@property (nullable, copy, readonly) NSDate *fetchStartDate;
-@property (nullable, copy, readonly) NSDate *domainLookupStartDate;
-@property (nullable, copy, readonly) NSDate *domainLookupEndDate;
-@property (nullable, copy, readonly) NSDate *connectStartDate;
-@property (nullable, copy, readonly) NSDate *secureConnectionStartDate;
-@property (nullable, copy, readonly) NSDate *connectEndDate;
-@property (nullable, copy, readonly) NSDate *requestStartDate;
-@property (nullable, copy, readonly) NSDate *responseStartDate;
-@property (nullable, copy, readonly) NSDate *responseEndDate;
-@property (nullable, copy, readonly) NSString *networkProtocolName;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *fetchStartDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *domainLookupStartDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *domainLookupEndDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *connectStartDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *secureConnectionStartDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *connectEndDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *requestStartDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *responseStartDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSDate *responseEndDate SUPPRESS_UNRETAINED_MEMBER;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (nullable, copy, readonly) NSString *networkProtocolName SUPPRESS_UNRETAINED_MEMBER;
 @property (assign, readonly, getter=isReusedConnection) BOOL reusedConnection;
 @property (readonly, getter=isCellular) BOOL cellular;
 @property (readonly, getter=isExpensive) BOOL expensive;
@@ -226,7 +236,8 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 
 @interface WebCoreNSURLSessionTaskMetrics : NSObject
 - (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(nonnull GuaranteedSerialFunctionDispatcher *)targetDispatcher;
-@property (copy, readonly) NSArray<NSURLSessionTaskTransactionMetrics *> *transactionMetrics;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (copy, readonly) NSArray<NSURLSessionTaskTransactionMetrics *> *transactionMetrics SUPPRESS_UNRETAINED_MEMBER;
 @end
 
 @implementation WebCoreNSURLSessionTaskMetrics {
@@ -275,7 +286,8 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 @interface WebCoreNSURLSessionDataTask ()
 - (id)initWithSession:(WebCoreNSURLSession *)session identifier:(NSUInteger)identifier request:(NSURLRequest *)request targetDispatcher:(GuaranteedSerialFunctionDispatcher *)targetDispatcher;
 - (void)_cancel;
-@property (assign) WebCoreNSURLSession * _Nullable session;
+/* FIXME: This is a safer cpp false positive (rdar://161063702). */
+@property (assign) WebCoreNSURLSession * _Nullable session SUPPRESS_UNRETAINED_MEMBER;
 
 @end
 
@@ -404,7 +416,7 @@ NS_ASSUME_NONNULL_END
 @dynamic configuration;
 - (NSURLSessionConfiguration *)configuration
 {
-    return nil;
+    return _configuration.get();
 }
 
 - (NSString *)sessionDescription
@@ -662,74 +674,64 @@ void WebCoreNSURLSessionDataTaskClient::clearTask()
 void WebCoreNSURLSessionDataTaskClient::dataSent(PlatformMediaResource& resource, unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
 {
     assertIsCurrent(m_targetDispatcher.get());
-    if (!m_task)
-        return;
-
-    [m_task resource:&resource sentBytes:bytesSent totalBytesToBeSent:totalBytesToBeSent];
+    if (RetainPtr task = m_task.get())
+        [task resource:&resource sentBytes:bytesSent totalBytesToBeSent:totalBytesToBeSent];
 }
 
 void WebCoreNSURLSessionDataTaskClient::responseReceived(PlatformMediaResource& resource, const ResourceResponse& response, CompletionHandler<void(ShouldContinuePolicyCheck)>&& completionHandler)
 {
     assertIsCurrent(m_targetDispatcher.get());
     Ref protectedThis { *this };
-    if (!m_task)
+    RetainPtr task = m_task.get();
+    if (!task)
         return completionHandler(ShouldContinuePolicyCheck::No);
 
-    [m_task resource:&resource receivedResponse:response completionHandler:WTFMove(completionHandler)];
+    [task resource:&resource receivedResponse:response completionHandler:WTFMove(completionHandler)];
 }
 
 bool WebCoreNSURLSessionDataTaskClient::shouldCacheResponse(PlatformMediaResource& resource, const ResourceResponse& response)
 {
     assertIsCurrent(m_targetDispatcher.get());
-    if (!m_task)
+    RetainPtr task = m_task.get();
+    if (!task)
         return false;
 
-    return [m_task resource:&resource shouldCacheResponse:response];
+    return [task resource:&resource shouldCacheResponse:response];
 }
 
 void WebCoreNSURLSessionDataTaskClient::dataReceived(PlatformMediaResource& resource, const SharedBuffer& buffer)
 {
     assertIsCurrent(m_targetDispatcher.get());
-    if (!m_task)
-        return;
-
-    [m_task resource:&resource receivedData:buffer.createNSData()];
+    if (RetainPtr task = m_task.get())
+        [task resource:&resource receivedData:buffer.createNSData()];
 }
 
 void WebCoreNSURLSessionDataTaskClient::redirectReceived(PlatformMediaResource& resource, ResourceRequest&& request, const ResourceResponse& response, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
 {
     assertIsCurrent(m_targetDispatcher.get());
-    if (!m_task)
-        return;
-
-    [m_task resource:&resource receivedRedirect:response request:WTFMove(request) completionHandler:WTFMove(completionHandler)];
+    if (RetainPtr task = m_task.get())
+        [task resource:&resource receivedRedirect:response request:WTFMove(request) completionHandler:WTFMove(completionHandler)];
 }
 
 void WebCoreNSURLSessionDataTaskClient::accessControlCheckFailed(PlatformMediaResource& resource, const ResourceError& error)
 {
     assertIsCurrent(m_targetDispatcher.get());
-    if (!m_task)
-        return;
-
-    [m_task resource:&resource accessControlCheckFailedWithError:error];
+    if (RetainPtr task = m_task.get())
+        [task resource:&resource accessControlCheckFailedWithError:error];
 }
 
 void WebCoreNSURLSessionDataTaskClient::loadFailed(PlatformMediaResource& resource, const ResourceError& error)
 {
     assertIsCurrent(m_targetDispatcher.get());
-    if (!m_task)
-        return;
-
-    [m_task resource:&resource loadFailedWithError:error];
+    if (RetainPtr task = m_task.get())
+        [task resource:&resource loadFailedWithError:error];
 }
 
 void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& resource, const NetworkLoadMetrics& metrics)
 {
     assertIsCurrent(m_targetDispatcher.get());
-    if (!m_task)
-        return;
-
-    [m_task resourceFinished:&resource metrics:metrics];
+    if (RetainPtr task = m_task.get())
+        [task resourceFinished:&resource metrics:metrics];
 }
 
 }
@@ -902,7 +904,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
                     return;
                 }
                 // A nil return from requestResource means the load was cancelled by a delegate client
-                [self _resource:nil loadFinishedWithError:ResourceError(ResourceError::Type::Cancellation) metrics: { }];
+                [self _resource:nil loadFinishedWithError:ResourceError(ResourceError::Type::Cancellation).protectedNSError().get() metrics: { }];
             });
         });
     });
@@ -1028,7 +1030,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
                     completionHandler(WTFMove(request));
                 });
             });
-            [dataDelegate URLSession:(NSURLSession *)strongSelf.get().session task:(NSURLSessionTask *)strongSelf.get() willPerformHTTPRedirection:(NSHTTPURLResponse *)response.get() newRequest:request.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody) completionHandler:completionHandlerBlock.get()];
+            [dataDelegate URLSession:(NSURLSession *)strongSelf.get().session task:(NSURLSessionTask *)strongSelf.get() willPerformHTTPRedirection:(NSHTTPURLResponse *)response.get() newRequest:request.protectedNSURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody).get() completionHandler:completionHandlerBlock.get()];
         } else {
             targetDispatcher->dispatch([request = WTFMove(request), completionHandler = WTFMove(completionHandler)] () mutable {
                 completionHandler(WTFMove(request));
@@ -1067,13 +1069,13 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 - (void)resource:(PlatformMediaResource*)resource accessControlCheckFailedWithError:(const ResourceError&)error
 {
     assertIsCurrent(*_targetDispatcher);
-    [self _resource:resource loadFinishedWithError:error.nsError() metrics:NetworkLoadMetrics { }];
+    [self _resource:resource loadFinishedWithError:error.protectedNSError().get() metrics:NetworkLoadMetrics { }];
 }
 
 - (void)resource:(PlatformMediaResource*)resource loadFailedWithError:(const ResourceError&)error
 {
     assertIsCurrent(*_targetDispatcher);
-    [self _resource:resource loadFinishedWithError:error.nsError() metrics:NetworkLoadMetrics { }];
+    [self _resource:resource loadFinishedWithError:error.protectedNSError().get() metrics:NetworkLoadMetrics { }];
 }
 
 - (void)resourceFinished:(PlatformMediaResource*)resource metrics:(const NetworkLoadMetrics&)metrics

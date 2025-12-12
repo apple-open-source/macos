@@ -27,8 +27,8 @@
 
 #if ENABLE(WEB_AUTHN)
 
-#include "AuthenticationResponseJSON.h"
-#include "AuthenticatorResponse.h"
+#include <WebCore/AuthenticationResponseJSON.h>
+#include <WebCore/AuthenticatorResponse.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/spi/cocoa/SecuritySPI.h>
 
@@ -53,6 +53,7 @@ public:
     const String& group() const { return m_group; }
     bool synchronizable() const { return m_synchronizable; }
     LAContext * laContext() const { return m_laContext.get(); }
+    RetainPtr<LAContext> protectedLAContext() const { return m_laContext; }
     RefPtr<ArrayBuffer> largeBlob() const { return m_largeBlob; }
     const String& accessGroup() const { return m_accessGroup; }
 

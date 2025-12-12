@@ -285,13 +285,6 @@ typedef uint32_t CAHighFrameRateReason;
 
 WTF_EXTERN_C_BEGIN
 
-// FIXME: Declare these functions even when USE(APPLE_INTERNAL_SDK) is true once we can fix <rdar://problem/26584828> in a better way.
-#if !USE(APPLE_INTERNAL_SDK)
-void CARenderServerCaptureLayerWithTransform(mach_port_t, uint32_t clientId, uint64_t layerId, uint32_t slotId, int32_t ox, int32_t oy, const CATransform3D*);
-void CARenderServerRenderLayerWithTransform(mach_port_t server_port, uint32_t client_id, uint64_t layer_id, IOSurfaceRef, int32_t ox, int32_t oy, const CATransform3D*);
-void CARenderServerRenderDisplayLayerWithTransformAndTimeOffset(mach_port_t, CFStringRef display_name, uint32_t client_id, uint64_t layer_id, IOSurfaceRef, int32_t ox, int32_t oy, const CATransform3D*, CFTimeInterval);
-#endif // USE(APPLE_INTERNAL_SDK)
-
 typedef struct _CAMachPort *CAMachPortRef;
 CAMachPortRef CAMachPortCreate(mach_port_t);
 mach_port_t CAMachPortGetPort(CAMachPortRef);
@@ -315,6 +308,12 @@ void CARenderUpdateAddContext(CARenderUpdate*, CARenderContext*);
 void CARenderUpdateAddRect(CARenderUpdate*, const CGRect*);
 void CARenderUpdateFinish(CARenderUpdate*);
 bool CASupportsFeature(uint64_t);
+
+#if HAVE(CORE_ANIMATION_RENDER_SERVER)
+#ifdef __OBJC__
+bool CARenderServerSnapshot(mach_port_t, NSDictionary *);
+#endif
+#endif
 
 WTF_EXTERN_C_END
 
@@ -356,6 +355,20 @@ extern NSString * const kCAContextPortNumber;
 #if PLATFORM(IOS_FAMILY)
 extern NSString * const kCAContextSecure;
 extern NSString * const kCAContentsFormatRGBA10XR;
+#endif
+
+#if HAVE(CORE_ANIMATION_RENDER_SERVER)
+extern NSString * const kCASnapshotMode;
+extern NSString * const kCASnapshotModeLayer;
+extern NSString * const kCASnapshotDisplayName;
+#define kCARenderServerDefaultDisplay @"defaultDisplay"
+extern NSString * const kCASnapshotContextId;
+extern NSString * const kCASnapshotLayerId;
+extern NSString * const kCASnapshotDestination;
+extern NSString * const kCASnapshotOriginX;
+extern NSString * const kCASnapshotOriginY;
+extern NSString * const kCASnapshotTransform;
+extern NSString * const kCASnapshotTimeOffset;
 #endif
 
 #if PLATFORM(VISION)

@@ -20,6 +20,8 @@
 #include "config.h"
 #include "LegacyRenderSVGResourceContainer.h"
 
+#include "ContainerNodeInlines.h"
+#include "DocumentView.h"
 #include "LegacyRenderSVGRoot.h"
 #include "RenderLayer.h"
 #include "RenderObjectInlines.h"

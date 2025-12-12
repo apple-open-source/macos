@@ -26,6 +26,7 @@
 #include "StyleRatio.h"
 
 #include "CSSRatioValue.h"
+#include "StylePrimitiveNumericTypes+Conversions.h"
 
 namespace WebCore {
 namespace Style {

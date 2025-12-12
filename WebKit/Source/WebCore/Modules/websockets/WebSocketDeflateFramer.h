@@ -30,8 +30,8 @@
 
 #pragma once
 
-#include "WebSocketDeflater.h"
-#include "WebSocketExtensionProcessor.h"
+#include <WebCore/WebSocketDeflater.h>
+#include <WebCore/WebSocketExtensionProcessor.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {

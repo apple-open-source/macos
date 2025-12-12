@@ -3,7 +3,7 @@
 /*
  *******************************************************************************
  * Copyright (C) 2008-2016, International Business Machines Corporation and
- * others. All rights reserved.
+ * others. All Rights Reserved.
  *******************************************************************************
  *
  * File DTITVINF.H
@@ -151,7 +151,7 @@ U_NAMESPACE_BEGIN
  * calendar; non-Gregorian calendars are supported from ICU 4.4.1.
  * @stable ICU 4.0
 **/
-class U_I18N_API DateIntervalInfo U_FINAL : public UObject {
+class U_I18N_API DateIntervalInfo final : public UObject {
 public:
     /**
      * Default constructor.
@@ -343,7 +343,7 @@ private:
     /**
      * Internal struct used to load resource bundle data.
      */
-    struct DateIntervalSink;
+    struct U_HIDDEN DateIntervalSink;
 
     /**
      * Following is for saving the interval patterns.

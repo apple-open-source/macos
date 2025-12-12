@@ -125,8 +125,8 @@ void WebCoreDecompressionSession::assignResourceOwner(CVImageBufferRef imageBuff
 {
     if (!m_resourceOwner || !imageBuffer || CFGetTypeID(imageBuffer) != CVPixelBufferGetTypeID())
         return;
-    if (auto surface = CVPixelBufferGetIOSurface((CVPixelBufferRef)imageBuffer))
-        IOSurface::setOwnershipIdentity(surface, m_resourceOwner);
+    if (RetainPtr surface = CVPixelBufferGetIOSurface((CVPixelBufferRef)imageBuffer))
+        IOSurface::setOwnershipIdentity(surface.get(), m_resourceOwner);
 }
 
 static RetainPtr<CFArrayRef> createMVHEVCVideoLayersArray(CMVideoFormatDescriptionRef videoFormatDescription)
@@ -270,8 +270,10 @@ Expected<RetainPtr<VTDecompressionSessionRef>, OSStatus> WebCoreDecompressionSes
     if (m_videoDecoder)
         return RetainPtr<VTDecompressionSessionRef> { };
 
-    CMVideoFormatDescriptionRef videoFormatDescription = PAL::CMSampleBufferGetFormatDescription(cmSample);
-    if (m_decompressionSession && !VTDecompressionSessionCanAcceptFormatDescription(m_decompressionSession.get(), videoFormatDescription)) {
+    RetainPtr videoFormatDescription = PAL::CMSampleBufferGetFormatDescription(cmSample);
+    bool videoFormatDescriptionChanged = !m_lastFormatDescription || !PAL::CMFormatDescriptionEqual(videoFormatDescription.get(), m_lastFormatDescription.get());
+
+    if (m_decompressionSession && videoFormatDescriptionChanged && !VTDecompressionSessionCanAcceptFormatDescription(m_decompressionSession.get(), videoFormatDescription.get())) {
         auto status = VTDecompressionSessionWaitForAsynchronousFrames(m_decompressionSession.get());
         Ref sample = MediaSampleAVFObjC::create(cmSample, 0);
         m_decompressionSession = nullptr;
@@ -282,13 +284,14 @@ Expected<RetainPtr<VTDecompressionSessionRef>, OSStatus> WebCoreDecompressionSes
         }
         RELEASE_LOG_INFO(Media, "VTDecompressionSession can't accept format description change on keyframe, creating new VTDecompressionSession status:%d", int(status));
     }
+    m_lastFormatDescription = videoFormatDescription;
 
     if (!m_decompressionSession) {
         auto videoDecoderSpecification = @{ (__bridge NSString *)kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder: @YES };
         ASSERT(m_pixelBufferAttributes);
 
         VTDecompressionSessionRef decompressionSessionOut = nullptr;
-        auto result = VTDecompressionSessionCreate(kCFAllocatorDefault, videoFormatDescription, (__bridge CFDictionaryRef)videoDecoderSpecification, (__bridge CFDictionaryRef)m_pixelBufferAttributes.get(), nullptr, &decompressionSessionOut);
+        auto result = VTDecompressionSessionCreate(kCFAllocatorDefault, videoFormatDescription.get(), (__bridge CFDictionaryRef)videoDecoderSpecification, (__bridge CFDictionaryRef)m_pixelBufferAttributes.get(), nullptr, &decompressionSessionOut);
         if (noErr == result)
             m_decompressionSession = adoptCF(decompressionSessionOut);
         if (m_dispatcher->isCurrent()) {
@@ -328,7 +331,7 @@ static RetainPtr<CMFormatDescriptionRef> copyDescriptionExtensionValuesIfNeeded(
     auto keysSpan = unsafeMakeSpan(keys, numberOfKeys);
     size_t keysSet = 0;
     Vector<RetainPtr<CFPropertyListRef>, numberOfKeys> values(numberOfKeys, [&](size_t index) -> RetainPtr<CFPropertyListRef> {
-        RetainPtr value = PAL::CMFormatDescriptionGetExtension(originalDescription, keysSpan[index]);
+        RetainPtr value = PAL::CMFormatDescriptionGetExtension(originalDescription, RetainPtr { keysSpan[index] }.get());
         if (!value)
             return nullptr;
         keysSet++;
@@ -479,15 +482,15 @@ Ref<WebCoreDecompressionSession::DecodingPromise> WebCoreDecompressionSession::d
 
             Vector<Ref<VideoDecoder::DecodePromise>> promises;
             for (Ref sample : MediaSampleAVFObjC::create(cmSamples.get(), 0)->divide()) {
-                auto cmSample = sample->platformSample().sample.cmSampleBuffer;
-                MediaTime presentationTimestamp = PAL::toMediaTime(PAL::CMSampleBufferGetPresentationTimeStamp(cmSample));
-                CMBlockBufferRef rawBuffer = PAL::CMSampleBufferGetDataBuffer(cmSample);
+                RetainPtr cmSample = sample->platformSample().cmSampleBuffer();
+                MediaTime presentationTimestamp = PAL::toMediaTime(PAL::CMSampleBufferGetPresentationTimeStamp(cmSample.get()));
+                RetainPtr rawBuffer = PAL::CMSampleBufferGetDataBuffer(cmSample.get());
                 ASSERT(rawBuffer);
                 RetainPtr buffer = rawBuffer;
                 // Make sure block buffer is contiguous.
-                if (!PAL::CMBlockBufferIsRangeContiguous(rawBuffer, 0, 0)) {
+                if (!PAL::CMBlockBufferIsRangeContiguous(rawBuffer.get(), 0, 0)) {
                     CMBlockBufferRef contiguousBuffer;
-                    if (auto status = PAL::CMBlockBufferCreateContiguous(nullptr, rawBuffer, nullptr, nullptr, 0, 0, 0, &contiguousBuffer))
+                    if (auto status = PAL::CMBlockBufferCreateContiguous(nullptr, rawBuffer.get(), nullptr, nullptr, 0, 0, 0, &contiguousBuffer))
                         return DecodingPromise::createAndReject(status);
                     buffer = adoptCF(contiguousBuffer);
                 }

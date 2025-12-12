@@ -56,7 +56,8 @@
 
     _impl = impl;
     _presenter = adoptNS([PAL::allocRVPresenterInstance() init]);
-    _presentingContext = adoptNS([PAL::allocRVPresentingContextInstance() initWithPointerLocationInView:menuLocationInView inView:impl.view() highlightDelegate:self]);
+    RetainPtr view = impl.view();
+    _presentingContext = adoptNS([PAL::allocRVPresentingContextInstance() initWithPointerLocationInView:menuLocationInView inView:view.get() highlightDelegate:self]);
     _item = item;
     _frameInView = frameInView;
     _menuLocationInView = menuLocationInView;

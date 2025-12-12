@@ -36,6 +36,7 @@
 #import <wtf/IndexedRange.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/cf/NotificationCenterCF.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/StringConcatenateNumbers.h>
 
@@ -55,13 +56,13 @@ static void _localeChanged(CFNotificationCenterRef, void*, CFStringRef, const vo
 LocalizedDateCache::LocalizedDateCache()
 {
     // Listen to CF Notifications for locale change, and clear the cache when it does.
-    CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), (void*)this, _localeChanged, kCFLocaleCurrentLocaleDidChangeNotification, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+    CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenterSingleton(), (void*)this, _localeChanged, kCFLocaleCurrentLocaleDidChangeNotification, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 }
 
 LocalizedDateCache::~LocalizedDateCache()
 {
     // NOTE: Singleton does not expect to be deconstructed.
-    CFNotificationCenterRemoveObserver(CFNotificationCenterGetLocalCenter(), (void*)this, kCFLocaleCurrentLocaleDidChangeNotification, NULL);
+    CFNotificationCenterRemoveObserver(CFNotificationCenterGetLocalCenterSingleton(), (void*)this, kCFLocaleCurrentLocaleDidChangeNotification, NULL);
 }
 
 void LocalizedDateCache::localeChanged()
@@ -74,7 +75,7 @@ NSDateFormatter *LocalizedDateCache::formatterForDateType(DateComponentsType typ
 {
     int key = static_cast<int>(type);
     if (m_formatterMap.contains(key))
-        return m_formatterMap.get(key).get();
+        return m_formatterMap.get(key).unsafeGet();
 
     auto dateFormatter = createFormatterForType(type);
     m_formatterMap.set(key, dateFormatter.get());

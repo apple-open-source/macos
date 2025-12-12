@@ -37,7 +37,8 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "AudioSession.h"
-#include "DocumentInlines.h"
+#include "ContextDestructionObserverInlines.h"
+#include "DocumentPage.h"
 #include "ExceptionCode.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSMediaStream.h"
@@ -204,7 +205,7 @@ void UserMediaRequest::allow(CaptureDevice&& audioDevice, CaptureDevice&& videoD
 
             if (RefPtr audioTrack = stream->getFirstAudioTrack()) {
 #if USE(AUDIO_SESSION)
-                AudioSession::sharedSession().tryToSetActive(true);
+                AudioSession::singleton().tryToSetActive(true);
 #endif
                 if (std::holds_alternative<MediaTrackConstraints>(protectedThis->m_audioConstraints))
                     audioTrack->setConstraints(std::get<MediaTrackConstraints>(WTFMove(protectedThis->m_audioConstraints)));

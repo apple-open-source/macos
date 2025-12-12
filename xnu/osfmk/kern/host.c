@@ -119,6 +119,8 @@
 SCALABLE_COUNTER_DEFINE(vm_statistics_zero_fill_count);        /* # of zero fill pages */
 SCALABLE_COUNTER_DEFINE(vm_statistics_reactivations);          /* # of pages reactivated */
 SCALABLE_COUNTER_DEFINE(vm_statistics_pageins);                /* # of pageins */
+SCALABLE_COUNTER_DEFINE(vm_statistics_pageins_aborted);        /* # of pageins aborted */
+SCALABLE_COUNTER_DEFINE(vm_statistics_pageins_requested);      /* # of pageins requested */
 SCALABLE_COUNTER_DEFINE(vm_statistics_pageouts);               /* # of pageouts */
 SCALABLE_COUNTER_DEFINE(vm_statistics_faults);                 /* # of faults */
 SCALABLE_COUNTER_DEFINE(vm_statistics_cow_faults);             /* # of copy-on-writes */

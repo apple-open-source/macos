@@ -78,6 +78,8 @@ extern boolean_t IOVnodeGetBooleanEntitlement(
 	int64_t off,
 	const char *entitlement,
 	bool *value);
+extern boolean_t IOVnodeGetIntegerEntitlement(struct vnode *vnode, int64_t off, const char *entitlement, uint64_t *value);
+
 extern char * IOCurrentTaskGetEntitlement(const char * entitlement);
 extern char * IOTaskGetEntitlement(task_t task, const char * entitlement);
 /*

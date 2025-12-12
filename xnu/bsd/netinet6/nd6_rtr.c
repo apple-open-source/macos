@@ -151,6 +151,33 @@ static boolean_t nd_defrouter_busy;
 static void *nd_defrouter_waitchan = &nd_defrouter_busy;
 static int nd_defrouter_waiters = 0;
 
+void
+nd_prefix_busy_wait(void)
+{
+	LCK_MTX_ASSERT(nd6_mutex, LCK_MTX_ASSERT_OWNED);
+
+	while (nd_prefix_busy) {
+		nd_prefix_waiters++;
+		msleep(nd_prefix_waitchan, nd6_mutex, (PZERO - 1),
+		    __func__, NULL);
+		LCK_MTX_ASSERT(nd6_mutex, LCK_MTX_ASSERT_OWNED);
+	}
+	nd_prefix_busy = TRUE;
+}
+
+void
+nd_prefix_busy_signal(void)
+{
+	LCK_MTX_ASSERT(nd6_mutex, LCK_MTX_ASSERT_OWNED);
+
+	VERIFY(nd_prefix_busy);
+	nd_prefix_busy = FALSE;
+	if (nd_prefix_waiters > 0) {
+		nd_prefix_waiters = 0;
+		wakeup(nd_prefix_waitchan);
+	}
+}
+
 #define equal(a1, a2) (bcmp((caddr_t)(a1), (caddr_t)(a2), (a1)->sa_len) == 0)
 /* RTPREF_MEDIUM has to be 0! */
 #define RTPREF_HIGH     1
@@ -887,7 +914,7 @@ skip:
 	 * detection of adveritsed prefixes.
 	 */
 	lck_mtx_lock(nd6_mutex);
-	pfxlist_onlink_check();
+	pfxlist_onlink_check(false);
 	lck_mtx_unlock(nd6_mutex);
 
 freeit:
@@ -1426,7 +1453,7 @@ defrtrlist_del(struct nd_defrouter *dr, struct nd_drhead *nd_router_listp)
 			}
 			NDPR_UNLOCK(pr);
 		}
-		pfxlist_onlink_check();
+		pfxlist_onlink_check(false);
 	}
 	ndi = ND_IFINFO(ifp);
 	VERIFY(NULL != ndi && TRUE == ndi->initialized);
@@ -2251,8 +2278,8 @@ pfxrtr_add(struct nd_prefix *pr, struct nd_defrouter *dr)
 	LIST_INSERT_HEAD(&pr->ndpr_advrtrs, new, pfr_entry);
 	pr->ndpr_genid++;
 	NDPR_UNLOCK(pr);
-
-	pfxlist_onlink_check();
+	// callers of pfxrtr_add already in busy state
+	pfxlist_onlink_check(true);
 }
 
 static void
@@ -2365,6 +2392,7 @@ nd6_prelist_add(struct nd_prefix *pr, struct nd_defrouter *dr,
 	++nd6_sched_timeout_want;
 
 	lck_mtx_lock(nd6_mutex);
+	nd_prefix_busy_wait();
 	/* link ndpr_entry to nd_prefix list */
 	LIST_INSERT_HEAD(&nd_prefix, new, ndpr_entry);
 	new->ndpr_debug |= IFD_ATTACHED;
@@ -2394,6 +2422,7 @@ nd6_prelist_add(struct nd_prefix *pr, struct nd_defrouter *dr,
 		pfxrtr_add(new, dr);
 	}
 
+	nd_prefix_busy_signal();
 	lck_mtx_unlock(nd6_mutex);
 
 	return 0;
@@ -2443,6 +2472,7 @@ prelist_remove(struct nd_prefix *pr)
 		int error = 0;
 		NDPR_ADDREF(pr);
 		NDPR_UNLOCK(pr);
+		nd_prefix_busy_signal();
 		lck_mtx_unlock(nd6_mutex);
 		if ((error = nd6_prefix_offlink(pr)) != 0) {
 			nd6log0(error, "prelist_remove: failed to make "
@@ -2452,8 +2482,10 @@ prelist_remove(struct nd_prefix *pr)
 			/* what should we do? */
 		}
 		lck_mtx_lock(nd6_mutex);
+		nd_prefix_busy_wait();
 		NDPR_LOCK(pr);
 		if (NDPR_REMREF(pr) == NULL) {
+			// We entered in the busy state and should return in the busy state
 			return;
 		}
 	}
@@ -2468,9 +2500,11 @@ prelist_remove(struct nd_prefix *pr)
 			NDPR_ADDREF(pr);
 			NDPR_UNLOCK(pr);
 
+			nd_prefix_busy_signal();
 			lck_mtx_unlock(nd6_mutex);
 			err = nd6_prefix_offlink(tmp_pr);
 			lck_mtx_lock(nd6_mutex);
+			nd_prefix_busy_wait();
 			if (err != 0) {
 				nd6log0(error,
 				    "%s: failed to make %s/%d offlink on %s, "
@@ -2623,7 +2657,9 @@ prelist_update(
 
 		if (dr && pfxrtr_lookup(pr, dr) == NULL) {
 			NDPR_UNLOCK(pr);
+			nd_prefix_busy_wait();
 			pfxrtr_add(pr, dr);
+			nd_prefix_busy_signal();
 		} else {
 			NDPR_UNLOCK(pr);
 		}
@@ -2915,7 +2951,7 @@ prelist_update(
 			 * XXX: what if address duplication happens?
 			 */
 			lck_mtx_lock(nd6_mutex);
-			pfxlist_onlink_check();
+			pfxlist_onlink_check(false);
 			lck_mtx_unlock(nd6_mutex);
 		}
 	}
@@ -3232,7 +3268,7 @@ find_pfxlist_reachable_router(struct nd_prefix *pr)
  * is no router around us.
  */
 void
-pfxlist_onlink_check(void)
+pfxlist_onlink_check(bool already_locked)
 {
 	struct nd_prefix *__single pr, *__single prclear;
 	struct in6_ifaddr *__single ifa;
@@ -3246,13 +3282,11 @@ pfxlist_onlink_check(void)
 
 	LCK_MTX_ASSERT(nd6_mutex, LCK_MTX_ASSERT_OWNED);
 
-	while (nd_prefix_busy) {
-		nd_prefix_waiters++;
-		msleep(nd_prefix_waitchan, nd6_mutex, (PZERO - 1),
-		    __func__, NULL);
-		LCK_MTX_ASSERT(nd6_mutex, LCK_MTX_ASSERT_OWNED);
+	if (!already_locked) {
+		nd_prefix_busy_wait();
+	} else {
+		VERIFY(nd_prefix_busy);
 	}
-	nd_prefix_busy = TRUE;
 
 	/*
 	 * Check if there is a prefix that has a reachable advertising
@@ -3420,11 +3454,9 @@ pfxlist_onlink_check(void)
 		prclear->ndpr_stateflags &= ~NDPRF_PROCESSED_ONLINK;
 		NDPR_UNLOCK(prclear);
 	}
-	VERIFY(nd_prefix_busy);
-	nd_prefix_busy = FALSE;
-	if (nd_prefix_waiters > 0) {
-		nd_prefix_waiters = 0;
-		wakeup(nd_prefix_waitchan);
+
+	if (!already_locked) {
+		nd_prefix_busy_signal();
 	}
 
 	/*
@@ -4378,7 +4410,7 @@ again:
 	 * temporary address due to deprecation of an old temporary address.
 	 */
 	lck_mtx_lock(nd6_mutex);
-	pfxlist_onlink_check();
+	pfxlist_onlink_check(false);
 	lck_mtx_unlock(nd6_mutex);
 	ifa_remref(&newia->ia_ifa);
 

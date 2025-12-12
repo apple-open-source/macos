@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -127,24 +128,22 @@ void TableFormattingContext::setUsedGeometryForCells(LayoutUnit availableHorizon
             auto intrinsicPaddingTop = LayoutUnit { };
             auto intrinsicPaddingBottom = LayoutUnit { };
 
-            switch (cellBox.style().verticalAlign()) {
-            case VerticalAlign::Middle: {
-                auto intrinsicVerticalPadding = std::max(0_lu, cellLogicalHeight - cellBoxGeometry.verticalMarginBorderAndPadding() - cellBoxGeometry.contentBoxHeight());
-                intrinsicPaddingTop = intrinsicVerticalPadding / 2;
-                intrinsicPaddingBottom = intrinsicVerticalPadding / 2;
-                break;
-            }
-            case VerticalAlign::Baseline: {
-                auto rowBaseline = LayoutUnit { rowList[cell->startRow()].baseline() };
-                auto cellBaseline = LayoutUnit { cell->baseline() };
-                intrinsicPaddingTop = std::max(0_lu, rowBaseline - cellBaseline - cellBoxGeometry.borderBefore());
-                intrinsicPaddingBottom = std::max(0_lu, cellLogicalHeight - cellBoxGeometry.verticalMarginBorderAndPadding() - intrinsicPaddingTop - cellBoxGeometry.contentBoxHeight());
-                break;
-            }
-            default:
-                ASSERT_NOT_IMPLEMENTED_YET();
-                break;
-            }
+            WTF::switchOn(cellBox.style().verticalAlign(),
+                [&](const CSS::Keyword::Middle&) {
+                    auto intrinsicVerticalPadding = std::max(0_lu, cellLogicalHeight - cellBoxGeometry.verticalMarginBorderAndPadding() - cellBoxGeometry.contentBoxHeight());
+                    intrinsicPaddingTop = intrinsicVerticalPadding / 2;
+                    intrinsicPaddingBottom = intrinsicVerticalPadding / 2;
+                },
+                [&](const CSS::Keyword::Baseline&) {
+                    auto rowBaseline = LayoutUnit { rowList[cell->startRow()].baseline() };
+                    auto cellBaseline = LayoutUnit { cell->baseline() };
+                    intrinsicPaddingTop = std::max(0_lu, rowBaseline - cellBaseline - cellBoxGeometry.borderBefore());
+                    intrinsicPaddingBottom = std::max(0_lu, cellLogicalHeight - cellBoxGeometry.verticalMarginBorderAndPadding() - intrinsicPaddingTop - cellBoxGeometry.contentBoxHeight());
+                },
+                [&](const auto&) {
+                    ASSERT_NOT_IMPLEMENTED_YET();
+                }
+            );
             if (intrinsicPaddingTop && cellBox.hasInFlowOrFloatingChild()) {
                 auto adjustCellContentWithInstrinsicPaddingBefore = [&] {
                     // Child boxes (and runs) are always in the coordinate system of the containing block's border box.
@@ -331,7 +330,7 @@ IntrinsicWidthConstraints TableFormattingContext::computedPreferredWidthForColum
                 return formattingGeometry.computedColumnWidth(*columnBox);
             }();
         if (fixedWidth)
-            column.setComputedLogicalWidth({ *fixedWidth, LengthType::Fixed });
+            column.setComputedLogicalWidth(Style::Length<CSS::Nonnegative, float> { *fixedWidth });
         }
     };
     collectColsFixedWidth();
@@ -364,7 +363,7 @@ IntrinsicWidthConstraints TableFormattingContext::computedPreferredWidthForColum
             auto columnIndex = cellPosition.column;
             WTF::switchOn(cellStyle.logicalWidth(),
                 [&](const Style::PreferredSize::Fixed& fixed) {
-                    auto fixedWidth = LayoutUnit { fixed.value } + horizontalBorderAndPaddingWidth;
+                    auto fixedWidth = LayoutUnit { fixed.resolveZoom(Style::ZoomNeeded { }) } + horizontalBorderAndPaddingWidth;
                     maximumFixedColumnWidths[columnIndex] = std::max(maximumFixedColumnWidths[columnIndex].value_or(0_lu), fixedWidth);
                     hasColumnWithFixedWidth = true;
                 },
@@ -446,7 +445,7 @@ IntrinsicWidthConstraints TableFormattingContext::computedPreferredWidthForColum
         if (hasColumnWithFixedWidth && !hasColumnWithPercentWidth) {
             for (size_t columnIndex = 0; columnIndex < columnList.size(); ++columnIndex) {
                 if (auto fixedWidth = maximumFixedColumnWidths[columnIndex])
-                    columnList[columnIndex].setComputedLogicalWidth({ *fixedWidth, LengthType::Fixed });
+                    columnList[columnIndex].setComputedLogicalWidth(Style::Length<CSS::Nonnegative, float> { *fixedWidth });
             }
             return;
         } 
@@ -462,7 +461,7 @@ IntrinsicWidthConstraints TableFormattingContext::computedPreferredWidthForColum
         for (size_t columnIndex = 0; columnIndex < columnList.size(); ++columnIndex) {
             auto nonPercentColumnWidth = columnIntrinsicWidths[columnIndex].maximum;
             if (auto fixedWidth = maximumFixedColumnWidths[columnIndex]) {
-                columnList[columnIndex].setComputedLogicalWidth({ *fixedWidth, LengthType::Fixed });
+                columnList[columnIndex].setComputedLogicalWidth(Style::Length<CSS::Nonnegative, float> { *fixedWidth });
                 nonPercentColumnWidth = std::max(nonPercentColumnWidth, *fixedWidth);
             }
             if (!maximumPercentColumnWidths[columnIndex]) {
@@ -470,7 +469,7 @@ IntrinsicWidthConstraints TableFormattingContext::computedPreferredWidthForColum
                 continue;
             }
             auto percent = std::min(*maximumPercentColumnWidths[columnIndex], remainingPercent);
-            columnList[columnIndex].setComputedLogicalWidth({ percent, LengthType::Percent });
+            columnList[columnIndex].setComputedLogicalWidth(Style::Percentage<CSS::Nonnegative, float> { percent });
             percentMaximumWidth = std::max(percentMaximumWidth, LayoutUnit { nonPercentColumnWidth * 100.0f / percent });
             remainingPercent -= percent;
         }

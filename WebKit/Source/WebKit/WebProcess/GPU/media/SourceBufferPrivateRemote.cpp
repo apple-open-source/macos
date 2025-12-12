@@ -386,9 +386,7 @@ Ref<SourceBufferPrivate::ComputeSeekPromise> SourceBufferPrivateRemote::computeS
 
 void SourceBufferPrivateRemote::seekToTime(const MediaTime& time)
 {
-    ensureWeakOnDispatcher([time](auto& buffer) {
-        buffer.sendToProxy(Messages::RemoteSourceBufferProxy::SeekToTime(time));
-    });
+    ASSERT_NOT_REACHED();
 }
 
 void SourceBufferPrivateRemote::updateTrackIds(Vector<std::pair<TrackID, TrackID>>&& trackIDPairs)

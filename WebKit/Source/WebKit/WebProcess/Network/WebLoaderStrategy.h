@@ -52,6 +52,7 @@ class WebURLSchemeTaskProxy;
 class WebLoaderStrategy final : public WebCore::LoaderStrategy {
     WTF_MAKE_TZONE_ALLOCATED(WebLoaderStrategy);
     WTF_MAKE_NONCOPYABLE(WebLoaderStrategy);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebLoaderStrategy);
 public:
     explicit WebLoaderStrategy(WebProcess&);
     ~WebLoaderStrategy() final;

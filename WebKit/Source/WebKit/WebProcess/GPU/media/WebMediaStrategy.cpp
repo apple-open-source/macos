@@ -46,9 +46,14 @@
 #if ENABLE(MEDIA_SOURCE)
 #include <WebCore/DeprecatedGlobalSettings.h>
 #endif
+#if ENABLE(VIDEO) && ENABLE(GPU_PROCESS)
+#include "AudioVideoRendererRemote.h"
+#endif
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(WebMediaStrategy);
 
 WebMediaStrategy::~WebMediaStrategy() = default;
 
@@ -63,6 +68,13 @@ Ref<WebCore::AudioDestination> WebMediaStrategy::createAudioDestination(const We
         });
 #endif
     return WebCore::AudioDestination::create(options);
+}
+#endif
+
+#if ENABLE(VIDEO) && ENABLE(GPU_PROCESS)
+RefPtr<AudioVideoRenderer> WebMediaStrategy::createAudioVideoRenderer(LoggerHelper* loggerHelper, WebCore::HTMLMediaElementIdentifier mediaElementIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier) const
+{
+    return AudioVideoRendererRemote::create(loggerHelper, mediaElementIdentifier, playerIdentifier, WebProcess::singleton().ensureProtectedGPUProcessConnection());
 }
 #endif
 

@@ -32,7 +32,6 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <wininet.h> // for INTERNET_MAX_URL_LENGTH
-#include <wtf/StringExtras.h>
 #include <wtf/URL.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
@@ -152,7 +151,7 @@ HGLOBAL createGlobalData(const URL& url, const String& title)
     String mutableURL(url.string());
     String mutableTitle(title);
     SIZE_T size = mutableURL.length() + mutableTitle.length() + 2; // +1 for "\n" and +1 for null terminator
-    HGLOBAL cbData = ::GlobalAlloc(GPTR, size * sizeof(UChar));
+    HGLOBAL cbData = ::GlobalAlloc(GPTR, size * sizeof(char16_t));
 
     if (cbData) {
         PWSTR buffer = static_cast<PWSTR>(GlobalLock(cbData));
@@ -164,10 +163,10 @@ HGLOBAL createGlobalData(const URL& url, const String& title)
 
 HGLOBAL createGlobalData(const String& str)
 {
-    HGLOBAL vm = ::GlobalAlloc(GPTR, (str.length() + 1) * sizeof(UChar));
+    HGLOBAL vm = ::GlobalAlloc(GPTR, (str.length() + 1) * sizeof(char16_t));
     if (!vm)
         return 0;
-    auto buffer = unsafeMakeSpan(static_cast<UChar*>(GlobalLock(vm)), str.length() + 1);
+    auto buffer = unsafeMakeSpan(static_cast<char16_t*>(GlobalLock(vm)), str.length() + 1);
     StringView(str).getCharacters(buffer);
     buffer[str.length()] = 0;
     GlobalUnlock(vm);
@@ -418,7 +417,7 @@ void setFileDescriptorData(IDataObject* dataObject, int size, const String& pass
     fgd->fgd[0].nFileSizeLow = size;
 
     int maxSize = std::min<int>(pathname.length(), std::size(fgd->fgd[0].cFileName));
-    CopyMemory(fgd->fgd[0].cFileName, pathname.charactersWithNullTermination()->span().data(), maxSize * sizeof(UChar));
+    CopyMemory(fgd->fgd[0].cFileName, pathname.charactersWithNullTermination()->span().data(), maxSize * sizeof(char16_t));
     GlobalUnlock(medium.hGlobal);
 
     dataObject->SetData(fileDescriptorFormat(), &medium, TRUE);
@@ -731,7 +730,7 @@ void getHDropData(IDataObject* data, FORMATETC* format, Vector<String>& dataStri
 
 // Setter functions.
 
-void setUCharData(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
+void setUTF16Data(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
 {
     STGMEDIUM medium { };
     medium.tymed = TYMED_HGLOBAL;
@@ -786,14 +785,14 @@ static const ClipboardFormatMap& getClipboardMap()
     static ClipboardFormatMap formatMap;
     if (formatMap.isEmpty()) {
         formatMap.add(htmlFormat()->cfFormat, new ClipboardDataItem(htmlFormat(), getUTF8Data, setUTF8Data));
-        formatMap.add(texthtmlFormat()->cfFormat, new ClipboardDataItem(texthtmlFormat(), getStringData<UChar>, setUCharData));
+        formatMap.add(texthtmlFormat()->cfFormat, new ClipboardDataItem(texthtmlFormat(), getStringData<char16_t>, setUTF16Data));
         formatMap.add(plainTextFormat()->cfFormat,  new ClipboardDataItem(plainTextFormat(), getStringData<char>, setUTF8Data));
-        formatMap.add(plainTextWFormat()->cfFormat,  new ClipboardDataItem(plainTextWFormat(), getStringData<UChar>, setUCharData));
+        formatMap.add(plainTextWFormat()->cfFormat,  new ClipboardDataItem(plainTextWFormat(), getStringData<char16_t>, setUTF16Data));
         formatMap.add(cfHDropFormat()->cfFormat,  new ClipboardDataItem(cfHDropFormat(), getHDropData, setHDropData));
         formatMap.add(filenameFormat()->cfFormat,  new ClipboardDataItem(filenameFormat(), getStringData<char>, setUTF8Data));
-        formatMap.add(filenameWFormat()->cfFormat,  new ClipboardDataItem(filenameWFormat(), getStringData<UChar>, setUCharData));
+        formatMap.add(filenameWFormat()->cfFormat,  new ClipboardDataItem(filenameWFormat(), getStringData<char16_t>, setUTF16Data));
         formatMap.add(urlFormat()->cfFormat,  new ClipboardDataItem(urlFormat(), getStringData<char>, setUTF8Data));
-        formatMap.add(urlWFormat()->cfFormat,  new ClipboardDataItem(urlWFormat(), getStringData<UChar>, setUCharData));
+        formatMap.add(urlWFormat()->cfFormat,  new ClipboardDataItem(urlWFormat(), getStringData<char16_t>, setUTF16Data));
     }
     return formatMap;
 }

@@ -41,7 +41,7 @@ class WebPage;
 class WebTextTrackRepresentationCocoa final : public WebCore::TextTrackRepresentationCocoa {
 public:
     explicit WebTextTrackRepresentationCocoa(WebCore::TextTrackRepresentationClient&, WebCore::HTMLMediaElement&);
-    virtual ~WebTextTrackRepresentationCocoa() { }
+    virtual ~WebTextTrackRepresentationCocoa() = default;
 
 private:
     void setBounds(const WebCore::IntRect&) final;

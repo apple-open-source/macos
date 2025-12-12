@@ -172,7 +172,7 @@ class WebPushToolVerb {
 public:
     virtual ~WebPushToolVerb() = default;
     virtual void run(WebPushTool::Connection&) = 0;
-    virtual void done() { CFRunLoopStop(CFRunLoopGetMain()); }
+    virtual void done() { CFRunLoopStop(retainPtr(CFRunLoopGetMain()).get()); }
 };
 
 class InjectPushMessageVerb : public WebPushToolVerb {
@@ -180,7 +180,6 @@ class InjectPushMessageVerb : public WebPushToolVerb {
 public:
     InjectPushMessageVerb(PushMessageForTesting&& message)
         : m_pushMessage(WTFMove(message)) { }
-    ~InjectPushMessageVerb() = default;
 
     void run(WebPushTool::Connection& connection) override
     {
@@ -206,7 +205,6 @@ class GetPushPermissionStateVerb : public WebPushToolVerb {
 public:
     GetPushPermissionStateVerb(const String& scope)
         : m_scope(scope) { }
-    ~GetPushPermissionStateVerb() = default;
 
     void run(WebPushTool::Connection& connection) override
     {
@@ -225,7 +223,6 @@ class RequestPushPermissionVerb : public WebPushToolVerb {
 public:
     RequestPushPermissionVerb(const String& scope)
         : m_scope(scope) { }
-    ~RequestPushPermissionVerb() = default;
 
     void run(WebPushTool::Connection& connection) override
     {

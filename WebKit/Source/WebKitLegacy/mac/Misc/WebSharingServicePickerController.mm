@@ -238,12 +238,12 @@ RetainPtr<NSImage> WebSharingServicePickerClient::imageForCurrentSharingServiceP
     if (!_pickerClient)
         return nil;
 
-    return _pickerClient->imageForCurrentSharingServicePickerItem(*self).get();
+    return _pickerClient->imageForCurrentSharingServicePickerItem(*self).unsafeGet();
 }
 
 - (NSWindow *)sharingService:(NSSharingService *)sharingService sourceWindowForShareItems:(NSArray *)items sharingContentScope:(NSSharingContentScope *)sharingContentScope
 {
-    return _pickerClient->windowForSharingServicePicker(*self).get();
+    return _pickerClient->windowForSharingServicePicker(*self).unsafeGet();
 }
 
 @end

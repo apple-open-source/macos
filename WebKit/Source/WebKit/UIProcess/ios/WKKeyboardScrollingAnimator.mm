@@ -49,6 +49,17 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #endif
 
+namespace WebKit {
+
+enum class BeginAnimatedScrollResult : uint8_t {
+    KeyDoesNotTriggerScrolling,
+    ScrollTriggeringKeyIsPressed,
+    NotRubberBandable,
+    Began
+};
+
+} // namespace WebKit
+
 @protocol WKKeyboardScrollableInternal <NSObject>
 @required
 - (BOOL)isKeyboardScrollable;
@@ -73,7 +84,7 @@
 
 - (void)willStartInteractiveScroll;
 
-- (BOOL)beginWithEvent:(::WebEvent *)event;
+- (WebKit::BeginAnimatedScrollResult)beginWithEvent:(::WebEvent *)event;
 - (void)handleKeyEvent:(::WebEvent *)event;
 
 - (void)stopScrollingImmediately;
@@ -285,20 +296,20 @@ static WebCore::BoxSide boxSide(WebCore::ScrollDirection direction)
 
 static NSString * const scrollToExtentWithAnimationKey = @"ScrollToExtentAnimation";
 
-- (BOOL)beginWithEvent:(::WebEvent *)event
+- (WebKit::BeginAnimatedScrollResult)beginWithEvent:(::WebEvent *)event
 {
     if (event.type != WebEventKeyDown)
-        return NO;
+        return WebKit::BeginAnimatedScrollResult::KeyDoesNotTriggerScrolling;
 
     auto scroll = [self keyboardScrollForEvent:event];
     if (!scroll)
-        return NO;
+        return WebKit::BeginAnimatedScrollResult::KeyDoesNotTriggerScrolling;
 
     if (_scrollTriggeringKeyIsPressed)
-        return NO;
+        return WebKit::BeginAnimatedScrollResult::ScrollTriggeringKeyIsPressed;
 
     if (![_scrollable rubberbandableDirections].at(boxSide(scroll->direction)))
-        return NO;
+        return WebKit::BeginAnimatedScrollResult::NotRubberBandable;
 
     _scrollTriggeringKeyIsPressed = YES;
     _currentScroll = scroll;
@@ -334,7 +345,7 @@ static NSString * const scrollToExtentWithAnimationKey = @"ScrollToExtentAnimati
 
         [self startDisplayLinkIfNeeded];
 
-        return YES;
+        return WebKit::BeginAnimatedScrollResult::Began;
     }
 
     [self startDisplayLinkIfNeeded];
@@ -359,7 +370,7 @@ static NSString * const scrollToExtentWithAnimationKey = @"ScrollToExtentAnimati
     _velocity += initialVelocity;
     _idealPositionForMinimumTravel = _currentPosition + _currentScroll->offset;
 
-    return YES;
+    return WebKit::BeginAnimatedScrollResult::Began;
 }
 
 - (void)handleKeyEvent:(::WebEvent *)event
@@ -606,7 +617,20 @@ static WebCore::FloatPoint farthestPointInDirection(WebCore::FloatPoint a, WebCo
     if (_scrollView != scrollView)
         return NO;
 
-    return [_animator beginWithEvent:event];
+    switch ([_animator beginWithEvent:event]) {
+    case WebKit::BeginAnimatedScrollResult::KeyDoesNotTriggerScrolling:
+        _scrollView = nil;
+        [[fallthrough]];
+    case WebKit::BeginAnimatedScrollResult::ScrollTriggeringKeyIsPressed:
+    case WebKit::BeginAnimatedScrollResult::NotRubberBandable:
+        return NO;
+    case WebKit::BeginAnimatedScrollResult::Began:
+        return YES;
+    default:
+        break;
+    }
+    ASSERT_NOT_REACHED();
+    return NO;
 }
 
 - (WKBaseScrollView *)scrollView

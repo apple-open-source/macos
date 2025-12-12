@@ -34,7 +34,7 @@
 #include "BlobRegistry.h"
 #include "ContentFilter.h"
 #include "ContentSecurityPolicy.h"
-#include "DocumentInlines.h"
+#include "DocumentEventLoop.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "EventHandler.h"
@@ -52,10 +52,12 @@
 #include "LocalFrameLoaderClient.h"
 #include "Logging.h"
 #include "Navigation.h"
+#include "NodeDocument.h"
 #include "PlatformStrategies.h"
 #include "ResourceLoadInfo.h"
 #include "ThreadableBlobRegistry.h"
 #include "URLKeepingBlobAlive.h"
+#include "UserContentProvider.h"
 #include <wtf/CompletionHandler.h>
 
 #if USE(QUICK_LOOK)
@@ -115,13 +117,15 @@ URLKeepingBlobAlive PolicyChecker::extendBlobURLLifetimeIfNecessary(const Resour
     return { request.url(), topOrigin };
 }
 
-void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const ResourceResponse& redirectResponse, DocumentLoader* loader, RefPtr<FormState>&& formState, NavigationPolicyDecisionFunction&& function, PolicyDecisionMode policyDecisionMode)
+void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const ResourceResponse& redirectResponse, DocumentLoader* loader, RefPtr<FormState>&& formState, NavigationPolicyDecisionFunction&& function, PolicyDecisionMode policyDecisionMode, std::optional<NavigationNavigationType> navigationAPIType)
 {
     NavigationAction action = loader->triggeringAction();
     Ref frame = m_frame.get();
     if (action.isEmpty()) {
         action = NavigationAction { frame->protectedDocument().releaseNonNull(), request, InitiatedByMainFrame::Unknown, loader->isRequestFromClientOrUserInput(), NavigationType::Other, loader->shouldOpenExternalURLsPolicyToPropagate() };
         action.setIsContentRuleListRedirect(loader->isContentRuleListRedirect());
+        if (navigationAPIType)
+            action.setNavigationAPIType(*navigationAPIType);
         loader->setTriggeringAction(NavigationAction { action });
     }
 
@@ -217,7 +221,7 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
         RefPtr document = frame->document();
         if (document && document->settings().navigationAPIEnabled()) {
             if (RefPtr window = document->window()) {
-                if (!window->protectedNavigation()->dispatchDownloadNavigateEvent(request.url(), action.downloadAttribute()))
+                if (!window->protectedNavigation()->dispatchDownloadNavigateEvent(request.url(), action.downloadAttribute(), action.sourceElement()))
                     return function({ }, nullptr, NavigationPolicyDecision::IgnoreLoad);
             }
         }
@@ -299,15 +303,15 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
     auto isPerformingHTTPFallback = frameLoader->isHTTPFallbackInProgress() ? IsPerformingHTTPFallback::Yes : IsPerformingHTTPFallback::No;
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    if (frame->loader().documentLoader() && frame->loader().documentLoader()->hasActiveContentRuleListActions()) {
+    RefPtr userContentProvider = frame->userContentProvider();
+    RefPtr page = frame->page();
+    if (RefPtr documentLoader = frame->loader().documentLoader(); page && userContentProvider && documentLoader && documentLoader->hasActiveContentRuleListActions()) {
         // FIXME: <https://webkit.org/b/297553> Ideally, we should be doing this in CachedResourceLoader.
-        if (RefPtr page = frame->page()) {
-            auto resourceType = frame->isMainFrame() ? ContentExtensions::ResourceType::TopDocument : ContentExtensions::ResourceType::ChildDocument;
-            auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, request.url(), resourceType, *frame->loader().documentLoader());
+        auto resourceType = frame->isMainFrame() ? ContentExtensions::ResourceType::TopDocument : ContentExtensions::ResourceType::ChildDocument;
+        auto results = userContentProvider->processContentRuleListsForLoad(*page, request.url(), resourceType, *documentLoader);
 
-            // Only apply the results if a cross origin redirect will occur. See https://webkit.org/b/297077 and https://webkit.org/b/297554.
-            ContentExtensions::applyResultsToRequestIfCrossOriginRedirect(WTFMove(results), page.get(), request);
-        }
+        // Only apply the results if a cross origin redirect will occur. See https://webkit.org/b/297077 and https://webkit.org/b/297554.
+        ContentExtensions::applyResultsToRequestIfCrossOriginRedirect(WTFMove(results), page.get(), request);
     }
 #endif
 

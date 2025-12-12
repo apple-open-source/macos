@@ -624,7 +624,7 @@ WPEBufferDMABufFormats* wpe_toplevel_get_preferred_dma_buf_formats(WPEToplevel* 
                     else if (tokens[2] == "scanout"_s)
                         usage = WPE_BUFFER_DMA_BUF_FORMAT_USAGE_SCANOUT;
                 }
-                auto* builder = wpe_buffer_dma_buf_formats_builder_new(priv->display ? wpe_display_get_drm_render_node(priv->display.get()) : nullptr);
+                auto* builder = wpe_buffer_dma_buf_formats_builder_new(priv->display ? wpe_display_get_drm_device(priv->display.get()) : nullptr);
                 wpe_buffer_dma_buf_formats_builder_append_group(builder, nullptr, usage);
                 wpe_buffer_dma_buf_formats_builder_append_format(builder, format, modifier);
                 priv->overridenDMABufFormats = adoptGRef(wpe_buffer_dma_buf_formats_builder_end(builder));

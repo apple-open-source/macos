@@ -38,6 +38,7 @@
 #import "DocumentMarkerController.h"
 #import "Editing.h"
 #import "EditorClient.h"
+#import "FrameDestructionObserverInlines.h"
 #import "HTMLNames.h"
 #import "LocalFrame.h"
 #import "MutableStyleProperties.h"
