@@ -14038,8 +14038,8 @@ xmlParseBalancedChunkMemoryRecover(xmlDocPtr doc, xmlSAXHandlerPtr sax,
     xmlFreeParserCtxt(ctxt);
     newDoc->intSubset = NULL;
     newDoc->extSubset = NULL;
-    /* This leaks the namespace list if doc == NULL */
-    newDoc->oldNs = NULL;
+    if(doc != NULL)
+        newDoc->oldNs = NULL;
     xmlFreeDoc(newDoc);
 
     return(ret);
