@@ -318,7 +318,7 @@ crc32_little(unsigned long crc, const unsigned char FAR *buf, unsigned len)
 }
 
 /* ========================================================================= */
-#define DOBIG4 c ^= *++buf4; \
+#define DOBIG4 c ^= *buf4++; \
         c = (u4)(crc_table[4][c & 0xff] ^ crc_table[5][(c >> 8) & 0xff] ^ \
                  crc_table[6][(c >> 16) & 0xff] ^ crc_table[7][c >> 24])
 #define DOBIG32 DOBIG4; DOBIG4; DOBIG4; DOBIG4; DOBIG4; DOBIG4; DOBIG4; DOBIG4
@@ -338,7 +338,6 @@ crc32_big(unsigned long crc, const unsigned char FAR *buf, unsigned len)
     }
 
     buf4 = (const u4 FAR *)(const void FAR *)buf;
-    buf4--;
     while (len >= 32) {
         DOBIG32;
         len -= 32;
@@ -347,7 +346,6 @@ crc32_big(unsigned long crc, const unsigned char FAR *buf, unsigned len)
         DOBIG4;
         len -= 4;
     }
-    buf4++;
     buf = (const unsigned char FAR *)buf4;
 
     if (len) do {
