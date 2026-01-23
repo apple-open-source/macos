@@ -574,6 +574,7 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
       } else {
           /* is it really a good idea to try to log this? */
           _LOG_DEBUG("Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
+          return PAM_BUF_ERR;
       }
       continue;
     } 
@@ -626,6 +627,7 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
 	  if (strlcat(tmp, tmpptr, MAX_ENV) >= MAX_ENV) {
 	    /* is it really a good idea to try to log this? */
 	    _LOG_ERROR("Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
+      return PAM_BUF_ERR;
 	  }
 	}
       }           /* if ('{' != *orig++) */
@@ -635,6 +637,7 @@ static int _expand_arg(pam_handle_t *pamh, char **value)
       } else {
 	/* is it really a good idea to try to log this? */
 	_LOG_ERROR("Variable buffer overflow: <%s> + <%s>", tmp, tmpptr);
+  return PAM_BUF_ERR;
       }
     }
   }              /* for (;*orig;) */
