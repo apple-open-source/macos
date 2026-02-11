@@ -45,8 +45,7 @@ template<typename> class ExceptionOr;
 
 class MediaStreamTrackProcessor
     : public RefCounted<MediaStreamTrackProcessor>
-    , public CanMakeWeakPtr<MediaStreamTrackProcessor>
-    , private ContextDestructionObserver {
+    , public ContextDestructionObserver {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaStreamTrackProcessor);
 public:
     struct Init {
@@ -56,6 +55,10 @@ public:
 
     static ExceptionOr<Ref<MediaStreamTrackProcessor>> create(ScriptExecutionContext&, Init&&);
     ~MediaStreamTrackProcessor();
+
+    // ContextDestructionObserver.
+    void ref() const final { RefCounted::ref(); };
+    void deref() const final { RefCounted::deref(); };
 
     ExceptionOr<Ref<ReadableStream>> readable(JSC::JSGlobalObject&);
 

@@ -22,6 +22,7 @@
 #include "resolver.h"
 #include "libkern/OSAtomic.h"
 
+
 #if defined(__arm__) || defined(__arm64__)
 
 OS_ATOMIC_EXPORT

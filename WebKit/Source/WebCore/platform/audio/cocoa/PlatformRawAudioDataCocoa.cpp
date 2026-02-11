@@ -287,7 +287,7 @@ void PlatformRawAudioData::copyTo(std::span<uint8_t> destination, AudioSampleFor
 
     auto copyElements = []<typename T>(std::span<T> destination, auto sourcePlane, size_t sampleOffset, size_t sampleIndexIncrement, size_t samples) {
         RELEASE_ASSERT(destination.size() >= samples);
-        RELEASE_ASSERT(sourcePlane.size() >= sampleIndexIncrement * samples + sampleOffset - 1);
+        RELEASE_ASSERT(sourcePlane.size() > sampleOffset + (samples - 1) * sampleIndexIncrement);
         size_t sourceSampleIndex = sampleOffset;
         for (size_t sample = 0; sample < samples; sample++) {
             destination[sample] = convertAudioSample<T>(sourcePlane[sourceSampleIndex]);

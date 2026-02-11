@@ -43,6 +43,7 @@
 
 #include <ptrauth.h>
 
+#include <kern/ecc.h>
 #include <kern/misc_protos.h>
 #include <kern/startup.h>
 #include <kern/clock.h>

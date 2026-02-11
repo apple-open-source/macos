@@ -21,6 +21,7 @@
 #import <Security/checkpw.h>
 int checkpw_internal( const struct passwd *pw, const char* password );
 
+#import <os/feature_private.h>
 #import <Security/AuthorizationTags.h>
 #import <Security/AuthorizationTagsPriv.h>
 #import <Security/AuthorizationPriv.h>
@@ -161,6 +162,18 @@ static bool _in_system_update()
     return true;
 }
 
+static bool _isNotarizationFeatureEnabled(void)
+{
+    static bool notarizationEnabled = true;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        notarizationEnabled = os_feature_enabled(SecurityAgent, NotarizationDetection);
+        os_log(AUTHD_LOG, "Notarization feature is %@", notarizationEnabled ? @"enabled" : @"disabled");
+    });
+
+    return notarizationEnabled;
+}
+
 engine_t
 engine_create(connection_t conn, auth_token_t auth)
 {
@@ -248,6 +261,7 @@ _set_process_immutable_hints(auth_items_t immutable_hints, process_t proc)
     // process information - immutable
     auth_items_set_bool(immutable_hints, AGENT_HINT_CLIENT_SIGNED, process_apple_signed(proc));
 	auth_items_set_bool(immutable_hints, AGENT_HINT_CLIENT_FROM_APPLE, process_firstparty_signed(proc));
+    auth_items_set_bool(immutable_hints, AGENT_HINT_CLIENT_NOTARIZED, process_notarized(proc));
 }
 
 void
@@ -262,6 +276,7 @@ _set_auth_token_hints(auth_items_t hints, auth_items_t immutable_hints, auth_tok
 	if (proc) {
 		auth_items_set_bool(immutable_hints, AGENT_HINT_CREATOR_SIGNED, process_apple_signed(proc));
 		auth_items_set_bool(immutable_hints, AGENT_HINT_CREATOR_FROM_APPLE, process_firstparty_signed(proc));
+        auth_items_set_bool(immutable_hints, AGENT_HINT_CREATOR_NOTARIZED, process_notarized(proc));
 	}
 	CFReleaseSafe(proc);
 }
@@ -1536,9 +1551,13 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
                 auth_items_set_bool(engine->immutable_hints, AGENT_HINT_KBGUNLOCK_REQ, true);
             }
             
-            // AuthorizationExecuteWithPrivileges                           // SMJobBless
+            // AuthorizationExecuteWithPrivileges
+            // SMJobBless
             if ((strcmp(key, "system.privilege.admin") == 0) || (strcmp(key, "com.apple.ServiceManagement.blesshelper") == 0)) {
-                forbiddenElevationRightFound = true;
+                if (!_isNotarizationFeatureEnabled() || !auth_items_get_bool(engine->immutable_hints, AGENT_HINT_CLIENT_NOTARIZED) || !auth_items_get_bool(engine->immutable_hints, AGENT_HINT_CREATOR_NOTARIZED)) {
+                    // Disable biometry if the notarization feature is disabled or if the process is not notarized
+                    forbiddenElevationRightFound = true;
+                }
             }
             if ((strcmp(key, "system.login.screensaver") == 0) || (strcmp(key, "system.login.screensaver.unlock") == 0)) {
                 localFlags |= kAuthorizationFlagSkipInternalAuth;

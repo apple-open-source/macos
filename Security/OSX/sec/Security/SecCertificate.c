@@ -7504,3 +7504,23 @@ errOut:
     CFReleaseSafe(normalizedSubjectHash);
     return anchorLookupKey;
 }
+
+SecKeyAlgorithm SecCertificateCopySignatureAlgorithm(SecCertificateRef certificate) {
+    if (!certificate) {
+        return NULL;
+    }
+
+    if (certificate->_sigAlg.oid.length == 0) {
+        return NULL;
+    }
+
+    SecKeyRef publicKey = SecCertificateCopyKey(certificate);
+    if (!publicKey) {
+        return NULL;
+    }
+
+    SecKeyAlgorithm algorithm = SecKeyAlgorithmCopyFromDERAlgorithmId(publicKey, &certificate->_sigAlg);
+
+    CFRelease(publicKey);
+    return algorithm;
+}

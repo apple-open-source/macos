@@ -4,6 +4,7 @@ from kdp import *
 from utils import *
 import struct
 from collections import namedtuple
+import process
 
 def ReadPhysInt(phys_addr, bitsize = 64, cpuval = None):
     """ Read a physical memory data based on address.
@@ -871,7 +872,7 @@ def PVDumpPTE(pvep, ptep, verbose_level = vHUMAN):
         if ptd.pmap == kern.globals.kernel_pmap:
             extra_str = "Mapped by kernel task (kernel_pmap: {:#x})".format(ptd.pmap)
         elif verbose_level >= vDETAIL:
-            task = TaskForPmapHelper(ptd.pmap)
+            task = process.TaskForPmapHelper(ptd.pmap)
             extra_str = "Mapped by user task (pmap: {:#x}, task: {:s})".format(ptd.pmap, "{:#x}".format(task) if task is not None else "<unknown>")
     try:
         print("{:s}PTEP {:#x}{:s}: {:#x}".format(pve_str, ptep, pte_str, dereference(kern.GetValueFromAddress(ptep, 'pt_entry_t *'))))
@@ -1180,7 +1181,7 @@ def ShowPTEARM(pte, page_size, level):
         if ptd.pmap == kern.globals.kernel_pmap:
             pmap_str = "(kernel_pmap)"
         else:
-            task = TaskForPmapHelper(ptd.pmap)
+            task = process.TaskForPmapHelper(ptd.pmap)
             pmap_str = "(User Task: {:s})".format("{:#x}".format(task) if task is not None else "<unknown>")
         print("pmap: {:#x} {:s}".format(ptd.pmap, pmap_str))
         nttes = page_size // 8

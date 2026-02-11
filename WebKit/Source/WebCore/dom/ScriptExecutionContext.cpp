@@ -183,13 +183,13 @@ void ScriptExecutionContext::checkConsistency() const
     for (auto* messagePort : m_messagePorts)
         ASSERT(messagePort->scriptExecutionContext() == this);
 
-    for (auto* destructionObserver : m_destructionObservers)
-        ASSERT(destructionObserver->scriptExecutionContext() == this);
+    for (auto& destructionObserver : m_destructionObservers)
+        ASSERT(destructionObserver.scriptExecutionContext() == this);
 
     // This can run on the GC thread.
-    for (SUPPRESS_UNCOUNTED_LOCAL auto* activeDOMObject : m_activeDOMObjects) {
-        ASSERT(activeDOMObject->scriptExecutionContext() == this);
-        activeDOMObject->assertSuspendIfNeededWasCalled();
+    for (SUPPRESS_UNCOUNTED_LOCAL auto& activeDOMObject : m_activeDOMObjects) {
+        ASSERT(activeDOMObject.scriptExecutionContext() == this);
+        activeDOMObject.assertSuspendIfNeededWasCalled();
     }
 }
 
@@ -218,7 +218,7 @@ ScriptExecutionContext::~ScriptExecutionContext()
 
     setActiveServiceWorker(nullptr);
 
-    while (auto* destructionObserver = m_destructionObservers.takeAny())
+    while (RefPtr destructionObserver = m_destructionObservers.takeAny())
         destructionObserver->contextDestroyed();
 
     setContentSecurityPolicy(nullptr);
@@ -303,17 +303,10 @@ void ScriptExecutionContext::forEachActiveDOMObject(NOESCAPE const Function<Shou
     SetForScope activeDOMObjectAdditionForbiddenScope(m_activeDOMObjectAdditionForbidden, true);
 
     // Make a frozen copy of the objects so we can iterate while new ones might be destroyed.
-    auto possibleActiveDOMObjects = copyToVectorOf<RefPtr<ActiveDOMObject>>(m_activeDOMObjects);
-
-    for (auto& activeDOMObject : possibleActiveDOMObjects) {
-        // Check if this object was deleted already. If so, just skip it.
-        // Calling contains on a possibly-already-deleted object is OK because we guarantee
-        // no new object can be added, so even if a new object ends up allocated with the
-        // same address, that will be *after* this function exits.
-        if (!m_activeDOMObjects.contains(activeDOMObject.get()))
-            continue;
-
-        if (apply(*activeDOMObject) == ShouldContinue::No)
+    auto possibleActiveDOMObjects = copyToVectorOf<WeakPtr<ActiveDOMObject>>(m_activeDOMObjects);
+    for (auto& weakActiveDOMObject : possibleActiveDOMObjects) {
+        RefPtr activeDOMObject = weakActiveDOMObject.get();
+        if (activeDOMObject && apply(*activeDOMObject) == ShouldContinue::No)
             break;
     }
 }
@@ -420,7 +413,7 @@ void ScriptExecutionContext::stopActiveDOMObjects()
 
 void ScriptExecutionContext::suspendActiveDOMObjectIfNeeded(ActiveDOMObject& activeDOMObject)
 {
-    ASSERT(m_activeDOMObjects.contains(&activeDOMObject));
+    ASSERT(m_activeDOMObjects.contains(activeDOMObject));
     if (m_activeDOMObjectsAreSuspended)
         activeDOMObject.suspend(m_reasonForSuspendingActiveDOMObjects);
     if (m_activeDOMObjectsAreStopped)
@@ -435,23 +428,23 @@ void ScriptExecutionContext::didCreateActiveDOMObject(ActiveDOMObject& activeDOM
     // rather have a crash than continue running with the set possibly compromised.
     ASSERT(!m_inScriptExecutionContextDestructor);
     RELEASE_ASSERT(!m_activeDOMObjectAdditionForbidden);
-    m_activeDOMObjects.add(&activeDOMObject);
+    m_activeDOMObjects.add(activeDOMObject);
 }
 
 void ScriptExecutionContext::willDestroyActiveDOMObject(ActiveDOMObject& activeDOMObject)
 {
-    m_activeDOMObjects.remove(&activeDOMObject);
+    m_activeDOMObjects.remove(activeDOMObject);
 }
 
 void ScriptExecutionContext::didCreateDestructionObserver(ContextDestructionObserver& observer)
 {
     ASSERT(!m_inScriptExecutionContextDestructor);
-    m_destructionObservers.add(&observer);
+    m_destructionObservers.add(observer);
 }
 
 void ScriptExecutionContext::willDestroyDestructionObserver(ContextDestructionObserver& observer)
 {
-    m_destructionObservers.remove(&observer);
+    m_destructionObservers.remove(observer);
 }
 
 std::optional<PAL::SessionID> ScriptExecutionContext::sessionID() const
@@ -658,8 +651,8 @@ bool ScriptExecutionContext::hasPendingActivity() const
     checkConsistency();
 
     // This runs on the GC thread.
-    for (SUPPRESS_UNCOUNTED_LOCAL auto* activeDOMObject : m_activeDOMObjects) {
-        if (activeDOMObject->hasPendingActivity())
+    for (SUPPRESS_UNCOUNTED_LOCAL auto& activeDOMObject : m_activeDOMObjects) {
+        if (activeDOMObject.hasPendingActivity())
             return true;
     }
 

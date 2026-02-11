@@ -48,7 +48,9 @@ class NetworkExtensionContentFilter final : public PlatformContentFilter {
 public:
     static Ref<NetworkExtensionContentFilter> create(const PlatformContentFilter::FilterParameters&);
 
+    bool isEnabled() const final { return enabled(); }
     void willSendRequest(ResourceRequest&, const ResourceResponse&) override;
+    void willSendRequest(ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(String&&)>&&) final;
     void responseReceived(const ResourceResponse&) override;
     void addData(const SharedBuffer&) override;
     void finishedAddingData() override;

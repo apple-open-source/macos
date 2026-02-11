@@ -10121,6 +10121,12 @@ task_clear_sec_policy(task_t task)
 	os_atomic_store(&task->task_sec_policy, TASK_SEC_POLICY_NONE, relaxed);
 }
 
+void
+task_clear_sec_soft_mode(task_t task)
+{
+	os_atomic_andnot(&task->task_sec_policy, TASK_SEC_POLICY_SOFT_MODE, relaxed);
+}
+
 bool
 current_task_has_sec_enabled(void)
 {

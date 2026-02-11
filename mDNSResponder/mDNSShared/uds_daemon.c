@@ -4902,9 +4902,22 @@ mDNSlocal void request_callback(int fd, void *info)
             return;
         }
 
-        // If req->terminate is already set, this means this operation is sharing an existing connection
+        // If req->terminate is already set, this operation is attempting to share an existing connection.
         if (req->terminate && !LightweightOp(req->hdr.op))
         {
+            // By design, only shared connections are allowed to have more than one non-lightweight operation.
+            // Connections dedicated to a single non-lightweight operation only perform cleanup for their dedicated
+            // operation. So allowing multiple non-lightweight operations on a connection that wasn't meant to be shared
+            // can leave behind orphaned operations with dangling primary pointers.
+            if (req->terminate != connection_termination)
+            {
+                LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_FAULT,
+                    "[R%u] Attempting to start non-lightweight operation on non-shared connection -- "
+                    "operation: %u, client pid: %d (" PUB_S ")",
+                    req->request_id, req->hdr.op, req->process_id, req->pid_name);
+                AbortUnlinkAndFree(req);
+                return;
+            }
             request_state *newreq = NewRequest();
             newreq->primary = req;
             newreq->sd      = req->sd;

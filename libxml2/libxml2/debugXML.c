@@ -2875,8 +2875,10 @@ xmlShell(xmlDocPtr doc, char *filename, xmlShellReadlineFunc input,
             command[i++] = *cur++;
         }
         command[i] = 0;
-        if (i == 0)
+        if (i == 0) {
+            free(cmdline);
             continue;
+        }
 
         /*
          * Parse the argument

@@ -384,7 +384,7 @@ typedef union thread_rr_state {
 
 struct thread {
 #if MACH_ASSERT
-#define THREAD_MAGIC 0x1234ABCDDCBA4321ULL
+#define THREAD_MAGIC 0x1fc01fc01fc01fc0ULL /* materializes with a single mov immediate */
 	/* Ensure nothing uses &thread as a queue entry */
 	uint64_t                thread_magic;
 #endif /* MACH_ASSERT */
@@ -1108,9 +1108,7 @@ struct thread {
 	         (msgt_name) == MACH_MSG_TYPE_PORT_SEND_ONCE))
 
 #if MACH_ASSERT
-#define assert_thread_magic(thread) assertf((thread)->thread_magic == THREAD_MAGIC, \
-	                                    "bad thread magic 0x%llx for thread %p, expected 0x%llx", \
-	                                    (thread)->thread_magic, (thread), THREAD_MAGIC)
+#define assert_thread_magic(thread) assert3u((thread)->thread_magic, ==, THREAD_MAGIC)
 #else
 #define assert_thread_magic(thread) do { (void)(thread); } while (0)
 #endif

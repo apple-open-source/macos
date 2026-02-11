@@ -328,6 +328,8 @@
 		F90A065C28EBB41A00E88A44 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F90A065B28EBB41A00E88A44 /* IOKit.framework */; };
 		F90A065D28EBB42600E88A44 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F90A065B28EBB41A00E88A44 /* IOKit.framework */; };
 		F90F835813689C4B008E95DC /* ipconfig.defs in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCD0AC4F4F700CF228A /* ipconfig.defs */; };
+		F91350A92EBE6A2C00B03EDF /* RouterAdvertisementInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F91350A82EBE6A2C00B03EDF /* RouterAdvertisementInternal.h */; };
+		F91350AA2EBE6A2C00B03EDF /* RouterAdvertisementInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F91350A82EBE6A2C00B03EDF /* RouterAdvertisementInternal.h */; };
 		F913A2941CCAEF25006BAD8F /* com.apple.IPConfiguration.plist in Copy Files */ = {isa = PBXBuildFile; fileRef = F913A2921CCAEEEE006BAD8F /* com.apple.IPConfiguration.plist */; };
 		F913A2951CCAEF64006BAD8F /* com.apple.IPConfiguration.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = F913A2921CCAEEEE006BAD8F /* com.apple.IPConfiguration.plist */; };
 		F913AB77104C95FB00334C02 /* stf.c in Sources */ = {isa = PBXBuildFile; fileRef = F913AB76104C95FB00334C02 /* stf.c */; };
@@ -1398,6 +1400,7 @@
 		F9096F2D1EE0E16E00CCA89C /* IPv6AWDReport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = IPv6AWDReport.m; path = IPConfiguration.bproj/IPv6AWDReport.m; sourceTree = "<group>"; };
 		F9096F2F1EE0E18200CCA89C /* IPv6AWDReport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPv6AWDReport.h; path = IPConfiguration.bproj/IPv6AWDReport.h; sourceTree = "<group>"; };
 		F90A065B28EBB41A00E88A44 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		F91350A82EBE6A2C00B03EDF /* RouterAdvertisementInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = RouterAdvertisementInternal.h; path = bootplib/RouterAdvertisementInternal.h; sourceTree = "<group>"; };
 		F913A2921CCAEEEE006BAD8F /* com.apple.IPConfiguration.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.IPConfiguration.plist; path = IPConfiguration.bproj/com.apple.IPConfiguration.plist; sourceTree = "<group>"; };
 		F913AB76104C95FB00334C02 /* stf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = stf.c; path = IPConfiguration.bproj/stf.c; sourceTree = "<group>"; };
 		F918987B17010F0D005DD2A7 /* IPConfigurationLog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IPConfigurationLog.c; path = bootplib/IPConfigurationLog.c; sourceTree = "<group>"; };
@@ -1796,6 +1799,7 @@
 		1562DF930AC4F42A00CF228A /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				F91350A82EBE6A2C00B03EDF /* RouterAdvertisementInternal.h */,
 				F93AB5CC2450C12100451B4E /* RouterAdvertisement.h */,
 				F9B8230A214345A00034F1A6 /* IPv6Sock_Compat.h */,
 				F9B823002143417D0034F1A6 /* IPv6Socket.h */,
@@ -2472,6 +2476,7 @@
 				1562E0060AC4F4F800CF228A /* host_identifier.h in Headers */,
 				1562E0080AC4F4F800CF228A /* hostlist.h in Headers */,
 				1562E00A0AC4F4F800CF228A /* in_cksum.h in Headers */,
+				F91350AA2EBE6A2C00B03EDF /* RouterAdvertisementInternal.h in Headers */,
 				1562E00C0AC4F4F800CF228A /* inetroute.h in Headers */,
 				1562E00E0AC4F4F800CF228A /* interfaces.h in Headers */,
 				1562E0100AC4F4F800CF228A /* ioregpath.h in Headers */,
@@ -2687,6 +2692,7 @@
 				F9694B7A0D340C0000FA3943 /* rfc_options.h in Headers */,
 				F9694B7D0D340C0000FA3943 /* util.h in Headers */,
 				F9694BAD0D340C9900FA3943 /* macnc_options.h in Headers */,
+				F91350A92EBE6A2C00B03EDF /* RouterAdvertisementInternal.h in Headers */,
 				F99DF9850D340F780045E43B /* host_identifier.h in Headers */,
 				F98249C3107E406800B96585 /* DHCPDUID.h in Headers */,
 				F98249C4107E406800B96585 /* DHCPv6.h in Headers */,

@@ -54,7 +54,7 @@ struct UnderlyingSource;
 
 using ReadableStreamReader = Variant<RefPtr<ReadableStreamDefaultReader>, RefPtr<ReadableStreamBYOBReader>>;
 
-class ReadableStream : public RefCountedAndCanMakeWeakPtr<ReadableStream>, public ContextDestructionObserver {
+class ReadableStream : public RefCounted<ReadableStream>, public ContextDestructionObserver {
 public:
     enum class ReaderMode { Byob };
     struct GetReaderOptions {
@@ -71,6 +71,10 @@ public:
     static Ref<ReadableStream> create(Ref<InternalReadableStream>&&);
 
     virtual ~ReadableStream();
+
+    // ContextDestructionObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     Ref<DOMPromise> cancelForBindings(JSDOMGlobalObject&, JSC::JSValue);
     ExceptionOr<ReadableStreamReader> getReader(JSDOMGlobalObject&, const GetReaderOptions&);

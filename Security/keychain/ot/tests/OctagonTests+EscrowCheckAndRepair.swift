@@ -75,6 +75,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())    // repair was not triggered
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
         }
 
         let clique: OTClique
@@ -136,6 +137,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
 
             // Ensure that CFU is cleared.
             XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange))
@@ -156,6 +158,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.unknown.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
 
             // Ensure that CFU is NOT cleared on error.
             XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange))
@@ -175,6 +178,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
                 XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
                 XCTAssertNotNil(response.moveRequest)
                 XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.secureTerms))
+                XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
                 if isFeatureEnabled(SecurityFeatures.EscrowCheckMigration) {
                     XCTAssertTrue(SecMockAKS.cacheFlowEnabled())
                 } else {
@@ -189,6 +193,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
                 XCTAssertTrue(response.needsReenroll)
                 XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
                 XCTAssertNotNil(response.moveRequest)
+                XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
                 if isFeatureEnabled(SecurityFeatures.EscrowCheckMigration) {
                     XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.secureTerms))
                 } else {
@@ -207,6 +212,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
                 XCTAssertNotNil(response.moveRequest)
                 XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.secureTerms))
                 XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
+                XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
             }
             self.mockSecureBackupAdapter.moveError = nil
 
@@ -223,6 +229,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
             XCTAssertTrue(SecMockAKS.cacheFlowEnabled())    // repair was triggered
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
         }
         self.fakeCuttlefishServer.returnEscrowCheckGraphNeedsRepair = false
 
@@ -234,6 +241,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
             XCTAssertTrue(SecMockAKS.cacheFlowEnabled())    // repair was triggered
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
         }
         self.fakeCuttlefishServer.returnEscrowCheckPeerNotTrusted = false
 
@@ -245,6 +253,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(response.repairDisabled)         // repair NOT disabled, thus
             XCTAssertTrue(SecMockAKS.cacheFlowEnabled())    // repair was actually triggered!
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
         }
         self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = false
         SecMockAKS.resetCacheFlow()
@@ -258,6 +267,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertNil(response.moveRequest)
             XCTAssertTrue(response.repairDisabled)          // repair disabled, thus
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())   // repair was not triggered
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
         }
         self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = false
         self.fakeCuttlefishServer.returnEscrowCheckRepairDisabled = false
@@ -279,6 +289,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertFalse(SecMockAKS.cacheFlowEnabled())
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.rateLimited.rawValue)
         }
 
         // Rate-limited on an older version, so we should repair anyway.
@@ -295,6 +306,7 @@ class OctagonEscrowCheckAndRepairTests: OctagonTestsBase {
             XCTAssertEqual(response.octagonTrusted, OctagonTrustStatus.trusted.rawValue)
             XCTAssertNil(response.moveRequest)
             XCTAssertTrue(SecMockAKS.cacheFlowEnabled())
+            XCTAssertEqual(response.rateLimitState, OTEscrowCheckRateLimitState.notRateLimited.rawValue)
         }
         self.fakeCuttlefishServer.returnEscrowCheckNeedsRepair = false
 

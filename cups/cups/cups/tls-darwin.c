@@ -684,7 +684,7 @@ httpCredentialsGetTrust(
 
         trust = HTTP_TRUST_INVALID;
       }
-      else if (httpCredentialsGetExpiration(credentials) <= httpCredentialsGetExpiration(tcreds))
+      else if (httpCredentialsGetExpiration(credentials) < httpCredentialsGetExpiration(tcreds))
       {
        /*
         * The new credentials are not newly issued...

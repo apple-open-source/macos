@@ -48,7 +48,7 @@ Semvers = 10.0.2
 
 // Miscellaneous
 GCC_PREPROCESSOR_DEFINITIONS = $(AppleSshFeatures) $(DebugFlagDefinition)
-HEADER_SEARCH_PATHS = $(Libcrypto_include) $(SRCROOT)/openssh
+HEADER_SEARCH_PATHS = $(Libcrypto_include) $(SRCROOT)/openssh $(SRCROOT)/openssh/openbsd-compat/include
 INSTALL_PATH_regress = /usr/local/libexec/openssh/regression-tests
 Frameworks = -framework Foundation -framework Kerberos -framework OpenDirectory -weak-lEndpointSecuritySystem -weak-lManagedConfigurationFiles
 OTHER_LDFLAGS = -Wl,-pie $(Frameworks) -lbsm $(Libcrypto_lib) -lpam -lresolv -lz

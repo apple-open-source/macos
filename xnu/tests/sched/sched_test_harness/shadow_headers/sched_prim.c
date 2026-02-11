@@ -319,44 +319,6 @@ sched_timeshare_timebase_init(void)
 	default_timeshare_constraint = std_quantum;
 }
 
-/* Returns the scheduling type for the pset */
-cluster_type_t
-pset_type_for_id(uint32_t cluster_id)
-{
-	return pset_array[cluster_id]->pset_type;
-}
-
-cluster_type_t
-pset_cluster_type_to_cluster_type(pset_cluster_type_t pset_cluster_type)
-{
-	switch (pset_cluster_type) {
-#if __AMP__
-	case PSET_AMP_E:
-		return CLUSTER_TYPE_E;
-	case PSET_AMP_P:
-		return CLUSTER_TYPE_P;
-#endif /* __AMP__ */
-	case PSET_SMP:
-		return CLUSTER_TYPE_SMP;
-	default:
-		panic("Unexpected pset cluster type %d", pset_cluster_type);
-	}
-}
-
-#if CONFIG_SCHED_EDGE
-
-uint64_t
-sched_pset_cluster_shared_rsrc_load(processor_set_t pset, cluster_shared_rsrc_type_t shared_rsrc_type)
-{
-	/* Prevent migrations to derecommended clusters */
-	if (!pset_is_recommended(pset)) {
-		return UINT64_MAX;
-	}
-	return os_atomic_load(&pset->pset_cluster_shared_rsrc_load[shared_rsrc_type], relaxed);
-}
-
-#endif /* CONFIG_SCHED_EDGE */
-
 /* Mocked version */
 processor_t
 choose_processor(
@@ -404,17 +366,18 @@ pset_type_is_recommended(processor_set_t pset)
 }
 
 void
-sched_update_pset_load_average(processor_set_t pset, uint64_t curtime)
-{
-	(void)pset;
-	(void)curtime;
-}
-
-void
 thread_setrun(thread_t thread, sched_options_t options)
 {
 	(void)thread;
 	(void)options;
+	assertf(false, "unimplemented");
+}
+
+void
+pulled_thread_queue_enqueue(
+	__unused struct pulled_thread_queue * threadq,
+	__unused thread_t thread)
+{
 	assertf(false, "unimplemented");
 }
 
@@ -425,3 +388,31 @@ sched_steal_thread_enabled(processor_set_t pset)
 }
 
 int sched_rt_n_backup_processors = SCHED_DEFAULT_BACKUP_PROCESSORS;
+
+void
+sched_update_pset_avg_execution_time(__unused processor_set_t pset, __unused uint64_t execution_time, __unused uint64_t curtime, __unused sched_bucket_t sched_bucket)
+{
+}
+
+void
+sched_update_pset_load_average(__unused processor_set_t pset, __unused uint64_t curtime)
+{
+}
+
+bool
+thread_is_eager_preempt(thread_t thread)
+{
+	return false;
+}
+
+perfcontrol_class_t
+thread_get_perfcontrol_class(thread_t thread)
+{
+	return PERFCONTROL_CLASS_MAX;
+}
+
+thread_urgency_t
+thread_get_urgency(thread_t thread, uint64_t *arg1, uint64_t *arg2)
+{
+	return THREAD_URGENCY_NONE;
+}

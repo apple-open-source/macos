@@ -227,6 +227,8 @@ struct Tree {
     bool operator==(const Tree&) const = default;
 };
 
+size_t computeDepth(const Tree&);
+
 // Math Operators.
 
 struct Sum {

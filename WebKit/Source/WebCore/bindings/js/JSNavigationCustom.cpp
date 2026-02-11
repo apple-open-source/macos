@@ -26,6 +26,9 @@
 #include "config.h"
 #include "JSNavigation.h"
 
+#include "JSNavigateEvent.h"
+#include "NavigateEvent.h"
+
 namespace WebCore {
 
 template<typename Visitor>
@@ -40,4 +43,4 @@ void JSNavigation::visitAdditionalChildren(Visitor& visitor)
 
 DEFINE_VISIT_ADDITIONAL_CHILDREN(JSNavigation);
 
-}
+} // namespace WebCore

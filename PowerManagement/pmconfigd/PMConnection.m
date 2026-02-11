@@ -2518,12 +2518,6 @@ static void PMConnectionPowerCallBack(
             gPendingScheduledWakeLog = NULL;
         }
 
-        // On a SilentRunningMachine, the assumption is that every wake is
-        // Silent until powerd unclamps SilentRunning or unforeseen thermal
-        // constraints arise
-
-        _clamp_silent_running();
-
         gMachineStateRevertible = true;
 
         BatteryTimeRemainingWakeNotification();

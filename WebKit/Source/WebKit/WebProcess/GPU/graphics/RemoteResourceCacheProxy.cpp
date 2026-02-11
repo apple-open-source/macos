@@ -119,7 +119,7 @@ void RemoteResourceCacheProxy::recordFilterUse(Filter& filter)
     }
 }
 
-void RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image, const DestinationColorSpace& fallbackColorSpace)
+bool RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image, const DestinationColorSpace& fallbackColorSpace)
 {
     if (isMainRunLoop())
         WebProcess::singleton().deferNonVisibleProcessEarlyMemoryCleanupTimer();
@@ -127,9 +127,9 @@ void RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image, const De
     auto entry = m_nativeImages.find(&image);
     if (entry != m_nativeImages.end()) {
         if (entry->value.existsInRemote)
-            return;
+            return true;
         if (!entry->value.bitmap)
-            return;
+            return false;
         handle = RefPtr { entry->value.bitmap }->createHandle();
         if (handle)
             entry->value.existsInRemote = true;
@@ -151,15 +151,15 @@ void RemoteResourceCacheProxy::recordNativeImageUse(NativeImage& image, const De
         }
     }
     if (!handle) {
-        // FIXME: Failing to send the image to GPUP will crash it when referencing this image.
         LOG_WITH_STREAM(Images, stream
             << "RemoteResourceCacheProxy::recordNativeImageUse() " << this
             << " image.size(): " << image.size()
             << " image.colorSpace(): " << image.colorSpace()
             << " ShareableBitmap could not be created; bailing.");
-        return;
+        return false;
     }
     m_remoteRenderingBackendProxy->cacheNativeImage(WTFMove(*handle), image.renderingResourceIdentifier());
+    return true;
 }
 
 void RemoteResourceCacheProxy::recordFontUse(Font& font)

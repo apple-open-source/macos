@@ -97,11 +97,7 @@ static	const char *const socktype[] =
 { "#0", "stream", "dgram", "raw" };
 
 static void
-unixdomainpr_n(struct xunpcb_n *xunp,
-	       struct xsocket_n *so,
-	       struct xsockbuf_n *so_rcv,
-	       struct xsockbuf_n *so_snd,
-	       struct xsockstat_n *so_stat)
+unixdomainpr_n(struct netstat_parameters *params, struct xunpcb_n *xunp, struct xsocket_n *so, struct xsockbuf_n *so_rcv, struct xsockbuf_n *so_snd, struct xsockstat_n *so_stat)
 {
 	struct sockaddr_un *sa;
 	static int first = 1;
@@ -115,7 +111,7 @@ unixdomainpr_n(struct xunpcb_n *xunp,
 		       "Address", "Type", "Recv-Q", "Send-Q",
 		       "Inode", "Conn", "Refs", "Nextref");
 
-		print_socket_stats_format();
+		print_socket_stats_format(params);
 
 		printf(" Addr\n");
 		first = 0;
@@ -127,7 +123,7 @@ unixdomainpr_n(struct xunpcb_n *xunp,
 	       xunp->xunp_vnode, xunp->xunp_conn,
 	       xunp->xunp_refs, xunp->xunp_reflink);
 
-	print_socket_stats_data(so, so_rcv, so_snd, so_stat);
+	print_socket_stats_data(params, so, so_rcv, so_snd, so_stat);
 
 	if (sa->sun_len)
 		printf(" %.*s",
@@ -136,8 +132,8 @@ unixdomainpr_n(struct xunpcb_n *xunp,
 	putchar('\n');
 }
 
-void
-unixpr_n(void)
+int
+unixpr_n(struct netstat_parameters *params)
 {
 	int    type;
 
@@ -159,16 +155,16 @@ unixpr_n(void)
 		len = 0;
 		if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
 			warn("sysctl: %s", mibvar);
-			return;
+			return -1;
 		}
 		if ((buf = malloc(len)) == 0) {
 			warn("malloc %lu bytes", (u_long)len);
-			return;
+			return -1;
 		}
 		if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
 			warn("sysctl: %s", mibvar);
 			free(buf);
-			return;
+			return -1;
 		}
 
 		oxug = xug = (struct xunpgen *)buf;
@@ -199,13 +195,13 @@ unixpr_n(void)
 						break;
 					default:
 						/* It's OK to have some extra bytes at the end */
-						if (which != 0 && vflag > 2) {
+						if (which != 0 && params->vflag > 2) {
 							printf("unexpected kind %d which 0x%x\n", xgn->xgn_kind, which);
 						}
 						break;
 				}
 			} else {
-				if (vflag)
+				if (params->vflag)
 					printf("got %d twice\n", xgn->xgn_kind);
 			}
 			if (which == ALL_XGN_KIND_UNPCB) {
@@ -213,7 +209,7 @@ unixpr_n(void)
 
 				if (xunp->xunp_gencnt > oxug->xug_gen)
 					continue;
-				unixdomainpr_n(xunp, so, so_rcv, so_snd, so_stat);
+				unixdomainpr_n(params, xunp, so, so_rcv, so_snd, so_stat);
 
 			}
 		}
@@ -232,17 +228,18 @@ unixpr_n(void)
 		}
 		free(buf);
 	}
+	return 0;
 }
 
-void
-unixpr(uint32_t proto, char *name, int af)
+int
+unixpr(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 {
 #pragma unused(proto, name, af)
-	unixpr_n();
+	return unixpr_n(params);
 }
 
-void
-unixstats(uint32_t proto, char *name, int af)
+int
+unixstats(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 {
 #pragma unused(proto, name, af)
 	uint32_t pcbcount;
@@ -253,8 +250,10 @@ unixstats(uint32_t proto, char *name, int af)
 	len = sizeof(pcbcount);
 	if (sysctlbyname("net.local.pcbcount", &pcbcount, &len, 0, 0) < 0) {
 		warn("sysctl: net.local.pcbcount");
-		return;
+		return -1;
 	}
 
 	printf("\t%u open local socket%s\n", pcbcount, plural(pcbcount));
+
+	return 0;;
 }

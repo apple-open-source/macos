@@ -495,7 +495,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 			udpstat.udps_noport++;
 			udpstat.udps_noportmcast++;
 			IF_UDP_STATINC(ifp, port_unreach);
-			drop_reason = DROP_REASON_IP_UNREACHABLE_PORT;
+			drop_reason = DROP_REASON_UDP_PORT_UNREACHEABLE;
 			goto bad;
 		}
 
@@ -610,7 +610,12 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 
 		if (udp6_port_unreach_rlc_compress(&ip6->ip6_src, uh->uh_sport,
 		    &ip6->ip6_dst, uh->uh_dport) == true) {
-			drop_reason = DROP_REASON_IP_UNREACHABLE_PORT;
+			drop_reason = DROP_REASON_UDP_PORT_UNREACHEABLE;
+			goto bad;
+		}
+		if (if_link_heuristics_enabled(ifp)) {
+			drop_reason = DROP_REASON_UDP_PORT_UNREACHEABLE;
+			IF_UDP_STATINC(ifp, linkheur_stealthdrop);
 			goto bad;
 		}
 		icmp6_error(m, ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT, 0);

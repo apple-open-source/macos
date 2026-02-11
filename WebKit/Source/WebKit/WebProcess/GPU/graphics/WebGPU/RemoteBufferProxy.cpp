@@ -90,8 +90,7 @@ void RemoteBufferProxy::copyFrom(std::span<const uint8_t> span, size_t offset)
     if (!m_mapModeFlags.contains(WebCore::WebGPU::MapMode::Write))
         return;
 
-    size_t actualCopySize = span.size() - offset;
-    if (actualCopySize > maxCrossProcessResourceCopySize) {
+    if (span.size() > maxCrossProcessResourceCopySize) {
         auto sharedMemory = WebCore::SharedMemory::copySpan(span);
         std::optional<WebCore::SharedMemoryHandle> handle;
         if (sharedMemory)

@@ -85,7 +85,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(removeCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:danglingPeerCleanup:caesarPeerCleanup:updateIdMS:knownFederations:flowID:deviceSessionID:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:rateLimit:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:daysLeftOnRateLimit:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(getSupportAppInfoWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetAccountCDPContentsWithSpecificUser:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:internalAccount:demoAccount:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeEscrowCacheWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
@@ -243,7 +243,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                                            reply:) argumentIndex:1 ofReply:NO];
         [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:trustedPeersHelperHealthCheckResult forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:danglingPeerCleanup:caesarPeerCleanup:updateIdMS: knownFederations:flowID:deviceSessionID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:escrowCheckCallResult forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:rateLimit:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:escrowCheckCallResult forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:daysLeftOnRateLimit:reply:) argumentIndex:0 ofReply:YES];
 
         [interface setClasses:trustedPeersHelperPeerState forSelector:@selector(updateWithSpecificUser:
                                                                                 forceRefetch:

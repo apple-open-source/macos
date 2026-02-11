@@ -377,7 +377,7 @@ private:
 
     JS_EXPORT_PRIVATE static VM* s_recentVM;
 
-    friend class NeverDestroyed<VMManager>;
+    friend class LazyNeverDestroyed<VMManager>;
 };
 
 #undef FOR_EACH_STOP_THE_WORLD_REASON

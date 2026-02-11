@@ -54,7 +54,7 @@ class TextResourceDecoder;
 class ThreadableLoader;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(FileReaderLoader);
-class FileReaderLoader final : public ThreadableLoaderClient {
+class FileReaderLoader final : public ThreadableLoaderClient, public RefCounted<FileReaderLoader> {
     WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FileReaderLoader, FileReaderLoader);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FileReaderLoader);
 public:
@@ -68,7 +68,7 @@ public:
     };
 
     // If client is given, do the loading asynchronously. Otherwise, load synchronously.
-    WEBCORE_EXPORT FileReaderLoader(ReadType, FileReaderLoaderClient*);
+    WEBCORE_EXPORT static Ref<FileReaderLoader> create(ReadType, FileReaderLoaderClient*);
     ~FileReaderLoader();
 
     WEBCORE_EXPORT void start(ScriptExecutionContext*, Blob&);
@@ -95,6 +95,9 @@ public:
     bool isCompleted() const;
 
 private:
+    // If client is given, do the loading asynchronously. Otherwise, load synchronously.
+    FileReaderLoader(ReadType, FileReaderLoaderClient*);
+
     void terminate();
     void cleanup();
     void failed(ExceptionCode);

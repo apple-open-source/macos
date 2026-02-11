@@ -581,7 +581,7 @@ fsw_ethernet_demux(struct nx_flowswitch *fsw, struct __kern_packet *pkt)
 		}
 	}
 	pkt->pkt_l2_len = ETHER_HDR_LEN;
-	if ((eh->ether_dhost[0] & 1) == 0) {
+	if (ETHER_IS_MULTICAST(eh->ether_dhost) == 0) {
 		/*
 		 * When the driver is put into promiscuous mode we may receive
 		 * unicast frames that are not intended for our interfaces.
@@ -593,6 +593,21 @@ fsw_ethernet_demux(struct nx_flowswitch *fsw, struct __kern_packet *pkt)
 			pkt->pkt_pflags |= PKT_F_PROMISC;
 			STATS_INC(&fsw->fsw_stats, FSW_STATS_RX_DEMUX_PROMISC);
 			return AF_UNSPEC;
+		}
+	} else {
+		/* ether multicast or broadcast */
+		if (_ether_cmp(etherbroadcastaddr, eh->ether_dhost) == 0) {
+			pkt->pkt_link_flags |= PKT_LINKF_BCAST;
+
+			if (pkt->pkt_pflags & PKT_F_MBUF_DATA) {
+				pkt->pkt_mbuf->m_flags |= M_BCAST;
+			}
+		} else {
+			pkt->pkt_link_flags |= PKT_LINKF_MCAST;
+
+			if (pkt->pkt_pflags & PKT_F_MBUF_DATA) {
+				pkt->pkt_mbuf->m_flags |= M_MCAST;
+			}
 		}
 	}
 	uint16_t ether_type = ntohs(eh->ether_type);

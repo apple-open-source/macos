@@ -61,11 +61,11 @@ static const char *mptcpstates[] = {
 };
 
 int mptcp_done = 0;
-extern void inetprint (struct in_addr *, int, char *, int);
-extern void inet6print (struct in6_addr *, int, char *, int);
+extern void inetprint (struct netstat_parameters *, struct in_addr *, int, char *, int);
+extern void inet6print (struct netstat_parameters *, struct in6_addr *, int, char *, int);
 
 static void
-printmptcp(int id, conninfo_mptcp_t *mptcp)
+printmptcp(struct netstat_parameters *params, int id, conninfo_mptcp_t *mptcp)
 {
 	int i;
 	conninfo_tcp_t *tcpci;
@@ -94,17 +94,17 @@ printmptcp(int id, conninfo_mptcp_t *mptcp)
 #define SIN6(x) ((struct sockaddr_in6 *)(x))
 		switch (af) {
 		case AF_INET:
-			inetprint(&SIN(src)->sin_addr, SIN(src)->sin_port,
-			    "tcp", nflag);
-			inetprint(&SIN(dst)->sin_addr, SIN(dst)->sin_port,
-			    "tcp", nflag);
+			inetprint(params, &SIN(src)->sin_addr, SIN(src)->sin_port,
+			    "tcp", params->nflag);
+			inetprint(params, &SIN(dst)->sin_addr, SIN(dst)->sin_port,
+			    "tcp", params->nflag);
 			break;
 #ifdef INET6
 		case AF_INET6:
-			inet6print(&SIN6(src)->sin6_addr, SIN6(src)->sin6_port,
-			    "tcp", nflag);
-			inet6print(&SIN6(dst)->sin6_addr, SIN6(dst)->sin6_port,
-			    "tcp", nflag);
+			inet6print(params, &SIN6(src)->sin6_addr, SIN6(src)->sin6_port,
+			    "tcp", params->nflag);
+			inet6print(params, &SIN6(dst)->sin6_addr, SIN6(dst)->sin6_port,
+			    "tcp", params->nflag);
 			break;
 		}
 #endif
@@ -122,33 +122,36 @@ printmptcp(int id, conninfo_mptcp_t *mptcp)
 	}
 }
 
-void
-mptcppr(uint32_t off, char *name, int af)
+int
+mptcppr(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 #pragma unused(off, name, af)
 	const char *mibvar = "net.inet.mptcp.pcblist";
 	size_t len = 0;
 	conninfo_mptcp_t *mptcp;
-	char *buf, *bufp;
+	char *buf = NULL, *bufp;
 	int id = 0;
+	int retval = 0;
 
-	if (Lflag || Aflag || mptcp_done)
-		return;
+	if (params->Lflag || params->Aflag || mptcp_done)
+		return -1;
 	mptcp_done = 1;
 
 	if (sysctlbyname(mibvar, 0, &len, NULL, 0) < 0) {
 		if (errno != ENOENT)
 			warn("sysctl: %s", mibvar);
-		return;
+		retval = -1;
+		goto done;
 	}
 	if ((buf = malloc(len)) == NULL) {
 		warn("malloc");
-		return;
+		retval = -1;
+		goto done;
 	}
 	if (sysctlbyname(mibvar, buf, &len, NULL, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		free(buf);
-		return;
+		retval = -1;
+		goto done;
 	}
 
 	printf("Active Multipath Internet connections\n");
@@ -163,8 +166,20 @@ mptcppr(uint32_t off, char *name, int af)
 		if (buf + len - bufp < sizeof(conninfo_mptcp_t))
 			break;
 		mptcp = (conninfo_mptcp_t *)bufp;
-		printmptcp(id++, mptcp);
+		printmptcp(params, id++, mptcp);
 		bufp += mptcp->mptcpci_len;
 	}
+done:
 	free(buf);
+
+	return retval;
+}
+
+int
+mptcp_reinit(struct netstat_parameters *params, uint32_t off, char *name, int af)
+{
+#pragma unused(params, off, name, af)
+	mptcp_done = 0;
+
+	return 0;
 }

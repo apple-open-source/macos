@@ -976,7 +976,7 @@ class Client: TrustedPeersHelperProtocol {
                             isBackgroundCheck: Bool,
                             flowID: String?,
                             deviceSessionID: String?,
-                            rateLimit: Int,
+                            daysLeftOnRateLimit: Int,
                             reply: @escaping (OTEscrowCheckCallResult?, (any Error)?) -> Void) {
         do {
             logger.info("Escrow Check for \(String(describing: user), privacy: .public)")
@@ -987,7 +987,7 @@ class Client: TrustedPeersHelperProtocol {
                                   isBackgroundCheck: isBackgroundCheck,
                                   flowID: flowID,
                                   deviceSessionID: deviceSessionID,
-                                  rateLimit: rateLimit) {result, error  in
+                                  daysLeftOnRateLimit: daysLeftOnRateLimit) { result, error  in
                 reply(result, error?.sanitizeForClientXPC())
             }
         } catch {

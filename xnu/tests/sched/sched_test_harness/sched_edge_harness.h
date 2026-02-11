@@ -9,6 +9,12 @@
 /* To get PSET_ID_INVALID */
 #include <kern/sched_common.h>
 
+/* Edge trace codes */
+extern const unsigned int EDGE_REBAL_RUNNABLE;
+extern const unsigned int EDGE_REBAL_RUNNING;
+extern const unsigned int EDGE_STEAL;
+extern const unsigned int EDGE_SHOULD_YIELD;
+
 extern void edge_set_thread_shared_rsrc(test_thread_t thread, bool native_first);
 
 #pragma mark - Realtime

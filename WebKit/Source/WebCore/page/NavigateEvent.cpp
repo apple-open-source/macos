@@ -126,16 +126,34 @@ void NavigateEvent::processScrollBehavior(Document& document)
     ASSERT(m_interceptionState == InterceptionState::Committed);
     m_interceptionState = InterceptionState::Scrolled;
 
-    if (m_navigationType == NavigationNavigationType::Traverse || m_navigationType == NavigationNavigationType::Reload) {
-        if (m_navigationType == NavigationNavigationType::Reload && document.url().hasFragmentIdentifier()) {
-            if (document.frame()->view()->scrollToFragment(document.url()))
-                return;
-        }
+    if (m_navigationType == NavigationNavigationType::Traverse) {
         document.frame()->loader().history().restoreScrollPositionAndViewState();
-    } else if (!document.frame()->view()->scrollToFragment(document.url())) {
-        if (!document.url().hasFragmentIdentifier())
-            document.frame()->view()->scrollTo({ 0, 0 });
+
+        return;
     }
+
+    if (!document.url().hasFragmentIdentifier()) {
+        if (m_navigationType == NavigationNavigationType::Reload)
+            document.frame()->loader().history().restoreScrollPositionAndViewState();
+        else
+            document.frame()->view()->scrollTo({ 0, 0 });
+
+        return;
+    }
+
+    // LocalFrameView::scrollToFragment() will fail only when anchor is not found
+    // if the url has fragment and the fragment is not text fragment.
+    if (!document.findAnchor(document.url().fragmentIdentifier())) {
+        if (m_navigationType == NavigationNavigationType::Reload)
+            document.frame()->loader().history().restoreScrollPositionAndViewState();
+
+        return;
+    }
+
+    if (!document.haveStylesheetsLoaded())
+        document.setGotoAnchorNeededAfterStylesheetsLoad(true);
+    else
+        document.frame()->view()->scrollToFragment(document.url());
 }
 
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-navigateevent-scroll

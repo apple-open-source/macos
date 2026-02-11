@@ -20,10 +20,11 @@ extern void                  impl_cpu_enqueue_thread(int cpu_id, test_thread_t t
 extern test_thread_t         impl_cpu_dequeue_thread(int cpu_id);
 extern test_thread_t         impl_cpu_dequeue_thread_compare_current(int cpu_id);
 extern bool                  impl_processor_csw_check(int cpu_id);
-extern void                  impl_pop_tracepoint(uint64_t *trace_code, uint64_t *arg1, uint64_t *arg2, uint64_t *arg3, uint64_t *arg4);
+extern void                  impl_pop_tracepoint(uint64_t trace_code, uint64_t *arg1, uint64_t *arg2, uint64_t *arg3, uint64_t *arg4);
 extern bool                  impl_thread_should_yield(int cpu_id);
 extern void                  impl_pop_ipi(int *cpu_id, test_ipi_type_t *ipi_type);
 extern void                  impl_send_ipi(int cpu_id, test_thread_t thread, test_ipi_event_t event);
+extern uint64_t              impl_get_thread_tid(test_thread_t thread);
 
 /* Migration-specific functions */
 extern void                  impl_init_migration_harness(test_hw_topology_t hw_topology);

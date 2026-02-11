@@ -83,7 +83,7 @@ AudioVideoRendererAVFObjC::AudioVideoRendererAVFObjC(const Logger& originalLogge
     : m_logger(originalLogger)
     , m_logIdentifier(logSiteIdentifier)
     , m_videoLayerManager(makeUniqueRef<VideoLayerManagerObjC>(originalLogger, logSiteIdentifier))
-    , m_synchronizer([adoptNS(PAL::allocAVSampleBufferRenderSynchronizerInstance()) init])
+    , m_synchronizer(adoptNS([PAL::allocAVSampleBufferRenderSynchronizerInstance() init]))
     , m_listener(WebAVSampleBufferListener::create(*this))
     , m_startupTime(MonotonicTime::now())
 {
@@ -558,7 +558,7 @@ void AudioVideoRendererAVFObjC::prepareToSeek()
 
 Ref<MediaTimePromise> AudioVideoRendererAVFObjC::seekTo(const MediaTime& seekTime)
 {
-    ALWAYS_LOG(LOGIDENTIFIER, seekTime, "state: ", toString(m_seekState), " m_isSynchronizerSeeking: ", m_isSynchronizerSeeking, " hasAvailableVideoFrame: ", m_hasAvailableVideoFrame);
+    ALWAYS_LOG(LOGIDENTIFIER, seekTime, "state: ", toString(m_seekState), " m_isSynchronizerSeeking: ", m_isSynchronizerSeeking, " hasAvailableVideoFrame: ", m_videoRenderer && allRenderersHaveAvailableSamples());
 
     cancelSeekingPromiseIfNeeded();
     if (m_seekState == RequiresFlush)
@@ -570,7 +570,7 @@ Ref<MediaTimePromise> AudioVideoRendererAVFObjC::seekTo(const MediaTime& seekTim
 
     bool isSynchronizerSeeking = m_isSynchronizerSeeking || std::abs((synchronizerTime - seekTime).toMicroseconds()) > 1000;
 
-    if (!isSynchronizerSeeking) {
+    if (!isSynchronizerSeeking && allRenderersHaveAvailableSamples()) {
         ALWAYS_LOG(LOGIDENTIFIER, "Synchroniser doesn't require seeking current: ", synchronizerTime, " seeking: ", seekTime);
         // In cases where the destination seek time matches too closely the synchronizer's existing time
         // no time jumped notification will be issued. In this case, just notify the MediaPlayer that
@@ -894,7 +894,7 @@ void AudioVideoRendererAVFObjC::addAudioRenderer(TrackIdentifier trackId)
     if (!m_audioTracksMap.add(trackId, AudioTrackProperties()).isNewEntry)
         return;
 
-    RetainPtr renderer = [adoptNS(PAL::allocAVSampleBufferAudioRendererInstance()) init];
+    RetainPtr renderer = adoptNS([PAL::allocAVSampleBufferAudioRendererInstance() init]);
 
     if (!renderer) {
         ERROR_LOG(LOGIDENTIFIER, "-[AVSampleBufferAudioRenderer init] returned nil! bailing!");
@@ -1137,9 +1137,11 @@ void AudioVideoRendererAVFObjC::ensureLayer()
 
     destroyVideoLayerIfNeeded();
 
-    m_sampleBufferDisplayLayer = [adoptNS(PAL::allocAVSampleBufferDisplayLayerInstance()) init];
+    m_sampleBufferDisplayLayer = adoptNS([PAL::allocAVSampleBufferDisplayLayerInstance() init]);
     if (!m_sampleBufferDisplayLayer) {
         ERROR_LOG(LOGIDENTIFIER, "-[AVSampleBufferDisplayLayer init] returned nil! bailing!");
+        ASSERT_NOT_REACHED();
+        notifyError(PlatformMediaError::VideoDecodingError);
         return;
     }
     [m_sampleBufferDisplayLayer setName:@"AudioVideoRendererAVFObjC AVSampleBufferDisplayLayer"];
@@ -1189,9 +1191,11 @@ void AudioVideoRendererAVFObjC::ensureVideoRenderer()
 
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    m_sampleBufferVideoRenderer = [adoptNS(PAL::allocAVSampleBufferVideoRendererInstance()) init];
+    m_sampleBufferVideoRenderer = adoptNS([PAL::allocAVSampleBufferVideoRendererInstance() init]);
     if (!m_sampleBufferVideoRenderer) {
         ERROR_LOG(LOGIDENTIFIER, "-[VSampleBufferVideoRenderer init] returned nil! bailing!");
+        ASSERT_NOT_REACHED();
+        notifyError(PlatformMediaError::VideoDecodingError);
         return;
     }
 

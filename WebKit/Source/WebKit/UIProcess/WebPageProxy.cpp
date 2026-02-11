@@ -13236,6 +13236,8 @@ void WebPageProxy::updateWebsitePolicies(const API::WebsitePolicies& policies)
 
 void WebPageProxy::convertPointToMainFrameCoordinates(WebCore::FloatPoint point, std::optional<WebCore::FrameIdentifier> frameID, CompletionHandler<void(std::optional<WebCore::FloatPoint>)>&& completionHandler)
 {
+    // FIXME: This method returns a point in main frame content coordinates when site isolation is disabled,
+    // but returns a point in root view coordinates when site isolation is enabled.
     RefPtr frame = WebFrameProxy::webFrame(frameID);
     if (!frame)
         return completionHandler(std::nullopt);
@@ -15291,12 +15293,22 @@ void WebPageProxy::setPrivateClickMeasurement(std::nullopt_t)
     internals().privateClickMeasurement = std::nullopt;
 }
 
+void WebPageProxy::setPrivateClickMeasurementImmediately(PrivateClickMeasurement&& measurement)
+{
+    protectedWebsiteDataStore()->storePrivateClickMeasurement(WTFMove(measurement));
+}
+
 auto WebPageProxy::privateClickMeasurementEventAttribution() const -> std::optional<EventAttribution>
 {
     auto& pcm = internals().privateClickMeasurement;
     if (!pcm)
         return std::nullopt;
     return { { pcm->pcm.sourceID(), pcm->pcm.destinationSite().registrableDomain.string(), pcm->sourceDescription, pcm->purchaser } };
+}
+
+void WebPageProxy::simulatePrivateClickMeasurementConversion(int priority, int triggerData, const URL& sourceURL, const URL& destinationURL)
+{
+    protectedWebsiteDataStore()->simulatePrivateClickMeasurementConversion(priority, triggerData, sourceURL, destinationURL);
 }
 
 #if ENABLE(APPLE_PAY)

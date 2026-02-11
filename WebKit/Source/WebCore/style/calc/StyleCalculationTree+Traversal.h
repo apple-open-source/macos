@@ -77,7 +77,10 @@ template<typename F, typename Op> void forAllChildren(const Op& root, const F& f
 
 template<typename F> void forAllChildren(const Child& root, const F& functor)
 {
-    WTF::switchOn(root, [&](const auto& root) { forAllChildren(*root, functor); });
+    WTF::switchOn(root,
+        [&](const Leaf auto&) { },
+        [&](const auto& root) { forAllChildren(*root, functor); }
+    );
 }
 
 } // namespace Calculation

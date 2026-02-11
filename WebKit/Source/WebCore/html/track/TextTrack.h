@@ -46,12 +46,14 @@ class VTTRegionList;
 class TextTrack : public TrackBase, public EventTarget, public ActiveDOMObject {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(TextTrack);
 public:
-    void ref() const final { RefCounted::ref(); }
-    void deref() const final { RefCounted::deref(); }
-
     static Ref<TextTrack> create(ScriptExecutionContext*, const AtomString& kind, TrackID, const AtomString& label, const AtomString& language);
     static Ref<TextTrack> create(ScriptExecutionContext*, const AtomString& kind, const AtomString& id, const AtomString& label, const AtomString& language);
     virtual ~TextTrack();
+
+    // ContextDestructionObserver.
+    void ref() const final { TrackBase::ref(); }
+    void deref() const final { TrackBase::deref(); }
+    USING_CAN_MAKE_WEAKPTR(EventTarget);
 
     void didMoveToNewDocument(Document& newDocument) final;
 

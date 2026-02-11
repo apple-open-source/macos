@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>expat</string>
 	<key>OpenSourceVersion</key>
-	<string>2.7.1</string>
+	<string>2.7.3</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>https://libexpat.github.io</string>
 	<key>OpenSourceURL</key>
-	<string>https://github.com/libexpat/libexpat/releases/download/R_2_7_1/expat-2.7.1.tar.bz2</string>
+	<string>https://github.com/libexpat/libexpat/releases/download/R_2_7_3/expat-2.7.3.tar.bz2</string>
 	<key>OpenSourceSHA512</key>
-	<string>ea78781ca03367a014afc1bb37c2306883b6f666d7cd90dc84a39c4abc6b7ec261636b8668540aa286c708a41dd02baae8249dc4391306da56431700460a0f23</string>
+	<string>92dd8a31a88ca73d5d8890be40c231ec037d8d13f6059a88bcf7bfaaa77c1c94dc2874f2dae508c0d077a3798bc006cfe9d7d0a918e08a67149d332c7fce4d23</string>
 	<key>OpenSourceImportDate</key>
-	<string>2025-03-31</string>
+	<string>2025-10-10</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>

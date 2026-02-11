@@ -594,7 +594,7 @@ ipc_kmsg_sign_descriptors(
 			mach_port_array_t    array = dsc->kext_address;
 
 			for (mach_msg_size_t j = 0; j < dsc->count; j++) {
-				array[i].port = ports[i];
+				array[j].port = ports[j];
 			}
 			dsc->address = array;
 			break;
@@ -671,7 +671,7 @@ ipc_kmsg_strip_descriptors(
 			mach_port_array_t    array = dsc->address;
 
 			for (mach_msg_size_t j = 0; j < dsc->count; j++) {
-				ports[i] = array[i].port;
+				ports[j] = array[j].port;
 			}
 			dsc->kext_address = array;
 			break;

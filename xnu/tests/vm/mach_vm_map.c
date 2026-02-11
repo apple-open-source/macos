@@ -106,7 +106,15 @@ mach_vm_map_unaligned_test(
 	    &size, scratch_addr + mo_offset, VM_PROT_DEFAULT | mo_flags,
 	    &mo_port, MACH_PORT_NULL);
 
-	if (vmflags & VM_FLAGS_RETURN_DATA_ADDR) {
+	if (mo_flags & (MAP_MEM_VM_COPY | MAP_MEM_VM_SHARE)) {
+		used_offset_for_size = 0;
+		if ((true) || vmflags & VM_FLAGS_RETURN_DATA_ADDR) {
+			used_offset_for_size += map_offset;
+		}
+		if (mo_flags & MAP_MEM_USE_DATA_ADDR) {
+			used_offset_for_size += mo_offset;
+		}
+	} else if (vmflags & VM_FLAGS_RETURN_DATA_ADDR) {
 		used_offset_for_size = map_offset;
 		if (mo_flags & MAP_MEM_USE_DATA_ADDR) {
 			used_offset_for_size += mo_offset;
@@ -182,15 +190,8 @@ mach_vm_map_unaligned_test(
 
 		if (!should_fail) {
 			want_addr = trunc_page(map_addr);
-			if (mo_flags & (MAP_MEM_VM_COPY | MAP_MEM_VM_SHARE)) {
-				/* mach_vm_map() only does full objects */
-				want_size = round_page(mo_offset + mo_size) - trunc_page(mo_offset);
-			} else {
-				want_size = round_page(used_offset_for_size + map_size) - trunc_page(used_offset_for_size);
-			}
-			if (mo_flags & (MAP_MEM_VM_COPY | MAP_MEM_VM_SHARE)) {
-				want_data = trunc_page(mo_offset) / sizeof(uint32_t);
-			} else if (mo_flags & MAP_MEM_USE_DATA_ADDR) {
+			want_size = round_page(used_offset_for_size + map_size) - trunc_page(used_offset_for_size);
+			if (mo_flags & MAP_MEM_USE_DATA_ADDR) {
 				want_data = (uint32_t)trunc_page(map_offset +
 				    mo_offset) / sizeof(uint32_t);
 			} else {

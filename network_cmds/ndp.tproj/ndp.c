@@ -136,6 +136,35 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <ifaddrs.h>
+#include <sysexits.h>
+
+struct ndp_command_args {
+	int aflag;
+	int cflag;
+	int dflag;
+	int fflag;
+	int Hflag;
+	int iflag;
+	int Iflag;
+	int lflag;
+	int nflag;
+	int pflag;
+	int Pflag;
+	int rflag;
+	int Rflag;
+	int sflag;
+	int tflag;
+	int wflag;
+	int Wflag;
+	int xflag;
+	int zflag;
+
+	int repeat;
+
+	int cmd_fmt;
+	size_t cmd_len;
+	char cmd_args[256];
+};
 
 /* packing rule for routing socket */
 #define	ROUNDUP(a) \
@@ -150,33 +179,30 @@
 	"\020\3PROXY\4RTPREF_HIGH\5RTPREF_LOW\6HA\7OTHER\10MANAGED"
 
 static int pid;
-static int cflag;
-static int nflag;
-static int tflag;
+
 static int32_t thiszone = 0;	/* time difference with gmt */
 static int s = -1;
-static int repeat = 0;
 
 static char host_buf[NI_MAXHOST];		/* getnameinfo() */
 static char ifix_buf[IFNAMSIZ];		/* if_indextoname() */
 
 static int file(char *);
-static void getsocket(void);
+static int getsocket(void);
 static int set(int, char **);
-static void get(char *);
-static int delete(char *);
-static void dump(struct in6_addr *);
-static void dump_ext(struct in6_addr *, int);
+static void get(char *, struct ndp_command_args *);
+static int delete(char *, struct ndp_command_args *);
+static void dump(struct in6_addr *, struct ndp_command_args *);
+static void dump_ext(struct in6_addr *, struct ndp_command_args *);
 static struct in6_nbrinfo *getnbrinfo(struct in6_addr *, int, int);
 static char *ether_str(struct sockaddr_dl *);
 static int ndp_ether_aton(char *, u_char *);
 static void usage(void);
 static int rtmsg(int);
 static void ifinfo(int, char **);
-static void rtrlist(void);
-static void plist(void);
+static void rtrlist(struct ndp_command_args *);
+static void plist(struct ndp_command_args *);
 static void pfx_flush(void);
-static void rtilist(void);
+static void rtilist(struct ndp_command_args *);
 static void rtr_flush(void);
 static void harmonize_rtr(void);
 static void getdefif(void);
@@ -184,9 +210,10 @@ static void setdefif(char *);
 static char *sec2str(time_t);
 static char *ether_str(struct sockaddr_dl *);
 static void ts_print(const struct timeval *);
-static void read_cga_parameters(void);
+static int read_cga_parameters(void);
 static void write_cga_parameters(const char[]);
 static void printb(const char *s, unsigned v, const char *bits);
+static int parse_command_line(int argc, char **argv, struct ndp_command_args *args);
 
 static char *rtpref_str[] = {
 	"medium",		/* 00 */
@@ -195,146 +222,260 @@ static char *rtpref_str[] = {
 	"low"			/* 11 */
 };
 
+static int
+parse_command_line(int argc, char **argv, struct ndp_command_args *args)
+{
+	int ch;
+
+	while ((ch = getopt(argc, argv, "acndfIilprstA:HPRxwWz%:")) != -1) {
+			switch ((char) ch) {
+			case 'a':
+				args->aflag = 1;
+				break;
+			case 'c':
+				args->cflag = 1;
+				break;
+			case 'd':
+				args->dflag = 1;
+				break;
+			case 'f' :
+				if (argc < 2) {
+					usage();
+					return EX_USAGE;
+				}
+				args->fflag = 1;
+				break;
+			case 'I':
+				args->Iflag = 1;
+				break;
+			case 'i' :
+				args->iflag = 1;
+				break;
+			case 'l' :
+				args->lflag = 1;
+				break;
+			case 'n':
+				args->nflag = 1;
+				break;
+			case 'p':
+				args->pflag = 1;
+				break;
+			case 'r' :
+				args->rflag = 1;
+				break;
+			case 's':
+				args->sflag = 1;
+				break;
+			case 't':
+				args->tflag = 1;
+				break;
+			case 'A':
+				args->aflag = 1;
+				args->repeat = atoi(optarg);
+				if (args->repeat < 0) {
+					usage();
+					return EX_USAGE;
+				}
+				break;
+			case 'H':
+				args->Hflag = 1;
+				break;
+			case 'P':
+				args->Pflag = 1;
+				break;
+			case 'R':
+				args->Rflag = 1;
+				break;
+			case 'x':
+				args->xflag = 1;
+				args->lflag = 1;
+				break;
+			case 'w':
+				args->wflag = 1;
+				break;
+			case 'W':
+				args->Wflag = 1;
+				if (argc < 2) {
+					usage();
+					return EX_USAGE;
+				}
+				break;
+			case 'z':
+				args->zflag = 1;
+				break;
+			case '%':
+				args->cmd_fmt = atoi(optarg);
+				break;
+			default:
+				usage();
+				return EX_USAGE;
+			}
+		}
+		return 0;
+}
+
+static int
+run_ndp_command(int argc, char **argv, struct ndp_command_args *args, int cmd_optind)
+{
+	if (args->cmd_fmt == 1) {
+		printf("#\n# %s %s\n#\n", getprogname(), args->cmd_args);
+	}
+
+	/* Skip the command options */
+	argc -= cmd_optind;
+	argv += cmd_optind;
+
+	if (args->aflag || args->cflag) {
+		if (args->lflag)
+			dump_ext(0, args);
+		else
+			dump(0, args);
+		return 0;
+	}
+	if (args->dflag) {
+		if (argc < 1) {
+			usage();
+			return EX_USAGE;
+		}
+		delete(argv[0], args);
+		return 0;
+	}
+	if (args->fflag) {
+		file(argv[0]);
+		return 0;
+	}
+	if (args->Iflag) {
+		if (argc > 1)
+			setdefif(argv[0]);
+		getdefif(); /* always call it to print the result */
+		return 0;
+	}
+	if (args->iflag) {
+		ifinfo(argc, argv);
+		return 0;
+	}
+	if (args->pflag) {
+			plist(args);
+		return 0;
+	}
+	if (args->rflag) {
+		rtrlist(args);
+		return 0;
+	}
+	if (args->sflag) {
+		if (argc < 2 || argc > 4) {
+			usage();
+			return EX_USAGE;
+		}
+		return set(argc, argv) ? 1 : 0;
+	}
+	if (args->Hflag) {
+		harmonize_rtr();
+		return 0;
+	}
+	if (args->Pflag) {
+		pfx_flush();
+		return 0;
+	}
+	if (args->Rflag) {
+		rtr_flush();
+		return 0;
+	}
+	if (args->wflag) {
+		read_cga_parameters();
+		return 0;
+	}
+	if (args->Wflag) {
+		write_cga_parameters(argv[0]);
+		return 0;
+	}
+	if (args->zflag) {
+		rtilist(args);
+		return 0;
+	}
+
+	if (argc != 1) {
+		usage();
+		return EX_USAGE;
+	}
+	get(argv[0], args);
+	return 0;
+}
+
 int
 main(int argc, char **argv)
 {
-	int ch;
-	int aflag = 0, dflag = 0, sflag = 0, Hflag = 0, pflag = 0, rflag = 0,
-	    Pflag = 0, Rflag = 0, lflag = 0, xflag = 0, wflag = 0, zflag = 0;
+	int print_banner = 0; /* The option is sticky */
 
 	pid = getpid();
-	while ((ch = getopt(argc, argv, "acndfIilprstA:HPRxwWz")) != -1)
-		switch ((char) ch) {
-		case 'a':
-			aflag = 1;
-			break;
-		case 'c':
-			cflag = 1;
-			break;
-		case 'd':
-			dflag = 1;
-			break;
-		case 'I':
-			if (argc > 2)
-				setdefif(argv[2]);
-			getdefif(); /* always call it to print the result */
-			exit(0);
-		case 'i' :
-			argc -= optind;
-			argv += optind;
-			ifinfo(argc, argv);
-			exit(0);
-		case 'n':
-			nflag = 1;
-			continue;
-		case 'p':
-			pflag = 1;
-			break;
-		case 'f' :
-			if (argc != 3)
-				usage();
-			file(argv[2]);
-			exit(0);
-		case 'l' :
-			lflag = 1;
-			break;
-		case 'r' :
-			rflag = 1;
-			break;
-		case 's':
-			sflag = 1;
-			break;
-		case 't':
-			tflag = 1;
-			break;
-		case 'A':
-			aflag = 1;
-			repeat = atoi(optarg);
-			if (repeat < 0)
-				usage();
-			break;
-		case 'H' :
-			Hflag = 1;
-			break;
-		case 'P':
-			Pflag = 1;
-			break;
-		case 'R':
-			Rflag = 1;
-			break;
-		case 'x':
-			xflag = 1;
-			lflag = 1;
-			break;
-		case 'w':
-			wflag = 1;
-			break;
-		case 'W':
-			if (argc != 3)
-				usage();
-			write_cga_parameters(argv[2]);
-			exit(0);
-		case 'z':
-			zflag = 1;
-			break;
-		default:
-			usage();
+
+	/* Skip the program name */
+	argv += 1;
+	argc -= 1;
+
+	do {
+		struct ndp_command_args args = { 0 };
+		int cmd_argc = 0;
+		int cmd_offset = 0; /* offset to the next command */
+		int cmd_optind = 0;
+		int skip_offset = 0;
+		int retval;
+
+		optind = 0;
+		args.cmd_fmt = -1;
+		retval = parse_command_line(argc, argv, &args);
+		if (args.cmd_fmt == -1) {
+			args.cmd_fmt = print_banner;
 		}
 
-	argc -= optind;
-	argv += optind;
+		/*
+		 * Find how many arguments the command takes
+		 * and save its arguments to print in the banner
+		 */
+		for (int i = 0; i < argc; i++) {
+			cmd_offset += 1;
 
-	if (aflag || cflag) {
-		if (lflag)
-			dump_ext(0, xflag);
-		else
-			dump(0);
-		exit(0);
-	}
-	if (dflag) {
-		if (argc != 1)
-			usage();
-		delete(argv[0]);
-		exit(0);
-	}
-	if (pflag) {
-		plist();
-		exit(0);
-	}
-	if (rflag) {
-		rtrlist();
-		exit(0);
-	}
-	if (sflag) {
-		if (argc < 2 || argc > 4)
-			usage();
-		exit(set(argc, argv) ? 1 : 0);
-	}
-	if (Hflag) {
-		harmonize_rtr();
-		exit(0);
-	}
-	if (Pflag) {
-		pfx_flush();
-		exit(0);
-	}
-	if (Rflag) {
-		rtr_flush();
-		exit(0);
-	}
-	if (wflag) {
-		read_cga_parameters();
-		exit(0);
-	}
-	if (zflag) {
-		rtilist();
-		exit(0);
-	}
+			/* We've reached the end of the list */
+			if (strcmp(argv[i], ",") == 0) {
+				break;
+			}
+			/* Ignore the option to controls the display of the banner */
+			if (strcmp(argv[i], "-%") == 0) {
+				if (i != 0) {
+					warnx("option -%% needs to appear first");
+					retval = EX_USAGE;
+				}
+				/* Skip its parameter */
+				skip_offset = 2;
+				cmd_offset += 1;
+				i += 1;
+				print_banner = args.cmd_fmt;
+				continue;
+			}
+			/* This is a command parameter */
+			cmd_argc += 1;
+			if (argv[i][0] == '-') {
+				cmd_optind += 1;
+			}
+			if (args.cmd_len < sizeof(args.cmd_args)) {
+				int n = snprintf(args.cmd_args + args.cmd_len, sizeof(args.cmd_args) - args.cmd_len, "%s ", argv[i]);
+				if (n > 0) {
+					args.cmd_len += n;
+				}
+			}
+		}
 
-	if (argc != 1)
-		usage();
-	get(argv[0]);
-	exit(0);
+		/* cmd_argc may be zero if the command has a solo -% */
+		if (retval == 0 && cmd_argc != 0) {
+			run_ndp_command(cmd_argc, &argv[skip_offset], &args, cmd_optind);
+		}
+
+		/* Move to the next command past the comma */
+		argv += cmd_offset;
+		argc -= cmd_offset;
+	} while (argc > 0);
+
+	return 0;
 }
 
 /*
@@ -349,7 +490,7 @@ file(char *name)
 
 	if ((fp = fopen(name, "r")) == NULL) {
 		fprintf(stderr, "ndp: cannot open %s\n", name);
-		exit(1);
+		return -1;
 	}
 	args[0] = &arg[0][0];
 	args[1] = &arg[1][0];
@@ -372,16 +513,17 @@ file(char *name)
 	return (retval);
 }
 
-static void
+static int
 getsocket(void)
 {
 	if (s < 0) {
 		s = socket(PF_ROUTE, SOCK_RAW, 0);
 		if (s < 0) {
 			perror("ndp: socket");
-			exit(1);
+			return -1;
 		}
 	}
+	return s;
 }
 
 struct sockaddr_in6 so_mask = {sizeof (so_mask), AF_INET6 };
@@ -407,7 +549,9 @@ set(int argc, char **argv)
 	u_char *ea;
 	char *host = argv[0], *eaddr = argv[1];
 
-	getsocket();
+	if (getsocket() == -1) {
+		return EX_OSERR;
+	}
 	argc -= 2;
 	argv += 2;
 	sdl_m = blank_sdl;
@@ -476,7 +620,7 @@ overwrite:
  * Display an individual neighbor cache entry
  */
 static void
-get(char *host)
+get(char *host, struct ndp_command_args *args)
 {
 	struct sockaddr_in6 *sin = &sin_m;
 	struct addrinfo hints, *res;
@@ -498,10 +642,10 @@ get(char *host)
 		    htons(((struct sockaddr_in6 *)res->ai_addr)->sin6_scope_id);
 	}
 #endif
-	dump(&sin->sin6_addr);
+	dump(&sin->sin6_addr, args);
 	if (found_entry == 0) {
 		getnameinfo((struct sockaddr *)sin, sin->sin6_len, host_buf,
-		    sizeof (host_buf), NULL, 0, NI_WITHSCOPEID | (nflag ?
+		    sizeof (host_buf), NULL, 0, NI_WITHSCOPEID | (args->nflag ?
 		    NI_NUMERICHOST : 0));
 		printf("%s (%s) -- no entry\n", host, host_buf);
 		exit(1);
@@ -512,7 +656,7 @@ get(char *host)
  * Delete a neighbor cache entry
  */
 static int
-delete(char *host)
+delete(char *host, struct ndp_command_args *args)
 {
 	struct sockaddr_in6 *sin = &sin_m;
 	register struct rt_msghdr *rtm = &m_rtmsg.m_rtm;
@@ -520,7 +664,9 @@ delete(char *host)
 	struct addrinfo hints, *res;
 	int gai_error;
 
-	getsocket();
+	if (getsocket() == -1) {
+		return EX_OSERR;
+	}
 	sin_m = blank_sin;
 
 	bzero(&hints, sizeof (hints));
@@ -575,7 +721,7 @@ delete:
 		getnameinfo((struct sockaddr *)&s6,
 			    s6.sin6_len, host_buf,
 			    sizeof (host_buf), NULL, 0,
-			    NI_WITHSCOPEID | (nflag ? NI_NUMERICHOST : 0));
+			    NI_WITHSCOPEID | (args->nflag ? NI_NUMERICHOST : 0));
 		printf("%s (%s) deleted\n", host, host_buf);
 	}
 
@@ -590,7 +736,7 @@ delete:
  * Dump the entire neighbor cache
  */
 static void
-dump(struct in6_addr *addr)
+dump(struct in6_addr *addr, struct ndp_command_args *args)
 {
 	int mib[6];
 	size_t needed;
@@ -605,27 +751,37 @@ dump(struct in6_addr *addr)
 	int ifwidth;
 	char flgbuf[8];
 	char *ifname;
+	int retval = 0;
 
 	/* Print header */
-	if (!tflag && !cflag)
+	if (!args->tflag && !args->cflag)
 		printf("%-*.*s %-*.*s %*.*s %-9.9s %2s %4s %4s\n",
 		    W_ADDR, W_ADDR, "Neighbor", W_LL, W_LL, "Linklayer Address",
 		    W_IF, W_IF, "Netif", "Expire", "St", "Flgs", "Prbs");
 
-again:;
+again:
 	mib[0] = CTL_NET;
 	mib[1] = PF_ROUTE;
 	mib[2] = 0;
 	mib[3] = AF_INET6;
 	mib[4] = NET_RT_FLAGS;
 	mib[5] = RTF_LLINFO;
-	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0)
-		err(1, "sysctl(PF_ROUTE estimate)");
+	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) {
+		warn("sysctl(PF_ROUTE estimate)");
+		retval = EX_OSERR;
+		goto done;
+	}
 	if (needed > 0) {
-		if ((buf = malloc(needed)) == NULL)
-			errx(1, "malloc");
-		if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0)
-			err(1, "sysctl(PF_ROUTE, NET_RT_FLAGS)");
+		if ((buf = malloc(needed)) == NULL) {
+			warn("malloc");
+			retval = EX_OSERR;
+			goto done;
+		}
+		if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0) {
+			warn("sysctl(PF_ROUTE, NET_RT_FLAGS)");
+			retval = EX_OSERR;
+			goto done;
+		}
 		lim = buf + needed;
 	} else
 		buf = lim = NULL;
@@ -673,14 +829,14 @@ again:;
 		}
 		getnameinfo((struct sockaddr *)sin, sin->sin6_len, host_buf,
 			    sizeof (host_buf), NULL, 0,
-			    NI_WITHSCOPEID | (nflag ? NI_NUMERICHOST : 0));
-		if (cflag == 1) {
+			    NI_WITHSCOPEID | (args->nflag ? NI_NUMERICHOST : 0));
+		if (args->cflag == 1) {
 			if (rtm->rtm_flags & RTF_WASCLONED)
-				delete(host_buf);
+				delete(host_buf, args);
 			continue;
 		}
 		gettimeofday(&time, 0);
-		if (tflag)
+		if (args->tflag)
 			ts_print(&time);
 
 		addrwidth = strlen(host_buf);
@@ -767,12 +923,15 @@ again:;
 
 		printf("\n");
 	}
-	if (buf != NULL)
+done:
+	if (buf != NULL) {
 		free(buf);
+		buf = NULL;
+	}
 
-	if (repeat) {
+	if (args->repeat && retval == 0) {
 		printf("\n");
-		sleep(repeat);
+		sleep(args->repeat);
 		goto again;
 	}
 }
@@ -781,9 +940,7 @@ again:;
  * Dump the entire neighbor cache (extended)
  */
 void
-dump_ext(addr, xflag)
-	struct in6_addr *addr;
-	int xflag;
+dump_ext(struct in6_addr *addr, struct ndp_command_args *args)
 {
 	int mib[6];
 	size_t needed;
@@ -798,32 +955,42 @@ dump_ext(addr, xflag)
 	int ifwidth;
 	char flgbuf[8];
 	char *ifname;
+	int retval = 0;
 
 	/* Print header */
-	if (!tflag && !cflag) {
+	if (!args->tflag && !args->cflag) {
 		printf("%-*.*s %-*.*s %*.*s %-9.9s %-9.9s %2s %4s %4s",
 		    W_ADDR, W_ADDR, "Neighbor", W_LL, W_LL, "Linklayer Address",
 		    W_IF, W_IF, "Netif", "Expire(O)", "Expire(I)", "St",
 		    "Flgs", "Prbs");
-		if (xflag)
+		if (args->xflag)
 			printf(" %-7.7s %-7.7s %-7.7s", "RSSI", "LQM", "NPM");
 		printf("\n");
 	}
 
-again:;
+again:
 	mib[0] = CTL_NET;
 	mib[1] = PF_ROUTE;
 	mib[2] = 0;
 	mib[3] = AF_INET6;
 	mib[4] = NET_RT_DUMPX_FLAGS;
 	mib[5] = RTF_LLINFO;
-	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0)
-		err(1, "sysctl(PF_ROUTE estimate)");
+	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) {
+		warn("sysctl(PF_ROUTE estimate)");
+		retval = EX_OSERR;
+		goto done;
+	}
 	if (needed > 0) {
-		if ((buf = malloc(needed)) == NULL)
-			errx(1, "malloc");
-		if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0)
-			err(1, "sysctl(PF_ROUTE, NET_RT_FLAGS)");
+		if ((buf = malloc(needed)) == NULL) {
+			warn("malloc");
+			retval = EX_OSERR;
+			goto done;
+		}
+		if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0) {
+			warn("sysctl(PF_ROUTE, NET_RT_FLAGS)");
+			retval = EX_OSERR;
+			goto done;
+		}
 		lim = buf + needed;
 	} else
 		buf = lim = NULL;
@@ -871,14 +1038,14 @@ again:;
 		}
 		getnameinfo((struct sockaddr *)sin, sin->sin6_len, host_buf,
 			    sizeof (host_buf), NULL, 0,
-			    NI_WITHSCOPEID | (nflag ? NI_NUMERICHOST : 0));
-		if (cflag == 1) {
+			    NI_WITHSCOPEID | (args->nflag ? NI_NUMERICHOST : 0));
+		if (args->cflag == 1) {
 			if (ertm->rtm_flags & RTF_WASCLONED)
-				delete(host_buf);
+				delete(host_buf, args);
 			continue;
 		}
 		gettimeofday(&time, 0);
-		if (tflag)
+		if (args->tflag)
 			ts_print(&time);
 
 		addrwidth = strlen(host_buf);
@@ -973,7 +1140,7 @@ again:;
 		if (prbs)
 			printf(" %4d", prbs);
 
-		if (xflag) {
+		if (args->xflag) {
 			if (!prbs)
 				printf(" %-4.4s", "none");
 
@@ -1023,12 +1190,13 @@ again:;
 
 		printf("\n");
 	}
+done:
 	if (buf != NULL)
 		free(buf);
 
-	if (repeat) {
+	if (args->repeat) {
 		printf("\n");
-		sleep(repeat);
+		sleep(args->repeat);
 		goto again;
 	}
 }
@@ -1042,8 +1210,10 @@ getnbrinfo(addr, ifindex, warning)
 	static struct in6_nbrinfo nbi;
 	int s;
 
-	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
-		err(1, "socket");
+	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		warn("socket");
+		return NULL;
+	}
 
 	bzero(&nbi, sizeof (nbi));
 	if_indextoname(ifindex, nbi.ifname);
@@ -1112,7 +1282,6 @@ usage(void)
 	printf("       ndp -w\n");
 	printf("       ndp -W cfgfile\n");
 	printf("       ndp -z[n]\n");
-	exit(1);
 }
 
 static int
@@ -1327,7 +1496,7 @@ done:
 }
 
 static void
-rtrlist(void)
+rtrlist(struct ndp_command_args *args)
 {
 	int mib[] = { CTL_NET, PF_INET6, IPPROTO_ICMPV6, ICMPV6CTL_ND6_DRLIST };
 	char *buf;
@@ -1335,19 +1504,19 @@ rtrlist(void)
 	size_t l;
 	struct timeval time;
 
-	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), NULL, &l, NULL, 0)
-	    < 0) {
-		err(1, "sysctl(ICMPV6CTL_ND6_DRLIST)");
+	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), NULL, &l, NULL, 0) < 0) {
+		warn("sysctl(ICMPV6CTL_ND6_DRLIST)");
+		return;
 		/*NOTREACHED*/
 	}
 	buf = malloc(l);
-	if (!buf) {
-		errx(1, "not enough core");
-		/*NOTREACHED*/
+	if (buf == NULL) {
+		warn("not enough core");
+		return;
 	}
 	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), buf, &l, NULL, 0) < 0) {
-		err(1, "sysctl(ICMPV6CTL_ND6_DRLIST)");
-		/*NOTREACHED*/
+		warn("sysctl(ICMPV6CTL_ND6_DRLIST)");
+		goto done;
 	}
 
 	ep = (struct in6_defrouter *)(buf + l);
@@ -1356,7 +1525,7 @@ rtrlist(void)
 
 		if (getnameinfo((struct sockaddr *)&p->rtaddr,
 		    p->rtaddr.sin6_len, host_buf, sizeof (host_buf), NULL, 0,
-		    NI_WITHSCOPEID | (nflag ? NI_NUMERICHOST : 0)) != 0)
+		    NI_WITHSCOPEID | (args->nflag ? NI_NUMERICHOST : 0)) != 0)
 			strlcpy(host_buf, "?", sizeof (host_buf));
 
 		printf("%s if=%s", host_buf, if_indextoname(p->if_index,
@@ -1377,12 +1546,13 @@ rtrlist(void)
 			printf(", expire=%s\n",
 				sec2str(p->expire - time.tv_sec));
 	}
+done:
 	free(buf);
 }
 
 #ifdef ICMPV6CTL_ND6_RTILIST
 static void
-rtilist(void)
+rtilist(struct ndp_command_args *args)
 {
 	int mib[] = { CTL_NET, PF_INET6, IPPROTO_ICMPV6, ICMPV6CTL_ND6_RTILIST };
 	char *buf;
@@ -1391,20 +1561,18 @@ rtilist(void)
 	size_t l;
 	struct timeval time;
 
-	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), NULL, &l, NULL, 0)
-			< 0) {
-		err(1, "sysctl(ICMPV6CTL_ND6_RTILIST)");
-		/*NOTREACHED*/
+	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), NULL, &l, NULL, 0) < 0) {
+		warn("sysctl(ICMPV6CTL_ND6_RTILIST)");
+		return;
 	}
 	buf = malloc(l);
-	if (!buf) {
-		errx(1, "not enough core");
-		/*NOTREACHED*/
+	if (buf == NULL) {
+		warn("not enough core");
+		return;
 	}
-	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), buf, &l, NULL, 0)
-			< 0) {
-		err(1, "sysctl(ICMPV6CTL_ND6_RTILIST)");
-		/*NOTREACHED*/
+	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), buf, &l, NULL, 0) < 0) {
+		warn("sysctl(ICMPV6CTL_ND6_RTILIST)");
+		goto done;
 	}
 
 	ep = (struct in6_route_info *)(buf + l);
@@ -1427,7 +1595,7 @@ rtilist(void)
 
 				if (getnameinfo((struct sockaddr *)&x->rtaddr,
 								x->rtaddr.sin6_len, host_buf, sizeof(host_buf), NULL, 0,
-								NI_WITHSCOPEID | (nflag ? NI_NUMERICHOST : 0)) != 0) {
+								NI_WITHSCOPEID | (args->nflag ? NI_NUMERICHOST : 0)) != 0) {
 					strlcpy(host_buf, "?", sizeof (host_buf));
 				}
 
@@ -1457,12 +1625,13 @@ rtilist(void)
 
 		}
 	}
+done:
 	free(buf);
 }
 #endif
 
 static void
-plist(void)
+plist(struct ndp_command_args *args)
 {
 	int mib[] = { CTL_NET, PF_INET6, IPPROTO_ICMPV6, ICMPV6CTL_ND6_PRLIST };
 	char *buf;
@@ -1471,23 +1640,21 @@ plist(void)
 	size_t l;
 	struct timeval time;
 	const int niflags = NI_NUMERICHOST | NI_WITHSCOPEID;
-	int ninflags = (nflag ? NI_NUMERICHOST : 0) | NI_WITHSCOPEID;
+	int ninflags = (args->nflag ? NI_NUMERICHOST : 0) | NI_WITHSCOPEID;
 	char namebuf[NI_MAXHOST];
 
-	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), NULL, &l, NULL, 0)
-	    < 0) {
-		err(1, "sysctl(ICMPV6CTL_ND6_PRLIST)");
-		/*NOTREACHED*/
+	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), NULL, &l, NULL, 0) < 0) {
+		warn("sysctl(ICMPV6CTL_ND6_PRLIST)");
+		return;
 	}
 	buf = malloc(l);
-	if (!buf) {
-		errx(1, "not enough core");
-		/*NOTREACHED*/
+	if (buf == NULL) {
+		warn("not enough core");
+		return;
 	}
-	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), buf, &l, NULL, 0)
-	    < 0) {
-		err(1, "sysctl(ICMPV6CTL_ND6_PRLIST)");
-		/*NOTREACHED*/
+	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), buf, &l, NULL, 0) < 0) {
+		warn("sysctl(ICMPV6CTL_ND6_PRLIST)");
+		goto done;
 	}
 
 	ep = (struct in6_prefix *)(buf + l);
@@ -1572,6 +1739,7 @@ plist(void)
 			printf("  No advertising router\n");
 		}
 	}
+done:
 	free(buf);
 }
 
@@ -1581,11 +1749,15 @@ pfx_flush(void)
 	char dummyif[IFNAMSIZ+8];
 	int s;
 
-	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
-		err(1, "socket");
+	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		warn("socket");
+		return;
+	}
 	strlcpy(dummyif, "lo0", sizeof (dummyif)); /* dummy */
-	if (ioctl(s, SIOCSPFXFLUSH_IN6, (caddr_t)&dummyif) < 0)
-		err(1, "ioctl(SIOCSPFXFLUSH_IN6)");
+	if (ioctl(s, SIOCSPFXFLUSH_IN6, (caddr_t)&dummyif) < 0) {
+		warn("ioctl(SIOCSPFXFLUSH_IN6)");
+	}
+	close(s);
 }
 
 static void
@@ -1594,12 +1766,14 @@ rtr_flush(void)
 	char dummyif[IFNAMSIZ+8];
 	int s;
 
-	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
-		err(1, "socket");
+	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		warn("socket");
+		return;
+	}
 	strlcpy(dummyif, "lo0", sizeof (dummyif)); /* dummy */
-	if (ioctl(s, SIOCSRTRFLUSH_IN6, (caddr_t)&dummyif) < 0)
-		err(1, "ioctl(SIOCSRTRFLUSH_IN6)");
-
+	if (ioctl(s, SIOCSRTRFLUSH_IN6, (caddr_t)&dummyif) < 0) {
+		warn("ioctl(SIOCSRTRFLUSH_IN6)");
+	}
 	close(s);
 }
 
@@ -1609,12 +1783,14 @@ harmonize_rtr(void)
 	char dummyif[IFNAMSIZ+8];
 	int s;
 
-	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
-		err(1, "socket");
+	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		warn("socket");
+		return;
+	}
 	strlcpy(dummyif, "lo0", sizeof (dummyif)); /* dummy */
-	if (ioctl(s, SIOCSNDFLUSH_IN6, (caddr_t)&dummyif) < 0)
-		err(1, "ioctl (SIOCSNDFLUSH_IN6)");
-
+	if (ioctl(s, SIOCSNDFLUSH_IN6, (caddr_t)&dummyif) < 0) {
+		warn("ioctl (SIOCSNDFLUSH_IN6)");
+	}
 	close(s);
 }
 
@@ -1627,18 +1803,23 @@ setdefif(char *ifname)
 	if (strcasecmp(ifname, "delete") == 0)
 		ifindex = 0;
 	else {
-		if ((ifindex = if_nametoindex(ifname)) == 0)
-			err(1, "failed to resolve i/f index for %s", ifname);
+		if ((ifindex = if_nametoindex(ifname)) == 0) {
+			warn("failed to resolve i/f index for %s", ifname);
+			return;
+		}
 	}
 
-	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
-		err(1, "socket");
+	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		warn("socket");
+		return;
+	}
 
 	strlcpy(ndifreq.ifname, "lo0", sizeof (ndifreq.ifname)); /* dummy */
 	ndifreq.ifindex = ifindex;
 
-	if (ioctl(s, SIOCSDEFIFACE_IN6, (caddr_t)&ndifreq) < 0)
-		err(1, "ioctl (SIOCSDEFIFACE_IN6)");
+	if (ioctl(s, SIOCSDEFIFACE_IN6, (caddr_t)&ndifreq) < 0) {
+		warn("ioctl (SIOCSDEFIFACE_IN6)");
+	}
 
 	close(s);
 }
@@ -1649,24 +1830,30 @@ getdefif(void)
 	struct in6_ndifreq ndifreq;
 	char ifname[IFNAMSIZ+8];
 
-	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
-		err(1, "socket");
+	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		warn("socket");
+		return;
+	}
 
 	memset(&ndifreq, 0, sizeof (ndifreq));
 	strlcpy(ndifreq.ifname, "lo0", sizeof (ndifreq.ifname)); /* dummy */
 
-	if (ioctl(s, SIOCGDEFIFACE_IN6, (caddr_t)&ndifreq) < 0)
-		err(1, "ioctl (SIOCGDEFIFACE_IN6)");
+	if (ioctl(s, SIOCGDEFIFACE_IN6, (caddr_t)&ndifreq) < 0) {
+		warn("ioctl (SIOCGDEFIFACE_IN6)");
+		goto done;
+	}
 
 	if (ndifreq.ifindex == 0)
 		printf("No default interface.\n");
 	else {
-		if ((if_indextoname(ndifreq.ifindex, ifname)) == NULL)
-			err(1, "failed to resolve ifname for index %lu",
+		if ((if_indextoname(ndifreq.ifindex, ifname)) == NULL) {
+			warn("failed to resolve ifname for index %lu",
 			    ndifreq.ifindex);
+			goto done;
+		}
 		printf("ND default interface = %s\n", ifname);
 	}
-
+done:
 	close(s);
 }
 
@@ -1717,7 +1904,7 @@ ts_print(const struct timeval *tvp)
 	2 * (sizeof (size_t) + IN6_CGA_KEY_MAXSIZE) + \
 	sizeof (struct in6_cga_prepare)
 
-static void
+static int
 read_cga_parameters(void)
 {
 	static char oldb[SYSCTL_CGA_PARAMETERS_BUFFER_SIZE];
@@ -1734,41 +1921,51 @@ read_cga_parameters(void)
 	oldn = sizeof oldb;
 	error = sysctlbyname("net.inet6.send.cga_parameters", oldb, &oldn,
 	    NULL, NULL);
-	if (error != 0)
-		err(1, "sysctlbyname");
+	if (error != 0) {
+		warn("sysctlbyname");
+		return EX_OSERR;
+	}
 
 	if (oldn == 0) {
 		printf("No CGA parameters.\n");
-		exit(0);
+		return 0;
 	}
 
 	oldp = oldb;
 	finp = &oldb[oldn];
 	memset(&cfg, 0, sizeof (cfg));
 
-	if (oldp + sizeof (cfg.cga_prepare) > finp)
-		err(1, "format error[1]");
+	if (oldp + sizeof (cfg.cga_prepare) > finp) {
+		warn("format error[1]");
+		return EX_OSERR;
+	}
 
 	memcpy(&cfg.cga_prepare, oldp, sizeof (cfg.cga_prepare));
 	oldp += sizeof (cfg.cga_prepare);
 
 	iov = &cfg.cga_pubkey;
 
-	if (oldp + sizeof (u16) > finp)
-		err(1, "format error[2]");
+	if (oldp + sizeof (u16) > finp) {
+		warn("format error[2]");
+		return EX_OSERR;
+	}
 
 	memcpy(&u16, oldp, sizeof (u16));
 	oldp += sizeof (u16);
 	iov->iov_len = u16;
 
-	if (oldp + iov->iov_len > finp)
-		err(1, "format error[3]");
+	if (oldp + iov->iov_len > finp) {
+		warn("format error[3]");
+		return EX_OSERR;
+	}
 
 	iov->iov_base = (void *)oldp;
 	oldp += iov->iov_len;
 
-	if (oldp != finp)
-		err(1, "format error[4]");
+	if (oldp != finp) {
+		warn("format error[4]");
+		return EX_OSERR;
+	}
 
 	puts("Public Key:");
 	finp = &iov->iov_base[iov->iov_len];
@@ -1797,6 +1994,8 @@ read_cga_parameters(void)
 	}
 	puts("\n");
 	printf("Security Level: %u\n", cfg.cga_prepare.cga_security_level);
+
+	return 0;
 }
 
 static void
@@ -1809,21 +2008,29 @@ write_cga_parameters(const char filename[])
 	size_t oldn, newn;
 
 	fp = fopen(filename, "r");
-	if (fp == NULL)
-		err(1, "opening '%s' for reading.", filename);
+	if (fp == NULL) {
+		warn("opening '%s' for reading.", filename);
+		return;
+	}
 
 	newn = fread(newb, 1, sizeof (newb), fp);
-	if (feof(fp) == 0)
-		err(1, "parameters too large");
+	if (feof(fp) == 0) {
+		warn("parameters too large");
+		fclose(fp);
+		return;
+	}
 
-	if (fclose(fp) != 0)
-		err(1, "closing file.");
+	if (fclose(fp) != 0) {
+		warn("closing file.");
+		return;
+	}
 
 	oldn = 0;
 	error = sysctlbyname("net.inet6.send.cga_parameters", NULL, NULL, newb,
 	    newn);
-	if (error != 0)
-		err(1, "sysctlbyname");
+	if (error != 0) {
+		warn("sysctlbyname");
+	}
 }
 
 /*

@@ -330,7 +330,7 @@ selectors = [
     { name = "contextMenuConfigurationForURL:identifier:selectedText:results:inView:context:menuIdentifier:", class = "?" },
     { name = "contextMenuConfigurationWithResult:inView:context:menuIdentifier:", class = "?" },
     { name = "contextMenuConfigurationWithURL:inView:context:menuIdentifier:", class = "?" },
-    { name = "createBagForSubProfile", class = "?" },
+    { name = "createBagForSubProfile", class = "AMSUIEngagementTask" },
     { name = "createFullscreenInstanceWithInitialFrame:previewOptions:completionHandler:", class = "?" },
     { name = "createIdentityFromEndpoint:error:", class = "?" },
     { name = "credentialKind", class = "?" },

@@ -562,3 +562,60 @@ T_DECL(lio_listio_kevent, "Test lio_listio() with kevent.")
 		}
 	}
 }
+
+/*
+ * Test enabling kevent after submitting AIO request with kevent notification
+ * should fail.
+ */
+T_DECL(enable_kevent, "Test enabling kevent after submitting AIO request.")
+{
+	struct aiocb *aiocbp;
+	struct kevent64_s kev;
+	void *udata1, *udata2;
+	ssize_t retval;
+	int err, kq;
+
+	do_init(1, true);
+
+	kq = kqueue();
+	T_ASSERT_NE(kq, -1, "Create kqueue");
+
+	/* Setup aiocb for aio_write(). */
+	aiocbp = init_aiocb(0, 0, 0);
+	aiocbp->aio_sigevent.sigev_notify = SIGEV_KEVENT;
+	aiocbp->aio_sigevent.sigev_signo = kq;
+	aiocbp->aio_sigevent.sigev_value.sival_ptr = (void *)&udata1;
+
+	T_WITH_ERRNO;
+	err = aio_write(aiocbp);
+	T_ASSERT_NE(err, -1, "aio_write() for fd %d offset 0x%llx length 0x%zx",
+	    aiocbp->aio_fildes, aiocbp->aio_offset, aiocbp->aio_nbytes);
+
+	memset(&kev, 0, sizeof(kev));
+	kev.ident = (uintptr_t)aiocbp;
+	kev.filter = EVFILT_AIO;
+	kev.flags = EV_ENABLE;
+
+	err = kevent64(kq, &kev, 1, NULL, 0, 0, NULL);
+	T_ASSERT_EQ(err, -1, "Enable kevent after submitting AIO request should fail");
+
+	memset(&kev, 0, sizeof(kev));
+	err = wait_for_kevent(kq, &kev);
+	T_ASSERT_NE(err, -1, "Listen for AIO completion event on kqueue %d", kq);
+
+	if (err > 0) {
+		T_ASSERT_EQ(err, 1, "num event returned %d", err);
+		T_ASSERT_EQ((struct aiocb *)kev.ident, aiocbp, "kev.ident %p",
+		    (struct aiocb *)kev.ident);
+		T_ASSERT_EQ(kev.filter, EVFILT_AIO, "kev.filter %d",
+		    kev.filter);
+		T_ASSERT_EQ((void **)kev.udata, &udata1, "kev.udata %p",
+		    (char *)kev.udata);
+		T_ASSERT_EQ((int)kev.ext[0], 0, "kev.ext[0] (err %d)",
+		    (int)kev.ext[0]);
+		T_ASSERT_EQ((int)kev.ext[1], AIO_BUFFER_SIZE,
+		    "kev.ext[1] (bytes_written 0x%x)", (int)kev.ext[1]);
+	} else {
+		T_FAIL("Timedout listening for AIO completion event on kqueue %d", kq);
+	}
+}

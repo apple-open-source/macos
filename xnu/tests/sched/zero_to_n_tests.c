@@ -355,4 +355,3 @@ T_DECL(zn_rt_ival_edf, "Test max latency of earliest deadline RT threads in the 
 
 	run_zn("zn_rt_ival_edf", cmd, argc, argv);
 }
-

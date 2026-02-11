@@ -617,6 +617,24 @@ iptap_bpf_tap(struct mbuf *m, u_int32_t proto, int outgoing)
 			hdr->pth_iftype = ifp != NULL ? ifp->if_type : 0;
 			hdr->pth_ifunit = ifp != NULL ? ifp->if_unit : 0;
 
+			if (m->m_pkthdr.pkt_flags & PKTF_KEEPALIVE) {
+				hdr->pth_flags |= PTH_FLAG_KEEP_ALIVE;
+			}
+			if (m->m_pkthdr.pkt_flags & PKTF_TCP_REXMT) {
+				hdr->pth_flags |= PTH_FLAG_REXMIT;
+			}
+			if (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT) {
+				hdr->pth_flags |= PTH_FLAG_WAKE_PKT;
+			}
+
+			/* Need to check the packet flag in case full wake has been requested */
+			if (m->m_pkthdr.pkt_ext_flags & PKTF_EXT_LPW || if_is_lpw_enabled(ifp)) {
+				hdr->pth_flags |= PTH_FLAG_LPW;
+			}
+			if (outgoing != 0) {
+				hdr->pth_comp_gencnt = m->m_pkthdr.comp_gencnt;
+			}
+
 			pktap_fill_proc_info(hdr, proto, m, 0, outgoing, ifp);
 
 			hdr->pth_svc = so_svc2tc(m->m_pkthdr.pkt_svc);

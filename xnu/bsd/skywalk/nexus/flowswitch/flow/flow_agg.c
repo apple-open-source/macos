@@ -1239,12 +1239,14 @@ flow_agg_is_ok(struct flow_agg *fa, struct __kern_packet *pkt,
 	 * 1. TCP flag is other than TH_{ACK,PUSH}
 	 * 2. Payload length is 0 (pure ACK)
 	 * 3. This is the first packet
-	 * 4. TCP sequence number is not expected
-	 * 5. We would've exceeded the maximum aggregated size
-	 * 6. It's not the first packet and the wake flag is set
+	 * 4. pkt was received as a broadcast / multicast
+	 * 5. TCP sequence number is not expected
+	 * 6. We would've exceeded the maximum aggregated size
+	 * 7. It's not the first packet and the wake flag is set
 	 */
 	if (__improbable((pkt->pkt_flow_tcp_flags & TCP_FLAGS_IGNORE) != 0 ||
-	    pkt->pkt_flow_ulen == 0 || fa->fa_sobj == NULL)) {
+	    pkt->pkt_flow_ulen == 0 || fa->fa_sobj == NULL ||
+	    (pkt->pkt_link_flags & (PKT_LINKF_BCAST | PKT_LINKF_MCAST)) != 0)) {
 		DTRACE_SKYWALK1(aggr__fail1a, struct __kern_packet *, pkt);
 		goto done;
 	}
@@ -2333,6 +2335,14 @@ non_agg:
 
 			m->m_pkthdr.csum_rx_start = pkt->pkt_csum_rx_start_off;
 			m->m_pkthdr.csum_rx_val = pkt->pkt_csum_rx_value;
+			if (__improbable((pkt->pkt_link_flags &
+			    PKT_LINKF_BCAST) != 0)) {
+				m->m_flags |= M_BCAST;
+			}
+			if (__improbable((pkt->pkt_link_flags &
+			    PKT_LINKF_MCAST) != 0)) {
+				m->m_flags |= M_MCAST;
+			}
 			/*
 			 *  Note that these flags have same value,
 			 * except PACKET_CSUM_PARTIAL

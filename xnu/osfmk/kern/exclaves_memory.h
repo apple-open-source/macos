@@ -110,6 +110,9 @@ exclaves_memory_upcall_free_ext(const xnuupcallsv2_pagelist_s pages,
 extern void
 exclaves_memory_report_accounting(void);
 
+extern uint64_t exclaves_carveout_size;
+extern uint64_t exclaves_bundle_size;
+
 __END_DECLS
 
 #endif /* CONFIG_EXCLAVES */

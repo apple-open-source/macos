@@ -55,24 +55,7 @@
 
 #define ROUTER_LIFETIME_MAXIMUM		((uint16_t)0xffff)
 
-#ifdef TEST_DNSDNRINSTANCE
-
-#include "ptrlist.h"
-
-bool
-parse_nd_options(ptrlist_t * options_p, const char * buf, int len);
-
-const uint8_t *
-find_dnr_option(ptrlist_t * options_p, uint8_t * dnr_data_len_p,
-		uint32_t * lifetime_p, int * start_index);
-
-typedef struct __RouterAdvertisementTester * RouterAdvertisementRef;
-
-#else /* TEST_DNSDNRINSTANCE */
-
 typedef struct __RouterAdvertisement * RouterAdvertisementRef;
-
-#endif /* TEST_DNSDNRINSTANCE */
 
 typedef struct {
 	bool            http;

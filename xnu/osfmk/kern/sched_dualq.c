@@ -91,7 +91,7 @@ static thread_t
 sched_dualq_choose_thread(processor_t processor, int priority, __unused thread_t prev, ast_t reason);
 
 static void
-sched_dualq_processor_queue_shutdown(processor_t processor);
+sched_dualq_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq);
 
 static sched_mode_t
 sched_dualq_initial_thread_sched_mode(task_t parent_task);
@@ -160,6 +160,8 @@ const struct sched_dispatch_table sched_dualq_dispatch = {
 	.pset_made_schedulable                          = sched_pset_made_schedulable,
 	.cpu_init_completed                             = NULL,
 	.thread_eligible_for_pset                       = NULL,
+	.update_pset_load_average                       = sched_update_pset_load_average,
+	.update_pset_avg_execution_time                 = sched_update_pset_avg_execution_time,
 };
 
 __attribute__((always_inline))
@@ -397,37 +399,20 @@ sched_dualq_processor_bound_count(processor_t processor)
 }
 
 static void
-sched_dualq_processor_queue_shutdown(processor_t processor)
+sched_dualq_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq)
 {
 	processor_set_t pset = processor->processor_set;
 	run_queue_t     rq   = dualq_main_runq(processor);
-	thread_t        thread;
-	queue_head_t    tqueue;
 
 	/* We only need to migrate threads if this is the last active processor in the pset */
-	if (pset->online_processor_count > 0) {
-		pset_unlock(pset);
-		return;
-	}
-
-	queue_init(&tqueue);
-
-	while (rq->count > 0) {
-		thread = run_queue_dequeue(rq, SCHED_HEADQ);
-		enqueue_tail(&tqueue, &thread->runq_links);
+	if (pset->online_processor_count == 0) {
+		while (rq->count > 0) {
+			thread_t thread = run_queue_dequeue(rq, SCHED_HEADQ);
+			pulled_thread_queue_enqueue(threadq, thread);
+		}
 	}
 
 	pset_unlock(pset);
-
-	qe_foreach_element_safe(thread, &tqueue, runq_links) {
-		remqueue(&thread->runq_links);
-
-		thread_lock(thread);
-
-		thread_setrun(thread, SCHED_TAILQ);
-
-		thread_unlock(thread);
-	}
 }
 
 static boolean_t
@@ -537,7 +522,7 @@ sched_dualq_thread_update_scan(sched_update_scan_context_t scan_context)
 		thread_update_process_threads();
 	} while (restart_needed);
 
-	pset = &pset0;
+	pset = sched_boot_pset;
 
 	do {
 		do {

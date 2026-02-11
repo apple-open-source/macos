@@ -56,6 +56,7 @@ private:
     RetainPtr<AVAssetWriterInput> m_audioAssetWriterInput;
     RetainPtr<AVAssetWriterInput> m_videoAssetWriterInput;
     bool m_hasAddedVideoFrame { false };
+    bool m_writerStarted { false };
 
     uint8_t m_currentTrackIndex { 0 };
     uint8_t m_audioTrackIndex { 0 };

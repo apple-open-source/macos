@@ -61,7 +61,6 @@
 	X(xferudppingn_wmm, "UDP ping-pong over native fake ethernet pair in wmm mode") \
 	X(xferflowmatch, "Packets not matching registered flow tuple should be dropped") \
 	X(xferflowcleanup, "verification of flow cleanup on channel close") \
-	X(xferudppingn_mb, "UDP ping-pong over native fake ethernet pair with multi-buflet packet") \
 	X(xferfastlane, "fastlane qos marking") \
 	X(xferfastlanen, "fastlane qos marking over native") \
 	X(xferrfc4594, "rfc4594 qos marking") \
@@ -94,6 +93,10 @@
     X(xferudpifadvenable, "flowswitch interface advisory enabled test") \
     X(xferrxflowsteeringdroprxpackets, "drop aop2 offload Rx packets in flowswitch")
 
+/* Multi buflet tx is disabled. See radar 165221445 */
+#define MB_TESTS \
+	X(xferudppingn_mb, "UDP ping-pong over native fake ethernet pair with multi-buflet packet")
+
 /*
  * This is equivalent to the following legacy test command:
  * skywalk_mptests bats
@@ -125,4 +128,15 @@ BATS_TESTS;
 	        skywalk_mptest_driver_run(&skt_##test, ignorefail);        \
 	}
 RDAR_133412076_FAILING_TESTS
+#undef X
+
+#define X(test, desc, ...) \
+    T_DECL(test, desc, T_META_NAMESPACE("xnu.skywalk_mptests_mb"),         \
+	T_META_ENABLED(false))                                             \
+	{                                                                  \
+	        bool ignorefail = true;                                    \
+	        T_LOG("ignorefail option present");                        \
+	        skywalk_mptest_driver_run(&skt_##test, ignorefail);        \
+	}
+MB_TESTS
 #undef X

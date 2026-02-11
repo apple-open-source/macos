@@ -69,6 +69,7 @@
 #include <mach/vm_statistics.h>
 #include <mach/sdt.h>
 #include <kern/counter.h>
+#include <kern/exclaves_memory.h>
 #include <kern/host_statistics.h>
 #include <kern/sched_prim.h>
 #include <kern/policy_internal.h>
@@ -11867,6 +11868,9 @@ vm_page_diagnose(mach_memory_info_t * info, unsigned int num_info, uint64_t zone
 	wired_size          += ptoa_64(vm_lopage_free_count + vm_page_throttled_count);
 	wired_reserved_size += ptoa_64(vm_page_throttled_count);
 #endif /* XNU_TARGET_OS_OSX */
+#if CONFIG_EXCLAVES
+	wired_reserved_size -= exclaves_carveout_size;
+#endif /* CONFIG_EXCLAVES */
 	wired_managed_size  = ptoa_64(vm_page_wire_count - vm_page_wire_count_initial);
 
 	wired_size += booter_size;
@@ -11893,9 +11897,9 @@ vm_page_diagnose(mach_memory_info_t * info, unsigned int num_info, uint64_t zone
 	SET_COUNT(VM_KERN_COUNT_WIRED_BOOT, ptoa_64(vm_page_wire_count_on_boot), 0);
 	SET_COUNT(VM_KERN_COUNT_BOOT_STOLEN, booter_size, VM_KERN_SITE_WIRED);
 	SET_COUNT(VM_KERN_COUNT_WIRED_STATIC_KERNELCACHE, ptoa_64(vm_page_kernelcache_count), 0);
-#if CONFIG_SPTM
-	SET_COUNT(VM_KERN_COUNT_EXCLAVES_CARVEOUT, SPTMArgs->sk_carveout_size, 0);
-#endif
+#if CONFIG_EXCLAVES
+	SET_COUNT(VM_KERN_COUNT_EXCLAVES_CARVEOUT, exclaves_carveout_size + exclaves_bundle_size, VM_KERN_SITE_WIRED);
+#endif /* CONFIG_EXCLAVES */
 
 #define SET_MAP(xcount, xsize, xfree, xlargest) MACRO_BEGIN \
     counts[xcount].site    = (xcount);                  \

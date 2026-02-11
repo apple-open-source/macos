@@ -59,6 +59,8 @@ extension Data {
         let servicePrimaryUsagePage = service.property(forKey: kIOHIDPrimaryUsagePageKey) as? UInt32
         let servicePrimaryUsage = service.property(forKey: kIOHIDPrimaryUsageKey) as? UInt32
         let builtIn = service.property(forKey: kIOHIDBuiltInKey) as? Bool ?? false
+        let ioClass = service.property(forKey: kIOHIDServiceRegistryNameKey) as? String ?? "Unknown"
+        let isVirtualService = service.property(forKey: kIOHIDVirtualServiceKey) as? Bool ?? false
         
         var usagePage: UInt32? = nil
         var usage: UInt32? = nil
@@ -71,24 +73,28 @@ extension Data {
         }
         
         // Include all properties from the payload in the hash calculation
-        let hash = fastHash(transport: transport, 
-                           eventType: eventType, 
-                           usagePage: usagePage, 
-                           usage: usage, 
-                           servicePrimaryUsagePage: servicePrimaryUsagePage, 
-                           servicePrimaryUsage: servicePrimaryUsage, 
-                           builtIn: builtIn)
+        let hash = fastHash(transport: transport,
+                           eventType: eventType,
+                           usagePage: usagePage,
+                           usage: usage,
+                           servicePrimaryUsagePage: servicePrimaryUsagePage,
+                           servicePrimaryUsage: servicePrimaryUsage,
+                           builtIn: builtIn,
+                           ioClass: ioClass,
+                           isVirtualService: isVirtualService)
         
         if !seenEventHashes.contains(hash) {
             seenEventHashes.insert(hash)
             
             // Send analytics immediately for previously unseen property combinations
-            queue.async { [usage, usagePage] in
+            queue.async { [usage, usagePage, ioClass, isVirtualService] in
                 AnalyticsSendEventLazy("com.apple.hid.eventtype") {
                     var payload: [String: NSObject] = [
                         "Transport": transport as NSString,
                         "EventType": NSNumber(value: eventType),
-                        "BuiltIn": NSNumber(value: builtIn)
+                        "BuiltIn": NSNumber(value: builtIn),
+                        "IOClass": ioClass as NSString,
+                        "IsVirtualService": NSNumber(value: isVirtualService)
                     ]
                     
                     if let usagePage = usagePage, let usage = usage {
@@ -110,13 +116,15 @@ extension Data {
         }
     }
     
-    private func fastHash(transport: String, 
-                         eventType: IOHIDEventType, 
-                         usagePage: UInt32?, 
-                         usage: UInt32?, 
-                         servicePrimaryUsagePage: UInt32?, 
-                         servicePrimaryUsage: UInt32?, 
-                         builtIn: Bool) -> Int {
+    private func fastHash(transport: String,
+                         eventType: IOHIDEventType,
+                         usagePage: UInt32?,
+                         usage: UInt32?,
+                         servicePrimaryUsagePage: UInt32?,
+                         servicePrimaryUsage: UInt32?,
+                         builtIn: Bool,
+                         ioClass: String,
+                         isVirtualService: Bool) -> Int {
         var hasher = Hasher()
         hasher.combine(transport)
         hasher.combine(eventType)
@@ -125,6 +133,8 @@ extension Data {
         hasher.combine(servicePrimaryUsagePage)
         hasher.combine(servicePrimaryUsage)
         hasher.combine(builtIn)
+        hasher.combine(ioClass)
+        hasher.combine(isVirtualService)
         return hasher.finalize()
     }
 
@@ -142,6 +152,7 @@ extension Data {
                 let manufacturerProp = device.property(forKey: kIOHIDManufacturerKey)
                 let modelNumberProp = device.property(forKey: kIOHIDModelNumberKey)
                 let versionNumberProp = device.property(forKey: kIOHIDVersionNumberKey)
+                let ioClassProp = device.property(forKey: kIOHIDServiceRegistryNameKey)
                 
                 AnalyticsSendEventLazy("com.apple.hid.device.info") {
                     let productID = productIDProp as? NSNumber ?? NSNumber(value: 0)
@@ -153,7 +164,8 @@ extension Data {
                     let manufacturer = manufacturerProp as? NSString ?? "Unknown"
                     let modelNumber = modelNumberProp as? NSString ?? "Unknown"
                     let versionNumber = versionNumberProp as? NSNumber ?? NSNumber(value: 0)
-                    
+                    let ioClass = ioClassProp as? NSString ?? "Unknown"
+
                     return ["ProductID": productID,
                             "VendorID": vendorID,
                             "Transport": transport,
@@ -162,7 +174,8 @@ extension Data {
                             "Product": product,
                             "Manufacturer": manufacturer,
                             "ModelNumber": modelNumber,
-                            "VersionNumber": versionNumber] as [String : NSObject]
+                            "VersionNumber": versionNumber,
+                            "IOClass": ioClass] as [String : NSObject]
                 }
             }
         }

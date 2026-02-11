@@ -4762,6 +4762,10 @@ IOServicePH::systemPowerChange(uint8_t newState,
 	case kIOServiceSystemStateOffPhase1:
 	case kIOServiceSystemStateOffPhase2:
 
+		if (fSystemState == kIOServiceSystemStateAOT) {
+			IOPMNetworkStackWillSleepFromAOT();
+		}
+
 		lock();
 		DKLOG("arming ack timer, %u ms\n", dk_power_state_timeout_ms);
 		clock_interval_to_deadline(dk_power_state_timeout_ms, kMillisecondScale, &deadline);

@@ -47,6 +47,7 @@
 #include <CoreFoundation/CFRuntime.h>
 #include "symbol_scope.h"
 #include "RouterAdvertisement.h"
+#include "RouterAdvertisementInternal.h"
 #include "DNSNameList.h"
 #include "DNSEncryptedServers.h"
 #include "ptrlist.h"
@@ -102,31 +103,6 @@ pref64_plc_get_prefix_length(pref64_plc_t plc,
 	*ret_prefix_length = prefix_length;
 	return valid;
 }
-
-#ifdef TEST_DNSDNRINSTANCE
-struct __RouterAdvertisementTester {
-	struct in6_addr		source_ip;
-	CFStringRef			source_ip_str;
-	CFAbsoluteTime		receive_time;
-	ptrlist_t			options;
-	size_t			ndra_length;
-	uint8_t			ndra_buf[1]; /* variable length */
-}
-#else /* TEST_DNSDNRINSTANCE */
-struct __RouterAdvertisement {
-	CFRuntimeBase	cf_base;
-
-	/*
-	 * NOTE: if you add a field, add a line to initialize it.
-	 */
-	struct in6_addr	source_ip;
-	CFStringRef	source_ip_str;
-	CFAbsoluteTime	receive_time;
-	ptrlist_t	options;
-	size_t		ndra_length;
-	uint8_t		ndra_buf[1]; /* variable length */
-};
-#endif /* TEST_DNSDNRINSTANCE */
 
 struct _nd_opt_linkaddr {
 	u_int8_t		nd_opt_linkaddr_type;
@@ -817,8 +793,9 @@ AppendTruncatedOptionDescription(CFMutableStringRef str,
 				 const struct nd_opt_hdr * opt,
 				 int opt_len, int min_len)
 {
-	STRING_APPEND(str, "truncated (%d < %d) ",
-		      opt_len, min_len);
+	if (opt_len < min_len) {
+		STRING_APPEND(str, " truncated (%d < %d) ", opt_len, min_len);
+	}
 	AppendOptionDescription(str, opt, opt_len);
 }
 
@@ -913,6 +890,7 @@ AppendDNSDNROptionDescription(CFMutableStringRef str,
 {
 	CFMutableStringRef		temp_str = NULL;
 	const struct nd_opt_dnr * 	dnr = { 0 };
+	const uint8_t *			dnr_continuation;
 	uint32_t 			lifetime = 0;
 	CFStringRef 			adn_str = NULL;
 	uint16_t 			adn_len = 0;
@@ -948,10 +926,13 @@ AppendDNSDNROptionDescription(CFMutableStringRef str,
 	adn_len = net_uint16_get(dnr->nd_opt_dnr_adn_len);
 	bytes_left -= sizeof(adn_len);
 	if (bytes_left < adn_len) {
-		STRING_APPEND_STR(temp_str, "<truncated>");
+		CFStringReplaceAll(temp_str, CFSTR(""));
+		STRING_APPEND(temp_str, "adn truncated %d < %d",
+			      bytes_left, adn_len);
 		goto done;
 	}
-	adn_str = DNSNameStringCreate(dnr->nd_opt_dnr_continuation, adn_len, false);
+	dnr_continuation = dnr->nd_opt_dnr_continuation;
+	adn_str = DNSNameStringCreate(dnr_continuation, adn_len, false);
 	if (adn_str != NULL) {
 		CFStringAppend(temp_str, adn_str);
 		CFRelease(adn_str);
@@ -962,17 +943,23 @@ AppendDNSDNROptionDescription(CFMutableStringRef str,
 	bytes_left -= adn_len;
 	STRING_APPEND_STR(temp_str, ", addrs: ");
 	offset = adn_len;
-	addr_len = net_uint16_get(dnr->nd_opt_dnr_continuation + offset);
+	addr_len = net_uint16_get(dnr_continuation + offset);
 	offset += sizeof(addr_len);
 	bytes_left -= sizeof(addr_len);
-	if (bytes_left < addr_len
-	    || (addr_len % sizeof(struct in6_addr)) != 0 ) {
-		STRING_APPEND_STR(temp_str, "<truncated>");
+	if (bytes_left < addr_len) {
+		CFStringReplaceAll(temp_str, CFSTR(""));
+		STRING_APPEND(temp_str, "addrs truncated %d < %d",
+			      bytes_left, addr_len);
+		goto done;
+	}
+	if ((addr_len % sizeof(struct in6_addr)) != 0) {
+		CFStringReplaceAll(temp_str, CFSTR(""));
+		STRING_APPEND(temp_str, "invalid addr_len %d", addr_len);
 		goto done;
 	}
 	for (int i = 0; i < (addr_len / sizeof(struct in6_addr)); i++) {
 		inet_ntop(AF_INET6,
-			  dnr->nd_opt_dnr_continuation + offset,
+			  dnr_continuation + offset,
 			  ntopbuf,
 			  sizeof(ntopbuf));
 		STRING_APPEND(temp_str, "%s ", ntopbuf);
@@ -980,14 +967,22 @@ AppendDNSDNROptionDescription(CFMutableStringRef str,
 		bytes_left -= sizeof(struct in6_addr);
 	}
 	if (bytes_left < sizeof(params_len)) {
-		STRING_APPEND_STR(temp_str, "<truncated>");
+		CFStringReplaceAll(temp_str, CFSTR(""));
+		STRING_APPEND(temp_str, "can't determine params_len");
 		goto done;
 	}
-	params_len = net_uint16_get(dnr->nd_opt_dnr_continuation + offset);
+	params_len = net_uint16_get(dnr_continuation + offset);
+	if (bytes_left < params_len) {
+		CFStringReplaceAll(temp_str, CFSTR(""));
+		STRING_APPEND(temp_str, "params truncated %d < %d",
+			      bytes_left, params_len);
+		goto done;
+	}
 	offset += sizeof(params_len);
+	bytes_left -= params_len;
 	STRING_APPEND_STR(temp_str, ", service parameters: ");
 	my_CFStringAppendBytesAsHex(temp_str,
-				    (dnr->nd_opt_dnr_continuation + offset),
+				    dnr_continuation + offset,
 				    params_len,
 				    ' ');
 	success = TRUE;
@@ -998,6 +993,11 @@ done:
 	} else {
 		AppendTruncatedOptionDescription(str, opt, opt_len,
 						 ND_OPT_DNR_MIN_LENGTH);
+		if (temp_str != NULL) {
+			STRING_APPEND_STR(str, " (");
+			CFStringAppend(str, temp_str);
+			STRING_APPEND_STR(str, ")");
+		}
 	}
 	my_CFRelease(&temp_str);
 	return;

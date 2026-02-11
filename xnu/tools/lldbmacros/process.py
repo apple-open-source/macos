@@ -441,9 +441,11 @@ def GetThreadSummary(thread, O=None):
     """
 
     # Check that this is a valid thread (if possible).
-    if hasattr(thread, "thread_magic") and thread.thread_magic != 0x1234ABCDDCBA4321:
-        # Do not raise exception so iterators like showscheduler don't abort.
-        return f"{thread:<#018x} <invalid thread>"
+    if hasattr(thread, "thread_magic") :
+        if (thread.thread_magic != 0x1fc01fc01fc01fc0 and
+            thread.thread_magic != 0x1234ABCDDCBA4321) : # compatible with old core files
+            # Do not raise exception so iterators like showscheduler don't abort.
+            return f"{thread:<#018x} <invalid thread>"
 
     thread_ptr_str = '{:<#018x}'.format(thread)
     thread_task_ptr_str = '{:<#018x}'.format(thread.t_tro.tro_task)
@@ -1910,13 +1912,12 @@ def GetProcessorSummary(processor):
     preemption_disable = 0
     preemption_disable_str = ""
 
-    if kern.arch == 'x86_64':
-        cpu_data = kern.globals.cpu_data_ptr[processor.cpu_id]
-        if (cpu_data != 0) :
-            ast = cpu_data.cpu_pending_ast
+    from misc import GetCpuDataForCpuID
+    cpu_data = GetCpuDataForCpuID(processor.cpu_id)
+    if (cpu_data != 0) :
+        ast = cpu_data.cpu_pending_ast
+        if kern.arch == 'x86_64':
             preemption_disable = cpu_data.cpu_preemption_level
-    # On arm64, it's kern.globals.CpuDataEntries[processor.cpu_id].cpu_data_vaddr
-    # but LLDB can't find CpuDataEntries...
 
     ast_str = GetASTSummary(ast)
 
@@ -1928,7 +1929,8 @@ def GetProcessorSummary(processor):
         1: '(REASON_SYSTEM)',
         2: '(REASON_USER)',
         3: '(REASON_CLPC_SYSTEM)',
-        4: '(REASON_CLPC_USER)'
+        4: '(REASON_CLPC_USER)',
+        5: '(REASON_PMGR_SYSTEM)'
     }
     
     processor_shutdown_reason_str = "";

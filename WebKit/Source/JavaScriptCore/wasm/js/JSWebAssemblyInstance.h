@@ -102,10 +102,20 @@ public:
     JSWebAssemblyMemory* memory() const { return m_memory.get(); }
     void setMemory(VM& vm, JSWebAssemblyMemory* value)
     {
+        RELEASE_ASSERT(!m_wasmMemory);
         m_memory.set(vm, this, value);
-        memory()->memory().registerInstance(*this);
-        updateCachedMemory();
+        WTF::storeStoreFence();
+        m_wasmMemory = value->memory();
+        m_wasmMemory->registerInstance(*this);
     }
+
+    void setDummyMemory(VM& vm, JSWebAssemblyMemory* value)
+    {
+        // Do not set m_wasmMemory.
+        RELEASE_ASSERT(!m_wasmMemory);
+        m_memory.set(vm, this, value);
+    }
+
     MemoryMode memoryMode() const { return memory()->memory().mode(); }
 
     JSWebAssemblyTable* jsTable(unsigned i) { return m_tables[i].get(); }
@@ -173,7 +183,7 @@ public:
 
     void updateCachedMemory()
     {
-        if (m_memory) {
+        if (m_wasmMemory) {
             // Note: In MemoryMode::BoundsChecking, mappedCapacity() == size().
             // We assert this in the constructor of MemoryHandle.
 #if CPU(ARM)
@@ -183,15 +193,15 @@ public:
             // the actual size here, but this means we cannot grow the shared
             // memory safely in case it's used by multiple threads. Once the
             // signal handler are available, m_cachedBoundsCheckingSize should
-            // be set to use memory()->mappedCapacity() like other platforms,
+            // be set to use m_wasmMemory->mappedCapacity() like other platforms,
             // and at that point growing the shared memory will be safe.
-            m_cachedBoundsCheckingSize = memory()->memory().size();
+            m_cachedBoundsCheckingSize = m_wasmMemory->size();
 #else
-            m_cachedBoundsCheckingSize = memory()->memory().mappedCapacity();
+            m_cachedBoundsCheckingSize = m_wasmMemory->mappedCapacity();
 #endif
-            m_cachedMemorySize = memory()->memory().size();
-            m_cachedMemory = CagedPtr<Gigacage::Primitive, void>(memory()->memory().basePointer());
-            ASSERT(memory()->memory().basePointer() == cachedMemory());
+            m_cachedMemorySize = m_wasmMemory->size();
+            m_cachedMemory = CagedPtr<Gigacage::Primitive, void>(m_wasmMemory->basePointer());
+            ASSERT(m_wasmMemory->basePointer() == cachedMemory());
         }
     }
 
@@ -392,6 +402,8 @@ public:
     void setDebugId(uint32_t id) { m_debugId = id; }
     uint32_t debugId() const { return m_debugId; }
 
+    RefPtr<Wasm::InstanceAnchor> anchor() const { return m_anchor; }
+
 private:
     JSWebAssemblyInstance(VM&, Structure*, JSWebAssemblyModule*, WebAssemblyModuleRecord*, RefPtr<SourceProvider>&&);
     ~JSWebAssemblyInstance();
@@ -416,6 +428,7 @@ private:
     RefPtr<Wasm::InstanceAnchor> m_anchor;
     RefPtr<SourceProvider> m_sourceProvider;
 
+    RefPtr<Wasm::Memory> m_wasmMemory;
     CallFrame* m_temporaryCallFrame { nullptr };
     Wasm::Global::Value* m_globals { nullptr };
     FunctionWrapperMap m_functionWrappers;

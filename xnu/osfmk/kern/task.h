@@ -633,6 +633,12 @@ struct task {
 
 	/* Runtime security mitigations */
 	task_security_config_s security_config;
+
+#define CONFIG_LARGE_SIZE_TELEMETRY (!XNU_TARGET_OS_OSX)
+#if CONFIG_LARGE_SIZE_TELEMETRY
+	/* Guard objects telemetry. */
+	_Atomic vm_map_size_t large_allocation_size;
+#endif
 };
 
 ZONE_DECLARE_ID(ZONE_ID_PROC_TASK, void *);
@@ -1309,6 +1315,7 @@ TASK_MTE_POLICY_HELPER_DECLARE(restrict_receiving_aliases_to_tagged_memory);
 extern bool current_task_has_sec_enabled(void);
 extern void task_clear_sec_policy(task_t);
 extern uint32_t task_get_sec_policy(task_t);
+extern void task_clear_sec_soft_mode(task_t task);
 #endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 
 /*

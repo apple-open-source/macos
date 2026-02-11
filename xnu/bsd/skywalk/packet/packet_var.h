@@ -136,7 +136,7 @@ struct __kern_buflet_ext {
 /* initialize struct __user_buflet from struct __kern_buflet */
 #define UBUF_INIT(_kbuf, _ubuf) do {                                    \
 	BUF_CTOR(_ubuf, 0, (_kbuf)->buf_idx, (_kbuf)->buf_dlim,         \
-	    (_kbuf)->buf_dlen, (_kbuf)->buf_doff, (_kbuf)->buf_nbft_addr,\
+	    (_kbuf)->buf_dlen, (_kbuf)->buf_doff, 0,                    \
 	    (_kbuf)->buf_nbft_idx, (_kbuf)->buf_flag);                  \
 	BUF_BFT_IDX_REG(_ubuf, (_kbuf)->buf_bft_idx_reg);              \
 } while (0)

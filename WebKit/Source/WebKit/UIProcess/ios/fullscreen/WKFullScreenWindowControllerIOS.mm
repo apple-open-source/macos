@@ -1003,7 +1003,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!self.isFullScreen || !WebKit::useSpatialFullScreenTransition())
         return;
 
-    bool prefersAutoDimming = false;
+    bool prefersAutoDimming = true;
     if (RefPtr videoPresentationManager = [self _videoPresentationManager]) {
         if (RefPtr bestVideo = videoPresentationManager->bestVideoForElementFullscreen())
             prefersAutoDimming = bestVideo->playbackSessionModel()->prefersAutoDimming();
@@ -1984,7 +1984,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             return bestVideo->playbackSessionModel()->prefersAutoDimming();
     }
 
-    return NO;
+    return YES;
 }
 
 - (void)_configureSpatialFullScreenTransition

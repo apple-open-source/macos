@@ -117,15 +117,14 @@
 static void sidewaysintpr ();
 static void catchalarm (int);
 static char *sec2str(time_t);
-static void llreach_sysctl(uint32_t);
+static int llreach_sysctl(struct netstat_parameters *, uint32_t);
 static char *nsec_to_str(unsigned long long);
 static char *sched2str(unsigned int);
 static char *pri2str(unsigned int i);
 
-static void print_fq_codel_stats(int slot, struct fq_codel_classstats *, uint8_t);
+static void print_fq_codel_stats(struct netstat_parameters *, int slot, struct fq_codel_classstats *, uint8_t);
 
 #ifdef INET6
-char *netname6 (struct sockaddr_in6 *, struct sockaddr *);
 static char ntop_buf[INET6_ADDRSTRLEN];		/* for inet_ntop() */
 #endif
 
@@ -162,7 +161,7 @@ get_rti_info(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
 }
 
 static void
-multipr(int family, char *buf, char *lim)
+multipr(struct netstat_parameters *params, int family, char *buf, char *lim)
 {
     char  *next;
 
@@ -186,7 +185,7 @@ multipr(int family, char *buf, char *lim)
 			case AF_INET: {
 				struct sockaddr_in *sin = (struct sockaddr_in *)sa;
 
-				fmt = routename(sin->sin_addr.s_addr);
+				fmt = routename(params, sin->sin_addr.s_addr);
 				break;
 			}
 	#ifdef INET6
@@ -229,42 +228,42 @@ multipr(int family, char *buf, char *lim)
 }
 
 static void
-print_intpr_header(bool first)
+print_intpr_header(struct netstat_parameters *params, bool first)
 {
 		if (first == false ) {
 			putchar('\n');
 		}
 
-		if (lflag) {
+		if (params->lflag) {
 			printf("%-14.14s %-5.5s %-39.39s %-39.39s %8.8s %5.5s",
 				   "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
 		} else {
 			printf("%-10.10s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
 				   "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
 		}
-		if (prioflag >= 0)
+		if (params->prioflag >= 0)
 			printf(" %8.8s %8.8s", "Itcpkts", "Ipvpkts");
-		if (bflag) {
+		if (params->bflag) {
 			printf(" %10.10s","Ibytes");
-			if (prioflag >= 0)
+			if (params->prioflag >= 0)
 				printf(" %8.8s %8.8s", "Itcbytes", "Ipvbytes");
 		}
 		printf(" %8.8s %5.5s", "Opkts", "Oerrs");
-		if (prioflag >= 0)
+		if (params->prioflag >= 0)
 			printf(" %8.8s %8.8s", "Otcpkts", "Opvpkts");
-		if (bflag) {
+		if (params->bflag) {
 			printf(" %10.10s","Obytes");
-			if (prioflag >= 0)
+			if (params->prioflag >= 0)
 				printf(" %8.8s %8.8s", "Otcbytes", "Opvbytes");
 		}
 		printf(" %5s", "Coll");
-		if (tflag)
+		if (params->tflag)
 			printf(" %s", "Time");
-		if (dflag)
+		if (params->dflag)
 			printf(" %s", "Drop");
-		if (Fflag) {
+		if (params->Fflag) {
 			printf(" %8.8s", "Fpkts");
-			if (bflag)
+			if (params->bflag)
 				printf(" %10.10s", "Fbytes");
 		}
 		putchar('\n');
@@ -273,8 +272,8 @@ print_intpr_header(bool first)
 /*
  * Print a description of the network interfaces.
  */
-void
-intpr(void (*pfunc)(char *))
+int
+intpr(struct netstat_parameters *params, void (*pfunc)(struct netstat_parameters *, char *))
 {
 	u_int64_t opackets = 0;
 	u_int64_t ipackets = 0;
@@ -299,14 +298,15 @@ intpr(void (*pfunc)(char *))
 	struct sockaddr *rti_info[RTAX_MAX];
 	unsigned int ifindex = 0;
 	char last_ifname[32] = { 0 };
+	int retval = 0;
 
-	if (interval) {
-		sidewaysintpr();
-		return;
+	if (params->interval) {
+		sidewaysintpr(params);
+		goto done;
 	}
 
-	if (interface != 0)
-		ifindex = if_nametoindex(interface);
+	if (params->interface != 0)
+		ifindex = if_nametoindex(params->interface);
 
 	mib[0]	= CTL_NET;			// networking subsystem
 	mib[1]	= PF_ROUTE;			// type of information
@@ -314,19 +314,19 @@ intpr(void (*pfunc)(char *))
 	mib[3]	= 0;				// address family
 	mib[4]	= NET_RT_IFLIST2;	// operation
 	mib[5]	= 0;
-	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
-		return;
+	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0) {
+		goto done;
+	}
 	if ((buf = malloc(len)) == NULL) {
-		printf("malloc failed\n");
-		exit(1);
+		snprintf(params->errbuf, sizeof(params->errbuf), "malloc failed");
+		retval = -1;
+		goto done;
 	}
 	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
-		if (buf)
-			free(buf);
-		return;
+		goto done;
 	}
 
-	print_intpr_header(true);
+	print_intpr_header(params, true);
 
 	lim = buf + len;
 	for (next = buf; next < lim; ) {
@@ -356,7 +356,7 @@ intpr(void (*pfunc)(char *))
 			int mibname[6];
 			size_t miblen = sizeof(struct ifmibdata_supplemental);
 
-			if (interface != NULL && if2m->ifm_index != ifindex)
+			if (params->interface != NULL && if2m->ifm_index != ifindex)
 				continue;
 
 			/* The interface name is not a zero-ended string */
@@ -370,7 +370,7 @@ intpr(void (*pfunc)(char *))
 
 			/*
 			 * Get the interface stats.  These may get
-			 * overriden below on a per-interface basis.
+			 * overriden below on a per interface basis.
 			 */
 			opackets = if2m->ifm_data.ifi_opackets;
 			ipackets = if2m->ifm_data.ifi_ipackets;
@@ -390,14 +390,16 @@ intpr(void (*pfunc)(char *))
 			mibname[3] = IFMIB_IFDATA;
 			mibname[4] = if2m->ifm_index;
 			mibname[5] = IFDATA_SUPPLEMENTAL;
-			if (sysctl(mibname, 6, &ifmsupp, &miblen, NULL, 0) == -1)
-				err(1, "sysctl IFDATA_SUPPLEMENTAL");
-
+			if (sysctl(mibname, 6, &ifmsupp, &miblen, NULL, 0) == -1) {
+				warn("sysctl IFDATA_SUPPLEMENTAL");
+				retval = -1;
+				goto done;
+			}
 			fpackets = ifmsupp.ifmd_data_extended.ifi_fpackets;
 			fbytes = ifmsupp.ifmd_data_extended.ifi_fbytes;
 
-			if (prioflag >= 0) {
-				switch (prioflag) {
+			if (params->prioflag >= 0) {
+				switch (params->prioflag) {
 				case SO_TC_BE:
 					ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ibepackets;
 					ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ibebytes;
@@ -447,7 +449,7 @@ intpr(void (*pfunc)(char *))
 		} else if (ifm->ifm_type == RTM_NEWADDR) {
 			struct ifa_msghdr *ifam = (struct ifa_msghdr *)ifm;
 
-			if (interface != NULL && ifam->ifam_index != ifindex)
+			if (params->interface != NULL && ifam->ifam_index != ifindex)
 				continue;
 			get_rti_info(ifam->ifam_addrs,
 			    (struct sockaddr*)(ifam + 1), rti_info);
@@ -462,28 +464,28 @@ intpr(void (*pfunc)(char *))
 		 * - print the header again for the current interface
 		 */
 		if (strcmp(last_ifname, name) != 0) {
-			if (sflag && last_ifname[0] != 0) {
-				printprotoifstats(last_ifname);
+			if (params->sflag && last_ifname[0] != 0) {
+				printprotoifstats(params, last_ifname);
 
-				print_intpr_header(false);
+				print_intpr_header(params, false);
 			}
 			strncpy(last_ifname, name, sizeof(last_ifname));
 		}
 
-		if (lflag) {
+		if (params->lflag) {
 			printf("%-14.14s %-5u ", name, mtu);
 		} else {
 			printf("%-10.10s %-5u ", name, mtu);
 		}
 
 		if (sa == 0) {
-			printf(lflag ? "%-39.39s " : "%-13.13s ", "none");
-			printf(lflag ? "%-39.39s " : "%-15.15s ", "none");
+			printf(params->lflag ? "%-39.39s " : "%-13.13s ", "none");
+			printf(params->lflag ? "%-39.39s " : "%-15.15s ", "none");
 		} else {
 			switch (sa->sa_family) {
 			case AF_UNSPEC:
-				printf(lflag ? "%-39.39s " : "%-13.13s ", "none");
-				printf(lflag ? "%-39.39s " : "%-15.15s ", "none");
+				printf(params->lflag ? "%-39.39s " : "%-13.13s ", "none");
+				printf(params->lflag ? "%-39.39s " : "%-15.15s ", "none");
 				break;
 
 			case AF_INET: {
@@ -496,13 +498,13 @@ intpr(void (*pfunc)(char *))
 				    ((struct sockaddr_in *)
 				    rti_info[RTAX_NETMASK])->sin_len);
 
-				printf(lflag ? "%-39.39s " : "%-13.13s ",
-				    netname(sin->sin_addr.s_addr &
+				printf(params->lflag ? "%-39.39s " : "%-13.13s ",
+				    netname(params, sin->sin_addr.s_addr &
 				    mask.sin_addr.s_addr,
 				    ntohl(mask.sin_addr.s_addr)));
 
-				printf(lflag ? "%-39.39s " : "%-15.15s ",
-				    routename(sin->sin_addr.s_addr));
+				printf(params->lflag ? "%-39.39s " : "%-15.15s ",
+				    routename(params, sin->sin_addr.s_addr));
 
 				network_layer = 1;
 				break;
@@ -514,8 +516,8 @@ intpr(void (*pfunc)(char *))
 				struct sockaddr *mask =
 				    (struct sockaddr *)rti_info[RTAX_NETMASK];
 
-				printf(lflag ? "%-39.39s " : "%-11.11s ", netname6(sin6, mask));
-				printf(lflag ? "%-39.39s " : "%-17.17s ", (char *)inet_ntop(AF_INET6,
+				printf(params->lflag ? "%-39.39s " : "%-11.11s ", netname6(params, sin6, mask));
+				printf(params->lflag ? "%-39.39s " : "%-17.17s ", (char *)inet_ntop(AF_INET6,
 				    &sin6->sin6_addr, ntop_buf,
 				    sizeof(ntop_buf)));
 
@@ -531,7 +533,7 @@ intpr(void (*pfunc)(char *))
 				n = sdl->sdl_alen;
 				snprintf(linknum, sizeof(linknum),
 				    "<Link#%d>", sdl->sdl_index);
-				m = printf(lflag ? "%-39.39s " : "%-11.11s ", linknum);
+				m = printf(params->lflag ? "%-39.39s " : "%-11.11s ", linknum);
 				goto hexprint;
 			}
 
@@ -545,7 +547,7 @@ intpr(void (*pfunc)(char *))
 				while (--n >= 0)
 					m += printf("%02x%c", *cp++ & 0xff,
 						    n > 0 ? ':' : ' ');
-				m = (lflag ? 80 : 30) - m;
+				m = (params->lflag ? 80 : 30) - m;
 				while (m-- > 0)
 					putchar(' ');
 
@@ -558,16 +560,16 @@ intpr(void (*pfunc)(char *))
 		printf(" ");
 		show_stat("llu", 5, ierrors, link_layer);
 		printf(" ");
-		if (prioflag >= 0) {
+		if (params->prioflag >= 0) {
 			show_stat("llu", 8, ift_itcp, link_layer|network_layer);
 			printf(" ");
 			show_stat("llu", 8, ift_ipvp, link_layer|network_layer);
 			printf(" ");
 		}
-		if (bflag) {
+		if (params->bflag) {
 			show_stat("llu", 10, ibytes, link_layer|network_layer);
 			printf(" ");
-			if (prioflag >= 0) {
+			if (params->prioflag >= 0) {
 				show_stat("llu", 8, ift_itcb, link_layer|network_layer);
 				printf(" ");
 				show_stat("llu", 8, ift_ipvb, link_layer|network_layer);
@@ -578,16 +580,16 @@ intpr(void (*pfunc)(char *))
 		printf(" ");
 		show_stat("llu", 5, oerrors, link_layer);
 		printf(" ");
-		if (prioflag >= 0) {
+		if (params->prioflag >= 0) {
 			show_stat("llu", 8, ift_otcp, link_layer|network_layer);
 			printf(" ");
 			show_stat("llu", 8, ift_opvp, link_layer|network_layer);
 			printf(" ");
 		}
-		if (bflag) {
+		if (params->bflag) {
 			show_stat("llu", 10, obytes, link_layer|network_layer);
 			printf(" ");
-			if (prioflag >= 0) {
+			if (params->prioflag >= 0) {
 				show_stat("llu", 8, ift_otcb, link_layer|network_layer);
 				printf(" ");
 				show_stat("llu", 8, ift_opvb, link_layer|network_layer);
@@ -595,18 +597,18 @@ intpr(void (*pfunc)(char *))
 			}
 		}
 		show_stat("llu", 5, collisions, link_layer);
-		if (tflag) {
+		if (params->tflag) {
 			printf(" ");
 			show_stat("d", 3, timer, link_layer);
 		}
-		if (dflag) {
+		if (params->dflag) {
 			printf(" ");
 			show_stat("d", 3, drops, link_layer);
 		}
-		if (Fflag) {
+		if (params->Fflag) {
 			printf(" ");
 			show_stat("llu", 8, fpackets, link_layer|network_layer);
-			if (bflag) {
+			if (params->bflag) {
 				printf(" ");
 				show_stat("llu", 10, fbytes,
 				    link_layer|network_layer);
@@ -614,17 +616,20 @@ intpr(void (*pfunc)(char *))
 		}
 		putchar('\n');
 
-		if (aflag)
-			multipr(sa->sa_family, next, lim);
+		if (params->aflag)
+			multipr(params, sa->sa_family, next, lim);
 	}
 
 	/*
 	 * Finally print the statistics of the last interface
 	 */
-	if (sflag && last_ifname[0] != 0) {
-		printprotoifstats(last_ifname);
+	if (params->sflag && last_ifname[0] != 0) {
+		printprotoifstats(params, last_ifname);
 	}
+done:
 	free(buf);
+
+	return retval;
 }
 
 struct	iftot {
@@ -660,7 +665,7 @@ u_char	signalled;			/* set if alarm goes off "early" */
  * XXX - should be rewritten to use ifmib(4).
  */
 static void
-sidewaysintpr()
+sidewaysintpr(struct netstat_parameters *params)
 {
 	struct iftot *total, *sum, *interesting;
 	register int line;
@@ -699,11 +704,11 @@ sidewaysintpr()
 	for (i = 0; i < ifcount; i++) {
 		struct ifmibdata *ifmd = ifmdall + i;
 
-		if (interface && strcmp(ifmd->ifmd_name, interface) == 0) {
+		if (params->interface && strcmp(ifmd->ifmd_name, params->interface) == 0) {
 			if ((interesting = calloc(ifcount,
 			    sizeof(struct iftot))) == NULL)
 				err(1, "malloc failed");
-			interesting_row = if_nametoindex(interface);
+			interesting_row = if_nametoindex(params->interface);
 			snprintf(interesting->ift_name, 16, "(%s)",
 			    ifmd->ifmd_name);;
 		}
@@ -715,19 +720,19 @@ sidewaysintpr()
 		err(1, "malloc failed");
 
 	/* create a timer that fires repeatedly every interval seconds */
-	timer_interval.it_value.tv_sec = interval;
+	timer_interval.it_value.tv_sec = params->interval;
 	timer_interval.it_value.tv_usec = 0;
-	timer_interval.it_interval.tv_sec = interval;
+	timer_interval.it_interval.tv_sec = params->interval;
 	timer_interval.it_interval.tv_usec = 0;
 	(void)signal(SIGALRM, catchalarm);
 	signalled = NO;
 	(void)setitimer(ITIMER_REAL, &timer_interval, NULL);
 	first = 1;
 banner:
-	if (vflag > 0)
+	if (params->vflag > 0)
 		printf("%9s", " ");
 
-	if (prioflag >= 0)
+	if (params->prioflag >= 0)
 		printf("%39s %39s %36s", "input",
 		    interesting ? interesting->ift_name : "(Total)", "output");
 	else
@@ -735,26 +740,26 @@ banner:
 		    interesting ? interesting->ift_name : "(Total)", "output");
 	putchar('\n');
 
-	if (vflag > 0)
+	if (params->vflag > 0)
 		printf("%9s", " ");
 
 	printf("%10s %5s %10s ", "packets", "errs", "bytes");
-	if (prioflag >= 0)
+	if (params->prioflag >= 0)
 		printf(" %10s %10s %10s %10s",
 		    "tcpkts", "tcbytes", "pvpkts", "pvbytes");
 	printf("%10s %5s %10s %5s", "packets", "errs", "bytes", "colls");
-	if (dflag)
+	if (params->dflag)
 		printf(" %5.5s", "drops");
-	if (prioflag >= 0)
+	if (params->prioflag >= 0)
 		printf(" %10s %10s %10s %10s",
 		    "tcpkts", "tcbytes", "pvpkts", "pvbytes");
-	if (Fflag)
+	if (params->Fflag)
 		printf(" %10s %10s", "fpackets", "fbytes");
 	putchar('\n');
 	fflush(stdout);
 	line = 0;
 loop:
-	if (vflag && !first)
+	if (params->vflag && !first)
 		print_time();
 
 	if (interesting != NULL) {
@@ -781,7 +786,7 @@ loop:
 			    ifmd.ifmd_data.ifi_ipackets - interesting->ift_ip,
 			    ifmd.ifmd_data.ifi_ierrors - interesting->ift_ie,
 			    ifmd.ifmd_data.ifi_ibytes - interesting->ift_ib);
-			switch (prioflag) {
+			switch (params->prioflag) {
 			case SO_TC_BE:
 				printf("%10llu %10llu ",
 				    ifmsupp.ifmd_traffic_class.ifi_ibepackets -
@@ -813,7 +818,7 @@ loop:
 			default:
 				break;
 			}
-			if (prioflag >= 0) {
+			if (params->prioflag >= 0) {
 				printf("%10llu %10llu ",
 				    ifmsupp.ifmd_traffic_class.ifi_ipvpackets -
 				    interesting->ift_ipvp,
@@ -825,10 +830,10 @@ loop:
 			    ifmd.ifmd_data.ifi_oerrors - interesting->ift_oe,
 			    ifmd.ifmd_data.ifi_obytes - interesting->ift_ob,
 			    ifmd.ifmd_data.ifi_collisions - interesting->ift_co);
-			if (dflag)
+			if (params->dflag)
 				printf(" %5llu",
 				    ifmd.ifmd_snd_drops - interesting->ift_dr);
-			switch (prioflag) {
+			switch (params->prioflag) {
 			case SO_TC_BE:
 				printf(" %10llu %10llu",
 				    ifmsupp.ifmd_traffic_class.ifi_obepackets -
@@ -860,14 +865,14 @@ loop:
 			default:
 				break;
 			}
-			if (prioflag >= 0) {
+			if (params->prioflag >= 0) {
 				printf("%10llu %10llu ",
 				    ifmsupp.ifmd_traffic_class.ifi_opvpackets -
 				    interesting->ift_opvp,
 				    ifmsupp.ifmd_traffic_class.ifi_opvbytes -
 				    interesting->ift_opvb);
 			}
-			if (Fflag) {
+			if (params->Fflag) {
 				printf("%10llu %10llu",
 				    ifmsupp.ifmd_data_extended.ifi_fpackets -
 				    interesting->ift_fp,
@@ -885,7 +890,7 @@ loop:
 		interesting->ift_dr = ifmd.ifmd_snd_drops;
 
 		/* private counters */
-		switch (prioflag) {
+		switch (params->prioflag) {
 		case SO_TC_BE:
 			interesting->ift_itcp =
 			    ifmsupp.ifmd_traffic_class.ifi_ibepackets;
@@ -929,7 +934,7 @@ loop:
 		default:
 			break;
 		}
-		if (prioflag >= 0) {
+		if (params->prioflag >= 0) {
 			interesting->ift_ipvp =
 			    ifmsupp.ifmd_traffic_class.ifi_ipvpackets;
 			interesting->ift_ipvb =
@@ -1009,8 +1014,8 @@ loop:
 			sum->ift_co += ifmd->ifmd_data.ifi_collisions;
 			sum->ift_dr += ifmd->ifmd_snd_drops;
 			/* private counters */
-			if (prioflag >= 0) {
-				switch (prioflag) {
+			if (params->prioflag >= 0) {
+				switch (params->prioflag) {
 				case SO_TC_BE:
 					sum->ift_itcp += ifmsupp->ifmd_traffic_class.ifi_ibepackets;
 					sum->ift_itcb += ifmsupp->ifmd_traffic_class.ifi_ibebytes;
@@ -1051,7 +1056,7 @@ loop:
 				sum->ift_ip - total->ift_ip,
 				sum->ift_ie - total->ift_ie,
 				sum->ift_ib - total->ift_ib);
-			if (prioflag >= 0)
+			if (params->prioflag >= 0)
 				printf(" %10llu %10llu %10llu %10llu",
 				    sum->ift_itcp - total->ift_itcp,
 				    sum->ift_itcb - total->ift_itcb,
@@ -1062,15 +1067,15 @@ loop:
 				sum->ift_oe - total->ift_oe,
 				sum->ift_ob - total->ift_ob,
 				sum->ift_co - total->ift_co);
-			if (dflag)
+			if (params->dflag)
 				printf(" %5llu", sum->ift_dr - total->ift_dr);
-			if (prioflag >= 0)
+			if (params->prioflag >= 0)
 				printf(" %10llu %10llu %10llu %10llu",
 				    sum->ift_otcp - total->ift_otcp,
 				    sum->ift_otcb - total->ift_otcb,
 				    sum->ift_opvp - total->ift_opvp,
 				    sum->ift_opvb - total->ift_opvb);
-			if (Fflag)
+			if (params->Fflag)
 				printf(" %10llu %10llu",
 				    sum->ift_fp - total->ift_fp,
 				    sum->ift_fb - total->ift_fb);
@@ -1102,22 +1107,22 @@ loop:
 }
 
 void
-intervalpr(void (*pr)(uint32_t, char *, int), uint32_t off, char *name , int af)
+intervalpr(struct netstat_parameters *params, int (*pr)(struct netstat_parameters *, uint32_t, char *, int), uint32_t off, char *name, int af)
 {
 	struct itimerval timer_interval;
 	sigset_t sigset, oldsigset;
 
 	/* create a timer that fires repeatedly every interval seconds */
-	timer_interval.it_value.tv_sec = interval;
+	timer_interval.it_value.tv_sec = params->interval;
 	timer_interval.it_value.tv_usec = 0;
-	timer_interval.it_interval.tv_sec = interval;
+	timer_interval.it_interval.tv_sec = params->interval;
 	timer_interval.it_interval.tv_usec = 0;
 	(void) signal(SIGALRM, catchalarm);
 	signalled = NO;
 	(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
 
 	for (;;) {
-		pr(off, name, af);
+		pr(params, off, name, af);
 
 		fflush(stdout);
 		sigemptyset(&sigset);
@@ -1173,20 +1178,22 @@ sec2str(total)
 	return(result);
 }
 
-void
-intpr_ri(void (*pfunc)(char *))
+int
+intpr_ri(struct netstat_parameters *params, void (*pfunc)(struct netstat_parameters *, char *))
 {
 	int mib[6];
 	char *buf = NULL, *lim, *next;
 	size_t len;
 	unsigned int ifindex = 0;
 	struct if_msghdr2 *if2m;
+	int retval = 0;
 
-	if (interface != 0) {
-		ifindex = if_nametoindex(interface);
+	if (params->interface != 0) {
+		ifindex = if_nametoindex(params->interface);
 		if (ifindex == 0) {
-			printf("interface name is not valid: %s\n", interface);
-			exit(1);
+			snprintf(params->errbuf, sizeof(params->errbuf), "interface name is not valid: %s", params->interface);
+			retval = -1;
+			goto done;
 		}
 	}
 
@@ -1197,20 +1204,20 @@ intpr_ri(void (*pfunc)(char *))
 	mib[4]	= NET_RT_IFLIST2;	/* operation */
 	mib[5]	= 0;
 	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
-		return;
+		goto done;
 	if ((buf = malloc(len)) == NULL) {
-		printf("malloc failed\n");
-		exit(1);
+		snprintf(params->errbuf, sizeof(params->errbuf), "malloc failed");
+		retval = -1;
+		goto done;
 	}
 	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
-		free(buf);
-		return;
+		goto done;
 	}
 
 	printf("%-6s %-17s %14.14s %-9.9s %4s %4s",
 	       "Proto", "Linklayer Address", "Netif", "Expire", "Refs",
 	       "Prbs");
-	if (xflag)
+	if (params->xflag)
 		printf(" %7s %7s %7s", "RSSI", "LQM", "NPM");
 	printf("\n");
 
@@ -1223,31 +1230,39 @@ intpr_ri(void (*pfunc)(char *))
 
 		if (if2m->ifm_type != RTM_IFINFO2)
 			continue;
-		else if (interface != 0 && if2m->ifm_index != ifindex)
+		else if (params->interface != 0 && if2m->ifm_index != ifindex)
 			continue;
 
-		llreach_sysctl(if2m->ifm_index);
+		retval = llreach_sysctl(params, if2m->ifm_index);
+		if (retval == -1) {
+			break;
+		}
 	}
+done:
 	free(buf);
+
+	return retval;
 }
 
-static void
-llreach_sysctl(uint32_t ifindex)
+static int
+llreach_sysctl(struct netstat_parameters *params, uint32_t ifindex)
 {
 #define	MAX_SYSCTL_TRY	5
 	int mib[6], i, ntry = 0;
 	size_t mibsize, len, needed, cnt;
 	struct if_llreach_info *lri;
 	struct timeval time;
-	char *buf;
+	char *buf = NULL;
 	char ifname[IF_NAMESIZE];
+	int retval = 0;
 
 	bzero(&mib, sizeof (mib));
 	mibsize = sizeof (mib) / sizeof (mib[0]);
 	if (sysctlnametomib("net.link.generic.system.llreach_info", mib,
 	    &mibsize) == -1) {
 		perror("sysctlnametomib");
-		return;
+		retval = -1;
+		goto out_free;
 	}
 
 	needed = 0;
@@ -1257,15 +1272,18 @@ llreach_sysctl(uint32_t ifindex)
 	do {
 		if (sysctl(mib, mibsize, NULL, &needed, NULL, 0) == -1) {
 			perror("sysctl net.link.generic.system.llreach_info");
-			return;
+			retval = -1;
+			goto out_free;
 		}
 		if ((buf = malloc(needed)) == NULL) {
 			perror("malloc");
-			return;
+			retval = -1;
+			goto out_free;
 		}
 		if (sysctl(mib, mibsize, buf, &needed, NULL, 0) == -1) {
 			if (errno != ENOMEM || ++ntry >= MAX_SYSCTL_TRY) {
 				perror("sysctl");
+				retval = -1;
 				goto out_free;
 			}
 			free(buf);
@@ -1296,7 +1314,7 @@ llreach_sysctl(uint32_t ifindex)
 		if (lri->lri_probes)
 			printf(" %4d", lri->lri_probes);
 
-		if (xflag) {
+		if (params->xflag) {
 			if (!lri->lri_probes)
 				printf(" %-4.4s", "none");
 
@@ -1356,10 +1374,12 @@ llreach_sysctl(uint32_t ifindex)
 out_free:
 	free(buf);
 #undef	MAX_SYSCTL_TRY
+
+	return retval;
 }
 
-void
-aqstatpr(void)
+int
+aqstatpr(struct netstat_parameters *params)
 {
 	struct itimerval timer_interval;
 	struct if_qstatsreq ifqr;
@@ -1369,34 +1389,38 @@ aqstatpr(void)
 	int s = -1, n;
 	struct ifaddrs *ifap = NULL, *ifa;
 	const char *last_ifname = NULL;
+	int retval = 0;
 
-	if (cq < -1 || cq >= IFCQ_SC_MAX) {
+	if (params->cq < -1 || params->cq >= IFCQ_SC_MAX) {
 		fprintf(stderr, "Invalid classq index (range is 0-%d)\n",
 		     IFCQ_SC_MAX-1);
-		return;
+		return -1;
 	}
 
 	ifcqs = malloc(sizeof (*ifcqs));
 	if (ifcqs == NULL) {
 		fprintf(stderr, "Unable to allocate memory\n");
+		retval = -1;
 		goto done;
 	}
 
 	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		perror("Warning: socket(AF_INET)");
+		retval = -1;
 		goto done;
 	}
 	if (getifaddrs(&ifap) != 0) {
 		perror("getifaddrs");
+		retval = -1;
 		goto done;
     }
 
 loop:
-	if (interval > 0) {
+	if (params->interval > 0) {
 		/* create a timer that fires repeatedly every interval seconds */
-		timer_interval.it_value.tv_sec = interval;
+		timer_interval.it_value.tv_sec = params->interval;
 		timer_interval.it_value.tv_usec = 0;
-		timer_interval.it_interval.tv_sec = interval;
+		timer_interval.it_interval.tv_sec = params->interval;
 		timer_interval.it_interval.tv_usec = 0;
 		(void) signal(SIGALRM, catchalarm);
 		signalled = NO;
@@ -1406,8 +1430,8 @@ loop:
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
 		struct ifreq ifr;
 
-		if (interface != NULL &&
-			strcmp(ifa->ifa_name, interface) != 0) {
+		if (params->interface != NULL &&
+			strcmp(ifa->ifa_name, params->interface) != 0) {
 			continue;
 		}
 
@@ -1436,7 +1460,7 @@ loop:
 		ifqr.ifqr_slot = 0;
 		if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
 			if (errno == ENXIO) {
-				if (interface == NULL) {
+				if (params->interface == NULL) {
 					continue;
 				}
 				printf("Queue statistics are not available on %s\n",
@@ -1449,10 +1473,11 @@ loop:
 		scheduler = ifcqs->ifqs_scheduler;
 		if (scheduler == PKTSCHEDT_NONE) {
 			fprintf(stderr, "Invalid scheduler type\n");
+			retval = -1;
 			goto done;
 		}
 
-		if (interface == NULL) {
+		if (params->interface == NULL) {
 			printf("\n");
 		}
 
@@ -1468,7 +1493,7 @@ loop:
 		for (uint8_t grp = 0; grp < FQ_IF_STATS_MAX_GROUPS; grp++) {
 			ifqr.ifqr_grp_idx = grp;
 			for (n = 0; n < IFCQ_SC_MAX; n++) {
-				if (cq >= 0 && cq != n){
+				if (params->cq >= 0 && params->cq != n){
 					continue;
 				}
 
@@ -1481,15 +1506,14 @@ loop:
 						break;
 					}
 					perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+					retval = -1;
 					goto done;
 				}
 
 				switch (scheduler) {
 					case PKTSCHEDT_FQ_CODEL:
-#ifdef PKTSCHEDT_FQ_CODEL_NEW
 					case PKTSCHEDT_FQ_CODEL_NEW:
-#endif /* PKTSCHEDT_FQ_CODEL_NEW */
-						print_fq_codel_stats(n,
+						print_fq_codel_stats(params, n,
 											 &ifcqs->ifqs_fq_codel_stats,
 											 grp);
 						break;
@@ -1502,7 +1526,7 @@ loop:
 
 		fflush(stdout);
 	}
-	if (interval > 0) {
+	if (params->interval > 0) {
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGALRM);
 		(void) sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
@@ -1520,10 +1544,12 @@ done:
 	freeifaddrs(ifap);
 	free(ifcqs);
 	close(s);
+
+	return retval;
 }
 
 static void
-print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst, uint8_t grp)
+print_fq_codel_stats(struct netstat_parameters *params, int pri, struct fq_codel_classstats *fqst, uint8_t grp)
 {
 	int i = 0;
 
@@ -1566,7 +1592,7 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst, uint8_t grp)
 	printf("     [ compressible pkts: %u compressed pkts: %u]\n",
 	    fqst->fcls_pkts_compressible, fqst->fcls_pkts_compressed);
 
-	if (qflag < 2)
+	if (params->qflag < 2)
 		return;
 
 	if (fqst->fcls_flowstats_cnt > 0) {
@@ -1692,8 +1718,8 @@ pri2str(unsigned int i)
 	return (c);
 }
 
-void
-rxpollstatpr(void)
+int
+rxpollstatpr(struct netstat_parameters *params)
 {
 	struct ifmibdata_supplemental ifmsupp;
 	size_t miblen = sizeof (ifmsupp);
@@ -1706,22 +1732,25 @@ rxpollstatpr(void)
 	struct ifaddrs *ifap = NULL, *ifa;
 	const char *last_ifname = NULL;
 	int s = -1;
+	int retval = 0;
 
 	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		perror("Warning: socket(AF_INET)");
+		retval = -1;
 		goto done;
 	}
 	if (getifaddrs(&ifap) != 0) {
 		perror("getifaddrs");
+		retval = -1;
 		goto done;
     }
 
 loop:
-	if (interval > 0) {
+	if (params->interval > 0) {
 		/* create a timer that fires repeatedly every interval seconds */
-		timer_interval.it_value.tv_sec = interval;
+		timer_interval.it_value.tv_sec = params->interval;
 		timer_interval.it_value.tv_usec = 0;
-		timer_interval.it_interval.tv_sec = interval;
+		timer_interval.it_interval.tv_sec = params->interval;
 		timer_interval.it_interval.tv_usec = 0;
 		(void) signal(SIGALRM, catchalarm);
 		signalled = NO;
@@ -1731,8 +1760,8 @@ loop:
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
 		struct ifreq ifr;
 
-		if (interface != NULL &&
-			strcmp(ifa->ifa_name, interface) != 0) {
+		if (params->interface != NULL &&
+			strcmp(ifa->ifa_name, params->interface) != 0) {
 			continue;
 		}
 
@@ -1746,6 +1775,7 @@ loop:
 
 		if (ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != 0) {
 			perror("ioctl(SIOCGIFEFLAGS");
+			retval = -1;
 			goto done;
 		}
 
@@ -1756,6 +1786,7 @@ loop:
 		ifindex = if_nametoindex(ifa->ifa_name);
 		if (ifindex == 0) {
 			fprintf(stderr, "Invalid interface name\n");
+			retval = -1;
 			goto done;
 		}
 
@@ -1774,7 +1805,7 @@ loop:
 		}
 		sp = &ifmsupp.ifmd_rxpoll_stats;
 
-		if (interface == NULL) {
+		if (params->interface == NULL) {
 			printf("\n");
 		}
 
@@ -1822,7 +1853,7 @@ loop:
 
 		fflush(stdout);
 	}
-	if (interval > 0) {
+	if (params->interval > 0) {
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGALRM);
 		(void) sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
@@ -1838,10 +1869,12 @@ loop:
 done:
 	freeifaddrs(ifap);
 	close(s);
+
+	return retval;
 }
 
 static int
-create_control_socket(const char *control_name)
+create_control_socket(struct netstat_parameters *params, const char *control_name)
 {
 	struct sockaddr_ctl sc;
 	struct ctl_info	ctl;
@@ -2258,7 +2291,7 @@ print_interface_state(struct ifreq *ifr)
 }
 
 void
-print_link_status(const char *ifname)
+print_link_status(struct netstat_parameters *params, const char *ifname)
 {
 	unsigned int ifindex;
 	struct itimerval timer_interval;
@@ -2280,12 +2313,12 @@ print_link_status(const char *ifname)
 		goto done;
     }
 loop:
-	if (interval > 0) {
+	if (params->interval > 0) {
 		/* create a timer that fires repeatedly every interval
 		 * seconds */
-		timer_interval.it_value.tv_sec = interval;
+		timer_interval.it_value.tv_sec = params->interval;
 		timer_interval.it_value.tv_usec = 0;
-		timer_interval.it_interval.tv_sec = interval;
+		timer_interval.it_interval.tv_sec = params->interval;
 		timer_interval.it_interval.tv_usec = 0;
 		(void) signal(SIGALRM, catchalarm);
 		signalled = NO;
@@ -2310,7 +2343,7 @@ loop:
 			return;
 		}
 
-		if ((ctl_fd = create_control_socket(NET_STAT_CONTROL_NAME)) < 0) {
+		if ((ctl_fd = create_control_socket(params, NET_STAT_CONTROL_NAME)) < 0) {
 			perror("create_control_socket");
 			goto done;
 		}
@@ -2352,7 +2385,7 @@ loop:
 		close(ctl_fd);
 		ctl_fd = -1;
 	}
-	if (interval > 0) {
+	if (params->interval > 0) {
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGALRM);
 		(void) sigprocmask(SIG_BLOCK, &sigset, &oldsigset);

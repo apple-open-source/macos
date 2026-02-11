@@ -118,23 +118,6 @@ final class GNICollector {
 	func collectDefaultInformation() -> Void {
 		collectInformation(runTableForDefaultCommands)
 
-		// ("/usr/sbin/netstat -qq -I %@",				"netstat.txt",				true)
-		// ("/usr/sbin/netstat -Q -I %@",				"netstat.txt",				true)
-		self.interfaceList.forEach { ifname in
-			let cmd = String(format: "/sbin/ifconfig -v %@", ifname)
-			let (_, ifconfigVerboseOutput) = gnisr.run(command: cmd)
-			guard let ifconfigVerboseOutput = ifconfigVerboseOutput else {
-				gnisr.errorlog("FAILED: '\(cmd)'")
-				return
-			}
-			if ifconfigVerboseOutput.contains("TXSTART") {
-				collectInformation([(String(format: "/usr/sbin/netstat -qq -I %@", ifname), "netstat.txt", false),])
-			}
-			if ifconfigVerboseOutput.contains("RXPOLL") {
-				collectInformation([(String(format: "/usr/sbin/netstat -Q -I %@", ifname), "netstat.txt", false),])
-			}
-		}
-
 		// ("/usr/sbin/ipconfig getsummary %@",				"ipconfig-info.txt",			true)
 		let (_, ipconfigIflistStr) = gnisr.run(command: "/usr/sbin/ipconfig getiflist")
 		if ipconfigIflistStr != nil {
@@ -148,7 +131,7 @@ final class GNICollector {
 
 		// ("pfctl -s all -a %@",					"pf.txt",				true)
 		let (_, pfAnchorsListStr) = gnisr.run(command: "/sbin/pfctl -s Anchors -v", stderr: "/dev/null")
-		if pfAnchorsListStr != nil {
+		if pfAnchorsListStr != nil && pfAnchorsListStr!.isEmpty == false {
 			let pfAnchorsList: [String] = pfAnchorsListStr!.components(separatedBy: .whitespacesAndNewlines).filter {
 				!$0.isEmpty
 			}

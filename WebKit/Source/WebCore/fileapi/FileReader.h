@@ -53,12 +53,14 @@ template<typename> class ExceptionOr;
 class FileReader final : public RefCounted<FileReader>, public ActiveDOMObject, public EventTarget, private FileReaderLoaderClient {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(FileReader);
 public:
-    void ref() const final { RefCounted::ref(); }
-    void deref() const final { RefCounted::deref(); }
-
     static Ref<FileReader> create(ScriptExecutionContext&);
 
     virtual ~FileReader();
+
+    // ContextDestructionObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+    USING_CAN_MAKE_WEAKPTR(EventTarget);
 
     enum ReadyState {
         EMPTY = 0,
@@ -108,7 +110,7 @@ private:
     RefPtr<Blob> m_blob;
     FileReaderLoader::ReadType m_readType { FileReaderLoader::ReadAsBinaryString };
     String m_encoding;
-    std::unique_ptr<FileReaderLoader> m_loader;
+    RefPtr<FileReaderLoader> m_loader;
     RefPtr<DOMException> m_error;
     MonotonicTime m_lastProgressNotificationTime { MonotonicTime::nan() };
     HashMap<uint64_t, Function<void(FileReader&)>> m_pendingTasks;

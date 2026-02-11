@@ -129,14 +129,14 @@ name          count    count    count    count    count    count\n\
 #define MB_LEAK_SPACING "                    "
 static const char *mbpr_state(int);
 static const char *mbpr_mem(u_int32_t);
-static int mbpr_getdata(void);
+static int mbpr_getdata(struct netstat_parameters *params);
 static void mbpr_tag_stats(void);
 
 /*
  * Print mbuf statistics.
  */
-void
-mbpr(void)
+int
+mbpr(struct netstat_parameters *params)
 {
 	unsigned long totmem = 0, totfree = 0, totmbufs, totused, totreturned = 0;
 	double totpct;
@@ -147,8 +147,9 @@ mbpr(void)
 	struct mbtypes *mp;
 	mb_class_stat_t *cp;
 
-	if (mbpr_getdata() != 0)
-		return;
+	if (mbpr_getdata(params) != 0) {
+		return -1;
+	}
 
 	m_msize = mbstat.m_msize;
 	cp = &mb_stat->mbs_class[0];
@@ -185,7 +186,7 @@ mbpr(void)
 		totreturned += cp->mbcl_release_cnt;
 		totfree += (cp->mbcl_mc_cached + cp->mbcl_infree) *
 		    cp->mbcl_size;
-		if (mflag > 1) {
+		if (params->mflag > 1) {
 			if (i == 0)
 				printf(MB_STAT_HDR1);
 
@@ -199,7 +200,7 @@ mbpr(void)
 
 	cp = &mb_stat->mbs_class[0];
 	for (i = 0; i < mb_stat->mbs_cnt; i++, cp++) {
-		if (mflag > 2) {
+		if (params->mflag > 2) {
 			if (i == 0)
 				printf(MB_STAT_HDR2);
 
@@ -211,7 +212,7 @@ mbpr(void)
 		}
 	}
 
-	if (mflag > 1)
+	if (params->mflag > 1)
 		printf("\n");
 
 	totmbufs = 0;
@@ -329,9 +330,11 @@ mbpr(void)
 		mleak_stat = NULL;
 	}
 
-    if (mflag > 2) {
+    if (params->mflag > 2) {
         mbpr_tag_stats();
     }
+
+	return 0;
 }
 
 static const char *
@@ -377,7 +380,7 @@ mbpr_mem(u_int32_t bytes)
 }
 
 static int
-mbpr_getdata(void)
+mbpr_getdata(struct netstat_parameters *params)
 {
 	size_t len;
 	int error = -1;
@@ -418,7 +421,7 @@ mbpr_getdata(void)
 	}
 
 	/* mbuf leak detection! */
-	if (mflag > 3) {
+	if (params->mflag > 3) {
 		errno = 0;
 		len = sizeof (table);
 		if (sysctlbyname(KERN_IPC_MLEAK_TABLE, &table, &len, 0, 0) == -1) {

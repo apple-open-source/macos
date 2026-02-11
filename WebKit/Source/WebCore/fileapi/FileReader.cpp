@@ -67,15 +67,15 @@ FileReader::FileReader(ScriptExecutionContext& context)
 
 FileReader::~FileReader()
 {
-    if (m_loader)
-        m_loader->cancel();
+    if (RefPtr loader = m_loader)
+        loader->cancel();
 }
 
 void FileReader::stop()
 {
     m_pendingTasks.clear();
-    if (m_loader) {
-        m_loader->cancel();
+    if (RefPtr loader = m_loader) {
+        loader->cancel();
         m_loader = nullptr;
     }
     m_state = DONE;
@@ -131,10 +131,11 @@ ExceptionOr<void> FileReader::readInternal(Blob& blob, FileReaderLoader::ReadTyp
     m_state = LOADING;
     m_error = nullptr;
 
-    m_loader = makeUnique<FileReaderLoader>(m_readType, static_cast<FileReaderLoaderClient*>(this));
-    m_loader->setEncoding(m_encoding);
-    m_loader->setDataType(m_blob->type());
-    m_loader->start(protectedScriptExecutionContext().get(), blob);
+    Ref loader = FileReaderLoader::create(m_readType, static_cast<FileReaderLoaderClient*>(this));
+    m_loader = loader.copyRef();
+    loader->setEncoding(m_encoding);
+    loader->setDataType(m_blob->type());
+    loader->start(protectedScriptExecutionContext().get(), blob);
 
     return { };
 }
@@ -214,15 +215,16 @@ void FileReader::fireEvent(const AtomString& type)
 
 std::optional<Variant<String, RefPtr<JSC::ArrayBuffer>>> FileReader::result() const
 {
-    if (!m_loader || m_error || m_state != DONE)
+    RefPtr loader = m_loader;
+    if (!loader || m_error || m_state != DONE)
         return std::nullopt;
     if (m_readType == FileReaderLoader::ReadAsArrayBuffer) {
-        auto result = m_loader->arrayBufferResult();
+        auto result = loader->arrayBufferResult();
         if (!result)
             return std::nullopt;
         return { result };
     }
-    String result = m_loader->stringResult();
+    String result = loader->stringResult();
     if (result.isNull())
         return std::nullopt;
     return { WTFMove(result) };

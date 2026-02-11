@@ -195,7 +195,7 @@ struct MockWebAuthenticationConfiguration;
 
 class Internals final
     : public RefCounted<Internals>
-    , private ContextDestructionObserver
+    , public ContextDestructionObserver
 #if ENABLE(MEDIA_STREAM)
     , public CanMakeCheckedPtr<Internals>
     , public RealtimeMediaSourceObserver
@@ -210,6 +210,11 @@ class Internals final
 public:
     static Ref<Internals> create(Document&);
     virtual ~Internals();
+
+    // ContextDestructionObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+    USING_CAN_MAKE_WEAKPTR(ContextDestructionObserver);
 
     static void resetToConsistentState(Page&);
 
@@ -757,6 +762,7 @@ public:
     void simulateSpeechSynthesizerVoiceListChange();
     void enableMockSpeechSynthesizer();
     void enableMockSpeechSynthesizerForMediaElement(HTMLMediaElement&);
+    void setInitialVoiceListToEmpty();
     ExceptionOr<void> setSpeechUtteranceDuration(double);
     unsigned minimumExpectedVoiceCount();
 #endif
@@ -1625,6 +1631,8 @@ public:
     String modelElementState(HTMLModelElement&);
     bool isModelElementIntersectingViewport(HTMLModelElement&);
 #endif
+
+    bool hasMediaSessionManager() const;
 
 private:
     explicit Internals(Document&);

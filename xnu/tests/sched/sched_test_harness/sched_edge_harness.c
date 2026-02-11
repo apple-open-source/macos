@@ -8,12 +8,6 @@
 
 /* Machine-layer mocking */
 
-processor_t
-current_processor(void)
-{
-	return cpus[_curr_cpu];
-}
-
 unsigned int
 ml_get_die_id(unsigned int cluster_id)
 {
@@ -133,74 +127,40 @@ test_hw_topology_t dual_die = {
 
 #define MAX_NODES 2
 
-static void
-edge_impl_set_cluster_type(processor_set_t pset, test_cpu_type_t type)
-{
-	switch (type) {
-	case TEST_CPU_TYPE_EFFICIENCY:
-		pset->pset_cluster_type = PSET_AMP_E;
-		pset->node = &pset_nodes[0];
-		bitmap_set(&pset_nodes[0].pset_map, pset->pset_cluster_id);
-		break;
-	case TEST_CPU_TYPE_PERFORMANCE:
-		pset->pset_cluster_type = PSET_AMP_P;
-		pset->node = &pset_nodes[1];
-		bitmap_set(&pset_nodes[1].pset_map, pset->pset_cluster_id);
-		break;
-	default:
-		assert(false);
-		break;
-	}
-}
+struct ml_topology_info mock_topology_info;
 
-struct mock_topology_info_struct mock_topology_info;
+const unsigned int EDGE_REBAL_RUNNABLE = MACH_SCHED_EDGE_REBAL_RUNNABLE;
+const unsigned int EDGE_REBAL_RUNNING = MACH_SCHED_EDGE_REBAL_RUNNING;
+const unsigned int EDGE_STEAL = MACH_SCHED_EDGE_STEAL;
+const unsigned int EDGE_SHOULD_YIELD = MACH_SCHED_EDGE_SHOULD_YIELD;
+
+void
+edge_impl_init_tracepoints(void)
+{
+	clutch_impl_add_logged_trace_code(EDGE_REBAL_RUNNABLE);
+	clutch_impl_add_logged_trace_code(EDGE_REBAL_RUNNING);
+	clutch_impl_add_logged_trace_code(EDGE_STEAL);
+	clutch_impl_add_logged_trace_code(EDGE_SHOULD_YIELD);
+}
 
 static void
 edge_impl_init_runqueues(void)
 {
 	assert(curr_hw_topo.num_psets != 0);
-	clutch_impl_init_topology(curr_hw_topo);
+	sched_num_psets = curr_hw_topo.num_psets;
 	mock_topology_info.num_cpus = curr_hw_topo.total_cpus;
-	sched_edge_init();
-	bzero(pset_nodes, sizeof(pset_nodes));
-	pset_nodes[0].pset_cluster_type = PSET_AMP_E;
-	pset_nodes[1].pset_cluster_type = PSET_AMP_P;
-	for (int i = 0; i < MAX_NODES; i++) {
-		os_atomic_store(&pset_nodes[i].pset_recommended_map, 0, relaxed);
-	}
+	mock_topology_info.num_clusters = curr_hw_topo.num_psets;
+	clutch_impl_init_topology(curr_hw_topo);
 	for (int i = 0; i < curr_hw_topo.num_psets; i++) {
-		pset_array[i] = psets[i];
-		edge_impl_set_cluster_type(psets[i], curr_hw_topo.psets[i].cpu_type);
-		sched_edge_pset_init(psets[i]);
-		bzero(&psets[i]->pset_load_average, sizeof(psets[i]->pset_load_average));
-		bzero(&psets[i]->pset_execution_time, sizeof(psets[i]->pset_execution_time));
-		assert(psets[i]->cpu_bitmask != 0);
-		psets[i]->foreign_psets[0] = 0;
-		psets[i]->native_psets[0] = 0;
-		psets[i]->local_psets[0] = 0;
-		psets[i]->remote_psets[0] = 0;
 		cluster_count_for_type[curr_hw_topo.psets[i].cpu_type]++;
 		cpu_count_for_type[curr_hw_topo.psets[i].cpu_type] += curr_hw_topo.psets[i].num_cpus;
 		recommended_cpu_count_for_type[curr_hw_topo.psets[i].cpu_type] +=
 		    curr_hw_topo.psets[i].num_cpus;
-		impl_set_pset_recommended(i);
-		psets[i]->cpu_running_foreign = 0;
-		for (uint state = 0; state < PROCESSOR_STATE_LEN; state++) {
-			psets[i]->cpu_state_map[state] = 0;
-		}
-		/* Initialize realtime queues */
-		pset_rt_init(psets[i]);
 	}
-	for (unsigned int j = 0; j < processor_avail_count; j++) {
-		processor_array[j] = cpus[j];
-		sched_clutch_processor_init(cpus[j]);
-		os_atomic_store(&cpus[j]->stir_the_pot_inbox_cpu, -1, relaxed);
-	}
-	sched_edge_cpu_init_completed();
-	sched_rt_init_completed();
 	increment_mock_time(100);
 	clutch_impl_init_params();
 	clutch_impl_init_tracepoints();
+	edge_impl_init_tracepoints();
 }
 
 void
@@ -246,32 +206,12 @@ impl_set_thread_cluster_bound(test_thread_t thread, int cluster_id)
 	((thread_t)thread)->th_bound_cluster_id = cluster_id;
 }
 
-static void
-processor_state_update_running_foreign(processor_t processor, thread_t thread)
-{
-	cluster_type_t current_processor_type = pset_type_for_id(processor->processor_set->pset_cluster_id);
-	cluster_type_t thread_type = pset_type_for_id(sched_edge_thread_preferred_cluster(thread));
-
-	boolean_t non_rt_thr = (processor->current_pri < BASEPRI_RTQUEUES);
-	boolean_t non_bound_thr = (thread->bound_processor == PROCESSOR_NULL);
-	if (non_rt_thr && non_bound_thr && (current_processor_type != thread_type)) {
-		bit_set(processor->processor_set->cpu_running_foreign, processor->cpu_id);
-	} else {
-		bit_clear(processor->processor_set->cpu_running_foreign, processor->cpu_id);
-	}
-}
-
 void
 impl_cpu_set_thread_current(int cpu_id, test_thread_t thread)
 {
 	_curr_cpu = cpu_id;
 	processor_set_t pset = cpus[cpu_id]->processor_set;
 	clutch_impl_cpu_set_thread_current(cpu_id, thread);
-	processor_state_update_running_foreign(cpus[cpu_id], (thread_t)thread);
-	pset_update_processor_state(pset, cpus[cpu_id], PROCESSOR_RUNNING);
-	sched_bucket_t bucket = ((((thread_t)thread)->state & TH_IDLE) || (((thread_t)thread)->bound_processor != PROCESSOR_NULL)) ? TH_BUCKET_SCHED_MAX : ((thread_t)thread)->th_sched_bucket;
-	os_atomic_store(&cpus[cpu_id]->processor_set->cpu_running_buckets[cpu_id], bucket, relaxed);
-	sched_edge_stir_the_pot_update_registry_state((thread_t)thread);
 
 	/* Send followup IPIs for realtime, as needed */
 	bit_clear(pset->rt_pending_spill_cpu_mask, cpu_id);
@@ -307,6 +247,7 @@ impl_cpu_enqueue_thread(int cpu_id, test_thread_t thread)
 	} else {
 		sched_clutch_processor_enqueue(cpus[cpu_id], (thread_t) thread, SCHED_TAILQ);
 	}
+	SCHED(update_pset_load_average)(cpus[cpu_id]->processor_set, 0);
 }
 
 test_thread_t
@@ -344,7 +285,7 @@ impl_processor_csw_check(int cpu_id)
 }
 
 void
-impl_pop_tracepoint(uint64_t *clutch_trace_code, uint64_t *arg1, uint64_t *arg2,
+impl_pop_tracepoint(uint64_t clutch_trace_code, uint64_t *arg1, uint64_t *arg2,
     uint64_t *arg3, uint64_t *arg4)
 {
 	clutch_impl_pop_tracepoint(clutch_trace_code, arg1, arg2, arg3, arg4);
@@ -379,14 +320,14 @@ test_thread_t
 impl_steal_thread(int cpu_id)
 {
 	_curr_cpu = cpu_id;
-	return sched_edge_processor_idle(psets[cpu_id_to_pset_id(cpu_id)]);
+	return sched_edge_processor_idle(pset_array[cpu_id_to_pset_id(cpu_id)]);
 }
 
 bool
 impl_processor_balance(int cpu_id)
 {
 	_curr_cpu = cpu_id;
-	return sched_edge_balance(cpus[cpu_id], psets[cpu_id_to_pset_id(cpu_id)]);
+	return sched_edge_balance(cpus[cpu_id], pset_array[cpu_id_to_pset_id(cpu_id)]);
 }
 
 void
@@ -410,7 +351,7 @@ impl_set_tg_sched_bucket_preferred_pset(struct thread_group *tg, int sched_bucke
 void
 impl_set_pset_load_avg(int cluster_id, int QoS, uint64_t load_avg)
 {
-	assert(QoS > 0 && QoS < TH_BUCKET_SCHED_MAX);
+	assert(QoS >= 0 && QoS < TH_BUCKET_SCHED_MAX);
 	pset_array[cluster_id]->pset_load_average[QoS] = load_avg;
 }
 
@@ -470,13 +411,13 @@ impl_send_ipi(int cpu_id, test_thread_t thread, test_ipi_event_t event)
 int
 rt_pset_spill_search_order_at_offset(int src_pset_id, int offset)
 {
-	return psets[src_pset_id]->sched_rt_spill_search_order.spso_search_order[offset];
+	return pset_array[src_pset_id]->sched_rt_spill_search_order.spso_search_order[offset];
 }
 
 void
 rt_pset_recompute_spill_order(int src_pset_id)
 {
-	sched_rt_config_pset_push(psets[src_pset_id]);
+	sched_rt_config_pset_push(pset_array[src_pset_id]);
 }
 
 uint32_t

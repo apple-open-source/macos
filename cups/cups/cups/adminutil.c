@@ -402,6 +402,29 @@ cupsAdminGetServerSettings(
   return (cg->cupsd_num_settings > 0);
 }
 
+// Create a temporary file, unlink it, and return a file descriptor.
+// There is still a small Time-Of-Check to Time-Of-Use (TOCTOU) hole
+// between mkstemp() and unlink(). I don't see a fix for this until
+// the OS adds open(O_TMPFILE).
+static int adminTempFD(void)
+{
+  // Create the temporary file template
+  char    tmppath[1024];    /* Temporary directory */
+  if (!confstr(_CS_DARWIN_USER_TEMP_DIR, tmppath, sizeof(tmppath))) {
+    strncpy(tmppath, "/private/tmp", sizeof(tmppath));  /* This should never happen */
+  }
+  strlcat(tmppath, "/XXXXXX", sizeof(tmppath));
+  
+  int tempFD = mkstemp(tmppath);
+  
+  if (tempFD != -1) {
+    unlink(tmppath);
+  } else {
+    DEBUG_printf(("%s: Failed to create the temporary file %s. (%d)\n", __func__, tmppath, errno));
+  }
+
+  return tempFD;
+}
 
 /*
  * 'cupsAdminSetServerSettings()' - Set settings on the server.
@@ -647,22 +670,29 @@ cupsAdminSetServerSettings(
 
   DEBUG_printf(("1cupsAdminSetServerSettings: user_cancel_any=%d",
                 user_cancel_any));
-
- /*
-  * Create a temporary file for the new cupsd.conf file...
-  */
-
-  if ((temp = cupsTempFile2(tempfile, sizeof(tempfile))) == NULL)
-  {
+    
+  /*
+   * Create a temporary file for the new cupsd.conf file...
+   */
+  int tempFD = adminTempFD();
+  if (tempFD == -1) {
+    _cupsSetError(IPP_STATUS_ERROR_INTERNAL, NULL, 0);
     cupsFileClose(cupsd);
-
     if (remote)
       unlink(cupsdconf);
-
-    _cupsSetError(IPP_STATUS_ERROR_INTERNAL, NULL, 0);
-    return (0);
+    return 0;
   }
 
+  temp = cupsFileOpenFd(tempFD, "w");
+  if (!temp) {
+    _cupsSetError(IPP_STATUS_ERROR_INTERNAL, NULL, 0);
+    cupsFileClose(cupsd);
+    if (remote)
+      unlink(cupsdconf);
+    close(tempFD);
+    return 0;
+  }
+  
  /*
   * Copy the old file to the new, making changes along the way...
   */
@@ -1244,14 +1274,21 @@ cupsAdminSetServerSettings(
     }
 
   cupsFileClose(cupsd);
+  
+  // Duplicate the file descriptor for the temp configuration file. That
+  // way it won't be lost when we call cupsFileClose(). We need to call
+  // cupsFileClose() to get it to flush its data and finish any compression
+  // it is doing.
+  int readFD = dup(tempFD);
   cupsFileClose(temp);
-
- /*
-  * Upload the configuration file to the server...
-  */
-
-  status = cupsPutFile(http, "/admin/conf/cupsd.conf", tempfile);
-
+  
+  // Send the new configuration to the server.
+  lseek(readFD, 0, SEEK_SET);
+  status = cupsPutFd(http, "/admin/conf/cupsd.conf", readFD);
+  
+  close(readFD);
+  readFD = -1;
+  
   if (status == HTTP_STATUS_CREATED)
   {
    /*

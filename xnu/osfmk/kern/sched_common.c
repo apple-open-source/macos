@@ -26,13 +26,17 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+#include <stdint.h>
+
 #include <os/atomic_private.h>
-#include <machine/machine_routines.h>
 #include <kern/processor.h>
 
 #include <kern/sched_common.h>
 
 #if __AMP__
+
+SECURITY_READ_ONLY_LATE(uint8_t) sched_num_psets = UINT8_MAX;
+static_assert(MAX_PSETS < UINT8_MAX, "UINT8_MAX is used as a sentinel to indicate sched_num_psets is not initialized.");
 
 void
 sched_pset_search_order_compute(sched_pset_search_order_t *search_order_out,
@@ -44,8 +48,7 @@ sched_pset_search_order_compute(sched_pset_search_order_t *search_order_out,
 	for (int i = 0; i < num_datas; i++) {
 		search_order.spso_search_order[i] = datas[i].spsosd_dst_pset_id;
 	}
-	int num_psets = ml_get_cluster_count();
-	for (int i = (int)num_datas; i < num_psets - 1; i++) {
+	for (int i = (int)num_datas; i < sched_num_psets - 1; i++) {
 		/*
 		 * If fewer sort datas were passed in than the number of psets minus
 		 * 1 (AKA the maximum length of a pset search order), then mark the
@@ -61,14 +64,13 @@ sched_pset_search_order_init(processor_set_t src_pset, sched_pset_search_order_t
 {
 	pset_id_t other_pset_id = 0;
 	sched_pset_search_order_t spill_order;
-	int num_psets = ml_get_cluster_count();
 	for (int i = 0; i < MAX_PSETS - 1; i++, other_pset_id++) {
-		if (i < num_psets - 1) {
+		if (i < sched_num_psets - 1) {
 			if (other_pset_id == src_pset->pset_id) {
 				/* Exclude the source pset */
 				other_pset_id++;
 			}
-			assert3u(other_pset_id, <, num_psets);
+			assert3u(other_pset_id, <, sched_num_psets);
 			spill_order.spso_search_order[i] = other_pset_id;
 		} else {
 			/* Mark unneeded slots with an invalid id, as they should not be accessed */
@@ -78,34 +80,81 @@ sched_pset_search_order_init(processor_set_t src_pset, sched_pset_search_order_t
 	os_atomic_store_wide(&search_order_out->spso_packed, spill_order.spso_packed, relaxed);
 }
 
-bool
-sched_iterate_psets_ordered(processor_set_t starting_pset, sched_pset_search_order_t *search_order,
+static bool
+sched_iterate_psets_ordered_reversed(processor_set_t starting_pset,
     uint64_t candidate_map, sched_pset_iterate_state_t *istate)
 {
-	int num_psets = ml_get_cluster_count();
-	while (istate->spis_search_index < num_psets - 1) {
+	assert3u(istate->spis_options, &, SCHED_PSET_ITERATE_STATE_OPTIONS_REVERSE);
+	while ((istate->spis_search_index < sched_num_psets)) {
 		int pset_id;
 		if (istate->spis_search_index == -1) {
-			/* Initial condition */
-			pset_id = starting_pset->pset_id;
-			istate->spis_cached_search_order =
-			    (sched_pset_search_order_t)os_atomic_load_wide(&search_order->spso_packed, relaxed);
-		} else {
-			pset_id = istate->spis_cached_search_order.spso_search_order[istate->spis_search_index];
-			if (pset_id == PSET_ID_INVALID) {
-				/* The given search order does not include all psets */
-				break;
+			/* In case search order does not include all psets, count how many it does have. */
+			istate->spis_valid_len = 0;
+			while ((istate->spis_cached_search_order.spso_search_order[istate->spis_valid_len] != PSET_ID_INVALID)
+			    && (istate->spis_valid_len <= (sched_num_psets - 2))) {
+				istate->spis_valid_len++;
 			}
+			istate->spis_search_index++;
+		}
+		if (istate->spis_search_index == istate->spis_valid_len) {
+			/* Return starting_pset last */
+			pset_id = starting_pset->pset_id;
+		} else {
+			int index = istate->spis_valid_len - 1 - istate->spis_search_index;
+			assert3s(index, >=, 0);
+			pset_id = istate->spis_cached_search_order.spso_search_order[index];
+			assert3s(pset_id, !=, PSET_ID_INVALID);
 			assert3u(pset_id, !=, starting_pset->pset_id);
 		}
 		istate->spis_search_index++;
 		if (bit_test(candidate_map, pset_id)) {
-			istate->spis_pset_id = pset_id;
+			istate->spis_pset_id = (pset_id_t)pset_id;
 			return true;
 		}
 	}
-	istate->spis_pset_id = -1;
+	istate->spis_pset_id = PSET_ID_INVALID;
 	return false;
+}
+
+bool
+sched_iterate_psets_ordered(processor_set_t starting_pset, sched_pset_search_order_t *search_order,
+    uint64_t candidate_map, sched_pset_iterate_state_t *istate)
+{
+	if (candidate_map == 0) {
+		istate->spis_pset_id = PSET_ID_INVALID;
+		return false;
+	}
+	if (istate->spis_search_index == -1) {
+		istate->spis_cached_search_order =
+		    (sched_pset_search_order_t)os_atomic_load_wide(&search_order->spso_packed, relaxed);
+	}
+	bool reverse = (istate->spis_options & SCHED_PSET_ITERATE_STATE_OPTIONS_REVERSE);
+	if (reverse) {
+		return sched_iterate_psets_ordered_reversed(starting_pset, candidate_map, istate);
+	} else {
+		while (istate->spis_search_index < sched_num_psets - 1) {
+			int pset_id;
+			if (istate->spis_search_index == -1) {
+				pset_id = starting_pset->pset_id;
+			} else {
+				int index = istate->spis_search_index;
+				assert3s(index, >=, 0);
+				pset_id = istate->spis_cached_search_order.spso_search_order[index];
+				if (pset_id == PSET_ID_INVALID) {
+					/* The given search order does not include all psets */
+					break;
+				}
+				assert3u(pset_id, !=, starting_pset->pset_id);
+			}
+			istate->spis_search_index++;
+			if (bit_test(candidate_map, pset_id)) {
+				istate->spis_pset_id = (pset_id_t)pset_id;
+				return true;
+			}
+		}
+		istate->spis_pset_id = PSET_ID_INVALID;
+		return false;
+	}
 }
 
 #endif /* __AMP__ */

@@ -271,7 +271,7 @@ private:
     ResourceLoadInfo resourceLoadInfo();
 
 #if ENABLE(CONTENT_FILTERING)
-    bool startContentFiltering(WebCore::ResourceRequest&);
+    void startContentFiltering(WebCore::ResourceRequest&&, CompletionHandler<void(WebCore::ResourceRequest)>&&);
 #endif
 
     // ReportingClient

@@ -166,8 +166,6 @@
 		1C18264010FFE3F400C8B173 /* conch-ciphers.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825E810FFE3F400C8B173 /* conch-ciphers.sh */; };
 		1C18264110FFE3F400C8B173 /* connect-privsep.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825E910FFE3F400C8B173 /* connect-privsep.sh */; };
 		1C18264210FFE3F400C8B173 /* connect.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825EA10FFE3F400C8B173 /* connect.sh */; };
-		1C18264310FFE3F400C8B173 /* dsa_ssh2.prv in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825EB10FFE3F400C8B173 /* dsa_ssh2.prv */; };
-		1C18264410FFE3F400C8B173 /* dsa_ssh2.pub in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825EC10FFE3F400C8B173 /* dsa_ssh2.pub */; };
 		1C18264510FFE3F400C8B173 /* dynamic-forward.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825ED10FFE3F400C8B173 /* dynamic-forward.sh */; };
 		1C18264610FFE3F400C8B173 /* envpass.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825EE10FFE3F400C8B173 /* envpass.sh */; };
 		1C18264710FFE3F400C8B173 /* exit-status.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C1825EF10FFE3F400C8B173 /* exit-status.sh */; };
@@ -383,7 +381,6 @@
 		1C6B2FCF0FEFF9FF004F1935 /* uidswap.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC50FEFF9FF004F1935 /* uidswap.c */; };
 		1C6B2FDB0FEFFAB7004F1935 /* monitor_fdpass.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FD50FEFFAB7004F1935 /* monitor_fdpass.c */; };
 		1C6B2FDD0FEFFAB7004F1935 /* rijndael.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FD70FEFFAB7004F1935 /* rijndael.c */; };
-		1C6B2FDF0FEFFAB7004F1935 /* ssh-dss.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FD90FEFFAB7004F1935 /* ssh-dss.c */; };
 		1C6B2FE00FEFFAB7004F1935 /* ssh-rsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FDA0FEFFAB7004F1935 /* ssh-rsa.c */; };
 		1C6B2FEA0FEFFB7A004F1935 /* gss-genr.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FE10FEFFB7A004F1935 /* gss-genr.c */; };
 		1C6B2FEB0FEFFB7A004F1935 /* msg.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FE20FEFFB7A004F1935 /* msg.c */; };
@@ -529,6 +526,7 @@
 		2E7C4CD92DC44468005951A3 /* platform-tracing.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891141D9F1E9800767C80 /* platform-tracing.c */; };
 		2E7C4CDA2DC444C6005951A3 /* platform-pledge.c in Sources */ = {isa = PBXBuildFile; fileRef = FEC3D3E61C9BE92F00B698D9 /* platform-pledge.c */; };
 		2E84428829DDF457007C7DA3 /* dlopen_lv.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E84428529DDF221007C7DA3 /* dlopen_lv.c */; };
+		2E998DC82EE35CFD00841C50 /* misc-agent.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E998DC72EE35CFD00841C50 /* misc-agent.c */; };
 		2EA0324129CEA50B00713BBB /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
 		2EA0324829CEA53A00713BBB /* timestamp.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0324729CEA53A00713BBB /* timestamp.c */; };
 		2EA0DF1F260964140074A51D /* cipher-chachapoly-libcrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EA0DF1E260964140074A51D /* cipher-chachapoly-libcrypto.c */; };
@@ -774,13 +772,6 @@
 		FECDEB9722A49FE700D0A691 /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891111D9F1D6D00767C80 /* utf8.c */; };
 		FEEF84B120B2536200CB7E8E /* bsd-signal.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84AA20B252DC00CB7E8E /* bsd-signal.c */; };
 		FEEF84B220B2536E00CB7E8E /* port-net.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84A920B252DB00CB7E8E /* port-net.c */; };
-		FEEF84B320B2606700CB7E8E /* ssh-xmss.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF849E20B2521500CB7E8E /* ssh-xmss.c */; };
-		FEEF84B420B2606700CB7E8E /* sshkey-xmss.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF849B20B2521400CB7E8E /* sshkey-xmss.c */; };
-		FEEF84B520B2606700CB7E8E /* xmss_commons.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84A520B2521800CB7E8E /* xmss_commons.c */; };
-		FEEF84B620B2606700CB7E8E /* xmss_fast.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF849C20B2521400CB7E8E /* xmss_fast.c */; };
-		FEEF84B720B2606700CB7E8E /* xmss_hash_address.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84A220B2521700CB7E8E /* xmss_hash_address.c */; };
-		FEEF84B820B2606700CB7E8E /* xmss_hash.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF849D20B2521500CB7E8E /* xmss_hash.c */; };
-		FEEF84B920B2606700CB7E8E /* xmss_wots.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF849F20B2521600CB7E8E /* xmss_wots.c */; };
 		FEEF84BD20B2619600CB7E8E /* connect-uri.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEEF84BC20B2618B00CB7E8E /* connect-uri.sh */; };
 		FEEF84BE20B2619600CB7E8E /* scp-uri.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEEF84BA20B2618900CB7E8E /* scp-uri.sh */; };
 		FEEF84BF20B2619600CB7E8E /* sftp-uri.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEEF84BB20B2618A00CB7E8E /* sftp-uri.sh */; };
@@ -1328,9 +1319,7 @@
 				1C18264210FFE3F400C8B173 /* connect.sh in CopyFiles */,
 				739A2FA41B5D9ABC0073A9BC /* cfgparse.sh in CopyFiles */,
 				73F2463A17739422006986BE /* forward-control.sh in CopyFiles */,
-				1C18264310FFE3F400C8B173 /* dsa_ssh2.prv in CopyFiles */,
 				FEB68C2E1DB1E5B3004914A7 /* sshcfgparse.sh in CopyFiles */,
-				1C18264410FFE3F400C8B173 /* dsa_ssh2.pub in CopyFiles */,
 				73452E621A9A71DD00633C3B /* sftp-perm.sh in CopyFiles */,
 				1C18264510FFE3F400C8B173 /* dynamic-forward.sh in CopyFiles */,
 				1C18264610FFE3F400C8B173 /* envpass.sh in CopyFiles */,
@@ -1805,6 +1794,7 @@
 		2E7C4CD42DC43C4B005951A3 /* sshd-auth.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "sshd-auth.c"; path = "openssh/sshd-auth.c"; sourceTree = "<group>"; };
 		2E84428529DDF221007C7DA3 /* dlopen_lv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dlopen_lv.c; sourceTree = "<group>"; };
 		2E945F2E25E01F7D009F507F /* libMobileGestalt.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libMobileGestalt.tbd; path = usr/lib/libMobileGestalt.tbd; sourceTree = SDKROOT; };
+		2E998DC72EE35CFD00841C50 /* misc-agent.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "misc-agent.c"; path = "openssh/misc-agent.c"; sourceTree = "<group>"; };
 		2EA0324629CEA50B00713BBB /* timestamp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = timestamp; sourceTree = BUILT_PRODUCTS_DIR; };
 		2EA0324729CEA53A00713BBB /* timestamp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = timestamp.c; path = openssh/regress/timestamp.c; sourceTree = "<group>"; };
 		2EA0DF1E260964140074A51D /* cipher-chachapoly-libcrypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "cipher-chachapoly-libcrypto.c"; path = "openssh/cipher-chachapoly-libcrypto.c"; sourceTree = "<group>"; };
@@ -3055,6 +3045,7 @@
 		FE996A811C7D90BA006637D5 /* OpenSSH */ = {
 			isa = PBXGroup;
 			children = (
+				2E998DC72EE35CFD00841C50 /* misc-agent.c */,
 				2E7C4CD42DC43C4B005951A3 /* sshd-auth.c */,
 				2EAC48652D2D8664003A76D0 /* kexmlkem768x25519.c */,
 				2E699D082C45D8A300D554D4 /* kex-names.c */,
@@ -4663,6 +4654,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2E998DC82EE35CFD00841C50 /* misc-agent.c in Sources */,
 				2E7C4CDA2DC444C6005951A3 /* platform-pledge.c in Sources */,
 				2E7C4CD92DC44468005951A3 /* platform-tracing.c in Sources */,
 				2E84428829DDF457007C7DA3 /* dlopen_lv.c in Sources */,
@@ -4719,21 +4711,18 @@
 				2E699D092C45D8A300D554D4 /* kex-names.c in Sources */,
 				73452E5A1A9A715C00633C3B /* smult_curve25519_ref.c in Sources */,
 				2EA0DF37260966B10074A51D /* sntrup761.c in Sources */,
-				1C6B2FDF0FEFFAB7004F1935 /* ssh-dss.c in Sources */,
 				2EA0DF3A260966D40074A51D /* ssh-ecdsa-sk.c in Sources */,
 				73E11A581A9A8559005C72BC /* ssh-ecdsa.c in Sources */,
 				2EA0DF3B260966D40074A51D /* ssh-ed25519-sk.c in Sources */,
 				73452E5B1A9A715C00633C3B /* ssh-ed25519.c in Sources */,
 				EB17A9CC16A8041600B18CD6 /* ssh-pkcs11.c in Sources */,
 				1C6B2FE00FEFFAB7004F1935 /* ssh-rsa.c in Sources */,
-				FEEF84B320B2606700CB7E8E /* ssh-xmss.c in Sources */,
 				73452E1F1A9A6DDA00633C3B /* sshbuf-getput-basic.c in Sources */,
 				73452E201A9A6DDA00633C3B /* sshbuf-getput-crypto.c in Sources */,
 				2EA0DF42260967E30074A51D /* sshbuf-io.c in Sources */,
 				73452E211A9A6DDA00633C3B /* sshbuf-misc.c in Sources */,
 				73452E221A9A6DDA00633C3B /* sshbuf.c in Sources */,
 				73452E241A9A6DDA00633C3B /* ssherr.c in Sources */,
-				FEEF84B420B2606700CB7E8E /* sshkey-xmss.c in Sources */,
 				73452E261A9A6DDA00633C3B /* sshkey.c in Sources */,
 				739A2F8B1B5D86680073A9BC /* ssh_api.c in Sources */,
 				1C6B2FBC0FEFF95B004F1935 /* ttymodes.c in Sources */,
@@ -4742,11 +4731,6 @@
 				FE23D9021C747152002E7923 /* umac128.c in Sources */,
 				FECDEB9722A49FE700D0A691 /* utf8.c in Sources */,
 				1C6B2FBE0FEFF95B004F1935 /* xmalloc.c in Sources */,
-				FEEF84B520B2606700CB7E8E /* xmss_commons.c in Sources */,
-				FEEF84B620B2606700CB7E8E /* xmss_fast.c in Sources */,
-				FEEF84B820B2606700CB7E8E /* xmss_hash.c in Sources */,
-				FEEF84B720B2606700CB7E8E /* xmss_hash_address.c in Sources */,
-				FEEF84B920B2606700CB7E8E /* xmss_wots.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

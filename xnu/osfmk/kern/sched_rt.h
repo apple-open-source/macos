@@ -38,11 +38,8 @@ __BEGIN_DECLS
 
 #pragma mark - Constants and Tunables
 
-#if (DEVELOPMENT || DEBUG || SCHED_TEST_HARNESS)
 extern unsigned sched_rt_spill_policy;
 extern unsigned sched_rt_steal_policy;
-#endif /* (DEVELOPMENT || DEBUG || SCHED_TEST_HARNESS) */
-
 extern uint32_t rt_deadline_epsilon;
 extern uint32_t rt_constraint_threshold;
 extern int sched_rt_runq_strict_priority;
@@ -84,7 +81,7 @@ sched_clutch_edge sched_rt_config_get(pset_id_t src_pset, pset_id_t dst_pset);
  * outgoing edge.
  *
  * The matrix provided should be `num_psets * num_psets`, where `num_psets`
- * is equal to `sched_edge_max_clusters`. Like the Edge matrix, it is indexed
+ * is equal to `sched_num_psets`. Like the Edge matrix, it is indexed
  * first by source pset (major), then by destination pset (minor).
  */
 
@@ -107,7 +104,7 @@ thread_t sched_rt_steal_thread(processor_set_t stealing_pset);
 #endif /* CONFIG_SCHED_EDGE */
 thread_t sched_rt_choose_thread(processor_t processor);
 
-void sched_rt_queue_shutdown(processor_t processor);
+void sched_rt_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq);
 
 void sched_rt_runq_scan(sched_update_scan_context_t scan_context);
 

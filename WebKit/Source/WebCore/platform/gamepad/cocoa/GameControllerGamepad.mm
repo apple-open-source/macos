@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,6 +47,11 @@ GameControllerGamepad::GameControllerGamepad(GCController *controller, unsigned 
     setupElements();
 }
 
+GameControllerGamepad::~GameControllerGamepad()
+{
+    teardownElements();
+}
+
 static void disableDefaultSystemAction(GCControllerButtonInput *button)
 {
     if ([button respondsToSelector:@selector(preferredSystemGestureState)])
@@ -56,13 +61,16 @@ static void disableDefaultSystemAction(GCControllerButtonInput *button)
 void GameControllerGamepad::setupElements()
 {
     auto *profile = m_gcController.get().physicalInputProfile;
+    WeakPtr weakThis { *this };
 
     // The user can expose an already-connected game controller to a web page by expressing explicit intent.
     // Examples include pressing a button, or wiggling the joystick with intent.
     if ([profile respondsToSelector:@selector(setThumbstickUserIntentHandler:)]) {
         [profile setThumbstickUserIntentHandler:^(__kindof GCPhysicalInputProfile*, GCControllerElement*) {
-            m_lastUpdateTime = MonotonicTime::now();
-            GameControllerGamepadProvider::singleton().gamepadHadInput(*this, true);
+            if (!weakThis)
+                return;
+            weakThis->m_lastUpdateTime = MonotonicTime::now();
+            GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, true);
         }];
     }
 
@@ -99,9 +107,11 @@ void GameControllerGamepad::setupElements()
             // Ignoring them is preferable to surfacing NaN to javascript.
             if (std::isnan(value))
                 return;
-            m_buttonValues[(size_t)index].setValue(value);
-            m_lastUpdateTime = MonotonicTime::now();
-            GameControllerGamepadProvider::singleton().gamepadHadInput(*this, pressed);
+            if (!weakThis)
+                return;
+            weakThis->m_buttonValues[(size_t)index].setValue(value);
+            weakThis->m_lastUpdateTime = MonotonicTime::now();
+            GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, pressed);
         };
     };
 
@@ -144,25 +154,54 @@ void GameControllerGamepad::setupElements()
     m_axisValues[3].setValue(-profile.dpads[GCInputRightThumbstick].yAxis.value);
 
     profile.dpads[GCInputLeftThumbstick].xAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
-        m_axisValues[0].setValue(value);
-        m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
+        if (!weakThis)
+            return;
+        weakThis->m_axisValues[0].setValue(value);
+        weakThis->m_lastUpdateTime = MonotonicTime::now();
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
     };
     profile.dpads[GCInputLeftThumbstick].yAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
-        m_axisValues[1].setValue(-value);
-        m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
+        if (!weakThis)
+            return;
+        weakThis->m_axisValues[1].setValue(-value);
+        weakThis->m_lastUpdateTime = MonotonicTime::now();
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
     };
     profile.dpads[GCInputRightThumbstick].xAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
-        m_axisValues[2].setValue(value);
-        m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
+        if (!weakThis)
+            return;
+        weakThis->m_axisValues[2].setValue(value);
+        weakThis->m_lastUpdateTime = MonotonicTime::now();
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
     };
     profile.dpads[GCInputRightThumbstick].yAxis.valueChangedHandler = ^(GCControllerAxisInput *, float value) {
-        m_axisValues[3].setValue(-value);
-        m_lastUpdateTime = MonotonicTime::now();
-        GameControllerGamepadProvider::singleton().gamepadHadInput(*this, false);
+        if (!weakThis)
+            return;
+        weakThis->m_axisValues[3].setValue(-value);
+        weakThis->m_lastUpdateTime = MonotonicTime::now();
+        GameControllerGamepadProvider::singleton().gamepadHadInput(*weakThis, false);
     };
+}
+
+void GameControllerGamepad::teardownElements()
+{
+    auto profile = RetainPtr { m_gcController.get().physicalInputProfile };
+    if (!profile)
+        return;
+
+    // Clear thumbstick user intent handler.
+    if ([profile respondsToSelector:@selector(setThumbstickUserIntentHandler:)])
+        [profile setThumbstickUserIntentHandler:nil];
+
+    // Clear all button handlers.
+    for (GCControllerButtonInput *button in [profile allButtons])
+        button.valueChangedHandler = nil;
+
+    // Clear axis handlers for thumbsticks.
+    profile.get().dpads[GCInputLeftThumbstick].xAxis.valueChangedHandler = nil;
+    profile.get().dpads[GCInputLeftThumbstick].yAxis.valueChangedHandler = nil;
+    profile.get().dpads[GCInputRightThumbstick].xAxis.valueChangedHandler = nil;
+    profile.get().dpads[GCInputRightThumbstick].yAxis.valueChangedHandler = nil;
 }
 
 #if HAVE(WIDE_GAMECONTROLLER_SUPPORT)

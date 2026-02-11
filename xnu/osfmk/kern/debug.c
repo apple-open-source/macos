@@ -807,6 +807,23 @@ debug_is_current_cpu_in_panic_state(void)
 	return current_debugger_state()->db_entry_count > 0;
 }
 
+#if defined(__arm64__)
+/*
+ * Helper function to compute kernel text exec slide and base values
+ */
+static void
+get_kernel_text_exec_slide_and_base(unsigned long *exec_slide, unsigned long *exec_base)
+{
+	extern vm_offset_t segTEXTEXECB, vm_kernel_slide;
+	void *kch = PE_get_kc_header(KCKindPrimary);
+
+	if (kch && exec_slide && exec_base) {
+		*exec_slide = (unsigned long)segTEXTEXECB - (unsigned long)kch + vm_kernel_slide;
+		*exec_base = (unsigned long)segTEXTEXECB;
+	}
+}
+#endif /* defined(__arm64__) */
+
 /*
  * check if we are in a nested panic, report findings, take evasive action where necessary
  *
@@ -822,6 +839,14 @@ check_and_handle_nested_panic(uint64_t panic_options_mask, unsigned long panic_c
 		// if we panic *after* the log is finalized then we will only see it in the serial log
 		//
 		paniclog_append_noflush("Nested panic detected - entry count: %d panic_caller: 0x%016lx\n", CPUDEBUGGERCOUNT, panic_caller);
+
+#if defined(__arm64__)
+		// Print kernel slide and base information for nested panics in order to enable symbolication
+		unsigned long kernel_text_exec_slide = 0, kernel_text_exec_base = 0;
+		get_kernel_text_exec_slide_and_base(&kernel_text_exec_slide, &kernel_text_exec_base);
+		paniclog_append_noflush("Kernel text exec slide: 0x%016lx\n", kernel_text_exec_slide);
+		paniclog_append_noflush("Kernel text exec base: 0x%016lx\n", kernel_text_exec_base);
+#endif /* defined(__arm64__) */
 		print_curr_backtrace();
 		paniclog_flush();
 
@@ -2104,9 +2129,10 @@ panic_display_kernel_aslr(void)
 		paniclog_append_noflush("Kernel slide:      0x%016lx\n", vm_kernel_stext - (unsigned long)kch + vm_kernel_slide);
 		paniclog_append_noflush("Kernel text base:  %p\n", (void *) vm_kernel_stext);
 #if defined(__arm64__)
-		extern vm_offset_t segTEXTEXECB;
-		paniclog_append_noflush("Kernel text exec slide: 0x%016lx\n", (unsigned long)segTEXTEXECB - (unsigned long)kch + vm_kernel_slide);
-		paniclog_append_noflush("Kernel text exec base:  0x%016lx\n", (unsigned long)segTEXTEXECB);
+		unsigned long kernel_text_exec_slide = 0, kernel_text_exec_base = 0;
+		get_kernel_text_exec_slide_and_base(&kernel_text_exec_slide, &kernel_text_exec_base);
+		paniclog_append_noflush("Kernel text exec slide: 0x%016lx\n", kernel_text_exec_slide);
+		paniclog_append_noflush("Kernel text exec base:  0x%016lx\n", kernel_text_exec_base);
 #endif /* defined(__arm64__) */
 	} else if (vm_kernel_slide) {
 		paniclog_append_noflush("Kernel slide:      0x%016lx\n", (unsigned long) vm_kernel_slide);

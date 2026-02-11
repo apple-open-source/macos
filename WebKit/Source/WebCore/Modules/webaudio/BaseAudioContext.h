@@ -97,6 +97,8 @@ class BaseAudioContext
 {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(BaseAudioContext);
 public:
+    USING_CAN_MAKE_WEAKPTR(EventTarget);
+
     virtual ~BaseAudioContext();
 
     // This is used for lifetime testing.
@@ -259,6 +261,7 @@ protected:
 
     void clear();
 
+    RefPtr<MediaSessionManagerInterface> mediaSessionManagerIfExists() const;
     RefPtr<MediaSessionManagerInterface> mediaSessionManager() const;
 
 protected:

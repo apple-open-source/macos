@@ -96,6 +96,14 @@ SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc,
                                 SSLConnectionType connectionType,
                                 const struct SSLRecordFuncs *recFuncs);
 
+/* Create an SSL Context with an external record layer - eg: kernel accelerated layer */
+SSLContextRef
+SSLCreateContextWithRecordFuncsAndPath(CFAllocatorRef alloc,
+                                       SSLProtocolSide protocolSide,
+                                       SSLConnectionType connectionType,
+                                       const struct SSLRecordFuncs *recFuncs,
+                                       const char *callingPath);
+
 /* Set the external record layer context */
 OSStatus
 SSLSetRecordContext         (SSLContextRef          ctx,

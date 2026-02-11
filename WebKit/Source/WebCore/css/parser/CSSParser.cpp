@@ -1557,14 +1557,13 @@ void CSSParser::consumeBlockContent(CSSParserTokenRange range, StyleRuleType rul
             range.consumeComponentValue();
     };
 
-    ParsedPropertyVector initialDeclarationBlock;
-    bool initialDeclarationBlockFinished = false;
+    std::unique_ptr<ParsedPropertyVector> initialDeclarationBlock;
     auto storeDeclarations = [&] {
         // We don't wrap the first declaration block, we store it until the end of the style rule.
         // For @function we always use the declaration block.
-        if (!initialDeclarationBlockFinished && ruleType != StyleRuleType::Function) {
-            initialDeclarationBlockFinished = true;
-            std::swap(initialDeclarationBlock, topContext().m_parsedProperties);
+        if (!initialDeclarationBlock && ruleType != StyleRuleType::Function) {
+            initialDeclarationBlock = makeUnique<ParsedPropertyVector>();
+            std::swap(*initialDeclarationBlock, topContext().m_parsedProperties);
             return;
         }
 
@@ -1665,8 +1664,8 @@ void CSSParser::consumeBlockContent(CSSParserTokenRange range, StyleRuleType rul
     storeDeclarations();
 
     // Restore the initial declaration block
-    if (!initialDeclarationBlock.isEmpty())
-        std::swap(initialDeclarationBlock, topContext().m_parsedProperties);
+    if (initialDeclarationBlock)
+        std::swap(*initialDeclarationBlock, topContext().m_parsedProperties);
 
     // Yield remaining comments
     if (useObserver) {

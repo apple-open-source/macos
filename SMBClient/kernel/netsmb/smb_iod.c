@@ -1241,8 +1241,12 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
     SMBRQ_SUNLOCK(rqp);
 
     /* Call SMB_TRAN_SEND to send the mbufs in "m" */
-    error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(iod, m);
-	if (error == 0) {
+    if (error == 0) {
+        error = SMB_TRAN_SEND(iod, m);
+    }
+    SMBRQ_SLOCK(rqp);
+    rqp->sr_lerror = error;
+    if (error == 0) {
 		nanouptime(&rqp->sr_timesent);
 		rqp->sr_credit_timesent = rqp->sr_timesent;
         iod->iod_lastrqsent = rqp->sr_timesent;
@@ -1265,10 +1269,11 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
             rqp->sr_extflags |= SMB2_REQ_SENT;
         }
         
-		error = 0;
+        SMBRQ_SUNLOCK(rqp);
         goto exit;
 	}
-    
+    SMBRQ_SUNLOCK(rqp);
+
 	/* Did the connection go down, we may need to reconnect. */
 	if (SMB_TRAN_FATAL(iod, error)) {
         SMBERROR("id %d: SMB_TRAN_FATAL returned error. Reconnect.\n", iod->iod_id);
@@ -1935,7 +1940,9 @@ smb_iod_recvall(struct smbiod *iod)
                     /* If its Async/Pending, dont set SMB2_RESPONSE flag */
                 }
                 else {
+                    SMBRQ_SLOCK(rqp);
                     rqp->sr_extflags |= SMB2_RESPONSE;
+                    SMBRQ_SUNLOCK(rqp);
                 }
 
                 switch(rqp->sr_command) {

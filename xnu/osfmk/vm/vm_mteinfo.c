@@ -1252,6 +1252,12 @@ mteinfo_tag_storage_disabled(const struct vm_page *tag_page)
 	return cell_from_tag_storage_page(tag_page)->state == MTE_STATE_DISABLED;
 }
 
+bool
+mteinfo_tag_storage_is_active(const struct vm_page *tag_page)
+{
+	return cell_from_tag_storage_page(tag_page)->state == MTE_STATE_ACTIVE;
+}
+
 void
 mteinfo_tag_storage_set_retired(vm_page_t tag_page)
 {
@@ -1541,6 +1547,30 @@ mteinfo_covered_page_clear_tagged(ppnum_t pnum)
 	});
 }
 
+#if DEBUG || DEVELOPMENT
+vm_page_t
+mteinfo_tag_page_from_covered_page(ppnum_t pnum, vm_offset_t * offset_to_tag_data)
+{
+	cell_idx_t cidx;
+	cell_t *cell;
+
+	if (!mteinfo_covered_page_taggable(pnum)) {
+		return NULL;
+	}
+
+	cidx = (pnum - pmap_first_pnum) / MTE_PAGES_PER_TAG_PAGE;
+	cell = cell_from_idx(cidx);
+
+	vm_page_t tag_page = vm_tag_storage_page_get(cidx);
+	assert(vm_page_in_tag_storage_array(tag_page));
+
+	*offset_to_tag_data =
+	    (PAGE_SIZE / MTE_PAGES_PER_TAG_PAGE) *                      /* size of tag data */
+	    ((pnum - pmap_first_pnum) % MTE_PAGES_PER_TAG_PAGE);        /* index within cell */
+
+	return tag_page;
+}
+#endif /* DEBUG || DEVELOPMENT */
 
 #pragma mark Activate
 #ifndef VM_MTE_FF_VERIFY

@@ -202,12 +202,15 @@ __l:                                                            \
  * @discussion
  * This code runs extremly early during boot and it can only rely
  * on extremly basic notions such as boot-args or system registers.
+ * The declaration within must be marked no-asan-sanitize to prevent
+ * the compiler from inserting padding, leading to deref of the padding
+ * values as function addresses during static_if_init().
  *
  * Code running during this call must be marked with __static_if_init_func.
  */
 #define STATIC_IF_INIT(func) \
 	__PLACE_IN_SECTION(STATIC_IF_SEGMENT "," STATIC_IFINIT_SECTION) \
-	static static_if_initializer __static_if__ ## func = func
+	static __attribute__((no_sanitize("address"))) static_if_initializer __static_if__ ## func = func
 
 /*!
  * @function static_if_boot_arg_uint64()

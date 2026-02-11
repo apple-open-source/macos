@@ -221,7 +221,8 @@ void RemoteGraphicsContextProxy::clipOutRoundedRect(const FloatRoundedRect& rect
 void RemoteGraphicsContextProxy::clipToImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destinationRect)
 {
     updateStateForClipToImageBuffer(destinationRect);
-    recordResourceUse(imageBuffer);
+    if (!recordResourceUse(imageBuffer))
+        return;
     send(Messages::RemoteGraphicsContext::ClipToImageBuffer(imageBuffer.renderingResourceIdentifier(), destinationRect));
 }
 
@@ -323,7 +324,8 @@ void RemoteGraphicsContextProxy::drawNativeImage(NativeImage& image, const Float
     ImagePaintingOptions clampedOptions(options, headroom);
 #endif
     appendStateChangeItemIfNecessary();
-    recordResourceUse(image);
+    if (!recordResourceUse(image))
+        return;
 #if HAVE(SUPPORT_HDR_DISPLAY_APIS)
     send(Messages::RemoteGraphicsContext::DrawNativeImage(image.renderingResourceIdentifier(), destRect, srcRect, clampedOptions));
 #else
@@ -340,7 +342,8 @@ void RemoteGraphicsContextProxy::drawSystemImage(SystemImage& systemImage, const
             auto nativeImage = image->nativeImage();
             if (!nativeImage)
                 return;
-            recordResourceUse(*nativeImage);
+            if (!recordResourceUse(*nativeImage))
+                return;
         }
     }
 #endif
@@ -350,7 +353,8 @@ void RemoteGraphicsContextProxy::drawSystemImage(SystemImage& systemImage, const
 void RemoteGraphicsContextProxy::drawPattern(NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     appendStateChangeItemIfNecessary();
-    recordResourceUse(image);
+    if (!recordResourceUse(image))
+        return;
     send(Messages::RemoteGraphicsContext::DrawPatternNativeImage(image.renderingResourceIdentifier(), destRect, tileRect, patternTransform, phase, spacing, options));
 }
 
@@ -664,8 +668,7 @@ bool RemoteGraphicsContextProxy::recordResourceUse(NativeImage& image)
 #endif
     }
 
-    renderingBackend->remoteResourceCacheProxy().recordNativeImageUse(image, colorSpace);
-    return true;
+    return renderingBackend->remoteResourceCacheProxy().recordNativeImageUse(image, colorSpace);
 }
 
 bool RemoteGraphicsContextProxy::recordResourceUse(ImageBuffer& imageBuffer)

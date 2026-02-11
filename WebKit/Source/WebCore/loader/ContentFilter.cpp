@@ -106,7 +106,7 @@ bool ContentFilter::continueAfterWillSendRequest(ResourceRequest& request, const
 {
     Ref protectedClient { m_client.get() };
 
-    LOG(ContentFiltering, "ContentFilter received request for <%{sensitive}s> with redirect response from <%{sensitive}s>.\n", request.url().string().ascii().data(), redirectResponse.url().string().ascii().data());
+    LOG(ContentFiltering, "ContentFilter received request for <%{sensitive}s> with redirect response from <%{sensitive}s>.\n", request.url().string().utf8().data(), redirectResponse.url().string().utf8().data());
 #if !LOG_DISABLED
     ResourceRequest originalRequest { request };
 #endif
@@ -121,6 +121,73 @@ bool ContentFilter::continueAfterWillSendRequest(ResourceRequest& request, const
         LOG(ContentFiltering, "ContentFilter changed request url to <%{sensitive}s>.\n", originalRequest.url().string().ascii().data());
 #endif
     return !request.isNull();
+}
+
+ContentFilter::ContentFilterCallbackAggregator::~ContentFilterCallbackAggregator()
+{
+    ASSERT(RunLoop::isMain());
+    ASSERT(m_callback);
+
+    if (m_isBlocked) {
+        if (CheckedPtr contentFilter = m_contentFilter)
+            contentFilter->didDecide(State::Blocked);
+        m_callback(ResourceRequest());
+        return;
+    }
+
+    if (CheckedPtr contentFilter = m_contentFilter; m_numberOfFiltersAllowed == contentFilter->m_contentFilters.size())
+        contentFilter->didDecide(State::Allowed);
+
+    m_contentFilter = nullptr;
+
+    m_callback(WTFMove(m_request));
+}
+
+void ContentFilter::ContentFilterCallbackAggregator::didReceivePlatformContentFilterDecision(PlatformContentFilter& platformContentFilter, String&& urlString)
+{
+    ASSERT(RunLoop::isMain());
+
+    if (platformContentFilter.isAllowed())
+        ++m_numberOfFiltersAllowed;
+
+    if (platformContentFilter.didBlockData() && !m_isBlocked) {
+        m_isBlocked = true;
+        CheckedPtr contentFilter = m_contentFilter;
+        contentFilter->m_blockingContentFilter = platformContentFilter;
+        return;
+    }
+
+    URL url { urlString };
+    if (url.isValid())
+        m_request.setURL(WTFMove(url));
+}
+
+ContentFilter::ContentFilterCallbackAggregator::ContentFilterCallbackAggregator(ContentFilter& contentFilter, const ResourceRequest& request, CompletionHandler<void(ResourceRequest&&)>&& callback)
+    : m_contentFilter(contentFilter)
+    , m_request(request)
+    , m_callback(WTFMove(callback))
+{
+    ASSERT(RunLoop::isMain());
+}
+
+void ContentFilter::continueAfterWillSendRequest(ResourceRequest&& request, const ResourceResponse& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+
+    LOG(ContentFiltering, "ContentFilter received request for <%{sensitive}s> with redirect response from %s" SENSITIVE_LOG_STRING, request.url().string().utf8().data(), redirectResponse.url().string().utf8().data());
+    ASSERT(m_state == State::Stopped || m_state == State::Filtering);
+
+    Ref contentFilterCallbackAggregator = ContentFilterCallbackAggregator::create(*this, request, WTFMove(completionHandler));
+
+    for (Ref platformContentFilter : m_contentFilters) {
+        CompletionHandler<void(String&&)> completion = [contentFilterCallbackAggregator, platformContentFilter] (String&& urlString) mutable {
+            ASSERT(RunLoop::isMain());
+            contentFilterCallbackAggregator->didReceivePlatformContentFilterDecision(platformContentFilter, WTFMove(urlString));
+        };
+
+        ASSERT(platformContentFilter->needsMoreData());
+        platformContentFilter->willSendRequest(ResourceRequest { request }, redirectResponse, WTFMove(completion));
+    }
 }
 
 void ContentFilter::startFilteringMainResource(const URL& url)

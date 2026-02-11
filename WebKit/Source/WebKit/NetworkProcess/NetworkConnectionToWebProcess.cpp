@@ -600,7 +600,7 @@ void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadPara
         }
     }
 
-    auto& loader = m_networkResourceLoaders.add(*identifier, NetworkResourceLoader::create(WTFMove(loadParameters), *this)).iterator->value;
+    Ref loader = m_networkResourceLoaders.add(*identifier, NetworkResourceLoader::create(WTFMove(loadParameters), *this)).iterator->value;
 
     loader->startWithServiceWorker();
 }

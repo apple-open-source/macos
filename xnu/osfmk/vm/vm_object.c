@@ -617,7 +617,6 @@ vm_object_bootstrap(void)
 	 */
 	_vm_object_allocate(VM_MAX_KERNEL_ADDRESS + 1, exclaves_object_tagged, VM_MAP_SERIAL_SPECIAL);
 	exclaves_object_tagged->copy_strategy = MEMORY_OBJECT_COPY_NONE;
-	exclaves_object_tagged->no_tag_update = TRUE;
 	exclaves_object_tagged->wimg_bits = VM_WIMG_MTE;
 #endif /* HAS_MTE */
 }

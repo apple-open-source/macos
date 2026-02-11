@@ -148,7 +148,7 @@ ipc_host_init(void)
 	/*
 	 *	Set up ipc for default processor set.
 	 */
-	ipc_pset_init(&pset0);
+	ipc_pset_init(sched_boot_pset);
 
 	/*
 	 *	And for master processor
@@ -226,7 +226,7 @@ processor_set_default(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	*pset = &pset0;
+	*pset = sched_boot_pset;
 
 	return KERN_SUCCESS;
 }

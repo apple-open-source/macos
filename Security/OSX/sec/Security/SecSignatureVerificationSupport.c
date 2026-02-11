@@ -139,6 +139,10 @@ static SecKeyAlgorithm SecKeyAlgorithmFromDERAlgorithmId(SecKeyRef publicKey, co
     }
 }
 
+SecKeyAlgorithm SecKeyAlgorithmCopyFromDERAlgorithmId(SecKeyRef publicKey, const DERAlgorithmId *sigAlgId) {
+    return CFRetainSafe(SecKeyAlgorithmFromDERAlgorithmId(publicKey, sigAlgId));
+}
+
 bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const DERAlgorithmId *sigAlgId,
                                      const uint8_t *dataToHash, size_t amountToHash,
                                      const uint8_t *signatureStart, size_t signatureSize,

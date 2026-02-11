@@ -287,19 +287,12 @@ public:
     Type& ensureSideData(void* key, const Functor&);
 
     bool hasTerminationRequest() const { return m_hasTerminationRequest; }
-    // While setHasTerminationRequest() needs to be CONCURRENT_SAFE (called for stopping worker
-    // threads), clearHasTerminationRequest() should only be called by the owner mutator thread
-    // after servicing the requests. Hence, it should not be concurrent.
     void clearHasTerminationRequest()
     {
         m_hasTerminationRequest = false;
         clearEntryScopeService(ConcurrentEntryScopeService::ResetTerminationRequest);
     }
-    CONCURRENT_SAFE void setHasTerminationRequest()
-    {
-        m_hasTerminationRequest = true;
-        requestEntryScopeService(ConcurrentEntryScopeService::ResetTerminationRequest);
-    }
+    void setHasTerminationRequest();
 
     bool executionForbidden() const { return m_executionForbidden; }
     void setExecutionForbidden() { m_executionForbidden = true; }
@@ -411,6 +404,7 @@ private:
 
 public:
     bool didEnterVM { false };
+    bool m_isInService { false };
 private:
     VMIdentifier m_identifier;
     const Ref<JSLock> m_apiLock;
@@ -1035,11 +1029,7 @@ public:
 
     CONCURRENT_SAFE void notifyNeedDebuggerBreak() { traps().fireTrap(VMTraps::NeedDebuggerBreak); }
     CONCURRENT_SAFE void notifyNeedShellTimeoutCheck() { traps().fireTrap(VMTraps::NeedShellTimeoutCheck); }
-    CONCURRENT_SAFE void notifyNeedTermination()
-    {
-        setHasTerminationRequest();
-        traps().fireTrap(VMTraps::NeedTermination);
-    }
+    CONCURRENT_SAFE void notifyNeedTermination() { traps().fireTrap(VMTraps::NeedTermination); }
     CONCURRENT_SAFE void notifyNeedWatchdogCheck() { traps().fireTrap(VMTraps::NeedWatchdogCheck); }
 
     CONCURRENT_SAFE void requestStop()
@@ -1204,7 +1194,6 @@ private:
     std::unique_ptr<TypeProfiler> m_typeProfiler;
     std::unique_ptr<TypeProfilerLog> m_typeProfilerLog;
     unsigned m_typeProfilerEnabledCount { 0 };
-    bool m_isInService { false };
     Lock m_scratchBufferLock;
     Vector<ScratchBuffer*> m_scratchBuffers;
     size_t m_sizeOfLastScratchBuffer { 0 };

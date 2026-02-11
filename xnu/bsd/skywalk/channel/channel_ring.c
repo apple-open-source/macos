@@ -1746,15 +1746,21 @@ kr_internalize_metadata(struct kern_channel *ch,
 		kbuf->buf_doff = ubuf->buf_doff;
 
 		/*
-		 * kernel and user metadata use the same object index
-		 * also checks the sanity of buflet data offset and length
+		 * Check:
+		 * - sanity of buflet data offset and length
+		 * - kernel and user metadata use the same object index
+		 * - User hasn't modified nbft_idx: we don't allow user
+		 *   to construct multi buflet packets for tx.
 		 */
 		if (__improbable(!BUF_IN_RANGE(kbuf) ||
-		    ubuf->buf_idx != kbuf->buf_idx)) {
+		    ubuf->buf_idx != kbuf->buf_idx ||
+		    ubuf->buf_nbft_idx != kbuf->buf_nbft_idx)) {
 			kbuf->buf_dlen = kbuf->buf_doff = 0;
-			SK_ERR("%s(%d) kring %p bad bufidx 0x%x, 0x%x",
+			SK_ERR("%s(%d) kring %p bad bufidx 0x%x, 0x%x"
+			    " 0x%x, 0x%x",
 			    sk_proc_name(p), sk_proc_pid(p),
-			    SK_KVA(kring), kbuf->buf_idx, ubuf->buf_idx);
+			    SK_KVA(kring), kbuf->buf_idx, ubuf->buf_idx,
+			    kbuf->buf_nbft_idx, ubuf->buf_nbft_idx);
 			err = ERANGE;
 			goto done;
 		}

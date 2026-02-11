@@ -469,6 +469,18 @@ extern bitmap_t vm_mte_tag_storage_for_vm_tags_mask[BITMAP_LEN(VM_MEMORY_COUNT)]
  */
 extern bool mteinfo_tag_storage_disabled(const struct vm_page *page);
 
+
+/*!
+ * @function mteinfo_tag_storage_is_active()
+ *
+ * @abstract
+ * Returns whether a tag storage page is active.
+ *
+ * @param page  The pointer to a page inside the tag storage space.
+ */
+extern bool mteinfo_tag_storage_is_active(const struct vm_page *page);
+
+
 /*!
  * @function mteinfo_tag_storage_set_retired()
  *
@@ -804,6 +816,26 @@ extern void kdp_mteinfo_snapshot(struct mte_info_cell __counted_by(count) *cells
 
 #endif /* VM_MTE_FF_VERIFY */
 
+#if DEBUG || DEVELOPMENT
+/*!
+ * @function mteinfo_covered_page_is_kernel_tagged()
+ *
+ * @abstract
+ * Get the MTE tag data page of a covered page, as well as the internal offset
+ * to the tag data within the tag page.
+ *
+ * @param pnum          The covered page in question.
+ * @param offset_to_tag_data  Output parameter to return the offset to the
+ *                      covered page's data within the tag data page.
+ *
+ * @return The MTE tag data page of the covered page, or NULL if the covered
+ *         page is not taggable.
+ *
+ */
+extern vm_page_t mteinfo_tag_page_from_covered_page(
+	ppnum_t pnum,
+	vm_offset_t * offset_to_tag_data);
+#endif /* DEBUG || DEVELOPMENT */
 #endif /* HAS_MTE */
 __END_DECLS
 

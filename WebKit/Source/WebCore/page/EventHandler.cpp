@@ -2486,14 +2486,20 @@ bool EventHandler::swallowAnyClickEvent(const PlatformMouseEvent& platformMouseE
     auto& eventName = isPrimaryPointerButton ? eventNames().clickEvent : eventNames().auxclickEvent;
 
     bool swallowed = false;
-    if (RefPtr clickCaptureElement = std::exchange(m_clickCaptureElement, nullptr)) {
+    RefPtr clickCaptureElement = std::exchange(m_clickCaptureElement, nullptr);
+    if (clickCaptureElement) {
         updateMouseEventTargetNode(eventName, nodeToClick.get(), platformMouseEvent, FireMouseOverOut::Yes);
         swallowed = !dispatchAnyClickEvent(eventName, clickCaptureElement.get(), m_clickCount, platformMouseEvent);
-    } else
+    } else if (nodeToClick)
         swallowed = !dispatchMouseEvent(eventName, nodeToClick.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::No);
 
-    if (RefPtr page = m_frame->page())
-        page->chrome().client().didDispatchClickEvent(platformMouseEvent, *nodeToClick);
+    // Prefer nodeToClick for didDispatchClickEvent since it represents the actual click location.
+    RefPtr dispatchNode = nodeToClick;
+    if (!dispatchNode)
+        dispatchNode = clickCaptureElement;
+
+    if (RefPtr page = m_frame->page(); page && dispatchNode)
+        page->chrome().client().didDispatchClickEvent(platformMouseEvent, *dispatchNode);
 
     return swallowed;
 }

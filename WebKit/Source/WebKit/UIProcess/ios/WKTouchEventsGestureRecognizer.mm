@@ -59,20 +59,6 @@ static unsigned incrementingTouchIdentifier = 1;
     RetainPtr<NSMapTable<NSNumber *, UITouch *>>_activeTouchesByIdentifier;
 }
 
-// UITouch's timestamp is a relative system time since startup, minus the time the device was suspended. This
-// function converts it into an estimated wall time (seconds since Epoch).
-static double approximateWallTime(NSTimeInterval timestamp)
-{
-    // mach_absolute_time() provides a relative system time since startup, minus the time the device was suspended.
-    auto elapsedTimeSinceStartup = CACurrentMediaTime();
-
-    auto elapsedTimeSinceTimestamp = elapsedTimeSinceStartup - timestamp;
-
-    // CFAbsoluteTimeGetCurrent() provides the absolute time in seconds since 2001 so we need to add kCFAbsoluteTimeIntervalSince1970
-    // to get a time since Epoch.
-    return kCFAbsoluteTimeIntervalSince1970 + CFAbsoluteTimeGetCurrent() - elapsedTimeSinceTimestamp;
-}
-
 @synthesize defaultPrevented = _defaultPrevented;
 @synthesize dispatchingTouchEvents = _dispatchingTouchEvents;
 
@@ -280,7 +266,7 @@ static CGFloat rollAngleOrDefault(UITouch *touch, bool shouldReadRollAngle)
 
     WebKit::WKTouchEvent event;
     event.type = WebKit::WKTouchEventType::Change;
-    event.timestamp = approximateWallTime(touch.timestamp);
+    event.timestamp = touch.timestamp;
     event.locationInRootViewCoordinates = locationInRootView;
     event.touchPoints = { touchPoint };
 
@@ -307,7 +293,7 @@ static CGFloat rollAngleOrDefault(UITouch *touch, bool shouldReadRollAngle)
     if (_lastTouchEvent.touchPoints.size() != touchCount)
         _lastTouchEvent.touchPoints.resize(touchCount);
 
-    _lastTouchEvent.timestamp = approximateWallTime(touches.anyObject.timestamp);
+    _lastTouchEvent.timestamp = touches.anyObject.timestamp;
 
     _lastTouchEvent.coalescedEvents = { };
     _lastTouchEvent.predictedEvents = { };

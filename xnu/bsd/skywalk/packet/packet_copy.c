@@ -1563,6 +1563,12 @@ pkt_copy_to_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 		    ((pkt->pkt_pflags & PKT_F_TS_VALID) != 0));
 
 		m->m_pkthdr.rx_seg_cnt = pkt->pkt_seg_cnt;
+		if (__improbable((pkt->pkt_link_flags & PKT_LINKF_BCAST) != 0)) {
+			m->m_flags |= M_BCAST;
+		}
+		if (__improbable((pkt->pkt_link_flags & PKT_LINKF_MCAST) != 0)) {
+			m->m_flags |= M_MCAST;
+		}
 
 		if (__packet_get_vlan_tag(ph, &vlan) == 0) {
 			mbuf_set_vlan_tag(m, vlan);
@@ -1797,6 +1803,12 @@ pkt_copy_multi_buflet_to_mbuf(const enum txrx t, kern_packet_t ph,
 
 		if (__packet_get_vlan_tag(ph, &vlan) == 0) {
 			mbuf_set_vlan_tag(m, vlan);
+		}
+		if (__improbable((pkt->pkt_link_flags & PKT_LINKF_BCAST) != 0)) {
+			m->m_flags |= M_BCAST;
+		}
+		if (__improbable((pkt->pkt_link_flags & PKT_LINKF_MCAST) != 0)) {
+			m->m_flags |= M_MCAST;
 		}
 
 #if COPY_LOG

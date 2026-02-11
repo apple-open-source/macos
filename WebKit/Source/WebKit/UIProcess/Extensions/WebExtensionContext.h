@@ -591,6 +591,8 @@ public:
     void addInjectedContent(WebUserContentControllerProxy&);
     void removeInjectedContent(WebUserContentControllerProxy&);
 
+    void addDeclarativeNetRequestRules(WebUserContentControllerProxy&);
+
     bool handleContentRuleListNotificationForTab(WebExtensionTab&, const URL&, WebCore::ContentRuleListResults::Result);
     void incrementActionCountForTab(WebExtensionTab&, ssize_t incrementAmount);
 

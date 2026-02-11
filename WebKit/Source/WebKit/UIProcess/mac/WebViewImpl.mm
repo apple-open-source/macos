@@ -4505,6 +4505,8 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Hand
     auto protector = m_view.get();
 
     if (RefPtr frame = WebFrameProxy::webFrame(item.rootFrameID)) {
+        // FIXME: The `dragLocationInWindowCoordinates` is in window coordinates (equivalent to root view), but `convertPointToMainFrameCoordinates`
+        // expects the input to be in content coordinates of the frame corresponding to the given frame ID.
         m_page->convertPointToMainFrameCoordinates(item.dragLocationInWindowCoordinates, item.rootFrameID, [weakThis = WeakPtr { *this }, promisedAttachmentInfo = item.promisedAttachmentInfo, dragNSImage = WTFMove(dragNSImage), size, lastMouseDownEvent = m_lastMouseDownEvent] (std::optional<FloatPoint> dragLocationInMainFrameCoordinates) mutable {
             CheckedPtr protectedThis = weakThis.get();
             if (!protectedThis || !dragLocationInMainFrameCoordinates)
@@ -7148,12 +7150,12 @@ void WebViewImpl::fulfillDeferredImageAnalysisOverlayViewHierarchyTask()
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 
-void WebViewImpl::setCanInstallScrollPocket()
+void WebViewImpl::setClientImplicitlyRequestedTopScrollPocket()
 {
-    if (m_canInstallScrollPocket)
+    if (m_clientImplicitlyRequestedTopScrollPocket)
         return;
 
-    m_canInstallScrollPocket = true;
+    m_clientImplicitlyRequestedTopScrollPocket = true;
     updateScrollPocket();
 }
 
@@ -7187,15 +7189,13 @@ void WebViewImpl::updateScrollPocket()
         return;
 
     Ref page = m_page.get();
-    if (!m_canInstallScrollPocket)
-        return;
-
     RetainPtr view = m_view.get();
     CGFloat topContentInset = obscuredContentInsets().top();
     CGFloat additionalHeight = page->overflowHeightForTopScrollEdgeEffect();
     bool needsTopView = page->preferences().contentInsetBackgroundFillEnabled()
         && view
         && !view->_reasonsToHideTopScrollPocket
+        && (m_clientImplicitlyRequestedTopScrollPocket || automaticallyAdjustsContentInsets())
         && (topContentInset > 0 || additionalHeight > 0);
 
     RetainPtr topScrollPocketSelector = NSStringFromSelector(@selector(_topScrollPocket));

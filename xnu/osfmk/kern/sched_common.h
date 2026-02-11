@@ -29,6 +29,8 @@
 #ifndef _KERN_SCHED_COMMON_H_
 #define _KERN_SCHED_COMMON_H_
 
+#include <stdint.h>
+
 #include <kern/assert.h>
 #include <kern/qsort.h>
 #include <kern/smp.h>
@@ -38,6 +40,10 @@ static_assert(MAX_PSETS < UINT8_MAX, "Can store pset ids within 8 bits");
 #define PSET_ID_INVALID UINT8_MAX
 
 #if __AMP__
+
+/* How many psets the system is configured to use. Only values less than
+ * sched_num_psets are considered valid pset IDs. */
+extern uint8_t sched_num_psets;
 
 /*
  * sched_pset_search_order_t
@@ -103,6 +109,12 @@ sched_pset_search_order_compute(sched_pset_search_order_t *search_order_out,
 void
 sched_pset_search_order_init(processor_set_t src_pset, sched_pset_search_order_t *search_order_out);
 
+/* Options specifying how to iterate the search order */
+__options_decl(sched_pset_iterate_state_options_t, uint32_t, {
+	SCHED_PSET_ITERATE_STATE_OPTIONS_NONE      = 0x0,
+	SCHED_PSET_ITERATE_STATE_OPTIONS_REVERSE   = 0x1,
+});
+
 /*
  * sched_pset_iterate_state_t
  *
@@ -112,10 +124,13 @@ sched_pset_search_order_init(processor_set_t src_pset, sched_pset_search_order_t
 typedef struct {
 	int spis_search_index;
 	sched_pset_search_order_t spis_cached_search_order;
-	int spis_pset_id; // out
+	pset_id_t spis_pset_id; // out
+	sched_pset_iterate_state_options_t spis_options; // in
+	int spis_valid_len;
 } sched_pset_iterate_state_t;
 
-#define SCHED_PSET_ITERATE_STATE_INIT ((sched_pset_iterate_state_t) { .spis_search_index = -1 })
+#define SCHED_PSET_ITERATE_STATE_INIT ((sched_pset_iterate_state_t) \
+    { .spis_search_index = -1, .spis_options = SCHED_PSET_ITERATE_STATE_OPTIONS_NONE })
 
 /*
  * sched_iterate_psets_ordered()

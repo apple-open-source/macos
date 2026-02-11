@@ -66,6 +66,9 @@
 #include "NetworkSessionCocoa.h"
 #include "WebPrivacyHelpers.h"
 #endif
+#if USE(CF)
+#include <wtf/cf/VectorCF.h>
+#endif
 #if USE(SOUP)
 #include "NetworkSessionSoup.h"
 #endif
@@ -112,9 +115,15 @@ CheckedPtr<NetworkStorageSession> NetworkSession::checkedNetworkStorageSession()
 
 static Ref<PCM::ManagerInterface> managerOrProxy(NetworkSession& networkSession, NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
 {
+    ApplicationBundleIdentifierOrAuditToken applicationBundleIdentifier = parameters.sourceApplicationBundleIdentifier;
+#if PLATFORM(COCOA)
+    if (auto data = networkProcess.sourceApplicationAuditData(); data && parameters.sourceApplicationBundleIdentifier.isEmpty())
+        applicationBundleIdentifier = makeVector(data.get());
+#endif
+
     if (!parameters.pcmMachServiceName.isEmpty() && !networkSession.sessionID().isEphemeral())
         return PCM::ManagerProxy::create(parameters.pcmMachServiceName, networkSession);
-    return PrivateClickMeasurementManager::create(makeUniqueRef<PCM::ClientImpl>(networkSession, networkProcess), parameters.resourceLoadStatisticsParameters.directory);
+    return PrivateClickMeasurementManager::create(makeUniqueRef<PCM::ClientImpl>(networkSession, networkProcess), parameters.resourceLoadStatisticsParameters.directory, applicationBundleIdentifier);
 }
 
 static Ref<NetworkStorageManager> createNetworkStorageManager(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
@@ -481,6 +490,21 @@ void NetworkSession::handlePrivateClickMeasurementConversion(WebCore::PCM::Attri
     }
 
     m_privateClickMeasurement->handleAttribution(WTFMove(attributionTriggerData), requestURL, RegistrableDomain(redirectRequest.url()), redirectRequest.firstPartyForCookies(), appBundleID);
+}
+
+void NetworkSession::simulatePrivateClickMeasurementConversion(int priority, int triggerData, const URL& sourceURL, const URL& destinationURL)
+{
+    RegistrableDomain destinationSite { destinationURL };
+    if (!destinationSite.matches(URL { "https://pcmdestination.example"_s }))
+        return;
+
+    ResourceRequest request { URL { sourceURL }, destinationURL.strippedForUseAsReferrer().string };
+    request.setFirstPartyForCookies(destinationURL);
+
+    WebCore::PCM::AttributionTriggerData attributionTriggerData;
+    attributionTriggerData.data = triggerData;
+    attributionTriggerData.priority = priority;
+    handlePrivateClickMeasurementConversion(WTFMove(attributionTriggerData), sourceURL, request, { });
 }
 
 void NetworkSession::dumpPrivateClickMeasurement(CompletionHandler<void(String)>&& completionHandler)

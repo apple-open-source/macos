@@ -98,8 +98,11 @@ void ResourceLoadNotifier::didFinishLoad(ResourceLoader& loader, ResourceLoaderI
 
 void ResourceLoadNotifier::didFailToLoad(ResourceLoader& loader, ResourceLoaderIdentifier identifier, const ResourceError& error)
 {
-    if (RefPtr page = m_frame->page())
-        page->checkedProgress()->completeProgress(identifier);
+    RefPtr page = m_frame->page();
+    if (!page) // This may be called during the frame's destruction after detaching from parent page.
+        return;
+
+    page->checkedProgress()->completeProgress(identifier);
 
     // Notifying the LocalFrameLoaderClient may cause the frame to be destroyed.
     Ref frame = m_frame.get();

@@ -297,6 +297,8 @@ public:
 
     bool needsSuppressPostLayoutBoundaryEventsQuirk() const;
 
+    bool needsGlyphOverflowCollectQuirk() const;
+
     void determineRelevantQuirks();
 
 private:

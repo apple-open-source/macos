@@ -30,8 +30,12 @@ install_headers()
     mkdir -p "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2"
     cp -r "${SRCROOT}/$1" "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2"
 
-    find "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2" -type f -name *.h -print0 | \
+    pushd "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2"
+
+    find . -type f -name '*.h' -print0 | \
         xargs -0I % unifdef -t ${COPY_HEADERS_UNIFDEF_FLAGS} -o "%" "%"
+
+    popd
 }
 
 install_headers "include/sys" "/usr/include"

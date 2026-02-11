@@ -381,6 +381,7 @@ __enum_decl(virtual_memory_guard_exception_code_t, uint32_t, {
 	kGUARD_EXC_SEC_IOPL_ON_EXEC_PAGE = 10,
 	kGUARD_EXC_SEC_EXEC_ON_IOPL_PAGE = 11,
 	kGUARD_EXC_SEC_UPL_WRITE_ON_EXEC_REGION = 12,
+	kGUARD_EXC_LARGE_ALLOCATION_TELEMETRY = 13,
 	/*
 	 * rdar://151450801 (Remove spurious kGUARD_EXC_SEC_ACCESS_FAULT and kGUARD_EXC_SEC_ASYNC_ACCESS_FAULT once CrashReporter is aligned)
 	 */

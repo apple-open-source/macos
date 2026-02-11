@@ -16,6 +16,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 from jsonschema import validators, Draft7Validator, FormatChecker
 
+from OJEU_certs import OJEU_certs
+
 EU_LOTL_URI = "https://ec.europa.eu/tools/lotl/eu-lotl.xml"
 
 # download XML from a particular URL string
@@ -204,9 +206,13 @@ def main():
     try:
         lotl = downloadXML(EU_LOTL_URI)
         validateEULOTL(lotl, args.srcroot)
-        #verifyXML(lotl, None) # No externally provided certs are available that successfully verify the LOTL
     except:
         raise RuntimeError("Failed to download and validate the EU LOTL")
+
+    try:
+        verifyXML(lotl, OJEU_certs())
+    except Exception as inst:
+        warnings.warn("Failed to verify LOTL " + str(inst)) # Some of the TSLs fail verification
 
     # iterate through the TSL pointers
     schemeInfo = lotl.find("{http://uri.etsi.org/02231/v2#}SchemeInformation")
@@ -221,7 +227,7 @@ def main():
         try:
             tsl = downloadXML(uri)
         except:
-            raise RuntimeError("Failed to download " + uri)
+            warnings.warn("Failed to download " + uri)
         # Validate against schema
         try:
             validateXML(tsl, args.srcroot)

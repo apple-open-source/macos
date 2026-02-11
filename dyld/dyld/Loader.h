@@ -272,7 +272,7 @@ public:
     void                    makeSegmentsReadWrite(RuntimeState& state) const;
     ResolvedSymbol          resolveSymbol(Diagnostics& diag, RuntimeState&, int libOrdinal, const char* symbolName, bool weakImport,
                                           bool lazyBind, CacheWeakDefOverride patcher, bool buildingCache=false) const;
-    void                    runInitializersBottomUp(RuntimeState&, Array<const Loader*>& danglingUpwards, Array<const Loader*>& visitedDelayed) const;
+    void                    runInitializersBottomUp(RuntimeState&, lsl::Vector<const Loader*>& danglingUpwards, lsl::Vector<const Loader*>& visitedDelayed) const;
     void                    runInitializersBottomUpPlusUpwardLinks(RuntimeState&) const;
     void                    findAndRunAllInitializers(RuntimeState&) const;
     bool                    hasMagic() const;

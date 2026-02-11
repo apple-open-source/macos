@@ -4853,7 +4853,10 @@ vm_pageout_iothread_internal(struct pgo_iothread_state *cthr, __unused wait_resu
 		 * Use the soft bound option for vm_compressor to allow it to run on
 		 * P-cores if E-cluster is unavailable.
 		 */
-		(void) thread_soft_bind_cluster_type(self, 'E');
+		kern_return_t kr = thread_soft_bind_cluster_type(self, 'E');
+		if (kr != KERN_SUCCESS) {
+			printf("%s: WARN: failed to bind thread to cluster type; does the hardware topology match expectations?\n", __FUNCTION__);
+		}
 	}
 #endif /* __AMP__ */
 
@@ -5421,7 +5424,10 @@ vm_pageout(void)
 		 * Use the soft bound option for vm pageout to allow it to run on
 		 * E-cores if P-cluster is unavailable.
 		 */
-		(void) thread_soft_bind_cluster_type(self, 'P');
+		kern_return_t kr = thread_soft_bind_cluster_type(self, 'P');
+		if (kr != KERN_SUCCESS) {
+			printf("%s: WARN: failed to bind thread to cluster type; does the hardware topology match expectations?\n", __FUNCTION__);
+		}
 	}
 #endif /* __AMP__ */
 

@@ -720,15 +720,18 @@ uint64_t compressor_pool_max_size;
 uint64_t compressor_pool_size;
 uint32_t compressor_pool_multiplier;
 
-#if DEVELOPMENT || DEBUG
+#if CONFIG_CSEG_MPROTECT
 /*
- * Compressor segments are write-protected in development/debug
- * kernels to help debug memory corruption.
- * In cases where performance is a concern, this can be disabled
- * via the boot-arg "-disable_cseg_write_protection".
+ * Compressor segments may be write-protected in development/debug
+ * kernels to help debug memory corruption. This incurs significant
+ * performance overhead under heavy overcommit and is therefore disabled by
+ * default. To debug compressor corruption issues, it can be enabled via boot-arg.
  */
-boolean_t write_protect_c_segs = TRUE;
+TUNABLE_WRITEABLE(bool, write_protect_c_segs, "c_segment_mprotect", false);
 int vm_compressor_test_seg_wp;
+#endif /* CONFIG_CSEG_MPROTECT */
+
+#if DEVELOPMENT || DEBUG
 uint32_t vm_ktrace_enabled;
 #endif /* DEVELOPMENT || DEBUG */
 
@@ -1046,7 +1049,7 @@ vm_compressor_init(void)
 
 #if DEVELOPMENT || DEBUG
 	if (PE_parse_boot_argn("-disable_cseg_write_protection", bootarg_name, sizeof(bootarg_name))) {
-		write_protect_c_segs = FALSE;
+		write_protect_c_segs = false;
 	}
 
 	int vmcval = 1;
@@ -1069,7 +1072,9 @@ vm_compressor_init(void)
 #if VALIDATE_C_SEGMENTS
 		validate_c_segs = FALSE;
 #endif
-		write_protect_c_segs = FALSE;
+#if CONFIG_CSEG_MPROTECT
+		write_protect_c_segs = false;
+#endif
 	}
 #endif /* DEVELOPMENT || DEBUG */
 
@@ -2235,9 +2240,7 @@ c_seg_minor_compaction_and_unlock(c_segment_t c_seg, boolean_t clear_busy)
 
 /* TODO: assert first emptyslot's c_size is actually 0 */
 
-#if DEVELOPMENT || DEBUG
 	C_SEG_MAKE_WRITEABLE(c_seg);
-#endif
 
 #if VALIDATE_C_SEGMENTS
 	c_seg->c_was_minor_compacted++;
@@ -2297,9 +2300,7 @@ c_seg_minor_compaction_and_unlock(c_segment_t c_seg, boolean_t clear_busy)
 		    KMA_COMPRESSOR, VM_KERN_MEMORY_COMPRESSOR);
 	}
 
-#if DEVELOPMENT || DEBUG
 	C_SEG_WRITE_PROTECT(c_seg);
-#endif
 
 done:
 	KDBG(VM_COMPRESSOR_EVENTID(DBG_COMPACT_MINOR) | DBG_FUNC_END,
@@ -2428,9 +2429,8 @@ c_seg_coalesce(
 	 * from c_seg_src to c_seg_dst and update both c_segment's
 	 * state w/o holding the master lock
 	 */
-#if DEVELOPMENT || DEBUG
+
 	C_SEG_MAKE_WRITEABLE(c_seg_dst);
-#endif
 
 #if VALIDATE_C_SEGMENTS
 	c_seg_dst->c_was_major_compacted++;
@@ -2541,9 +2541,9 @@ c_seg_coalesce(
 			break;
 		}
 	}
-#if DEVELOPMENT || DEBUG
+
 	C_SEG_WRITE_PROTECT(c_seg_dst);
-#endif
+
 	if (dst_slot < c_seg_dst->c_nextslot) {
 		PAGE_REPLACEMENT_ALLOWED(TRUE);
 		/*
@@ -3670,10 +3670,13 @@ vm_compressor_flush(void)
 
 int             compaction_swap_trigger_thread_awakened = 0;
 
+
 static void
 vm_compressor_swap_trigger_thread(void)
 {
-	current_thread()->options |= TH_OPT_VMPRIV;
+	thread_t        self = current_thread();
+
+	self->options |= TH_OPT_VMPRIV;
 
 	/*
 	 * compaction_swapper_init_now is set when the first call to
@@ -3694,7 +3697,7 @@ vm_compressor_swap_trigger_thread(void)
 #if CONFIG_THREAD_GROUPS
 		thread_group_vm_add();
 #endif
-		thread_set_thread_name(current_thread(), "VM_cswap_trigger");
+		thread_set_thread_name(self, "VM_cswap_trigger");
 		compaction_swapper_init_now = 0;
 	}
 	lck_mtx_lock_spin_always(c_list_lock);
@@ -3933,18 +3936,31 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 		fastwake_warmup = FALSE;
 	}
 
-#if (XNU_TARGET_OS_OSX && __arm64__)
+#if __arm64__
 	/*
 	 * Re-considering major csegs showed benefits on all platforms by
 	 * significantly reducing fragmentation and getting back memory.
 	 * However, on smaller devices, eg watch, there was increased power
-	 * use for the additional compactions. And the turnover in csegs on
-	 * those smaller platforms is high enough in the decompression/free
-	 * path that we can skip reconsidering them here because we already
-	 * consider them for major compaction in those paths.
+	 * use for the additional compactions.
+	 *
+	 * In the normal case, major segments will become queued for minor
+	 * compaction (and therefore re-considered for major compaction) when they
+	 * become physically fragmented through the decompression path. However,
+	 * if the segment already had low utilization when we placed it on the major
+	 * queue (e.g. because its neighbor was already fully compacted), then we're
+	 * unlikely to reconsider the segment for major compaction. To address this,
+	 * always re-process major segments when the system is nearly out of segments
+	 * and the overall pool is fragmented.
 	 */
-	vm_compressor_process_major_segments(false /*all segments and not just the ripe-aged ones*/);
-#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
+#if XNU_TARGET_OS_OSX
+	vm_compressor_process_major_segments(false);
+#else /* !XNU_TARGET_OS_OSX */
+	if (vm_compressor_segments_nearing_limit() &&
+	    vm_compressor_needs_to_major_compact()) {
+		vm_compressor_process_major_segments(false);
+	}
+#endif /* XNU_TARGET_OS_OSX */
+#endif /* __arm64__ */
 
 	/*
 	 * it's possible for the c_age_list_head to be empty if we
@@ -4395,9 +4411,7 @@ c_seg_allocate(c_segment_t *current_chead, bool *nearing_limits)
 
 		*current_chead = c_seg;
 
-#if DEVELOPMENT || DEBUG
 		C_SEG_MAKE_WRITEABLE(c_seg);
-#endif
 	}
 	c_seg_alloc_nextslot(c_seg);
 
@@ -4478,8 +4492,8 @@ c_current_seg_filled(c_segment_t c_seg, c_segment_t *current_chead)
 	}
 	assert(C_SEG_OFFSET_TO_BYTES(c_seg->c_populated_offset) <= c_seg_bufsize);
 
-#if DEVELOPMENT || DEBUG
-	{
+#if CONFIG_CSEG_MPROTECT
+	if (write_protect_c_segs) {
 		boolean_t       c_seg_was_busy = FALSE;
 
 		if (!c_seg->c_busy) {
@@ -4498,7 +4512,7 @@ c_current_seg_filled(c_segment_t c_seg, c_segment_t *current_chead)
 			C_SEG_WAKEUP_DONE(c_seg);
 		}
 	}
-#endif
+#endif /* CONFIG_CSEG_MPROTECT */
 
 #if CONFIG_FREEZE
 	if (current_chead == (c_segment_t*) &(freezer_context_global.freezer_ctx_chead) &&

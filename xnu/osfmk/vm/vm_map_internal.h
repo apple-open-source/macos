@@ -552,7 +552,6 @@ extern kern_return_t    vm_map_enter_fourk(
 	vm_inherit_t            inheritance);
 #endif /* __arm64__ */
 
-
 /* Enter a mapping */
 extern kern_return_t    vm_map_enter(
 	vm_map_t                map,

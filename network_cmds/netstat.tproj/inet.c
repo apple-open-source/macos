@@ -111,10 +111,10 @@
 	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint64_t) - 1))) : sizeof(uint64_t))
 #define ADVANCE64(x, n) (((char *)x) += ROUNDUP64(n))
 
-char	*inetname (struct in_addr *);
-void	inetprint (struct in_addr *, int, char *, int);
+char	*inetname (struct netstat_parameters *, struct in_addr *);
+void	inetprint (struct netstat_parameters *, struct in_addr *, int, char *, int);
 #ifdef INET6
-extern void	inet6print (struct in6_addr *, int, char *, int);
+extern void	inet6print (struct netstat_parameters *, struct in6_addr *, int, char *, int);
 static int udp_done, tcp_done;
 extern int mptcp_done;
 #endif /* INET6 */
@@ -193,7 +193,7 @@ _serv_cache_getservbyport(int port, char *proto)
 /*
  * Print a summary of connections related to an Internet
  * protocol.  For TCP, also give state of connection.
- * Listening processes (aflag) are suppressed unless the
+ * Listening processes (params->aflag) are suppressed unless the
  * -a (all) flag is specified.
  */
 
@@ -205,13 +205,12 @@ struct xgen_n {
 #define ALL_XGN_KIND_INP (XSO_SOCKET | XSO_RCVBUF | XSO_SNDBUF | XSO_STATS | XSO_INPCB)
 #define ALL_XGN_KIND_TCP (ALL_XGN_KIND_INP | XSO_TCPCB)
 
-void
-protopr(uint32_t proto,		/* for sysctl version we pass proto # */
-		char *name, int af)
+int
+protopr(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 {
 	int istcp;
 	static int first = 1;
-	char *buf, *next;
+	char *buf = NULL, *next;
 	const char *mibvar;
 	struct xinpgen *xig, *oxig;
 	struct xgen_n *xgn;
@@ -223,13 +222,14 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	struct xsockbuf_n *so_snd = NULL;
 	struct xsockstat_n *so_stat = NULL;
 	int which = 0;
+	int retval = 0;
 
 	istcp = 0;
 	switch (proto) {
 		case IPPROTO_TCP:
 #ifdef INET6
 			if (tcp_done != 0)
-				return;
+				goto done;
 			else
 				tcp_done = 1;
 #endif
@@ -239,7 +239,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		case IPPROTO_UDP:
 #ifdef INET6
 			if (udp_done != 0)
-				return;
+				goto done;
 			else
 				udp_done = 1;
 #endif
@@ -254,18 +254,21 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	}
 	len = 0;
 	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			warn("sysctl: %s", mibvar);
-		return;
+			retval = -1;
+		}
+		goto done;
 	}
 	if ((buf = malloc(len)) == 0) {
 		warn("malloc %lu bytes", (u_long)len);
-		return;
+		retval = -1;
+		goto done;
 	}
 	if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		free(buf);
-		return;
+		retval = -1;
+		goto done;
 	}
 
 	/*
@@ -273,8 +276,8 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	 * there is in fact no more control block to process
 	 */
 	if (len <= sizeof(struct xinpgen)) {
-		free(buf);
-		return;
+		retval = -1;
+		goto done;
 	}
 
 	oxig = xig = (struct xinpgen *)buf;
@@ -305,13 +308,13 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 					tp = (struct xtcpcb_n *)xgn;
 					break;
 				default:
-					if (vflag > 2) {
+					if (params->vflag > 2) {
 						printf("unexpected kind %d\n", xgn->xgn_kind);
 					}
 					break;
 			}
 		} else {
-			if (vflag)
+			if (params->vflag)
 				printf("got %d twice\n", xgn->xgn_kind);
 		}
 		
@@ -345,27 +348,27 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		 * server sockey but just rather the socket has been bound.
 		 * That why many UDP sockets were not displayed in the original code.
 		 */
-		if (!aflag && istcp && tp->t_state <= TCPS_LISTEN)
+		if (!params->aflag && istcp && tp->t_state <= TCPS_LISTEN)
 			continue;
 		
-		if (Lflag && !so->so_qlimit)
+		if (params->Lflag && !so->so_qlimit)
 			continue;
 		
 		if (first) {
-			if (!Lflag) {
+			if (!params->Lflag) {
 				printf("Active Internet connections");
-				if (aflag)
+				if (params->aflag)
 					printf(" (including servers)");
 			} else
 				printf(
 				       "Current listen queue sizes (qlen/incqlen/maxqlen)");
 			putchar('\n');
-			if (Aflag) {
+			if (params->Aflag) {
 				printf("%-16.16s ", "Socket");
 				printf("%-9.9s", "Flowhash");
 			}
-			if (Lflag) {
-				if (lflag) {
+			if (params->Lflag) {
+				if (!params->lflag) {
 					printf("%-14.14s %-39.39s\n",
 					       "Listen", "Local Address");
 				} else {
@@ -375,10 +378,10 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			} else {
 				printf("%-5.5s %-6.6s %-6.6s  ",
 				       "Proto", "Recv-Q", "Send-Q");
-				if (lflag) {
+				if (!params->lflag) {
 					printf("%-45.45s %-45.45s ",
 					       "Local Address", "Foreign Address");
-				} else if (Aflag) {
+				} else if (params->Aflag) {
 					printf("%-18.18s %-18.18s ",
 					       "Local Address", "Foreign Address");
 				} else {
@@ -388,20 +391,20 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				printf("%-11.11s",
 				       "(state)");
 
-				print_socket_stats_format();
+				print_socket_stats_format(params);
 
 				printf("\n");
 			}
 			first = 0;
 		}
-		if (Aflag) {
+		if (params->Aflag) {
 			if (istcp)
 				printf("%16lx ", (u_long)inp->inp_ppcb);
 			else
 				printf("%16lx ", (u_long)so->so_pcb);
 			printf("%8x ", inp->inp_flowhash);
 		}
-		if (Lflag) {
+		if (params->Lflag) {
 			char buf[15];
 			
 			snprintf(buf, 15, "%d/%d/%d", so->so_qlen,
@@ -424,63 +427,63 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			       so_rcv->sb_cc,
 			       so_snd->sb_cc);
 		}
-		if (nflag) {
+		if (params->nflag) {
 			if (inp->inp_vflag & INP_IPV4) {
-				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+				inetprint(params, &inp->inp_laddr, (int)inp->inp_lport,
 					  name, 1);
-				if (!Lflag)
-					inetprint(&inp->inp_faddr,
+				if (!params->Lflag)
+					inetprint(params, &inp->inp_faddr,
 						  (int)inp->inp_fport, name, 1);
 			}
 #ifdef INET6
 			else if (inp->inp_vflag & INP_IPV6) {
-				inet6print(&inp->in6p_laddr,
+				inet6print(params, &inp->in6p_laddr,
 					   (int)inp->inp_lport, name, 1);
-				if (!Lflag)
-					inet6print(&inp->in6p_faddr,
+				if (!params->Lflag)
+					inet6print(params, &inp->in6p_faddr,
 						   (int)inp->inp_fport, name, 1);
 			} /* else nothing printed now */
 #endif /* INET6 */
 		} else if (inp->inp_flags & INP_ANONPORT) {
 			if (inp->inp_vflag & INP_IPV4) {
-				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+				inetprint(params, &inp->inp_laddr, (int)inp->inp_lport,
 					  name, 1);
-				if (!Lflag)
-					inetprint(&inp->inp_faddr,
+				if (!params->Lflag)
+					inetprint(params, &inp->inp_faddr,
 						  (int)inp->inp_fport, name, 0);
 			}
 #ifdef INET6
 			else if (inp->inp_vflag & INP_IPV6) {
-				inet6print(&inp->in6p_laddr,
+				inet6print(params, &inp->in6p_laddr,
 					   (int)inp->inp_lport, name, 1);
-				if (!Lflag)
-					inet6print(&inp->in6p_faddr,
+				if (!params->Lflag)
+					inet6print(params, &inp->in6p_faddr,
 						   (int)inp->inp_fport, name, 0);
 			} /* else nothing printed now */
 #endif /* INET6 */
 		} else {
 			if (inp->inp_vflag & INP_IPV4) {
-				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+				inetprint(params, &inp->inp_laddr, (int)inp->inp_lport,
 					  name, 0);
-				if (!Lflag)
-					inetprint(&inp->inp_faddr,
+				if (!params->Lflag)
+					inetprint(params, &inp->inp_faddr,
 						  (int)inp->inp_fport, name,
 						  inp->inp_lport !=
 						  inp->inp_fport);
 			}
 #ifdef INET6
 			else if (inp->inp_vflag & INP_IPV6) {
-				inet6print(&inp->in6p_laddr,
+				inet6print(params, &inp->in6p_laddr,
 					   (int)inp->inp_lport, name, 0);
-				if (!Lflag)
-					inet6print(&inp->in6p_faddr,
+				if (!params->Lflag)
+					inet6print(params, &inp->in6p_faddr,
 						   (int)inp->inp_fport, name,
 						   inp->inp_lport !=
 						   inp->inp_fport);
 			} /* else nothing printed now */
 #endif /* INET6 */
 		}
-		if (istcp && !Lflag) {
+		if (istcp && !params->Lflag) {
 			if (tp->t_state < 0 || tp->t_state >= TCP_NSTATES)
 				printf("%-11d", tp->t_state);
 			else {
@@ -490,7 +493,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		if (!istcp)
 			printf("%-11s", "           ");
 
-		print_socket_stats_data(so, so_rcv, so_snd, so_stat);
+		print_socket_stats_data(params, so, so_rcv, so_snd, so_stat);
 
 		putchar('\n');
 	}
@@ -506,14 +509,17 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			       name);
 		}
 	}
+done:
 	free(buf);
+
+	return retval;
 }
 
 /*
  * Dump TCP statistics structure.
  */
-void
-tcp_stats(uint32_t off , char *name, int af)
+int
+tcp_stats(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 	static struct tcpstat ptcpstat;
 	struct tcpstat tcpstat;
@@ -524,32 +530,32 @@ tcp_stats(uint32_t off , char *name, int af)
 
 	if (sysctlbyname("net.inet.tcp.stats", &tcpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.tcp.stats");
-		return;
+		return -1;
 	}
 
 #ifdef INET6
-	if (tcp_done != 0 && interval == 0)
-		return;
+	if (tcp_done != 0 && params->interval == 0)
+		return 0;
 	else
 		tcp_done = 1;
 #endif
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 
 #define	TCPDIFF(f) (tcpstat.f - ptcpstat.f)
-#define	p(f, m) if (TCPDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (TCPDIFF(f) || params->sflag <= 1) \
 printf(m, TCPDIFF(f), plural(TCPDIFF(f)))
-#define	p1a(f, m) if (TCPDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (TCPDIFF(f) || params->sflag <= 1) \
 printf(m, TCPDIFF(f))
-#define	p2(f1, f2, m) if (TCPDIFF(f1) || TCPDIFF(f2) || sflag <= 1) \
+#define	p2(f1, f2, m) if (TCPDIFF(f1) || TCPDIFF(f2) || params->sflag <= 1) \
 printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2), plural(TCPDIFF(f2)))
-#define	p2a(f1, f2, m) if (TCPDIFF(f1) || TCPDIFF(f2) || sflag <= 1) \
+#define	p2a(f1, f2, m) if (TCPDIFF(f1) || TCPDIFF(f2) || params->sflag <= 1) \
 printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2))
-#define	p3(f, m) if (TCPDIFF(f) || sflag <= 1) \
+#define	p3(f, m) if (TCPDIFF(f) || params->sflag <= 1) \
 printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
-#define	py(f, m) if (TCPDIFF(f) || sflag <= 1) \
+#define	py(f, m) if (TCPDIFF(f) || params->sflag <= 1) \
 printf(m, TCPDIFF(f), TCPDIFF(f) != 1 ? "ies" : "y")
 
 	p(tcps_sndtotal, "\t%u packet%s sent\n");
@@ -569,7 +575,7 @@ printf(m, TCPDIFF(f), TCPDIFF(f) != 1 ? "ies" : "y")
 	p(tcps_rstchallenge, "\t\t%u challenge ACK%s sent due to unexpected RST\n");
 	p(tcps_minmssdrops, "\t\t%u challenge ACK%s sent due to unexpected RST\n");
 	t_swcsum = tcpstat.tcps_snd_swcsum + tcpstat.tcps_snd6_swcsum;
-	if ((t_swcsum - pt_swcsum) || sflag <= 1)
+	if ((t_swcsum - pt_swcsum) || params->sflag <= 1)
 		printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
 	p2(tcps_snd_swcsum, tcps_snd_swcsum_bytes,
 	   "\t\t\t%u segment%s (%u byte%s) over IPv4\n");
@@ -600,7 +606,7 @@ printf(m, TCPDIFF(f), TCPDIFF(f) != 1 ? "ies" : "y")
 	p(tcps_badrst, "\t\t%u bad reset%s\n");
 	p(tcps_rcvbadsum, "\t\t%u discarded for bad checksum%s\n");
 	r_swcsum = tcpstat.tcps_rcv_swcsum + tcpstat.tcps_rcv6_swcsum;
-	if ((r_swcsum - pr_swcsum) || sflag <= 1)
+	if ((r_swcsum - pr_swcsum) || params->sflag <= 1)
 		printf("\t\t%u checksummed in software\n",
 		       (r_swcsum - pr_swcsum));
 	p2(tcps_rcv_swcsum, tcps_rcv_swcsum_bytes,
@@ -751,7 +757,7 @@ printf(m, TCPDIFF(f), TCPDIFF(f) != 1 ? "ies" : "y")
 	p(tcps_rst_not_suppressed,"\t%llu RST packet%s for port unreachable not suppressed\n");
 #endif /* HAS_TCPSTAT_RST_SUPPRESSION */
 
-	if (interval > 0) {
+	if (params->interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
 		pr_swcsum = r_swcsum;
 		pt_swcsum = t_swcsum;
@@ -766,19 +772,20 @@ printf(m, TCPDIFF(f), TCPDIFF(f) != 1 ? "ies" : "y")
 #undef py
 
 	len = sizeof(pcbcount);
-	if (sysctlbyname("net.inet.tcp.pcbcount", &pcbcount, &len, 0, 0) == -1)
-		return;
-
-	if (pcbcount != 0 || sflag <= 1 ) {
-		printf("\t%u open TCP socket%s\n", pcbcount, plural(pcbcount));
+	if (sysctlbyname("net.inet.tcp.pcbcount", &pcbcount, &len, 0, 0) == 0) {
+		if (pcbcount != 0 || params->sflag <= 1 ) {
+			printf("\t%u open TCP socket%s\n", pcbcount, plural(pcbcount));
+		}
 	}
+
+	return 0;
 }
 
 /*
  * Dump MPTCP statistics
  */
-void
-mptcp_stats(uint32_t off , char *name, int af)
+int
+mptcp_stats(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 	static struct tcpstat ptcpstat;
 	struct tcpstat tcpstat;
@@ -787,33 +794,33 @@ mptcp_stats(uint32_t off , char *name, int af)
 
 	if (sysctlbyname("net.inet.tcp.stats", &tcpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.tcp.stats");
-		return;
+		return -1;
 	}
 
 #ifdef INET6
-	if (mptcp_done != 0 && interval == 0)
-		return;
+	if (mptcp_done != 0 && params->interval == 0)
+		return 0;
 	else
 		mptcp_done = 1;
 #endif
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 
 #define	MPTCPDIFF(f) (tcpstat.f - ptcpstat.f)
-#define	p(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (MPTCPDIFF(f) || params->sflag <= 1) \
 printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
-#define	p1a(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (MPTCPDIFF(f) || params->sflag <= 1) \
 printf(m, MPTCPDIFF(f))
 #define	p2(f1, f2, m) if (MPTCPDIFF(f1) || MPTCPDIFF(f2) || sflag <= 1) \
 printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), \
 MPTCPDIFF(f2), plural(MPTCPDIFF(f2)))
 #define	p2a(f1, f2, m) if (MPTCPDIFF(f1) || MPTCPDIFF(f2) || sflag <= 1) \
 printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), MPTCPDIFF(f2))
-#define	p3(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+#define	p3(f, m) if (MPTCPDIFF(f) || params->sflag <= 1) \
 printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
-#define	p64(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+#define	p64(f, m) if (MPTCPDIFF(f) || params->sflag <= 1) \
 printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
 
 	p(tcps_mp_sndpacks, "\t%u data packet%s sent\n");
@@ -867,7 +874,7 @@ printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
 	p3(tcps_mptcp_cell_proxy, "\t%u new subflow%s that fell back to regular TCP on Wi-Fi\n");
 	p3(tcps_mptcp_triggered_cell, "\t%u time%s an MPTCP connection triggered cellular\n");
 
-	if (interval > 0) {
+	if (params->interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
 	}
 
@@ -880,19 +887,20 @@ printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
 #undef p64
 
 	len = sizeof(pcbcount);
-	if (sysctlbyname("net.inet.m[tcp.pcbcount", &pcbcount, &len, 0, 0) == -1)
-		return;
-
-	if (pcbcount != 0 || sflag <= 1 ) {
-		printf("\t%u open MPTCP socket%s\n", pcbcount, plural(pcbcount));
+	if (sysctlbyname("net.inet.m[tcp.pcbcount", &pcbcount, &len, 0, 0) == 0) {
+		if (pcbcount != 0 || params->sflag <= 1 ) {
+			printf("\t%u open MPTCP socket%s\n", pcbcount, plural(pcbcount));
+		}
 	}
+
+	return 0;
 }
 
 /*
  * Dump UDP statistics structure.
  */
-void
-udp_stats(uint32_t off , char *name, int af )
+int
+udp_stats(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 	static struct udpstat pudpstat;
 	struct udpstat udpstat;
@@ -904,26 +912,26 @@ udp_stats(uint32_t off , char *name, int af )
 
 	if (sysctlbyname("net.inet.udp.stats", &udpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.udp.stats");
-		return;
+		return -1;
 	}
 
 #ifdef INET6
-	if (udp_done != 0 && interval == 0)
-		return;
+	if (udp_done != 0 && params->interval == 0)
+		return 0;
 	else
 		udp_done = 1;
 #endif
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf("%s:\n", name);
 
 #define	UDPDIFF(f) (udpstat.f - pudpstat.f)
-#define	p(f, m) if (UDPDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (UDPDIFF(f) || params->sflag <= 1) \
 printf(m, UDPDIFF(f), plural(UDPDIFF(f)))
-#define	p1a(f, m) if (UDPDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (UDPDIFF(f) || params->sflag <= 1) \
 printf(m, UDPDIFF(f))
-#define	p2(f1, f2, m) if (UDPDIFF(f1) || UDPDIFF(f2) || sflag <= 1) \
+#define	p2(f1, f2, m) if (UDPDIFF(f1) || UDPDIFF(f2) || params->sflag <= 1) \
 printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	p(udps_ipackets, "\t%u datagram%s received\n");
 	p1a(udps_hdrops, "\t\t%u with incomplete header\n");
@@ -931,7 +939,7 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	p1a(udps_badsum, "\t\t%u with bad checksum\n");
 	p1a(udps_nosum, "\t\t%u with no checksum\n");
 	r_swcsum = udpstat.udps_rcv_swcsum + udpstat.udps_rcv6_swcsum;
-	if ((r_swcsum - pr_swcsum) || sflag <= 1)
+	if ((r_swcsum - pr_swcsum) || params->sflag <= 1)
 		printf("\t\t%u checksummed in software\n", (r_swcsum - pr_swcsum));
 	p2(udps_rcv_swcsum, udps_rcv_swcsum_bytes,
 	   "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
@@ -958,11 +966,11 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	UDPDIFF(udps_noport) -
 	UDPDIFF(udps_noportbcast) -
 	UDPDIFF(udps_fullsock);
-	if (delivered || sflag <= 1)
+	if (delivered || params->sflag <= 1)
 		printf("\t\t%u delivered\n", delivered);
 	p(udps_opackets, "\t%u datagram%s output\n");
 	t_swcsum = udpstat.udps_snd_swcsum + udpstat.udps_snd6_swcsum;
-	if ((t_swcsum - pt_swcsum) || sflag <= 1)
+	if ((t_swcsum - pt_swcsum) || params->sflag <= 1)
 		printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
 	p2(udps_snd_swcsum, udps_snd_swcsum_bytes,
 	   "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
@@ -972,11 +980,11 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 #endif /* INET6 */
 
 #if HAS_TCPSTAT_RST_SUPPRESSION
-	p(udps_port_unreach_dup_suppressed,"\t%llu duplicate ICMP packet%s for port unreachable suppressed\n");
+	p(udps_port_unreach_dup_suppressed,"\t%llu duplicate IMCP packet%s for port unreachable suppressed\n");
 	p(udps_port_unreach_not_suppressed,"\t%llu ICMP packet%s for port unreachable not suppressed\n");
 #endif /* HAS_TCPSTAT_RST_SUPPRESSION */
 
-	if (interval > 0) {
+	if (params->interval > 0) {
 		bcopy(&udpstat, &pudpstat, len);
 		pr_swcsum = r_swcsum;
 		pt_swcsum = t_swcsum;
@@ -988,29 +996,30 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 #undef p2
 
 	len = sizeof(pcbcount);
-	if (sysctlbyname("net.inet.udp.pcbcount", &pcbcount, &len, 0, 0) == -1)
-		return;
-
-	if (pcbcount != 0 || sflag <= 1 ) {
-		printf("\t%u open UDP socket%s\n", pcbcount, plural(pcbcount));
+	if (sysctlbyname("net.inet.udp.pcbcount", &pcbcount, &len, 0, 0) == -1) {
+		if (pcbcount != 0 || params->sflag <= 1 ) {
+			printf("\t%u open UDP socket%s\n", pcbcount, plural(pcbcount));
+		}
 	}
+
+	return 0;
 }
 
-void
-tcp_ifstats(char *ifname)
+int
+tcp_ifstats(struct netstat_parameters *params, char *ifname)
 {
 	size_t miblen = sizeof(struct ifmibdata_supplemental);
 	struct ifmibdata_supplemental ifmsupp = { 0 };
 	int mibname[6];
 	int ifindex;
 
-#define	p(f, m) if (ifmsupp.ifmd_packet_stats.f || sflag <= 1) \
+#define	p(f, m) if (ifmsupp.ifmd_packet_stats.f || params->sflag <= 1) \
     printf(m, ifmsupp.ifmd_packet_stats.f, plural(ifmsupp.ifmd_packet_stats.f))
 
 	printf("tcp on %s\n", ifname);
 
 	if ((ifindex = if_nametoindex(ifname)) == 0) {
-		return;
+		return -1;
 	}
 
 	/* Common OID prefix */
@@ -1021,7 +1030,8 @@ tcp_ifstats(char *ifname)
 	mibname[4] = ifindex;
 	mibname[5] = IFDATA_SUPPLEMENTAL;
 	if (sysctl(mibname, 6, &ifmsupp, &miblen, NULL, 0) == -1) {
-		err(1, "sysctl IFDATA_SUPPLEMENTAL");
+		warn("sysctl IFDATA_SUPPLEMENTAL");
+		return -1;
 	}
 
 	p(ifi_tcp_badformat, "\t%llu incoming packet%s with bad TCP header format\n");
@@ -1038,23 +1048,25 @@ tcp_ifstats(char *ifname)
 	p(ifi_tcp_cleanup, "\t%llu incoming packet%s received after close\n");
 
 #undef p
+
+	return 0;
 }
 
-void
-udp_ifstats(char *ifname)
+int
+udp_ifstats(struct netstat_parameters *params, char *ifname)
 {
 	size_t miblen = sizeof(struct ifmibdata_supplemental);
 	struct ifmibdata_supplemental ifmsupp = { 0 };
 	int mibname[6];
 	int ifindex;
 
-#define	p(f, m) if (ifmsupp.ifmd_packet_stats.f || sflag <= 1) \
+#define	p(f, m) if (ifmsupp.ifmd_packet_stats.f || params->sflag <= 1) \
     printf(m, ifmsupp.ifmd_packet_stats.f, plural(ifmsupp.ifmd_packet_stats.f))
 
 	printf("udp on %s\n", ifname);
 
 	if ((ifindex = if_nametoindex(ifname)) == 0) {
-		return;
+		return -1;
 	}
 
 	/* Common OID prefix */
@@ -1065,7 +1077,8 @@ udp_ifstats(char *ifname)
 	mibname[4] = ifindex;
 	mibname[5] = IFDATA_SUPPLEMENTAL;
 	if (sysctl(mibname, 6, &ifmsupp, &miblen, NULL, 0) == -1) {
-		err(1, "sysctl IFDATA_SUPPLEMENTAL");
+		warn("sysctl IFDATA_SUPPLEMENTAL");
+		return -1;
 	}
 
 	p(ifi_udp_port_unreach, "\t%llu incoming packet%s for a closed port\n");
@@ -1077,13 +1090,15 @@ udp_ifstats(char *ifname)
 	p(ifi_udp_badipsec, "\t%llu incoming packet%s not allowed by NECP\n");
 
 #undef p
+
+	return 0;
 }
 
 /*
  * Dump IP statistics structure.
  */
-void
-ip_stats(uint32_t off , char *name, int af )
+int
+ip_stats(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 	static struct ipstat pipstat;
 	struct ipstat ipstat;
@@ -1092,19 +1107,19 @@ ip_stats(uint32_t off , char *name, int af )
 
 	if (sysctlbyname("net.inet.ip.stats", &ipstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.ip.stats");
-		return;
+		return -1;
 	}
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf("%s:\n", name);
 
 #define	IPDIFF(f) (ipstat.f - pipstat.f)
-#define	p(f, m) if (IPDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (IPDIFF(f) || params->sflag <= 1) \
 printf(m, IPDIFF(f), plural(IPDIFF(f)))
-#define	p1a(f, m) if (IPDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (IPDIFF(f) || params->sflag <= 1) \
 printf(m, IPDIFF(f))
-#define	p2(f1, f2, m) if (IPDIFF(f1) || IPDIFF(f2) || sflag <= 1) \
+#define	p2(f1, f2, m) if (IPDIFF(f1) || IPDIFF(f2) || params->sflag <= 1) \
 printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
 
 	p(ips_total, "\t%u total packet%s received\n");
@@ -1129,7 +1144,7 @@ printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
 	p(ips_noproto, "\t\t%u packet%s for unknown/unsupported protocol\n");
 	p(ips_forward, "\t\t%u packet%s forwarded");
 	p(ips_fastforward, " (%u packet%s fast forwarded)");
-	if (IPDIFF(ips_forward) || sflag <= 1)
+	if (IPDIFF(ips_forward) || params->sflag <= 1)
 		putchar('\n');
 	p(ips_cantforward, "\t\t%u packet%s not forwardable\n");
 	p(ips_notmember,
@@ -1166,7 +1181,7 @@ printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
 	p2(ips_snd_swcsum, ips_snd_swcsum_bytes,
 	   "\t\t%u header%s (%u byte%s) checksummed in software\n");
 
-	if (interval > 0) {
+	if (params->interval > 0) {
 		bcopy(&ipstat, &pipstat, len);
 	}
 
@@ -1177,18 +1192,20 @@ printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
 
 	len = sizeof(pcbcount);
 	if (sysctlbyname("net.inet.raw.pcbcount", &pcbcount, &len, 0, 0) == -1)
-		return;
+		return -1;
 
-	if (pcbcount != 0 || sflag <= 1 ) {
+	if (pcbcount != 0 || params->sflag <= 1 ) {
 		printf("\t%u open raw IP socket%s\n", pcbcount, plural((pcbcount)));
 	}
+
+	return 0;;
 }
 
 /*
  * Dump ARP statistics structure.
  */
-void
-arp_stats(uint32_t off, char *name, int af)
+int
+arp_stats(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 	static struct arpstat parpstat;
 	struct arpstat arpstat;
@@ -1197,19 +1214,19 @@ arp_stats(uint32_t off, char *name, int af)
 	if (sysctlbyname("net.link.ether.inet.stats", &arpstat,
 			 &len, 0, 0) < 0) {
 		warn("sysctl: net.link.ether.inet.stats");
-		return;
+		return -1;
 	}
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf("%s:\n", name);
 
 #define	ARPDIFF(f) (arpstat.f - parpstat.f)
-#define	p(f, m) if (ARPDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (ARPDIFF(f) || params->sflag <= 1) \
 printf(m, ARPDIFF(f), plural(ARPDIFF(f)))
-#define	p2(f, m) if (ARPDIFF(f) || sflag <= 1) \
+#define	p2(f, m) if (ARPDIFF(f) || params->sflag <= 1) \
 printf(m, ARPDIFF(f), pluralies(ARPDIFF(f)))
-#define	p3(f, m) if (ARPDIFF(f) || sflag <= 1) \
+#define	p3(f, m) if (ARPDIFF(f) || params->sflag <= 1) \
 printf(m, ARPDIFF(f), plural(ARPDIFF(f)), pluralies(ARPDIFF(f)))
 
 	p(txrequests, "\t%u broadast ARP request%s sent\n");
@@ -1228,12 +1245,14 @@ printf(m, ARPDIFF(f), plural(ARPDIFF(f)), pluralies(ARPDIFF(f)))
 	p2(timeouts, "\t%u ARP entr%s timed out\n");
 	p(dupips, "\t%u Duplicate IP%s seen\n");
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&arpstat, &parpstat, len);
 
 #undef ARPDIFF
 #undef p
 #undef p2
+
+	return 0;
 }
 
 static	char *icmpnames[] = {
@@ -1261,8 +1280,8 @@ static	char *icmpnames[] = {
 /*
  * Dump ICMP statistics.
  */
-void
-icmp_stats(uint32_t off , char *name, int af )
+int
+icmp_stats(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 	static struct icmpstat picmpstat;
 	struct icmpstat icmpstat;
@@ -1278,16 +1297,16 @@ icmp_stats(uint32_t off , char *name, int af )
 	len = sizeof icmpstat;
 	memset(&icmpstat, 0, len);
 	if (sysctl(mib, 4, &icmpstat, &len, (void *)0, 0) < 0)
-		return;		/* XXX should complain, but not traditional */
+		return -1;		/* XXX should complain, but not traditional */
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf("%s:\n", name);
 
 #define	ICMPDIFF(f) (icmpstat.f - picmpstat.f)
-#define	p(f, m) if (ICMPDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (ICMPDIFF(f) || params->sflag <= 1) \
 printf(m, ICMPDIFF(f), plural(ICMPDIFF(f)))
-#define	p1a(f, m) if (ICMPDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (ICMPDIFF(f) || params->sflag <= 1) \
 printf(m, ICMPDIFF(f))
 
 	p(icps_error, "\t%u call%s to icmp_error\n");
@@ -1325,19 +1344,21 @@ printf(m, ICMPDIFF(f))
 	mib[3] = ICMPCTL_MASKREPL;
 	len = sizeof i;
 	if (sysctl(mib, 4, &i, &len, (void *)0, 0) < 0)
-		return;
+		return -1;
 	printf("\tICMP address mask responses are %sabled\n",
 	       i ? "en" : "dis");
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&icmpstat, &picmpstat, sizeof (icmpstat));
+
+	return 0;
 }
 
 /*
  * Dump IGMP statistics structure.
  */
-void
-igmp_stats(uint32_t off , char *name, int af )
+int
+igmp_stats(struct netstat_parameters *params, uint32_t off, char *name, int af)
 {
 	static struct igmpstat_v3 pigmpstat;
 	struct igmpstat_v3 igmpstat;
@@ -1345,7 +1366,7 @@ igmp_stats(uint32_t off , char *name, int af )
 
 	if (sysctlbyname("net.inet.igmp.v3stats", &igmpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.igmp.v3stats");
-		return;
+		return -1;
 	}
 
 	if (igmpstat.igps_version != IGPS_VERSION_3) {
@@ -1357,14 +1378,14 @@ igmp_stats(uint32_t off , char *name, int af )
 		      igmpstat.igps_len, IGPS_VERSION3_LEN);
 	}
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf("%s:\n", name);
 
 #define	IGMPDIFF(f) ((uintmax_t)(igmpstat.f - pigmpstat.f))
-#define	p64(f, m) if (IGMPDIFF(f) || sflag <= 1) \
+#define	p64(f, m) if (IGMPDIFF(f) || params->sflag <= 1) \
 printf(m, IGMPDIFF(f), plural(IGMPDIFF(f)))
-#define	py64(f, m) if (IGMPDIFF(f) || sflag <= 1) \
+#define	py64(f, m) if (IGMPDIFF(f) || params->sflag <= 1) \
 printf(m, IGMPDIFF(f), IGMPDIFF(f) != 1 ? "ies" : "y")
 
 	p64(igps_rcv_total, "\t%ju message%s received\n");
@@ -1387,28 +1408,30 @@ printf(m, IGMPDIFF(f), IGMPDIFF(f) != 1 ? "ies" : "y")
 	p64(igps_rcv_nora, "\t%ju V3 report%s received without Router Alert\n");
 	p64(igps_snd_reports, "\t%ju membership report%s sent\n");
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&igmpstat, &pigmpstat, len);
 
 #undef IGMPDIFF
 #undef p64
 #undef py64
+
+	return 0;
 }
 
 /*
  * Pretty print an Internet address (net address + port).
  */
 void
-inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
+inetprint(struct netstat_parameters *params, struct in_addr *in, int port, char *proto, int numeric_port)
 {
 	struct servent *sp = 0;
 	char line[80], *cp;
 	int width;
 
-	if (Wflag)
-		snprintf(line, sizeof(line), "%s.", inetname(in));
+	if (params->Wflag)
+		snprintf(line, sizeof(line), "%s.", inetname(params, in));
 	else
-		snprintf(line, sizeof(line), "%.*s.", (Aflag && !numeric_port) ? 12 : 16, inetname(in));
+		snprintf(line, sizeof(line), "%.*s.", (params->Aflag && !numeric_port) ? 12 : 16, inetname(params, in));
 	cp = index(line, '\0');
 	if (!numeric_port && port)
 #ifdef _SERVICE_CACHE_
@@ -1420,8 +1443,8 @@ inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
 		snprintf(cp, sizeof(line) - (cp - line), "%.15s ", sp ? sp->s_name : "*");
 	else
 		snprintf(cp, sizeof(line) - (cp - line), "%d ", ntohs((u_short)port));
-	width = lflag ? 45 : Aflag ? 18 : 22;
-	if (Wflag)
+	width = params->lflag ? 45 : params->Aflag ? 18 : 22;
+	if (params->Wflag)
 		printf("%-*s ", width, line);
 	else
 		printf("%-*.*s ", width, width, line);
@@ -1433,7 +1456,7 @@ inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
  * numeric value, otherwise try for symbolic name.
  */
 char *
-inetname(struct in_addr *inp)
+inetname(struct netstat_parameters *params, struct in_addr *inp)
 {
 	register char *cp;
 	static char line[MAXHOSTNAMELEN];
@@ -1441,7 +1464,7 @@ inetname(struct in_addr *inp)
 	struct netent *np;
 
 	cp = 0;
-	if (!nflag && inp->s_addr != INADDR_ANY) {
+	if (!params->nflag && inp->s_addr != INADDR_ANY) {
 		int net = inet_netof(*inp);
 		int lna = inet_lnaof(*inp);
 
@@ -1469,4 +1492,22 @@ inetname(struct in_addr *inp)
 		    C(inp->s_addr >> 16), C(inp->s_addr >> 8), C(inp->s_addr));
 	}
 	return (line);
+}
+
+int
+tcp_reinit(struct netstat_parameters *params, uint32_t off, char *name, int af)
+{
+#pragma unused(params, off, name, af)
+	tcp_done = 0;
+
+	return 0;
+}
+
+int
+udp_reinit(struct netstat_parameters *params, uint32_t off, char *name, int af)
+{
+#pragma unused(params, off, name, af)
+	udp_done = 0;
+
+	return 0;
 }

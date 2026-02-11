@@ -181,7 +181,6 @@
 #include <vm/WKdm_new.h>
 #elif defined(__arm64__)
 #include <arm64/amcc_rorgn.h>
-#include <kern/ecc.h>
 #endif /* defined(__i386__) || defined(__x86_64__) */
 #include <san/kasan.h>
 
@@ -512,9 +511,6 @@ IOHibernateSystemSleep(void)
 	uint64_t   setFileSizeMin = 0, setFileSizeMax = 0;
 
 	gIOHibernateState = kIOHibernateStateInactive;
-
-#if defined(__arm64__)
-#endif /* __arm64__ */
 
 	gIOHibernateDebugFlags = 0;
 	if (kIOLogHibernate & gIOKitDebug) {

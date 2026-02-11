@@ -2563,7 +2563,7 @@ void Loader::findAndRunAllInitializers(RuntimeState& state) const
 // use the visitedDelayed set to track if the image was already visited.  If the image is not delayed, we use
 // beginInitializers() to mark the image visited.
 // We have to recurse into delayed dylibs because they may need to be initialized because they have weak-defs or interposing tuples.
-void Loader::runInitializersBottomUp(RuntimeState& state, Array<const Loader*>& danglingUpwards, Array<const Loader*>& visitedDelayed) const
+void Loader::runInitializersBottomUp(RuntimeState& state, Vector<const Loader*>& danglingUpwards, Vector<const Loader*>& visitedDelayed) const
 {
     // don't run initializers in images that are in delayInit state
     // but continue down graph and run initializers in children if needed
@@ -2571,7 +2571,7 @@ void Loader::runInitializersBottomUp(RuntimeState& state, Array<const Loader*>& 
 
     // do nothing if already visited
     if ( delayed ) {
-        if ( visitedDelayed.contains(this) )
+        if ( std::ranges::find(visitedDelayed, this) != visitedDelayed.end() )
             return;
         // use 'visitedDelayed' to mark we have already handled his image
         visitedDelayed.push_back(this);
@@ -2591,7 +2591,7 @@ void Loader::runInitializersBottomUp(RuntimeState& state, Array<const Loader*>& 
         if ( Loader* child = this->dependent(state, i, &childAttrs) ) {
             if ( childAttrs.upward ) {
                 // add upwards to list to process later
-                if ( !danglingUpwards.contains(child) )
+                if ( std::ranges::find(danglingUpwards, child) == danglingUpwards.end() )
                     danglingUpwards.push_back(child);
             }
             else {
@@ -2613,15 +2613,15 @@ void Loader::runInitializersBottomUpPlusUpwardLinks(RuntimeState& state) const
 {
     //state.log("runInitializersBottomUpPlusUpwardLinks() %s\n", this->path());
     MemoryManager::withWritableMemory([&]{
+        Vector<const Loader*> danglingUpwards(state.persistentAllocator);
+        Vector<const Loader*> visitedDelayed(state.persistentAllocator);
         // recursively run all initializers
-        STACK_ALLOC_ARRAY(const Loader*, danglingUpwards, state.loaded.size()+state.delayLoaded.size());
-        STACK_ALLOC_ARRAY(const Loader*, visitedDelayed, state.delayLoaded.size());
         this->runInitializersBottomUp(state, danglingUpwards, visitedDelayed);
 
         //state.log("runInitializersBottomUpPlusUpwardLinks(%s), found %d dangling upwards\n", this->path(), danglingUpwards.count());
 
         // go back over all images that were upward linked, and recheck they were initialized (might be danglers)
-        STACK_ALLOC_ARRAY(const Loader*, extraDanglingUpwards, state.loaded.size()+state.delayLoaded.size());
+        Vector<const Loader*> extraDanglingUpwards(state.persistentAllocator);
         for ( const Loader* ldr : danglingUpwards ) {
             //state.log("running initializers for dangling upward link %s\n", ldr->path());
             ldr->runInitializersBottomUp(state, extraDanglingUpwards, visitedDelayed);

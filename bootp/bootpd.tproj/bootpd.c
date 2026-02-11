@@ -293,7 +293,10 @@ S_get_dns()
 
     res_init(); /* figure out the default dns servers */
 
-    S_domain_name = NULL;
+    if (S_domain_name != NULL) {
+	    free(S_domain_name);
+	    S_domain_name = NULL;
+    }
     if (S_dns_servers) {
 	free(S_dns_servers);
 	S_dns_servers = NULL;
@@ -348,7 +351,7 @@ S_get_dns()
 	    str = CFStringCreateMutable(NULL, 0);
 	}
 	if (_res.defdname[0] && strcmp(_res.defdname, "local") != 0) {
-	    S_domain_name = _res.defdname;
+	    S_domain_name = strdup(_res.defdname);
 	    if (debug) {
 		my_log(LOG_DEBUG, "DNS domain: %s", S_domain_name);
 	    }

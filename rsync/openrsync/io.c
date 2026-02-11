@@ -258,7 +258,7 @@ io_write_blocking(int fd, const void *buf, size_t sz)
  * Returns 0 on failure, non-zero on success (all bytes written).
  */
 static int
-io_writev_blocking(int fd, struct iovec *iov, int iovcnt)
+io_writev_blocking(int fd, struct iovec *iov, int iovcnt, bool raise_errors)
 {
 	struct pollfd pfd = {
 		.fd = fd,
@@ -273,7 +273,8 @@ io_writev_blocking(int fd, struct iovec *iov, int iovcnt)
 		cc = writev(fd, iov, iovcnt);
 
 		if (cc == -1 && errno != EAGAIN && errno != EINTR) {
-			ERRX("io_writev_blocking: %s", strerror(errno));
+			if (raise_errors)
+				ERRX("io_writev_blocking: %s", strerror(errno));
 			return 0;
 		}
 
@@ -300,17 +301,20 @@ io_writev_blocking(int fd, struct iovec *iov, int iovcnt)
 			if (n == -1 && errno == EINTR)
 				continue;
 
-			ERRX("io_writev_blocking: %s",
-			    (n == 0) ? "timeout" : strerror(errno));
+			if (raise_errors)
+				ERRX("io_writev_blocking: %s",
+				    (n == 0) ? "timeout" : strerror(errno));
 			return 0;
 		}
 		if ((pfd.revents & (POLLERR | POLLNVAL | POLLHUP)) != 0) {
-			ERRX("io_writev_blocking: %s",
-			    ((pfd.revents & POLLHUP) != 0) ? "hangup" : "bad fd");
+			if (raise_errors)
+				ERRX("io_writev_blocking: %s",
+				    ((pfd.revents & POLLHUP) != 0) ? "hangup" : "bad fd");
 			return 0;
 		}
 		if ((pfd.revents & POLLOUT) == 0) {
-			ERRX("io_writev_blocking: unknown event");
+			if (raise_errors)
+				ERRX("io_writev_blocking: unknown event");
 			return 0;
 		}
 	}
@@ -399,7 +403,7 @@ io_write_buf_tagged_impl(struct sess *sess, int fd, const void *buf, size_t sz,
 		iov[1].iov_base = (void *)buf;
 		iov[1].iov_len = wsz;
 
-		if (!io_writev_blocking(fd, iov, 2)) {
+		if (!io_writev_blocking(fd, iov, 2, raise_errors)) {
 			if (raise_errors)
 				ERRX1("io_writev_blocking");
 			return 0;

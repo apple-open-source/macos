@@ -38,7 +38,8 @@ struct _process_s {
     mach_port_t bootstrap;
     
     bool appStoreSigned;
-	bool firstPartySigned;
+    bool firstPartySigned;
+    bool notarized;
 };
 
 static void
@@ -111,6 +112,49 @@ static CFTypeID process_get_type_id(void) {
     });
     
     return type_id;
+}
+
+static bool _is_code_url_denylisted(process_t proc)
+{
+    assert(proc); // marked non-null
+    
+    // Define the deny-list of code URLs/paths
+    static const char* denylisted_paths[] = {
+        "/bin/bash",
+        "/bin/csh",
+        "/bin/dash",
+        "/bin/ksh",
+        "/bin/sh",
+        "/bin/tcsh",
+        "/bin/zsh",
+        "/usr/bin/expect",
+        "/usr/bin/jshell/jrunscript"
+        "/usr/bin/make",
+        "/usr/bin/osascript",
+        "/usr/bin/perl",
+        "/usr/bin/perl5.34",
+        "/usr/bin/python",
+        "/usr/bin/python3",
+        "/usr/bin/ruby",
+        "/usr/bin/swift",
+        "/usr/bin/tclsh",
+        NULL // Sentinel value to mark end of array
+    };
+    
+    if (proc->code_url[0] == '\0') {
+        // Empty code_url indicates a failure and we rather deny list it
+        return true;
+    }
+    
+    // Check if the code_url matches any deny-listed path
+    for (int i = 0; denylisted_paths[i] != NULL; i++) {
+        if (strcmp(proc->code_url, denylisted_paths[i]) == 0) {
+            os_log(AUTHD_LOG, "process: PID %d code_url %s is deny-listed", proc->auditInfo.pid, proc->code_url);
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 process_t
@@ -210,10 +254,11 @@ process_create(const audit_info_s * auditInfo, session_t session)
         value = NULL;
     }
 
-    // This is the clownfish supported way to check for a Mac App Store or B&I signed build
+    // This is the clownfish supported way to check for a Mac App Store or notarization or B&I signed build
 	// AppStore apps must have resource envelope 2. Check with spctl -a -t exec -vv <path>
     CFStringRef firstPartyRequirement = CFSTR("anchor apple");
 	CFStringRef appStoreRequirement = CFSTR("anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9] exists");
+    CFStringRef notarizationRequirement = CFSTR("notarized");
     SecRequirementRef secRequirementRef = NULL;
     status = SecRequirementCreateWithString(firstPartyRequirement, kSecCSDefaultFlags, &secRequirementRef);
     if (status == errSecSuccess) {
@@ -225,6 +270,11 @@ process_create(const audit_info_s * auditInfo, session_t session)
 		proc->appStoreSigned = process_verify_requirement(proc, codeRef, secRequirementRef);
 		CFReleaseSafe(secRequirementRef);
 	}
+    status = SecRequirementCreateWithString(notarizationRequirement, kSecCSDefaultFlags, &secRequirementRef);
+    if (status == errSecSuccess) {
+        proc->notarized = process_verify_requirement(proc, codeRef, secRequirementRef);
+        CFReleaseSafe(secRequirementRef);
+    }
     os_log_debug(AUTHD_LOG, "process: PID %d created (sid=%i) %{public}s", proc->auditInfo.pid, proc->auditInfo.asid, proc->code_url);
 
 done:
@@ -503,6 +553,16 @@ bool process_apple_signed(process_t proc) {
 // Returns true if the process was signed by B&I
 bool process_firstparty_signed(process_t proc) {
 	return proc->firstPartySigned;
+}
+
+// Returns true if the process was signed by B&I or the Mac App Store or it was notarized
+// And the process is not an interpreter that are deny-listed
+bool process_notarized(process_t proc) {
+    if (_is_code_url_denylisted(proc)) {
+        return false;
+    }
+    
+    return proc->firstPartySigned || proc->appStoreSigned || proc->notarized;
 }
 
 mach_port_t process_get_bootstrap(process_t proc)

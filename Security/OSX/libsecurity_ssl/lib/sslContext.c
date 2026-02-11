@@ -51,6 +51,11 @@
 #include "utilities/SecCFWrappers.h"
 #include <pthread.h>
 #include <string.h>
+#include <execinfo.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <mach-o/dyld_priv.h>
 
 #if TARGET_OS_IPHONE
 #include <Security/SecCertificateInternal.h>
@@ -256,8 +261,19 @@ SSLContextRef SSLCreateContext(CFAllocatorRef alloc, SSLProtocolSide protocolSid
 {
     SSLContextRef ctx;
     SSLRecordContextRef recCtx;
-    
-    ctx = SSLCreateContextWithRecordFuncs(alloc, protocolSide, connectionType, &SSLRecordLayerInternal);
+
+    // Extract the calling library, dropping any path information along the way and returning
+    // just the library name. That may yield collisions, e.g., two libraries with the same names
+    // but in different paths, but that's probably OK for now.
+    // `dyld_image_path_containing_address` returns a NULL-terminated string if it succeeds,
+    // or NULL otherwise, so we can skip a bunch of NULL checking and just extract the filename.
+    const char *library_path = dyld_image_path_containing_address(__builtin_return_address(0));
+    char *library_name = NULL;
+    if (library_path != NULL) {
+        library_name = strrchr(library_path, '/');
+    }
+
+    ctx = SSLCreateContextWithRecordFuncsAndPath(alloc, protocolSide, connectionType, &SSLRecordLayerInternal, library_name);
 
     if(ctx==NULL)
         return NULL;
@@ -273,19 +289,23 @@ SSLContextRef SSLCreateContext(CFAllocatorRef alloc, SSLProtocolSide protocolSid
     return ctx;
 }
 
-SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolSide protocolSide, SSLConnectionType connectionType, const struct SSLRecordFuncs *recFuncs)
+SSLContextRef SSLCreateContextWithRecordFuncsAndPath(CFAllocatorRef alloc, SSLProtocolSide protocolSide, SSLConnectionType connectionType, const struct SSLRecordFuncs *recFuncs, const char *callingPath)
 {
-	SSLContext  *ctx = (SSLContext*) _CFRuntimeCreateInstance(alloc, SSLContextGetTypeID(), sizeof(SSLContext) - sizeof(CFRuntimeBase), NULL);
+    SSLContext  *ctx = (SSLContext*) _CFRuntimeCreateInstance(alloc, SSLContextGetTypeID(), sizeof(SSLContext) - sizeof(CFRuntimeBase), NULL);
 
-	if(ctx == NULL) {
-		return NULL;
-	}
+    if(ctx == NULL) {
+        return NULL;
+    }
 
-	/* subsequent errors to errOut: */
+    /* subsequent errors to errOut: */
     memset(((uint8_t*) ctx) + sizeof(CFRuntimeBase), 0, sizeof(SSLContext) - sizeof(CFRuntimeBase));
 
-
+#ifdef CORETLS_HAS_CREATE_HANDSHAKE_FOR_CALLER
+    ctx->hdsk = tls_handshake_create_for_caller(connectionType==kSSLDatagramType, protocolSide==kSSLServerSide, callingPath);
+#else // !CORETLS_HAS_CREATE_HANDSHAKE_FOR_CALLER
     ctx->hdsk = tls_handshake_create(connectionType==kSSLDatagramType, protocolSide==kSSLServerSide);
+#endif // !CORETLS_HAS_CREATE_HANDSHAKE_FOR_CALLER
+
     if(ctx->hdsk == NULL) {
         CFRelease(ctx);
         return NULL;
@@ -315,18 +335,18 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
         tls_handshake_set_sct_enable(ctx->hdsk, true);
         tls_handshake_set_ocsp_enable(ctx->hdsk, true);
     }
-    
-	ctx->negProtocolVersion = SSL_Version_Undetermined;
+
+    ctx->negProtocolVersion = SSL_Version_Undetermined;
     ctx->protocolSide = protocolSide;
     ctx->recFuncs = recFuncs;
 
-	/* Initial cert verify state: verify with default system roots */
-	ctx->enableCertVerify = true;
+    /* Initial cert verify state: verify with default system roots */
+    ctx->enableCertVerify = true;
 
-	/* Default for RSA blinding is ENABLED */
-	ctx->rsaBlindingEnable = true;
+    /* Default for RSA blinding is ENABLED */
+    ctx->rsaBlindingEnable = true;
 
-	/* Default for sending one-byte app data record is ENABLED */
+    /* Default for sending one-byte app data record is ENABLED */
     ctx->oneByteRecordEnable = !kSSLDisableRecordSplittingDefaultValue;
 
     /* Dont enable fallback behavior by default */
@@ -344,8 +364,8 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
         SSLSetProtocolVersionMin(ctx, (unsigned)kMinProtocolVersionDefaultValue);
     }
 
-	/* default for anonymous ciphers is DISABLED */
-	ctx->anonCipherEnable = false;
+    /* default for anonymous ciphers is DISABLED */
+    ctx->anonCipherEnable = false;
 
     ctx->breakOnServerAuth = false;
     ctx->breakOnCertRequest = false;
@@ -354,7 +374,23 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
     ctx->signalCertRequest = false;
     ctx->signalClientAuth = false;
 
-	return ctx;
+    return ctx;
+}
+
+SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolSide protocolSide, SSLConnectionType connectionType, const struct SSLRecordFuncs *recFuncs)
+{
+    // Extract the calling library, dropping any path information along the way and returning
+    // just the library name. That may yield collisions, e.g., two libraries with the same names
+    // but in different paths, but that's probably OK for now.
+    // `dyld_image_path_containing_address` returns a NULL-terminated string if it succeeds,
+    // or NULL otherwise, so we can skip a bunch of NULL checking and just extract the filename.
+    const char *library_path = dyld_image_path_containing_address(__builtin_return_address(0));
+    char *library_name = NULL;
+    if (library_path != NULL) {
+        library_name = strrchr(library_path, '/');
+    }
+
+    return SSLCreateContextWithRecordFuncsAndPath(alloc, protocolSide, connectionType, recFuncs, library_name);
 }
 
 OSStatus

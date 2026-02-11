@@ -436,12 +436,14 @@ cs_validate_codedirectory(const CS_CodeDirectory *cd, size_t length)
 		return EBADEXEC;
 	}
 
-	/* identifier is NUL terminated string */
+	/* identifier is NULL terminated string */
 	if (cd->identOffset) {
 		const uint8_t *ptr = (const uint8_t *)cd + ntohl(cd->identOffset);
 		if (memchr(ptr, 0, length - ntohl(cd->identOffset)) == NULL) {
 			return EBADEXEC;
 		}
+	} else {
+		return EBADEXEC;
 	}
 
 	/* team identifier is NULL terminated string */

@@ -26,12 +26,15 @@
 #include "config.h"
 #include "InlineDisplayContentBuilder.h"
 
+#include "DocumentInlines.h"
+#include "DocumentQuirks.h"
 #include "FontCascade.h"
 #include "InlineContentAligner.h"
 #include "InlineFormattingUtils.h"
 #include "InlineTextBoxStyle.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutInitialContainingBlock.h"
+#include "Quirks.h"
 #include "RenderStyleInlines.h"
 #include "RubyFormattingContext.h"
 #include "TextUtil.h"
@@ -163,6 +166,10 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
     auto& text = lineRun.textContent();
     auto isContentful = true;
 
+    bool needsGlyphOverflowCollectQuirk = false;
+    if (auto* renderer = lineRun.layoutBox().rendererForIntegration())
+        needsGlyphOverflowCollectQuirk = renderer->document().quirks().needsGlyphOverflowCollectQuirk();
+
     m_hasSeenTextDecoration = m_hasSeenTextDecoration || (isFirstFormattedLine() ? inlineTextBox.parent().firstLineStyle().textDecorationLineInEffect() : inlineTextBox.parent().style().textDecorationLineInEffect());
 
     auto inkOverflow = [&] {
@@ -196,7 +203,7 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
         addTextShadow();
 
         auto addGlyphOverflow = [&] {
-            if (inlineTextBox.canUseSimpleFontCodePath()) {
+            if (inlineTextBox.canUseSimpleFontCodePath() && !needsGlyphOverflowCollectQuirk) {
                 // canUseSimpleFontCodePath maps to CodePath::Simple (and content with potential glyph overflow would says CodePath::SimpleWithGlyphOverflow).
                 return;
             }

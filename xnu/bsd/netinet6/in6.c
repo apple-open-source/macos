@@ -3222,6 +3222,11 @@ ip6_sprintf(const struct in6_addr *addr)
 	u_char n;
 	int dcolon = 0;
 	int zpad = 0;
+
+	if (addr == NULL) {
+		return "(null)";
+	}
+
 	uint8_t saved_round = os_atomic_inc_orig(&ip6round, relaxed) & 7;
 
 	cp = ip6buf[saved_round];

@@ -32,6 +32,7 @@ extern int                   pset_id_to_cpu_id(int pset_id);
 extern int                   cpu_id_to_pset_id(int cpu_id);
 extern test_hw_topology_t    get_hw_topology(void);
 extern void                  set_hw_topology(test_hw_topology_t hw_topology);
+extern char                  test_cpu_type_to_char(test_cpu_type_t cpu_type);
 
 /* Given topologies */
 extern test_hw_topology_t single_core; // 1P
@@ -49,6 +50,7 @@ extern bool      cpu_processor_balance(int cpu_id);
 extern bool      thread_avoid_processor_expect(test_thread_t thread, int cpu_id, bool quantum_expiry, bool avoid_expected);
 extern void      cpu_expire_quantum(int cpu_id);
 extern void      set_current_processor(int cpu_id);
+/* Note that load avg will be overriden by cpu_set_thread_current() or enqueue_thread() operations */
 extern void      set_pset_load_avg(int cluster_id, int QoS, uint64_t load_avg);
 extern void      set_pset_recommended(int cluster_id);
 extern void      set_pset_derecommended(int cluster_id);

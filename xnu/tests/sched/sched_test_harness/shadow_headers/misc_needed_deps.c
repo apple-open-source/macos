@@ -9,9 +9,38 @@
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #endif  /* MAX */
 
+/* Panicking and asserting */
+__attribute__((noreturn))
+void
+panic(char *msg, ...)
+{
+	printf("\n🚨🚨🚨 Panicking (FAIL) 😱😱😱: ");
+	va_list args;
+	va_start(args, msg);
+	vprintf(msg, args);
+	va_end(args);
+	printf("\n");
+	abort();
+}
+
+#define assert(expression) { \
+	if ((expression) == false) { \
+	    panic("%s:%d Assert failed: %s", __FILE__, __LINE__, #expression); \
+	} \
+    }
+
+#define assert3f(arg1, op, arg2, arg_fmt, cast_type) { \
+	if ((arg1 op arg2) == false) { \
+	    panic("%s:%d Assert failed: %s(%"arg_fmt") %s %s(%"arg_fmt")", \
+	        __FILE__, __LINE__, #arg1, (cast_type)arg1, #op, #arg2, (cast_type)arg2); \
+	} \
+    }
+#define assert3u(arg1, op, arg2) assert3f(arg1, op, arg2, "llu", uint64_t)
+#define assert3s(arg1, op, arg2) assert3f(arg1, op, arg2, "lld", int64_t)
+#define assert3p(arg1, op, arg2) assert3f(arg1, op, arg2, "p", void *)
+
 /* Overrides necessary for userspace code */
-#define panic(...) ({ printf("Panicking:\n"); printf(__VA_ARGS__); abort(); })
-#define KDBG(...) (void)0
+#define KDBG(a1, a2, a3, a4, a5) clutch_impl_log_tracepoint(a1, a2, a3, a4, a5)
 #define KDBG_RELEASE(...) (void)0
 #define kalloc_type(x, y, z) calloc((size_t)y, sizeof(x))
 #define kfree_type(x, y, z) free(z)
@@ -20,8 +49,15 @@
 
 /* Mock locks */
 typedef void *lck_ticket_t;
+#define LCK_SPIN_DECLARE(var, name)        int var
+#define LCK_GRP_DECLARE(var, name)         int var
+#define SIMPLE_LOCK_DECLARE(var, name)     int var
+#define LCK_ATTR_DECLARE(var, a, b)        int var
+#define LCK_MTX_DECLARE_ATTR(var, a, b)    int var
+#define LCK_MTX_DECLARE(var, a)            int var
 #define decl_lck_mtx_data(class, name)     class int name
 #define decl_simple_lock_data(class, name) class int name
+#define pset_lock_init(x) (void)x
 #define pset_lock(x) (void)x
 #define pset_unlock(x) (void)x
 #define change_locked_pset(x, y) y
@@ -30,51 +66,26 @@ typedef void *lck_ticket_t;
 #define thread_unlock(x) (void)x
 #define simple_lock(...)
 #define simple_unlock(...)
+#define simple_lock_assert(...)
+#define simple_lock_init(...)
+#define lck_spin_lock(...)
+#define lck_spin_unlock(...)
 
 /* Processor-related */
 #define PERCPU_DECL(type_t, name) type_t name
 #include <kern/processor.h>
-processor_t processor_array[MAX_SCHED_CPUS];
-processor_set_t pset_array[MAX_PSETS];
-struct pset_node pset_nodes[MAX_AMP_CLUSTER_TYPES];
-#define pset_node0 (pset_nodes[0])
 
-pset_node_t
-pset_node_for_pset_cluster_type(pset_cluster_type_t pset_cluster_type)
-{
-	for (unsigned i = 0; i < MAX_AMP_CLUSTER_TYPES; i++) {
-		if (bitmap_is_empty(&pset_nodes[i].pset_map, MAX_PSETS)) {
-			continue;
-		}
-		if (pset_nodes[i].pset_cluster_type == pset_cluster_type) {
-			return &pset_nodes[i];
-		}
-	}
-	return PSET_NODE_NULL;
-}
+/* SMR-related */
+#define smr_cpu_init(a) (void)0
+#define IP_NULL 0
 
-pset_cluster_type_t
-cluster_type_to_pset_cluster_type(cluster_type_t cluster_type)
-{
-	switch (cluster_type) {
-#if __AMP__
-	case CLUSTER_TYPE_E:
-		return PSET_AMP_E;
-	case CLUSTER_TYPE_P:
-		return PSET_AMP_P;
-#endif /* __AMP__ */
-	case CLUSTER_TYPE_SMP:
-		return PSET_SMP;
-	default:
-		panic("Unexpected cluster type %d", cluster_type);
-	}
-}
+/* Allocating-related */
+#define zalloc_permanent_type(type) malloc(sizeof(type))
 
-cpumap_t
-pset_available_cpumap(processor_set_t pset)
-{
-	return pset->cpu_available_map & pset->recommended_bitmask;
-}
+#define sched_processor_change_mode_locked(...) (void)0
+
+static struct processor master_processor_backing;
+processor_t master_processor = &master_processor_backing;
 
 /* Expected global(s) */
 static task_t kernel_task = NULL;
@@ -89,6 +100,14 @@ clock_interval_to_absolutetime_interval(uint32_t   interval,
 	mach_timebase_info(&timebase_info);
 	uint64_t nanosecs = (uint64_t) interval * scale_factor;
 	*result = nanosecs * timebase_info.denom / timebase_info.numer;
+}
+
+void
+absolutetime_to_nanoseconds(uint64_t   abstime,
+    uint64_t * result)
+{
+	mach_timebase_info(&timebase_info);
+	*result = abstime * timebase_info.numer / timebase_info.denom;
 }
 
 /*
@@ -140,6 +159,7 @@ struct thread {
 	bool            th_expired_quantum_on_lower_core;
 	bool            th_expired_quantum_on_higher_core;
 #endif /* CONFIG_SCHED_EDGE */
+	sfi_class_id_t          sfi_class;      /* SFI class (XXX Updated on CSW/QE/AST) */
 
 	/* real-time parameters */
 	struct {                                        /* see mach/thread_policy.h */
@@ -229,6 +249,15 @@ uint64_t
 thread_group_get_id(struct thread_group *tg)
 {
 	return tg->tg_id;
+}
+
+/*
+ * Get thread's current thread group
+ */
+inline struct thread_group *
+thread_group_get(thread_t t)
+{
+	return t->thread_group;
 }
 
 #if CONFIG_SCHED_EDGE

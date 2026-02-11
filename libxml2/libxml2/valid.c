@@ -1501,12 +1501,9 @@ xmlAddElementDecl(xmlValidCtxtPtr ctxt,
     xmlAttributePtr oldAttributes = NULL;
     xmlChar *ns, *uqname;
 
-    if (dtd == NULL) {
-	return(NULL);
-    }
-    if (name == NULL) {
-	return(NULL);
-    }
+    if ((dtd == NULL) || (name == NULL) ||
+        (type < XML_ELEMENT_TYPE_EMPTY) || (type > XML_ELEMENT_TYPE_ELEMENT))
+        return (NULL);
 
     switch (type) {
         case XML_ELEMENT_TYPE_EMPTY:

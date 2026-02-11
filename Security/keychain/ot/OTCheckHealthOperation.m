@@ -251,7 +251,6 @@
 
 @property NSOperation* finishOp;
 @property BOOL isBackgroundCheck;
-@property NSInteger daysLeftOnRateLimit;
 @property NSString* altDSID;
 @property (nullable) OTEscrowCheckCallResult* results;
 @end
@@ -267,7 +266,6 @@
         _followupHandler = followupHandler;
         _results = nil;
         _isBackgroundCheck = isBackgroundCheck;
-        _daysLeftOnRateLimit = 0;
     }
     return self;
 }
@@ -328,10 +326,11 @@
 
     // Within rate limiting window - must post CFU.
     NSTimeInterval timeSinceLastAttemptDate = [now timeIntervalSinceDate:lastAttemptDate];
+    NSInteger daysLeftOnRateLimit = 0;
     if (timeSinceLastAttemptDate < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
         if (accountState.escrowRepairAttemptVersion == ESCROW_REPAIR_CURRENT_VERSION) {
-            self.daysLeftOnRateLimit = ceil((ESCROW_TIME_BETWEEN_SILENT_MOVE - timeSinceLastAttemptDate)/secondsInADay);
-            secnotice("octagon-escrow-repair", "rate limited, days left on rate limit %ld", (long)self.daysLeftOnRateLimit);
+            daysLeftOnRateLimit = ceil((ESCROW_TIME_BETWEEN_SILENT_MOVE - timeSinceLastAttemptDate)/secondsInADay);
+            secnotice("octagon-escrow-repair", "rate limited, days left on rate limit %ld", (long)daysLeftOnRateLimit);
         }
     }
 
@@ -343,25 +342,24 @@
                                                      isBackgroundCheck:self.isBackgroundCheck
                                                                 flowID:self.deps.flowID
                                                        deviceSessionID:self.deps.deviceSessionID
-                                                             rateLimit:self.daysLeftOnRateLimit
+                                                   daysLeftOnRateLimit:daysLeftOnRateLimit
                                                                  reply:^(OTEscrowCheckCallResult* result, NSError *error) {
         STRONGIFY(self);
+        self.results = result;
+
         if (error) {
             secerror("octagon-escrowcheck: error: %@", error);
         } else {
             secnotice("octagon-escrowcheck", "cuttlefish came back with these suggestions: %@", result);
-            [self handleRepairSuggestions:result];
+            [self handleRepairSuggestions];
         }
 
-        reply(result, error);
+        reply(self.results, error);
     }];
 }
 
-- (void)handleRepairSuggestions:(OTEscrowCheckCallResult*)results
+- (void)handleRepairSuggestions
 {
-    self.results = results;
-    self.results.rateLimitState = OTEscrowCheckRateLimitStateUnknown;
-
     if (!self.results.octagonTrusted) {
         return;
     }
@@ -427,11 +425,8 @@
         }
     }
 
-    if (self.daysLeftOnRateLimit > 0) {
+    if (self.results.daysLeftOnRateLimit > 0) {
         secnotice("octagon-escrow-repair", "rate limited, will not perform silent repair");
-
-        self.results.rateLimitState = OTEscrowCheckRateLimitStateRateLimited;
-        self.results.daysLeftOnRateLimit = self.daysLeftOnRateLimit;
 
         if (error) {
             *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
@@ -440,8 +435,6 @@
     } else {
         secnotice("octagon-escrow-repair", "rate limit ignored due to version check");
     }
-
-    self.results.rateLimitState = OTEscrowCheckRateLimitStateNotRateLimited;
 
     if (self.results.repairDisabled) {
         secnotice("octagon-escrow-repair", "repair disabled, will not perform silent repair");

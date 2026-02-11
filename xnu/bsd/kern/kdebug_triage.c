@@ -458,6 +458,8 @@ const char *vm_triage_strings[] =
 	[KDBG_TRIAGE_VM_IOPL_ON_EXEC_PAGE] = "Attempted I/O wiring of page with executable mapping\n",
 	[KDBG_TRIAGE_VM_EXEC_ON_IOPL_PAGE] = "Attempted executable mapping of page already wired for I/O\n",
 	[KDBG_TRIAGE_VM_UPL_WRITE_ON_EXEC_REGION] = "Attempted writable UPL against executable VM region\n",
+	[KDBG_TRIAGE_VM_SOFT_MODE_DISABLE_TRACED] = "Soft mode disabled because process was ptraced\n",
+	[KDBG_TRIAGE_VM_MAP_ENTER_MEM_ENTRY_PARTIAL] = "Partial mapping of a memory entry\n",
 };
 /* VM end */
 

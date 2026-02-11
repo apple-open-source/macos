@@ -6,17 +6,12 @@ void
 impl_init_runqueue(void)
 {
 	/* Init runqueue */
-	clutch_impl_init_topology(single_core);
 	curr_hw_topo = single_core;
+	clutch_impl_init_topology(curr_hw_topo);
 	assert(processor_avail_count == 1);
-	sched_clutch_init();
-	sched_clutch_pset_init(&pset0);
-	sched_rt_init_pset(&pset0);
-	sched_clutch_processor_init(&cpu0);
 	increment_mock_time(100);
 	clutch_impl_init_params();
 	clutch_impl_init_tracepoints();
-	sched_rt_init_completed();
 }
 
 struct thread_group *
@@ -74,7 +69,7 @@ test_thread_t
 impl_cpu_dequeue_thread_compare_current(int cpu_id)
 {
 	assert(cpus[cpu_id]->active_thread != NULL);
-	assert(impl_get_thread_is_realtime(cpus[cpu_id]) == false); /* should not be called when realtime threads are running */
+	assert(impl_get_thread_is_realtime(cpus[cpu_id]->active_thread) == false); /* should not be called when realtime threads are running */
 	return sched_clutch_choose_thread(cpus[cpu_id], MINPRI, cpus[cpu_id]->active_thread, 0);
 }
 
@@ -86,7 +81,7 @@ impl_processor_csw_check(int cpu_id)
 }
 
 void
-impl_pop_tracepoint(uint64_t *clutch_trace_code, uint64_t *arg1, uint64_t *arg2, uint64_t *arg3, uint64_t *arg4)
+impl_pop_tracepoint(uint64_t clutch_trace_code, uint64_t *arg1, uint64_t *arg2, uint64_t *arg3, uint64_t *arg4)
 {
 	clutch_impl_pop_tracepoint(clutch_trace_code, arg1, arg2, arg3, arg4);
 }

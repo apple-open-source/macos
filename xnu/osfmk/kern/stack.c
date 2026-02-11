@@ -417,7 +417,7 @@ processor_set_stack_usage(
 	unsigned int total = 0;
 	thread_t thread;
 
-	if (pset == PROCESSOR_SET_NULL || pset != &pset0) {
+	if (pset == PROCESSOR_SET_NULL || pset != sched_boot_pset) {
 		return KERN_INVALID_ARGUMENT;
 	}
 

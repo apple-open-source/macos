@@ -1368,8 +1368,12 @@ void* APIs::dlopen_from(const char* path, int mode, void* addressInCaller)
     void*           result    = nullptr;
     const Loader*   topLoader = nullptr;
     MemoryManager::withWritableMemory([&] {
-        STACK_ALLOC_VECTOR(const Loader*, newlyNotDelayed, 128);
-        STACK_ALLOC_VECTOR(Loader::PseudoDylibSymbolToMaterialize, pseudoDylibSymbolsToMaterialize, 8);
+        // Put these on the persistent allocator as we can't keep them on the regular stack
+        typedef Vector<const Loader*> LoaderVector;
+        typedef Vector<Loader::PseudoDylibSymbolToMaterialize> PseudoDylibSymbolsVector;
+        UniquePtr<LoaderVector> newlyNotDelayedResult;
+        UniquePtr<PseudoDylibSymbolsVector> pseudoDylibSymbolsToMaterializeResult;
+
         locks.withLoadersWriteLockAndProtectedStack([&] {
             // since we have the dyld lock, any appends to state.loaded will be from this dlopen
             // so record the length now, and cut it back to that point if dlopen fails
@@ -1431,6 +1435,9 @@ void* APIs::dlopen_from(const char* path, int mode, void* addressInCaller)
                     }
                 }
             }
+
+            STACK_ALLOC_VECTOR(const Loader*, newlyNotDelayed, 128);
+            STACK_ALLOC_VECTOR(Loader::PseudoDylibSymbolToMaterialize, pseudoDylibSymbolsToMaterialize, 8);
 
             // load all dependents
             Loader::LoadChain   loadChain { options.rpathStack, topLoader };
@@ -1587,13 +1594,25 @@ void* APIs::dlopen_from(const char* path, int mode, void* addressInCaller)
                 doSingletonPatching(cacheDataConst);
                 notifyObjCPatching();
             }
+
+            // Copy the temporary vectors from the protected stack to the persistent allocator for safety
+            if ( !newlyNotDelayed.empty() ) {
+                newlyNotDelayedResult = persistentAllocator.makeUnique<LoaderVector>(newlyNotDelayed.begin(), newlyNotDelayed.end(),
+                                                                                     persistentAllocator);
+            }
+            if ( !pseudoDylibSymbolsToMaterialize.empty() ) {
+                pseudoDylibSymbolsToMaterializeResult = persistentAllocator.makeUnique<PseudoDylibSymbolsVector>(pseudoDylibSymbolsToMaterialize.begin(),
+                                                                                                                 pseudoDylibSymbolsToMaterialize.end(),
+                                                                                                                 persistentAllocator);
+            }
         });
 
         // do the initializers on the regular stack. We should never be on the protected stack at this point
         // as it is not supported to re-enter dlopen (from an initializer doing a dlopen) while on the protected stack
         // ie, withProtectedStack() asserts that no-one is using the protected stack, even this thread in an earlier frame
         // Finalize requested symbols.
-        if ( !pseudoDylibSymbolsToMaterialize.empty() ) {
+        if ( pseudoDylibSymbolsToMaterializeResult && !pseudoDylibSymbolsToMaterializeResult->empty() ) {
+            const PseudoDylibSymbolsVector& pseudoDylibSymbolsToMaterialize = *pseudoDylibSymbolsToMaterializeResult;
             bool foundError = false;
 
             // n^2, but oh well, maybe there's not too many pseudo dylibs to worry about
@@ -1642,8 +1661,9 @@ void* APIs::dlopen_from(const char* path, int mode, void* addressInCaller)
 
             // notify about any delay-init dylibs that just got moved to being needed
             // as well as images loaded by this dlopen that are not delayed
-            if ( !newlyNotDelayed.empty() ) {
-                std::span<const Loader*> ldrs(&newlyNotDelayed[0], (size_t)newlyNotDelayed.size());
+            if ( newlyNotDelayedResult && !newlyNotDelayedResult->empty() ) {
+                LoaderVector& vec = *newlyNotDelayedResult;
+                std::span<const Loader*> ldrs(&vec[0], (size_t)vec.size());
                 notifyLoad(ldrs);
             }
 
@@ -1661,6 +1681,16 @@ void* APIs::dlopen_from(const char* path, int mode, void* addressInCaller)
 
             // make handle
             result = handleFromLoader(topLoader, firstOnly);
+        }
+
+        // Clear the data on the persistent allocator. We do this with a lock for the allocator
+        if ( newlyNotDelayedResult || pseudoDylibSymbolsToMaterializeResult ) {
+            locks.withLoadersWriteLockAndProtectedStack([&] {
+                if ( newlyNotDelayedResult )
+                    newlyNotDelayedResult.release();
+                if ( pseudoDylibSymbolsToMaterializeResult )
+                    pseudoDylibSymbolsToMaterializeResult.release();
+            });
         }
 
         if ( config.log.apis ) {

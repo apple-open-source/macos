@@ -65,6 +65,33 @@ WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(Sqrt);
 WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(Sum);
 WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(Tan);
 
+static size_t computeDepth(const Child& root)
+{
+    size_t maximumChildDepth = 0;
+    forAllChildren(root, WTF::makeVisitor(
+        [&](const std::optional<Child>& child) {
+            if (child)
+                maximumChildDepth = std::max(computeDepth(*child), maximumChildDepth);
+        },
+        [&](const Child& child) {
+            maximumChildDepth = std::max(computeDepth(child), maximumChildDepth);
+        },
+        [&](const ChildOrNone& childOrNone) {
+            if (childOrNone.holdsAlternative<Child>())
+                maximumChildDepth = std::max(computeDepth(get<Child>(childOrNone)), maximumChildDepth);
+        },
+        [&](const auto&) {
+            maximumChildDepth = std::max<size_t>(1, maximumChildDepth);
+        }
+    ));
+    return maximumChildDepth + 1;
+}
+
+size_t computeDepth(const Tree& tree)
+{
+    return computeDepth(tree.root);
+}
+
 template<typename Op>
 static auto dumpVariadic(TextStream&, const IndirectNode<Op>&, ASCIILiteral prefix, ASCIILiteral between) -> TextStream&;
 

@@ -117,9 +117,6 @@ class CachedRawResource;
         CheckedRef<const ContentSecurityPolicy> checkedContentSecurityPolicy() const;
         const CrossOriginEmbedderPolicy& crossOriginEmbedderPolicy() const;
 
-        Document& document() { return *m_document; }
-        Ref<Document> protectedDocument();
-
         const ThreadableLoaderOptions& options() const { return m_options; }
         const String& referrer() const { return m_referrer; }
         bool isLoading() { return m_resource || m_preflightChecker; }

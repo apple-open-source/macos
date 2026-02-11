@@ -828,6 +828,81 @@ class OctagonDeviceListTests: OctagonTestsBase {
         XCTAssertEqual(deviceListFetches + 1, self.mockAuthKit.fetchInvocations, "Should have fetched device list exactly once")
     }
 
+    func testJoiningPeerShouldNotDistrustDevicesUponTDLDistrust() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+         do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.verifyDatabaseMocks()
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        // Add Peer 2 that will end up on the excluded MID list.
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        let peer2ID = self.assertJoinViaEscrowRecovery(joiningContext: joiningContext, sponsor: self.cuttlefishContext)
+
+        // Now, tell peer1 about the change. It will trust the peer and upload some TLK shares
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        // Put Peer 2's machine ID on the distrusted MID list. Peer 1 doesn't go fetch the update yet, though.
+        // Without 167656450, AppleTV will look at this when it joins and try to distrust peer 2.
+        self.mockAuthKit.excludeDevices.add(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID", canSendMetrics: false))
+        self.mockAuthKit3.excludeDevices.add(try! self.mockAuthKit2.machineID(self.mockAuthKit2.primaryAltDSID(), flowID: "flowID", deviceSessionID: "deviceSessionID", canSendMetrics: false))
+
+        // AppleTV gets sponsored by Peer 1.
+        let appleTVDeviceAdapter = OTMockDeviceInfoAdapter(modelID: "AppleTV",
+                                                           deviceName: "test-appletv",
+                                                           serialNumber: NSUUID().uuidString,
+                                                           osVersion: "21K627")
+        let appleTV = self.manager.context(forContainerName: OTCKContainerName,
+                                         contextID: "appletv-context",
+                                         sosAdapter: self.mockSOSAdapter!,
+                                         accountsAdapter: self.mockAuthKit3,
+                                         authKitAdapter: self.mockAuthKit3,
+                                         tooManyPeersAdapter: self.mockTooManyPeers,
+                                         tapToRadarAdapter: self.mockTapToRadar,
+                                         lockStateTracker: self.lockStateTracker,
+                                         deviceInformationAdapter: appleTVDeviceAdapter)
+
+        appleTV.startOctagonStateMachine()
+
+        self.assertJoinViaProximitySetup(joiningContext: appleTV, sponsor: self.cuttlefishContext)
+        self.assertEnters(context: appleTV, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        // With fix from 167656450, when aTV joins, it shouldn't take off Peer 2 on its included list.
+        let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(appleTV.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let included = dynamicInfo!["included"] as? [String]
+            XCTAssertNotNil(included, "included should not be nil")
+            XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
+            stableInfoCheckDumpCallback.fulfill()
+        }
+        self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
+    }
     func testATVCannotDistrustDevicesUponTDLDistrust() throws {
         try self.skipOnRecoveryKeyNotSupported()
 

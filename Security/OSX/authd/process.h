@@ -90,6 +90,9 @@ AUTH_NONNULL_ALL
 bool process_firstparty_signed(process_t proc);
 
 AUTH_NONNULL_ALL
+bool process_notarized(process_t proc);
+
+AUTH_NONNULL_ALL
 mach_port_t process_get_bootstrap(process_t);
     
 AUTH_NONNULL_ALL

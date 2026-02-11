@@ -117,3 +117,77 @@ T_DECL(memory_entry_page_counts,
 	err = mach_port_deallocate(mach_task_self(), memory_entry);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(err, "mach_port_deallocate()");
 }
+
+T_DECL(memory_entry_partial_fixed_mapping,
+    "Test a fixed mapping of a subset of a memory entry")
+{
+	mach_error_t err;
+	mach_vm_address_t map_addr;
+	uint64_t map_pages = 5;
+	mach_vm_size_t map_size = map_pages * vm_page_size;
+	uint64_t me_pages = 3;
+	mach_vm_size_t me_size = me_pages * vm_page_size;
+	mach_port_t memory_entry = MACH_PORT_NULL;
+	int i;
+
+	T_LOG("Creating mapping");
+	map_addr = 0;
+	err = mach_vm_allocate(mach_task_self(), &map_addr, map_size, VM_FLAGS_ANYWHERE);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(err, "mach_vm_allocate()");
+	for (i = 0; i < map_pages; i++) {
+		memset(&((char *)map_addr)[i * vm_page_size], 'a' + i, vm_page_size);
+		T_LOG("map_addr[0x%lx] = '%c' expected '%c'", i * vm_page_size, ((unsigned char *)map_addr)[i * vm_page_size], 'a' + i);
+		T_QUIET; T_ASSERT_EQ(((char *)map_addr)[i * vm_page_size], 'a' + i, "mapping contents are correct");
+	}
+
+	T_LOG("Creating memory entry");
+	err = mach_make_memory_entry_64(mach_task_self(), &me_size,
+	    map_addr,
+	    (MAP_MEM_VM_SHARE | VM_PROT_DEFAULT),
+	    &memory_entry, MEMORY_OBJECT_NULL);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(err, "mach_make_memory_entry()");
+	T_QUIET; T_ASSERT_NE(memory_entry, MACH_PORT_NULL, "memory entry is non-null");
+
+	T_LOG("Mapping partial memory entry over original mapping");
+	mach_vm_address_t remap_addr;
+	int remap_offset = 2;
+	int bad_contents = 0;
+	remap_addr = map_addr + (remap_offset * vm_page_size);
+	err = mach_vm_map(mach_task_self(), &remap_addr, vm_page_size, 0,
+	    VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE, memory_entry, vm_page_size, FALSE,
+	    VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_NONE);
+	T_QUIET; T_ASSERT_EQ(remap_addr, map_addr + (2 * vm_page_size), "fixed address");
+
+	if (err == KERN_INVALID_ARGUMENT) {
+		/* failing is OK; contents should be unchanged */
+		for (i = 0; i < map_pages; i++) {
+			unsigned char expected = 'a' + i;
+			T_LOG("map_addr[0x%lx] = '%c' expected '%c'", i * vm_page_size, ((unsigned char *)map_addr)[i * vm_page_size], expected);
+			if (((char *)map_addr)[i * vm_page_size] != expected) {
+				bad_contents++;
+			}
+		}
+		T_ASSERT_EQ(bad_contents, 0, "new contents correct");
+		T_ASSERT_MACH_ERROR(err, KERN_INVALID_ARGUMENT, "mach_vm_map() was rejected");
+	} else {
+		/* if it succeeds, the contents should be as follows */
+		for (i = 0; i < map_pages; i++) {
+			unsigned char expected = 'a' + i;
+			if (i == remap_offset) {
+				expected = 'b';
+			}
+			T_LOG("map_addr[0x%lx] = '%c' expected '%c'", i * vm_page_size, ((unsigned char *)map_addr)[i * vm_page_size], expected);
+			if (((char *)map_addr)[i * vm_page_size] != expected) {
+				bad_contents++;
+			}
+		}
+		T_ASSERT_EQ(bad_contents, 0, "new contents correct");
+	}
+
+	/* cleanup */
+	err = mach_vm_deallocate(mach_task_self(), map_addr, map_size);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(err, "mach_vm_deallocate()");
+
+	err = mach_port_deallocate(mach_task_self(), memory_entry);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(err, "mach_port_deallocate()");
+}

@@ -1707,6 +1707,7 @@ xmlURIEscapeStr(const xmlChar *str, const xmlChar *list) {
             if (newSize < 0) {
                 xmlURIErrMemory("Malloc failure.\n");
                 xmlFree(ret);
+                return(NULL);
             }
             temp = xmlRealloc(ret, newSize);
 	    if (temp == NULL) {

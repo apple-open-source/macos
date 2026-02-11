@@ -521,6 +521,11 @@ struct necp_client {
 	necp_policy_id policy_id;
 	necp_policy_id skip_policy_id;
 
+	necp_kernel_policy_result policy_result;
+	necp_kernel_policy_routing_result_parameter policy_result_parameter;
+	u_int32_t flow_divert_control_unit;
+	u_int32_t filter_control_unit;
+
 	u_int8_t ip_protocol;
 	int proc_pid;
 
@@ -4831,6 +4836,12 @@ necp_update_client_result(proc_t proc,
 	    client->result, sizeof(client->result));
 	cursor = necp_buffer_write_tlv_if_different(cursor, NECP_CLIENT_RESULT_POLICY_RESULT, sizeof(result.routing_result), &result.routing_result, &updated,
 	    client->result, sizeof(client->result));
+
+	client->policy_result = result.routing_result;
+	client->policy_result_parameter = result.routing_result_parameter;
+	client->flow_divert_control_unit = result.flow_divert_aggregate_unit;
+	client->filter_control_unit = result.filter_control_unit;
+
 	if (result.routing_result_parameter.tunnel_interface_index != 0) {
 		cursor = necp_buffer_write_tlv_if_different(cursor, NECP_CLIENT_RESULT_POLICY_RESULT_PARAMETER,
 		    sizeof(result.routing_result_parameter), &result.routing_result_parameter, &updated,
@@ -9489,7 +9500,13 @@ necp_client_add_flow(struct necp_fd_data *fd_data, struct necp_client_action_arg
 		}
 
 		if (!found_nexus) {
-			NECPLOG0(LOG_ERR, "Requested nexus not found");
+			error = EINVAL;
+			NECPLOG(LOG_ERR, "<pid %d> Requested nexus not found", client->proc_pid);
+		} else if (client->flow_divert_control_unit != 0) {
+			// If policy result indicates flow divert, no nexus flow is allowed.
+			// All flow divert flows must be using sockets.
+			error = EPERM;
+			NECPLOG(LOG_ERR, "<pid %d> Disallow flow add with flow divert result", client->proc_pid);
 		} else {
 			necp_client_add_nexus_flow_if_needed(new_registration, add_request->agent_uuid, interface_index, parameters.use_aop_offload);
 

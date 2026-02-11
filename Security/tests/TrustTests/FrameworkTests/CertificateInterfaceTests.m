@@ -899,4 +899,42 @@ errOut:
     CFReleaseNull(cert0);
 }
 
+- (void)testCopySignatureAlgorithm {
+    SecCertificateRef cert = NULL;
+    SecKeyAlgorithm algorithm = NULL;
+
+    // NULL certificate
+    algorithm = SecCertificateCopySignatureAlgorithm(NULL);
+    XCTAssertEqual(algorithm, NULL, "NULL cert should return NULL algorithm");
+    CFReleaseNull(algorithm);
+
+    // RSA-SHA1
+    isnt(cert = SecCertificateCreateWithBytes(NULL, RSA_SHA1, sizeof(RSA_SHA1)),
+         NULL, "create RSA_SHA1 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for RSA_SHA1");
+    XCTAssertEqualObjects((__bridge NSString *)algorithm, (__bridge NSString *)kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1,
+                          "RSA_SHA1 algorithm mismatch");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // ECDSA-SHA256
+    isnt(cert = SecCertificateCreateWithBytes(NULL, ECDSA_SHA256, sizeof(ECDSA_SHA256)),
+         NULL, "create ECDSA_SHA256 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertNotEqual(algorithm, NULL, "Failed to get signature algorithm for ECDSA_SHA256");
+    XCTAssertEqualObjects((__bridge NSString *)algorithm, (__bridge NSString *)kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
+                          "ECDSA_SHA256 algorithm mismatch");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+
+    // Valid certificate with unsupported/unrecognized signature algorithm (RSAPSS)
+    isnt(cert = SecCertificateCreateWithBytes(NULL, RSAPSS_SHA256, sizeof(RSAPSS_SHA256)),
+         NULL, "create RSAPSS_SHA256 cert");
+    algorithm = SecCertificateCopySignatureAlgorithm(cert);
+    XCTAssertEqual(algorithm, NULL, "Unsupported signature algorithm should return NULL");
+    CFReleaseNull(algorithm);
+    CFReleaseNull(cert);
+}
+
 @end

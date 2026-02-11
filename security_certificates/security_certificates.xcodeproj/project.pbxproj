@@ -366,6 +366,7 @@
 		D46BF2E72D123974006F2495 /* generate_qwac_constraints.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = generate_qwac_constraints.py; sourceTree = "<group>"; };
 		D46BF2E82D123AC7006F2495 /* trust_store_updates_schema_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = trust_store_updates_schema_v1.json; sourceTree = "<group>"; };
 		D46BF2E92D1241B3006F2495 /* validate_update_json.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = validate_update_json.py; sourceTree = "<group>"; };
+		D4AAF50E2EE76BAB006B5809 /* OJEU_certs.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = OJEU_certs.py; sourceTree = "<group>"; };
 		D4AE94221FD64257002FE721 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; name = Makefile; path = TrustSupplementalsAsset/Makefile; sourceTree = "<group>"; usesTabs = 1; };
 		D4AE94261FD64257002FE721 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = TrustSupplementalsAsset/README.txt; sourceTree = "<group>"; };
 		D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; path = TrustSupplementalsAsset/com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; sourceTree = "<group>"; };
@@ -564,6 +565,7 @@
 				D4C1CCB42D137F38003E0DDB /* ts_119612v020201_201601xsd.xsd */,
 				D4C1CCB12D137E36003E0DDB /* README.md */,
 				D46BF2E72D123974006F2495 /* generate_qwac_constraints.py */,
+				D4AAF50E2EE76BAB006B5809 /* OJEU_certs.py */,
 			);
 			path = QWACS;
 			sourceTree = "<group>";

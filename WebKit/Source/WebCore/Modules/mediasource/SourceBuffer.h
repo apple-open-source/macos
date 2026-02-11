@@ -62,7 +62,6 @@ template<typename> class ExceptionOr;
 
 class SourceBuffer
     : public RefCounted<SourceBuffer>
-    , public CanMakeWeakPtr<SourceBuffer>
     , public ActiveDOMObject
     , public EventTarget
     , private AudioTrackClient
@@ -80,7 +79,7 @@ public:
     static Ref<SourceBuffer> create(Ref<SourceBufferPrivate>&&, MediaSource&);
     virtual ~SourceBuffer();
 
-    USING_CAN_MAKE_WEAKPTR(CanMakeWeakPtr<SourceBuffer>);
+    USING_CAN_MAKE_WEAKPTR(ActiveDOMObject);
 
     static bool enabledForContext(ScriptExecutionContext&);
 

@@ -40,6 +40,7 @@
 #import "IOHIDFamilyPrivate.h"
 #import "IOHIDFamilyProbe.h"
 #import <IOKit/hid/IOHIDAnalytics.h>
+#import <IOKit/hid/IOHIDServiceKeys.h>
 #import <sys/types.h>
 #import <sys/sysctl.h>
 #import <sys/proc_info.h>
@@ -670,6 +671,10 @@ static IOReturn _getProperty(void *iunknown,
                                                    (__bridge CFStringRef)key,
                                                    kCFAllocatorDefault,
                                                    0);
+        } else if ([key isEqualToString:@(kIOHIDServiceRegistryNameKey)]) {
+            io_name_t className;
+            IOObjectGetClass(_service, className);
+            prop = CFStringCreateWithCString(kCFAllocatorDefault, className, kCFStringEncodingUTF8);
         } else {
             prop = IORegistryEntrySearchCFProperty(_service,
                                                    kIOServicePlane,

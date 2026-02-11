@@ -1148,7 +1148,7 @@ host_processor_sets(host_priv_t host_priv, processor_set_name_array_t * pset_lis
 	ports = mach_port_array_alloc(1, Z_WAITOK | Z_NOFAIL);
 
 	/* do the conversion that Mig should handle */
-	ports[0].port = convert_pset_name_to_port(&pset0);
+	ports[0].port = convert_pset_name_to_port(sched_boot_pset);
 
 	*pset_list = ports;
 	*count = 1;

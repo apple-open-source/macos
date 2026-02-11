@@ -132,6 +132,7 @@ typedef enum TestCase {
 	Xmmap_dirty,
 	Xwired,
 	kernel,
+	Xmte_active,
 
 	BAD_TEST_CASE
 } TestCase;
@@ -154,7 +155,8 @@ static testcase_t testcases[] = {
 	testCase(Xmmap_dirty),
 	testCase(Xcopyout),
 	testCase(kernel),
-	testCase(Xwired)
+	testCase(Xwired),
+	testCase(Xmte_active)
 };
 
 TestCase
@@ -314,6 +316,15 @@ main(int argc, char **argv)
 
 		addr = (void *)1;         /* used to flag some kernel page */
 		err = sysctlbyname("vm.inject_ecc", NULL, NULL, &addr, s);
+		exit(0);
+	case Xmte_active:
+		PRINTF("Inducing ECC on MTE active storage page\n");
+		err = sysctlbyname("vm.inject_ecc_mte_active", NULL, NULL, NULL, 0);
+		if (err) {
+			printf("Failed to call sysctl vm.inject_ecc_mte_active: (%d) %s\n",
+			    errno, strerror(errno));
+			exit(errno);
+		}
 		exit(0);
 
 		break;

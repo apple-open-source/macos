@@ -65,8 +65,8 @@ extern volatile uint32_t debug_enabled;
 extern _Atomic unsigned int cluster_type_num_active_cpus[MAX_CPU_TYPES];
 const char *cluster_type_names[MAX_CPU_TYPES] = {
 	[CLUSTER_TYPE_SMP] = "Standard",
-	[CLUSTER_TYPE_P] = "Performance",
 	[CLUSTER_TYPE_E] = "Efficiency",
+	[CLUSTER_TYPE_P] = "Performance",
 };
 
 static int max_cpus_initialized = 0;

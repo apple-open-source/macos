@@ -361,13 +361,14 @@ struct sched_update_scan_context {
 };
 typedef struct sched_update_scan_context *sched_update_scan_context_t;
 
-
+struct pulled_thread_queue;
 extern void sched_pset_made_schedulable(
-	processor_t processor,
-	processor_set_t pset,
-	boolean_t drop_lock);
+	processor_set_t pset);
 
 extern void sched_cpu_init_completed(void);
+
+extern void sched_update_pset_avg_execution_time(processor_set_t pset, uint64_t execution_time, uint64_t curtime, sched_bucket_t sched_bucket);
+extern void sched_update_pset_load_average(processor_set_t pset, uint64_t curtime);
 
 /*
  * Enum to define various events which need IPIs. The IPI policy
@@ -924,7 +925,8 @@ struct sched_dispatch_table {
 
 	/* Migrate threads away in preparation for processor shutdown */
 	void (*processor_queue_shutdown)(
-		processor_t                    processor);
+		processor_t                    processor,
+		struct pulled_thread_queue * threadq);
 
 	/* Remove the specific thread from the per-processor runqueue */
 	boolean_t       (*processor_queue_remove)(
@@ -1019,7 +1021,7 @@ struct sched_dispatch_table {
 	thread_t    (*rt_steal_thread)(processor_set_t stealing_pset);
 	void    (*rt_init_pset)(processor_set_t pset);
 	void    (*rt_init_completed)(void);
-	void    (*rt_queue_shutdown)(processor_t processor);
+	void    (*rt_queue_shutdown)(processor_t processor, struct pulled_thread_queue * threadq);
 	void    (*rt_runq_scan)(sched_update_scan_context_t scan_context);
 	int64_t (*rt_runq_count_sum)(void);
 
@@ -1036,7 +1038,7 @@ struct sched_dispatch_table {
 	void (*update_thread_bucket)(thread_t thread);
 
 	/* Routine to inform the scheduler when a new pset becomes schedulable */
-	void (*pset_made_schedulable)(processor_t processor, processor_set_t pset, boolean_t drop_lock);
+	void (*pset_made_schedulable)(processor_set_t pset);
 #if CONFIG_THREAD_GROUPS
 	/* Routine to inform the scheduler when CLPC changes a thread group recommendation */
 	void (*thread_group_recommendation_change)(struct thread_group *tg, cluster_type_t new_recommendation);
@@ -1045,6 +1047,10 @@ struct sched_dispatch_table {
 	void (*cpu_init_completed)(void);
 	/* Routine to check if a thread is eligible to execute on a specific pset */
 	bool (*thread_eligible_for_pset)(thread_t thread, processor_set_t pset);
+	/* Routine to update the load average for a pset after enqueueing or commiting to run a new thread */
+	void (*update_pset_load_average)(processor_set_t pset, uint64_t curtime);
+	/* Routine to update average execution time metrics for a pset after a thread exits core */
+	void (*update_pset_avg_execution_time)(processor_set_t pset, uint64_t execution_time, uint64_t curtime, sched_bucket_t sched_bucket);
 };
 
 extern const struct sched_dispatch_table sched_dualq_dispatch;

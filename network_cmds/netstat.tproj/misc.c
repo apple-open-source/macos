@@ -45,8 +45,8 @@
 
 #include "netstat.h"
 
-void
-print_net_api_stats(uint32_t off __unused, char *name, int af __unused)
+int
+print_net_api_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct net_api_stats pnet_api_stats;
 	struct net_api_stats net_api_stats;
@@ -55,16 +55,16 @@ print_net_api_stats(uint32_t off __unused, char *name, int af __unused)
 
 	if (sysctlbyname(mibvar, &net_api_stats, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		return;
+		return -1;
 	}
 
 #define	STATDIFF(f) (net_api_stats.f - pnet_api_stats.f)
-#define	p(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 	printf(m, STATDIFF(f), plural(STATDIFF(f)))
-#define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 	printf(m, STATDIFF(f))
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 
@@ -139,13 +139,15 @@ print_net_api_stats(uint32_t off __unused, char *name, int af __unused)
 #undef p
 #undef p1a
 
-	if (interval > 0) {
+	if (params->interval > 0) {
 		bcopy(&net_api_stats, &pnet_api_stats, len);
 	}
+
+	return 0;
 }
 
-void
-print_if_ports_used_stats(uint32_t off __unused, char *name, int af __unused)
+int
+print_if_ports_used_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 #ifdef IF_PORTS_USED_STATS_LIST
 	static struct if_ports_used_stats pif_ports_used_stats = {};
@@ -155,22 +157,23 @@ print_if_ports_used_stats(uint32_t off __unused, char *name, int af __unused)
 
 	if (sysctlbyname(mibvar, NULL, &len, 0, 0) < 0) {
 		warn("sysctl: %s len: %lu", mibvar, len);
+		return -1;
 	}
 	if (len > sizeof(struct if_ports_used_stats)) {
 		len = sizeof(struct if_ports_used_stats);
 	}
 	if (sysctlbyname(mibvar, &if_ports_used_stats, &len, 0, 0) < 0) {
 		warn("sysctl: %s len: %lu", mibvar, len);
-		return;
+		return -1;
 	}
 
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 
 #define	STATDIFF(_field) (if_ports_used_stats._field - pif_ports_used_stats._field)
 #define	p(_field, _description, _singular, _plural) \
-if (STATDIFF(_field) != 0 || sflag <= 1) { \
+if (STATDIFF(_field) != 0 || params->sflag <= 1) { \
 	printf("\t%llu " _description "\n", STATDIFF(_field), STATDIFF(_field) == 0 ? _singular : _plural); \
 }
 
@@ -181,14 +184,16 @@ if (STATDIFF(_field) != 0 || sflag <= 1) { \
 #undef STATDIFF
 #undef p
 
-	if (interval > 0) {
+	if (params->interval > 0) {
 		bcopy(&if_ports_used_stats, &pif_ports_used_stats, len);
 	}
 #endif /* IF_PORTS_USED_STATS_LIST */
+
+	return 0;
 }
 
-void
-print_if_link_heuristics_stats(char *name)
+int
+print_if_link_heuristics_stats(struct netstat_parameters *params, char *name)
 {
 	struct ifreq ifr = { 0 };
 	int s = -1;
@@ -199,13 +204,13 @@ print_if_link_heuristics_stats(char *name)
 	s = socket(AF_INET, SOCK_DGRAM, 0);
 	if (s < 0) {
 		warn("socket");
-		goto done;
+		return -1;
 	}
 
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 
 	if (ioctl(s, SIOCGLINKHEURISTICS, &ifr) == -1) {
-		if (vflag > 0) {
+		if (params->vflag > 0) {
 			warn("ioctl SIOCGLINKHEURISTICS");
 		}
 		goto done;
@@ -219,7 +224,7 @@ print_if_link_heuristics_stats(char *name)
 	mib[4] = if_nametoindex(name);
 	mib[5] = IFDATA_LINKHEURISTICS;
 	if (sysctl(mib, 6, &if_linkheuristics, &miblen, (void *)0, 0) == -1) {
-		if (vflag > 0) {
+		if (params->vflag > 0) {
 			warn("sysctl IFDATA_LINKHEURISTICS");
 		}
 		goto done;
@@ -241,10 +246,10 @@ print_if_link_heuristics_stats(char *name)
 
 	printf("\tenabled: %s\n", ifr.ifr_intval ? "true" : "false");
 
-#define	p(f, m) if (if_linkheuristics.f || sflag <= 1) \
+#define	p(f, m) if (if_linkheuristics.f || params->sflag <= 1) \
     printf(m, if_linkheuristics.f, plural(if_linkheuristics.f))
 
-#define	p1(f, m) if (if_linkheuristics.f || sflag <= 1) \
+#define	p1(f, m) if (if_linkheuristics.f || params->sflag <= 1) \
 	printf(m, if_linkheuristics.f / 1000, if_linkheuristics.f % 1000)
 
 	p(iflh_link_heuristics_cnt, "\t%llu time%s link heuristics enabled\n");
@@ -280,4 +285,6 @@ print_if_link_heuristics_stats(char *name)
 
 done:
 	close(s);
+
+	return 0;
 }

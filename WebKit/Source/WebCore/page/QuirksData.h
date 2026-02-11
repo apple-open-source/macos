@@ -208,6 +208,7 @@ struct WEBCORE_EXPORT QuirksData {
 #endif
 
     bool needsSuppressPostLayoutBoundaryEventsQuirk : 1 { false };
+    bool needsGlyphOverflowCollectQuirk : 1 { false };
 };
 
 } // namespace WebCore

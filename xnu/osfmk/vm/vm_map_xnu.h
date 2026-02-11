@@ -912,6 +912,11 @@ extern vm_map_t vm_map_create_options(
 
 extern boolean_t        vm_kernel_map_is_kernel(vm_map_t map);
 
+#if CONFIG_LARGE_SIZE_TELEMETRY
+/* Cause a simulated crash. */
+extern void vm_map_enter_large_telemetry_ast(void);
+#endif /* CONFIG_LARGE_SIZE_TELEMETRY */
+
 /*!
  * @function vm_map_enter_mem_object_control()
  *

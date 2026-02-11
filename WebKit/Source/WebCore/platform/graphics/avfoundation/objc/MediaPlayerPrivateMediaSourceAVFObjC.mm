@@ -431,7 +431,7 @@ MediaTime MediaPlayerPrivateMediaSourceAVFObjC::clampTimeToSensicalValue(const M
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::setCurrentTimeDidChangeCallback(MediaPlayer::CurrentTimeDidChangeCallback&& callback)
 {
-    m_renderer->setTimeObserver(10_ms, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](const MediaTime& currentTime) mutable {
+    m_renderer->setTimeObserver(100_ms, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](const MediaTime& currentTime) mutable {
         if (RefPtr protectedThis = weakThis.get())
             callback(protectedThis->clampTimeToSensicalValue(currentTime));
     });

@@ -699,7 +699,7 @@ bool AudioContext::shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSess
 void AudioContext::defaultDestinationWillBecomeConnected()
 {
     // We might need to interrupt if we previously overrode a background interruption.
-    RefPtr manager = sessionManager();
+    RefPtr manager = mediaSessionManagerIfExists();
     if (manager && (!manager->isApplicationInBackground() || m_mediaSession->state() == PlatformMediaSession::State::Interrupted)) {
         manager->updateNowPlayingInfoIfNecessary();
         return;

@@ -269,7 +269,7 @@ SYSCTL_PROC(_vfs, OID_AUTO, io_compression_stats_block_size, CTLTYPE_INT | CTLFL
 
 
 static int32_t
-iocs_compress_block(uint8_t *block_ptr, uint32_t block_size)
+iocs_compress_block(const uint8_t *block_ptr, uint32_t block_size)
 {
 	disable_preemption();
 
@@ -287,7 +287,7 @@ iocs_compress_block(uint8_t *block_ptr, uint32_t block_size)
  * Compress buf in chunks of io_compression_stats_block_size
  */
 static uint32_t
-iocs_compress_buffer(vnode_t vn, uint8_t *buf_ptr, uint32_t buf_size)
+iocs_compress_buffer(vnode_t vn, const uint8_t *buf_ptr, uint32_t buf_size)
 {
 	uint32_t offset;
 	uint32_t compressed_size = 0;
@@ -363,7 +363,7 @@ get_buffer_compressibility_bucket(uint32_t uncompressed_size, uint32_t compresse
 void
 io_compression_stats(buf_t bp)
 {
-	uint8_t *buf_ptr = NULL;
+	const uint8_t *buf_ptr = NULL;
 	int bflags = bp->b_flags;
 	uint32_t compressed_size = 0;
 	uint32_t buf_cnt = buf_count(bp);
@@ -386,9 +386,9 @@ io_compression_stats(buf_t bp)
 		goto out;
 	}
 
-	err = buf_map_range(bp, &vaddr);
+	err = buf_map_range_with_prot(bp, &vaddr, VM_PROT_READ);
 	if (!err) {
-		buf_ptr = (uint8_t *) vaddr;
+		buf_ptr = (const uint8_t *) vaddr;
 	}
 
 	if (buf_ptr != NULL) {

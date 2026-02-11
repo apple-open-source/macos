@@ -404,7 +404,7 @@ if_exit_lpw(struct ifnet *ifp, const char *lpw_exit_reason)
 	is_lpw_mode = false;
 
 	if_ports_used_stats.ifpu_lpw_to_full_wake++;
-	os_log_error(wake_packet_log_handle, "if_exit_lpw: LPW to Full Wake requested on %s reason %s",
+	os_log(wake_packet_log_handle, "if_exit_lpw: LPW to Full Wake requested on %s reason %s",
 	    IF_XNAME(ifp), lpw_exit_reason);
 
 #if (DEVELOPMENT || DEBUG)
@@ -468,6 +468,29 @@ is_wakeuuid_set(void)
 	return IOPMCopySleepWakeUUIDKey(NULL, 0);
 }
 
+static void
+if_ports_reset_wake_attribution_state(void)
+{
+	has_notified_wake_pkt = false;
+	has_notified_unattributed_wake = false;
+
+	memset(&last_wake_pkt_event, 0, sizeof(last_wake_pkt_event));
+	memset(&delay_wake_pkt_event, 0, sizeof(delay_wake_pkt_event));
+
+	last_wake_phy_if_set = false;
+	memset(&last_wake_phy_if_name, 0, sizeof(last_wake_phy_if_name));
+	last_wake_phy_if_family = IFRTYPE_FAMILY_ANY;
+	last_wake_phy_if_subfamily = IFRTYPE_SUBFAMILY_ANY;
+	last_wake_phy_if_functional_type = IFRTYPE_FUNCTIONAL_UNKNOWN;
+	last_wake_phy_if_delay_wake_pkt = false;
+	last_wake_phy_if_lpw = false;
+
+	is_lpw_mode = false;
+#if (DEVELOPMENT || DEBUG)
+	fake_lpw_mode_is_set = false;
+#endif /* (DEVELOPMENT || DEBUG) */
+}
+
 void
 if_ports_used_update_wakeuuid(struct ifnet *ifp)
 {
@@ -521,24 +544,7 @@ if_ports_used_update_wakeuuid(struct ifnet *ifp)
 		microtime(&wakeuuid_last_update_time);
 		updated = true;
 
-		has_notified_wake_pkt = false;
-		has_notified_unattributed_wake = false;
-
-		memset(&last_wake_pkt_event, 0, sizeof(last_wake_pkt_event));
-		memset(&delay_wake_pkt_event, 0, sizeof(delay_wake_pkt_event));
-
-		last_wake_phy_if_set = false;
-		memset(&last_wake_phy_if_name, 0, sizeof(last_wake_phy_if_name));
-		last_wake_phy_if_family = IFRTYPE_FAMILY_ANY;
-		last_wake_phy_if_subfamily = IFRTYPE_SUBFAMILY_ANY;
-		last_wake_phy_if_functional_type = IFRTYPE_FUNCTIONAL_UNKNOWN;
-		last_wake_phy_if_delay_wake_pkt = false;
-		last_wake_phy_if_lpw = false;
-
-		is_lpw_mode = false;
-#if (DEVELOPMENT || DEBUG)
-		fake_lpw_mode_is_set = false;
-#endif /* (DEVELOPMENT || DEBUG) */
+		if_ports_reset_wake_attribution_state();
 	}
 	/*
 	 * Record the time last checked
@@ -552,6 +558,20 @@ if_ports_used_update_wakeuuid(struct ifnet *ifp)
 		uuid_unparse(current_wakeuuid, uuid_str);
 		os_log(wake_packet_log_handle, "if_ports_used_update_wakeuuid: current wakeuuid %s for %s",
 		    uuid_str, ifp != NULL ? if_name(ifp) : "");
+	}
+}
+
+void
+IOPMNetworkStackWillSleepFromAOT(void)
+{
+	/*
+	 * We do not take a lock because we assume there won't be any concurrent
+	 * power state event when going to sleep from AOT
+	 */
+	if_ports_reset_wake_attribution_state();
+
+	if (if_ports_used_verbose > 0) {
+		os_log(wake_packet_log_handle, "");
 	}
 }
 
@@ -1753,7 +1773,9 @@ is_encapsulated_esp(struct mbuf *m, size_t data_offset)
 	return true;
 }
 
-static void
+extern void log_hexdump(os_log_t log_handle, void *__sized_by(len) data, size_t len);
+
+void
 log_hexdump(os_log_t log_handle, void *__sized_by(len) data, size_t len)
 {
 	size_t i, j, k;
@@ -1827,7 +1849,9 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 	 * Only accept one wake from a physical interface per wake cycle
 	 */
 	if (if_set_wake_physical_interface(ifp) == EJUSTRETURN) {
-		m->m_pkthdr.pkt_flags &= ~PKTF_WAKE_PKT;
+		if (if_is_lpw_enabled(ifp) == false) {
+			m->m_pkthdr.pkt_flags &= ~PKTF_WAKE_PKT;
+		}
 		return;
 	}
 

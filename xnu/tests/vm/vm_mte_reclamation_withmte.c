@@ -144,7 +144,8 @@ T_DECL(test_mte_tag_storage_reclamation,
     T_META_BOOTARGS_SET("mte_ts_compressor=1"),
     T_META_REQUIRES_SYSCTL_EQ("hw.optional.arm.FEAT_MTE2", 1),
     XNU_T_META_SOC_SPECIFIC,
-    T_META_ASROOT(true))
+    T_META_ASROOT(true),
+    T_META_ENABLED(!TARGET_OS_XR) /* rdar://165838166 */)
 {
 	T_ATEND(tear_down);
 	/*

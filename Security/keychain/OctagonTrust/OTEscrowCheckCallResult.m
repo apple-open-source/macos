@@ -41,20 +41,32 @@
     } else if (self.octagonTrusted == OctagonTrustStatusNotTrustedCuttlefish) {
         octagonTrustStateDescription = @"not trusted in cuttlefish";
     }
-    
+
+    NSString* rateLimitStateDescription = nil;
+    if (self.rateLimitState == OTEscrowCheckRateLimitStateNotRateLimited) {
+        rateLimitStateDescription = @"not rate limited";
+    } else if (self.rateLimitState == OTEscrowCheckRateLimitStateRateLimited) {
+        rateLimitStateDescription = @"rate limited";
+    } else {
+        rateLimitStateDescription = @"unknown";
+    }
     return [NSString stringWithFormat:@"<OTEscrowCheckCallResult:"
             " needsReenroll: %@,"
             " octagonTrusted: %@,"
             " moveRequest? %@,"
             " secureTermsNeeded? %@,"
             " repairReason: %ld,"
-            " repairDisabled: %@>",
+            " repairDisabled: %@,"
+            " rateLimitState: %@,"
+            " daysLeftOnRateLimit: %ld>",
             self.needsReenroll ? @"YES" : @"NO",
             octagonTrustStateDescription,
             self.secureTermsNeeded ? @"YES" : @"NO",
             self.moveRequest,
             self.repairReason,
-            self.repairDisabled ? @"YES" : @"NO"
+            self.repairDisabled ? @"YES" : @"NO",
+            rateLimitStateDescription,
+            (long)self.daysLeftOnRateLimit
     ];
 }
 
@@ -70,6 +82,8 @@
         _secureTermsNeeded = [coder decodeBoolForKey:@"secureTermsNeeded"];
         _repairReason = [coder decodeIntegerForKey:@"repairReason"];
         _repairDisabled = [coder decodeBoolForKey:@"repairDisabled"];
+        _daysLeftOnRateLimit = [coder decodeIntegerForKey:@"daysLeftOnRateLimit"];
+        _rateLimitState = [coder decodeIntegerForKey:@"rateLimitState"];
     }
     return self;
 }
@@ -81,6 +95,8 @@
     [coder encodeObject:self.moveRequest forKey:@"moveRequest"];
     [coder encodeInteger:self.repairReason forKey:@"repairReason"];
     [coder encodeBool:self.repairDisabled forKey:@"repairDisabled"];
+    [coder encodeInteger:self.daysLeftOnRateLimit forKey:@"daysLeftOnRateLimit"];
+    [coder encodeInteger:self.rateLimitState forKey:@"rateLimitState"];
 }
 
 - (NSDictionary*)dictionaryRepresentation {
@@ -94,6 +110,8 @@
     }
     ret[@"repairReason"] = @(self.repairReason);
     ret[@"repairDisabled"] = @(self.repairDisabled);
+    ret[@"rateLimitState"] = @(self.rateLimitState);
+    ret[@"daysLeftOnRateLimit"] = @(self.daysLeftOnRateLimit);
     return ret;
 }
 

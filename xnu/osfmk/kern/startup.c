@@ -74,6 +74,7 @@
 #include <mach/thread_act.h>
 #include <mach/task_special_ports.h>
 #include <mach/vm_param.h>
+#include <mach/exclaves.h>
 #include <kern/assert.h>
 #include <kern/mach_param.h>
 #include <kern/misc_protos.h>
@@ -824,6 +825,10 @@ kernel_bootstrap_thread(void)
 	kernel_bootstrap_log("dtrace_early_init");
 	dtrace_early_init();
 	sdt_early_init();
+#endif
+
+#if CONFIG_EXCLAVES
+	exclaves_early_init();
 #endif
 
 #if CODE_SIGNING_MONITOR

@@ -120,6 +120,9 @@ static exclaves_clock_t exclaves_clock[] = {
 static kern_return_t
 exclaves_endpoint_call_internal(ipc_port_t port, exclaves_id_t endpoint_id);
 
+static bool
+exclaves_cpu_callback(__unused void *param, enum cpu_event event, __unused unsigned int cpu_or_cluster);
+
 static kern_return_t
 exclaves_enter(void);
 static kern_return_t
@@ -1166,7 +1169,9 @@ exclaves_restore_matrix_state(bool did_save_sme __unused)
 /* ringgate entry endpoints */
 enum {
 	RINGGATE_EP_ENTER,
-	RINGGATE_EP_INFO
+	RINGGATE_EP_INFO,
+	RINGGATE_EP_CPU_ONLINE,
+	RINGGATE_EP_CPU_OFFLINE,
 };
 
 /* ringgate entry status codes */
@@ -1175,6 +1180,40 @@ enum {
 	RINGGATE_STATUS_ERROR,
 	RINGGATE_STATUS_PANIC, /* RINGGATE_EP_ENTER: Another core paniced */
 };
+
+static bool
+exclaves_cpu_callback(__unused void *param, enum cpu_event event, __unused unsigned int cpu_or_cluster)
+{
+	uint32_t endpoint;
+	sptm_call_regs_t regs = { };
+	uint64_t result = RINGGATE_STATUS_ERROR;
+
+	switch (event) {
+	// Both events are guaranteed to fire on the affected CPU, which mirrors
+	// the calls from SPTM on initial CPU boot.
+	case CPU_BOOTED:
+		endpoint = RINGGATE_EP_CPU_ONLINE;
+		break;
+	case CPU_DOWN:
+		endpoint = RINGGATE_EP_CPU_OFFLINE;
+		break;
+	default:
+		return true;
+	}
+
+	if (exclaves_boot_supported()) {
+		result = sk_enter(endpoint, &regs);
+		assert(result == RINGGATE_STATUS_SUCCESS);
+	}
+
+	return true;
+}
+
+void
+exclaves_early_init(void)
+{
+	cpu_event_register_callback(exclaves_cpu_callback, NULL);
+}
 
 OS_NOINLINE
 static kern_return_t

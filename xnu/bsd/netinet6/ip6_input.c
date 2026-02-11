@@ -607,6 +607,7 @@ ip6_input_check_interface(struct mbuf *m, struct ip6_hdr *ip6, struct ifnet *ini
 	struct in6_ifaddr *__single best_ia6 = NULL;
 	uint32_t dst_ifscope = IFSCOPE_NONE;
 	ip6_check_if_result_t result = IP6_CHECK_IF_NONE;
+	enum drop_reason drop_reason = DROP_REASON_IP_RCV_IF_NO_MATCH;
 
 	*deliverifp = NULL;
 
@@ -653,10 +654,15 @@ ip6_input_check_interface(struct mbuf *m, struct ip6_hdr *ip6, struct ifnet *ini
 			 */
 			result = IP6_CHECK_IF_DROP;
 		} else {
-			result = IP6_CHECK_IF_OURS;
-			*deliverifp = best_ia6->ia_ifp;
-			ip6_setdstifaddr_info(m, 0, best_ia6);
-			ip6_setsrcifaddr_info(m, best_ia6->ia_ifp->if_index, NULL);
+			if ((m->m_flags & (M_BCAST | M_MCAST)) != 0) {
+				drop_reason = DROP_REASON_FSW_DEMUX_L2_MULTI_L3_UNI;
+				result = IP6_CHECK_IF_DROP;
+			} else {
+				result = IP6_CHECK_IF_OURS;
+				*deliverifp = best_ia6->ia_ifp;
+				ip6_setdstifaddr_info(m, 0, best_ia6);
+				ip6_setsrcifaddr_info(m, best_ia6->ia_ifp->if_index, NULL);
+			}
 		}
 	}
 	lck_rw_done(&in6_ifaddr_rwlock);
@@ -767,10 +773,17 @@ ip6_input_check_interface(struct mbuf *m, struct ip6_hdr *ip6, struct ifnet *ini
 
 			inet_ntop(AF_INET6, &ip6->ip6_src, src_str, sizeof(src_str));
 			inet_ntop(AF_INET6, &ip6->ip6_dst, dst_str, sizeof(dst_str));
-			os_log(OS_LOG_DEFAULT,
-			    "%s: no interface match for packet from %s to %s proto %u received via %s",
-			    __func__, src_str, dst_str, ip6->ip6_nxt, inifp->if_xname);
+			if (drop_reason == DROP_REASON_IP_RCV_IF_NO_MATCH) {
+				os_log(OS_LOG_DEFAULT,
+				    "%s: no interface match for packet from %s to %s proto %u received via %s",
+				    __func__, src_str, dst_str, ip6->ip6_nxt, inifp->if_xname);
+			} else if (drop_reason == DROP_REASON_FSW_DEMUX_L2_MULTI_L3_UNI) {
+				os_log(OS_LOG_DEFAULT,
+				    "%s: Layer 3 unicast dst sent to layer 2 non unicast dst: from %s to %s proto %u received via %s",
+				    __func__, src_str, dst_str, ip6->ip6_nxt, inifp->if_xname);
+			}
 		}
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
 	}
 
 	return result;
@@ -1161,7 +1174,6 @@ check_with_pf:
 			ours = 1;
 			goto hbhcheck;
 		} else if (check_if_result == IP6_CHECK_IF_DROP) {
-			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_RCV_IF_NO_MATCH, NULL, 0);
 			goto bad;
 		}
 	}

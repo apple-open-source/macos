@@ -1723,6 +1723,8 @@ ExceptionOr<void> Internals::setFormControlStateOfPreviousHistoryItem(const Vect
 void Internals::simulateSpeechSynthesizerVoiceListChange()
 {
     if (m_platformSpeechSynthesizer) {
+        m_platformSpeechSynthesizer->setInitialVoiceListToEmpty(false);
+        m_platformSpeechSynthesizer->initializeVoiceList();
         m_platformSpeechSynthesizer->client().voicesDidChange();
         return;
     }
@@ -1756,6 +1758,12 @@ void Internals::enableMockSpeechSynthesizerForMediaElement(HTMLMediaElement& ele
 
     m_platformSpeechSynthesizer = static_cast<PlatformSpeechSynthesizerMock*>(mock.ptr());
     synthesis.setPlatformSynthesizer(WTFMove(mock));
+}
+
+void Internals::setInitialVoiceListToEmpty()
+{
+    if (m_platformSpeechSynthesizer)
+        m_platformSpeechSynthesizer->setInitialVoiceListToEmpty(true);
 }
 
 ExceptionOr<void> Internals::setSpeechUtteranceDuration(double duration)
@@ -8018,6 +8026,19 @@ RefPtr<MediaSessionManagerInterface> Internals::sessionManager() const
         return nullptr;
 
     return page->mediaSessionManager();
+}
+
+bool Internals::hasMediaSessionManager() const
+{
+    RefPtr document = contextDocument();
+    if (!document)
+        return false;
+
+    RefPtr page = document->page();
+    if (!page)
+        return false;
+
+    return !!page->mediaSessionManagerIfExists();
 }
 
 #if ENABLE(MODEL_ELEMENT)

@@ -8,6 +8,7 @@
 
 /* Opaque thread pointer */
 typedef void *test_thread_t;
+extern uint64_t get_thread_tid(test_thread_t thread);
 
 /* Publish access to debug log */
 extern FILE *_log;

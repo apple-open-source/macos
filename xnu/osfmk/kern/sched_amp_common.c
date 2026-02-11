@@ -39,6 +39,7 @@
 #include <kern/queue.h>
 #include <kern/sched.h>
 #include <kern/sched_prim.h>
+#include <kern/sched_rt.h>
 #include <kern/task.h>
 #include <kern/thread.h>
 #include <machine/atomic.h>
@@ -74,6 +75,30 @@ void
 sched_amp_init(void)
 {
 	sched_timeshare_init();
+}
+
+#define PSET_LOAD_NUMERATOR_SHIFT   16
+#define PSET_LOAD_FRACTIONAL_SHIFT   4
+
+inline int
+sched_amp_get_pset_load_average(processor_set_t pset, __unused sched_bucket_t sched_bucket)
+{
+	return (int)pset->load_average >> (PSET_LOAD_NUMERATOR_SHIFT - PSET_LOAD_FRACTIONAL_SHIFT);
+}
+
+void
+sched_amp_update_pset_load_average(processor_set_t pset, __unused uint64_t curtime)
+{
+	int non_rt_load = pset->pset_runq.count;
+	int load = ((bit_count(pset->cpu_state_map[PROCESSOR_RUNNING]) + non_rt_load + rt_runq_count(pset)) << PSET_LOAD_NUMERATOR_SHIFT);
+	int new_load_average = ((int)pset->load_average + load) >> 1;
+
+	pset->load_average = new_load_average;
+#if (DEVELOPMENT || DEBUG)
+	if (pset->pset_cluster_type == PSET_AMP_P) {
+		KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_SCHED, MACH_PSET_LOAD_AVERAGE) | DBG_FUNC_NONE, sched_amp_get_pset_load_average(pset, 0), (bit_count(pset->cpu_state_map[PROCESSOR_RUNNING]) + pset->pset_runq.count + rt_runq_count(pset)));
+	}
+#endif
 }
 
 /* Spill threshold load average is ncpus in pset + (sched_amp_spill_count/(1 << PSET_LOAD_FRACTIONAL_SHIFT) */
@@ -249,7 +274,7 @@ should_spill_to_ecores(processor_set_t nset, thread_t thread)
 		return false;
 	}
 
-	if ((sched_get_pset_load_average(nset, 0) >= sched_amp_spill_threshold(nset)) &&  /* There is already a load on P cores */
+	if ((sched_amp_get_pset_load_average(nset, 0) >= sched_amp_spill_threshold(nset)) &&  /* There is already a load on P cores */
 	    pset_should_accept_spilled_thread(ecore_set, thread->sched_pri)) { /* There are lower priority E cores */
 		return true;
 	}

@@ -68,124 +68,140 @@
 
 #include "network_cmds_lib.h"
 
-extern int	Aflag;	/* show addresses of protocol control block */
-extern int	aflag;	/* show all sockets (including servers) */
-extern int	bflag;	/* show i/f total bytes in/out */
-extern int	cflag;	/* show specific classq */
-extern int	dflag;	/* show i/f dropped packets */
-extern int	Fflag;	/* show i/f forwarded packets */
-extern int	gflag;	/* show group (multicast) routing or stats */
-extern int	iflag;	/* show interfaces */
-extern int	lflag;	/* show routing table with use and ref */
-extern int	Lflag;	/* show size of listen queues */
-extern int	mflag;	/* show memory stats */
-extern int	nflag;	/* show addresses numerically */
-extern int	pflag;	/* show given protocol */
-extern int	Rflag;	/* show reachability information */
-extern int	rflag;	/* show routing tables (or routing stats) */
-extern int	sflag;	/* show protocol statistics */
-extern int	prioflag; /* show packet priority  statistics */
-extern int	tflag;	/* show i/f watchdog timers */
-extern int	vflag;	/* more verbose */
-extern int	Wflag;	/* wide display */
-extern int	qflag;	/* Display ifclassq stats */
-extern int	Qflag;	/* Display opportunistic polling stats */
-extern int	xflag;	/* show extended link-layer reachability information */
-extern int	zflag;	/* show only entries with non zero rtt metrics */
+struct netstat_parameters {
+	int	Aflag;		/* show addresses of protocol control block */
+	int	aflag;		/* show all sockets (including servers) */
+	int	Bflag;		/* show information about BPF */
+	int	bflag;		/* show i/f total bytes in/out */
+	int	cflag;		/* show specific classq */
+	int	dflag;		/* show i/f dropped packets */
+	int	Fflag;		/* show i/f forwarded packets */
+	int	gflag;		/* show group (multicast) routing or stats */
+	int	iflag;		/* show interfaces */
+	int	lflag;		/* show routing table with use and ref */
+	int	Lflag;		/* show size of listen queues */
+	int	mflag;		/* show memory stats */
+	int	nflag;		/* show addresses numerically */
+	int	pflag;		/* show given protocol */
+	int	Rflag;		/* show reachability information */
+	int	rflag;		/* show routing tables (or routing stats) */
+	int	sflag;		/* show protocol statistics */
+	int	Sflag;		/* show additional i/f link status */
+	int	prioflag;	/* show packet priority  statistics */
+	int	tflag;		/* show i/f watchdog timers */
+	int	vflag;		/* more verbose */
+	int	Wflag;		/* wide display */
+	int	qflag;		/* Display ifclassq stats */
+	int	Qflag;		/* Display opportunistic polling stats */
+	int	xflag;		/* show extended link-layer reachability information */
+	int	zflag;		/* show only entries with non zero rtt metrics */
 
-extern int	cq;	/* send classq index (-1 for all) */
-extern int	interval; /* repeat interval for i/f stats */
+	int	cq;			/* send classq index (-1 for all) */
+	int	interval;	/* repeat interval for i/f stats */
 
-extern char	*interface; /* desired i/f for stats, or NULL for all i/fs */
-extern int	unit;	/* unit number for above */
+	char *interface; /* desired i/f for stats, or NULL for all i/fs */
+	int	unit;		/* unit number for above */
 
-extern int	af;	/* address family */
+	int	af;			/* address family */
+
+	char proto_name[32]; /* protocol name */
+
+	char errbuf[256]; /* error buffer */
+
+	int print_banner;
+	char cmd_args[256];
+	size_t cmd_len;
+};
 
 extern char	*plural(int);
 extern char	*plurales(int);
 extern char	*pluralies(int);
 
-extern void	protopr(uint32_t, char *, int);
-extern void	mptcppr(uint32_t, char *, int);
-extern void	tcp_stats(uint32_t, char *, int);
-extern void	mptcp_stats(uint32_t, char *, int);
-extern void	udp_stats(uint32_t, char *, int);
-extern void	ip_stats(uint32_t, char *, int);
-extern void	icmp_stats(uint32_t, char *, int);
-extern void	igmp_stats(uint32_t, char *, int);
-extern void	arp_stats(uint32_t, char *, int);
+extern int	protopr(struct netstat_parameters *, uint32_t, char *, int);
+extern int	mptcppr(struct netstat_parameters *, uint32_t, char *, int);
+extern int	tcp_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	mptcp_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	udp_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	ip_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	icmp_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	igmp_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	arp_stats(struct netstat_parameters *, uint32_t, char *, int);
 #ifdef IPSEC
-extern void	ipsec_stats(uint32_t, char *, int);
+extern int	ipsec_stats(struct netstat_parameters *, uint32_t, char *, int);
 #endif
 
-extern void tcp_ifstats(char *);
-extern void udp_ifstats(char *);
+extern int tcp_ifstats(struct netstat_parameters *, char *);
+extern int udp_ifstats(struct netstat_parameters *, char *);
+
+extern int tcp_reinit(struct netstat_parameters *, uint32_t, char *, int);
+extern int udp_reinit(struct netstat_parameters *, uint32_t, char *, int);
+extern int mptcp_reinit(struct netstat_parameters *, uint32_t, char *, int);
 
 #ifdef INET6
-extern void	ip6_stats(uint32_t, char *, int);
-extern void	ip6_ifstats(char *);
-extern void	icmp6_stats(uint32_t, char *, int);
-extern void	icmp6_ifstats(char *);
-extern void	rip6_stats(uint32_t, char *, int);
+extern int	ip6_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	ip6_ifstats(struct netstat_parameters *, char *);
+extern int	icmp6_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	icmp6_ifstats(struct netstat_parameters *, char *);
+extern int	rip6_stats(struct netstat_parameters *, uint32_t, char *, int);
 
 /* forward references */
 struct sockaddr_in6;
 struct in6_addr;
 struct sockaddr;
 
-extern char	*routename6(struct sockaddr_in6 *);
-extern char	*netname6(struct sockaddr_in6 *, struct sockaddr *);
+extern char	*routename6(struct netstat_parameters *, struct sockaddr_in6 *);
+extern char	*netname6(struct netstat_parameters *, struct sockaddr_in6 *, struct sockaddr *);
 #endif /*INET6*/
 
 #ifdef IPSEC
-extern void	pfkey_stats(uint32_t, char *, int);
+extern int	pfkey_stats(struct netstat_parameters *, uint32_t, char *, int);
 #endif
 
-extern void	systmpr(uint32_t, char *, int);
-extern void	kctl_stats(uint32_t, char *, int);
-extern void	kevt_stats(uint32_t, char *, int);
+extern int	systmpr(struct netstat_parameters *, uint32_t, char *, int);
+extern int	kctl_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	kevt_stats(struct netstat_parameters *, uint32_t, char *, int);
 
-extern void	mbpr(void);
+extern int	mbpr(struct netstat_parameters *);
 
-extern void	intpr(void (*)(char *));
-extern void	intpr_ri(void (*)(char *));
-extern void	intervalpr(void (*)(uint32_t, char *, int), uint32_t,
+extern int	intpr(struct netstat_parameters *, void (*)(struct netstat_parameters *, char *));
+extern int	intpr_ri(struct netstat_parameters *, void (*)(struct netstat_parameters *, char *));
+extern void	intervalpr(struct netstat_parameters *, int (*)(struct netstat_parameters *, uint32_t, char *, int), uint32_t,
 		    char *, int);
 
-extern void	pr_rthdr(int);
+extern void	pr_rthdr(struct netstat_parameters *, int);
 extern void	pr_family(int);
-extern void	rt_stats(void);
+extern void	rt_stats(struct netstat_parameters *);
 extern void	upHex(char *);
-extern char	*routename(uint32_t);
-extern char	*netname(uint32_t, uint32_t);
-extern void	routepr(void);
+extern char	*routename(struct netstat_parameters *, uint32_t);
+extern char	*netname(struct netstat_parameters *, uint32_t, uint32_t);
+extern int	routepr(struct netstat_parameters *);
 
-extern void	unixpr(uint32_t, char *, int);
-extern void	unixstats(uint32_t, char *, int);
-extern void	aqstatpr(void);
-extern void	rxpollstatpr(void);
-extern void	vsockpr(uint32_t,char *,int);
-extern void	vsockstats(uint32_t,char *,int);
+extern int	unixpr(struct netstat_parameters *, uint32_t, char *, int);
+extern int	unixstats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	aqstatpr(struct netstat_parameters *);
+extern int	rxpollstatpr(struct netstat_parameters *);
+extern int	vsockpr(struct netstat_parameters *, uint32_t, char *, int);
+extern int	vsockstats(struct netstat_parameters *, uint32_t, char *, int);
 
-extern void	ifmalist_dump(void);
+extern int	ifmalist_dump(struct netstat_parameters *);
 
 extern int print_time(void);
-extern void	print_link_status(const char *);
+extern void	print_link_status(struct netstat_parameters *, const char *);
 
-extern void	print_extbkidle_stats(uint32_t, char *, int);
-extern void	print_nstat_stats(uint32_t, char *, int);
-extern void	print_net_api_stats(uint32_t, char *, int);
-extern void	print_if_ports_used_stats(uint32_t, char *, int);
-extern void	print_if_link_heuristics_stats(char *);
+extern int	print_extbkidle_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	print_nstat_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	print_net_api_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	print_if_ports_used_stats(struct netstat_parameters *, uint32_t, char *, int);
+extern int	print_if_link_heuristics_stats(struct netstat_parameters *, char *);
 
-extern void bpf_stats(char *);
+extern int bpf_stats(struct netstat_parameters *, char *);
 extern void bpf_help(void);
 
-extern void print_socket_stats_format(void);
+extern void print_socket_stats_format(struct netstat_parameters *);
 
 struct xsocket_n;
 struct xsockbuf_n;
 struct xsockstat_n;
-extern void print_socket_stats_data(struct xsocket_n *, struct xsockbuf_n *, struct xsockbuf_n *, struct xsockstat_n *);
+extern void print_socket_stats_data(struct netstat_parameters *, struct xsocket_n *, struct xsockbuf_n *, struct xsockbuf_n *, struct xsockstat_n *);
 
-extern void printprotoifstats(char *ifname);
+extern void printprotoifstats(struct netstat_parameters *, char *ifname);

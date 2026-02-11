@@ -5877,7 +5877,7 @@ class Container: NSObject, ConfiguredCloudKit {
                      isBackgroundCheck: Bool,
                      flowID: String?,
                      deviceSessionID: String?,
-                     rateLimit: Int,
+                     daysLeftOnRateLimit: Int,
                      reply: @escaping (OTEscrowCheckCallResult?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let ret = OTEscrowCheckCallResult()
@@ -5886,7 +5886,12 @@ class Container: NSObject, ConfiguredCloudKit {
         ret.secureTermsNeeded = false // default case
         ret.repairReason = 0 // default case
         ret.repairDisabled = false // default case
-
+        ret.daysLeftOnRateLimit = daysLeftOnRateLimit
+        if daysLeftOnRateLimit > 0 {
+            ret.rateLimitState = OTEscrowCheckRateLimitState.rateLimited.rawValue
+        } else {
+            ret.rateLimitState = OTEscrowCheckRateLimitState.notRateLimited.rawValue
+        }
         let reply: (OTEscrowCheckCallResult?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "escrow check complete: \(traceError($1), privacy: .public)")
@@ -5922,7 +5927,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     $0.disableRepair = true
                 }
                 $0.requiresEscrowCheck = requiresEscrowCheck
-                $0.rateLimited = UInt64(rateLimit)
+                $0.rateLimited = UInt64(daysLeftOnRateLimit)
             }
 
             self.cuttlefish.getEscrowCheck(request) { response in

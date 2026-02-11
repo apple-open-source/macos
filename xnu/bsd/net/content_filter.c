@@ -7186,7 +7186,7 @@ cfil_dgram_save_socket_state(struct cfil_info *cfil_info, struct mbuf *m)
 		ctag->cfil_inp_flags = inp ? inp->inp_flags : 0;
 
 		hash_entry = cfil_info->cfi_hash_entry;
-		if (hash_entry->soflow_family == AF_INET6) {
+		if (hash_entry->soflow_family == AF_INET6 || IN6_IS_ADDR_V4MAPPED(&hash_entry->soflow_faddr.addr6)) {
 			fill_ip6_sockaddr_4_6(&ctag->cfil_faddr,
 			    &hash_entry->soflow_faddr.addr6,
 			    hash_entry->soflow_fport, hash_entry->soflow_faddr6_ifscope);

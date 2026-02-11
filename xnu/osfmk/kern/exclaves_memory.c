@@ -48,6 +48,8 @@
 #include <libkern/coreanalytics/coreanalytics.h>
 #include <kern/ledger.h>
 
+#include <pexpert/device_tree.h>
+
 #include "exclaves_memory.h"
 
 /* -------------------------------------------------------------------------- */
@@ -589,5 +591,55 @@ exclaves_memory_upcall_free_ext(const xnuupcallsv2_pagelist_s pages,
 
 	return completion();
 }
+
+#pragma mark Carveout memory accounting
+
+// Size of the iBoot-loaded ExclaveCoreBundle in bytes
+// This is also part of VM_KERN_COUNT_BOOT_STOLEN / ml_get_booter_memory_size
+uint64_t exclaves_bundle_size = 0;
+// Size of the SPTM-managed Exclaves carveout in bytes
+uint64_t exclaves_carveout_size = 0;
+
+__startup_func
+static void
+initialize_exclaves_bundle_bytes(void)
+{
+	int err;
+	DTEntry memory_map;
+
+	err = SecureDTLookupEntry(NULL, "chosen/memory-map", &memory_map);
+
+	const char *CL4_Properties[] = {
+		"CL4-ro", "CL4-rx", "CL4-bx", "CL4-rw", "CL4-le"
+	};
+
+	for (int i = 0; i < sizeof(CL4_Properties) / sizeof(*CL4_Properties); i++) {
+		unsigned int range_size;
+		DTMemoryMapRange const *range;
+
+		err = SecureDTGetProperty(memory_map, CL4_Properties[i], (void const **)&range, &range_size);
+		if (err == kSuccess && range_size == sizeof(DTMemoryMapRange)) {
+			if (range->length != SIZE_MAX) {
+				exclaves_bundle_size += range->length;
+			}
+		}
+	}
+
+	exclaves_carveout_size = SPTMArgs->sk_carveout_size;
+
+	/*
+	 * Credit the carveout size to kernel_task's conclave_mem ledger so that
+	 * exclaves memory accounting includes the initial carveout allocation.
+	 */
+	kern_return_t ledger_ret = ledger_credit(kernel_task->ledger,
+	    task_ledgers.conclave_mem,
+	    (ledger_amount_t)exclaves_carveout_size);
+	if (ledger_ret != KERN_SUCCESS) {
+		panic("Ledger credit failed for exclaves carveout, error code %d",
+		    ledger_ret);
+	}
+}
+
+STARTUP(EXCLAVES, STARTUP_RANK_MIDDLE, initialize_exclaves_bundle_bytes);
 
 #endif /* CONFIG_EXCLAVES */

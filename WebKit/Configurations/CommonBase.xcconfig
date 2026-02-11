@@ -82,6 +82,7 @@ WK_DEFAULT_WK_AUDIT_SPI[sdk=watchos*] = ;
 WK_DEFAULT_WK_AUDIT_SPI[sdk=xros*] = ;
 // Disable auditing on internal builds of already-shipped releases.
 WK_DEFAULT_WK_AUDIT_SPI[sdk=iphoneos18*.internal] = ;
+WK_DEFAULT_WK_AUDIT_SPI[sdk=iphoneos26.0.internal] = ;
 
 WK_AUDIT_SPI = $(WK_DEFAULT_WK_AUDIT_SPI);
 

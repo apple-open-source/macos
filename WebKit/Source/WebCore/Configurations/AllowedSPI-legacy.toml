@@ -28,9 +28,9 @@ classes = [
     "WCRBrowserEngineClient",
 ]
 selectors = [
-    { name = "allowURL:withCompletion:", class = "?" },
-    { name = "evaluateURL:withCompletion:onCompletionQueue:", class = "?" },
-    { name = "shouldEvaluateURLs", class = "?" },
+    { name = "allowURL:withCompletion:", class = "WCRBrowserEngineClient" },
+    { name = "evaluateURL:withCompletion:onCompletionQueue:", class = "WCRBrowserEngineClient" },
+    { name = "shouldEvaluateURLs", class = "WCRBrowserEngineClient" },
 ]
 requires = ["HAVE_WEBCONTENTRESTRICTIONS"]
 
@@ -114,6 +114,13 @@ selectors = [
     { name = "initWithWebsiteIdentifier:", class = "?" },
 ]
 requires = ["USE_APPLE_INTERNAL_SDK"]
+
+[[legacy]]
+# These are needed to only show built-in voices to reduce fingerprinting surface area.
+selectors = [
+    { name = "speechVoicesIncludingSuperCompact", class = "?" },
+    { name = "speechVoicesIncludingSuperCompactWithCompletionHandler:", class = "?" },
+]
 
 [[legacy]]
 classes = [
@@ -418,7 +425,6 @@ selectors = [
     { name = "sharedTextEffectsWindowForWindowScene:", class = "?" },
     { name = "signature", class = "RSABSSATokenReady" },
     { name = "sizeValue", class = "?" },
-    { name = "speechVoicesIncludingSuperCompact", class = "?" },
     { name = "startRoutingVideoToPictureInPicturePlayerLayerView", class = "?" },
     { name = "startingColumn", class = "?" },
     { name = "startingRow", class = "?" },

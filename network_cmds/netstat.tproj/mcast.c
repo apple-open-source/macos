@@ -120,20 +120,19 @@ typedef union sockunion sockunion_t;
 //	struct sockaddr	*ifma_lladdr;
 //};
 
-void ifmalist_dump_af(const struct ifmaddrs * const ifmap, int const af);
-static int ifmalist_dump_mcstat(struct ifmaddrs *);
-static void in_ifinfo(struct igmp_ifinfo *);
+void ifmalist_dump_af(struct netstat_parameters *, const struct ifmaddrs * const ifmap, int const af);
+static int ifmalist_dump_mcstat(struct netstat_parameters *params, struct ifmaddrs *);
+static void in_ifinfo(struct netstat_parameters *params, struct igmp_ifinfo *);
 static const char *inm_mode(u_int);
-static void inm_print_sources_sysctl(uint32_t, struct in_addr);
+static void inm_print_sources_sysctl(struct netstat_parameters *params, uint32_t, struct in_addr);
 #ifdef INET6
-static void in6_ifinfo(struct mld_ifinfo *);
-static void in6m_print_sources_sysctl(uint32_t, struct in6_addr *);
+static void in6_ifinfo(struct netstat_parameters *params, struct mld_ifinfo *);
+static void in6m_print_sources_sysctl(struct netstat_parameters *params, uint32_t, struct in6_addr *);
 static const char *inet6_n2a(struct in6_addr *);
 #endif
 static void printb(const char *, unsigned int, const char *);
 static const char *sdl_addr_to_hex(const struct sockaddr_dl *, char *, int);
 
-extern char *routename6(struct sockaddr_in6 *);
 
 #define	sa_equal(a1, a2)	\
 	(bcmp((a1), (a2), ((a1))->sa_len) == 0)
@@ -152,7 +151,7 @@ extern char *routename6(struct sockaddr_in6 *);
 #define	RTA_MASKS	(RTA_GATEWAY | RTA_IFP | RTA_IFA)
 
 void
-ifmalist_dump_af(const struct ifmaddrs * const ifmap, int const af)
+ifmalist_dump_af(struct netstat_parameters *params, const struct ifmaddrs * const ifmap, int const af)
 {
 	const struct ifmaddrs *ifma;
 	sockunion_t *psa;
@@ -196,7 +195,7 @@ ifmalist_dump_af(const struct ifmaddrs * const ifmap, int const af)
 			break;
 #ifdef INET6
 		case AF_INET6:
-			pgroup = routename6(&(psa->sin6));
+			pgroup = routename6(params, &(psa->sin6));
 			break;
 #endif
 		case AF_LINK:
@@ -265,31 +264,35 @@ ether_ntoa((struct ether_addr *)&psa->sdl.sdl_data);
 	}
 }
 
-void
-ifmalist_dump(void)
+int
+ifmalist_dump(struct netstat_parameters *params)
 {
 	struct ifmaddrs *ifmap;
 
-	if (getifmaddrs(&ifmap))
-		err(EX_OSERR, "getifmaddrs");
+	if (getifmaddrs(&ifmap)) {
+		warn("getifmaddrs");
+		return -1;
+	}
 
-	ifmalist_dump_af(ifmap, AF_LINK);
+	ifmalist_dump_af(params, ifmap, AF_LINK);
 	fputs("\n", stdout);
-	ifmalist_dump_af(ifmap, AF_INET);
+	ifmalist_dump_af(params, ifmap, AF_INET);
 #ifdef INET6
 	fputs("\n", stdout);
-	ifmalist_dump_af(ifmap, AF_INET6);
+	ifmalist_dump_af(params, ifmap, AF_INET6);
 #endif
-	if (sflag) {
+	if (params->sflag) {
 		fputs("\n", stdout);
-		ifmalist_dump_mcstat(ifmap);
+		ifmalist_dump_mcstat(params, ifmap);
 	}
 
 	freeifmaddrs(ifmap);
+
+	return 0;
 }
 
 static int
-ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
+ifmalist_dump_mcstat(struct netstat_parameters *params, struct ifmaddrs *ifmap)
 {
 	char			 thisifname[IFNAMSIZ];
 	char			 addrbuf[NI_MAXHOST];
@@ -303,8 +306,8 @@ ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
 	int			 error;
 	uint32_t		ifindex = 0;
 
-	if (interface != NULL)
-		ifindex = if_nametoindex(interface);
+	if (params->interface != NULL)
+		ifindex = if_nametoindex(params->interface);
 
 	error = 0;
 	ifap = NULL;
@@ -337,7 +340,7 @@ ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
 
 		/* Filter on address family. */
 		pgsa = (sockunion_t *)ifma->ifma_addr;
-		if (af != 0 && pgsa->sa.sa_family != af)
+		if (params->af != 0 && pgsa->sa.sa_family != params->af)
 			continue;
 
 		strlcpy(thisifname, link_ntoa(&psa->sdl), sizeof(thisifname));
@@ -383,7 +386,7 @@ ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
 		if (pifasa == NULL)
 			continue;	/* primary address not found */
 
-		if (!vflag && pifasa->sa.sa_family == AF_LINK)
+		if (!params->vflag && pifasa->sa.sa_family == AF_LINK)
 			continue;
 
 		/* Parse and print primary address, if not already printed. */
@@ -460,7 +463,7 @@ ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
 					perror("sysctl net.inet.igmp.ifinfo");
 					goto next_ifnet;
 				}
-				in_ifinfo(&igi);
+				in_ifinfo(params, &igi);
 			}
 #ifdef INET6
 			/*
@@ -484,7 +487,7 @@ ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
 					perror("sysctl net.inet6.mld.ifinfo");
 					goto next_ifnet;
 				}
-				in6_ifinfo(&mli);
+				in6_ifinfo(params, &mli);
 			}
 #endif /* INET6 */
 #if defined(INET6)
@@ -513,12 +516,12 @@ next_ifnet:
 
 		fprintf(stdout, "\t\tgroup %s", addrbuf);
 		if (pgsa->sa.sa_family == AF_INET) {
-			inm_print_sources_sysctl(thisifindex,
+			inm_print_sources_sysctl(params, thisifindex,
 			    pgsa->sin.sin_addr);
 		}
 #ifdef INET6
 		if (pgsa->sa.sa_family == AF_INET6) {
-			in6m_print_sources_sysctl(thisifindex,
+			in6m_print_sources_sysctl(params, thisifindex,
 			    &pgsa->sin6.sin6_addr);
 		}
 #endif
@@ -540,7 +543,7 @@ next_ifnet:
 }
 
 static void
-in_ifinfo(struct igmp_ifinfo *igi)
+in_ifinfo(struct netstat_parameters *params, struct igmp_ifinfo *igi)
 {
 
 	printf("\t");
@@ -559,7 +562,7 @@ in_ifinfo(struct igmp_ifinfo *igi)
 		printf(" rv %u qi %u qri %u uri %u",
 		    igi->igi_rv, igi->igi_qi, igi->igi_qri, igi->igi_uri);
 	}
-	if (vflag >= 2) {
+	if (params->vflag >= 2) {
 		printf(" v1timer %u v2timer %u v3timer %u",
 		    igi->igi_v1_timer, igi->igi_v2_timer, igi->igi_v3_timer);
 	}
@@ -585,7 +588,7 @@ inm_mode(u_int mode)
  * Retrieve per-group source filter mode and lists via sysctl.
  */
 static void
-inm_print_sources_sysctl(uint32_t ifindex, struct in_addr gina)
+inm_print_sources_sysctl(struct netstat_parameters *params, uint32_t ifindex, struct in_addr gina)
 {
 #define	MAX_SYSCTL_TRY	5
 	int mib[7];
@@ -646,7 +649,7 @@ inm_print_sources_sysctl(uint32_t ifindex, struct in_addr gina)
 	else
 		printf(" mode (%u)", fmode);
 
-	if (vflag == 0)
+	if (params->vflag == 0)
 		goto out_free;
 
 	cnt = len / sizeof(struct in_addr);
@@ -672,7 +675,7 @@ out_free:
 #ifdef INET6
 
 static void
-in6_ifinfo(struct mld_ifinfo *mli)
+in6_ifinfo(struct netstat_parameters *params, struct mld_ifinfo *mli)
 {
 
 	printf("\t");
@@ -690,7 +693,7 @@ in6_ifinfo(struct mld_ifinfo *mli)
 		printf(" rv %u qi %u qri %u uri %u",
 		    mli->mli_rv, mli->mli_qi, mli->mli_qri, mli->mli_uri);
 	}
-	if (vflag >= 2) {
+	if (params->vflag >= 2) {
 		printf(" v1timer %u v2timer %u", mli->mli_v1_timer,
 		   mli->mli_v2_timer);
 	}
@@ -708,7 +711,7 @@ in6_ifinfo(struct mld_ifinfo *mli)
  * are already in network-byte order.
  */
 static void
-in6m_print_sources_sysctl(uint32_t ifindex, struct in6_addr *pgroup)
+in6m_print_sources_sysctl(struct netstat_parameters *params, uint32_t ifindex, struct in6_addr *pgroup)
 {
 #define	MAX_SYSCTL_TRY	5
 	char addrbuf[INET6_ADDRSTRLEN];
@@ -775,7 +778,7 @@ in6m_print_sources_sysctl(uint32_t ifindex, struct in6_addr *pgroup)
 	else
 		printf(" mode (%u)", fmode);
 
-	if (vflag == 0)
+	if (params->vflag == 0)
 		goto out_free;
 
 	cnt = len / sizeof(struct in6_addr);

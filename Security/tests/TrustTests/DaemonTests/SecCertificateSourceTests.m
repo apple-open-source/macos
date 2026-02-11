@@ -128,6 +128,9 @@
         bool hasCustomConstraint = false;
         bool isUnconstrained = false;
         NSMutableSet *policyConstraints = [NSMutableSet set];
+        if (usageConstraints && usageConstraints.count == 0) {
+            isUnconstrained = true;
+        }
         for (NSDictionary *setting in usageConstraints) {
             if (setting[(__bridge NSString*)kSecTrustSettingsPolicy] != nil) {
                 hasCustomConstraint = true;
@@ -149,16 +152,15 @@
         NSArray *expectedTypes = testCase[@"keyTypes"];
         if ([expectedTypes containsObject:@"system"]) {
             XCTAssert(hasSystemConstraint);
-            if (expectedPolicies) {
-                XCTAssertEqualObjects(policyConstraints, expectedPolicies);
-                XCTAssertFalse(isUnconstrained);
-            } else {
-                XCTAssert(isUnconstrained);
-            }
         }
         if ([expectedTypes containsObject:@"custom"]) {
             XCTAssert(hasCustomConstraint);
             XCTAssertEqualObjects(policyConstraints, expectedPolicies);
+        } else if (expectedPolicies.count > 0) { // Constrained non-custom
+            XCTAssertEqualObjects(policyConstraints, expectedPolicies);
+            XCTAssertFalse(isUnconstrained);
+        } else { // Unconstrained
+            XCTAssert(isUnconstrained);
         }
     }
 }

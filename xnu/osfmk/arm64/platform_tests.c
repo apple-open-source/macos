@@ -711,7 +711,7 @@ lt_cluster_bound_thread(void *arg, char cluster_type)
 
 	kern_return_t kr = thread_soft_bind_cluster_type(thread, cluster_type);
 	if (kr != KERN_SUCCESS) {
-		kprintf("%s>failed to bind to cluster type %c\n", __FUNCTION__, cluster_type);
+		printf("%s>failed to bind to cluster type %c\n", __FUNCTION__, cluster_type);
 	}
 
 	func();

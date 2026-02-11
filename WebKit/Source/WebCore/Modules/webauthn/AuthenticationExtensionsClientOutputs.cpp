@@ -119,17 +119,21 @@ AuthenticationExtensionsClientOutputsJSON AuthenticationExtensionsClientOutputs:
     if (largeBlob) {
         result.largeBlob = AuthenticationExtensionsClientOutputsJSON::LargeBlobOutputsJSON {
             largeBlob->supported,
-            base64URLEncodeToString(largeBlob->blob->span()),
+            largeBlob->blob ? base64URLEncodeToString(largeBlob->blob->span()) : nullString(),
             largeBlob->written,
         };
     }
     if (prf) {
+        std::optional<AuthenticationExtensionsClientOutputsJSON::PRFValuesJSON> prfValues;
+        if (prf->results && prf->results->first) {
+            prfValues = AuthenticationExtensionsClientOutputsJSON::PRFValuesJSON {
+                base64URLEncodeToString(prf->results->first->span()),
+                prf->results->second ? base64URLEncodeToString(prf->results->second->span()) : nullString(),
+            };
+        }
         result.prf = AuthenticationExtensionsClientOutputsJSON::PRFOutputsJSON {
             prf->enabled,
-            AuthenticationExtensionsClientOutputsJSON::PRFValuesJSON {
-                base64URLEncodeToString(largeBlob->blob->span()),
-                base64URLEncodeToString(largeBlob->blob->span()),
-            },
+            WTFMove(prfValues),
         };
     }
     return result;

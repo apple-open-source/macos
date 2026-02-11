@@ -32,8 +32,11 @@
 #include <WebCore/PlatformContentFilter.h>
 #include <WebCore/ResourceError.h>
 #include <functional>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/UniqueRef.h>
+#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 
@@ -61,6 +64,7 @@ public:
     WEBCORE_EXPORT void stopFilteringMainResource();
 
     WEBCORE_EXPORT bool continueAfterWillSendRequest(ResourceRequest&, const ResourceResponse&);
+    WEBCORE_EXPORT void continueAfterWillSendRequest(ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&);
     WEBCORE_EXPORT bool continueAfterResponseReceived(const ResourceResponse&);
     enum class FromDocumentLoader : bool { No, Yes };
     WEBCORE_EXPORT bool continueAfterDataReceived(const SharedBuffer&, FromDocumentLoader = FromDocumentLoader::No);
@@ -89,6 +93,24 @@ public:
 private:
     using State = PlatformContentFilter::State;
 
+    class ContentFilterCallbackAggregator : public ThreadSafeRefCounted<ContentFilterCallbackAggregator> {
+    public:
+        static auto create(ContentFilter& contentFilter, const ResourceRequest& request, CompletionHandler<void(ResourceRequest&&)>&& callback) { return adoptRef(*new ContentFilterCallbackAggregator(contentFilter, request, WTFMove(callback))); }
+
+        ~ContentFilterCallbackAggregator();
+
+        void didReceivePlatformContentFilterDecision(PlatformContentFilter&, String&&);
+
+    private:
+        ContentFilterCallbackAggregator(ContentFilter&, const ResourceRequest&, CompletionHandler<void(ResourceRequest&&)>&&);
+
+        CheckedPtr<ContentFilter> m_contentFilter;
+        ResourceRequest m_request;
+        CompletionHandler<void(ResourceRequest&&)> m_callback;
+        unsigned m_numberOfFiltersAllowed { 0 };
+        bool m_isBlocked { false };
+    };
+
     struct Type {
         Function<Ref<PlatformContentFilter>(const PlatformContentFilter::FilterParameters&)> create;
     };
@@ -107,7 +129,7 @@ private:
     Ref<ContentFilterClient> protectedClient() const;
     
     URL url();
-    
+
     Container m_contentFilters;
     WeakRef<ContentFilterClient> m_client;
     URL m_mainResourceURL;

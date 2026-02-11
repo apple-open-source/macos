@@ -42,7 +42,7 @@
 
 #ifdef AF_VSOCK
 
-static void vsockdomainpr __P((struct xvsockpcb *));
+static void vsockdomainpr(struct netstat_parameters *, struct xvsockpcb *);
 
 char *
 namespace_string(int protocol)
@@ -64,14 +64,14 @@ namespace_string_abbreviation(int protocol)
     return "vsock";
 }
 
-void
-vsockpr(uint32_t proto,
-char *name, int af)
+int
+vsockpr(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 {
-	char   *buf, *next;
+	char   *buf = NULL, *next;
 	size_t len;
 	struct xvsockpgen *xvg, *oxvg;
 	struct xvsockpcb *xpcb;
+	int retval = 0;
 
     const char* namespace = namespace_string(proto);
 
@@ -80,18 +80,21 @@ char *name, int af)
 
 	len = 0;
 	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			warn("sysctl: %s", mibvar);
-		return;
+			return -1;
+		}
+		return 0;
 	}
 	if ((buf = malloc(len)) == 0) {
 		warn("malloc %lu bytes", (u_long)len);
-		return;
+		retval = -1;
+		goto done;
 	}
 	if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		free(buf);
-		return;
+		retval = -1;
+		goto done;
 	}
 
 	/*
@@ -99,8 +102,7 @@ char *name, int af)
 	 * there is in fact no more control block to process
 	 */
 	if (len <= 2 * sizeof(struct xvsockpgen)) {
-		free(buf);
-		return;
+		goto done;
 	}
 
 	oxvg = (struct xvsockpgen *)buf;
@@ -114,7 +116,7 @@ char *name, int af)
 		/* Ignore PCBs which were freed during copyout. */
 		if (xpcb->xvp_gencnt > oxvg->xvg_gen)
 			continue;
-		vsockdomainpr(xpcb);
+		vsockdomainpr(params, xpcb);
 	}
 	xvg = (struct xvsockpgen *)next;
 	if (xvg != oxvg && xvg->xvg_gen != oxvg->xvg_gen) {
@@ -126,15 +128,14 @@ char *name, int af)
 			printf("Some vsock sockets may have been created or deleted.\n");
 		}
 	}
+done:
 	free(buf);
+
+	return retval;
 }
 
 static void
-vsock_print_addr(buf, size, cid, port)
-	char *buf;
-    size_t size;
-	uint32_t cid;
-	uint32_t port;
+vsock_print_addr(char *buf, size_t size, uint32_t cid, uint32_t port)
 {
 	if (cid == VMADDR_CID_ANY && port == VMADDR_PORT_ANY) {
 		(void) snprintf(buf, size, "*:*");
@@ -148,8 +149,7 @@ vsock_print_addr(buf, size, cid, port)
 }
 
 static void
-vsockdomainpr(xpcb)
-	struct xvsockpcb *xpcb;
+vsockdomainpr(struct netstat_parameters *params, struct xvsockpcb *xpcb)
 {
 	static int first = 1;
 
@@ -160,7 +160,7 @@ vsockdomainpr(xpcb)
 			   "Recv-Q", "Send-Q",
 			   "Local Address", "Foreign Address",
 			   "State");
-		if (vflag > 0)
+		if (params->vflag > 0)
 			printf(" %10.10s %10.10s %10.10s %10.10s %6.6s %6.6s %6.6s %6s %10s",
 				   "rxcnt", "txcnt", "peer_rxcnt", "peer_rxhiwat",
 				   "rxhiwat", "txhiwat", "pid", "state", "options");
@@ -197,7 +197,7 @@ vsockdomainpr(xpcb)
 		   so->so_rcv.sb_cc, so->so_snd.sb_cc,
 		   srcAddr, dstAddr,
 	       state);
-	if (vflag > 0)
+	if (params->vflag > 0)
 		printf(" %10u %10u %10u %10u %6u %6u %6u 0x%04x 0x%08x",
 			   xpcb->xvp_rxcnt,
 			   xpcb->xvp_txcnt,
@@ -211,10 +211,10 @@ vsockdomainpr(xpcb)
 	printf("\n");
 }
 
-void
-vsockstats(uint32_t proto, char *name, int af)
+int
+vsockstats(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 {
-#pragma unused(proto, name, af)
+#pragma unused(params, proto, name, af)
 	uint32_t pcbcount;
 	size_t len;
 
@@ -227,10 +227,12 @@ vsockstats(uint32_t proto, char *name, int af)
 	len = sizeof(pcbcount);
 	if (sysctlbyname(sysctlKey, &pcbcount, &len, 0, 0) < 0) {
 		warn("sysctl: %s", sysctlKey);
-		return;
+		return -1;
 	}
 
 	printf("\t%u open %s socket%s\n", pcbcount, namespace, plural(pcbcount));
+
+	return 0;
 }
 
 #endif /* AF_VSOCK */

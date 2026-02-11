@@ -35,6 +35,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A0F62A72E9B584E00DD46C8 /* clusterfuzz-testcase-minimized-xml_parse_fuzzer_UTF-16BE-5594446747205632.xml.txt in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A0F62A52E9B583E00DD46C8 /* clusterfuzz-testcase-minimized-xml_parse_fuzzer_UTF-16BE-5594446747205632.xml.txt */; };
+		2A0F62A82E9B585300DD46C8 /* test-160700004.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A0F62A62E9B583E00DD46C8 /* test-160700004.sh */; };
 		2A4B3C342D9B2A6100DD8FFC /* test-147857896.py in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A4B3C322D9B2A4900DD8FFC /* test-147857896.py */; };
 		2A4B3C362D9B2A8100DD8FFC /* expat.plist in Install test plist */ = {isa = PBXBuildFile; fileRef = 2A4B3C302D9B2A4900DD8FFC /* expat.plist */; };
 		2A4B3C372D9B2C3A00DD8FFC /* test-6295922.py in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A4B3C312D9B2A4900DD8FFC /* test-6295922.py */; };
@@ -126,8 +128,10 @@
 			dstPath = /AppleInternal/Tests/expat;
 			dstSubfolderSpec = 0;
 			files = (
+				2A0F62A72E9B584E00DD46C8 /* clusterfuzz-testcase-minimized-xml_parse_fuzzer_UTF-16BE-5594446747205632.xml.txt in Install Test Files */,
 				2A4B3C372D9B2C3A00DD8FFC /* test-6295922.py in Install Test Files */,
 				2A4B3C342D9B2A6100DD8FFC /* test-147857896.py in Install Test Files */,
+				2A0F62A82E9B585300DD46C8 /* test-160700004.sh in Install Test Files */,
 			);
 			name = "Install Test Files";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -177,6 +181,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A0F62A52E9B583E00DD46C8 /* clusterfuzz-testcase-minimized-xml_parse_fuzzer_UTF-16BE-5594446747205632.xml.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "clusterfuzz-testcase-minimized-xml_parse_fuzzer_UTF-16BE-5594446747205632.xml.txt"; sourceTree = "<group>"; };
+		2A0F62A62E9B583E00DD46C8 /* test-160700004.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "test-160700004.sh"; sourceTree = "<group>"; };
 		2A4B3C302D9B2A4900DD8FFC /* expat.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = expat.plist; sourceTree = "<group>"; };
 		2A4B3C312D9B2A4900DD8FFC /* test-6295922.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "test-6295922.py"; sourceTree = "<group>"; };
 		2A4B3C322D9B2A4900DD8FFC /* test-147857896.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "test-147857896.py"; sourceTree = "<group>"; };
@@ -265,7 +271,9 @@
 		2A4B3C332D9B2A4900DD8FFC /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				2A0F62A52E9B583E00DD46C8 /* clusterfuzz-testcase-minimized-xml_parse_fuzzer_UTF-16BE-5594446747205632.xml.txt */,
 				2A4B3C302D9B2A4900DD8FFC /* expat.plist */,
+				2A0F62A62E9B583E00DD46C8 /* test-160700004.sh */,
 				2A4B3C312D9B2A4900DD8FFC /* test-6295922.py */,
 				2A4B3C322D9B2A4900DD8FFC /* test-147857896.py */,
 			);

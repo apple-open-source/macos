@@ -2488,6 +2488,15 @@ void NetworkProcess::processDidResume(bool forForegroundActivity)
         storageManager->resume();
 }
 
+#if PLATFORM(MAC)
+void NetworkProcess::systemDidWake()
+{
+    forEachNetworkSession([](auto& session) {
+        session.privateClickMeasurement().checkAttributionTimer();
+    });
+}
+#endif
+
 void NetworkProcess::prefetchDNS(const String& hostname)
 {
     WebCore::prefetchDNS(hostname);
@@ -2846,6 +2855,12 @@ void NetworkProcess::storePrivateClickMeasurement(PAL::SessionID sessionID, WebC
 {
     if (CheckedPtr session = networkSession(sessionID))
         session->storePrivateClickMeasurement(WTFMove(privateClickMeasurement));
+}
+
+void NetworkProcess::simulatePrivateClickMeasurementConversion(PAL::SessionID sessionID, int priority, int triggerData, const URL& sourceURL, const URL& destinationURL)
+{
+    if (CheckedPtr session = networkSession(sessionID))
+        session->simulatePrivateClickMeasurementConversion(priority, triggerData, sourceURL, destinationURL);
 }
 
 void NetworkProcess::dumpPrivateClickMeasurement(PAL::SessionID sessionID, CompletionHandler<void(String)>&& completionHandler)

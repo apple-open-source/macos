@@ -12,6 +12,9 @@
 #include <Security/SecAsn1Types.h>
 #include <libDER/DER_Keys.h>
 
+SecKeyAlgorithm SecKeyAlgorithmCopyFromDERAlgorithmId(SecKeyRef publicKey, const DERAlgorithmId *sigAlgId)
+    SPI_AVAILABLE(macos(26.3), ios(26.3), tvos(26.3), watchos(26.3), visionos(26.3));
+
 bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const DERAlgorithmId *sigAlgId,
                                      const uint8_t *dataToHash, size_t amountToHash,
                                      const uint8_t *signatureStart, size_t signatureSize,

@@ -114,6 +114,7 @@ enum {
 	kIOPMNetworkStackFullWakeFlag = 0x000000001,
 };
 extern void IOPMNetworkStackFullWake(uint64_t flags, const char * reason);
+extern void IOPMNetworkStackWillSleepFromAOT(void);
 
 #ifdef __cplusplus
 }

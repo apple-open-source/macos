@@ -61,25 +61,32 @@ bd_flags(struct xbpf_d *bd, char *flagbuf, size_t len)
 		 );
 }
 
-void
-bpf_stats(char *interface)
+int
+bpf_stats(struct netstat_parameters *params, char *interface)
 {
 	size_t len;
-	void *buffer;
+	void *buffer = NULL;
 	struct xbpf_d *bd;
+	int retval = 0;
 
 	if (sysctlbyname("debug.bpf_stats", NULL, &len, NULL, 0) != 0) {
-		err(EX_OSERR, "sysctlbyname debug.bpf_stats");
+		warn("sysctlbyname debug.bpf_stats");
+		retval = -1;
+		goto done;
 	}
 	if (len == 0) {
-		return;
+		goto done;
 	}
 	buffer = malloc(2 * len);
 	if (buffer == NULL) {
-		err(EX_OSERR, "malloc");
+		warn("malloc");
+		retval = -1;
+		goto done;
 	}
 	if (sysctlbyname("debug.bpf_stats", buffer, &len, NULL, 0) != 0) {
-		err(EX_OSERR, "sysctlbyname debug.bpf_stats");
+		warn("sysctlbyname debug.bpf_stats");
+		retval = -1;
+		goto done;
 	}
 	printf("%-9s %-14s %-13s %9s %9s %9s %12s %9s %9s %9s %9s %9s %9s %9s %12s %9s %9s %s\n",
 	       "Device", "Netif", "Flags",
@@ -111,8 +118,10 @@ bpf_stats(char *interface)
 		       bd->bd_wcount, bd->bd_wdcount,
 		       namebuf, bd->bd_pid);
 	}
-
+done:
 	free(buffer);
+
+	return retval;
 }
 
 void

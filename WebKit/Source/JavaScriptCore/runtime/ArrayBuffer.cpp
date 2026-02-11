@@ -28,6 +28,7 @@
 
 #include "JSArrayBufferView.h"
 #include "JSCellInlines.h"
+#include "JSWebAssemblyInstance.h"
 #include "WaiterListManager.h"
 #include "WeakInlines.h"
 #include <wtf/Gigacage.h>
@@ -597,7 +598,7 @@ Expected<int64_t, GrowFailReason> SharedArrayBufferContents::grow(VM& vm, size_t
     return grow(Locker { m_memoryHandle->lock() }, vm, newByteLength, requirePageMultiple);
 }
 
-Expected<int64_t, GrowFailReason> SharedArrayBufferContents::grow(const AbstractLocker&, VM& vm, size_t newByteLength, bool requirePageMultiple)
+Expected<int64_t, GrowFailReason> SharedArrayBufferContents::grow(const AbstractLocker& locker, VM& vm, size_t newByteLength, bool requirePageMultiple)
 {
     // Keep in mind that newByteLength may not be page-size-aligned. If the buffer is a Wasm memory, that is an error.
     size_t sizeInBytes = m_sizeInBytes.load(std::memory_order_seq_cst);
@@ -623,8 +624,8 @@ Expected<int64_t, GrowFailReason> SharedArrayBufferContents::grow(const Abstract
     if (newPageCount.bytes() > MAX_ARRAY_BUFFER_SIZE)
         return makeUnexpected(GrowFailReason::WouldExceedMaximum);
 
+    RefPtr memoryHandle = m_memoryHandle;
     if (newPageCount != oldPageCount) {
-        RefPtr memoryHandle = m_memoryHandle;
         ASSERT(memoryHandle->maximum() >= newPageCount);
         size_t desiredSize = newPageCount.bytes();
         RELEASE_ASSERT(desiredSize <= MAX_ARRAY_BUFFER_SIZE);
@@ -655,6 +656,16 @@ Expected<int64_t, GrowFailReason> SharedArrayBufferContents::grow(const Abstract
     memset(std::bit_cast<uint8_t*>(data()) + sizeInBytes, 0, newByteLength - sizeInBytes);
 
     updateSize(newByteLength);
+
+    UNUSED_PARAM(locker);
+#if ENABLE(WEBASSEMBLY)
+    // Update cache for instance
+    for (Ref anchor : memoryHandle->anchors(locker)) {
+        Locker locker { anchor->m_lock };
+        if (JSWebAssemblyInstance* instance = anchor->instance())
+            instance->updateCachedMemory();
+    }
+#endif
     return deltaByteLength;
 }
 

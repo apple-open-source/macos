@@ -90,13 +90,12 @@ struct xgen_n {
 #define	ALL_XGN_KIND_EVT (XSO_SOCKET | XSO_RCVBUF | XSO_SNDBUF | XSO_STATS | XSO_EVT)
 #define	ALL_XGN_KIND_KCB (XSO_SOCKET | XSO_RCVBUF | XSO_SNDBUF | XSO_STATS | XSO_KCB)
 
-void
-systmpr(uint32_t proto,
-	char *name, int af)
+int
+systmpr(struct netstat_parameters *params, uint32_t proto, char *name, int af)
 {
 	const char *mibvar;
 	size_t len;
-	char *buf, *next;
+	char *buf = NULL, *next;
 	struct xsystmgen *xig, *oxig;
 	struct xgen_n *xgn;
 	int which = 0;
@@ -108,7 +107,8 @@ systmpr(uint32_t proto,
 	struct xkctlpcb *kcb = NULL;
 	struct xkevtpcb *kevb = NULL;
 	int first = 1;
-	
+	int retval = 0;
+
 	switch (proto) {
 		case SYSPROTO_EVENT:
 			mibvar = "net.systm.kevt.pcblist";
@@ -124,29 +124,32 @@ systmpr(uint32_t proto,
 			break;
 	}
 	if (mibvar == NULL)
-		return;
+		return 0;
 	len = 0;
 	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			warn("sysctl: %s", mibvar);
-		return;
+			retval = -1;
+		}
+		goto done;
 	}
 	if ((buf = malloc(len)) == 0) {
 		warn("malloc %lu bytes", (u_long)len);
-		return;
+		retval = -1;
+		goto done;
 	}
 	if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		free(buf);
-		return;
+		retval = -1;
+		goto done;
 	}
 	/*
 	 * Bail-out to avoid logic error in the loop below when
 	 * there is in fact no more control block to process
 	 */
 	if (len <= sizeof(struct xsystmgen)) {
-		free(buf);
-		return;
+		retval = -1;
+		goto done;
 	}
 	oxig = xig = (struct xsystmgen *)buf;
 	for (next = buf + ROUNDUP64(xig->xg_len); next < buf + len;
@@ -182,13 +185,13 @@ systmpr(uint32_t proto,
 					break;
 				default:
 					/* It's OK to have some extra bytes at the end */
-					if (which != 0 && vflag > 2) {
+					if (which != 0 && params->vflag > 2) {
 						printf("unexpected kind %d which 0x%x\n", xgn->xgn_kind, which);
 					}
 					break;
 			}
 		} else {
-			if (vflag)
+			if (params->vflag)
 				printf("got %d twice\n", xgn->xgn_kind);
 		}
 
@@ -203,10 +206,10 @@ systmpr(uint32_t proto,
 			
 			if (first) {
 				printf("Registered kernel control modules\n");
-				if (Aflag)
+				if (params->Aflag)
 					printf("%-16.16s ", "kctlref");
 				printf("%-8.8s ", "id");
-				if (Aflag)
+				if (params->Aflag)
 					printf("%-8.8s ", "unit");
 				printf("%-8.8s ", "flags");
 				printf("%-8.8s ", "pcbcount");
@@ -216,10 +219,10 @@ systmpr(uint32_t proto,
 				printf("\n");
 				first = 0;
 			}
-			if (Aflag)
+			if (params->Aflag)
 				printf("%16llx ", kctl->xkr_kctlref);
 			printf("%8x ", kctl->xkr_id);
-			if (Aflag)
+			if (params->Aflag)
 				printf("%8d ", kctl->xkr_reg_unit);
 			printf("%8x ", kctl->xkr_flags);
 			printf("%8d ", kctl->xkr_pcbcount);
@@ -232,12 +235,12 @@ systmpr(uint32_t proto,
 			
 			if (first) {
 				printf("Active kernel control sockets\n");
-				if (Aflag)
+				if (params->Aflag)
 					printf("%16.16s ", "pcb");
 				printf("%-5.5s %-6.6s %-6.6s",
 				        "Proto", "Recv-Q", "Send-Q");
 
-				print_socket_stats_format();
+				print_socket_stats_format(params);
 
 				printf(" %6.6s", "unit");
 				printf(" %6.6s", "id");
@@ -245,13 +248,13 @@ systmpr(uint32_t proto,
 				printf("\n");
 				first = 0;
 			}
-			if (Aflag)
+			if (params->Aflag)
 				printf("%16llx ", kcb->xkp_kctpcb);
 			printf("%-5.5s %6u %6u", name,
 			       so_rcv->sb_cc,
 			       so_snd->sb_cc);
 
-			print_socket_stats_data(so, so_rcv, so_snd, so_stat);
+			print_socket_stats_data(params, so, so_rcv, so_snd, so_stat);
 
 			printf(" %6d", kcb->xkp_unit);
 			printf(" %6d", kcb->xkp_kctlid);
@@ -262,7 +265,7 @@ systmpr(uint32_t proto,
 			which = 0;
 			if (first) {
 				printf("Active kernel event sockets\n");
-				if (Aflag)
+				if (params->Aflag)
 					printf("%16.16s ", "pcb");
 				printf("%-5.5s %-6.6s %-6.6s ",
 				       "Proto", "Recv-Q", "Send-Q");
@@ -270,12 +273,12 @@ systmpr(uint32_t proto,
 				printf("%6.6s ", "class");
 				printf("%6.6s", "subcl");
 
-				print_socket_stats_format();
+				print_socket_stats_format(params);
 
 				printf("\n");
 				first = 0;
 			}
-			if (Aflag)
+			if (params->Aflag)
 				printf("%16llx ", kevb->kep_evtpcb);
 			printf("%-5.5s %6u %6u ", name,
 			       so_rcv->sb_cc,
@@ -284,7 +287,7 @@ systmpr(uint32_t proto,
 			printf("%6d ", kevb->kep_class_filter);
 			printf("%6d", kevb->kep_subclass_filter);
 
-			print_socket_stats_data(so, so_rcv, so_snd, so_stat);
+			print_socket_stats_data(params, so, so_rcv, so_snd, so_stat);
 
 			printf("\n");
 		}
@@ -302,29 +305,32 @@ systmpr(uint32_t proto,
 			       name);
 		}
 	}
+done:
 	free(buf);
+
+	return retval;
 }
 
-void
-kctl_stats(uint32_t off __unused, char *name, int af __unused)
+int
+kctl_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct kctlstat pkctlstat;
 	struct kctlstat kctlstat;
 	size_t len = sizeof(struct kctlstat);
 	const char *mibvar = "net.systm.kctl.stats";
-	
+
 	if (sysctlbyname(mibvar, &kctlstat, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		return;
+		return -1;
 	}
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 	
 #define	STATDIFF(f) (kctlstat.f - pkctlstat.f)
-#define	p(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 	printf(m, STATDIFF(f), plural(STATDIFF(f)))
-#define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 	printf(m, STATDIFF(f))
 	
 	p(kcs_reg_total, "\t%llu total kernel control module%s registered\n");
@@ -346,12 +352,14 @@ kctl_stats(uint32_t off __unused, char *name, int af __unused)
 #undef p
 #undef p1a
 	
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&kctlstat, &pkctlstat, len);
+
+	return 0;
 }
 
-void
-kevt_stats(uint32_t off __unused, char *name, int af __unused)
+int
+kevt_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct kevtstat pkevtstat;
 	struct kevtstat kevtstat;
@@ -360,16 +368,16 @@ kevt_stats(uint32_t off __unused, char *name, int af __unused)
 	
 	if (sysctlbyname(mibvar, &kevtstat, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		return;
+		return -1;
 	}
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 	
 #define	STATDIFF(f) (kevtstat.f - pkevtstat.f)
-#define	p(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 	printf(m, STATDIFF(f), plural(STATDIFF(f)))
-#define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 	printf(m, STATDIFF(f))
 	
 	p(kes_pcbcount, "\t%llu open kernel event socket%s\n");
@@ -384,12 +392,15 @@ kevt_stats(uint32_t off __unused, char *name, int af __unused)
 #undef p
 #undef p1a
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&kevtstat, &pkevtstat, len);
+
+
+	return 0;
 }
 
-void
-print_extbkidle_stats(uint32_t off __unused, char *name, int af __unused)
+int
+print_extbkidle_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct soextbkidlestat psoextbkidlestat;
 	struct soextbkidlestat soextbkidlestat;
@@ -398,16 +409,16 @@ print_extbkidle_stats(uint32_t off __unused, char *name, int af __unused)
 	
 	if (sysctlbyname(mibvar, &soextbkidlestat, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		return;
+		return -1;
 	}
 
 #define	STATDIFF(f) (soextbkidlestat.f - psoextbkidlestat.f)
-#define	p(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (STATDIFF(f) || params->sflag <= 1) \
     printf(m, STATDIFF(f), plural(STATDIFF(f)))
-#define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (STATDIFF(f) || params->sflag <= 1) \
     printf(m, STATDIFF(f))
 	
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 	
@@ -430,12 +441,14 @@ print_extbkidle_stats(uint32_t off __unused, char *name, int af __unused)
 #undef p
 #undef p1a
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&soextbkidlestat, &psoextbkidlestat, len);
+
+	return 0;
 }
 
-void
-print_nstat_stats(uint32_t off __unused, char *name, int af __unused)
+int
+print_nstat_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct nstat_stats pnstat_stats;
 	struct nstat_stats nstat_stats;
@@ -444,16 +457,16 @@ print_nstat_stats(uint32_t off __unused, char *name, int af __unused)
 	
 	if (sysctlbyname(mibvar, &nstat_stats, &len, 0, 0) < 0) {
 		warn("sysctl: %s", mibvar);
-		return;
+		return -1;
 	}
 	
 #define	STATDIFF(f) (nstat_stats.f - pnstat_stats.f)
-#define	p(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 printf(m, STATDIFF(f), plural(STATDIFF(f)))
-#define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (STATDIFF(f) || params->sflag <= 1) \
 printf(m, STATDIFF(f))
 	
-	if (interval && vflag > 0)
+	if (params->interval && params->vflag > 0)
 		print_time();
 	printf ("%s:\n", name);
 	
@@ -478,6 +491,8 @@ printf(m, STATDIFF(f))
 #undef p
 #undef p1a
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&nstat_stats, &pnstat_stats, len);
+
+	return 0;
 }

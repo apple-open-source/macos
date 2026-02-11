@@ -2942,6 +2942,54 @@ vm_memory_malloc_no_cow(
 	return FALSE;
 }
 
+#if CONFIG_LARGE_SIZE_TELEMETRY
+/*
+ * Threshold (bytes) at which to send guard objects telemetry.
+ */
+TUNABLE(vm_map_size_t, gobj_telemetry_threshold, "gobj_telemetry_threshold", (1 << 30));
+#define GUARD_OBJECTS_TELEMETRY_DISABLED ((vm_map_size_t) -1)
+#define GUARD_OBJECTS_TELEMETRY_NOT_SENT (0)
+
+#if DEVELOPMENT || DEBUG
+TUNABLE(bool, gobj_do_simulated_crashes, "gobj_do_simulated_crashes", true);
+#endif /* DEVELOPMENT || DEBUG */
+
+CA_EVENT(guard_objects_deny_allocation,
+    CA_STATIC_STRING(CA_PROCNAME_LEN), proc_name,
+    CA_INT, size);
+
+void
+vm_map_enter_large_telemetry_ast(void)
+{
+	vm_map_size_t size = os_atomic_load(&current_task()->large_allocation_size, relaxed);
+
+	ca_event_t ca_event = CA_EVENT_ALLOCATE(guard_objects_deny_allocation);
+	CA_EVENT_TYPE(guard_objects_deny_allocation) * event = ca_event->data;
+	strlcpy(event->proc_name, proc_name_address(current_proc()), CA_PROCNAME_LEN);
+	event->size = size;
+	CA_EVENT_SEND(ca_event);
+
+#if DEVELOPMENT || DEBUG
+	if (!gobj_do_simulated_crashes) {
+		return;
+	}
+
+	mach_exception_code_t    code    = 0;
+	mach_exception_subcode_t subcode = size;
+
+	EXC_GUARD_ENCODE_TYPE(code, GUARD_TYPE_VIRT_MEMORY);
+	EXC_GUARD_ENCODE_FLAVOR(code, kGUARD_EXC_LARGE_ALLOCATION_TELEMETRY);
+	EXC_GUARD_ENCODE_TARGET(code, 0);
+
+	kern_return_t kr = task_exception_notify(EXC_GUARD, code, subcode, FALSE);
+	if (kr != KERN_SUCCESS) {
+		/* Simulated crash. */
+		(void) task_violated_guard(code, subcode, NULL, TRUE);
+	}
+#endif /* DEVELOPMENT || DEBUG */
+}
+#endif /* CONFIG_LARGE_SIZE_TELEMETRY */
+
 uint64_t vm_map_enter_RLIMIT_AS_count = 0;
 uint64_t vm_map_enter_RLIMIT_DATA_count = 0;
 /*
@@ -3036,6 +3084,27 @@ vm_map_enter(
 	vmlp_api_start(VM_MAP_ENTER);
 
 	caller_object = object;
+
+#if CONFIG_LARGE_SIZE_TELEMETRY
+	/*
+	 * Send telemetry on large, non-fixed user allocations from tasks with guard
+	 * objects enabled that haven't already sent telemetry. In the future,
+	 * allocations matching these criteria will be denied.
+	 */
+	if (gobj_telemetry_threshold != GUARD_OBJECTS_TELEMETRY_DISABLED &&
+	    size >= gobj_telemetry_threshold &&
+	    !vmk_flags.vmf_fixed &&
+	    !vm_kernel_map_is_kernel(map) &&
+	    task_has_guard_objects(current_task()) &&
+	    (vmk_flags.vm_tag != VM_MEMORY_JAVASCRIPT_CORE) &&     /* Exceptions for WebKit's gigacage. */
+	    (vmk_flags.vm_tag != VM_MEMORY_JAVASCRIPT_JIT_EXECUTABLE_ALLOCATOR) &&
+	    os_atomic_cmpxchg(
+		    &current_task()->large_allocation_size,
+		    GUARD_OBJECTS_TELEMETRY_NOT_SENT,
+		    size, relaxed)) {
+		thread_ast_set(current_thread(), AST_LARGE_ENTER_TELEMETRY);
+	}
+#endif /* CONFIG_LARGE_SIZE_TELEMETRY */
 
 	assertf(vmk_flags.__vmkf_unused2 == 0, "vmk_flags unused2=0x%llx\n", vmk_flags.__vmkf_unused2);
 
@@ -4267,6 +4336,7 @@ vm_map_enter_mem_object_sanitize(
 	return KERN_SUCCESS;
 }
 
+uint64_t vm_map_copy_extra_adjustments = 0;
 kern_return_t
 vm_map_enter_mem_object(
 	vm_map_t                target_map,
@@ -4369,7 +4439,8 @@ vm_map_enter_mem_object(
 
 		named_entry = mach_memory_entry_from_port(port);
 
-		if (vmk_flags.vmf_return_data_addr ||
+		if (named_entry->is_copy ||
+		    vmk_flags.vmf_return_data_addr ||
 		    vmk_flags.vmf_return_4k_data_addr) {
 			result = vm_map_enter_adjust_offset(&obj_offs,
 			    &obj_end, named_entry->data_offset);
@@ -4407,11 +4478,14 @@ vm_map_enter_mem_object(
 			return KERN_INVALID_ARGUMENT;
 		}
 
-		/* for a vm_map_copy, we can only map it whole */
 		if (named_entry->is_copy &&
 		    (obj_size != named_entry->size) &&
 		    (vm_map_round_page(obj_size, map_mask) == named_entry->size)) {
-			/* XXX FBDP use the rounded size... */
+			/*
+			 * XXX FBDP use the rounded size that covers the whole entry...
+			 * vm_map_copy_adjust_to_target() should take care of this now,
+			 * so this is harmless but probably no longer needed.
+			 */
 			obj_end += named_entry->size - obj_size;
 			obj_size = named_entry->size;
 		}
@@ -4535,6 +4609,7 @@ vm_map_enter_mem_object(
 			}
 
 			copy_map = named_entry->backing.copy;
+			vm_map_copy_require(copy_map);
 			assert(copy_map->type == VM_MAP_COPY_ENTRY_LIST);
 			if (copy_map->type != VM_MAP_COPY_ENTRY_LIST) {
 				/* unsupported type; should not happen */
@@ -4560,35 +4635,32 @@ vm_map_enter_mem_object(
 			}
 
 			target_copy_map = VM_MAP_COPY_NULL;
-			target_size = copy_map->size;
 			overmap_start = 0;
 			overmap_end = 0;
 			trimmed_start = 0;
-			if (copy_map->cpy_hdr.page_shift != VM_MAP_PAGE_SHIFT(target_map)) {
-				DEBUG4K_ADJUST("adjusting...\n");
-				kr = vm_map_copy_adjust_to_target(
-					copy_map,
-					obj_offs,
-					initial_size,
-					target_map,
-					copy,
-					&target_copy_map,
-					&overmap_start,
-					&overmap_end,
-					&trimmed_start);
-				if (kr != KERN_SUCCESS) {
-					named_entry_unlock(named_entry);
-					vmlp_api_end(VM_MAP_ENTER_MEM_OBJECT, kr);
-					return kr;
-				}
-				target_size = target_copy_map->size;
-			} else {
-				/*
-				 * Assert that the vm_map_copy is coming from the right
-				 * zone and hasn't been forged
-				 */
-				vm_map_copy_require(copy_map);
-				target_copy_map = copy_map;
+			DEBUG4K_ADJUST("adjusting...\n");
+			kr = vm_map_copy_adjust_to_target(
+				copy_map,
+				obj_offs,
+				initial_size,
+				target_map,
+				copy,
+				&target_copy_map,
+				&overmap_start,
+				&overmap_end,
+				&trimmed_start);
+			if (kr != KERN_SUCCESS) {
+				named_entry_unlock(named_entry);
+				vmlp_api_end(VM_MAP_ENTER_MEM_OBJECT, kr);
+				return kr;
+			}
+			target_size = target_copy_map->size;
+			if (target_copy_map != copy_map &&
+			    target_size != copy_map->size &&
+			    copy_map->cpy_hdr.page_shift == VM_MAP_PAGE_SHIFT(target_map)) {
+//				printf("*** FBDP :%d adjust off 0x%llx sz 0x%llx e[doff 0x%llx off 0x%llx sz 0x%llx] objoffs 0x%llx i_size 0x%llx map_size 0x%llx copy size 0x%llx -> 0x%llx oim 0x%llx trim 0x%llx over 0x%llx/0x%llx tgt [0x%llx/0x%llx 0x%llx/0x%llx]\n", __LINE__, VM_SANITIZE_UNSAFE_UNWRAP(offset_u), VM_SANITIZE_UNSAFE_UNWRAP(initial_size_u), named_entry->data_offset, named_entry->offset, named_entry->size, obj_offs, initial_size, map_size, copy_map->size, target_copy_map->size, offset_in_mapping, trimmed_start, overmap_start, overmap_end, vm_map_copy_first_entry(target_copy_map)->vme_start, VME_OFFSET(vm_map_copy_first_entry(target_copy_map)), vm_map_copy_last_entry(target_copy_map)->vme_end, VME_OFFSET(vm_map_copy_last_entry(target_copy_map)));
+				vm_map_copy_extra_adjustments++;
+				ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_MAP_ENTER_MEM_ENTRY_PARTIAL), vm_map_copy_extra_adjustments /* arg */);
 			}
 
 			vm_map_kernel_flags_t rsv_flags = vmk_flags;
@@ -4651,9 +4723,7 @@ vm_map_enter_mem_object(
 
 				/* sanity check */
 				if ((copy_addr + copy_size) >
-				    (map_addr +
-				    overmap_start + overmap_end +
-				    named_entry->size /* XXX full size */)) {
+				    (map_addr + target_size)) {
 					/* over-mapping too much !? */
 					kr = KERN_INVALID_ARGUMENT;
 					DEBUG4K_ERROR("kr 0x%x\n", kr);
@@ -4825,6 +4895,7 @@ vm_map_enter_mem_object(
 						 * to map.
 						 */
 						copy_object = VME_OBJECT(copy_entry);
+						copy_offset = VME_OFFSET(copy_entry);
 						/* take an extra ref for the mapping below */
 						vm_object_reference(copy_object);
 					}
@@ -20105,6 +20176,7 @@ vm_map_copy_trim(
 		/* clip entry if needed */
 		vm_map_copy_clip_start(copy_map, entry, trim_start);
 		vm_map_copy_clip_end(copy_map, entry, trim_end);
+		next_entry = entry->vme_next;
 		/* dispose of entry */
 		copy_map->size -= entry->vme_end - entry->vme_start;
 		vm_map_copy_entry_unlink(copy_map, entry);

@@ -139,6 +139,7 @@ struct droptap_header {
 	X(DROP_REASON_FSW_GSO_NOMEM_PKT,            DROPTAP_SKYWALK, DROPTAP_FSW,  18, "Flowswitch GSO not enough packet memory")    \
 	X(DROP_REASON_FSW_GSO_NOMEM_MBUF,           DROPTAP_SKYWALK, DROPTAP_FSW,  19, "Flowswitch GSO not enough mbuf memory")      \
 	X(DROP_REASON_FSW_DST_NXPORT_INVALID,       DROPTAP_SKYWALK, DROPTAP_FSW,  20, "Flowswitch dst nexus port invalid")          \
+	X(DROP_REASON_FSW_DEMUX_L2_MULTI_L3_UNI,    DROPTAP_SKYWALK, DROPTAP_FSW,  21, "Flowswitch demux l2 multicast l3 unicast")   \
 	X(DROP_REASON_AQM_FULL,                     DROPTAP_SKYWALK, DROPTAP_AQM,  1,  "AQM full")                                   \
 	X(DROP_REASON_AQM_COMPRESSED,               DROPTAP_SKYWALK, DROPTAP_AQM,  2,  "AQM compressed")                             \
 	X(DROP_REASON_AQM_BK_SYS_THROTTLED,         DROPTAP_SKYWALK, DROPTAP_AQM,  3,  "AQM BK_SYS throttled")                       \

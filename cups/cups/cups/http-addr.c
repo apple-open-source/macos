@@ -195,7 +195,7 @@ af_local_bind(int fd, http_addr_t* addr)
    */
 
   if (result == 0) {
-    (void) chmod(addr->un.sun_path, 0140777);
+    (void) fchmod(fd, 0140777);
   }
 
   return result;

@@ -115,8 +115,10 @@
 #include <vm/vm_iokit.h>
 #include <vm/vm_reclaim_xnu.h>
 #if HAS_MTE
+#include <arm64/mte_xnu.h>
 #include <vm/vm_compressor_xnu.h>
 #include <vm/vm_mteinfo_internal.h>
+#include <sys/ubc.h>                        /* for mach_to_bsd_errno() */
 #endif /* HAS_MTE */
 
 #include <sys/kern_memorystatus.h>
@@ -3280,6 +3282,10 @@ SYSCTL_QUAD(_vm, OID_AUTO, map_set_size_limit_count, CTLFLAG_RD | CTLFLAG_LOCKED
 SYSCTL_QUAD(_vm, OID_AUTO, map_set_data_limit_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_set_data_limit_count, "");
 SYSCTL_QUAD(_vm, OID_AUTO, map_enter_RLIMIT_AS_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_enter_RLIMIT_AS_count, "");
 SYSCTL_QUAD(_vm, OID_AUTO, map_enter_RLIMIT_DATA_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_map_enter_RLIMIT_DATA_count, "");
+
+extern uint64_t vm_map_copy_extra_adjustments;
+SYSCTL_QUAD(_vm, OID_AUTO, map_copy_extra_adjustments, CTLFLAG_RD | CTLFLAG_LOCKED,
+    &vm_map_copy_extra_adjustments, "");
 
 extern uint64_t vm_fault_resilient_media_initiate;
 extern uint64_t vm_fault_resilient_media_retry;

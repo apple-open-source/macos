@@ -98,8 +98,10 @@ void XMLDocumentParser::clearCurrentNodeStack()
     m_leafTextNode = nullptr;
 
     if (m_currentNodeStack.size()) { // Aborted parsing.
-        for (size_t i = m_currentNodeStack.size() - 1; i != 0; --i)
-            m_currentNodeStack[i]->deref();
+        for (size_t i = m_currentNodeStack.size() - 1; i != 0; --i) {
+            if (m_currentNodeStack[i])
+                m_currentNodeStack[i]->deref();
+        }
         if (m_currentNodeStack[0] && m_currentNodeStack[0] != document())
             m_currentNodeStack[0]->deref();
         m_currentNodeStack.clear();
@@ -132,7 +134,7 @@ void XMLDocumentParser::append(RefPtr<StringImpl>&& inputSource)
 void XMLDocumentParser::handleError(XMLErrors::Type type, const char* m, TextPosition position)
 {
     if (!m_xmlErrors)
-        m_xmlErrors = makeUnique<XMLErrors>(*document());
+        m_xmlErrors = makeUnique<XMLErrors>(*protectedDocument());
     m_xmlErrors->handleError(type, m, position);
     if (type != XMLErrors::Type::Warning)
         m_sawError = true;
@@ -147,8 +149,9 @@ void XMLDocumentParser::createLeafTextNode()
 
     ASSERT(m_bufferedText.size() == 0);
     ASSERT(!m_leafTextNode);
-    m_leafTextNode = Text::create(m_currentNode->document(), String { emptyString() });
-    m_currentNode->parserAppendChild(*m_leafTextNode);
+    m_leafTextNode = Text::create(m_currentNode->protectedDocument(), String { emptyString() });
+    if (RefPtr currentNode = m_currentNode.get())
+        currentNode->parserAppendChild(*protectedLeafTextNode());
 }
 
 bool XMLDocumentParser::updateLeafTextNode()
@@ -160,10 +163,10 @@ bool XMLDocumentParser::updateLeafTextNode()
         return true;
 
     if (isXHTMLDocument())
-        m_leafTextNode->parserAppendData(String::fromUTF8(m_bufferedText.span()));
+        protectedLeafTextNode()->parserAppendData(String::fromUTF8(m_bufferedText.span()));
     else {
         // This operation might fire mutation event, see below.
-        m_leafTextNode->appendData(String::fromUTF8(m_bufferedText.span()));
+        protectedLeafTextNode()->appendData(String::fromUTF8(m_bufferedText.span()));
     }
     m_bufferedText = { };
 
@@ -208,9 +211,9 @@ void XMLDocumentParser::end()
 
     if (isParsing())
         prepareToStopParsing();
-    document()->setReadyState(Document::ReadyState::Interactive);
+    protectedDocument()->setReadyState(Document::ReadyState::Interactive);
     clearCurrentNodeStack();
-    document()->finishedParsing();
+    protectedDocument()->finishedParsing();
 }
 
 void XMLDocumentParser::finish()
@@ -294,7 +297,7 @@ bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragm
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-xhtml-syntax.html#xml-fragment-parsing-algorithm
     // For now we have a hack for script/style innerHTML support:
     if (contextElement && (contextElement->hasLocalName(HTMLNames::scriptTag->localName()) || contextElement->hasLocalName(HTMLNames::styleTag->localName()))) {
-        fragment.parserAppendChild(fragment.document().createTextNode(String { chunk }));
+        fragment.parserAppendChild(fragment.protectedDocument()->createTextNode(String { chunk }));
         return true;
     }
 

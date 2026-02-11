@@ -947,7 +947,14 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
     func testRecoverFromPeerUsingOldPolicy() throws {
         self.startCKAccountStatusMock()
 
+#if os(visionOS)
+        let oldDeviceInfo = self.mockDeviceInfo.mockModelID
+        self.mockDeviceInfo.mockModelID = "iPad7,1"
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+        self.mockDeviceInfo.mockModelID = oldDeviceInfo
+#else
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+#endif
 
         let policyV6Document = builtInPolicyDocumentsFilteredByVersion { $0 == 6 }.first!()
         pastPeerContext.policyOverride = policyV6Document.version
@@ -1010,7 +1017,14 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
     func testRecoverFromPeerUsingExtremelyOldPolicy() throws {
         self.startCKAccountStatusMock()
 
+#if os(visionOS)
+        let oldDeviceInfo = self.mockDeviceInfo.mockModelID
+        self.mockDeviceInfo.mockModelID = "iPad7,1"
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+        self.mockDeviceInfo.mockModelID = oldDeviceInfo
+#else
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+#endif
         let policyV1Document = builtInPolicyDocumentsFilteredByVersion { $0 == 1 }.first!()
         pastPeerContext.policyOverride = policyV1Document.version
 
@@ -1092,7 +1106,14 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
+#if os(visionOS)
+        let oldDeviceInfo = self.mockDeviceInfo.mockModelID
+        self.mockDeviceInfo.mockModelID = "iPad7,1"
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+        self.mockDeviceInfo.mockModelID = oldDeviceInfo
+#else
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+#endif
         let policyV18Document = builtInPolicyDocumentsFilteredByVersion { $0 == 18 }.first!()
         pastPeerContext.policyOverride = policyV18Document.version
 
@@ -1169,7 +1190,14 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
+#if os(visionOS)
+        let oldDeviceInfo = self.mockDeviceInfo.mockModelID
+        self.mockDeviceInfo.mockModelID = "iPad7,1"
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+        self.mockDeviceInfo.mockModelID = oldDeviceInfo
+#else
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+#endif
         let policyV18Document = builtInPolicyDocumentsFilteredByVersion { $0 == 18 }.first!()
         pastPeerContext.policyOverride = policyV18Document.version
 

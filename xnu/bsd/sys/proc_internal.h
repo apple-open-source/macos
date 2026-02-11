@@ -542,6 +542,7 @@ struct proc {
 #define P_LVMRSRCOWNER  0x01000000      /* can handle the resource ownership of  */
 #define P_LTERM_DECRYPTFAIL     0x04000000      /* process terminating due to key failure to decrypt */
 #define P_LTERM_JETSAM          0x08000000      /* process is being jetsam'd */
+#define P_LWASSOFT              0x10000000      /* process had soft mode disabled due to ptrace */
 
 #define P_JETSAM_VMPAGESHORTAGE 0x00000000      /* jetsam: lowest jetsam priority proc, killed due to vm page shortage */
 #define P_JETSAM_VMTHRASHING    0x10000000      /* jetsam: lowest jetsam priority proc, killed due to vm thrashing */
@@ -981,6 +982,7 @@ void proc_transfer_knotes(struct proc *old_proc, struct proc *new_proc);
 void proc_knote_drain(struct proc *p);
 void proc_setregister(proc_t p);
 void proc_resetregister(proc_t p);
+void proc_disable_sec_soft_mode_locked(proc_t p);
 bool proc_get_pthread_jit_allowlist(proc_t p, bool *late_out);
 void proc_set_pthread_jit_allowlist(proc_t p, bool late);
 /* returns the first thread_t in the process, or NULL XXX for NFS, DO NOT USE */
@@ -1022,6 +1024,9 @@ extern void proc_setexecutableuuid(proc_t, const uuid_t);
 extern const unsigned char *__counted_by(sizeof(uuid_t)) proc_executableuuid_addr(proc_t);
 extern void proc_getresponsibleuuid(proc_t target_proc, unsigned char *__counted_by(size)responsible_uuid, unsigned long size);
 extern void proc_setresponsibleuuid(proc_t target_proc, unsigned char *__counted_by(size)responsible_uuid, unsigned long size);
+
+extern bool proc_was_ptraced_during_soft_mode(proc_t p);
+extern void proc_set_ptraced_during_soft_mode(proc_t p);
 
 #pragma mark - process iteration
 

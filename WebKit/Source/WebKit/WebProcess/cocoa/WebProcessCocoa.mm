@@ -631,9 +631,16 @@ void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParame
     SandboxExtension::consumePermanently(parameters.modelElementCacheDirectoryExtensionHandle);
 #endif
 #endif
-#if PLATFORM(IOS_FAMILY) && !USE(EXTENSIONKIT)
-    grantAccessToContainerTempDirectory(parameters.containerTemporaryDirectoryExtensionHandle);
-#endif
+#if PLATFORM(IOS_FAMILY)
+#if !USE(EXTENSIONKIT)
+    SandboxExtension::consumePermanently(parameters.containerTemporaryDirectoryExtensionHandle);
+#endif // !USE(EXTENSIONKIT)
+#if ENABLE(LLVM_PROFILE_GENERATION)
+    WebKit::initializeLLVMProfiling();
+    WebCore::initializeLLVMProfiling();
+    JSC::initializeLLVMProfiling();
+#endif // ENABLE(LLVM_PROFILE_GENERATION)
+#endif // PLATFORM(IOS_FAMILY)
 
     if (!parameters.javaScriptConfigurationDirectory.isEmpty()) {
         auto javaScriptConfigFile = makeString(parameters.javaScriptConfigurationDirectory, "/JSC.config"_s);
@@ -1015,6 +1022,11 @@ void WebProcess::initializeSandbox(const AuxiliaryProcessInitializationParameter
     registerOpusDecoderIfNeeded();
     registerVorbisDecoderIfNeeded();
 #endif
+
+    if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("enable-lockdown-mode"_s) == "1"_s)
+        sandboxParameters.addParameter("WEBCONTENT_IS_LOCKDOWN_MODE"_s, "YES"_span);
+    else if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("enable-enhanced-security"_s) == "1"_s)
+        sandboxParameters.addParameter("WEBCONTENT_IS_ENHANCED_SECURITY"_s, "YES"_span);
 
     auto webKitBundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
 

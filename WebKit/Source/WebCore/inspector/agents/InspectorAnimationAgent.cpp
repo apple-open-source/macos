@@ -581,7 +581,12 @@ void InspectorAnimationAgent::frameNavigated(LocalFrame& frame)
     }
 
     Vector<String> animationIdsToRemove;
-    for (auto& [animationId, animation] : m_animationIdMap) {
+    for (auto& [animationId, weakAnimation] : m_animationIdMap) {
+        RefPtr animation = weakAnimation.get();
+        if (!animation) {
+            // FIXME <https://webkit.org/b/303593>: Animation should not be destroyed before notifying this agent to unbind it.
+            continue;
+        }
         if (RefPtr document = dynamicDowncast<Document>(animation->scriptExecutionContext()); document && document->frame() == &frame)
             animationIdsToRemove.append(animationId);
     }
@@ -592,7 +597,11 @@ void InspectorAnimationAgent::frameNavigated(LocalFrame& frame)
 String InspectorAnimationAgent::findAnimationId(WebAnimation& animation)
 {
     for (auto& [animationId, existingAnimation] : m_animationIdMap) {
-        if (existingAnimation.ptr() == &animation)
+        if (!existingAnimation) {
+            // FIXME <https://webkit.org/b/303593>: Animation should not be destroyed before notifying this agent to unbind it.
+            continue;
+        }
+        if (existingAnimation.get() == &animation)
             return animationId;
     }
     return nullString();
@@ -600,16 +609,16 @@ String InspectorAnimationAgent::findAnimationId(WebAnimation& animation)
 
 WebAnimation* InspectorAnimationAgent::assertAnimation(Inspector::Protocol::ErrorString& errorString, const String& animationId)
 {
-    auto* animation = m_animationIdMap.get(animationId);
+    WeakPtr animation = m_animationIdMap.get(animationId);
     if (!animation)
         errorString = "Missing animation for given animationId"_s;
-    return animation;
+    return animation.get();
 }
 
 void InspectorAnimationAgent::bindAnimation(WebAnimation& animation, RefPtr<Inspector::Protocol::Console::StackTrace> backtrace)
 {
     auto animationId = makeString("animation:"_s, IdentifiersFactory::createIdentifier());
-    m_animationIdMap.set(animationId, animation);
+    m_animationIdMap.set(animationId, &animation);
 
     auto animationPayload = Inspector::Protocol::Animation::Animation::create()
         .setAnimationId(animationId)

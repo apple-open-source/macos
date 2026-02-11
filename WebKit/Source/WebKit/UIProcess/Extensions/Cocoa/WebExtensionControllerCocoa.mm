@@ -458,6 +458,7 @@ void WebExtensionController::addUserContentController(WebUserContentControllerPr
             continue;
 
         context->addInjectedContent(userContentController);
+        context->addDeclarativeNetRequestRules(userContentController);
     }
 }
 
@@ -469,8 +470,10 @@ void WebExtensionController::removeUserContentController(WebUserContentControlle
             return;
     }
 
-    for (Ref context : m_extensionContexts)
+    for (Ref context : m_extensionContexts) {
         context->removeInjectedContent(userContentController);
+        userContentController.removeContentRuleList(context->uniqueIdentifier());
+    }
 
     m_allNonPrivateUserContentControllers.remove(userContentController);
     m_allPrivateUserContentControllers.remove(userContentController);

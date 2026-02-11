@@ -93,6 +93,11 @@ ParentalControlsContentFilter::ParentalControlsContentFilter(const PlatformConte
     UNUSED_PARAM(params);
 }
 
+void ParentalControlsContentFilter::willSendRequest(ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(String&&)>&& completionHandler)
+{
+    completionHandler({ });
+}
+
 static inline bool canHandleResponse(const ResourceResponse& response)
 {
 #if HAVE(SYSTEM_HTTP_CONTENT_FILTERING)

@@ -35,6 +35,9 @@
 #import "SharedBuffer.h"
 #import <objc/runtime.h>
 #import <pal/spi/cocoa/NEFilterSourceSPI.h>
+#import <wtf/CompletionHandler.h>
+#import <wtf/CrossThreadCopier.h>
+#import <wtf/RunLoop.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/URL.h>
@@ -107,11 +110,61 @@ void NetworkExtensionContentFilter::willSendRequest(ResourceRequest& request, co
 
     URL modifiedRequestURL { modifiedRequestURLString.get() };
     if (!modifiedRequestURL.isValid()) {
-        LOG(ContentFiltering, "NetworkExtensionContentFilter failed to convert modified URL string %@ to a  URL.\n", modifiedRequestURLString.get());
+        LOG(ContentFiltering, "NetworkExtensionContentFilter failed to convert modified URL string %@ to a URL.\n", modifiedRequestURLString.get());
         return;
     }
 
     request.setURL(WTFMove(modifiedRequestURL));
+}
+
+void NetworkExtensionContentFilter::willSendRequest(ResourceRequest&& request, const ResourceResponse& redirectResponse, CompletionHandler<void(String&&)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    ASSERT(!request.isNull());
+    if (!request.url().protocolIsInHTTPFamily() || !enabled()) {
+        m_state = State::Allowed;
+        completionHandler({ });
+        return;
+    }
+
+    initialize();
+
+    if (!redirectResponse.isNull()) {
+        responseReceived(redirectResponse);
+        if (!needsMoreData()) {
+            completionHandler({ });
+            return;
+        }
+    }
+
+    RetainPtr nsRequest = request.protectedNSURLRequest(DoNotUpdateHTTPBody);
+
+    auto blockPtr = makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NEFilterSourceStatus status, NSDictionary *decisionInfo) mutable {
+        ASSERT(!RunLoop::isMain());
+
+        RetainPtr<NSString> modifiedRequestURLString;
+        if (decisionInfo)
+            modifiedRequestURLString = checked_objc_cast<NSString>(decisionInfo[NEFilterSourceOptionsRedirectURL]);
+        protectedThis->handleDecision(status, replacementDataFromDecisionInfo(decisionInfo));
+
+        RunLoop::mainSingleton().dispatch([modifiedRequestURLString = WTFMove(modifiedRequestURLString), completionHandler = WTFMove(completionHandler)] mutable {
+            if (!modifiedRequestURLString) {
+                completionHandler({ });
+                return;
+            }
+
+            URL modifiedRequestURL { modifiedRequestURLString.get() };
+            if (!modifiedRequestURL.isValid()) {
+                RELEASE_LOG_ERROR(ContentFiltering, "NetworkExtensionContentFilter failed to convert modified URL string %s to a URL.\n", modifiedRequestURLString.get().UTF8String);
+                completionHandler({ });
+                return;
+            }
+
+            completionHandler(String { modifiedRequestURLString.get() });
+        });
+    });
+
+    [m_neFilterSource willSendRequest:nsRequest.get() decisionHandler:blockPtr.get()];
 }
 
 void NetworkExtensionContentFilter::responseReceived(const ResourceResponse& response)

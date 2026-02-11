@@ -248,7 +248,7 @@ void BaseAudioContext::setState(State state)
     if (m_state != state) {
         m_state = state;
         queueTaskToDispatchEvent(*this, TaskSource::MediaElement, Event::create(eventNames().statechangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
-        if (RefPtr manager = mediaSessionManager())
+        if (RefPtr manager = mediaSessionManagerIfExists())
             manager->updateNowPlayingInfoIfNecessary();
     }
 
@@ -1001,6 +1001,18 @@ RefPtr<MediaSessionManagerInterface> BaseAudioContext::mediaSessionManager() con
     return page->mediaSessionManager();
 }
 
+RefPtr<MediaSessionManagerInterface> BaseAudioContext::mediaSessionManagerIfExists() const
+{
+    RefPtr document = this->document();
+    if (!document)
+        return nullptr;
+
+    RefPtr page = document->page();
+    if (!page)
+        return nullptr;
+
+    return page->mediaSessionManagerIfExists();
+}
 
 } // namespace WebCore
 

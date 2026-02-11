@@ -1320,16 +1320,13 @@ sched_bucket_to_perfcontrol_class(sched_bucket_t bucket)
  * dimension: num_psets X num_psets X PERFCONTROL_CLASS_MAX
  */
 #define sched_perfcontrol_sched_edge_matrix_iterate(num_psets, edge_ind, sched_ind, ...) \
-	for (int src = 0; src < num_psets; src++) { \
-	    for (int dst = 0; dst < num_psets; dst++) { \
-	        for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) { \
-	            perfcontrol_class_t pc = sched_bucket_to_perfcontrol_class(bucket); \
-	            int edge_ind = (src * (int)num_psets * PERFCONTROL_CLASS_MAX) + (dst * PERFCONTROL_CLASS_MAX) + pc; \
-	            int sched_ind = (src * (int)num_psets * TH_BUCKET_SCHED_MAX) + (dst * TH_BUCKET_SCHED_MAX) + bucket; \
-	            __VA_ARGS__; \
-	        } \
-	    } \
-	}
+    assert3u((num_psets), ==, sched_num_psets); \
+	sched_edge_matrix_iterate(src_id, dst_id, bucket, { \
+	    perfcontrol_class_t pc = sched_bucket_to_perfcontrol_class(bucket); \
+	    int edge_ind = (src_id * (int)sched_num_psets * PERFCONTROL_CLASS_MAX) + (dst_id * PERFCONTROL_CLASS_MAX) + pc; \
+	    int sched_ind = (src_id * (int)sched_num_psets * TH_BUCKET_SCHED_MAX) + (dst_id * TH_BUCKET_SCHED_MAX) + bucket; \
+	    __VA_ARGS__; \
+	})
 
 /* Compute the index of a realtime edge within the perfcontrol matrix. */
 static uint64_t
@@ -1459,6 +1456,11 @@ sched_perfcontrol_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_cha
 	sched_edge_matrix_set(expanded_matrix, edge_changed_per_qos, flags, matrix_order);
 }
 
+/*
+ * Note this may be called in both preemption enabled context as well as in the
+ * context of the scheduler csw callout / quantum interrupt / timer interrupt
+ * perfcontrol callouts.
+ */
 void
 sched_perfcontrol_thread_group_preferred_clusters_set(void *machine_data, uint32_t tg_preferred_cluster,
     uint32_t overrides[PERFCONTROL_CLASS_MAX], sched_perfcontrol_preferred_cluster_options_t options)

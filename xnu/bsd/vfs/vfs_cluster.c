@@ -864,7 +864,10 @@ cluster_verify_thread(void)
 	thread_set_thread_name(self, "cluster_verify_thread");
 #if __AMP__
 	if (ecore_verify_threads) {
-		thread_soft_bind_cluster_type(self, 'E');
+		kern_return_t kr = thread_soft_bind_cluster_type(self, 'E');
+		if (kr != KERN_SUCCESS) {
+			printf("%s: WARN: failed to bind thread to cluster type; does the hardware topology match expectations?\n", __FUNCTION__);
+		}
 	}
 #endif /* __AMP__ */
 #if !defined(__x86_64__)

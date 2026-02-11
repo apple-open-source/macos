@@ -2137,6 +2137,17 @@ skipcheck:
 			}
 		}
 
+		/*
+		 * Hack: propogate ktriage information from p_lflag. This should be
+		 * removed in favor of something with proper ReportCrash integration.
+		 * rdar://163281838 (Remove P_LWASSOFT)
+		 */
+		if (proc_was_ptraced_during_soft_mode(p)) {
+			ktriage_record(thread_tid(current_thread()),
+			    KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED,
+			    KDBG_TRIAGE_VM_SOFT_MODE_DISABLE_TRACED), 0);
+		}
+
 		/* Update the code, subcode based on exit reason */
 		proc_update_corpse_exception_codes(p, &code, &subcode);
 		populate_corpse_crashinfo(p, task, rup,

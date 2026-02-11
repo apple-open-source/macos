@@ -1579,8 +1579,6 @@ ml_dcs_error_inject_register(void)
 }
 
 
-extern lck_mtx_t pset_create_lock;
-
 kern_return_t
 ml_processor_register(ml_processor_info_t *in_processor_info,
     processor_t *processor_out, ipi_handler_t *ipi_handler_out,
@@ -1658,18 +1656,10 @@ ml_processor_register(ml_processor_info_t *in_processor_info,
 #else /* HAS_CLUSTER */
 	this_cpu_datap->cluster_master = is_boot_cpu;
 #endif /* HAS_CLUSTER */
-	lck_mtx_lock(&pset_create_lock);
-	pset = pset_find(in_processor_info->cluster_id, NULL);
-	kprintf("[%d]%s>pset_find(cluster_id=%d) returned pset %d\n", current_processor()->cpu_id, __FUNCTION__, in_processor_info->cluster_id, pset ? pset->pset_id : -1);
-	if (pset == NULL) {
-		pset = pset_create(this_cpu_datap->cpu_cluster_type, this_cpu_datap->cpu_cluster_id, this_cpu_datap->cpu_cluster_id);
-		assert(pset != PROCESSOR_SET_NULL);
-#if __AMP__
-		kprintf("[%d]%s>pset_create(cluster_id=%d) returned pset %d\n", current_processor()->cpu_id, __FUNCTION__, this_cpu_datap->cpu_cluster_id, pset->pset_id);
-#endif /* __AMP__ */
-	}
+	pset = pset_for_id_checked((pset_id_t)in_processor_info->cluster_id); /* assume 1-to-1 */
+	kprintf("[%d]%s>pset_for_id_checked(cluster_id=%d) returned pset %d\n", current_processor()->cpu_id, __FUNCTION__, in_processor_info->cluster_id, pset ? pset->pset_id : -1);
+	assert3p(pset, !=, PROCESSOR_SET_NULL);
 	kprintf("[%d]%s>cpu_id %p cluster_id %d cpu_number %d is type %d\n", current_processor()->cpu_id, __FUNCTION__, in_processor_info->cpu_id, in_processor_info->cluster_id, this_cpu_datap->cpu_number, in_processor_info->cluster_type);
-	lck_mtx_unlock(&pset_create_lock);
 
 	processor_t processor = PERCPU_GET_RELATIVE(processor, cpu_data, this_cpu_datap);
 	if (!is_boot_cpu) {

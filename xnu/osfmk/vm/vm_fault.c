@@ -105,6 +105,7 @@
 #include <vm/vm_page_internal.h>
 #if HAS_MTE
 #include <vm/vm_mteinfo_internal.h>
+#include <vm/vm_memtag.h>
 #endif /* HAS_MTE */
 
 #include <sys/codesign.h>
@@ -7858,74 +7859,133 @@ RetrySourceFault:;
 			vm_fault_copy_dst_cleanup(dst_page);
 			break;
 		}
-		vm_object_unlock(dst_object);
 
-		/*
-		 *	Copy the page, and note that it is dirty
-		 *	immediately.
+		/**
+		 * Avoid overwriting a page that has become busy while dst_object's lock was dropped.
+		 * Re-run the loop at the same position; if necessary, vm_fault_page() will wait
+		 * for the destination page to be unbusied.
+		 */
+		if (__improbable(dst_page->vmp_busy)) {
+			vm_object_unlock(dst_object);
+			vm_map_unlock_read(dst_map);
+			if (result_page != VM_PAGE_NULL && src_page != dst_page) {
+				vm_fault_copy_cleanup(result_page, src_top_page);
+			}
+			vm_fault_copy_dst_cleanup(dst_page);
+			continue;
+		}
+
+#if CONFIG_SPTM
+		if (__improbable(PMAP_PAGE_IS_USER_EXECUTABLE(dst_page))) {
+			/**
+			 * We've found a page with an executable frame type, which likely means its physical aperture
+			 * mapping is write-protected, so we won't be able to do the copy below.  We'll need to remove
+			 * all extant mappings and retype the page, but first we need to make sure we can safely retype.
+			 */
+			if (__improbable(dst_page->vmp_cleaning || dst_page->vmp_iopl_wired)) {
+				/**
+				 * Clean up our locking state and source page/object references so that we can safely
+				 * sleep on the destination page.
+				 */
+				vm_object_unlock(dst_object);
+				vm_map_unlock_read(dst_map);
+				if (result_page != VM_PAGE_NULL && src_page != dst_page) {
+					vm_fault_copy_cleanup(result_page, src_top_page);
+				}
+				vm_object_lock(dst_object);
+				assert3p(dst_object, ==, VM_PAGE_OBJECT(dst_page));
+				if (dst_page->vmp_iopl_wired) {
+					/**
+					 * If the page is wired for I/O, we can't safely retype and we can't reasonably
+					 * wait for the I/O to finish.
+					 */
+					vm_object_unlock(dst_object);
+					vm_fault_copy_dst_cleanup(dst_page);
+					vmlp_api_end(VM_FAULT_COPY, KERN_MEMORY_ERROR);
+					return KERN_MEMORY_ERROR;
+				} else if (dst_page->vmp_cleaning) {
+					/**
+					 * We can wait for an in-place clean to finish.
+					 * NOTE: The page is still wired and we still hold a paging reference on the object
+					 * at this point, both of which will be undone by vm_fault_copy_dst_cleanup().
+					 * Is it really safe to sleep on the page in that state?
+					 */
+					wait_result_t wres = vm_page_sleep(dst_object, dst_page, interruptible, LCK_SLEEP_UNLOCK);
+					vm_fault_copy_dst_cleanup(dst_page);
+					if (wres == THREAD_AWAKENED || wres == THREAD_RESTART) {
+						continue;
+					} else {
+						vmlp_api_end(VM_FAULT_COPY, KERN_ABORTED);
+						return KERN_ABORTED;
+					}
+				} else {
+					/**
+					 * The cleaning or I/O state we initially observed went away while the object
+					 * lock was dropped.  Since we've torn down much of our state already, we need
+					 * to rerun the copy loop at the same position.
+					 */
+					vm_object_unlock(dst_object);
+					vm_fault_copy_dst_cleanup(dst_page);
+					continue;
+				}
+			}
+			/**
+			 * Remove all existing mappings and retype the page.  Consumers of the page will be forced to
+			 * re-fault it and, if necessary, re-validate it for codesigning.
+			 */
+			pmap_disconnect_options(VM_PAGE_GET_PHYS_PAGE(dst_page), PMAP_OPTIONS_RETYPE, NULL);
+		}
+#endif /* CONFIG_SPTM */
+
+		/**
+		 * Copy the page, and note that it is dirty immediately.
+		 * NOTE: if we're concerned about lock contention due to holding the object lock across the copy,
+		 * we could instead consider marking dst_page busy and dropping the lock, but only if we have some
+		 * other means of preventing a CoW bypass on this path.
 		 */
 
-		if (!page_aligned(src_offset) ||
-		    !page_aligned(dst_offset) ||
-		    !page_aligned(amount_left)) {
-			vm_object_offset_t      src_po,
-			    dst_po;
+		vm_object_offset_t      src_po, dst_po;
 
-			src_po = src_offset - vm_object_trunc_page(src_offset);
-			dst_po = dst_offset - vm_object_trunc_page(dst_offset);
+		src_po = src_offset - vm_object_trunc_page(src_offset);
+		dst_po = dst_offset - vm_object_trunc_page(dst_offset);
 
-			if (dst_po > src_po) {
-				part_size = PAGE_SIZE - dst_po;
-			} else {
-				part_size = PAGE_SIZE - src_po;
-			}
-			if (part_size > (amount_left)) {
-				part_size = amount_left;
-			}
-
-			if (result_page == VM_PAGE_NULL) {
-				assert((vm_offset_t) dst_po == dst_po);
-				assert((vm_size_t) part_size == part_size);
-				vm_page_part_zero_fill(dst_page,
-				    (vm_offset_t) dst_po,
-				    (vm_size_t) part_size);
-			} else {
-				assert((vm_offset_t) src_po == src_po);
-				assert((vm_offset_t) dst_po == dst_po);
-				assert((vm_size_t) part_size == part_size);
-				vm_page_part_copy(result_page,
-				    (vm_offset_t) src_po,
-				    dst_page,
-				    (vm_offset_t) dst_po,
-				    (vm_size_t)part_size);
-				if (!dst_page->vmp_dirty) {
-					vm_object_lock(dst_object);
-					SET_PAGE_DIRTY(dst_page, TRUE);
-					vm_object_unlock(dst_object);
-				}
-			}
+		if (dst_po > src_po) {
+			part_size = PAGE_SIZE - dst_po;
 		} else {
-			part_size = PAGE_SIZE;
+			part_size = PAGE_SIZE - src_po;
+		}
+		if (part_size > (amount_left)) {
+			part_size = amount_left;
+		}
 
-			if (result_page == VM_PAGE_NULL) {
-				vm_page_zero_fill(
-					dst_page
-#if HAS_MTE
-					, false /* zero_tags */
-#endif /* HAS_MTE */
-					);
-			} else {
-				vm_object_lock(result_page_object);
-				vm_page_copy(result_page, dst_page);
-				vm_object_unlock(result_page_object);
-
-				if (!dst_page->vmp_dirty) {
-					vm_object_lock(dst_object);
-					SET_PAGE_DIRTY(dst_page, TRUE);
-					vm_object_unlock(dst_object);
-				}
+		/**
+		 * For the case in which we're copying a full page, we don't want to use vm_page_copy() here
+		 * because that will do CS validation (unnecessarily in this case) which requires the source
+		 * object lock to be held, which in turn would complicate our locking requirements since we
+		 * already hold the destination object lock.  Instead we treat the full-page case as simply
+		 * a zero-offset/PAGE_SIZE variant of the partial-page case, which keeps the code simpler
+		 * anyway.
+		 */
+		if (result_page == VM_PAGE_NULL) {
+			assert((vm_offset_t) dst_po == dst_po);
+			assert((vm_size_t) part_size == part_size);
+			vm_page_part_zero_fill(dst_page,
+			    (vm_offset_t) dst_po,
+			    (vm_size_t) part_size);
+		} else {
+			assert((vm_offset_t) src_po == src_po);
+			assert((vm_offset_t) dst_po == dst_po);
+			assert((vm_size_t) part_size == part_size);
+			vm_page_part_copy(result_page,
+			    (vm_offset_t) src_po,
+			    dst_page,
+			    (vm_offset_t) dst_po,
+			    (vm_size_t)part_size);
+			if (!dst_page->vmp_dirty) {
+				SET_PAGE_DIRTY(dst_page, TRUE);
 			}
 		}
+		vm_object_unlock(dst_object);
 
 		/*
 		 *	Unlock everything, and return

@@ -41,7 +41,7 @@
 
 namespace WebCore {
 
-class StreamTeeState : public RefCountedAndCanMakeWeakPtr<StreamTeeState>, public ContextDestructionObserver {
+class StreamTeeState : public RefCounted<StreamTeeState>, public ContextDestructionObserver {
 public:
     template<typename Reader>
     static Ref<StreamTeeState> create(JSDOMGlobalObject& globalObject, Ref<ReadableStream>&& stream, Ref<Reader>&& reader)
@@ -51,6 +51,10 @@ public:
     }
 
     ~StreamTeeState();
+
+    // ContextDestructionObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     bool isReader(const ReadableStreamDefaultReader* thisReader) const { return m_defaultReader && m_defaultReader.get() == thisReader; }
     bool isReader(const ReadableStreamBYOBReader* thisReader) const { return m_byobReader && m_byobReader.get() == thisReader; }

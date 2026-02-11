@@ -6848,6 +6848,12 @@ int smbfs_free_locks_on_close(struct smb_share *share, vnode_t vp,
                 SMBERROR_LOCK(np, "smbfs_smb_lock failed <%d> to unlock flock <%d:%lld> on <%s> \n",
                               warning, 0, np->f_smbflock->len, np->n_name);
             }
+            else {
+                /* Remove lock from sharedFID's lockEntry */
+                AddRemoveByteRangeLockEntry (NULL, fileBRLEntry,
+                                             0, np->f_smbflock->len,
+                                             1, lck_pid, context);
+            }
         }
 
         /* Remove the flock */

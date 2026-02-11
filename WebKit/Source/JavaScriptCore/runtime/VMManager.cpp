@@ -36,13 +36,21 @@ VM* VMManager::s_recentVM { nullptr };
 
 VMManager& VMManager::singleton()
 {
-    static NeverDestroyed<VMManager> manager;
-    return manager;
+    static LazyNeverDestroyed<VMManager> manager;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [] {
+        manager.construct();
+    });
+    return manager.get();
 }
 
 VMThreadContext::VMThreadContext()
 {
     VM* vm = VM::fromThreadContext(this);
+    // Ensure that VM is not in-service yet. Since notifyVMConstruction has memory barrier (lock),
+    // if we are ensuring this condition here, concurrent threads will see this consistent state.
+    // Make sure m_isInService is initialized to false before VMThreadContext is initialized.
+    RELEASE_ASSERT(!vm->isInService());
     VMManager::singleton().notifyVMConstruction(*vm);
 }
 

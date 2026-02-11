@@ -74,6 +74,7 @@
 #include <kperf/kperf.h>
 #include <mach/policy.h>
 #include <security/mac_mach_internal.h> // for MACF AST hook
+#include <vm/vm_map_xnu.h> // for vm_map_enter_large_telemetry_ast
 #include <stdatomic.h>
 
 #if CONFIG_ARCADE
@@ -330,6 +331,13 @@ handle_user_asts_interrupts_enabled(ast_t reasons, thread_t thread, task_t task)
 		mte_synthesize_async_tag_check_fault(thread, get_threadtask(thread)->map);
 	}
 #endif /* HAS_MTE */
+
+#if CONFIG_LARGE_SIZE_TELEMETRY
+	if (reasons & AST_LARGE_ENTER_TELEMETRY) {
+		thread_ast_clear(thread, AST_LARGE_ENTER_TELEMETRY);
+		vm_map_enter_large_telemetry_ast();
+	}
+#endif /* CONFIG_LARGE_SIZE_TELEMETRY */
 
 	if (reasons & AST_MACH_EXCEPTION) {
 		thread_ast_clear(thread, AST_MACH_EXCEPTION);

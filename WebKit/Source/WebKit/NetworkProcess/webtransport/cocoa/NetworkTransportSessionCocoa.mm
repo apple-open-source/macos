@@ -199,15 +199,19 @@ static RetainPtr<nw_parameters_t> createParameters(NetworkConnectionToWebProcess
         pageID = WTFMove(pageID),
         hashes = WTFMove(hashes),
         clientOrigin = WTFMove(clientOrigin)
-    ](nw_protocol_options_t options) {
+    ](nw_protocol_options_t options) mutable {
         RetainPtr securityOptions = adoptNS(nw_tls_copy_sec_protocol_options(options));
         sec_protocol_options_set_peer_authentication_required(securityOptions.get(), true);
         sec_protocol_options_set_verify_block(securityOptions.get(), makeBlockPtr([
-            connectionToWebProcess = WTFMove(connectionToWebProcess),
-            url = WTFMove(url),
-            pageID = WTFMove(pageID),
-            hashes = WTFMove(hashes),
-            clientOrigin = WTFMove(clientOrigin)
+            // The configureTLS lambda can be called more than once, which means that
+            // this inner lambda capture initialization will also run multiple times.
+            // Therefore, do not WTFMove in this capture list or it will not work
+            // after the first move.
+            connectionToWebProcess,
+            url,
+            pageID,
+            hashes,
+            clientOrigin
         ] (sec_protocol_metadata_t metadata, sec_trust_t trust, sec_protocol_verify_complete_t completion) mutable {
             didReceiveServerTrustChallenge(connectionToWebProcess, url, hashes, pageID, clientOrigin, trust, completion);
         }).get(), mainDispatchQueueSingleton());

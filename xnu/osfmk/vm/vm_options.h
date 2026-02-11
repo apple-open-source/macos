@@ -62,4 +62,10 @@
 
 #define PAGE_SLEEP_WITH_INHERITOR (1)
 
+#if DEVELOPMENT || DEBUG
+#define CONFIG_CSEG_MPROTECT 1
+#else
+#define CONFIG_CSEG_MPROTECT 0
+#endif
+
 #endif /* __VM_VM_OPTIONS_H__ */

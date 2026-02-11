@@ -9,7 +9,7 @@ radar-31053702		radar-31053702.pcapng		radar-31053702.out		-w `mktemp /tmp/tcpdu
 
 radar-33413692		radar-33413692.pcap		radar-33413692.out		-vvv port 67 or 68
 
-radar-61850230		radar-61850230.pcapng		radar-61850230.out		-v -K -g tcp
+radar-61850230		radar-61850230.pcapng		radar-61850230.out		-v -K tcp
 
 radar-63494669		radar-63494669.pcapng		radar-63494669.out		-k
 
@@ -30,3 +30,7 @@ radar-101007576-suttp	radar-101007576-suttp.pcapng	radar-101007576-suttp.out	-T 
 tcp-accurate-ECN	tcp-accurate-ECN.pcapng		tcp-accurate-ECN.out		-t -n
 
 radar-151547108-ikev2	radar-151547108-ikev2.pcapng	radar-151547108-ikev2.out
+
+radar-156506335-v-g	radar-101007576-iperf.pcapng	radar-156506335-v-g.out		-t -v -g
+
+radar-156506335-v-v-g	radar-101007576-iperf.pcapng	radar-156506335-v-v-g.out	-t -v -v -g

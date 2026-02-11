@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -419,8 +419,9 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --proxy\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tshow \"proxy\" configuration.\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-	SCPrint(TRUE, stderr, CFSTR("   or: %s --nwi\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --nwi [-a]\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tshow network information\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t-a\titerate over all interfaces\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --nc\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tshow VPN network configuration information. Use --nc help for full command list\n"));
@@ -497,6 +498,7 @@ main(int argc, char * const argv[])
 	Boolean			doDNS			= FALSE;
 	Boolean			doNet			= FALSE;
 	Boolean			doNWI			= FALSE;
+	Boolean			doNWIAll		= FALSE;
 	Boolean			doPrefs			= FALSE;
 	Boolean			doProxy			= FALSE;
 	Boolean			doRank			= FALSE;
@@ -523,7 +525,7 @@ main(int argc, char * const argv[])
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "dDvprt:w:W", longopts, &opti)) != -1) {
+	while ((opt = getopt_long(argc, argv, "adDvprt:w:W", longopts, &opti)) != -1) {
 		switch(opt) {
 		case 'd':
 			_sc_debug = TRUE;
@@ -552,6 +554,9 @@ main(int argc, char * const argv[])
 			break;
 		case 'W':
 			watch = TRUE;
+			break;
+		case 'a':
+			doNWIAll = TRUE;
 			break;
 		case 0:
 			if        (strcmp(longopts[opti].name, "configuration") == 0) {
@@ -643,6 +648,11 @@ main(int argc, char * const argv[])
 	argc -= optind;
 	argv += optind;
 
+	if (doNWIAll && !doNWI) {
+		SCPrint(TRUE, stderr, CFSTR("Error: -a flag can only be used with --nwi\n"));
+		usage(prog);
+	}
+
 	if (xStore > 1) {
 		// if we are attempting to process more than one type of request
 		usage(prog);
@@ -686,6 +696,8 @@ main(int argc, char * const argv[])
 	if (doNWI) {
 		if (watch) {
 			do_watchNWI(argc, argv);
+		} else if (doNWIAll) {
+			do_showNWI_all();
 		} else {
 			do_showNWI(argc, argv);
 		}

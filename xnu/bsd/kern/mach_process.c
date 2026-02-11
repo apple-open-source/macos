@@ -206,6 +206,7 @@ retry_trace_me: ;
 			goto retry_trace_me;
 		}
 		SET(p->p_lflag, P_LTRACED);
+		proc_disable_sec_soft_mode_locked(p);
 		/* Non-attached case, our tracer is our parent. */
 		p->p_oppid = p->p_ppid;
 		proc_unlock(p);
@@ -281,6 +282,8 @@ retry_proc_find:
 			if (tr_sigexc) {
 				SET(t->p_lflag, P_LSIGEXC);
 			}
+
+			proc_disable_sec_soft_mode_locked(t);
 
 			t->p_oppid = t->p_ppid;
 			/* Check whether child and parent are allowed to run modified

@@ -180,6 +180,20 @@ typedef struct DNSEncryptedServer {
 	uint16_t svc_params_data_len;
 } DNSEncryptedServer, * DNSEncryptedServerRef;
 
+#ifdef TEST_DNSDNRINSTANCE
+#undef kSCPropNetDNSEncryptedServerServicePriority
+#undef kSCPropNetDNSEncryptedServerAuthenticationDomainName
+#undef kSCPropNetDNSEncryptedServerAddresses
+#undef kSCPropNetDNSEncryptedServerServiceParameters
+#undef kSCPropNetDNSEncryptedServers
+
+#define kSCPropNetDNSEncryptedServerServicePriority	CFSTR("ServicePriority")
+#define kSCPropNetDNSEncryptedServerAuthenticationDomainName	CFSTR("AuthenticationDomainName")
+#define kSCPropNetDNSEncryptedServerAddresses 	CFSTR("Addresses")
+#define kSCPropNetDNSEncryptedServerServiceParameters CFSTR("ServiceParameters")
+#define kSCPropNetDNSEncryptedServers CFSTR("EncryptedServers")
+#endif
+
 STATIC void
 DNSEncryptedServerFree(DNSEncryptedServerRef dnr_instance)
 {
@@ -959,6 +973,8 @@ done:
 
 #ifdef TEST_DNSDNRINSTANCE
 
+#include "RouterAdvertisementInternal.h"
+
 STATIC void
 DNSEncryptedServerListPrint(CFArrayRef entries, DNRInstanceType_t type)
 {
@@ -1226,6 +1242,54 @@ static const uint8_t ra_bad1[] = {
 	0x00, 0x00
 };
 
+static const uint8_t ra_bad2[] = {
+	0x90, 0x08, 0x00, 0x00, // ND opt 144, optlen, svc priority
+	0x00, 0x00, 0x04, 0x00, // lifetime
+	0x00, 0x0c, // adn len
+	6, 't', 'e', 's', 't', 'v', '6', 3, 'c', 'o', 'm', 0, // adn
+	0x00, 0x20, // addr len
+	0xfd, 0x88, 0x77, 0x77, 0x66, 0x66, 0x55, 0x55,
+	0x44, 0x44, 0x33, 0x33, 0x22, 0x22, 0x11, 0x01,
+	0xfd, 0x88, 0x77, 0x77, 0x66, 0x66, 0x55, 0x55,
+	0x44, 0x44, 0x33, 0x33, 0x22, 0x22, 0x11, 0x02,
+	0x00, 0xff, // svc params len (255 bytes)
+	0x49, 0x4e, // svc params
+	0x46, 0x4f,
+	0x00, 0x00 // padding
+};
+
+static const uint8_t ra_bad3[] = {
+	0x90, 0x08, 0x00, 0x00, // ND opt 144, optlen, svc priority
+	0x00, 0x00, 0x04, 0x00, // lifetime
+	0x00, 0x0c, // adn len
+	6, 't', 'e', 's', 't', 'v', '6', 3, 'c', 'o', 'm', 0, // adn
+	0x00, 0x1f, // addr len
+	0xfd, 0x88, 0x77, 0x77, 0x66, 0x66, 0x55, 0x55,
+	0x44, 0x44, 0x33, 0x33, 0x22, 0x22, 0x11, 0x01,
+	0xfd, 0x88, 0x77, 0x77, 0x66, 0x66, 0x55, 0x55,
+	0x44, 0x44, 0x33, 0x33, 0x22, 0x22, 0x11, 0x02,
+	0x00, 0x04, // svc params len
+	0x49, 0x4e, // svc params
+	0x46, 0x4f,
+	0x00, 0x00 // padding
+};
+
+static const uint8_t ra_bad4[] = {
+	0x90, 0x08, 0x00, 0x00, // ND opt 144, optlen, svc priority
+	0x00, 0x00, 0x04, 0x00, // lifetime
+	0x00, 0x0c, // adn len
+	6, 't', 'e', 's', 't', 'v', '6', 3, 'c', 'o', 'm', 0, // adn
+	0x00, 0x80, // addr len bad
+	0xfd, 0x88, 0x77, 0x77, 0x66, 0x66, 0x55, 0x55,
+	0x44, 0x44, 0x33, 0x33, 0x22, 0x22, 0x11, 0x01,
+	0xfd, 0x88, 0x77, 0x77, 0x66, 0x66, 0x55, 0x55,
+	0x44, 0x44, 0x33, 0x33, 0x22, 0x22, 0x11, 0x02,
+	0x00, 0x04, // svc params len
+	0x49, 0x4e, // svc params
+	0x46, 0x4f,
+	0x00, 0x00 // padding
+};
+
 /* merge within same RA optlist and merge with dhcpv6_good2 */
 static const uint8_t ra_good2[] = {
 	0x90, 0x06, 0x00, 0x03, // ND opt 144, optlen, svc priority
@@ -1253,24 +1317,28 @@ static const uint8_t ra_good2[] = {
 };
 
 static const struct buf {
+	const char * name;
 	const uint8_t *buf;
 	const size_t buf_size;
 	const bool ra;
 } bufsv4[] = {
-	{ dhcpv4_good1, sizeof(dhcpv4_good1), FALSE },
-	{ dhcpv4_good2, sizeof(dhcpv4_good2), FALSE },
-	{ dhcpv4_bad1, sizeof(dhcpv4_bad1), FALSE },
-	{ NULL, 0 }
+	{ "dhcpv4_good1", dhcpv4_good1, sizeof(dhcpv4_good1), FALSE },
+	{ "dhcpv4_good2", dhcpv4_good2, sizeof(dhcpv4_good2), FALSE },
+	{ "dhcpv4_bad1", dhcpv4_bad1, sizeof(dhcpv4_bad1), FALSE },
+	{ "NULL", NULL, 0 }
 };
 
 static const struct buf bufsv6[] = {
-	{ dhcpv6_good1, sizeof(dhcpv6_good1), FALSE },
-	{ dhcpv6_good2, sizeof(dhcpv6_good2), FALSE },
-	{ dhcpv6_good3, sizeof(dhcpv6_good3), FALSE },
-	{ ra_good1, sizeof(ra_good1), TRUE },
-	{ ra_bad1, sizeof(ra_bad1), TRUE },
-	{ ra_good2, sizeof(ra_good2), TRUE },
-	{ NULL, 0 }
+	{ "dhcpv6_good1", dhcpv6_good1, sizeof(dhcpv6_good1), FALSE },
+	{ "dhcpv6_good2", dhcpv6_good2, sizeof(dhcpv6_good2), FALSE },
+	{ "dhcpv6_good3", dhcpv6_good3, sizeof(dhcpv6_good3), FALSE },
+	{ "ra_good1", ra_good1, sizeof(ra_good1), TRUE },
+	{ "ra_bad1", ra_bad1, sizeof(ra_bad1), TRUE },
+	{ "ra_bad2: svc params truncated", ra_bad2, sizeof(ra_bad2), TRUE },
+	{ "ra_bad3: addr_len invalid", ra_bad3, sizeof(ra_bad3), TRUE },
+	{ "ra_bad4: truncated addrs", ra_bad4, sizeof(ra_bad4), TRUE },
+	{ "ra_good2", ra_good2, sizeof(ra_good2), TRUE },
+	{ "NULL", NULL, 0 }
 };
 
 #ifndef ND_OPT_DNR
@@ -1293,6 +1361,8 @@ struct nd_opt_dnr {
 #define ND_OPT_ALIGN 8
 #endif
 
+#include <SystemConfiguration/SCPrivate.h>
+
 int
 main(int argc, char * argv[])
 {
@@ -1307,7 +1377,7 @@ main(int argc, char * argv[])
 		int dnr_data_len = 0;
 		CFArrayRef entries = NULL;
 
-		printf("\n\n~~~ test %d - v4 ~~~\n\n", ntest++);
+		printf("\n\n~~~ test %s (%d) - v4 ~~~\n\n", b->name, ntest++);
 		dhcpol_init(&optlist);
 		dhcpol_parse_buffer(&optlist,
 				    (void *)b->buf,
@@ -1338,7 +1408,7 @@ main(int argc, char * argv[])
 		: kDNRInstanceTypeDHCPv6;
 
 
-		printf("\n\n~~~ test %d - %s ~~~\n\n", ntest++,
+		printf("\n\n~~~ test %s (%d) - %s ~~~\n\n", b->name, ntest++,
 		       (type == kDNRInstanceTypeRA) ? "RA" : "DHCPv6");
 		if (type == kDNRInstanceTypeDHCPv6) {
 			DHCPv6OptionListRef optlist = { 0 };
@@ -1357,18 +1427,22 @@ main(int argc, char * argv[])
 						    DNSEncryptedServerListCompareEntries);
 			my_CFRelease(&entries);
 		} else if (type == kDNRInstanceTypeRA) {
-			struct __RouterAdvertisementTester fake_ra_struct = { 0 };
-			RouterAdvertisementRef fake_ra = &fake_ra_struct;
+			struct __RouterAdvertisement ra_struct = { 0 };
+			RouterAdvertisementRef ra = &ra_struct;
 			ptrlist_t ptrlist = { 0 };
 			const uint8_t *dnr_data = NULL;
 			uint8_t dnr_data_len = 0;
 			uint32_t lifetime = 0;
 			int start_index = 0;
+			CFStringRef	descr;
 
 			parse_nd_options(&ptrlist, (void *)b->buf, b->buf_size);
-			fake_ra->options = ptrlist;
+			ra->options = ptrlist;
+			descr = RouterAdvertisementCopyDescription(ra);
+			SCPrint(TRUE, stdout, CFSTR("RouterAdvertisement %@\n"), descr);
+			CFRelease(descr);
 			entries =
-			RouterAdvertisementCopyAllDNSEncryptedServers(fake_ra);
+			RouterAdvertisementCopyAllDNSEncryptedServers(ra);
 			DNSEncryptedServerListPrint(entries, type);
 			if (entries == NULL) {
 				continue;

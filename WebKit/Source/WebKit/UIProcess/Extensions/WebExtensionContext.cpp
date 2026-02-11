@@ -1560,6 +1560,20 @@ bool WebExtensionContext::purgeMatchedRulesFromBefore(const WallTime& startTime)
     return !m_matchedRules.isEmpty();
 }
 
+void WebExtensionContext::addDeclarativeNetRequestRules(WebUserContentControllerProxy& controllerProxy)
+{
+    API::ContentRuleListStore::defaultStoreSingleton().lookupContentRuleListFile(declarativeNetRequestContentRuleListFilePath(), uniqueIdentifier().isolatedCopy(), [this, protectedThis = Ref { *this }, controllerProxy = Ref { controllerProxy }](RefPtr<API::ContentRuleList> ruleList, std::error_code) {
+        if (!ruleList)
+            return;
+
+        // The extension could have been unloaded before this was called.
+        if (!isLoaded())
+            return;
+
+        controllerProxy->addContentRuleList(*ruleList, m_baseURL);
+    });
+}
+
 void WebExtensionContext::addDeclarativeNetRequestRulesToPrivateUserContentControllers()
 {
     API::ContentRuleListStore::defaultStoreSingleton().lookupContentRuleListFile(declarativeNetRequestContentRuleListFilePath(), uniqueIdentifier().isolatedCopy(), [this, protectedThis = Ref { *this }](RefPtr<API::ContentRuleList> ruleList, std::error_code) {

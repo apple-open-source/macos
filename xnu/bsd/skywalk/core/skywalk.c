@@ -215,9 +215,6 @@ SYSCTL_UINT(_kern_skywalk, OID_AUTO, sk_cksum_tx, CTLFLAG_RW | CTLFLAG_LOCKED,
     &sk_cksum_tx, 0, "Advertise (and perform) outbound checksum offload");
 SYSCTL_UINT(_kern_skywalk, OID_AUTO, sk_cksum_rx, CTLFLAG_RW | CTLFLAG_LOCKED,
     &sk_cksum_rx, 0, "Perform inbound checksum offload");
-SYSCTL_UINT(_kern_skywalk, OID_AUTO, chan_buf_alloc,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &sk_channel_buflet_alloc, 0,
-    "channel buflet allocation (enable/disable)");
 
 uint32_t sk_inject_error_rmask = 0x3;
 SYSCTL_UINT(_kern_skywalk, OID_AUTO, inject_error_rmask,
@@ -414,8 +411,6 @@ skywalk_init(void)
 	    sizeof(sk_fsw_gso_mtu));
 	(void) PE_parse_boot_argn("sk_fsw_max_bufs", &sk_fsw_max_bufs,
 	    sizeof(sk_fsw_max_bufs));
-	(void) PE_parse_boot_argn("sk_chan_buf_alloc", &sk_channel_buflet_alloc,
-	    sizeof(sk_channel_buflet_alloc));
 	(void) PE_parse_boot_argn("sk_guard", &sk_guard, sizeof(sk_guard));
 	(void) PE_parse_boot_argn("sk_headguard_sz", &sk_headguard_sz,
 	    sizeof(sk_headguard_sz));

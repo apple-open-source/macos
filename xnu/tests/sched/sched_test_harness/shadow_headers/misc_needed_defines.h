@@ -18,6 +18,8 @@ typedef int spl_t;
 #define splsched() 0
 #define splx(x) (void)x
 
+extern void panic(char *msg, ...);
+
 /* Mock osfmk/arm64/proc_reg.h */
 #define MAX_PSETS 16
 #define MAX_CPUS 64
@@ -52,11 +54,15 @@ typedef enum {
 	CLUSTER_TYPE_P   = 2,
 	MAX_CPU_TYPES,
 } cluster_type_t;
+#include <arm/cpu_topology.h>
 #define MAX_AMP_CLUSTER_TYPES (MAX_PSET_TYPES - 1)
 extern unsigned int ml_get_die_id(unsigned int cluster_id);
 extern uint64_t ml_cpu_signal_deferred_get_timer(void);
 extern unsigned int ml_get_cpu_number_type(cluster_type_t cluster_type, bool logical, bool available);
 extern unsigned int ml_get_cluster_number_type(cluster_type_t cluster_type);
+
+extern struct ml_topology_info mock_topology_info;
+#define ml_get_topology_info() (&mock_topology_info)
 
 /* Defines from osfmk/kern/thread.h */
 #define assert_thread_magic(thread) do { (void)(thread); } while (0)
@@ -68,10 +74,8 @@ extern unsigned int ml_get_cluster_number_type(cluster_type_t cluster_type);
 /* Defines from bsd/sys/kdebug_kernel.h */
 #define __kdebug_only __unused
 
-struct mock_topology_info_struct {
-	unsigned int num_cpus;
-};
-extern struct mock_topology_info_struct mock_topology_info;
-#define ml_get_topology_info() (&mock_topology_info)
+extern processor_t master_processor;
+
+#define SECURITY_READ_ONLY_LATE(typ) typ
 
 #endif  /* _MISC_NEEDED_DEFINES_H_ */

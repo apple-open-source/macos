@@ -1462,6 +1462,14 @@ convert_native_pktq_to_mbufs(struct nx_flowswitch *fsw, struct pktq *pktq,
 		    PKT_LINKF_ETHFCS) != 0)) {
 			m->m_flags |= M_HASFCS;
 		}
+		if (__improbable((pkt->pkt_link_flags &
+		    PKT_LINKF_BCAST) != 0)) {
+			m->m_flags |= M_BCAST;
+		}
+		if (__improbable((pkt->pkt_link_flags &
+		    PKT_LINKF_MCAST) != 0)) {
+			m->m_flags |= M_MCAST;
+		}
 		if (__improbable(pkt->pkt_pflags & PKT_F_WAKE_PKT)) {
 			m->m_pkthdr.pkt_flags |= PKTF_WAKE_PKT;
 		}

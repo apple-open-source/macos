@@ -492,7 +492,6 @@ cupsdStartProcess(
   int		linkbytes;		/* Bytes for link path */
 #endif /* __APPLE__ */
 
-
   *pid = 0;
 
  /*
@@ -506,14 +505,7 @@ cupsdStartProcess(
   else
     user = User;
 
- /*
-  * Check the permissions of the command we are running...
-  */
-
-  if (_cupsFileCheck(command, _CUPS_FILE_CHECK_PROGRAM, !RunUser,
-                     cupsdLogFCMessage, job ? job->printer : NULL))
-    return (0);
-
+    
 #if defined(__APPLE__)
   if (envp)
   {
@@ -545,6 +537,20 @@ cupsdStartProcess(
   }
 #endif	/* __APPLE__ */
 
+  // Resolve any symlinks and use the resolved path for _cupsFileCheck()
+  // and the spawn().
+  char *realcommand = realpath(command, NULL);
+
+ /*
+  * Check the permissions of the command we are running...
+  */
+
+  if (!realcommand || _cupsFileCheck(realcommand, _CUPS_FILE_CHECK_PROGRAM, !RunUser,
+                     cupsdLogFCMessage, job ? job->printer : NULL)) {
+    free(realcommand);
+    return (0);
+  }
+  
  /*
   * Use helper program when we have a sandbox profile...
   */
@@ -566,7 +572,7 @@ cupsdStartProcess(
     real_argv[5] = (char *)"-u";
     real_argv[6] = user_str;
     real_argv[7] = profile ? profile : "none";
-    real_argv[8] = (char *)command;
+    real_argv[8] = (char *)realcommand;
 
     for (i = 0;
          i < (int)(sizeof(real_argv) / sizeof(real_argv[0]) - 10) && argv[i];
@@ -581,7 +587,7 @@ cupsdStartProcess(
 
   if (LogLevel == CUPSD_LOG_DEBUG2)
   {
-    cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdStartProcess: Preparing to start \"%s\", arguments:", command);
+    cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdStartProcess: Preparing to start \"%s\", arguments:", realcommand);
 
     for (i = 0; argv[i]; i ++)
       cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdStartProcess: argv[%d] = \"%s\"", i, argv[i]);
@@ -639,7 +645,7 @@ cupsdStartProcess(
 
   if (posix_spawn(pid, exec_path, &actions, &attrs, argv, envp ? envp : environ))
   {
-    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to fork %s - %s.", command, strerror(errno));
+    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to fork %s - %s.", realcommand, strerror(errno));
 
     *pid = 0;
   }
@@ -803,7 +809,7 @@ cupsdStartProcess(
     * Error - couldn't fork a new process!
     */
 
-    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to fork %s - %s.", command,
+    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to fork %s - %s.", realcommand,
                     strerror(errno));
 
     *pid = 0;
@@ -819,11 +825,11 @@ cupsdStartProcess(
 
     if (process_array)
     {
-      if ((proc = calloc(1, sizeof(cupsd_proc_t) + strlen(command))) != NULL)
+      if ((proc = calloc(1, sizeof(cupsd_proc_t) + strlen(realcommand))) != NULL)
       {
         proc->pid    = *pid;
 	proc->job_id = job ? job->id : 0;
-	_cups_strcpy(proc->name, command);
+	_cups_strcpy(proc->name, realcommand);
 
 	cupsArrayAdd(process_array, proc);
       }
@@ -834,9 +840,11 @@ cupsdStartProcess(
 		  "cupsdStartProcess(command=\"%s\", argv=%p, envp=%p, "
 		  "infd=%d, outfd=%d, errfd=%d, backfd=%d, sidefd=%d, root=%d, "
 		  "profile=%p, job=%p(%d), pid=%p) = %d",
-		  command, argv, envp, infd, outfd, errfd, backfd, sidefd,
+                  realcommand, argv, envp, infd, outfd, errfd, backfd, sidefd,
 		  root, profile, job, job ? job->id : 0, pid, *pid);
 
+  free(realcommand);
+  
   return (*pid);
 }
 

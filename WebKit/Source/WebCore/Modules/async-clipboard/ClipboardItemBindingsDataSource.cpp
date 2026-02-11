@@ -246,7 +246,7 @@ ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::ClipboardItemTypeLoade
 
 ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::~ClipboardItemTypeLoader()
 {
-    if (CheckedPtr blobLoader = m_blobLoader.get())
+    if (RefPtr blobLoader = m_blobLoader)
         blobLoader->cancel();
     
     ASSERT(!m_completionHandler);
@@ -255,14 +255,14 @@ ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::~ClipboardItemTypeLoad
 void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::didFinishLoading()
 {
     ASSERT(m_blobLoader);
-    {
-        CheckedRef blobLoader = *m_blobLoader;
-        auto stringResult = readTypeForMIMEType(m_type) == FileReaderLoader::ReadAsText ? blobLoader->stringResult() : nullString();
-        if (!stringResult.isNull())
-            m_data = { stringResult };
-        else if (auto arrayBuffer = blobLoader->arrayBufferResult())
-            m_data = { SharedBuffer::create(arrayBuffer->span()) };
-    }
+
+    Ref blobLoader = *m_blobLoader;
+    auto stringResult = readTypeForMIMEType(m_type) == FileReaderLoader::ReadAsText ? blobLoader->stringResult() : nullString();
+    if (!stringResult.isNull())
+        m_data = { stringResult };
+    else if (auto arrayBuffer = blobLoader->arrayBufferResult())
+        m_data = { SharedBuffer::create(arrayBuffer->span()) };
+
     m_blobLoader = nullptr;
     invokeCompletionHandler();
 }
@@ -348,8 +348,9 @@ void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::invokeCompletionH
 void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::didResolveToBlob(ScriptExecutionContext& context, Ref<Blob>&& blob)
 {
     ASSERT(!m_blobLoader);
-    m_blobLoader = makeUnique<FileReaderLoader>(readTypeForMIMEType(m_type), this);
-    CheckedRef { *m_blobLoader }->start(&context, WTFMove(blob));
+    Ref blobLoader = FileReaderLoader::create(readTypeForMIMEType(m_type), this);
+    m_blobLoader = blobLoader.copyRef();
+    blobLoader->start(&context, WTFMove(blob));
 }
 
 void ClipboardItemBindingsDataSource::ClipboardItemTypeLoader::didFailToResolve()

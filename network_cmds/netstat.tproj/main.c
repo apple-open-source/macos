@@ -85,6 +85,7 @@ char const copyright[] =
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sysexits.h>
 #include "netstat.h"
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -106,85 +107,86 @@ char const copyright[] =
  */
 
 struct protox {
-	void	(*pr_cblocks)(uint32_t, char *, int);
+	int	(*pr_cblocks)(struct netstat_parameters *, uint32_t, char *, int);
 					/* control blocks printing routine */
-	void	(*pr_stats)(uint32_t, char *, int);
+	int	(*pr_stats)(struct netstat_parameters *, uint32_t, char *, int);
 					/* statistics printing routine */
-	void	(*pr_istats)(char *);	/* per/if statistics printing routine */
+	int	(*pr_istats)(struct netstat_parameters *, char *);	/* per/if statistics printing routine */
+	int	(*pr_reinit)(struct netstat_parameters *, uint32_t, char *, int);	/* per/if statistics printing routine */
 	char	*pr_name;		/* well-known name */
 	int	pr_protocol;
 } protox[] = {
-	{ protopr,	tcp_stats,	tcp_ifstats,	"tcp",	IPPROTO_TCP },
-	{ protopr,	udp_stats,	udp_ifstats,	"udp",	IPPROTO_UDP },
-	{ protopr,	NULL,		NULL,	"divert", IPPROTO_DIVERT },
-	{ protopr,	ip_stats,	NULL,	"ip",	IPPROTO_RAW },
-	{ protopr,	icmp_stats,	NULL,	"icmp",	IPPROTO_ICMP },
-	{ protopr,	igmp_stats,	NULL,	"igmp",	IPPROTO_IGMP },
+	{ protopr,	tcp_stats,	tcp_ifstats,	tcp_reinit,		"tcp",	IPPROTO_TCP },
+	{ protopr,	udp_stats,	udp_ifstats,	udp_reinit,		"udp",	IPPROTO_UDP },
+	{ protopr,	NULL,		NULL,	NULL,		"divert", IPPROTO_DIVERT },
+	{ protopr,	ip_stats,	NULL,	NULL,		"ip",	IPPROTO_RAW },
+	{ protopr,	icmp_stats,	NULL,	NULL,		"icmp",	IPPROTO_ICMP },
+	{ protopr,	igmp_stats,	NULL,	NULL,		"igmp",	IPPROTO_IGMP },
 #ifdef IPSEC
-	{ NULL,		ipsec_stats,	NULL,	"ipsec", IPPROTO_ESP},
+	{ NULL,		ipsec_stats,	NULL,	NULL,		"ipsec", IPPROTO_ESP},
 #endif
-	{ NULL,		arp_stats,	NULL,	"arp",	0 },
-	{ mptcppr,	mptcp_stats,	NULL,	"mptcp", IPPROTO_TCP },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ NULL,		arp_stats,	NULL,	NULL,		"arp",	0 },
+	{ mptcppr,	mptcp_stats,	NULL,	mptcp_reinit,		"mptcp", IPPROTO_TCP },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 
 #ifdef INET6
 struct protox ip6protox[] = {
-	{ protopr,	tcp_stats,	NULL,	"tcp",	IPPROTO_TCP },
-	{ protopr,	udp_stats,	NULL,	"udp",	IPPROTO_UDP },
-	{ protopr,	ip6_stats,	ip6_ifstats,	"ip6",	IPPROTO_RAW },
-	{ protopr,	icmp6_stats,	icmp6_ifstats,	"icmp6",IPPROTO_ICMPV6 },
+	{ protopr,	tcp_stats,	NULL,	NULL,		"tcp",	IPPROTO_TCP },
+	{ protopr,	udp_stats,	NULL,	NULL,		"udp",	IPPROTO_UDP },
+	{ protopr,	ip6_stats,	ip6_ifstats,	NULL,		"ip6",	IPPROTO_RAW },
+	{ protopr,	icmp6_stats,	icmp6_ifstats,	NULL,		"icmp6",IPPROTO_ICMPV6 },
 #ifdef IPSEC
-	{ NULL,		ipsec_stats,	NULL,	"ipsec6", IPPROTO_ESP },
+	{ NULL,		ipsec_stats,	NULL,	NULL,		"ipsec6", IPPROTO_ESP },
 #endif
-	{ NULL,		rip6_stats,	NULL,	"rip6",	IPPROTO_RAW },
-	{ mptcppr,	mptcp_stats,	NULL,	"mptcp", IPPROTO_TCP },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ NULL,		rip6_stats,	NULL,	NULL,		"rip6",	IPPROTO_RAW },
+	{ mptcppr,	mptcp_stats,	NULL,	NULL,		"mptcp", IPPROTO_TCP },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 #endif /*INET6*/
 
 #ifdef IPSEC
 struct protox pfkeyprotox[] = {
-	{ NULL,		pfkey_stats,	NULL,	"pfkey", PF_KEY_V2 },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ NULL,		pfkey_stats,	NULL,	NULL,		"pfkey", PF_KEY_V2 },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 #endif
 
 struct protox systmprotox[] = {
-	{ systmpr,	NULL,		NULL,	"reg", 0 },
-	{ systmpr,	kevt_stats,		NULL,	"kevt", SYSPROTO_EVENT },
-	{ systmpr,	kctl_stats,	NULL,	"kctl", SYSPROTO_CONTROL },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ systmpr,	NULL,		NULL,	NULL,		"reg", 0 },
+	{ systmpr,	kevt_stats,		NULL,	NULL,		"kevt", SYSPROTO_EVENT },
+	{ systmpr,	kctl_stats,	NULL,	NULL,		"kctl", SYSPROTO_CONTROL },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 
 struct protox nstatprotox[] = {
-	{ NULL,		print_nstat_stats,	NULL,	"nstat", 0 },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ NULL,		print_nstat_stats,	NULL,	NULL,		"nstat", 0 },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 
 struct protox ipcprotox[] = {
-	{ NULL,		print_extbkidle_stats,	NULL,	"xbkidle", 0 },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ NULL,		print_extbkidle_stats,	NULL,	NULL,		"xbkidle", 0 },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 
 struct protox kernprotox[] = {
-	{ NULL,		print_net_api_stats,	NULL,	"net_api", 0 },
-	{ NULL,		print_if_ports_used_stats,	NULL,	"if_ports_used", 0 },
-	{ NULL,		NULL,	print_if_link_heuristics_stats,	"link_heuristics", 0 },
+	{ NULL,		print_net_api_stats,	NULL,	NULL,		"net_api", 0 },
+	{ NULL,		print_if_ports_used_stats,	NULL,	NULL,		"if_ports_used", 0 },
+	{ NULL,		NULL,	print_if_link_heuristics_stats,	NULL,		"link_heuristics", 0 },
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 
 #ifdef AF_VSOCK
 struct protox vsockprotox[] = {
-	{ vsockpr,	vsockstats,	NULL,	"vsock",   VSOCK_PROTO_STANDARD },
-    { vsockpr,  vsockstats, NULL,   "vsock_private", VSOCK_PROTO_PRIVATE },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ vsockpr,	vsockstats,	NULL,	NULL,		"vsock",   VSOCK_PROTO_STANDARD },
+    { vsockpr,  vsockstats, NULL,   NULL,		"vsock_private", VSOCK_PROTO_PRIVATE },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 #endif
 
 struct protox unixprotox[] = {
-	{ unixpr,		unixstats,	NULL,	"unix", 0 },
-	{ NULL,		NULL,		NULL,	NULL,	0 }
+	{ unixpr,		unixstats,	NULL,	NULL,		"unix", 0 },
+	{ NULL,		NULL,		NULL,	NULL,		NULL,	0 }
 };
 
 struct protox *protoprotox[] = {
@@ -205,316 +207,420 @@ struct protox *protoprotox[] = {
 	NULL
 };
 
-static void printproto (struct protox *, char *);
+static void printproto (struct netstat_parameters *, struct protox *, char *);
 static void usage (void);
 static struct protox *name2protox (char *);
 static struct protox *knownname (char *);
 #ifdef SRVCACHE
 extern void _serv_cache_close();
 #endif
+static void reinitalize_protocols(struct netstat_parameters *);
 
-int	Aflag;		/* show addresses of protocol control block */
-int	aflag;		/* show all sockets (including servers) */
-int	Bflag;		/* show information about BPF */
-int	bflag;		/* show i/f total bytes in/out */
-int	cflag;		/* show specific classq */
-int	dflag;		/* show i/f dropped packets */
-int	Fflag;		/* show i/f forwarded packets */
-#if defined(__APPLE__)
-int	gflag;		/* show group (multicast) routing or stats */
-#endif
-int	iflag;		/* show interfaces */
-int	lflag;		/* show routing table with more information */
-int	Lflag;		/* show size of listen queues */
-int	mflag;		/* show memory stats */
-int	nflag;		/* show addresses numerically */
-int pflag;		/* show given protocol */
-int	prioflag = -1;	/* show packet priority statistics */
-int	Rflag;		/* show reachability information */
-int	rflag;		/* show routing tables (or routing stats) */
-int	sflag;		/* show protocol statistics */
-int	Sflag;		/* show additional i/f link status */
-int	tflag;		/* show i/f watchdog timers */
-int	vflag;		/* more verbose */
-int	Wflag;		/* wide display */
-int	qflag;		/* classq stats display */
-int	Qflag;		/* opportunistic polling stats display */
-int	xflag;		/* show extended link-layer reachability information */
-int	zflag;		/* show only entries with non zero rtt metrics */
 
-int	cq = -1;	/* send classq index (-1 for all) */
-int	interval;	/* repeat interval for i/f stats */
+const static struct netstat_parameters netstat_params_initializer = {
+	.Aflag = 0,
+	.aflag = 0,
+	.Bflag = 0,
+	.bflag = 0,
+	.cflag = 0,
+	.dflag = 0,
+	.Fflag = 0,
+	.gflag = 0,
+	.iflag = 0,
+	.lflag = 0,
+	.Lflag = 0,
+	.mflag = 0,
+	.nflag = 0,
+	.pflag = 0,
+	.Rflag = 0,
+	.rflag = 0,
+	.sflag = 0,
+	.Sflag = 0,
+	.prioflag = -1,
+	.tflag = 0,
+	.vflag = 0,
+	.Wflag = 0,
+	.qflag = 0,
+	.Qflag = 0,
+	.xflag = 0,
+	.zflag = 0,
+	.cq = -1,
+	.interval = 0,
+	.interface = NULL,
+	.unit = 0,
+	.af = AF_UNSPEC,
+	.proto_name[0] = 0,
+	.print_banner = 0,
+	.cmd_args[0] = 0,
+	.cmd_len = 0
+};
 
-char	*interface;	/* desired i/f for stats, or NULL for all i/fs */
-int	unit;		/* unit number for above */
+void
+netstat_init_parameters(struct netstat_parameters *params, size_t params_size)
+{
+	/*
+	 * Note: We can re-use the same struct netstat_parameters over and over
+	 * as long as "interface" is a plain pointer and not allocated
+	 */
+	bzero(params, params_size);
+	if (params != NULL && params_size > 0) {
+		memcpy(params, &netstat_params_initializer, params_size);
+	}
+}
 
-int	af;		/* address family */
+static void
+netstat_copy_args(struct netstat_parameters *params)
+{
+	if (optopt != '%') {
+		int retval;
+
+		retval = snprintf(params->cmd_args + params->cmd_len, sizeof(params->cmd_args) - params->cmd_len, "-%c ", optopt);
+		if (retval > 0) {
+			params->cmd_len += retval;
+		}
+		if (optarg != NULL) {
+			retval = snprintf(params->cmd_args + params->cmd_len, sizeof(params->cmd_args) - params->cmd_len, "%s ", optarg);
+			if (retval > 0) {
+				params->cmd_len += retval;
+			}
+		}
+	}
+}
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+netstat_parse_parameters(int argc, char *argv[], struct netstat_parameters *params)
 {
-	register struct protox *tp = NULL;  /* for printing cblocks & stats */
+	struct protox *tp = NULL;  /* for printing cblocks & stats */
 	int ch;
+	int retval = 0;
 
-	af = AF_UNSPEC;
+	while ((ch = getopt(argc, argv, "AaBbc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:xz%:")) != -1 && retval == 0) {
+		netstat_copy_args(params);
 
-	while ((ch = getopt(argc, argv, "AaBbc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:xz")) != -1) {
 		switch(ch) {
 		case 'A':
-			Aflag = 1;
+			params->Aflag = 1;
 			break;
 		case 'a':
-			aflag = 1;
+			params->aflag = 1;
 			break;
 		case 'B':
 			if (optind < argc) {
 				if (strcmp(argv[optind], "help") == 0) {
 					bpf_help();
-					exit(0);
+					optind++;
+					continue;
 				}
 			}
-			Bflag = 1;
+			params->Bflag = 1;
 			break;
 		case 'b':
-			bflag = 1;
+			params->bflag = 1;
 			break;
 		case 'c':
-			cflag = 1;
-			cq = atoi(optarg);
+			params->cflag = 1;
+			params->cq = atoi(optarg);
 			break;
 		case 'd':
-			dflag = 1;
+			params->dflag = 1;
 			break;
 		case 'F':
-			Fflag = 1;
+			params->Fflag = 1;
 			break;
 		case 'f':
 			if (strcmp(optarg, "ipx") == 0)
-				af = AF_IPX;
+				params->af = AF_IPX;
 			else if (strcmp(optarg, "inet") == 0)
-				af = AF_INET;
+				params->af = AF_INET;
 #ifdef INET6
 			else if (strcmp(optarg, "inet6") == 0)
-				af = AF_INET6;
+				params->af = AF_INET6;
 #endif /*INET6*/
 #ifdef INET6
 			else if (strcmp(optarg, "pfkey") == 0)
-				af = PF_KEY;
+				params->af = PF_KEY;
 #endif /*INET6*/
 			else if (strcmp(optarg, "unix") == 0)
-				af = AF_UNIX;
+				params->af = AF_UNIX;
 			else if (strcmp(optarg, "systm") == 0)
-				af = AF_SYSTEM;
+				params->af = AF_SYSTEM;
 #ifdef AF_VSOCK
 			else if (strcmp(optarg, "vsock") == 0)
-				af = AF_VSOCK;
+				params->af = AF_VSOCK;
 #endif /*AF_VSOCK*/
 			else {
-				errx(1, "%s: unknown address family", optarg);
+				snprintf(params->errbuf, sizeof(params->errbuf), "%s: unknown address family", optarg);
+				retval = -1;
+				goto done;
 			}
 			break;
-#if defined(__APPLE__)
 		case 'g':
-			gflag = 1;
+			params->gflag = 1;
 			break;
-#endif
 		case 'I': {
 			char *cp;
 
-			iflag = 1;
-			for (cp = interface = optarg; isalpha(*cp); cp++)
+			if (optarg[0] == '-') {
+				warnx("# option -I requires an interface name");
+				retval = -2;
+				goto done;
+			}
+
+			params->iflag = 1;
+			for (cp = params->interface = optarg; isalpha(*cp); cp++)
 				continue;
-			unit = atoi(cp);
+			params->unit = atoi(cp);
 			break;
 		}
 		case 'i':
-			iflag = 1;
+			params->iflag = 1;
 			break;
 		case 'l':
-			lflag += 1;
+			params->lflag += 1;
 			break;
 		case 'L':
-			Lflag = 1;
+			params->Lflag = 1;
 			break;
 		case 'm':
-			mflag++;
+			params->mflag++;
 			break;
 		case 'n':
-			nflag = 1;
+			params->nflag = 1;
 			break;
 		case 'P':
-			prioflag = atoi(optarg);
+			params->prioflag = atoi(optarg);
 			break;
 		case 'p':
 			if ((tp = name2protox(optarg)) == NULL) {
-				errx(1, 
-				     "%s: unknown or uninstrumented protocol",
+				warn("%s: unknown or uninstrumented protocol",
 				     optarg);
+				goto done;
 			}
-			pflag = 1;
+			snprintf(params->proto_name, sizeof(params->proto_name), "%s", optarg);
+			params->pflag = 1;
 			break;
 		case 'q':
-			qflag++;
+			params->qflag++;
 			break;
 		case 'Q':
-			Qflag++;
+			params->Qflag++;
 			break;
 		case 'R':
-			Rflag = 1;
+			params->Rflag = 1;
 			break;
 		case 'r':
-			rflag = 1;
+			params->rflag = 1;
 			break;
 		case 's':
-			++sflag;
+			++params->sflag;
 			break;
 		case 'S':
-			Sflag = 1;
+			params->Sflag = 1;
 			break;
 		case 't':
-			tflag = 1;
+			params->tflag = 1;
 			break;
 		case 'u':
-			af = AF_UNIX;
+			params->af = AF_UNIX;
 			break;
 		case 'v':
-			vflag++;
+			params->vflag++;
 			break;
 		case 'W':
-			Wflag = 1;
+			params->Wflag = 1;
 			break;
 		case 'w':
-			interval = atoi(optarg);
-			iflag = 1;
+			params->interval = atoi(optarg);
+			params->iflag = 1;
 			break;
 		case 'x':
-			xflag = 1;
-			Rflag = 1;
+			params->xflag = 1;
+			params->Rflag = 1;
 			break;
 		case 'z':
-			zflag = 1;
+			params->zflag = 1;
 			break;
-		case '?':
+		case '%':
+			params->print_banner = atoi(optarg);
+			break;
 		default:
-			usage();
+			fprintf(stderr, "unexpected: '%c' (optind: %d)\n", optopt, optind);
+		case '?':
+			retval = -2;
+			goto done;
 		}
 	}
-	argv += optind;
-	argc -= optind;
+done:
+	return retval;
+}
 
-#define	BACKWARD_COMPATIBILITY
-#ifdef	BACKWARD_COMPATIBILITY
-	if (*argv) {
-		if (isdigit(**argv)) {
-			interval = atoi(*argv);
-			if (interval <= 0)
-				usage();
-			++argv;
-			iflag = 1;
+void
+netstat_print_banner(struct netstat_parameters *params)
+{
+	if (params->print_banner != 0) {
+		printf("#\n# %s %s\n#\n", getprogname(), params->cmd_args);
+	}
+}
+
+int
+netstat_run(struct netstat_parameters *params)
+{
+	struct protox *tp = NULL;  /* for printing cblocks & stats */
+
+	if (params->print_banner == 1) {
+		netstat_print_banner(params);
+	}
+
+	if (params->proto_name[0] != 0) {
+		tp = name2protox(params->proto_name);
+		if (tp == NULL) {
+			snprintf(params->errbuf, sizeof(params->errbuf), "%s: unknown or uninstrumented protocol", params->proto_name);
+			return -1;
 		}
 	}
-#endif
 
-	if (mflag) {
-		mbpr();
-		exit(0);
+	if (params->mflag) {
+		mbpr(params);
+		return(0);
 	}
-	if (Bflag) {
-		bpf_stats(interface);
-		exit(0);
+	if (params->Bflag) {
+		bpf_stats(params, params->interface);
+		return(0);
 	}
-	if (iflag && !sflag && !Sflag && !gflag && !qflag && !Qflag) {
-		if (Rflag)
-			intpr_ri(NULL);
+	if (params->iflag && !params->sflag && !params->Sflag && !params->gflag && !params->qflag && !params->Qflag) {
+		if (params->Rflag)
+			return intpr_ri(params, NULL);
 		else
-			intpr(NULL);
-		exit(0);
+			return intpr(params, NULL);
 	}
-	if (rflag) {
-		if (sflag)
-			rt_stats();
+	if (params->rflag) {
+		if (params->sflag)
+			rt_stats(params);
 		else
-			routepr();
-		exit(0);
+			routepr(params);
+		return(0);
 	}
-	if (qflag || Qflag) {
-		if (qflag) {
-			aqstatpr();
+	if (params->qflag || params->Qflag) {
+		if (params->qflag) {
+			return aqstatpr(params);
 		} else {
-			rxpollstatpr();
+			return rxpollstatpr(params);
 		}
-		exit(0);
 	}
-	if (Sflag) {
-		print_link_status(interface);
-		exit(0);
+	if (params->Sflag) {
+		print_link_status(params, params->interface);
+		return(0);
 	}
 
-#if defined(__APPLE__)
-	if (gflag) {
-		ifmalist_dump();
-		exit(0);
+	if (params->gflag) {
+		ifmalist_dump(params);
+		return(0);
 	}
-#endif
+
+	/* TCP/IP protocols */
+	reinitalize_protocols(params);
 
 	if (tp) {
-		printproto(tp, tp->pr_name);
-		exit(0);
+		printproto(params, tp, tp->pr_name);
+		return(0);
 	}
 	/*
 	 * Avoid printing the interface statistics for each prototocol
 	 */
-	if (iflag && !pflag) {
-		intpr(NULL);
-		exit(0);
+	if (params->iflag && !params->pflag) {
+		return intpr(params, NULL);
 	}
-	if (af == AF_INET || af == AF_UNSPEC)
+	/*
+	 * Go through all the protocols and address families
+	 */
+	if (params->af == AF_INET || params->af == AF_UNSPEC)
 		for (tp = protox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-#ifdef INET6
-	if (af == AF_INET6 || af == AF_UNSPEC)
+			printproto(params, tp, tp->pr_name);
+
+	if (params->af == AF_INET6 || params->af == AF_UNSPEC)
 		for (tp = ip6protox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-#endif /*INET6*/
-#ifdef IPSEC
-	if (af == PF_KEY || af == AF_UNSPEC)
+			printproto(params, tp, tp->pr_name);
+
+	if (params->af == PF_KEY || params->af == AF_UNSPEC)
 		for (tp = pfkeyprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-#endif /*IPSEC*/
+			printproto(params, tp, tp->pr_name);
 
-	if ((af == AF_UNIX || af == AF_UNSPEC) && !Lflag) {
+	if ((params->af == AF_UNIX || params->af == AF_UNSPEC) && !params->Lflag) {
 		for (tp = unixprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
+			printproto(params, tp, tp->pr_name);
 	}
 
-	if ((af == AF_SYSTEM || af == AF_UNSPEC) && !Lflag)
+	if ((params->af == AF_SYSTEM || params->af == AF_UNSPEC) && !params->Lflag)
 		for (tp = systmprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
+			printproto(params, tp, tp->pr_name);
 
-	if (af == AF_UNSPEC && !Lflag)
+	if (params->af == AF_UNSPEC && !params->Lflag)
 		for (tp = nstatprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
+			printproto(params, tp, tp->pr_name);
 
-	if (af == AF_UNSPEC && !Lflag)
+	if (params->af == AF_UNSPEC && !params->Lflag)
 		for (tp = ipcprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
+			printproto(params, tp, tp->pr_name);
 
-	if (af == AF_UNSPEC && !Lflag)
+	if (params->af == AF_UNSPEC && !params->Lflag)
 		for (tp = kernprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
+			printproto(params, tp, tp->pr_name);
 
-#ifdef AF_VSOCK
-	if ((af == AF_VSOCK || af == AF_UNSPEC) && !Lflag) {
+	if ((params->af == AF_VSOCK || params->af == AF_UNSPEC) && !params->Lflag) {
 		for (tp = vsockprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
+			printproto(params, tp, tp->pr_name);
 	}
-#endif /*AF_VSOCK*/
 
 #ifdef SRVCACHE
 	_serv_cache_close();
 #endif
+
+	return 0;
+}
+
+int
+main(int argc, char *argv[])
+{
+	struct netstat_parameters params = { 0 };
+	int retval;
+	int print_banner = 0;
+
+	/* Skip the program name */
+	argv += 1;
+	argc -= 1;
+	optind--;
+
+again:
+	netstat_init_parameters(&params, sizeof(struct netstat_parameters));
+
+	/* The -% option is sticky */
+	params.print_banner = -1;
+	retval = netstat_parse_parameters(argc, argv, &params);
+	if (retval == -2) {
+			usage();
+			exit(EX_USAGE);
+	}
+	if (params.print_banner != -1) {
+		print_banner = params.print_banner;
+	} else {
+		params.print_banner = print_banner;
+	}
+
+	retval = netstat_run(&params);
+	if (retval != 0) {
+		warnx("%s", params.errbuf);
+	}
+
+	while (optind < argc) {
+		if (strcmp(argv[optind], ",") == 0) {
+			argv += optind + 1;
+			argc -= optind + 1;
+			optind = 0;
+			goto again;
+		}
+		optind += 1;
+	}
+
 	exit(0);
 }
 
@@ -524,17 +630,15 @@ main(argc, argv)
  * is not in the namelist, ignore this one.
  */
 static void
-printproto(tp, name)
-	register struct protox *tp;
-	char *name;
+printproto(struct netstat_parameters *params, register struct protox *tp, char *name)
 {
-	void (*pr)(uint32_t, char *, int);
+	int (*pr)(struct netstat_parameters *, uint32_t, char *, int);
 	uint32_t off;
 
-	if (sflag) {
+	if (params->sflag) {
 		pr = tp->pr_stats;
 		if (!pr) {
-			if (pflag && vflag)
+			if (params->pflag && params->vflag)
 				printf("%s: no stats routine\n",
 					tp->pr_name);
 			return;
@@ -543,24 +647,24 @@ printproto(tp, name)
 	} else {
 		pr = tp->pr_cblocks;
 		if (!pr) {
-			if (pflag && vflag)
+			if (params->pflag && params->vflag)
 				printf("%s: no PCB routine\n", tp->pr_name);
 			return;
 		}
 		off = tp->pr_protocol;
 	}
 	if (pr != NULL) {
-		if (sflag && iflag && pflag && interval)
-			intervalpr(pr, off, name, af);
+		if (params->sflag && params->iflag && params->pflag && params->interval)
+			intervalpr(params, pr, off, name, params->af);
 		else
-			(*pr)(off, name, af);
+			(*pr)(params, off, name, params->af);
 	} else {
 		printf("### no stats for %s\n", name);
 	}
 }
 
 void
-printprotoifstats(char *ifname)
+printprotoifstats(struct netstat_parameters *params, char *ifname)
 {
 	struct protox **proto_table;
 
@@ -569,7 +673,7 @@ printprotoifstats(char *ifname)
 
 		for (tp = *proto_table; tp->pr_name != NULL; tp++) {
 			if (tp->pr_istats != NULL) {
-				tp->pr_istats(ifname);
+				tp->pr_istats(params, ifname);
 			}
 		}
 	}
@@ -606,6 +710,20 @@ knownname(char *name)
 			if (strcmp(tp->pr_name, name) == 0)
 				return (tp);
 	return (NULL);
+}
+
+static void
+reinitalize_protocols(struct netstat_parameters *params)
+{
+	struct protox **tpp, *tp;
+
+	for (tpp = protoprotox; *tpp; tpp++) {
+		for (tp = *tpp; tp->pr_name; tp++) {
+			if (tp->pr_reinit != NULL) {
+				tp->pr_reinit(params, tp->pr_name, tp->pr_protocol, AF_UNSPEC);
+			}
+		}
+	}
 }
 
 /*
@@ -654,7 +772,6 @@ static void
 usage(void)
 {
 	(void) fprintf(stderr, "%s\n", NETSTAT_USAGE);
-	exit(1);
 }
 
 int
@@ -674,24 +791,24 @@ print_time(void)
 
 
 void
-print_socket_stats_format(void)
+print_socket_stats_format(struct netstat_parameters *params)
 {
-	if (bflag > 0 || vflag > 0) {
-		if (vflag > 1) {
+	if (params->bflag > 0 || params->vflag > 0) {
+		if (params->vflag > 1) {
 			printf(" %12.12s/%-9.9s %12.12s/%-9.9s", "rxbytes", "packets", "txbytes", "packets");
 		} else {
 			printf(" %12.12s %12.12s", "rxbytes", "txbytes");
 		}
-		if (dflag > 0) {
-			if (vflag > 1) {
+		if (params->dflag > 0) {
+			if (params->vflag > 1) {
 				printf(" %12.12s/%-9.9s", "rxdrops", "packets");
 			} else {
 				printf(" %12.12s", "rxdrops");
 			}
 		}
 	}
-	if (vflag > 0) {
-		if (vflag > 1) {
+	if (params->vflag > 0) {
+		if (params->vflag > 1) {
 			printf(" %7.7s %7.7s %16s:%-6s %16s:%-6s",
 			       "rhiwat", "shiwat", "process", "pid", "eprocess", "epid");
 		} else {
@@ -706,10 +823,10 @@ print_socket_stats_format(void)
 }
 
 void
-print_socket_stats_data(struct xsocket_n *so, struct xsockbuf_n *so_rcv, struct xsockbuf_n *so_snd, struct xsockstat_n *so_stat)
+print_socket_stats_data(struct netstat_parameters *params, struct xsocket_n *so, struct xsockbuf_n *so_rcv, struct xsockbuf_n *so_snd, struct xsockstat_n *so_stat)
 {
-	if (bflag > 0 || vflag > 0) {
-		if (vflag > 1) {
+	if (params->bflag > 0 || params->vflag > 0) {
+		if (params->vflag > 1) {
 			printf(" %12llu/%-9llu %12llu/%-9llu",
 			       so_stat->xst_tc_stats[SO_STATS_DATA].rxbytes,
 			       so_stat->xst_tc_stats[SO_STATS_DATA].rxpackets,
@@ -720,8 +837,8 @@ print_socket_stats_data(struct xsocket_n *so, struct xsockbuf_n *so_rcv, struct 
 			       so_stat->xst_tc_stats[SO_STATS_DATA].rxbytes,
 			       so_stat->xst_tc_stats[SO_STATS_DATA].txbytes);
 		}
-		if (dflag > 0) {
-			if (vflag > 1) {
+		if (params->dflag > 0) {
+			if (params->vflag > 1) {
 				printf(" %12llu/%-9llu",
 				       so_stat->xst_tc_stats[SO_STATS_SBNOSPACE].rxbytes,
 				       so_stat->xst_tc_stats[SO_STATS_SBNOSPACE].rxpackets);
@@ -731,16 +848,15 @@ print_socket_stats_data(struct xsocket_n *so, struct xsockbuf_n *so_rcv, struct 
 			}
 		}
 	}
-	if (vflag > 0) {
+	if (params->vflag > 0) {
 		char namebuf[32] = { 0 };
 
 		proc_name(so->so_last_pid, namebuf, sizeof(namebuf));
 
-		if (vflag > 1) {
+		if (params->vflag > 1) {
 			char epidbuf[16] = { 0 };
 			char enamebuf[32] = { 0 };
 
-			/* print empty strings of the effective pid is not set (i.e. 0)*/
 			if (so->so_e_pid != 0) {
 				snprintf(epidbuf, sizeof(epidbuf),"%d", so->so_e_pid);
 				proc_name(so->so_e_pid, enamebuf, sizeof(enamebuf));

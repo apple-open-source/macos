@@ -302,7 +302,7 @@ Early exclaves initialization.
 ### Rank usage
 
 - Rank 1: Determine run-time support for exclaves
-
+- Middle: Compute exclaves carveout size
 
 `STARTUP_SUB_LOCKDOWN`
 ----------------------

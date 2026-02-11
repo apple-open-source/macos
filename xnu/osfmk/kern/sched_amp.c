@@ -96,7 +96,7 @@ static thread_t
 sched_amp_choose_thread(processor_t processor, int priority, __unused thread_t prev, ast_t reason);
 
 static void
-sched_amp_processor_queue_shutdown(processor_t processor);
+sched_amp_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq);
 
 static sched_mode_t
 sched_amp_initial_thread_sched_mode(task_t parent_task);
@@ -172,6 +172,8 @@ const struct sched_dispatch_table sched_amp_dispatch = {
 	.thread_group_recommendation_change             = sched_amp_thread_group_recommendation_change,
 	.cpu_init_completed                             = sched_amp_cpu_init_completed,
 	.thread_eligible_for_pset                       = sched_amp_thread_eligible_for_pset,
+	.update_pset_load_average                       = sched_amp_update_pset_load_average,
+	.update_pset_avg_execution_time                 = sched_update_pset_avg_execution_time,
 };
 
 extern processor_set_t ecore_set;
@@ -422,37 +424,20 @@ sched_amp_processor_bound_count(processor_t processor)
 }
 
 static void
-sched_amp_processor_queue_shutdown(processor_t processor)
+sched_amp_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq)
 {
 	processor_set_t pset = processor->processor_set;
 	run_queue_t     rq   = amp_main_runq(processor);
-	thread_t        thread;
-	queue_head_t    tqueue;
 
 	/* We only need to migrate threads if this is the last active or last recommended processor in the pset */
-	if ((pset->online_processor_count > 0) && pset_is_recommended(pset)) {
-		pset_unlock(pset);
-		return;
-	}
-
-	queue_init(&tqueue);
-
-	while (rq->count > 0) {
-		thread = run_queue_dequeue(rq, SCHED_HEADQ);
-		enqueue_tail(&tqueue, &thread->runq_links);
+	if (pset->online_processor_count == 0 || !pset_is_recommended(pset)) {
+		while (rq->count > 0) {
+			thread_t thread = run_queue_dequeue(rq, SCHED_HEADQ);
+			pulled_thread_queue_enqueue(threadq, thread);
+		}
 	}
 
 	pset_unlock(pset);
-
-	qe_foreach_element_safe(thread, &tqueue, runq_links) {
-		remqueue(&thread->runq_links);
-
-		thread_lock(thread);
-
-		thread_setrun(thread, SCHED_TAILQ);
-
-		thread_unlock(thread);
-	}
 }
 
 static boolean_t
@@ -511,7 +496,7 @@ sched_amp_steal_thread(processor_set_t pset)
 
 	assert(nset != pset);
 
-	if (sched_get_pset_load_average(nset, 0) >= sched_amp_steal_threshold(nset, spill_pending)) {
+	if (sched_amp_get_pset_load_average(nset, 0) >= sched_amp_steal_threshold(nset, spill_pending)) {
 		pset_unlock(pset);
 
 		pset = nset;
@@ -519,12 +504,12 @@ sched_amp_steal_thread(processor_set_t pset)
 		pset_lock(pset);
 
 		/* Allow steal if load average still OK, no idle cores, and more threads on runq than active cores DISPATCHING */
-		if ((sched_get_pset_load_average(pset, 0) >= sched_amp_steal_threshold(pset, spill_pending)) &&
+		if ((sched_amp_get_pset_load_average(pset, 0) >= sched_amp_steal_threshold(pset, spill_pending)) &&
 		    (pset->pset_runq.count > bit_count(pset->cpu_state_map[PROCESSOR_DISPATCHING])) &&
 		    (bit_count(pset->recommended_bitmask & pset->cpu_state_map[PROCESSOR_IDLE]) == 0)) {
 			thread = run_queue_dequeue(&pset->pset_runq, SCHED_HEADQ);
 			KDBG(MACHDBG_CODE(DBG_MACH_SCHED, MACH_AMP_STEAL) | DBG_FUNC_NONE, spill_pending, 0, 0, 0);
-			sched_update_pset_load_average(pset, 0);
+			SCHED(update_pset_load_average)(pset, 0);
 		}
 	}
 

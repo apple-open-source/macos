@@ -426,7 +426,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addSIMDLoadExtend(SIMDLaneOperation, ExpressionType pointer, uint32_t offset, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addSIMDLoadPad(SIMDLaneOperation, ExpressionType pointer, uint32_t offset, ExpressionType& result);
 
-    ExpressionType WARN_UNUSED_RETURN addConstant(v128_t value)
+    ExpressionType WARN_UNUSED_RETURN addSIMDConstant(v128_t value)
     {
         return push(m_currentBlock->appendNew<Const128Value>(m_proc, origin(), value));
     }
@@ -440,7 +440,7 @@ public:
     B3::Opcode b3Op = B3::Oops; \
     if (false) { }
 
-    auto addExtractLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType& result) -> PartialResult
+    auto addSIMDExtractLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType& result) -> PartialResult
     {
         result = push(m_currentBlock->appendNew<SIMDValue>(m_proc, origin(), B3::VectorExtractLane, toB3Type(simdScalarType(info.lane)), info,
             lane,
@@ -448,7 +448,7 @@ public:
         return { };
     }
 
-    auto addReplaceLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType s, ExpressionType& result) -> PartialResult
+    auto addSIMDReplaceLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType s, ExpressionType& result) -> PartialResult
     {
         result = push(m_currentBlock->appendNew<SIMDValue>(m_proc, origin(), B3::VectorReplaceLane, B3::V128, info,
             lane,
@@ -3467,7 +3467,7 @@ auto OMGIRGenerator::addArrayNewDefault(uint32_t typeIndex, ExpressionType size,
     if (isRefType(elementType.unpacked()))
         initValue = m_currentBlock->appendNew<WasmConstRefValue>(m_proc, origin(), JSValue::encode(jsNull()));
     else if (elementType.elementSize() == 16)
-        initValue = m_currentBlock->appendNew<Const128Value>(m_proc, origin(), v128_t { });
+        initValue = constant(V128, v128_t { });
     else if (elementType.elementSize() <= 4)
         initValue = constant(Int32, 0);
     else
@@ -3918,9 +3918,12 @@ auto OMGIRGenerator::addStructNewDefault(uint32_t typeIndex, ExpressionType& res
     const auto& structType = *m_info.typeSignatures[typeIndex]->expand().template as<StructType>();
     for (StructFieldCount i = 0; i < structType.fieldCount(); ++i) {
         Value* initValue;
-        if (Wasm::isRefType(structType.field(i).type))
+        auto fieldType = structType.field(i).type;
+        if (Wasm::isRefType(fieldType))
             initValue = m_currentBlock->appendNew<WasmConstRefValue>(m_proc, origin(), JSValue::encode(jsNull()));
-        else if (typeSizeInBytes(structType.field(i).type) <= 4)
+        else if (typeSizeInBytes(fieldType) == 16)
+            initValue = constant(V128, v128_t { });
+        else if (typeSizeInBytes(fieldType) <= 4)
             initValue = constant(Int32, 0);
         else
             initValue = constant(Int64, 0);
@@ -5720,64 +5723,54 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
 
     RegisterAtOffsetList calleeSaves = params.code().calleeSaveRegisterAtOffsetList();
 
-    // Be careful not to clobber this below.
-    // We also need to make sure that we preserve this if it is used by the patchpoint body.
     AllowMacroScratchRegisterUsage allowScratch(jit);
     auto tmp = jit.scratchRegister();
-    bool tmpNeedsSaving = false;
-    int tmpSpillOffsetRelativeToOriginalSP = 0;
 
     // If we pass a stack location to the patchpoint in arugmentCountIncludingThis, preserve it here.
     bool stackPatchArg[tailCallPatchpointScratchCount] = { false, false };
     int stackPatchArgSpill[tailCallPatchpointScratchCount] = { 0, 0 };
 
-    // Nothing before saving tmp can use the scratch register since it might clobber an input.
-    {
-        DisallowMacroScratchRegisterUsage disallowScratch(jit);
+    // Set up a valid frame so that we can clobber this one.
+    jit.emitRestore(calleeSaves);
 
-        // Set up a valid frame so that we can clobber this one.
-        jit.emitRestore(calleeSaves);
-
-        for (unsigned i = 0; i < params.size(); ++i) {
-            auto arg = params[i];
-            if (arg.isGPR()) {
-                ASSERT(!calleeSaves.find(arg.gpr()));
-                if (arg.gpr() == tmp)
-                    tmpNeedsSaving = true;
-                continue;
-            }
-            if (arg.isFPR()) {
-                ASSERT(!calleeSaves.find(arg.fpr()));
-                continue;
-            }
+    for (unsigned i = 0; i < params.size(); ++i) {
+        auto arg = params[i];
+        if (arg.isGPR()) {
+            ASSERT(!calleeSaves.find(arg.gpr()));
+            ASSERT(arg.gpr() != tmp);
+            continue;
         }
-
-        for (unsigned i = lastPatchArg; i < params.size(); ++i) {
-            auto arg = params[i];
-            if (arg.isStack()) {
-                unsigned scratch = -1;
-                for (unsigned i = 0; i < tailCallPatchpointScratchCount; ++i) {
-                    if (!stackPatchArg[i]) {
-                        scratch = i;
-                        break;
-                    }
-                }
-                ASSERT(scratch >= 0 && !stackPatchArg[scratch]);
-                stackPatchArg[scratch] = true;
-                if (WasmOMGIRGeneratorInternal::verboseTailCalls) {
-                    jit.probeDebug([arg] (Probe::Context& context) {
-                        dataLogLn("patch arg spill: ", RawHex(context.gpr<uintptr_t*>(MacroAssembler::framePointerRegister)[arg.offsetFromFP() / sizeof(uintptr_t)]));
-                    });
-                }
-                // A convinent and save place to stash it.
-                jit.transferPtr(CCallHelpers::Address(MacroAssembler::framePointerRegister, arg.offsetFromFP()),
-                    CCallHelpers::Address(MacroAssembler::framePointerRegister, tailCallPatchpointScratchOffsets[scratch]));
-            } else
-                ASSERT(arg.isGPR() || arg.isFPR());
+        if (arg.isFPR()) {
+            ASSERT(!calleeSaves.find(arg.fpr()));
+            continue;
         }
-
-        ASSERT(!calleeSaves.find(tmp) || !tmpNeedsSaving);
     }
+
+    for (unsigned i = lastPatchArg; i < params.size(); ++i) {
+        auto arg = params[i];
+        if (arg.isStack()) {
+            unsigned scratch = -1;
+            for (unsigned i = 0; i < tailCallPatchpointScratchCount; ++i) {
+                if (!stackPatchArg[i]) {
+                    scratch = i;
+                    break;
+                }
+            }
+            ASSERT(scratch >= 0 && !stackPatchArg[scratch]);
+            stackPatchArg[scratch] = true;
+            if (WasmOMGIRGeneratorInternal::verboseTailCalls) {
+                jit.probeDebug([arg] (Probe::Context& context) {
+                    dataLogLn("patch arg spill: ", RawHex(context.gpr<uintptr_t*>(MacroAssembler::framePointerRegister)[arg.offsetFromFP() / sizeof(uintptr_t)]));
+                });
+            }
+            // A convinent and save place to stash it.
+            jit.transferPtr(CCallHelpers::Address(MacroAssembler::framePointerRegister, arg.offsetFromFP()),
+                CCallHelpers::Address(MacroAssembler::framePointerRegister, tailCallPatchpointScratchOffsets[scratch]));
+        } else
+            ASSERT(arg.isGPR() || arg.isFPR());
+    }
+
+    ASSERT(!calleeSaves.find(tmp));
 
 #if ASSERT_ENABLED
     // Let's make sure we never rely on these slots, since they may be used for scratch.
@@ -5884,11 +5877,6 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
 
     JIT_COMMENT(jit, "SP[", safeAreaLowerBound, "] to SP[", stackUpperBound, "] form the safe portion of the stack to clobber; Scratches go from SP[0] to SP[", scratchAreaUpperBound, "].");
 
-    if (tmpNeedsSaving) {
-        tmpSpillOffsetRelativeToOriginalSP = allocateSpill(WidthPtr);
-        jit.storePtr(tmp, CCallHelpers::Address(MacroAssembler::stackPointerRegister, tmpSpillOffsetRelativeToOriginalSP));
-    }
-
     for (unsigned i = 0; i < tailCallPatchpointScratchCount; ++i) {
         if (stackPatchArg[i]) {
             stackPatchArgSpill[i] = allocateSpill(WidthPtr);
@@ -5928,22 +5916,24 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
             continue;
         }
 
-        auto saveSrc = [tmp, tmpNeedsSaving, tmpSpillOffsetRelativeToOriginalSP, dstType, &allocateSpill, &jit, &fpOffsetToSPOffset](ValueRep src) -> std::tuple<int, Width> {
+        auto saveSrc = [tmp, dstType, &allocateSpill, &jit, &fpOffsetToSPOffset](ValueRep src) -> std::tuple<int, Width> {
             int srcOffset = 0;
-            if (tmpNeedsSaving && src.isGPR() && src.gpr() == tmp) {
-                // Before tmp may have been clobbered, it was spilled to tmpSpillOffsetRelativeToOriginalSP.
-                srcOffset = tmpSpillOffsetRelativeToOriginalSP;
-            } else if (src.isGPR()) {
+            if (src.isGPR()) {
                 srcOffset = allocateSpill(WidthPtr);
                 jit.storePtr(src.gpr(), CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset));
                 return { srcOffset, WidthPtr };
             }
             if (src.isFPR()) {
                 srcOffset = allocateSpill(dstType.width());
-                if (dstType.width() <= Width::Width64)
-                    jit.storeDouble(src.fpr(), CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset));
-                else
-                    jit.storeVector(src.fpr(), CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset));
+                auto dst = CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset);
+                if (dstType == Types::F32)
+                    jit.storeFloat(src.fpr(), dst);
+                else if (dstType == Types::F64)
+                    jit.storeDouble(src.fpr(), dst);
+                else {
+                    ASSERT(dstType == Types::V128);
+                    jit.storeVector(src.fpr(), dst);
+                }
             } else if (src.isConstant()) {
                 if (toB3Type(dstType).kind() == Float) {
                     srcOffset = allocateSpill(Width32);
@@ -6079,66 +6069,46 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
 #endif
 #endif
 
-    if (tmpNeedsSaving)
-        jit.loadPtr(CCallHelpers::Address(MacroAssembler::stackPointerRegister, tmpSpillOffsetRelativeToOriginalSP), tmp);
+    jit.addPtr(MacroAssembler::TrustedImm32(newSPAtPrologueOffsetFromSP), MacroAssembler::stackPointerRegister);
 
-    // Nothing after restoring tmp can use the scratch register since it might clobber an input.
-    {
-        DisallowMacroScratchRegisterUsage disallowScratch(jit);
+    JIT_COMMENT(jit, "OK, now we can jump.");
+    if (WasmOMGIRGeneratorInternal::verboseTailCalls) {
+        jit.probeDebug([wasmCalleeInfoAsCallee] (Probe::Context& context) {
+            dataLogLn("Can now jump: FP: ", RawHex(context.gpr<uintptr_t>(GPRInfo::callFrameRegister)), " SP: ", RawHex(context.gpr<uintptr_t>(MacroAssembler::stackPointerRegister)));
+            auto* newFP = context.gpr<uintptr_t*>(MacroAssembler::stackPointerRegister) - prologueStackPointerDelta() / sizeof(uintptr_t);
+            dataLogLn("New (callee) FP at prologue will be at ", RawPointer(newFP));
+            auto fpl = std::bit_cast<uint64_t*>(newFP);
+            auto fpi = std::bit_cast<uint32_t*>(newFP);
 
-        jit.addPtr(MacroAssembler::TrustedImm32(newSPAtPrologueOffsetFromSP), MacroAssembler::stackPointerRegister);
-
-#if CPU(X86_64)
-        if (WasmOMGIRGeneratorInternal::verboseTailCalls) {
-            jit.probeDebug([] (Probe::Context& context) {
-                dataLogLn("return pc on the top of the stack: ", RawHex(*context.gpr<uintptr_t*>(MacroAssembler::stackPointerRegister)), " at ", RawHex(context.gpr<uintptr_t>(MacroAssembler::stackPointerRegister)));
-            });
-        }
-#endif
-
-        JIT_COMMENT(jit, "OK, now we can jump.");
-        if (WasmOMGIRGeneratorInternal::verboseTailCalls) {
-            jit.probeDebug([wasmCalleeInfoAsCallee] (Probe::Context& context) {
-                dataLogLn("Can now jump: FP: ", RawHex(context.gpr<uintptr_t>(GPRInfo::callFrameRegister)), " SP: ", RawHex(context.gpr<uintptr_t>(MacroAssembler::stackPointerRegister)));
-                auto* newFP = context.gpr<uintptr_t*>(MacroAssembler::stackPointerRegister) - prologueStackPointerDelta() / sizeof(uintptr_t);
-                dataLogLn("New (callee) FP at prologue will be at ", RawPointer(newFP));
-                auto fpl = std::bit_cast<uint64_t*>(newFP);
-                auto fpi = std::bit_cast<uint32_t*>(newFP);
-
-                for (unsigned i = 0; i < wasmCalleeInfoAsCallee.params.size(); ++i) {
-                    auto arg = wasmCalleeInfoAsCallee.params[i];
-                    auto src = arg.location;
-                    dataLog("Arg ", i, " located at ", arg.location, " = ");
-                    if (arg.location.isGPR()) {
-                        dataLog(context.gpr(arg.location.jsr().payloadGPR()), " / ", (int) context.gpr(arg.location.jsr().payloadGPR()));
-                        if (src.jsr().tagGPR())
-                            dataLog(" Upper bits: ", context.gpr(src.jsr().tagGPR()), " / ", (int) context.gpr(src.jsr().tagGPR()));
-                    } else if (arg.location.isFPR() && arg.width <= Width::Width64)
-                        dataLog(context.fpr(arg.location.fpr()));
-                    else if (arg.location.isFPR())
-                        RELEASE_ASSERT_NOT_REACHED();
-                    else
-                        dataLog(fpl[src.offsetFromFP() / sizeof(*fpl)], " / ", fpi[src.offsetFromFP() / sizeof(*fpi)],  " / ", RawHex(fpi[src.offsetFromFP() / sizeof(*fpi)]), " / ", std::bit_cast<double>(fpl[src.offsetFromFP() / sizeof(*fpl)]), " at ", RawPointer(&fpi[src.offsetFromFP() / sizeof(*fpi)]));
-                    dataLogLn();
-                }
-            });
-        }
+            for (unsigned i = 0; i < wasmCalleeInfoAsCallee.params.size(); ++i) {
+                auto arg = wasmCalleeInfoAsCallee.params[i];
+                auto src = arg.location;
+                dataLog("Arg ", i, " located at ", arg.location, " = ");
+                if (arg.location.isGPR()) {
+                    dataLog(context.gpr(arg.location.jsr().payloadGPR()), " / ", (int) context.gpr(arg.location.jsr().payloadGPR()));
+                    if (src.jsr().tagGPR())
+                        dataLog(" Upper bits: ", context.gpr(src.jsr().tagGPR()), " / ", (int) context.gpr(src.jsr().tagGPR()));
+                } else if (arg.location.isFPR() && arg.width <= Width::Width64)
+                    dataLog(context.fpr(arg.location.fpr()));
+                else if (arg.location.isFPR())
+                    RELEASE_ASSERT_NOT_REACHED();
+                else
+                    dataLog(fpl[src.offsetFromFP() / sizeof(*fpl)], " / ", fpi[src.offsetFromFP() / sizeof(*fpi)],  " / ", RawHex(fpi[src.offsetFromFP() / sizeof(*fpi)]), " / ", std::bit_cast<double>(fpl[src.offsetFromFP() / sizeof(*fpl)]), " at ", RawPointer(&fpi[src.offsetFromFP() / sizeof(*fpi)]));
+                dataLogLn();
+            }
+        });
+    }
 
 #if ASSERT_ENABLED
-        // Everything in the old stack might be overwritten anyway. Clobber for easier debugging.
-        if (tmpNeedsSaving)
-            jit.pushPair(tmp, tmp);
-        jit.move(MacroAssembler::TrustedImm32(0xBFFF), tmp);
-        constexpr int stackSlotsToClobber = 50;
-        constexpr int stackBytesToClobber = stackSlotsToClobber * registerSize();
-        static_assert(!(stackBytesToClobber & (stackAlignmentBytes() - 1)), "Size in bytes to clobber on stack is aligned");
-        for (int i = 0; i < stackSlotsToClobber / 2; ++i)
-            jit.pushPair(tmp, tmp);
-        jit.addPtr(MacroAssembler::TrustedImm32(stackBytesToClobber), MacroAssembler::stackPointerRegister);
-        if (tmpNeedsSaving)
-            jit.popPair(tmp, tmp);
+    // Everything in the old stack might be overwritten anyway. Clobber for easier debugging.
+    jit.move(MacroAssembler::TrustedImm32(0xBFFF), tmp);
+    constexpr int stackSlotsToClobber = 50;
+    constexpr int stackBytesToClobber = stackSlotsToClobber * registerSize();
+    static_assert(!(stackBytesToClobber & (stackAlignmentBytes() - 1)), "Size in bytes to clobber on stack is aligned");
+    for (int i = 0; i < stackSlotsToClobber / 2; ++i)
+        jit.pushPair(tmp, tmp);
+    jit.addPtr(MacroAssembler::TrustedImm32(stackBytesToClobber), MacroAssembler::stackPointerRegister);
 #endif
-    }
 }
 
 // See also: https://leaningtech.com/fantastic-tail-calls-and-how-to-implement-them/, a blog post about contributing this feature.
@@ -6240,7 +6210,7 @@ auto OMGIRGenerator::createTailCallPatchpoint(BasicBlock* block, const TypeDefin
     clobbers.merge(RegisterSetBuilder::calleeSaveRegisters());
     clobbers.exclude(RegisterSetBuilder::stackRegisters());
     patchpoint->clobberEarly(WTFMove(clobbers));
-    patchpoint->clobberLate(RegisterSetBuilder::macroClobberedGPRs());
+    patchpoint->clobber(RegisterSetBuilder::macroClobberedGPRs());
     patchpoint->appendVector(WTFMove(patchArgs));
     // See prepareForTailCallImpl for the heart of this patchpoint.
     block->append(patchpoint);

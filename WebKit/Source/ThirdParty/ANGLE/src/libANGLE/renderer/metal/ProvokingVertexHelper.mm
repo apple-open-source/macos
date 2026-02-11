@@ -221,9 +221,8 @@ angle::Result ProvokingVertexHelper::preconditionIndexBuffer(ContextMtl *context
     mtl::ComputeCommandEncoder *encoder =
         context->getComputeCommandEncoderWithoutEndingRenderEncoder();
     ANGLE_TRY(prepareCommandEncoderForDescriptor(context, encoder, pipelineDesc));
-    encoder->setBuffer(indexBuffer, static_cast<uint32_t>(indexOffset), 0);
-    encoder->setBufferForWrite(
-        newBuffer, static_cast<uint32_t>(indexOffset) + static_cast<uint32_t>(newOffset), 1);
+    encoder->setBuffer(indexBuffer, indexOffset, 0);
+    encoder->setBufferForWrite(newBuffer, indexOffset + newOffset, 1);
     encoder->setData(static_cast<uint>(indexCount), 2);
     encoder->setData(primCount, 3);
     encoder->dispatch(
@@ -268,7 +267,7 @@ angle::Result ProvokingVertexHelper::generateIndexBuffer(ContextMtl *context,
     mtl::ComputeCommandEncoder *encoder =
         context->getComputeCommandEncoderWithoutEndingRenderEncoder();
     ANGLE_TRY(prepareCommandEncoderForDescriptor(context, encoder, pipelineDesc));
-    encoder->setBufferForWrite(newBuffer, static_cast<uint>(newIndexOffset), 1);
+    encoder->setBufferForWrite(newBuffer, newIndexOffset, 1);
     encoder->setData(static_cast<uint>(indexCount), 2);
     encoder->setData(primCount, 3);
     encoder->setData(static_cast<uint>(first), 4);

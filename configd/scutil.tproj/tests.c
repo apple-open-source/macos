@@ -45,6 +45,7 @@
 #include <notify.h>
 #include <sys/time.h>
 #include <net/if.h>
+#include <ifaddrs.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -594,6 +595,65 @@ do_watchNWI(int argc, char * const argv[])
 	}
 
 	CFRunLoopRun();
+}
+
+
+__private_extern__
+void
+do_showNWI_all(void)
+{
+	nwi_state_t		state;
+	struct ifaddrs		*ifaddrs_list, *ifaddr;
+	const char		*if_name;
+	nwi_ifstate_t		ifstate;
+	nwi_ifstate_t		alias;
+	int			alias_af;
+	const char		*prev_if_name = NULL;
+
+	state = nwi_state_copy();
+	if (state == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("No network information\n"));
+		exit(1);
+	}
+
+	if (getifaddrs(&ifaddrs_list) == -1) {
+		SCPrint(TRUE, stderr, CFSTR("getifaddrs() failed: %s\n"), strerror(errno));
+		nwi_state_release(state);
+		exit(1);
+	}
+
+	for (ifaddr = ifaddrs_list; ifaddr != NULL; ifaddr = ifaddr->ifa_next) {
+		if_name = ifaddr->ifa_name;
+
+		if (ifaddr->ifa_addr == NULL) {
+			continue;
+		}
+		if (prev_if_name && strcmp(if_name, prev_if_name) == 0) {
+			continue;
+		}
+
+		prev_if_name = if_name;
+
+		ifstate = nwi_state_get_ifstate(state, if_name);
+
+		if (ifstate != NULL) {
+			SCPrint(TRUE, stdout, CFSTR("\n=== Interface: %s ===\n"), if_name);
+			_nwi_ifstate_log(ifstate, _sc_debug, NULL);
+
+			alias_af = (ifstate->af == AF_INET) ? AF_INET6 : AF_INET;
+			alias = nwi_ifstate_get_alias(ifstate, alias_af);
+			if (alias != NULL) {
+				SCPrint(TRUE, stdout, CFSTR("\n"));
+				_nwi_ifstate_log(alias, _sc_debug, NULL);
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("\n=== Interface: %s ===\n"), if_name);
+			SCPrint(TRUE, stdout, CFSTR("   No network information (for %s)\n"), if_name);
+		}
+	}
+
+	freeifaddrs(ifaddrs_list);
+	nwi_state_release(state);
 }
 
 

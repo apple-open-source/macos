@@ -519,6 +519,9 @@ _malloc_check_process_identity(const char *apple[])
 		{ "com.apple.WebKit.WebContent.Development",               MALLOC_PROCESS_BROWSER, },
 		{ "com.apple.WebKit.WebContent.CaptivePortal",             MALLOC_PROCESS_BROWSER, },
 		{ "com.apple.WebKit.WebContent.CaptivePortal.Development", MALLOC_PROCESS_BROWSER, },
+		{ "com.apple.WebKit.WebContent.EnhancedSecurity",             MALLOC_PROCESS_BROWSER, },
+		{ "com.apple.WebKit.WebContent.EnhancedSecurity.Development", MALLOC_PROCESS_BROWSER, },
+
 		{ "MTLCompilerService",          MALLOC_PROCESS_MTLCOMPILERSERVICE },
 
 #if TARGET_OS_OSX

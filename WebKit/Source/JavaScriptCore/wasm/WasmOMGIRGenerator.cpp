@@ -424,7 +424,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addSIMDLoadExtend(SIMDLaneOperation, ExpressionType pointer, uint32_t offset, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addSIMDLoadPad(SIMDLaneOperation, ExpressionType pointer, uint32_t offset, ExpressionType& result);
 
-    ExpressionType WARN_UNUSED_RETURN addConstant(v128_t value)
+    ExpressionType WARN_UNUSED_RETURN addSIMDConstant(v128_t value)
     {
         return push(m_currentBlock->appendNew<Const128Value>(m_proc, origin(), value));
     }
@@ -438,7 +438,7 @@ public:
     B3::Opcode b3Op = B3::Oops; \
     if (false) { }
 
-    auto addExtractLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType& result) -> PartialResult
+    auto addSIMDExtractLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType& result) -> PartialResult
     {
         result = push(m_currentBlock->appendNew<SIMDValue>(m_proc, origin(), B3::VectorExtractLane, toB3Type(simdScalarType(info.lane)), info,
             lane,
@@ -446,7 +446,7 @@ public:
         return { };
     }
 
-    auto addReplaceLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType s, ExpressionType& result) -> PartialResult
+    auto addSIMDReplaceLane(SIMDInfo info, uint8_t lane, ExpressionType v, ExpressionType s, ExpressionType& result) -> PartialResult
     {
         result = push(m_currentBlock->appendNew<SIMDValue>(m_proc, origin(), B3::VectorReplaceLane, B3::V128, info,
             lane,
@@ -3388,7 +3388,7 @@ auto OMGIRGenerator::addArrayNewDefault(uint32_t typeIndex, ExpressionType size,
     if (isRefType(elementType.unpacked()))
         initValue = m_currentBlock->appendNew<WasmConstRefValue>(m_proc, origin(), JSValue::encode(jsNull()));
     else if (elementType.elementSize() == 16)
-        initValue = m_currentBlock->appendNew<Const128Value>(m_proc, origin(), v128_t { });
+        initValue = constant(V128, v128_t { });
     else if (elementType.elementSize() <= 4)
         initValue = constant(Int32, 0);
     else
@@ -3843,9 +3843,12 @@ auto OMGIRGenerator::addStructNewDefault(uint32_t typeIndex, ExpressionType& res
     const auto& structType = *m_info.typeSignatures[typeIndex]->expand().template as<StructType>();
     for (StructFieldCount i = 0; i < structType.fieldCount(); ++i) {
         Value* initValue;
-        if (Wasm::isRefType(structType.field(i).type))
+        auto fieldType = structType.field(i).type;
+        if (Wasm::isRefType(fieldType))
             initValue = m_currentBlock->appendNew<WasmConstRefValue>(m_proc, origin(), JSValue::encode(jsNull()));
-        else if (typeSizeInBytes(structType.field(i).type) <= 4)
+        else if (typeSizeInBytes(fieldType) == 16)
+            initValue = constant(V128, v128_t { });
+        else if (typeSizeInBytes(fieldType) <= 4)
             initValue = constant(Int32, 0);
         else
             initValue = constant(Int64, 0);
@@ -5561,10 +5564,14 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
 
     RegisterAtOffsetList calleeSaves = params.code().calleeSaveRegisterAtOffsetList();
 
-    // Be careful not to clobber this below.
-    // We also need to make sure that we preserve this if it is used by the patchpoint body.
     AllowMacroScratchRegisterUsage allowScratch(jit);
     auto tmp = jit.scratchRegister();
+
+#if CPU(X86_64)
+    // On x64, the scratch register may alias one of the inputs and needs special saving.
+    //
+    // Be careful not to clobber this below.
+    // We also need to make sure that we preserve this if it is used by the patchpoint body.
     bool tmpNeedsSaving = false;
     int tmpSpillOffsetRelativeToOriginalSP = 0;
 
@@ -5596,6 +5603,30 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
         tmpSpillOffsetRelativeToOriginalSP = allocateSpill(WidthPtr);
         jit.storePtr(tmp, CCallHelpers::Address(MacroAssembler::stackPointerRegister, tmpSpillOffsetRelativeToOriginalSP));
     }
+#else
+    constexpr bool tmpNeedsSaving = false;
+    constexpr int tmpSpillOffsetRelativeToOriginalSP = 0;
+
+    // Set up a valid frame so that we can clobber this one.
+    jit.emitRestore(calleeSaves);
+
+#if ASSERT_ENABLED
+    for (unsigned i = 0; i < params.size(); ++i) {
+        auto arg = params[i];
+        if (arg.isGPR()) {
+            ASSERT(!calleeSaves.find(arg.gpr()));
+            ASSERT(arg.gpr() != tmp);
+            continue;
+        }
+        if (arg.isFPR()) {
+            ASSERT(!calleeSaves.find(arg.fpr()));
+            continue;
+        }
+    }
+
+    ASSERT(!calleeSaves.find(tmp));
+#endif // ASSERT_ENABLED
+#endif // CPU(X86_64)
 
 #if ASSERT_ENABLED
     // Let's make sure we never rely on these slots, so we can use them for scratch in the future.
@@ -5726,7 +5757,7 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
             continue;
         }
 
-        auto saveSrc = [tmp, tmpNeedsSaving, tmpSpillOffsetRelativeToOriginalSP, dstType, &allocateSpill, &jit, &fpOffsetToSPOffset](ValueRep src) -> std::tuple<int, Width> {
+        auto saveSrc = [=, &allocateSpill, &jit, &fpOffsetToSPOffset](ValueRep src) -> std::tuple<int, Width> {
             int srcOffset = 0;
             if (tmpNeedsSaving && src.isGPR() && src.gpr() == tmp) {
                 // Before tmp may have been clobbered, it was spilled to tmpSpill.
@@ -5736,10 +5767,15 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
                 jit.storePtr(src.gpr(), CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset));
             } else if (src.isFPR()) {
                 srcOffset = allocateSpill(dstType.width());
-                if (dstType.width() <= Width::Width64)
-                    jit.storeDouble(src.fpr(), CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset));
-                else
-                    jit.storeVector(src.fpr(), CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset));
+                auto dst = CCallHelpers::Address(MacroAssembler::stackPointerRegister, srcOffset);
+                if (dstType == Types::F32)
+                    jit.storeFloat(src.fpr(), dst);
+                else if (dstType == Types::F64)
+                    jit.storeDouble(src.fpr(), dst);
+                else {
+                    ASSERT(dstType == Types::V128);
+                    jit.storeVector(src.fpr(), dst);
+                }
             } else if (src.isConstant()) {
                 if (toB3Type(dstType).kind() == Float) {
                     srcOffset = allocateSpill(Width32);
@@ -5860,9 +5896,11 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
     if (tmpNeedsSaving)
         jit.loadPtr(CCallHelpers::Address(MacroAssembler::stackPointerRegister, tmpSpillOffsetRelativeToOriginalSP), tmp);
 
-    // Nothing after restoring tmp can use the scratch register since it might clobber an input.
     {
+#if CPU(X86_64)
+        // On x64, nothing after restoring tmp can use the scratch register since it might clobber an input.
         DisallowMacroScratchRegisterUsage disallowScratch(jit);
+#endif
 
         jit.addPtr(MacroAssembler::TrustedImm32(newSPAtPrologueOffsetFromSP), MacroAssembler::stackPointerRegister);
 
@@ -6014,7 +6052,17 @@ auto OMGIRGenerator::createTailCallPatchpoint(BasicBlock* block, const TypeDefin
     clobbers.merge(RegisterSetBuilder::calleeSaveRegisters());
     clobbers.exclude(RegisterSetBuilder::stackRegisters());
     patchpoint->clobberEarly(WTFMove(clobbers));
+#if CPU(X86_64)
+    // Our wasm x64 calling convention uses all caller-saved registers, including the scratch
+    // register. This means clobbering the scratch registers early can exhaust allocatable
+    // registers and crash in the regalloc.
+    //
+    // Until the calling convention is reworked, prepareForTailCallImpl has special handling
+    // around saving and restoring the scratch register if it is also used as an input.
     patchpoint->clobberLate(RegisterSetBuilder::macroClobberedGPRs());
+#else
+    patchpoint->clobber(RegisterSetBuilder::macroClobberedGPRs());
+#endif
     patchpoint->appendVector(WTFMove(patchArgs));
     // See prepareForTailCallImpl for the heart of this patchpoint.
     block->append(patchpoint);

@@ -80,7 +80,7 @@ thread_set_policy(
 	kern_return_t                   result = KERN_SUCCESS;
 
 	if (thread == THREAD_NULL ||
-	    pset == PROCESSOR_SET_NULL || pset != &pset0) {
+	    pset == PROCESSOR_SET_NULL || pset != sched_boot_pset) {
 		return KERN_INVALID_ARGUMENT;
 	}
 
@@ -186,7 +186,7 @@ thread_policy(
 	boolean_t                               set_limit)
 {
 	kern_return_t                   result = KERN_SUCCESS;
-	processor_set_t                 pset = &pset0;
+	processor_set_t                 pset = sched_boot_pset;
 	policy_limit_t                  limit = NULL;
 	int                                             limcount = 0;
 	policy_rr_limit_data_t                  rr_limit;

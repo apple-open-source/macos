@@ -451,6 +451,7 @@ struct ImageAnalysisContextMenuActionData {
     RetainPtr<WebTextIndicatorLayer> _textIndicatorLayer;
 
 #if USE(UICONTEXTMENU)
+    BOOL _isPreparingToDisplayContextMenu;
     BOOL _isDisplayingContextMenuWithAnimation;
     RetainPtr<UITargetedPreview> _contextMenuInteractionTargetedPreview;
 #endif

@@ -4803,14 +4803,15 @@ pf_inet6_hook(struct ifnet *ifp, struct mbuf **mp, int input,
 int
 pf_ifaddr_hook(struct ifnet *ifp)
 {
-	struct pfi_kif *kif = ifp->if_pf_kif;
+	if (ifp->if_pf_kif != NULL) {
+		struct pfi_kif *kif;
 
-	if (kif != NULL) {
 		lck_rw_lock_shared(&pf_perim_lock);
 		lck_mtx_lock(&pf_lock);
-
-		pfi_kifaddr_update(kif);
-
+		kif = ifp->if_pf_kif; /* read it again */
+		if (kif != NULL) {
+			pfi_kifaddr_update(kif);
+		}
 		lck_mtx_unlock(&pf_lock);
 		lck_rw_done(&pf_perim_lock);
 	}

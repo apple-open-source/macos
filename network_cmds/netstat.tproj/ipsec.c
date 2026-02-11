@@ -191,7 +191,7 @@ static const char *pfkey_msgtypenames[] = {
 static struct ipsecstat pipsecstat;
 static struct ipsecstat ipsecstat;
 
-static void print_ipsecstats (void);
+static void print_ipsecstats (struct netstat_parameters *params);
 static const char *pfkey_msgtype_names (int);
 static void ipsec_hist (const u_quad_t *, const u_quad_t *, size_t,
     const struct val2str *, const char *);
@@ -233,16 +233,16 @@ ipsec_hist(const u_quad_t *hist,
 }
 
 static void
-print_ipsecstats(void)
+print_ipsecstats(struct netstat_parameters *params)
 {
 #define	IPSECDIFF(f) (ipsecstat.f - pipsecstat.f)
-#define	p(f, m) if (IPSECDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (IPSECDIFF(f) || params->sflag <= 1) \
     printf(m, (CAST)IPSECDIFF(f), plural(IPSECDIFF(f)))
 #define hist(f, n, t) \
     ipsec_hist(ipsecstat.f, pipsecstat.f, \
         sizeof(ipsecstat.f)/sizeof(ipsecstat.f[0]), (n), (t));
 
-    if (interval && vflag > 0)
+    if (params->interval && params->vflag > 0)
         print_time();
 
 	p(in_success, "\t" LLU " inbound packet%s processed successfully\n");
@@ -277,26 +277,28 @@ print_ipsecstats(void)
 #undef hist
 }
 
-void
-ipsec_stats(uint32_t off __unused, char *name, int af __unused)
+int
+ipsec_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	size_t len;
 	
 	len = sizeof(struct ipsecstat);
 	if (strcmp(name, "ipsec") == 0) {
 		if (sysctlbyname("net.inet.ipsec.stats", &ipsecstat, &len, 0, 0) == -1)
-			return;
+			return 0;
 	} else if (strcmp(name, "ipsec6") == 0) {
 		if (sysctlbyname("net.inet6.ipsec6.stats", &ipsecstat, &len, 0, 0) == -1)
-			return;
+			return 0;
 	} else
-		return;
+		return 0;
 	printf ("%s:\n", name);
 
-	print_ipsecstats();
+	print_ipsecstats(params);
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&ipsecstat, &pipsecstat, len);
+
+	return 0;
 }
 
 static const char *
@@ -312,8 +314,8 @@ pfkey_msgtype_names(int x)
 	return buf;
 }
 
-void
-pfkey_stats(uint32_t off __unused, char *name, int af __unused)
+int
+pfkey_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct pfkeystat ppfkeystat;
 	struct pfkeystat pfkeystat;
@@ -323,14 +325,14 @@ pfkey_stats(uint32_t off __unused, char *name, int af __unused)
 	
 	len = sizeof(struct pfkeystat);
 	if (sysctlbyname("net.key.pfkeystat", &pfkeystat, &len, 0, 0) == -1)
-		return;
+		return -1;
 
-    if (interval && vflag > 0)
+    if (params->interval && params->vflag > 0)
         print_time();
 	printf ("%s:\n", name);
 
 #define	PFKEYDIFF(f) (pfkeystat.f - ppfkeystat.f)
-#define	p(f, m) if (PFKEYDIFF(f) || sflag <= 1) \
+#define	p(f, m) if (PFKEYDIFF(f) || params->sflag <= 1) \
     printf(m, (CAST)PFKEYDIFF(f), plural(PFKEYDIFF(f)))
 
 	/* kernel -> userland */
@@ -381,17 +383,18 @@ pfkey_stats(uint32_t off __unused, char *name, int af __unused)
 	    "\t" LLU " message%s toward registered sockets\n");
 	p(in_nomem, "\t" LLU " message%s with memory allocation failure\n");
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&pfkeystat, &ppfkeystat, len);
 #undef PFKEYDIFF
 #undef p
 
 	len = sizeof(pcbcount);
-	if (sysctlbyname("net.key.pcbcount", &pcbcount, &len, 0, 0) == -1)
-		return;
-
-	if (pcbcount != 0 || sflag <= 1 ) {
-		printf("\t%u open pfkey socket%s\n", pcbcount, plural(pcbcount));
+	if (sysctlbyname("net.key.pcbcount", &pcbcount, &len, 0, 0) == 0) {
+		if (pcbcount != 0 || params->sflag <= 1 ) {
+			printf("\t%u open pfkey socket%s\n", pcbcount, plural(pcbcount));
+		}
 	}
+
+	return 0;
 }
 #endif /*IPSEC*/

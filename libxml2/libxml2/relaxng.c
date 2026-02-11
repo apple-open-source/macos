@@ -8481,6 +8481,9 @@ xmlRelaxNGValidatePopElement(xmlRelaxNGValidCtxtPtr ctxt,
         xmlGenericError(xmlGenericErrorContext, "PopElem %s failed\n",
                         elem->name);
 #endif
+    if (ctxt->pnode == elem) {
+        ctxt->pnode = NULL;
+    }
     return (ret);
 }
 

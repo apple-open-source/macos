@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013, 2015, 2016, 2020-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013, 2015, 2016, 2020-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -100,7 +100,7 @@ __SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef key, Boolean is
 __private_extern__
 kern_return_t
 _configlist(mach_port_t			server,
-	    xmlData_t			keyRef,		/* raw XML bytes */
+	    xmlData_t			keyRef,		/* raw string bytes (not XML) */
 	    mach_msg_type_number_t	keyLen,
 	    int				isRegex,
 	    xmlDataOut_t		*listRef,	/* raw XML bytes */
@@ -116,6 +116,12 @@ _configlist(mach_port_t			server,
 	*listRef = NULL;
 	*listLen = 0;
 
+#define _PATTERN_STRING_MAX_LENGTH	1024
+	if (keyLen > _PATTERN_STRING_MAX_LENGTH) {
+		/* avoid heap overflow in regcomp() (rdar://166156227) */
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;

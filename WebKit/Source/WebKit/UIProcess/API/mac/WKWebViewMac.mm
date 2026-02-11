@@ -1591,7 +1591,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    _impl->setCanInstallScrollPocket();
+    _impl->setClientImplicitlyRequestedTopScrollPocket();
 #endif
 
     _impl->setObscuredContentInsets(coreBoxExtentsFromEdgeInsets(insets));
@@ -1619,7 +1619,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_setOverflowHeightForTopScrollEdgeEffect:(CGFloat)height
 {
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    _impl->setCanInstallScrollPocket();
+    _impl->setClientImplicitlyRequestedTopScrollPocket();
 #endif
 
     if (_page->overflowHeightForTopScrollEdgeEffect() == height)
@@ -1643,7 +1643,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_setOverrideTopScrollEdgeEffectColor:(NSColor *)color
 {
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    _impl->setCanInstallScrollPocket();
+    _impl->setClientImplicitlyRequestedTopScrollPocket();
 #endif
 
     if (_overrideTopScrollEdgeEffectColor == color || [_overrideTopScrollEdgeEffectColor isEqual:color])
@@ -1683,7 +1683,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_setUsesAutomaticContentInsetBackgroundFill:(BOOL)value
 {
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    _impl->setCanInstallScrollPocket();
+    _impl->setClientImplicitlyRequestedTopScrollPocket();
 #endif
 
     if (_usesAutomaticContentInsetBackgroundFill == value)
@@ -2070,6 +2070,24 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_toggleSmartLists:(id)sender
 {
     _impl->toggleSmartLists();
+}
+
+- (void)_storePrivateClickMeasurementWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destinationURL reportEndpoint:(NSURL *)reportEndpoint
+{
+    WebCore::PrivateClickMeasurement measurement(
+        WebCore::PrivateClickMeasurement::SourceID(sourceID),
+        WebCore::PCM::SourceSite(reportEndpoint),
+        WebCore::PCM::AttributionDestinationSite(destinationURL),
+        applicationBundleIdentifier(),
+        WallTime::now(),
+        WebCore::PCM::AttributionEphemeral::No
+    );
+    _page->setPrivateClickMeasurementImmediately(WTFMove(measurement));
+}
+
+- (void)_storeSimulatedPrivateClickMeasurementConversionWithPriority:(uint8_t)priority triggerData:(uint8_t)triggerData sourceURL:(NSURL *)sourceURL destinationURL:(NSURL *)destinationURL
+{
+    _page->simulatePrivateClickMeasurementConversion(priority, triggerData, sourceURL, destinationURL);
 }
 
 @end // WKWebView (WKPrivateMac)

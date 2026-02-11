@@ -145,7 +145,7 @@ public:
     virtual bool supportsLinearMediaPlayer() const { return false; }
 #endif
 
-    virtual bool prefersAutoDimming() const { return false; }
+    virtual bool prefersAutoDimming() const { return true; }
     virtual void setPrefersAutoDimming(bool) { }
 
 #if !RELEASE_LOG_DISABLED

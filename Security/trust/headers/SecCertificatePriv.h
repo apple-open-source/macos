@@ -49,6 +49,7 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecAppleCorporateAnchors.h>
+#include <Security/SecKey.h>
 
 #if SEC_OS_OSX
 #include <Security/cssmtype.h>
@@ -355,6 +356,17 @@ typedef CF_ENUM(uint32_t, SecSignatureHashAlgorithm){
  */
 SecSignatureHashAlgorithm SecCertificateGetSignatureHashAlgorithm(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
+#define SEC_CERTIFICATE_HAS_COPY_SIG_ALG
+/*!
+ @function SecCertificateCopySignatureAlgorithm
+ @abstract Return the signature algorithm used to sign this certificate.
+ @param certificate A certificate reference.
+ @result Returns a SecKeyAlgorithm constant representing the signature algorithm,
+ or NULL if the certificate is invalid or the algorithm cannot be determined.
+ */
+CF_RETURNS_RETAINED SecKeyAlgorithm SecCertificateCopySignatureAlgorithm(SecCertificateRef certificate)
+    API_AVAILABLE(macos(26.3), ios(26.3), watchos(26.3), tvos(26.3));
 
 /*!
  @function SecCertificateCopyProperties

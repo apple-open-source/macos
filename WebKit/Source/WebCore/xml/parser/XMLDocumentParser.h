@@ -153,6 +153,8 @@ private:
     void doWrite(const String&);
     void doEnd();
 
+    RefPtr<Text> protectedLeafTextNode() const { return m_leafTextNode; }
+
     xmlParserCtxtPtr context() const { return m_context ? m_context->context() : nullptr; };
 
     IsInFrameView m_isInFrameView { IsInFrameView::No };
@@ -163,8 +165,8 @@ private:
     const UniqueRef<PendingCallbacks> m_pendingCallbacks;
     Vector<xmlChar> m_bufferedText;
 
-    CheckedPtr<ContainerNode> m_currentNode;
-    Vector<CheckedPtr<ContainerNode>> m_currentNodeStack;
+    WeakPtr<ContainerNode, WeakPtrImplWithEventTargetData> m_currentNode;
+    Vector<WeakPtr<ContainerNode, WeakPtrImplWithEventTargetData>> m_currentNodeStack;
 
     RefPtr<Text> m_leafTextNode;
 

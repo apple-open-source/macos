@@ -138,7 +138,7 @@ thread_quantum_expire(
 	commpage_update_mach_approximate_time(ctime);
 #endif /* CONFIG_MACH_APPROXIMATE_TIME */
 
-	sched_update_pset_avg_execution_time(processor->processor_set, thread->quantum_remaining, ctime, thread->th_sched_bucket);
+	SCHED(update_pset_avg_execution_time)(processor->processor_set, thread->quantum_remaining, ctime, thread->th_sched_bucket);
 
 	recount_switch_thread(&snap, thread, get_threadtask(thread));
 	recount_log_switch_thread(&snap);

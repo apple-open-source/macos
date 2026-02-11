@@ -126,9 +126,10 @@ static void pas_mte_do_initialization(void)
         // Disable tagging in libpas by default in WebContent process
         *enabled_byte = 0;
 #endif
-        uint64_t ldmState = 0;
-        size_t sysCtlLen = sizeof(ldmState);
-        if (sysctlbyname("security.mac.lockdown_mode_state", &ldmState, &sysCtlLen, NULL, 0) >= 0 && ldmState == 1) {
+
+        const char* lockdownModeProcName = "com.apple.WebKit.WebContent.CaptivePortal";
+        bool isLockdownModeWebContentProcess = !strncmp(name, lockdownModeProcName, strlen(lockdownModeProcName));
+        if (isLockdownModeWebContentProcess) {
             *enabled_byte = 1;
             *medium_byte = 1;
             *lockdown_mode_byte = 1;

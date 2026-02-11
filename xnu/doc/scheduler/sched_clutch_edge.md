@@ -247,9 +247,11 @@ The order of cluster iteration in the algorithm above specifically picks homogen
 
 The `SCHED(steal_thread)` scheduler callout is invoked when the processor does not find any thread for execution in its runqueue. The aim of the steal operation is to find other threads running/runnable in other clusters which should be executed here. If the steal callout does not return a thread, the `thread_select()` logic calls `SCHED(processor_balance)` callout which is supposed to IPI other CPUs to rebalance threads and idle out the current CPU waiting for the IPI'ed thread to reschedule the thread onto this CPU.
 
-**Edge Scheduler Foreign Threads**
+**Edge Scheduler Steal/Rebalance Eligibility**
 
-The Edge scheduler identifies clutch buckets (and correspondingly the threads in the clutch bucket) as foreign when these clutch buckets are enqueued on a cluster which are asymmetric from the preferred cluster of the thread group. The foreign clutch buckets are part of the regular hierarchy of the clutch root but are also linked in a special "foreign" priority queue maintained at the root. This foreign priority queue allows other clusters to easily rebalance threads from asymmetric clusters when they run out of threads in their local hierarchy runqueue. 
+The Edge scheduler tracks which threads can be stolen or rebalanced to various psets, in accordance with the Edge matrix, based on each thread's preferred pset. Since the preferred pset is known for a thread group at a particular scheduling bucket, this eligibility is tracked at the clutch bucket level.
+
+On a runqueue, for each preferred pset, the Edge scheduler maintains a root bucket-differentiated priority queue of clutch buckets recommended to that pset. This metadata allows steal/rebalance operations from other psets to filter for threads of specific recommendations, in a fine-grained manner which also enforces the current Edge matrix settings and pset load metrics. For example, foreign rebalance steal filters for threads recommended to a different/asymmetric cluster type from the pset where they are currently enqueued.
 
 **Edge scheduler steal implementation**
 
@@ -264,7 +266,7 @@ The edge scheduler implements the steal operation via `sched_edge_processor_idle
 ```
 The policy of doing these operations in this specific order is chosen to ensure that threads are not runnable or executing on cluster types which are different from its preferred cluster type. If no such thread is found, then the scheduler aims to reduce the load on other clusters by stealing threads from them.
 
-**Edge scheduler rebalance operation**
+**Edge scheduler running rebalance operation**
 
 If `SCHED(steal_thread)` did not return a thread for the processor, it indicates that the processor found a thread running on a "foreign" cluster and would like to rebalance it onto itself. The implementation (`sched_edge_balance()`) sends an IPI to the foreign CPU, idles itself and waits for the foreign CPU to rebalance the thread on this idle CPU.
 

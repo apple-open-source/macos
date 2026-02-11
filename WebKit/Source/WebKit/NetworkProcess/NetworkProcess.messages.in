@@ -75,6 +75,10 @@ messages -> NetworkProcess : AuxiliaryProcess WantsAsyncDispatchMessage {
 
     FlushCookies(PAL::SessionID sessionID) -> ()
 
+#if PLATFORM(MAC)
+    systemDidWake()
+#endif
+
 #if !PLATFORM(COCOA)
     AllowSpecificHTTPSCertificateForHost(PAL::SessionID sessionID, WebCore::CertificateInfo certificate, String host)
 #endif
@@ -188,6 +192,7 @@ messages -> NetworkProcess : AuxiliaryProcess WantsAsyncDispatchMessage {
     StoreServiceWorkerRegistrations(PAL::SessionID sessionID) -> ()
 
     StorePrivateClickMeasurement(PAL::SessionID sessionID, WebCore::PrivateClickMeasurement privateClickMeasurement)
+    SimulatePrivateClickMeasurementConversion(PAL::SessionID sessionID, int priority, int triggerData, URL sourceURL, URL destinationURL)
     DumpPrivateClickMeasurement(PAL::SessionID sessionID) -> (String privateClickMeasurementState)
     ClearPrivateClickMeasurement(PAL::SessionID sessionID) -> ()
     SetPrivateClickMeasurementOverrideTimerForTesting(PAL::SessionID sessionID, bool value) -> ()

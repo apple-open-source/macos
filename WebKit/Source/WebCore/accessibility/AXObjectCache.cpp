@@ -822,6 +822,11 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject& renderer)
     if (renderer.beingDestroyed())
         return nullptr;
 
+    // We should never create objects that have dirty layout. Doing so can cause
+    // incorrect accessibility tree updates and also for renderers to be deleted
+    // out from under us, causing memory safety issues (or CheckedPtr crashes if we're lucky).
+    AX_BROKEN_ASSERT(!renderer.needsLayout());
+
     Ref object = createObjectFromRenderer(renderer);
 
     // Will crash later if we have two objects for the same renderer.
@@ -1211,16 +1216,16 @@ void AXObjectCache::updateLoadingProgress(double newProgressValue)
 #endif
 }
 
-void AXObjectCache::onTopDocumentLoaded(RenderObject& renderObject)
+void AXObjectCache::onTopDocumentLoaded(RenderObject& renderer)
 {
-    postNotification(getOrCreate(renderObject), AXNotification::NewDocumentLoadComplete);
+    postDeferredNotification(renderer, AXNotification::NewDocumentLoadComplete);
 }
 
-void AXObjectCache::onNonTopDocumentLoaded(RenderObject& renderObject)
+void AXObjectCache::onNonTopDocumentLoaded(RenderObject& renderer)
 {
     // AXLoadComplete can only be posted on the top document, so if it's a document
     // in an iframe that just finished loading, post AXLayoutComplete instead.
-    postNotification(getOrCreate(renderObject), AXNotification::LayoutComplete);
+    postDeferredNotification(renderer, AXNotification::LayoutComplete);
 }
 
 void AXObjectCache::onAutocorrectionOccured(Element& element)
@@ -2631,11 +2636,12 @@ void AXObjectCache::onSelectedTextChanged(const VisiblePositionRange& selection,
 
 void AXObjectCache::frameLoadingEventNotification(LocalFrame* frame, AXLoadingEvent loadingEvent)
 {
-    if (!frame)
-        return;
-
-    // Delegate on the right platform
-    frameLoadingEventPlatformNotification(getOrCreate(frame->contentRenderer()), loadingEvent);
+    if (frame) {
+        // We pass the RenderView* (via contentRenderer()) rather than calling getOrCreate and passing
+        // that because some platforms don't handle all loading event types, and we don't want to call
+        // getOrCreate unnecessarily (because doing so is not always safe, and can do a fair amount of work).
+        frameLoadingEventPlatformNotification(frame->contentRenderer(), loadingEvent);
+    }
 }
 
 void AXObjectCache::postLiveRegionChangeNotification(AccessibilityObject& object)
@@ -4784,6 +4790,10 @@ void AXObjectCache::performDeferredCacheUpdate(ForceLayout forceLayout)
     });
     m_deferredScrollbarUpdateChangeList.clear();
 
+    for (const auto& notificationData : m_deferredNotifications)
+        handleDeferredNotification(notificationData);
+    m_deferredNotifications.clear();
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (m_deferredRegenerateIsolatedTree) {
         if (auto tree = AXIsolatedTree::treeForFrameID(m_frameID)) {
@@ -4810,6 +4820,26 @@ void AXObjectCache::performDeferredCacheUpdate(ForceLayout forceLayout)
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
     platformPerformDeferredCacheUpdate();
+}
+
+void AXObjectCache::handleDeferredNotification(const DeferredNotificationData& data)
+{
+    if (CheckedPtr renderer = data.renderer.get()) {
+        // The point of deferring the notification is to post it when style and layout
+        // are clean, so this function should not be called unless this is true.
+        ASSERT(!needsLayoutOrStyleRecalc(renderer->document()) && !renderer->needsLayout());
+        postNotification(getOrCreate(*renderer), data.notification);
+    } else if (RefPtr element = data.element.get()) {
+        ASSERT(!needsLayoutOrStyleRecalc(element->document()));
+        postNotification(getOrCreate(*element), data.notification);
+    }
+}
+
+void AXObjectCache::postDeferredNotification(RenderObject& renderer, AXNotification notification)
+{
+    // We want to post this notification, but it may not be safe to call getOrCreate right now
+    // (e.g. because style or layout is dirty). Defer to a time we know the page state is clean.
+    m_deferredNotifications.append(DeferredNotificationData { renderer, notification });
 }
 
 void AXObjectCache::handleMenuListValueChanged(Element& element)

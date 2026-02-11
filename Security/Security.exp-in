@@ -45,6 +45,7 @@ _SSLCopyDistinguishedNames
 _SSLCopyPeerTrust
 _SSLCreateContext
 _SSLCreateContextWithRecordFuncs
+_SSLCreateContextWithRecordFuncsAndPath
 _SSLCiphersuiteGroupToCiphersuiteList
 _SSLCiphersuiteGroupContainsCiphersuite
 _SSLCiphersuiteMaximumTLSVersion
@@ -186,6 +187,7 @@ _SSLClose
 _SSLContextGetTypeID
 _SSLCreateContext
 _SSLCreateContextWithRecordFuncs
+_SSLCreateContextWithRecordFuncsAndPath
 _SSLCiphersuiteGroupToCiphersuiteList
 _SSLCiphersuiteGroupContainsCiphersuite
 _SSLCiphersuiteMaximumTLSVersion

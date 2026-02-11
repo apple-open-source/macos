@@ -383,8 +383,8 @@ extern _Atomic uint64_t c_segment_compressed_bytes;
 
 extern vm_map_t compressor_map;
 
-#if DEVELOPMENT || DEBUG
-extern boolean_t write_protect_c_segs;
+#if CONFIG_CSEG_MPROTECT
+extern bool write_protect_c_segs;
 extern int vm_compressor_test_seg_wp;
 
 #define C_SEG_MAKE_WRITEABLE(cseg)                      \
@@ -411,7 +411,10 @@ extern int vm_compressor_test_seg_wp;
 	        (void) vmtstmp;                                         \
 	}                                                               \
 	MACRO_END
-#endif /* DEVELOPMENT || DEBUG */
+#else /* !CONFIG_CSEG_MPROTECT */
+#define C_SEG_MAKE_WRITEABLE(cseg)
+#define C_SEG_WRITE_PROTECT(cseg)
+#endif /* CONFIG_CSEG_MPROTECT */
 
 typedef struct c_segment *c_segment_t;
 typedef struct c_slot   *c_slot_t;

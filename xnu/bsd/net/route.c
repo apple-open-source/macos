@@ -1553,7 +1553,9 @@ rtredirect(struct ifnet *ifp, struct sockaddr *dst, struct sockaddr *gateway,
 	    ifa->ifa_addr))) {
 		error = EINVAL;
 	} else {
-		ifa_remref(ifa);
+		if (ifa != NULL) {
+			ifa_remref(ifa);
+		}
 		if ((ifa = ifa_ifwithaddr(gateway))) {
 			ifa_remref(ifa);
 			ifa = NULL;

@@ -1715,7 +1715,9 @@ in_ifinit(struct ifnet *ifp, struct in_ifaddr *ia, struct sockaddr_in *sin,
 	}
 
 	/* Release reference from ifa_ifpgetprimary() */
-	ifa_remref(ifa0);
+	if (ifa0 != NULL) {
+		ifa_remref(ifa0);
+	}
 
 	if (error) {
 		lck_rw_lock_exclusive(&in_ifaddr_rwlock);

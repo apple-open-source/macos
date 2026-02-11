@@ -367,15 +367,14 @@ cpu_check_preempt_current(int cpu_id, bool preemption_expected)
 bool
 tracepoint_expect(uint64_t trace_code, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4)
 {
-	uint64_t popped_trace_code, popped_arg1, popped_arg2, popped_arg3, popped_arg4;
-	impl_pop_tracepoint(&popped_trace_code, &popped_arg1, &popped_arg2, &popped_arg3, &popped_arg4);
-	bool pass = (trace_code == popped_trace_code) && (arg1 == popped_arg1) &&
-	    (arg2 == popped_arg2) && (arg3 == popped_arg3) && (arg4 == popped_arg4);
+	uint64_t popped_arg1, popped_arg2, popped_arg3, popped_arg4;
+	impl_pop_tracepoint(trace_code, &popped_arg1, &popped_arg2, &popped_arg3, &popped_arg4);
+	bool pass = (arg1 == popped_arg1) && (arg2 == popped_arg2) && (arg3 == popped_arg3) && (arg4 == popped_arg4);
 	fprintf(_log, "%s: expected code %llx arg1 %llx arg2 %llx arg3 %llx arg4 %llx\n", pass ? "PASS" : "FAIL",
 	    trace_code, arg1, arg2, arg3, arg4);
 	if (pass == false) {
 		fprintf(_log, "\tfound code %llx arg1 %llx arg2 %llx arg3 %llx arg4 %llx\n",
-		    popped_trace_code, popped_arg1, popped_arg2, popped_arg3, popped_arg4);
+		    trace_code, popped_arg1, popped_arg2, popped_arg3, popped_arg4);
 	}
 	return pass;
 }
@@ -390,6 +389,12 @@ void
 reenable_auto_current_thread(void)
 {
 	auto_current_thread_disabled = false;
+}
+
+uint64_t
+get_thread_tid(test_thread_t thread)
+{
+	return impl_get_thread_tid(thread);
 }
 
 #pragma mark - Realtime

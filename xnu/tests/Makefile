@@ -590,6 +590,14 @@ vm/neural_footprint: test_utils.c vm/neural_footprint.c ./vm/neural_footprint.en
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $< -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
 
+vm/vm_guard_objects_telemetry: exc_guard_helper.c exc_helpers.c test_utils.c excserver
+vm/vm_guard_objects_telemetry: CODE_SIGN_ENTITLEMENTS = entitlements/guard_objects-enabled.plist
+vm/vm_guard_objects_telemetry: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+vm/vm_guard_objects_telemetry: OTHER_LDFLAGS += -ldarwintest_utils
+vm/vm_guard_objects_telemetry: vm/vm_guard_objects_telemetry.c
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
+
 memorystatus_is_assertion: OTHER_LDFLAGS += -ldarwintest_utils
 memorystatus_is_assertion: OTHER_CFLAGS += memorystatus_assertion_helpers.c
 
@@ -1377,6 +1385,12 @@ arm_mte_soft_mode: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
 arm_mte_soft_mode: OTHER_CFLAGS += $(MTE_CFLAGS)
 arm_mte_soft_mode: CODE_SIGN_ENTITLEMENTS = arm_mte.entitlements
 arm_mte_soft_mode: CODESIGN = $(CODESIGN_MTE_SOFT)
+
+arm_mte_soft_mode_traced: arm_mte_utilities.c
+arm_mte_soft_mode_traced: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
+arm_mte_soft_mode_traced: OTHER_CFLAGS += $(MTE_CFLAGS)
+arm_mte_soft_mode_traced: CODE_SIGN_ENTITLEMENTS = arm_mte_soft_mode_traced.entitlements
+arm_mte_soft_mode_traced: CODESIGN = $(CODESIGN_MTE_SOFT)
 
 CODESIGN_MTE_PREFLIGHT:=$(CODESIGN) -i com.apple.internal.arm_mte_preflight_test
 arm_mte_preflight: arm_mte_utilities.c

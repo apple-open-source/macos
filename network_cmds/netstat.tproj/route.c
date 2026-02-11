@@ -135,8 +135,8 @@ typedef union {
 	u_short	u_data[128];
 } sa_u;
 
-static void np_rtentry __P((struct rt_msghdr2 *));
-static void p_sockaddr __P((struct sockaddr *, struct sockaddr *, int, int));
+static void np_rtentry(struct netstat_parameters *, struct rt_msghdr2 *);
+static void p_sockaddr(struct netstat_parameters *, struct sockaddr *, struct sockaddr *, int, int);
 static uint32_t forgemask __P((uint32_t));
 static void domask __P((char *, uint32_t, uint32_t));
 
@@ -188,11 +188,11 @@ pr_family(int af)
 #define	WID_IF(af)	14	/* width of netif column */
 #else
 #define	WID_DST(af) \
-((af) == AF_INET6 ? (Wflag ? 53 : (lflag ? 39 : (nflag ? 39: 18))) : 18)
+((af) == AF_INET6 ? (params->Wflag ? 53 : (params->lflag ? 39 : (params->nflag ? 39: 18))) : 18)
 #define	WID_GW(af) \
-	((af) == AF_INET6 ? (Wflag ? 53 : (lflag ? 39 : (nflag ? 39: 18))) : 18)
+	((af) == AF_INET6 ? (params->Wflag ? 53 : (params->lflag ? 39 : (params->nflag ? 39: 18))) : 18)
 #define	WID_RT_IFA(af) \
-	((af) == AF_INET6 ? (Wflag ? 53 : (lflag ? 39 : (nflag ? 39: 18))) : 18)
+	((af) == AF_INET6 ? (params->Wflag ? 53 : (params->lflag ? 39 : (params->nflag ? 39: 18))) : 18)
 #define	WID_IF(af)	14
 #endif /*INET6*/
 
@@ -200,10 +200,10 @@ pr_family(int af)
  * Print header for routing table columns.
  */
 void
-pr_rthdr(int af)
+pr_rthdr(struct netstat_parameters * params, int af)
 {
-	if (lflag) {
-		if (lflag > 2)
+	if (params->lflag) {
+		if (params->lflag > 2)
 			printf("%-*.*s %-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
 				"%10s %10s %8s %8s %8s\n",
 				WID_DST(af), WID_DST(af), "Destination",
@@ -212,7 +212,7 @@ pr_rthdr(int af)
 				"Flags", "Refs", "Use", "Mtu",
 				WID_IF(af), WID_IF(af), "Netif", "Expire",
 				"rtt(ms)", "rttvar(ms)", "recvpipe", "sendpipe", "ssthresh");
-		else if (lflag > 1)
+		else if (params->lflag > 1)
 			printf("%-*.*s %-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
 				"%10s %10s\n",
 				WID_DST(af), WID_DST(af), "Destination",
@@ -239,15 +239,16 @@ pr_rthdr(int af)
 /*
  * Print routing tables.
  */
-void
-routepr(void)
+int
+routepr(struct netstat_parameters *params)
 {
 	size_t extra_space;
 	size_t needed;
 	int mib[6];
-	char *buf, *next, *lim;
+	char *buf = NULL, *next, *lim;
 	struct rt_msghdr2 *rtm;
 	int try = 1;
+	int retval = 0;
 
 	printf("Routing tables\n");
 
@@ -259,7 +260,8 @@ routepr(void)
 	mib[4] = NET_RT_DUMP2;
 	mib[5] = 0;
 	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) {
-		err(1, "sysctl: net.route.0.0.dump estimate");
+		warn("sysctl: net.route.0.0.dump estimate");
+		return -1;
 	}
 	/* allocate extra space in case the table grows */
 	extra_space = needed / 2;
@@ -267,7 +269,8 @@ routepr(void)
 		needed += extra_space;
 	}
 	if ((buf = malloc(needed)) == 0) {
-		err(2, "malloc(%lu)", (unsigned long)needed);
+		warn("malloc(%lu)", (unsigned long)needed);
+		return -1;
 	}
 	if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0) {
 #define MAX_TRIES	10
@@ -277,13 +280,19 @@ routepr(void)
 			try++;
 			goto again;
 		}
-		err(1, "sysctl: net.route.0.0.dump");
+		warn("sysctl: net.route.0.0.dump");
+		retval = -1;
+		goto done;
 	}
 	lim  = buf + needed;
 	for (next = buf; next < lim; next += rtm->rtm_msglen) {
 		rtm = (struct rt_msghdr2 *)next;
-		np_rtentry(rtm);
+		np_rtentry(params, rtm);
 	}
+done:
+	free(buf);
+
+	return 0;
 }
 
 static void
@@ -302,7 +311,7 @@ get_rtaddrs(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
 }
 
 static void
-np_rtentry(struct rt_msghdr2 *rtm)
+np_rtentry(struct netstat_parameters *params, struct rt_msghdr2 *rtm)
 {
 	struct sockaddr *sa = (struct sockaddr *)(rtm + 1);
 	struct sockaddr *rti_info[RTAX_MAX];
@@ -317,18 +326,18 @@ np_rtentry(struct rt_msghdr2 *rtm)
 	 */
 	if ((rtm->rtm_flags & RTF_WASCLONED) &&
 	    (rtm->rtm_parentflags & RTF_PRCLONING) &&
-	    !aflag) {
+	    !params->aflag) {
 			return;
 	}
 
-	if (lflag > 1 && zflag != 0 && rtm->rtm_rmx.rmx_rtt == 0 && rtm->rtm_rmx.rmx_rttvar == 0)
+	if (params->lflag > 1 && params->zflag != 0 && rtm->rtm_rmx.rmx_rtt == 0 && rtm->rtm_rmx.rmx_rttvar == 0)
 		return;
 	fam = sa->sa_family;
-	if (af != AF_UNSPEC && af != fam)
+	if (params->af != AF_UNSPEC && params->af != fam)
 		return;
 	if (fam != old_fam) {
 		pr_family(fam);
-		pr_rthdr(fam);
+		pr_rthdr(params, fam);
 		old_fam = fam;
 	}
 	get_rtaddrs(rtm->rtm_addrs, sa, rti_info);
@@ -338,20 +347,20 @@ np_rtentry(struct rt_msghdr2 *rtm)
 	bzero(&mask, sizeof(mask));
 	if ((rtm->rtm_addrs & RTA_NETMASK))
 		bcopy(rti_info[RTAX_NETMASK], &mask, rti_info[RTAX_NETMASK]->sa_len);
-	p_sockaddr(&addr.u_sa, &mask.u_sa, rtm->rtm_flags,
+	p_sockaddr(params, &addr.u_sa, &mask.u_sa, rtm->rtm_flags,
 	    WID_DST(addr.u_sa.sa_family));
 
-	p_sockaddr(rti_info[RTAX_GATEWAY], NULL, RTF_HOST,
+	p_sockaddr(params, rti_info[RTAX_GATEWAY], NULL, RTF_HOST,
 	    WID_GW(addr.u_sa.sa_family));
 
-	if (lflag && (rtm->rtm_addrs & RTA_IFA)) {
-		p_sockaddr(rti_info[RTAX_IFA], NULL, RTF_HOST,
+	if (params->lflag && (rtm->rtm_addrs & RTA_IFA)) {
+		p_sockaddr(params, rti_info[RTAX_IFA], NULL, RTF_HOST,
 		    WID_RT_IFA(addr.u_sa.sa_family));
 	}
 	
 	p_flags(rtm->rtm_flags, "%-10.10s ");
 
-	if (lflag) {
+	if (params->lflag) {
 		printf("%6u %8u ", rtm->rtm_refcnt, (unsigned int)rtm->rtm_use);
 		if (rtm->rtm_rmx.rmx_mtu != 0)
 			printf("%6u ", rtm->rtm_rmx.rmx_mtu);
@@ -377,7 +386,7 @@ np_rtentry(struct rt_msghdr2 *rtm)
 	} else {
 		printf(" %6s", "");
 	}
-	if (lflag > 1) {
+	if (params->lflag > 1) {
 		if (rtm->rtm_rmx.rmx_rtt != 0)
 			printf(" %6u.%03u", rtm->rtm_rmx.rmx_rtt / 1000,
 			       rtm->rtm_rmx.rmx_rtt % 1000);
@@ -388,7 +397,7 @@ np_rtentry(struct rt_msghdr2 *rtm)
 			       rtm->rtm_rmx.rmx_rttvar % 1000);
 		else
 			printf(" %10s", "");
-		if (lflag > 2) {
+		if (params->lflag > 2) {
 			if (rtm->rtm_rmx.rmx_recvpipe != 0)
 				printf(" %8u", rtm->rtm_rmx.rmx_recvpipe);
 			else
@@ -407,7 +416,7 @@ np_rtentry(struct rt_msghdr2 *rtm)
 }
 
 static void
-p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
+p_sockaddr(struct netstat_parameters * params, struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 {
 	char workbuf[128], *cplim;
 	char *cp = workbuf;
@@ -421,13 +430,13 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 		    (ntohl(((struct sockaddr_in *)mask)->sin_addr.s_addr) == 0L || mask->sa_len == 0))
 				cp = "default" ;
 		else if (flags & RTF_HOST)
-			cp = routename(sin->sin_addr.s_addr);
+			cp = routename(params, sin->sin_addr.s_addr);
 		else if (mask)
-			cp = netname(sin->sin_addr.s_addr,
+			cp = netname(params, sin->sin_addr.s_addr,
 			    ntohl(((struct sockaddr_in *)mask)->
 			    sin_addr.s_addr));
 		else
-			cp = netname(sin->sin_addr.s_addr, 0L);
+			cp = netname(params, sin->sin_addr.s_addr, 0L);
 		break;
 	    }
 
@@ -449,11 +458,11 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 		}
 
 		if (flags & RTF_HOST)
-		    cp = routename6(sa6);
+		    cp = routename6(params, sa6);
 		else if (mask)
-		    cp = netname6(sa6, mask);
+		    cp = netname6(params, sa6, mask);
 		else
-		    cp = netname6(sa6, NULL);
+		    cp = netname6(params, sa6, NULL);
 		break;
 	    }
 #endif /*INET6*/
@@ -506,7 +515,7 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 	if (width < 0 ) {
 		printf("%s ", cp);
 	} else {
-		if (nflag)
+		if (params->nflag)
 			printf("%-*s ", width, cp);
 		else
 			printf("%-*.*s ", width, width, cp);
@@ -514,14 +523,14 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 }
 
 char *
-routename(uint32_t in)
+routename(struct netstat_parameters *params, uint32_t in)
 {
 	char *cp;
 	static char line[MAXHOSTNAMELEN];
 	struct hostent *hp;
 
 	cp = 0;
-	if (!nflag) {
+	if (!params->nflag) {
 		hp = gethostbyaddr((char *)&in, sizeof (struct in_addr),
 			AF_INET);
 		if (hp) {
@@ -587,7 +596,7 @@ domask(char *dst, uint32_t addr, uint32_t mask)
  * The address is assumed to be that of a net or subnet, not a host.
  */
 char *
-netname(uint32_t in, uint32_t mask)
+netname(struct netstat_parameters *params, uint32_t in, uint32_t mask)
 {
 	char *cp = 0;
 	static char line[MAXHOSTNAMELEN];
@@ -598,7 +607,7 @@ netname(uint32_t in, uint32_t mask)
 	i = ntohl(in);
 	dmask = forgemask(i);
 	omask = mask;
-	if (!nflag && i) {
+	if (!params->nflag && i) {
 		net = i & dmask;
 		if (!(np = getnetbyaddr(i, AF_INET)) && net != i)
 			np = getnetbyaddr(net, AF_INET);
@@ -643,7 +652,7 @@ netname(uint32_t in, uint32_t mask)
 
 #ifdef INET6
 char *
-netname6(struct sockaddr_in6 *sa6, struct sockaddr *sam)
+netname6(struct netstat_parameters *params, struct sockaddr_in6 *sa6, struct sockaddr *sam)
 {
 	static char line[MAXHOSTNAMELEN];
 	u_char *lim;
@@ -695,19 +704,19 @@ netname6(struct sockaddr_in6 *sa6, struct sockaddr *sam)
 	if (masklen == 0 && IN6_IS_ADDR_UNSPECIFIED(&sa6->sin6_addr))
 		return("default");
 
-	if (nflag)
+	if (params->nflag)
 		flag |= NI_NUMERICHOST;
 	getnameinfo((struct sockaddr *)sa6, sa6->sin6_len, line, sizeof(line),
 		    NULL, 0, flag);
 
-	if (nflag)
+	if (params->nflag)
 		snprintf(&line[strlen(line)], sizeof(line) - strlen(line), "/%d", masklen);
 
 	return line;
 }
 
 char *
-routename6(struct sockaddr_in6 *sa6)
+routename6(struct netstat_parameters *params, struct sockaddr_in6 *sa6)
 {
 	static char line[MAXHOSTNAMELEN];
 	int flag = NI_WITHSCOPEID;
@@ -717,7 +726,7 @@ routename6(struct sockaddr_in6 *sa6)
 	sa6_local.sin6_addr = sa6->sin6_addr;
 	sa6_local.sin6_scope_id = sa6->sin6_scope_id;
 
-	if (nflag)
+	if (params->nflag)
 		flag |= NI_NUMERICHOST;
 
 	getnameinfo((struct sockaddr *)&sa6_local, sa6_local.sin6_len,
@@ -728,7 +737,7 @@ routename6(struct sockaddr_in6 *sa6)
 #endif /*INET6*/
 
 static void
-rt_stats_compat(void)
+rt_stats_compat(struct netstat_parameters *params)
 {
 	int mib[6];
 	size_t len;
@@ -743,7 +752,7 @@ rt_stats_compat(void)
 	len = sizeof(struct rtstat);
 	if (sysctl(mib, 6, &rtstat, &len, 0, 0) == -1)
 		return;
-#define	p(f, m) if (rtstat.f || sflag <= 1) \
+#define	p(f, m) if (rtstat.f || params->sflag <= 1) \
 	printf(m, rtstat.f, plural(rtstat.f))
 
 	p(rts_badredirect, "\t%d bad routing redirect%s\n");
@@ -761,7 +770,7 @@ rt_stats_compat(void)
  * Print routing statistics
  */
 void
-rt_stats(void)
+rt_stats(struct netstat_parameters *params)
 {
 	int rttrash;
 	int mib[6];
@@ -782,9 +791,9 @@ rt_stats(void)
 	len = sizeof(struct rtstat_64);
 
 	if (sysctl(mib, 6, &rtstat, &len, 0, 0) == -1) {
-		rt_stats_compat();
+		rt_stats_compat(params);
 	} else {
-#define	p(f, m) if (rtstat.f || sflag <= 1) \
+#define	p(f, m) if (rtstat.f || params->sflag <= 1) \
 printf(m, rtstat.f, plural(rtstat.f))
 
 		p(rts_badredirect, "\t%llu bad routing redirect%s\n");
@@ -798,7 +807,7 @@ printf(m, rtstat.f, plural(rtstat.f))
 #undef p
 	}
 #else /* NET_RT_STAT_64 */
-	rt_stats_compat();
+	rt_stats_compat(params);
 #endif /* NET_RT_STAT_64 */
 
 	mib[0] = CTL_NET;
@@ -811,7 +820,7 @@ printf(m, rtstat.f, plural(rtstat.f))
 	if (sysctl(mib, 6, &rttrash, &len, 0, 0) == -1)
 		return;
 
-	if (rttrash || sflag <= 1)
+	if (rttrash || params->sflag <= 1)
 		printf("\t%u route%s not in table but not freed\n",
 		    rttrash, plural(rttrash));
 
@@ -819,7 +828,7 @@ printf(m, rtstat.f, plural(rtstat.f))
 	if (sysctlbyname("net.route.pcbcount", &pcbcount, &len, 0, 0) == -1)
 		return;
 
-	if (pcbcount != 0 || sflag <= 1 ) {
+	if (pcbcount != 0 || params->sflag <= 1 ) {
 		printf("\t%u open routing socket%s\n", pcbcount, plural(pcbcount));
 	}
 }

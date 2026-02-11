@@ -453,6 +453,9 @@ ip_print(netdissect_options *ndo,
 		}
 	    }
 
+#ifdef __APPLE__
+	    if (ndo->ndo_gflag == 0)
+#endif /* __APPLE__ */
 	    ND_PRINT(")\n    ");
 	    if (truncated) {
 		ND_PRINT("%s > %s: ",

@@ -1113,6 +1113,9 @@ typedef struct {
 	uint64_t usecnt;
 } exclaves_ctx_t;
 
+extern void
+exclaves_early_init(void);
+
 #endif /* defined(MACH_KERNEL_PRIVATE) */
 
 /* -------------------------------------------------------------------------- */

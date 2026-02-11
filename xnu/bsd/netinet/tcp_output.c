@@ -168,6 +168,10 @@ SYSCTL_SKMEM_TCP_INT(OID_AUTO, link_heuristics_rto_min,
     CTLFLAG_RW | CTLFLAG_LOCKED, int, tcp_link_heuristics_rto_min, TCP_DEFAULT_LINK_HEUR_RTOMIN,
     "");
 
+SYSCTL_SKMEM_TCP_INT(OID_AUTO, allow_syn_prio,
+    CTLFLAG_RW | CTLFLAG_LOCKED, int, tcp_allow_syn_prio, 0,
+    "");
+
 
 // TO BE REMOVED
 SYSCTL_SKMEM_TCP_INT(OID_AUTO, do_ack_compression,
@@ -3294,7 +3298,7 @@ timer:
 				    tp->t_timer[TCPT_REXMT] == 0) {
 					svc_flags |= PKT_SCF_TCP_ACK;
 				}
-				if (th->th_flags & TH_SYN) {
+				if (tcp_allow_syn_prio == 1 && (th->th_flags & TH_SYN)) {
 					svc_flags |= PKT_SCF_TCP_SYN;
 				}
 			}

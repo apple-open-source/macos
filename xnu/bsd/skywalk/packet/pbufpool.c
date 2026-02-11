@@ -1636,8 +1636,8 @@ pp_remove_upp_bft_chain_locked(struct kern_pbufpool *pp,
 	obj_idx_t bft_idx;
 
 	ASSERT(!(kqum->qum_qflags & QUM_F_INTERNALIZED));
-	bft_idx = kqum->qum_user->qum_buf[0].buf_nbft_idx;
 	kbft = &kqum->qum_buf[0];
+	bft_idx = kbft->buf_nbft_idx;
 	if (bft_idx == OBJ_IDX_NONE) {
 		return 0;
 	}
@@ -1659,7 +1659,6 @@ pp_remove_upp_bft_chain_locked(struct kern_pbufpool *pp,
 
 	do {
 		struct __kern_buflet *pbft = kbft;
-		struct __kern_buflet_ext *kbe;
 
 		kbft = pp_remove_upp_bft_locked(pp, bft_idx);
 		if (__improbable(kbft == NULL)) {
@@ -1672,8 +1671,7 @@ pp_remove_upp_bft_chain_locked(struct kern_pbufpool *pp,
 		ASSERT(kbft->buf_flag & BUFLET_FLAG_EXTERNAL);
 		BUF_NBFT_IDX(pbft, bft_idx);
 		BUF_NBFT_ADDR(pbft, kbft);
-		kbe = __container_of(kbft, struct __kern_buflet_ext, kbe_overlay);
-		bft_idx = kbe->kbe_buf_user->buf_nbft_idx;
+		bft_idx = kbft->buf_nbft_idx;
 		++nbfts;
 	} while ((bft_idx != OBJ_IDX_NONE) && (nbfts < upkt_nbfts));
 

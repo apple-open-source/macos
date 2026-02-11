@@ -2451,13 +2451,6 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                         free( mntpath );
                                         
                                     }
-                                    if ( audit_token_to_euid( _token ) )
-                                    {
-                                        if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ) )
-                                        {
-                                            status = kDAReturnNotPrivileged;
-                                        }
-                                    }
 
                                     CFRelease( mountpoint );
                                 }

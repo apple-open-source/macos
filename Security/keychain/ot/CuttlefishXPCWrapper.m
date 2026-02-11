@@ -1168,7 +1168,7 @@ enum {NUM_RETRIES = 5};
                          isBackgroundCheck:(BOOL)isBackgroundCheck
                                     flowID:(NSString* _Nullable)flowID
                            deviceSessionID:(NSString* _Nullable)deviceSessionID
-                                 rateLimit:(NSInteger)rateLimit
+                       daysLeftOnRateLimit:(NSInteger)daysLeftOnRateLimit
                                      reply:(void (^)(OTEscrowCheckCallResult* _Nullable result, NSError* _Nullable))reply
 {
     __block int i = 0;
@@ -1183,7 +1183,7 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] requestEscrowCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck passcodeGeneration:passcodeGeneration knownFederations:knownFederations isBackgroundCheck:isBackgroundCheck flowID:flowID deviceSessionID:deviceSessionID rateLimit:rateLimit reply:reply];
+        }] requestEscrowCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck passcodeGeneration:passcodeGeneration knownFederations:knownFederations isBackgroundCheck:isBackgroundCheck flowID:flowID deviceSessionID:deviceSessionID daysLeftOnRateLimit:daysLeftOnRateLimit reply:reply];
     } while (retry);
 }
 

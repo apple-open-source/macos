@@ -123,6 +123,7 @@
 #include <sys/proc_require.h>
 #include <sys/kern_debug.h>
 #include <sys/kern_memorystatus_xnu.h>
+#include <sys/kdebug_triage.h>
 #include <IOKit/IOBSD.h>        /* IOTaskHasEntitlement() */
 #include <kern/kern_memorystatus_internal.h>
 #include <kern/ipc_kobject.h>   /* ipc_kobject_set_kobjidx() */
@@ -1919,6 +1920,41 @@ proc_suser(proc_t p)
 	error = suser(proc_ucred_smr(p), &p->p_acflag);
 	smr_proc_task_leave();
 	return error;
+}
+
+void
+proc_set_ptraced_during_soft_mode(proc_t p)
+{
+	/* Hack: we would like to surface in crash reports when we've disabled,
+	 * but we don't know which thread will crash when we attach, so we store
+	 * it in a flag and add the ktriage record during proc_prepareexit.
+	 */
+	p->p_lflag |= P_LWASSOFT;
+}
+
+bool
+proc_was_ptraced_during_soft_mode(proc_t p)
+{
+	return p->p_lflag & P_LWASSOFT;
+}
+
+void
+proc_disable_sec_soft_mode_locked(proc_t p)
+{
+#if HAS_MTE || HAS_MTE_EMULATION_SHIMS
+	/*
+	 * Clear MTE soft-mode when process becomes traced (rdar://156025403)
+	 * Note that this will miss the case where a process takes a TCF
+	 * in soft mode prior to becoming debugged.
+	 */
+	task_t task = proc_task(p);
+	if (task_has_sec(task) && task_has_sec_soft_mode(task)) {
+		task_clear_sec_soft_mode(task);
+		proc_set_ptraced_during_soft_mode(p);
+	}
+#else
+	(void)p;
+#endif /* HAS_MTE || HAS_MTE_EMULATION_SHIMS */
 }
 
 task_t

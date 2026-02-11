@@ -2,13 +2,14 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/kdebug.h>
+#include "../../../bsd/sys/kdebug.h" // Want tracecodes from source without searching BSD headers
 
 /* Harness interface */
 #include "sched_clutch_harness.h"
 
 /* Include kernel header depdencies */
 #include "shadow_headers/misc_needed_defines.h"
+#include <kern/sched_common.h>
 
 /* Header for Clutch policy code under-test */
 #include <kern/sched_clutch.h>
@@ -25,6 +26,17 @@ static test_hw_topology_t curr_hw_topo = {
 };
 static int _curr_cpu = 0;
 
+processor_t
+current_processor(void)
+{
+	if (_curr_cpu == 0) {
+		/* Assumes boot CPU of id 0 */
+		return master_processor;
+	} else {
+		return processor_array[_curr_cpu];
+	}
+}
+
 unsigned int
 ml_get_cluster_count(void)
 {
@@ -37,22 +49,6 @@ ml_get_cpu_count(void)
 	return (unsigned int)curr_hw_topo.total_cpus;
 }
 
-/*
- * Mocked HW details
- * For simplicity, we mock a platform with 1 pset comprised of 1 CPU
- */
-uint32_t processor_avail_count = 0;
-
-static struct processor_set *psets[MAX_PSETS];
-static struct processor *cpus[MAX_CPUS];
-
-/* Boot pset and CPU */
-struct processor_set pset0;
-struct processor cpu0;
-
-/* pset_nodes indexed by CPU type */
-pset_node_t pset_node_by_cpu_type[TEST_CPU_TYPE_MAX];
-
 /* Mocked-out Clutch functions */
 static boolean_t
 sched_thread_sched_pri_promoted(thread_t thread)
@@ -61,9 +57,12 @@ sched_thread_sched_pri_promoted(thread_t thread)
 	return FALSE;
 }
 
+#define cpus processor_array
+
 /* Clutch policy code under-test, safe to include now after satisfying its dependencies */
 #include <kern/sched_clutch.c>
 #include <kern/sched_common.c>
+#include <kern/processor.c>
 
 /* Realtime policy code under-test */
 #include <kern/sched_rt.c>
@@ -82,7 +81,7 @@ int root_bucket_to_highest_pri[TH_BUCKET_SCHED_MAX] = {
 int clutch_interactivity_score_max = -1;
 uint64_t clutch_root_bucket_wcel_us[TH_BUCKET_SCHED_MAX];
 uint64_t clutch_root_bucket_warp_us[TH_BUCKET_SCHED_MAX];
-unsigned int CLUTCH_THREAD_SELECT = -1;
+const unsigned int CLUTCH_THREAD_SELECT = MACH_SCHED_CLUTCH_THREAD_SELECT;
 
 /* Implementation of sched_runqueue_harness.h interface */
 
@@ -98,7 +97,7 @@ test_hw_topology_t single_core = {
 	.total_cpus = 1,
 };
 
-static char
+char
 test_cpu_type_to_char(test_cpu_type_t cpu_type)
 {
 	switch (cpu_type) {
@@ -107,70 +106,68 @@ test_cpu_type_to_char(test_cpu_type_t cpu_type)
 	case TEST_CPU_TYPE_EFFICIENCY:
 		return 'E';
 	default:
-		return '?';
+		assert(false);
+	}
+}
+
+static cluster_type_t
+test_cpu_type_to_cluster_type(test_cpu_type_t cpu_type)
+{
+	switch (cpu_type) {
+	case TEST_CPU_TYPE_PERFORMANCE:
+		return CLUSTER_TYPE_P;
+	case TEST_CPU_TYPE_EFFICIENCY:
+		return CLUSTER_TYPE_E;
+	default:
+		return CLUSTER_TYPE_SMP;
 	}
 }
 
 static uint64_t unique_tg_id = 0;
 static uint64_t unique_thread_id = 0;
+static bool first_boot = true;
 
 void
 clutch_impl_init_topology(test_hw_topology_t hw_topology)
 {
 	printf("🗺️  Mock HW Topology: %d psets {", hw_topology.num_psets);
+	assert(first_boot); // Not supported to initialize more than one topology
+	first_boot = false;
 	assert(hw_topology.num_psets <= MAX_PSETS);
-
-	/* Initialize pset nodes for each distinct CPU type. */
-	for (int i = 0; i < hw_topology.num_psets; i++) {
-		if (pset_node_by_cpu_type[hw_topology.psets[i].cpu_type] == PSET_NODE_NULL) {
-			pset_node_by_cpu_type[hw_topology.psets[i].cpu_type] = (pset_node_t) malloc(sizeof(struct pset_node));
-			pset_node_t node = pset_node_by_cpu_type[hw_topology.psets[i].cpu_type];
-			bzero(&node->pset_map, sizeof(node->pset_map));
-			node->psets = PROCESSOR_SET_NULL;
-		}
-	}
-
 	int total_cpus = 0;
 	for (int i = 0; i < hw_topology.num_psets; i++) {
 		assert((total_cpus + hw_topology.psets[i].num_cpus) <= MAX_CPUS);
-		if (i == 0) {
-			psets[0] = &pset0;
-		} else {
-			psets[i] = (struct processor_set *)malloc(sizeof(struct processor_set));
-		}
-		psets[i]->pset_cluster_id = i;
-		psets[i]->pset_id = i;
-		psets[i]->cpu_set_low = total_cpus;
-		psets[i]->cpu_set_count = hw_topology.psets[i].num_cpus;
-		psets[i]->cpu_bitmask = 0;
-
-		pset_node_t node = pset_node_by_cpu_type[hw_topology.psets[i].cpu_type];
-		psets[i]->node = node;
-		psets[i]->pset_list = node->psets;
-		node->psets = psets[i];
-		node->pset_map |= BIT(i);
-
 		printf(" (%d: %d %c CPUs)", i, hw_topology.psets[i].num_cpus, test_cpu_type_to_char(hw_topology.psets[i].cpu_type));
+		cluster_type_t cluster_type = test_cpu_type_to_cluster_type(hw_topology.psets[i].cpu_type);
+		processor_set_t pset;
+		if (i == 0) {
+#if __AMP__
+			ml_topology_cluster_t boot_cluster;
+			boot_cluster.cluster_type = cluster_type;
+			mock_topology_info.boot_cluster = &boot_cluster;
+#endif /* __AMP__ */
+			processor_bootstrap();
+			SCHED(init)();
+			SCHED(pset_init)(sched_boot_pset);
+			SCHED(rt_init_pset)(sched_boot_pset);
+			SCHED(processor_init)(master_processor);
+			pset = sched_boot_pset;
+		} else {
+			pset = pset_create(cluster_type, i, i);
+		}
 		for (int c = total_cpus; c < total_cpus + hw_topology.psets[i].num_cpus; c++) {
-			if (c == 0) {
-				cpus[0] = &cpu0;
-			} else {
-				cpus[c] = (struct processor *)malloc(sizeof(struct processor));
+			if (c > 0) {
+				processor_t processor = (processor_t)malloc(sizeof(struct processor));
+				processor_init(processor, c, pset);
 			}
-			cpus[c]->cpu_id = c;
-			cpus[c]->processor_set = psets[i];
-			bit_set(psets[i]->cpu_bitmask, c);
 			struct thread_group *not_real_idle_tg = create_tg(0);
 			thread_t idle_thread = clutch_impl_create_thread(TH_BUCKET_SHARE_BG, not_real_idle_tg, IDLEPRI);
 			idle_thread->bound_processor = cpus[c];
 			idle_thread->state = (TH_RUN | TH_IDLE);
 			cpus[c]->idle_thread = idle_thread;
 			cpus[c]->active_thread = cpus[c]->idle_thread;
-			cpus[c]->state = PROCESSOR_IDLE;
+			pset_update_processor_state(pset, cpus[c], PROCESSOR_IDLE);
 		}
-		psets[i]->recommended_bitmask = psets[i]->cpu_bitmask;
-		psets[i]->cpu_available_map = psets[i]->cpu_bitmask;
-		bzero(&psets[i]->realtime_map, sizeof(psets[i]->realtime_map));
 		total_cpus += hw_topology.psets[i].num_cpus;
 	}
 	processor_avail_count = total_cpus;
@@ -178,15 +175,20 @@ clutch_impl_init_topology(test_hw_topology_t hw_topology)
 	/* After mock idle thread creation, reset thread/TG start IDs, as the idle threads shouldn't count! */
 	unique_tg_id = 0;
 	unique_thread_id = 0;
+	if (SCHED(cpu_init_completed) != NULL) {
+		SCHED(cpu_init_completed)();
+	}
+	SCHED(rt_init_completed)();
 }
 
-#define NUM_LOGGED_TRACE_CODES 1
+#define MAX_LOGGED_TRACE_CODES 10
 #define NUM_TRACEPOINT_FIELDS 5
-static uint64_t logged_trace_codes[NUM_LOGGED_TRACE_CODES];
+static uint64_t logged_trace_codes[MAX_LOGGED_TRACE_CODES];
+static uint32_t logged_trace_codes_ind = 0;
 #define MAX_LOGGED_TRACEPOINTS 10000
-static uint64_t *logged_tracepoints = NULL;
-static uint32_t curr_tracepoint_ind = 0;
-static uint32_t expect_tracepoint_ind = 0;
+static uint64_t *logged_tracepoints[MAX_LOGGED_TRACE_CODES];
+static uint32_t curr_tracepoint_inds[MAX_LOGGED_TRACE_CODES];
+static uint32_t expect_tracepoint_inds[MAX_LOGGED_TRACE_CODES];
 
 void
 clutch_impl_init_params(void)
@@ -197,16 +199,25 @@ clutch_impl_init_params(void)
 		clutch_root_bucket_wcel_us[b] = sched_clutch_root_bucket_wcel_us[b] == SCHED_CLUTCH_INVALID_TIME_32 ? 0 : sched_clutch_root_bucket_wcel_us[b];
 		clutch_root_bucket_warp_us[b] = sched_clutch_root_bucket_warp_us[b] == SCHED_CLUTCH_INVALID_TIME_32 ? 0 : sched_clutch_root_bucket_warp_us[b];
 	}
-	CLUTCH_THREAD_SELECT = MACH_SCHED_CLUTCH_THREAD_SELECT;
+}
+
+void
+clutch_impl_add_logged_trace_code(uint64_t tracepoint)
+{
+	logged_trace_codes[logged_trace_codes_ind++] = tracepoint;
 }
 
 void
 clutch_impl_init_tracepoints(void)
 {
 	/* All filter-included tracepoints */
-	logged_trace_codes[0] = MACH_SCHED_CLUTCH_THREAD_SELECT;
+	clutch_impl_add_logged_trace_code(CLUTCH_THREAD_SELECT);
 	/* Init harness-internal allocators */
-	logged_tracepoints = malloc(MAX_LOGGED_TRACEPOINTS * 5 * sizeof(uint64_t));
+	for (int i = 0; i < MAX_LOGGED_TRACE_CODES; i++) {
+		logged_tracepoints[i] = malloc(MAX_LOGGED_TRACEPOINTS * 5 * sizeof(uint64_t));
+		curr_tracepoint_inds[i] = 0;
+		expect_tracepoint_inds[i] = 0;
+	}
 }
 
 struct thread_group *
@@ -281,11 +292,9 @@ clutch_impl_cpu_set_thread_current(int cpu_id, test_thread_t thread)
 {
 	cpus[cpu_id]->active_thread = thread;
 	cpus[cpu_id]->first_timeslice = TRUE;
-	/* Equivalent logic of processor_state_update_from_thread() */
-	cpus[cpu_id]->current_pri = ((thread_t)thread)->sched_pri;
-	cpus[cpu_id]->current_thread_group = ((thread_t)thread)->thread_group;
-	cpus[cpu_id]->current_is_bound = ((thread_t)thread)->bound_processor != PROCESSOR_NULL;
-
+	/* Equivalent logic of pset_commit_processor_to_new_thread() */
+	pset_update_processor_state(cpus[cpu_id]->processor_set, cpus[cpu_id], PROCESSOR_RUNNING);
+	processor_state_update_from_thread(cpus[cpu_id], thread, true);
 	if (((thread_t) thread)->sched_pri >= BASEPRI_RTQUEUES) {
 		bit_set(cpus[cpu_id]->processor_set->realtime_map, cpu_id);
 		cpus[cpu_id]->deadline = ((thread_t) thread)->realtime.deadline;
@@ -301,13 +310,15 @@ clutch_impl_cpu_clear_thread_current(int cpu_id)
 	test_thread_t thread = cpus[cpu_id]->active_thread;
 	cpus[cpu_id]->active_thread = cpus[cpu_id]->idle_thread;
 	bit_clear(cpus[cpu_id]->processor_set->realtime_map, cpu_id);
+	pset_update_processor_state(cpus[cpu_id]->processor_set, cpus[cpu_id], PROCESSOR_IDLE);
+	processor_state_update_idle(cpus[cpu_id]);
 	return thread;
 }
 
 static bool
 is_logged_clutch_trace_code(uint64_t clutch_trace_code)
 {
-	for (int i = 0; i < NUM_LOGGED_TRACE_CODES; i++) {
+	for (int i = 0; i < logged_trace_codes_ind; i++) {
 		if (logged_trace_codes[i] == clutch_trace_code) {
 			return true;
 		}
@@ -326,34 +337,61 @@ is_logged_trace_code(uint64_t trace_code)
 	return false;
 }
 
+static int
+trace_code_to_ind(uint64_t trace_code)
+{
+	for (int i = 0; i < logged_trace_codes_ind; i++) {
+		if (trace_code == logged_trace_codes[i]) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 void
 clutch_impl_log_tracepoint(uint64_t trace_code, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4)
 {
 	if (is_logged_trace_code(trace_code)) {
-		if (curr_tracepoint_ind < MAX_LOGGED_TRACEPOINTS) {
-			logged_tracepoints[curr_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 0] = KDBG_EXTRACT_CODE(trace_code);
-			logged_tracepoints[curr_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 1] = a1;
-			logged_tracepoints[curr_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 2] = a2;
-			logged_tracepoints[curr_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 3] = a3;
-			logged_tracepoints[curr_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 4] = a4;
-		} else if (curr_tracepoint_ind == MAX_LOGGED_TRACEPOINTS) {
+		int ind = trace_code_to_ind(KDBG_EXTRACT_CODE(trace_code));
+		assert(ind >= 0);
+		if (curr_tracepoint_inds[ind] < MAX_LOGGED_TRACEPOINTS) {
+			logged_tracepoints[ind][curr_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 0] = KDBG_EXTRACT_CODE(trace_code);
+			logged_tracepoints[ind][curr_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 1] = a1;
+			logged_tracepoints[ind][curr_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 2] = a2;
+			logged_tracepoints[ind][curr_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 3] = a3;
+			logged_tracepoints[ind][curr_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 4] = a4;
+		} else if (curr_tracepoint_inds[ind] == MAX_LOGGED_TRACEPOINTS) {
 			printf("Ran out of pre-allocated memory to log tracepoints (%d points)...will no longer log tracepoints\n",
 			    MAX_LOGGED_TRACEPOINTS);
 		}
-		curr_tracepoint_ind++;
+		curr_tracepoint_inds[ind]++;
 	}
 }
 
 void
-clutch_impl_pop_tracepoint(uint64_t *clutch_trace_code, uint64_t *arg1, uint64_t *arg2, uint64_t *arg3, uint64_t *arg4)
+clutch_impl_pop_tracepoint(uint64_t clutch_trace_code, uint64_t *arg1, uint64_t *arg2, uint64_t *arg3, uint64_t *arg4)
 {
-	assert(expect_tracepoint_ind < curr_tracepoint_ind);
-	*clutch_trace_code = logged_tracepoints[expect_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 0];
-	*arg1 = logged_tracepoints[expect_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 1];
-	*arg2 = logged_tracepoints[expect_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 2];
-	*arg3 = logged_tracepoints[expect_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 3];
-	*arg4 = logged_tracepoints[expect_tracepoint_ind * NUM_TRACEPOINT_FIELDS + 4];
-	expect_tracepoint_ind++;
+	int ind = trace_code_to_ind(clutch_trace_code);
+	if (expect_tracepoint_inds[ind] >= curr_tracepoint_inds[ind]) {
+		/* Indicate that there isn't a matching tracepoint drop found to consume */
+		*arg1 = -1;
+		*arg2 = -1;
+		*arg3 = -1;
+		*arg4 = -1;
+		return;
+	}
+	assert(logged_tracepoints[ind][expect_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 0] == clutch_trace_code);
+	*arg1 = logged_tracepoints[ind][expect_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 1];
+	*arg2 = logged_tracepoints[ind][expect_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 2];
+	*arg3 = logged_tracepoints[ind][expect_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 3];
+	*arg4 = logged_tracepoints[ind][expect_tracepoint_inds[ind] * NUM_TRACEPOINT_FIELDS + 4];
+	expect_tracepoint_inds[ind]++;
+}
+
+uint64_t
+impl_get_thread_tid(test_thread_t thread)
+{
+	return ((thread_t)thread)->thread_id;
 }
 
 #pragma mark - Realtime
@@ -388,12 +426,6 @@ void
 impl_sched_rt_steal_policy_set(unsigned policy)
 {
 	sched_rt_steal_policy = policy;
-}
-
-void
-impl_sched_rt_init_completed()
-{
-	sched_rt_init_completed();
 }
 
 #pragma mark -- IPI Subsystem

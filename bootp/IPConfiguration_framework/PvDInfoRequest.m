@@ -257,78 +257,72 @@ PvDInfoRequestSendNotificationToClient(PvDInfoRequestRef request)
 	return;
 }
 
+/*
+ * Function: PvDInfoRequestCompletedCallbackSync
+ * Purpose:
+ *   Process XPC completion on request's queue (synchronous version).
+ *   Caller must ensure this runs on request->queue and request is valid.
+ */
 STATIC void
-PvDInfoRequestCompletedCallback(PvDInfoRequestRef request,
-				CFBooleanRef valid_fetch)
+PvDInfoRequestCompletedCallbackSync(PvDInfoRequestRef request,
+				    CFBooleanRef valid_fetch)
 {
-	ObjectWrapperRef wrapper = NULL;
-
-	if (request->queue == NULL) {
-		IPConfigLog(LOG_NOTICE, "%s: null request", __func__);
-		goto done;
+	if (valid_fetch == kCFBooleanFalse) {
+		IPConfigLog(LOG_DEBUG, "xpc reply: failure");
+		request->state = kPvDInfoRequestStateFailed;
+	} else if (request->additional_info == NULL) {
+		IPConfigLog(LOG_DEBUG, "xpc reply: no internet");
+		request->state = kPvDInfoRequestStateIdle;
+	} else if (request->additional_info != NULL) {
+		/* SUCCESS */
+		IPConfigLog(LOG_DEBUG,
+			    "xpc reply: got addinfo dict:\n%@",
+			    request->additional_info);
+		request->state = kPvDInfoRequestStateObtained;
 	}
-	wrapper = request->wrapper;
-	ObjectWrapperRetain(wrapper);
-	dispatch_async(request->queue, ^{
-		PvDInfoRequestRef request = NULL;
-
-		request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
-		if (request == NULL) {
-			IPConfigLog(LOG_NOTICE, "request no longer valid");
-			goto done;
-		}
-		if (valid_fetch == kCFBooleanFalse) {
-			IPConfigLog(LOG_DEBUG, "xpc reply: failure");
-			request->state = kPvDInfoRequestStateFailed;
-		} else if (request->additional_info == NULL) {
-			IPConfigLog(LOG_DEBUG, "xpc reply: no internet");
-			request->state = kPvDInfoRequestStateIdle;
-		} else if (request->additional_info != NULL) {
-			/* SUCCESS */
-			IPConfigLog(LOG_DEBUG,
-				    "xpc reply: got addinfo dict:\n%@",
-				    request->additional_info);
-			request->state = kPvDInfoRequestStateObtained;
-		}
-		PvDInfoRequestCleanupXPC(request);
-		PvDInfoRequestSendNotificationToClient(request);
-	done:
-		ObjectWrapperRelease(wrapper);
-		return;
-	});
-	
-done:
-	return;
+	PvDInfoRequestCleanupXPC(request);
+	PvDInfoRequestSendNotificationToClient(request);
 }
 
 STATIC void
-PvDInfoRequestXPCCompletionHandler(NSDictionary * xpc_return_dict, void * info)
+PvDInfoRequestXPCCompletionHandler(NSDictionary * xpc_return_dict,
+				   dispatch_queue_t queue,
+				   void * info)
 {
+	ObjectWrapperRef wrapper = (ObjectWrapperRef)info;
 	NSDictionary *addinfo_dict = nil;
 	CFBooleanRef valid_fetch = NULL;
-	PvDInfoRequestRef request = NULL;
-	ObjectWrapperRef wrapper = (ObjectWrapperRef)info;
 
-	request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
-	if (request == NULL) {
-		IPConfigLog(LOG_NOTICE, "%s: null object", __func__);
-		goto done;
-	}
-	CFRetain(request);
+	/* extract XPC results before accessing request fields */
 	valid_fetch
 	= (__bridge CFBooleanRef)[xpc_return_dict
 				  valueForKey:(__bridge NSString *)kPvDInfoValidFetchXPCKey];
 	addinfo_dict
 	= [xpc_return_dict
 	   valueForKey:(__bridge NSString *)kPvDInfoAdditionalInfoDictXPCKey];
-	if (valid_fetch == kCFBooleanTrue && addinfo_dict != nil) {
-		request->additional_info
-		= (__bridge_retained CFDictionaryRef)addinfo_dict;
-	}
-	PvDInfoRequestCompletedCallback(request, valid_fetch);
-	
-done:
-	my_CFRelease(&request);
+
+	/*
+	 * Dispatch to the request's queue to ensure proper synchronization
+	 * with deallocation. The deallocation code clears the wrapper via
+	 * dispatch_sync on this queue, so accessing the request here is safe.
+	 */
+	dispatch_async(queue, ^{
+		PvDInfoRequestRef request = NULL;
+
+		request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
+		if (request == NULL) {
+			IPConfigLog(LOG_NOTICE, "%s: request no longer valid", __func__);
+			return;
+		}
+		/* Store additional info if present */
+		if (valid_fetch == kCFBooleanTrue && addinfo_dict != nil) {
+			request->additional_info
+			= (__bridge_retained CFDictionaryRef)addinfo_dict;
+		}
+		/* Process completion synchronously (already on request's queue) */
+		PvDInfoRequestCompletedCallbackSync(request, valid_fetch);
+	});
+
 	return;
 }
 
@@ -349,24 +343,28 @@ PvDInfoRequestSendXPCRequest(PvDInfoRequestRef request)
 	if_name_str = [NSString stringWithCString:request->context.if_name
 					 encoding:NSUTF8StringEncoding];
 	if (if_name_str == nil) {
-		IPConfigLog(LOG_ERR, "couldn't create ifname '%s'", 
+		IPConfigLog(LOG_ERR, "couldn't create ifname '%s'",
 			request->context.if_name);
 		goto done;
 	}
 	/* actual xpc request */
 	wrapper = request->wrapper;
 	ObjectWrapperRetain(wrapper);
-	[request->xpc_proxy fetchPvDAdditionalInformationWithPvDID:pvdid
-						     prefixesArray:prefixes
-						   bindToInterface:if_name_str
-					      andCompletionHandler:
-	 ^(NSDictionary * xpc_return_dict) {
-		/* the XPC API context can later safely reference the wrapper */
-		PvDInfoRequestXPCCompletionHandler(xpc_return_dict, wrapper);
-		ObjectWrapperRelease(wrapper);
-	}];
+	/* capture queue in block scope to avoid issue of jumping over goto's */
+	{
+		dispatch_queue_t queue = request->queue;
+		[request->xpc_proxy fetchPvDAdditionalInformationWithPvDID:pvdid
+							     prefixesArray:prefixes
+							   bindToInterface:if_name_str
+						      andCompletionHandler:
+		 ^(NSDictionary * xpc_return_dict) {
+			/* the XPC API context can later safely reference the wrapper */
+			PvDInfoRequestXPCCompletionHandler(xpc_return_dict, queue, wrapper);
+			ObjectWrapperRelease(wrapper);
+		}];
+	}
 	request->state = kPvDInfoRequestStateScheduled;
-	
+
 done:
 	if (request != NULL && request->state != kPvDInfoRequestStateScheduled) {
 		IPConfigLog(LOG_ERR, "couldn't schedule fetch for pvdid '%@'",
@@ -661,6 +659,7 @@ PvDInfoRequestCopyAdditionalInformation(PvDInfoRequestRef request)
 
 
 static dispatch_semaphore_t waiter;
+static dispatch_semaphore_t crasher_semaphore;
 static dispatch_queue_t mock_ipconfigagent_queue;
 static dispatch_queue_t mock_iphxpc_queue;
 
@@ -697,12 +696,13 @@ _PvDInfoRequestResumeSync_tester(void * info)
 	addinfo_dict = CFDictionaryCreateMutable(NULL, 0,
 						 &kCFTypeDictionaryKeyCallBacks,
 						 &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(xpc_ret_dict, kPvDInfoValidFetchXPCKey, 
+	CFDictionarySetValue(xpc_ret_dict, kPvDInfoValidFetchXPCKey,
 			     kCFBooleanTrue);
 	CFDictionarySetValue(xpc_ret_dict, kPvDInfoAdditionalInfoDictXPCKey,
 			     addinfo_dict);
 	CFRelease(addinfo_dict);
 	PvDInfoRequestXPCCompletionHandler((__bridge_transfer NSDictionary *)xpc_ret_dict,
+					   request->queue,
 					   wrapper);
 	success = true;
 
@@ -749,68 +749,26 @@ _pvd_info_request_create_with_completion(dispatch_block_t completion)
 }
 
 STATIC void
-_PvDInfoRequestCompletedCallback_tester(PvDInfoRequestRef request,
-					CFBooleanRef valid_fetch)
+_PvDInfoRequestXPCCompletionHandler_tester(dispatch_queue_t queue, void * info)
 {
-	ObjectWrapperRef wrapper = NULL;
+	ObjectWrapperRef wrapper = (ObjectWrapperRef)info;
 
-	if (request->queue == NULL) {
-		IPConfigLog(LOG_NOTICE, "%s: null request", __func__);
-		goto done;
-	}
-	wrapper = request->wrapper;
+	/* Retain wrapper for the dispatch_async block */
 	ObjectWrapperRetain(wrapper);
-	printf("xpc waiting to put block in internal queue\n");
-	dispatch_semaphore_wait(waiter, DISPATCH_TIME_FOREVER);
-	dispatch_async(request->queue, ^{
+	/* Dispatch to queue to match the fixed implementation */
+	dispatch_async(queue, ^{
 		PvDInfoRequestRef request = NULL;
 
 		request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
 		if (request == NULL) {
-			IPConfigLog(LOG_NOTICE, "request no longer valid");
-			goto done;
+			IPConfigLog(LOG_NOTICE, "%s: request no longer valid", __func__);
+			ObjectWrapperRelease(wrapper);
+			return;
 		}
-		if (valid_fetch == kCFBooleanFalse) {
-			IPConfigLog(LOG_DEBUG, "xpc reply: failure");
-			request->state = kPvDInfoRequestStateFailed;
-		} else if (request->additional_info == NULL) {
-			IPConfigLog(LOG_DEBUG, "xpc reply: no internet");
-			request->state = kPvDInfoRequestStateIdle;
-		} else if (request->additional_info != NULL) {
-			/* SUCCESS */
-			IPConfigLog(LOG_DEBUG,
-				    "xpc reply: got addinfo dict:\n%@",
-				    request->additional_info);
-			request->state = kPvDInfoRequestStateObtained;
-		}
-		PvDInfoRequestCleanupXPC(request);
-		PvDInfoRequestSendNotificationToClient(request);
-	done:
+		PvDInfoRequestCompletedCallbackSync(request, kCFBooleanFalse);
 		ObjectWrapperRelease(wrapper);
-		return;
 	});
-	printf("xpc enqueued block in internal queue\n");
 
-done:
-	return;
-}
-
-STATIC void
-_PvDInfoRequestXPCCompletionHandler_tester(void * info)
-{
-	PvDInfoRequestRef request = NULL;
-	ObjectWrapperRef wrapper = (ObjectWrapperRef)info;
-
-	request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
-	if (request == NULL) {
-		IPConfigLog(LOG_NOTICE, "%s: null object", __func__);
-		goto done;
-	}
-	CFRetain(request);
-	_PvDInfoRequestCompletedCallback_tester(request, kCFBooleanFalse);
-
-done:
-	my_CFRelease(&request);
 	return;
 }
 
@@ -876,10 +834,12 @@ main(int argc, char * argv[])
 	mock_iphxpc_queue = dispatch_queue_create("Mock-IPHXPCQueue", NULL);
 	dispatch_async(mock_iphxpc_queue, ^{
 		ObjectWrapperRef wrapper = NULL;
+		dispatch_queue_t queue = NULL;
 
 		wrapper = request->wrapper;
+		queue = request->queue;
 		ObjectWrapperRetain(wrapper);
-		_PvDInfoRequestXPCCompletionHandler_tester(wrapper);
+		_PvDInfoRequestXPCCompletionHandler_tester(queue, wrapper);
 		ObjectWrapperRelease(wrapper);
 	});
 	dispatch_sync(mock_ipconfigagent_queue, ^{
@@ -890,6 +850,57 @@ main(int argc, char * argv[])
 	});
 	sleep(1);
 	printf("test 3 done\n");
+
+	/*
+	 * Test 4: rdar://163784363
+	 * XPC completion handler dispatches to request's queue for proper
+	 * synchronization with deallocation.
+	 */
+	printf("\ntest 4 start\n");
+	crasher_semaphore = dispatch_semaphore_create(0);
+	dispatch_sync(mock_ipconfigagent_queue, ^{
+		dispatch_block_t completion;
+
+		completion = ^{
+			printf("Completion should not be called\n");
+		};
+		request = _pvd_info_request_create_with_completion(completion);
+		request->active_connection = true;
+	});
+	mock_iphxpc_queue = dispatch_queue_create("Mock-IPHXPCQueue-Crasher", NULL);
+	dispatch_async(mock_iphxpc_queue, ^{
+		ObjectWrapperRef wrapper = NULL;
+		dispatch_queue_t queue = NULL;
+
+		wrapper = request->wrapper;
+		queue = request->queue;
+		ObjectWrapperRetain(wrapper);
+		dispatch_semaphore_signal(waiter);
+		dispatch_semaphore_wait(crasher_semaphore, DISPATCH_TIME_FOREVER);
+		ObjectWrapperRetain(wrapper);
+		dispatch_async(queue, ^{
+			PvDInfoRequestRef req = NULL;
+
+			req = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
+			if (req == NULL) {
+				printf("XPC handler: request NULL (expected)\n");
+				ObjectWrapperRelease(wrapper);
+				return;
+			}
+			printf("XPC handler: request still valid (unexpected)\n");
+			PvDInfoRequestCompletedCallbackSync(req, kCFBooleanFalse);
+			ObjectWrapperRelease(wrapper);
+		});
+		ObjectWrapperRelease(wrapper);
+	});
+	dispatch_semaphore_wait(waiter, DISPATCH_TIME_FOREVER);
+	dispatch_sync(mock_ipconfigagent_queue, ^{
+		PvDInfoRequestCancel(request);
+		CFRelease(request);
+	});
+	dispatch_semaphore_signal(crasher_semaphore);
+	sleep(2);
+	printf("test 4 done\n");
 
 	printf("exiting\n");
 	return 0;

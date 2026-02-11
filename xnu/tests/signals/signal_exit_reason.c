@@ -52,7 +52,8 @@ T_GLOBAL_META(
 	T_META_RADAR_COMPONENT_NAME("xnu"),
 	T_META_RADAR_COMPONENT_VERSION("signals"),
 	T_META_CHECK_LEAKS(false),
-	T_META_RUN_CONCURRENTLY(true));
+	T_META_RUN_CONCURRENTLY(true),
+	T_META_IGNORECRASHES(".*signal_exit_reason.*"));
 
 static dispatch_queue_t exit_queue;
 

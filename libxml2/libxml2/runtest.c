@@ -4674,6 +4674,47 @@ testDesc testDescriptions[] = {
  *									*
  ************************************************************************/
 
+/*
+ * testEncodingHandler:
+ * @handler: an encoding handler
+ * @testBytes: sample bytes in the source encoding
+ * @testLen: length of testBytes
+ *
+ * Test if an encoding handler actually works by attempting a conversion.
+ * This is needed because some platforms (e.g., iOS) return valid handlers
+ * from xmlGetCharEncodingHandler() but lack the actual conversion data.
+ *
+ * Returns 1 if the handler works, 0 if it fails or is NULL.
+ */
+static int
+testEncodingHandler(xmlCharEncodingHandlerPtr handler,
+                    const unsigned char *testBytes, int testLen) {
+    xmlBufferPtr inBuf, outBuf;
+    int ret;
+
+    if (handler == NULL)
+        return 0;
+
+    inBuf = xmlBufferCreateStatic((void *)testBytes, testLen);
+    outBuf = xmlBufferCreate();
+    if (inBuf == NULL || outBuf == NULL) {
+        xmlBufferFree(inBuf);
+        xmlBufferFree(outBuf);
+        return 0;
+    }
+
+    /*
+     * Try to convert the test bytes. A return value >= 0 indicates success.
+     * Negative values indicate conversion failure.
+     */
+    ret = xmlCharEncInFunc(handler, outBuf, inBuf);
+
+    xmlBufferFree(inBuf);
+    xmlBufferFree(outBuf);
+
+    return (ret >= 0) ? 1 : 0;
+}
+
 static int
 launchTests(testDescPtr tst) {
     int res = 0, err = 0;
@@ -4681,10 +4722,29 @@ launchTests(testDescPtr tst) {
     char *result;
     char *error;
     int mem;
-    xmlCharEncodingHandlerPtr ebcdicHandler, eucJpHandler;
+    xmlCharEncodingHandlerPtr ebcdicHandler, eucJpHandler, shiftJisHandler;
+
+    /* EUC-JP test bytes: hiragana 'a' (あ) = 0xa4 0xa2 */
+    static const unsigned char eucJpTestBytes[] = { 0xa4, 0xa2 };
+    /* Shift_JIS test bytes: hiragana 'a' (あ) = 0x82 0xa0 */
+    static const unsigned char shiftJisTestBytes[] = { 0x82, 0xa0 };
 
     ebcdicHandler = xmlGetCharEncodingHandler(XML_CHAR_ENCODING_EBCDIC);
     eucJpHandler = xmlGetCharEncodingHandler(XML_CHAR_ENCODING_EUC_JP);
+    shiftJisHandler = xmlGetCharEncodingHandler(XML_CHAR_ENCODING_SHIFT_JIS);
+
+    /*
+     * Verify that the encoding handlers actually work. On some platforms
+     * (e.g., iOS), ICU returns valid handlers but lacks conversion data.
+     */
+    if (!testEncodingHandler(eucJpHandler, eucJpTestBytes, sizeof(eucJpTestBytes))) {
+        xmlCharEncCloseFunc(eucJpHandler);
+        eucJpHandler = NULL;
+    }
+    if (!testEncodingHandler(shiftJisHandler, shiftJisTestBytes, sizeof(shiftJisTestBytes))) {
+        xmlCharEncCloseFunc(shiftJisHandler);
+        shiftJisHandler = NULL;
+    }
 
     if (tst == NULL) return(-1);
     if (tst->in != NULL) {
@@ -4695,10 +4755,13 @@ launchTests(testDescPtr tst) {
 	for (i = 0;i < globbuf.gl_pathc;i++) {
 	    if (!checkTestFile(globbuf.gl_pathv[i]))
 	        continue;
+            /* Skip tests for unsupported encodings */
             if (((ebcdicHandler == NULL) &&
                  (strstr(globbuf.gl_pathv[i], "ebcdic") != NULL)) ||
                 ((eucJpHandler == NULL) &&
-                 (strstr(globbuf.gl_pathv[i], "icu_parse_test") != NULL)))
+                 (strstr(globbuf.gl_pathv[i], "icu_parse_test") != NULL)) ||
+                ((shiftJisHandler == NULL) &&
+                 (strstr(globbuf.gl_pathv[i], "shift_jis") != NULL)))
                 continue;
 	    if (tst->suffix != NULL) {
 		result = resultFilename(globbuf.gl_pathv[i], tst->out,
@@ -4768,6 +4831,7 @@ launchTests(testDescPtr tst) {
 
     xmlCharEncCloseFunc(ebcdicHandler);
     xmlCharEncCloseFunc(eucJpHandler);
+    xmlCharEncCloseFunc(shiftJisHandler);
 
     return(err);
 }

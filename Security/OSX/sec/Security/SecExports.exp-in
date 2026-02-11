@@ -487,6 +487,7 @@ _SecCertificateCopySerialNumberData
 _SecCertificateCopyNotValidBeforeDate
 _SecCertificateCopyNotValidAfterDate
 _SecCertificateCopyQualifiedCertificateStatements
+_SecCertificateCopySignatureAlgorithm
 #if TARGET_OS_OSX
 #if TARGET_CPU_ARM64
 _SecCertificateCopySerialNumber$LEGACYMAC

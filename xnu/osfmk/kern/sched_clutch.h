@@ -33,6 +33,7 @@
 #include <kern/priority_queue.h>
 #include <kern/bits.h>
 #include <kern/kern_types.h>
+#include <kern/sched_common.h>
 
 #if !SCHED_TEST_HARNESS
 
@@ -74,10 +75,14 @@ typedef struct sched_clutch_bucket_runq *sched_clutch_bucket_runq_t;
  *
  * The scheduler clutch hierarchy is protected by a combination of
  * atomics and pset lock.
- * - All fields protected by the pset lock are annotated with (P)
- * - All fields updated using atomics are annotated with (A)
- * - All fields that are unprotected and are not updated after
- *   initialization are annotated with (I)
+ * See the legend of field annotations below:
+ *
+ * (P): Reads/writes protected by the pset lock.
+ * (A): Reads/writes done atomically.
+ * (I): Safe to read unprotected because values are not updated
+ *      after initialization.
+ * (W): Reads/writes done atomically, but writes are only
+ *      published with the pset lock held.
  */
 
 /*
@@ -115,6 +120,24 @@ struct sched_clutch_root_bucket {
 };
 typedef struct sched_clutch_root_bucket *sched_clutch_root_bucket_t;
 
+#if CONFIG_SCHED_EDGE
+
+struct sched_edge_steal_silo {
+	/*
+	 * (P) priority queue per QoS bucket, containing runnable
+	 * clutch buckets enqueued in the owning clutch hierarchy
+	 * and recommended to the same preferred pset (may be
+	 * different from the clutch hierarchy where the clutch
+	 * buckets are enqueued).
+	 */
+	struct priority_queue_sched_max sess_steal_queues[TH_BUCKET_SCHED_MAX];
+	/* (W) bitmap of which steal queues contain threads */
+	bitmap_t _Atomic                sess_populated_steal_queues[BITMAP_LEN(TH_BUCKET_SCHED_MAX)];
+};
+typedef struct sched_edge_steal_silo *sched_edge_steal_silo_t;
+
+#endif /* CONFIG_SCHED_EDGE */
+
 /*
  * struct sched_clutch_root
  *
@@ -147,12 +170,20 @@ struct sched_clutch_root {
 	 */
 	queue_head_t                    scr_clutch_buckets;
 
+#if CONFIG_SCHED_EDGE
 	/*
-	 * (P) priority queue of all runnable foreign buckets in this hierarchy;
-	 * used for tracking thread groups which need to be migrated when
-	 * psets are available or rebalancing threads on CPU idle.
+	 * (P) silo per pset recommendation, consisting of steal (priority)
+	 * queues per QoS bucket that track runnable clutch buckets enqueued
+	 * in this hierarchy. This allows other psets to steal threads of
+	 * specific recommendations/QoSes from this pset in a fine-grained
+	 * manner, respecting the Edge matrix.
 	 */
-	struct priority_queue_sched_max scr_foreign_buckets;
+	struct sched_edge_steal_silo    scr_steal_silos[MAX_PSETS];
+	/* (W) bitmap of which steal silos contain threads */
+	bitmap_t _Atomic                scr_populated_steal_silos[BITMAP_LEN(MAX_PSETS)];
+	/* (W) bitmap of which pset recommendations can migrate here */
+	bitmap_t _Atomic                scr_incoming_migration_allowed[TH_BUCKET_SCHED_MAX][BITMAP_LEN(MAX_PSETS)];
+#endif /* CONFIG_SCHED_EDGE */
 
 	/* Root level bucket management */
 
@@ -219,8 +250,8 @@ typedef union sched_clutch_bucket_cpu_data {
  */
 struct sched_clutch_bucket {
 #if CONFIG_SCHED_EDGE
-	/* (P) flag to indicate if the bucket is a foreign bucket */
-	bool                            scb_foreign;
+	/* (P) preferred pset id when the clutch_bucket was enqueued */
+	pset_id_t                       scb_preferred_pset_when_enqueued;
 #endif /* CONFIG_SCHED_EDGE */
 	/* (I) bucket for the clutch_bucket */
 	uint8_t                         scb_bucket;
@@ -231,7 +262,7 @@ struct sched_clutch_bucket {
 
 	/* Pointer to the clutch bucket group this clutch bucket belongs to */
 	struct sched_clutch_bucket_group *scb_group;
-	/* (A) pointer to the root of the hierarchy this bucket is in */
+	/* (P) pointer to the root of the hierarchy this bucket is in */
 	struct sched_clutch_root        *scb_root;
 	/* (P) priority queue of threads based on their promoted/base priority */
 	struct priority_queue_sched_max scb_clutchpri_prioq;
@@ -245,8 +276,8 @@ struct sched_clutch_bucket {
 	/* (P) queue of threads for timesharing purposes */
 	queue_head_t                    scb_thread_timeshare_queue;
 #if CONFIG_SCHED_EDGE
-	/* (P) linkage for all "foreign" clutch buckets in the root clutch */
-	struct priority_queue_entry_sched     scb_foreignlink;
+	/* (P) linkage for clutch_bucket in its steal_queue */
+	struct priority_queue_entry_sched     scb_stealqlink;
 #endif /* CONFIG_SCHED_EDGE */
 };
 typedef struct sched_clutch_bucket *sched_clutch_bucket_t;
@@ -360,6 +391,19 @@ extern kern_return_t sched_clutch_thread_group_cpu_time_for_thread(thread_t thre
 void sched_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_request_bitmap, uint64_t flags, uint64_t num_psets);
 void sched_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changes_bitmap, uint64_t flags, uint64_t num_psets);
 void sched_edge_tg_preferred_cluster_change(struct thread_group *tg, uint32_t *tg_bucket_preferred_cluster, sched_perfcontrol_preferred_cluster_options_t options);
+
+/*
+ * Iterate through the entire edge matrix by src pset, dst pset, and scheduling
+ * bucket (dimension: num_psets X num_psets X TH_BUCKET_SCHED_MAX)
+ */
+#define sched_edge_matrix_iterate(src_id, dst_id, bucket, ...) \
+	for (pset_id_t src_id = 0; src_id < sched_num_psets; src_id++) { \
+	    for (pset_id_t dst_id = 0; dst_id < sched_num_psets; dst_id++) { \
+	        for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) { \
+	            __VA_ARGS__; \
+	        } \
+	    } \
+	}
 
 uint16_t sched_edge_cluster_cumulative_count(sched_clutch_root_t root_clutch, sched_bucket_t bucket);
 uint16_t sched_edge_shared_rsrc_runnable_load(sched_clutch_root_t root_clutch, cluster_shared_rsrc_type_t load_type);

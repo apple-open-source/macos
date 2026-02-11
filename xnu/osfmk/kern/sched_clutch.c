@@ -106,12 +106,6 @@ __enum_decl(sched_clutch_traverse_mode_t, uint32_t, {
 static_assert(SCHED_CLUTCH_TRAVERSE_CHECK_PREEMPT < (1 << 3), "Ensure traverse mode can be encoded within 3 bits of sched_clutch_dbg_thread_select_packed_t");
 static sched_clutch_root_bucket_t sched_clutch_root_highest_root_bucket(sched_clutch_root_t, uint64_t, sched_clutch_highest_root_bucket_type_t, sched_clutch_root_bucket_t, thread_t, bool *, sched_clutch_traverse_mode_t, sched_clutch_dbg_thread_select_packed_t *);
 
-#if CONFIG_SCHED_EDGE
-/* Support for foreign threads on AMP platforms */
-static boolean_t sched_clutch_root_foreign_empty(sched_clutch_root_t);
-static thread_t sched_clutch_root_highest_foreign_thread_remove(sched_clutch_root_t);
-#endif /* CONFIG_SCHED_EDGE */
-
 /* Root bucket level hierarchy management */
 static uint64_t sched_clutch_root_bucket_deadline_calculate(sched_clutch_root_bucket_t, uint64_t);
 static void sched_clutch_root_bucket_deadline_update(sched_clutch_root_bucket_t, sched_clutch_root_t, uint64_t, bool);
@@ -169,17 +163,15 @@ static inline sched_clutch_bucket_group_t sched_clutch_bucket_group_for_thread(t
 static inline bool sched_clutch_pri_greater_than_tiebreak(int, int, bool);
 
 #if CONFIG_SCHED_EDGE
+
 /* System based routines */
 static uint32_t sched_edge_thread_bound_cluster_id(thread_t);
+static bool sched_edge_pset_peek_steal_possible(processor_set_t, processor_set_t, bitmap_t);
 
-/* Global indicating the maximum number of clusters on the current platform */
-static int sched_edge_max_clusters = 0;
 #endif /* CONFIG_SCHED_EDGE */
 
 /* Helper debugging routines */
 static inline void sched_clutch_hierarchy_locked_assert(sched_clutch_root_t);
-
-extern processor_set_t pset_array[MAX_PSETS];
 
 /*
  * Special markers for buckets that have invalid WCELs/quantums etc.
@@ -425,6 +417,14 @@ sched_clutch_root_init(
 	for (cluster_shared_rsrc_type_t shared_rsrc_type = CLUSTER_SHARED_RSRC_TYPE_MIN; shared_rsrc_type < CLUSTER_SHARED_RSRC_TYPE_COUNT; shared_rsrc_type++) {
 		root_clutch->scr_shared_rsrc_load_runnable[shared_rsrc_type] = 0;
 	}
+	/* Initialize the silos for tracking steal eligibility */
+	bitmap_zero((bitmap_t *)root_clutch->scr_populated_steal_silos, MAX_PSETS);
+	for (pset_id_t p = 0; p < MAX_PSETS; p++) {
+		bitmap_zero((bitmap_t *)root_clutch->scr_steal_silos[p].sess_populated_steal_queues, TH_BUCKET_SCHED_MAX);
+		for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
+			priority_queue_init(&root_clutch->scr_steal_silos[p].sess_steal_queues[bucket]);
+		}
+	}
 #else /* CONFIG_SCHED_EDGE */
 	root_clutch->scr_cluster_id = 0;
 #endif /* CONFIG_SCHED_EDGE */
@@ -432,8 +432,6 @@ sched_clutch_root_init(
 	/* Initialize the queue which maintains all runnable clutch_buckets for timesharing purposes */
 	queue_init(&root_clutch->scr_clutch_buckets);
 
-	/* Initialize the priority queue which maintains all runnable foreign clutch buckets */
-	priority_queue_init(&root_clutch->scr_foreign_buckets);
 	bzero(&root_clutch->scr_cumulative_run_count, sizeof(root_clutch->scr_cumulative_run_count));
 	bitmap_zero(root_clutch->scr_bound_runnable_bitmap, TH_BUCKET_SCHED_MAX);
 	bitmap_zero(root_clutch->scr_bound_warp_available, TH_BUCKET_SCHED_MAX);
@@ -1372,8 +1370,8 @@ sched_clutch_bucket_init(
 	/* scb_priority will be recalculated when a thread is inserted in the clutch bucket */
 	clutch_bucket->scb_priority = 0;
 #if CONFIG_SCHED_EDGE
-	clutch_bucket->scb_foreign = false;
-	priority_queue_entry_init(&clutch_bucket->scb_foreignlink);
+	clutch_bucket->scb_preferred_pset_when_enqueued = PSET_ID_INVALID;
+	priority_queue_entry_init(&clutch_bucket->scb_stealqlink);
 #endif /* CONFIG_SCHED_EDGE */
 	clutch_bucket->scb_group = clutch_bucket_group;
 	clutch_bucket->scb_root = NULL;
@@ -1405,7 +1403,7 @@ sched_clutch_bucket_group_init(
 
 	os_atomic_store(&clutch_bucket_group->scbg_timeshare_tick, 0, relaxed);
 	os_atomic_store(&clutch_bucket_group->scbg_pri_shift, INT8_MAX, relaxed);
-	os_atomic_store(&clutch_bucket_group->scbg_preferred_cluster, pset0.pset_cluster_id, relaxed);
+	os_atomic_store(&clutch_bucket_group->scbg_preferred_cluster, sched_boot_pset->pset_cluster_id, relaxed);
 	/*
 	 * All thread groups should be initialized to be interactive; this allows the newly launched
 	 * thread groups to fairly compete with already running thread groups.
@@ -1503,36 +1501,91 @@ sched_edge_thread_preferred_cluster(thread_t thread)
 }
 
 /*
- * Edge Scheduler Foreign Bucket Support
+ * Edge Scheduler Steal Silo Support
  *
- * In the Edge Scheduler, each cluster maintains a priority queue of clutch buckets containing
- * threads that are not native to the cluster. A clutch bucket is considered native if its
- * preferred cluster has the same type as the cluster its enqueued in. The foreign clutch
- * bucket priority queue is used for rebalance operations to get threads back to their native
- * cluster quickly.
- *
- * It is possible to make this policy even more aggressive by considering all clusters that
- * are not the preferred cluster as the foreign cluster, but that would mean a lot of thread
- * migrations which might have performance implications.
+ * Steal mechanisms in the Edge scheduler, including foreign rebalance
+ * and regular work-stealing, are implemented using steal "silos"
+ * on every pset tracking the clutch buckets with steal-able threads,
+ * where each steal silo on a pset corresponds to a possible preferred
+ * pset recommendation. Silos are comprised of per-bucket steal
+ * queues. This amount of subdivision allows for fine-grained steal
+ * policies which stay precisely in-sync with the complex Edge matrix.
  */
 
-static void
-sched_clutch_bucket_mark_native(sched_clutch_bucket_t clutch_bucket, sched_clutch_root_t root_clutch)
+/*
+ * sched_edge_steal_silo_from_pset_id()
+ *
+ * Routine to return the steal silo corresponding to a particular
+ * preferred pset on a root clutch.
+ */
+static sched_edge_steal_silo_t
+sched_edge_steal_silo_from_pset_id(pset_id_t preferred_pset_id, sched_clutch_root_t root_clutch)
 {
-	if (clutch_bucket->scb_foreign) {
-		clutch_bucket->scb_foreign = false;
-		priority_queue_remove(&root_clutch->scr_foreign_buckets, &clutch_bucket->scb_foreignlink);
-	}
+	return &root_clutch->scr_steal_silos[preferred_pset_id];
 }
 
+/*
+ * sched_edge_steal_silo_clutch_bucket_unclassify()
+ *
+ * Routine to reset a clutch bucket's steal silo tracking on the
+ * pset where it is enqueued, necessary when dequeueing a clutch
+ * bucket or changing its priority.
+ * Always called with the pset lock held.
+ */
 static void
-sched_clutch_bucket_mark_foreign(sched_clutch_bucket_t clutch_bucket, sched_clutch_root_t root_clutch)
+sched_edge_steal_silo_clutch_bucket_unclassify(sched_clutch_bucket_t clutch_bucket, sched_clutch_root_t root_clutch)
 {
-	if (!clutch_bucket->scb_foreign) {
-		clutch_bucket->scb_foreign = true;
-		priority_queue_entry_set_sched_pri(&root_clutch->scr_foreign_buckets, &clutch_bucket->scb_foreignlink, clutch_bucket->scb_priority, 0);
-		priority_queue_insert(&root_clutch->scr_foreign_buckets, &clutch_bucket->scb_foreignlink);
+	assert3u(clutch_bucket->scb_preferred_pset_when_enqueued, !=, PSET_ID_INVALID);
+	sched_edge_steal_silo_t steal_silo =
+	    sched_edge_steal_silo_from_pset_id(clutch_bucket->scb_preferred_pset_when_enqueued, root_clutch);
+	struct priority_queue_sched_max *steal_queue = &steal_silo->sess_steal_queues[clutch_bucket->scb_bucket];
+	priority_queue_remove(steal_queue, &clutch_bucket->scb_stealqlink);
+	if (priority_queue_empty(steal_queue)) {
+		/* Last bucket from this steal queue */
+		atomic_bit_clear(steal_silo->sess_populated_steal_queues, clutch_bucket->scb_bucket, memory_order_relaxed);
 	}
+	if (os_atomic_load(steal_silo->sess_populated_steal_queues, relaxed) == 0) {
+		/* Last populated steal queue from this silo */
+		atomic_bit_clear(root_clutch->scr_populated_steal_silos,
+		    clutch_bucket->scb_preferred_pset_when_enqueued, memory_order_relaxed);
+	}
+	clutch_bucket->scb_preferred_pset_when_enqueued = PSET_ID_INVALID;
+}
+
+/*
+ * sched_edge_steal_silo_clutch_bucket_classify()
+ *
+ * Routine to establish a clutch bucket's steal silo tracking on
+ * the pset where it is (being) enqueued. Can be used to update the
+ * tracking of a previously enqueued clutch bucket.
+ * Always called with the pset lock held.
+ */
+static void
+sched_edge_steal_silo_clutch_bucket_classify(sched_clutch_bucket_t clutch_bucket,
+    sched_clutch_root_t root_clutch, uint32_t preferred_pset_id)
+{
+	if (clutch_bucket->scb_preferred_pset_when_enqueued != PSET_ID_INVALID) {
+		if (clutch_bucket->scb_preferred_pset_when_enqueued == preferred_pset_id) {
+			/* Already classified correctly */
+			return;
+		} else {
+			/* Remove from previous queue */
+			sched_edge_steal_silo_clutch_bucket_unclassify(clutch_bucket, root_clutch);
+		}
+	}
+	assert3u(clutch_bucket->scb_preferred_pset_when_enqueued, ==, PSET_ID_INVALID);
+	/*
+	 * Insert clutch bucket into the steal silo matching its preferred pset
+	 * and into the queue in the silo matching its scheduling bucket.
+	 */
+	clutch_bucket->scb_preferred_pset_when_enqueued = preferred_pset_id;
+	sched_edge_steal_silo_t steal_silo =
+	    sched_edge_steal_silo_from_pset_id(clutch_bucket->scb_preferred_pset_when_enqueued, root_clutch);
+	struct priority_queue_sched_max *steal_queue = &steal_silo->sess_steal_queues[clutch_bucket->scb_bucket];
+	priority_queue_entry_set_sched_pri(steal_queue, &clutch_bucket->scb_stealqlink, clutch_bucket->scb_priority, 0);
+	priority_queue_insert(steal_queue, &clutch_bucket->scb_stealqlink);
+	atomic_bit_set(steal_silo->sess_populated_steal_queues, clutch_bucket->scb_bucket, memory_order_relaxed);
+	atomic_bit_set(root_clutch->scr_populated_steal_silos, clutch_bucket->scb_preferred_pset_when_enqueued, memory_order_relaxed);
 }
 
 /*
@@ -1542,7 +1595,6 @@ sched_clutch_bucket_mark_foreign(sched_clutch_bucket_t clutch_bucket, sched_clut
  * making thread migration decisions. The per-bucket load is maintained as a
  * cumulative count since higher scheduling buckets impact load on lower buckets
  * for thread migration decisions.
- *
  */
 
 static void
@@ -1604,9 +1656,7 @@ sched_clutch_bucket_hierarchy_insert(
 #if CONFIG_SCHED_EDGE
 	/* Check if the bucket is a foreign clutch bucket and add it to the foreign buckets list */
 	uint32_t preferred_cluster = sched_clutch_bucket_preferred_cluster(clutch_bucket);
-	if (pset_type_for_id(preferred_cluster) != pset_type_for_id(root_clutch->scr_cluster_id)) {
-		sched_clutch_bucket_mark_foreign(clutch_bucket, root_clutch);
-	}
+	sched_edge_steal_silo_clutch_bucket_classify(clutch_bucket, root_clutch, preferred_cluster);
 #endif /* CONFIG_SCHED_EDGE */
 	sched_clutch_root_bucket_t root_bucket = &root_clutch->scr_unbound_buckets[bucket];
 
@@ -1617,7 +1667,7 @@ sched_clutch_bucket_hierarchy_insert(
 
 	/* Insert the clutch bucket into the root bucket run queue with order based on options */
 	sched_clutch_bucket_runq_enqueue(&root_bucket->scrb_clutch_buckets, clutch_bucket, options);
-	os_atomic_store(&clutch_bucket->scb_root, root_clutch, relaxed);
+	clutch_bucket->scb_root = root_clutch;
 	os_atomic_inc(&sched_clutch_global_bucket_load[bucket], relaxed);
 }
 
@@ -1640,14 +1690,14 @@ sched_clutch_bucket_hierarchy_remove(
 		remqueue(&clutch_bucket->scb_listlink);
 	}
 #if CONFIG_SCHED_EDGE
-	sched_clutch_bucket_mark_native(clutch_bucket, root_clutch);
+	sched_edge_steal_silo_clutch_bucket_unclassify(clutch_bucket, root_clutch);
 #endif /* CONFIG_SCHED_EDGE */
 
 	sched_clutch_root_bucket_t root_bucket = &root_clutch->scr_unbound_buckets[bucket];
 
 	/* Remove the clutch bucket from the root bucket priority queue */
 	sched_clutch_bucket_runq_remove(&root_bucket->scrb_clutch_buckets, clutch_bucket);
-	os_atomic_store(&clutch_bucket->scb_root, NULL, relaxed);
+	clutch_bucket->scb_root = NULL;
 
 	/* If the root bucket priority queue is now empty, remove it from the root priority queue */
 	if (sched_clutch_bucket_runq_empty(&root_bucket->scrb_clutch_buckets)) {
@@ -1837,16 +1887,13 @@ sched_clutch_bucket_update(
 	}
 	sched_clutch_bucket_runq_remove(bucket_runq, clutch_bucket);
 #if CONFIG_SCHED_EDGE
-	if (clutch_bucket->scb_foreign) {
-		priority_queue_remove(&root_clutch->scr_foreign_buckets, &clutch_bucket->scb_foreignlink);
-	}
+	/* Need to update clutch bucket's priority ranking in its foreign queue */
+	pset_id_t pset_preference = clutch_bucket->scb_preferred_pset_when_enqueued;
+	sched_edge_steal_silo_clutch_bucket_unclassify(clutch_bucket, root_clutch);
 #endif /* CONFIG_SCHED_EDGE */
 	clutch_bucket->scb_priority = new_pri;
 #if CONFIG_SCHED_EDGE
-	if (clutch_bucket->scb_foreign) {
-		priority_queue_entry_set_sched_pri(&root_clutch->scr_foreign_buckets, &clutch_bucket->scb_foreignlink, clutch_bucket->scb_priority, 0);
-		priority_queue_insert(&root_clutch->scr_foreign_buckets, &clutch_bucket->scb_foreignlink);
-	}
+	sched_edge_steal_silo_clutch_bucket_classify(clutch_bucket, root_clutch, pset_preference);
 #endif /* CONFIG_SCHED_EDGE */
 	sched_clutch_bucket_runq_enqueue(bucket_runq, clutch_bucket, options);
 
@@ -2351,6 +2398,16 @@ sched_edge_shared_rsrc_runnable_load(sched_clutch_root_t root_clutch, cluster_sh
 	return root_clutch->scr_shared_rsrc_load_runnable[shared_rsrc_type];
 }
 
+static uint64_t
+sched_edge_pset_cluster_shared_rsrc_load(processor_set_t pset, cluster_shared_rsrc_type_t shared_rsrc_type)
+{
+	/* Prevent migrations to derecommended clusters */
+	if (!pset_is_recommended(pset)) {
+		return UINT64_MAX;
+	}
+	return os_atomic_load(&pset->pset_cluster_shared_rsrc_load[shared_rsrc_type], relaxed);
+}
+
 /*
  * sched_edge_shared_rsrc_idle()
  *
@@ -2361,7 +2418,7 @@ sched_edge_shared_rsrc_runnable_load(sched_clutch_root_t root_clutch, cluster_sh
 static boolean_t
 sched_edge_shared_rsrc_idle(processor_set_t pset, cluster_shared_rsrc_type_t shared_rsrc_type)
 {
-	return sched_pset_cluster_shared_rsrc_load(pset, shared_rsrc_type) == 0;
+	return sched_edge_pset_cluster_shared_rsrc_load(pset, shared_rsrc_type) == 0;
 }
 
 /*
@@ -2537,7 +2594,7 @@ sched_clutch_bucket_group_thr_count_inc(
 	sched_clutch_bucket_group_t clutch_bucket_group,
 	uint64_t timestamp)
 {
-	sched_clutch_hierarchy_locked_assert(&pset0.pset_clutch_root);
+	sched_clutch_hierarchy_locked_assert(&sched_boot_pset->pset_clutch_root);
 	if (clutch_bucket_group->scbg_pending_data.scct_count == 0) {
 		clutch_bucket_group->scbg_pending_data.scct_timestamp = timestamp;
 	}
@@ -2549,7 +2606,7 @@ sched_clutch_bucket_group_thr_count_dec(
 	sched_clutch_bucket_group_t clutch_bucket_group,
 	uint64_t timestamp)
 {
-	sched_clutch_hierarchy_locked_assert(&pset0.pset_clutch_root);
+	sched_clutch_hierarchy_locked_assert(&sched_boot_pset->pset_clutch_root);
 	clutch_bucket_group->scbg_pending_data.scct_count--;
 	if (clutch_bucket_group->scbg_pending_data.scct_count == 0) {
 		clutch_bucket_group->scbg_pending_data.scct_timestamp = SCHED_CLUTCH_BUCKET_GROUP_PENDING_INVALID;
@@ -2563,7 +2620,7 @@ sched_clutch_bucket_group_pending_ageout(
 	sched_clutch_bucket_group_t clutch_bucket_group,
 	uint64_t timestamp)
 {
-	sched_clutch_hierarchy_locked_assert(&pset0.pset_clutch_root);
+	sched_clutch_hierarchy_locked_assert(&sched_boot_pset->pset_clutch_root);
 	int bucket_load = sched_clutch_global_bucket_load_get(clutch_bucket_group->scbg_bucket);
 	uint64_t old_pending_ts = clutch_bucket_group->scbg_pending_data.scct_timestamp;
 	bool old_update = (old_pending_ts >= timestamp);
@@ -2623,7 +2680,7 @@ sched_clutch_bucket_group_interactivity_score_calculate(
 	});
 	return (uint8_t)new_interactivity_data.scct_count;
 #else /* !CONFIG_SCHED_EDGE */
-	sched_clutch_hierarchy_locked_assert(&pset0.pset_clutch_root);
+	sched_clutch_hierarchy_locked_assert(&sched_boot_pset->pset_clutch_root);
 	if (timestamp > clutch_bucket_group->scbg_interactivity_data.scct_timestamp) {
 		clutch_bucket_group->scbg_interactivity_data.scct_count = interactivity_score;
 		clutch_bucket_group->scbg_interactivity_data.scct_timestamp = timestamp;
@@ -3036,42 +3093,6 @@ sched_clutch_root_count(
 	return root_clutch->scr_thr_count;
 }
 
-#if CONFIG_SCHED_EDGE
-
-/*
- * sched_clutch_root_foreign_empty()
- *
- * Routine to check if the foreign clutch bucket priority list is empty for a cluster.
- */
-static boolean_t
-sched_clutch_root_foreign_empty(
-	sched_clutch_root_t root_clutch)
-{
-	return priority_queue_empty(&root_clutch->scr_foreign_buckets);
-}
-
-/*
- * sched_clutch_root_highest_foreign_thread_remove()
- *
- * Routine to return the thread in the highest priority clutch bucket in a cluster.
- * Must be called with the pset for the cluster locked.
- */
-static thread_t
-sched_clutch_root_highest_foreign_thread_remove(
-	sched_clutch_root_t root_clutch)
-{
-	thread_t thread = THREAD_NULL;
-	if (priority_queue_empty(&root_clutch->scr_foreign_buckets)) {
-		return thread;
-	}
-	sched_clutch_bucket_t clutch_bucket = priority_queue_max(&root_clutch->scr_foreign_buckets, struct sched_clutch_bucket, scb_foreignlink);
-	thread = priority_queue_max(&clutch_bucket->scb_thread_runq, struct thread, th_clutch_runq_link);
-	sched_clutch_thread_remove(root_clutch, thread, mach_absolute_time(), 0);
-	return thread;
-}
-
-#endif /* CONFIG_SCHED_EDGE */
-
 /*
  * sched_clutch_thread_pri_shift()
  *
@@ -3153,7 +3174,7 @@ sched_clutch_choose_thread(processor_t processor, int priority, thread_t prev_th
 #if !SCHED_TEST_HARNESS
 
 static void
-sched_clutch_processor_queue_shutdown(processor_t processor);
+sched_clutch_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq);
 
 #endif /* !SCHED_TEST_HARNESS */
 
@@ -3204,6 +3225,8 @@ const struct sched_dispatch_table sched_clutch_dispatch = {
 	.update_thread_bucket                           = sched_clutch_update_thread_bucket,
 	.cpu_init_completed                             = NULL,
 	.thread_eligible_for_pset                       = NULL,
+	.update_pset_load_average                       = sched_update_pset_load_average,
+	.update_pset_avg_execution_time                 = sched_update_pset_avg_execution_time,
 
 	.rt_choose_processor                            = sched_rt_choose_processor,
 	.rt_steal_thread                                = NULL,
@@ -3486,33 +3509,21 @@ sched_clutch_processor_bound_count(processor_t processor)
 #if !SCHED_TEST_HARNESS
 
 static void
-sched_clutch_processor_queue_shutdown(processor_t processor)
+sched_clutch_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq)
 {
 	processor_set_t pset = processor->processor_set;
 	sched_clutch_root_t pset_clutch_root = sched_clutch_processor_root_clutch(processor);
-	thread_t        thread;
-	queue_head_t    tqueue;
 
 	/* We only need to migrate threads if this is the last active processor in the pset */
-	if (pset->online_processor_count > 0) {
-		pset_unlock(pset);
-		return;
-	}
-
-	queue_init(&tqueue);
-	while (sched_clutch_root_count(pset_clutch_root) > 0) {
-		thread = sched_clutch_hierarchy_thread_highest(pset_clutch_root, processor, NULL, SCHED_CLUTCH_TRAVERSE_REMOVE_HIERARCHY_ONLY);
-		enqueue_tail(&tqueue, &thread->runq_links);
+	if (pset->online_processor_count == 0) {
+		while (sched_clutch_root_count(pset_clutch_root) > 0) {
+			thread_t thread = sched_clutch_hierarchy_thread_highest(
+				pset_clutch_root, processor, NULL, SCHED_CLUTCH_TRAVERSE_REMOVE_HIERARCHY_ONLY);
+			pulled_thread_queue_enqueue(threadq, thread);
+		}
 	}
 
 	pset_unlock(pset);
-
-	qe_foreach_element_safe(thread, &tqueue, runq_links) {
-		remqueue(&thread->runq_links);
-		thread_lock(thread);
-		thread_setrun(thread, SCHED_TAILQ);
-		thread_unlock(thread);
-	}
 }
 
 #endif /* !SCHED_TEST_HARNESS */
@@ -3771,7 +3782,7 @@ static boolean_t
 sched_edge_processor_queue_empty(processor_t processor);
 
 static void
-sched_edge_processor_queue_shutdown(processor_t processor);
+sched_edge_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq);
 
 static processor_t
 sched_edge_choose_processor(processor_set_t pset, processor_t processor, thread_t thread, sched_options_t *options_inout);
@@ -3792,7 +3803,7 @@ static bool
 sched_edge_thread_should_yield(processor_t processor, thread_t thread);
 
 static void
-sched_edge_pset_made_schedulable(processor_t processor, processor_set_t dst_pset, boolean_t drop_lock);
+sched_edge_pset_made_schedulable(processor_set_t pset);
 
 static void
 sched_edge_cpu_init_completed(void);
@@ -3808,6 +3819,12 @@ sched_edge_ipi_policy(processor_t dst, thread_t thread, boolean_t dst_idle, sche
 
 static uint32_t
 sched_edge_qos_max_parallelism(int qos, uint64_t options);
+
+static void
+sched_edge_update_pset_load_average(processor_set_t pset, uint64_t curtime);
+
+static void
+sched_edge_update_pset_avg_execution_time(processor_set_t pset, uint64_t execution_time, uint64_t curtime, sched_bucket_t sched_bucket);
 
 static uint32_t
 sched_edge_cluster_load_metric(processor_set_t pset, sched_bucket_t sched_bucket);
@@ -3849,6 +3866,8 @@ const struct sched_dispatch_table sched_edge_dispatch = {
 	.update_thread_bucket                           = sched_clutch_update_thread_bucket,
 	.cpu_init_completed                             = sched_edge_cpu_init_completed,
 	.thread_eligible_for_pset                       = sched_edge_thread_eligible_for_pset,
+	.update_pset_load_average                       = sched_edge_update_pset_load_average,
+	.update_pset_avg_execution_time                 = sched_edge_update_pset_avg_execution_time,
 
 	.rt_choose_processor                            = sched_rt_choose_processor,
 	.rt_steal_thread                                = sched_rt_steal_thread,
@@ -3877,7 +3896,7 @@ const struct sched_dispatch_table sched_edge_dispatch = {
 #endif /* !SCHED_TEST_HARNESS */
 };
 
-static bitmap_t sched_edge_available_pset_bitmask[BITMAP_LEN(MAX_PSETS)];
+static _Atomic bitmap_t sched_edge_available_pset_bitmask[BITMAP_LEN(MAX_PSETS)];
 
 /*
  * sched_edge_thread_bound_cluster_id()
@@ -3895,12 +3914,12 @@ sched_edge_thread_bound_cluster_id(thread_t thread)
 }
 
 /* Forward declaration for some thread migration routines */
-static boolean_t sched_edge_foreign_runnable_thread_available(processor_set_t pset);
 static boolean_t sched_edge_foreign_running_thread_available(processor_set_t pset);
-static processor_set_t sched_edge_steal_candidate(processor_set_t pset);
 static processor_set_t sched_edge_migrate_candidate(processor_set_t preferred_pset, thread_t thread, processor_set_t locked_pset, bool switch_pset_locks, processor_t *processor_hint_out, sched_options_t *options_inout);
 
 static_assert(sizeof(sched_clutch_edge) == sizeof(uint64_t), "sched_clutch_edge fits in 64 bits");
+
+#define PERMISSIVE_MIGRATION_BUCKET (TH_BUCKET_FIXPRI)
 
 /*
  * sched_edge_config_set()
@@ -3911,7 +3930,7 @@ static_assert(sizeof(sched_clutch_edge) == sizeof(uint64_t), "sched_clutch_edge 
 static void
 sched_edge_config_set(uint32_t src_cluster, uint32_t dst_cluster, sched_bucket_t bucket, sched_clutch_edge edge_config)
 {
-	os_atomic_store(&pset_array[src_cluster]->sched_edges[dst_cluster][bucket], edge_config, relaxed);
+	os_atomic_store(&pset_for_id(src_cluster)->sched_edges[dst_cluster][bucket], edge_config, relaxed);
 }
 
 /*
@@ -3937,7 +3956,7 @@ static void
 sched_edge_config_pset_push(uint32_t src_pset_id)
 {
 	processor_set_t src_pset = pset_array[src_pset_id];
-	uint8_t search_order_len = sched_edge_max_clusters - 1;
+	uint8_t search_order_len = sched_num_psets - 1;
 	sched_pset_search_order_sort_data_t search_order_datas[MAX_PSETS - 1];
 	for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
 		uint8_t dst_pset_id = 0;
@@ -3985,6 +4004,145 @@ sched_edge_search_order_weight_then_locality(const void *a, const void *b)
 
 cmpfunc_t sched_edge_search_order_weight_then_locality_cmp = &sched_edge_search_order_weight_then_locality;
 
+#if DEVELOPMENT || DEBUG || SCHED_TEST_HARNESS
+
+/*
+ * sched_edge_config_verify_non_decreasing_qos_strictness()
+ *
+ * Routine to validate the assumption that higher QoSes
+ * will be configured with the less restrictive migration
+ * allowance for each edge in the matrix. This allows
+ * early-exiting searches when migration is disallowed for
+ * a higher QoS edge.
+ * Returns true if no violations were discovered.
+ */
+static inline bool
+sched_edge_config_verify_non_decreasing_qos_strictness(
+	pset_id_t src_id, pset_id_t dst_id, sched_bucket_t bucket)
+{
+	if (bucket == PERMISSIVE_MIGRATION_BUCKET) {
+		return true;
+	}
+	sched_clutch_edge edge = sched_edge_config_get(src_id, dst_id, bucket);
+	sched_clutch_edge higher_bucket_edge = sched_edge_config_get(src_id, dst_id, bucket - 1);
+	if ((edge.sce_migration_allowed && !higher_bucket_edge.sce_migration_allowed) ||
+	    (edge.sce_steal_allowed && !higher_bucket_edge.sce_steal_allowed)) {
+		kprintf("warn: Edge matrix config violates non-decreasing strictness "
+		    "across buckets %u and %u for edge %u->%u\n",
+		    bucket - 1, bucket, src_id, dst_id);
+		return false;
+	}
+	return true;
+}
+
+static bool
+sched_edge_config_verify_transitive_traverse(pset_id_t dst_id, pset_id_t curr_id,
+    sched_bucket_t qos, bitmap_t *visited_map)
+{
+	if (bitmap_test(visited_map, curr_id)) {
+		/* Been there, done that */
+		return true;
+	}
+	bitmap_set(visited_map, curr_id);
+	bool pass = true;
+	for (pset_id_t next_id = 0; next_id < sched_num_psets; next_id++) {
+		if (next_id == curr_id) {
+			continue;
+		}
+		sched_clutch_edge path_edge = sched_edge_config_get(next_id, curr_id, qos);
+		if (path_edge.sce_migration_allowed) {
+			/*
+			 * We have found a migration path from next_id to dst_id.
+			 * Verify that the direct edge agrees.
+			 */
+			if (next_id != dst_id) {
+				sched_clutch_edge direct_edge = sched_edge_config_get(next_id, dst_id, qos);
+				if (!direct_edge.sce_migration_allowed || !direct_edge.sce_steal_allowed) {
+					pass = false;
+					kprintf("warn: Edge matrix config violates transitive property across "
+					    "psets %u->%u for scheduling bucket %u\n", next_id, dst_id, qos);
+				}
+			}
+			/* DFS onward */
+			pass = sched_edge_config_verify_transitive_traverse(dst_id, next_id, qos, visited_map) && pass;
+		}
+	}
+	return pass;
+}
+
+/*
+ * sched_edge_config_verify_transitive()
+ *
+ * Routine to validate transitivity of the Edge matrix which
+ * helps ensure that the configured migration policy minimizes
+ * scheduling latency by allowing threads to directly spill to
+ * idle cores where they are allowed to run, rather than
+ * arrive on those cores only via steal operations.
+ * Returns true if no violations were discovered.
+ */
+static bool
+sched_edge_config_verify_transitive(pset_id_t dst_id)
+{
+	bool pass = true;
+	for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
+		/*
+		 * Depth-first-search paths to get to the destination pset,
+		 * and verify that each path also has a matching direct edge
+		 * from start to finish.
+		 */
+		bitmap_t visited_map[BITMAP_LEN(MAX_PSETS)] = {0};
+		pass = sched_edge_config_verify_transitive_traverse(dst_id, dst_id, bucket, visited_map) && pass;
+	}
+	return pass;
+}
+
+/*
+ * sched_edge_config_verify()
+ *
+ * Performs checks to validate assumed properties of the Edge matrix,
+ * such as transitivity.
+ * Returns true if no violations were discovered.
+ */
+static bool
+sched_edge_config_verify(void)
+{
+	bool pass = true;
+	sched_edge_matrix_iterate(src_id, dst_id, bucket, { \
+		pass = sched_edge_config_verify_non_decreasing_qos_strictness(src_id, dst_id, bucket) && pass;
+	});
+	for (pset_id_t dst_id = 0; dst_id < sched_num_psets; dst_id++) {
+		pass = sched_edge_config_verify_transitive(dst_id) && pass;
+	}
+	return pass;
+}
+
+#endif /* DEVELOPMENT || DEBUG || SCHED_TEST_HARNESS */
+
+/*
+ * sched_edge_config_final_push()
+ *
+ * After using sched_edge_config_set() to update edge tunables outgoing from every pset,
+ * this function is called in order to propagate the updates to derived global metadata,
+ * such as short-cut bitmasks.
+ */
+static void
+sched_edge_config_final_push(void)
+{
+	for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
+		for (pset_id_t dst_id = 0; dst_id < sched_num_psets; dst_id++) {
+			bitmap_t updated_steal_map[BITMAP_LEN(MAX_PSETS)] = {0};
+			for (pset_id_t src_id = 0; src_id < sched_num_psets; src_id++) {
+				sched_clutch_edge edge = sched_edge_config_get(src_id, dst_id, bucket);
+				if ((dst_id == src_id) || edge.sce_migration_allowed) {
+					bitmap_set(updated_steal_map, src_id);
+				}
+			}
+			sched_clutch_root_t dst_root = &pset_array[dst_id]->pset_clutch_root;
+			os_atomic_store(dst_root->scr_incoming_migration_allowed[bucket], updated_steal_map[0], relaxed);
+		}
+	}
+}
+
 /*
  * sched_edge_matrix_set()
  *
@@ -3997,10 +4155,10 @@ void
 sched_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changed, __unused uint64_t flags,
     __assert_only uint64_t num_psets)
 {
-	assert3u(num_psets, ==, sched_edge_max_clusters);
+	assert3u(num_psets, ==, sched_num_psets);
 	uint32_t edge_index = 0;
-	for (uint32_t src_cluster = 0; src_cluster < sched_edge_max_clusters; src_cluster++) {
-		for (uint32_t dst_cluster = 0; dst_cluster < sched_edge_max_clusters; dst_cluster++) {
+	for (uint32_t src_cluster = 0; src_cluster < sched_num_psets; src_cluster++) {
+		for (uint32_t dst_cluster = 0; dst_cluster < sched_num_psets; dst_cluster++) {
 			for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
 				if (edge_changed[edge_index]) {
 					sched_edge_config_set(src_cluster, dst_cluster, bucket, edge_matrix[edge_index]);
@@ -4010,6 +4168,7 @@ sched_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changed, __unus
 		}
 		sched_edge_config_pset_push(src_cluster);
 	}
+	sched_edge_config_final_push();
 }
 
 /*
@@ -4024,10 +4183,10 @@ void
 sched_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_requested, __unused uint64_t flags,
     __assert_only uint64_t num_psets)
 {
-	assert3u(num_psets, ==, sched_edge_max_clusters);
+	assert3u(num_psets, ==, sched_num_psets);
 	uint32_t edge_index = 0;
-	for (uint32_t src_pset = 0; src_pset < sched_edge_max_clusters; src_pset++) {
-		for (uint32_t dst_pset = 0; dst_pset < sched_edge_max_clusters; dst_pset++) {
+	for (uint32_t src_pset = 0; src_pset < sched_num_psets; src_pset++) {
+		for (uint32_t dst_pset = 0; dst_pset < sched_num_psets; dst_pset++) {
 			for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
 				if (edge_requested[edge_index]) {
 					edge_matrix[edge_index] = sched_edge_config_get(src_pset, dst_pset, bucket);
@@ -4052,7 +4211,8 @@ sched_edge_init(void)
 	}
 	sched_timeshare_init();
 	sched_clutch_tunables_init();
-	sched_edge_max_clusters = ml_get_cluster_count();
+	assert3s(sched_num_psets, >, 0);
+	assert3s(sched_num_psets, <=, (int)MAX_PSETS);
 }
 
 static void
@@ -4075,7 +4235,7 @@ sched_edge_pset_init(processor_set_t pset)
 		sched_pset_search_order_init(pset, &pset->spill_search_order[bucket]);
 	}
 	sched_clutch_root_init(&pset->pset_clutch_root, pset);
-	bitmap_set(sched_edge_available_pset_bitmask, pset_cluster_id);
+	atomic_bitmap_set(sched_edge_available_pset_bitmask, pset_cluster_id, memory_order_relaxed);
 }
 
 static boolean_t
@@ -4093,85 +4253,277 @@ sched_edge_check_spill(__unused processor_set_t pset, __unused thread_t thread)
 
 __options_decl(sched_edge_thread_yield_reason_t, uint32_t, {
 	SCHED_EDGE_YIELD_RUNQ_NONEMPTY       = 0x0,
-	SCHED_EDGE_YIELD_FOREIGN_RUNNABLE    = 0x1,
+	/* SCHED_EDGE_YIELD_FOREIGN_RUNNABLE    = 0x1, unused */
 	SCHED_EDGE_YIELD_FOREIGN_RUNNING     = 0x2,
 	SCHED_EDGE_YIELD_STEAL_POSSIBLE      = 0x3,
 	SCHED_EDGE_YIELD_DISALLOW            = 0x4,
 });
 
+/*
+ * sched_edge_thread_should_yield()
+ *
+ * Routine for a fast-path decision of whether or not to proceed
+ * depressing the priority of and considering preempting a
+ * yielding thread.
+ * Called with preemption disabled but WITHOUT the pset lock held.
+ */
 static bool
 sched_edge_thread_should_yield(processor_t processor, __unused thread_t thread)
 {
+	/* Self runqueue case exactly matches sched_thread_should_yield() */
 	if (!sched_edge_processor_queue_empty(processor) || (rt_runq_count(processor->processor_set) > 0)) {
 		KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHOULD_YIELD) | DBG_FUNC_NONE,
 		    thread_tid(thread), processor->processor_set->pset_cluster_id, 0, SCHED_EDGE_YIELD_RUNQ_NONEMPTY);
 		return true;
 	}
 
-	/*
-	 * The yield logic should follow the same logic that steal_thread () does. The
-	 * thread_should_yield() is effectively trying to quickly check that if the
-	 * current thread gave up CPU, is there any other thread that would execute
-	 * on this CPU. So it needs to provide the same answer as the steal_thread()/
-	 * processor Idle logic.
-	 */
-	if (sched_edge_foreign_runnable_thread_available(processor->processor_set)) {
-		KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHOULD_YIELD) | DBG_FUNC_NONE,
-		    thread_tid(thread), processor->processor_set->pset_cluster_id, 0, SCHED_EDGE_YIELD_FOREIGN_RUNNABLE);
-		return true;
-	}
+	/* Scan for running rebalance opportunity */
 	if (sched_edge_foreign_running_thread_available(processor->processor_set)) {
 		KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHOULD_YIELD) | DBG_FUNC_NONE,
 		    thread_tid(thread), processor->processor_set->pset_cluster_id, 0, SCHED_EDGE_YIELD_FOREIGN_RUNNING);
 		return true;
 	}
 
-	processor_set_t steal_candidate = sched_edge_steal_candidate(processor->processor_set);
-	if (steal_candidate != NULL) {
-		KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHOULD_YIELD) | DBG_FUNC_NONE,
-		    thread_tid(thread), processor->processor_set->pset_cluster_id, 0, SCHED_EDGE_YIELD_STEAL_POSSIBLE);
-		return true;
+	/* Scan for steal opportunity */
+	sched_pset_iterate_state_t istate = SCHED_PSET_ITERATE_STATE_INIT;
+	uint64_t try_all_mask = ~0ULL;
+	while (sched_iterate_psets_ordered(processor->processor_set,
+	    &processor->processor_set->spill_search_order[TH_BUCKET_FIXPRI], try_all_mask, &istate)) {
+		processor_set_t target_pset = pset_array[istate.spis_pset_id];
+		if (sched_edge_pset_peek_steal_possible(target_pset, processor->processor_set, try_all_mask)) {
+			KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHOULD_YIELD) | DBG_FUNC_NONE,
+			    thread_tid(thread), processor->processor_set->pset_cluster_id, 0, SCHED_EDGE_YIELD_STEAL_POSSIBLE);
+			return true;
+		}
 	}
 
-	KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHOULD_YIELD) | DBG_FUNC_NONE, thread_tid(thread), processor->processor_set->pset_cluster_id,
-	    0, SCHED_EDGE_YIELD_DISALLOW);
+	/*
+	 * Note, the current yield policy in thread_select() does NOT attempt
+	 * to steal or rebalance before falling back to continue running the
+	 * yielding thread.
+	 */
+	KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHOULD_YIELD) | DBG_FUNC_NONE,
+	    thread_tid(thread), processor->processor_set->pset_cluster_id, 0, SCHED_EDGE_YIELD_DISALLOW);
 	return false;
 }
 
 #if !SCHED_TEST_HARNESS
 
 static void
-sched_edge_processor_queue_shutdown(processor_t processor)
+sched_edge_processor_queue_shutdown(processor_t processor, struct pulled_thread_queue * threadq)
 {
 	processor_set_t pset = processor->processor_set;
 	sched_clutch_root_t pset_clutch_root = sched_clutch_processor_root_clutch(processor);
-	thread_t        thread;
-	queue_head_t    tqueue;
 
 	/* We only need to migrate threads if this is the last active or last recommended processor in the pset */
-	if ((pset->online_processor_count > 0) && pset_is_recommended(pset)) {
-		pset_unlock(pset);
-		return;
+	if (pset->online_processor_count == 0 || !pset_is_recommended(pset)) {
+		atomic_bitmap_clear(sched_edge_available_pset_bitmask, pset->pset_id, memory_order_relaxed);
+
+		while (sched_clutch_root_count(pset_clutch_root) > 0) {
+			thread_t thread = sched_clutch_hierarchy_thread_highest(pset_clutch_root,
+			    processor, NULL, SCHED_CLUTCH_TRAVERSE_REMOVE_HIERARCHY_ONLY);
+			pulled_thread_queue_enqueue(threadq, thread);
+		}
 	}
 
-	bitmap_clear(sched_edge_available_pset_bitmask, pset->pset_cluster_id);
-
-	queue_init(&tqueue);
-	while (sched_clutch_root_count(pset_clutch_root) > 0) {
-		thread = sched_clutch_hierarchy_thread_highest(pset_clutch_root, processor, NULL, SCHED_CLUTCH_TRAVERSE_REMOVE_HIERARCHY_ONLY);
-		enqueue_tail(&tqueue, &thread->runq_links);
-	}
 	pset_unlock(pset);
-
-	qe_foreach_element_safe(thread, &tqueue, runq_links) {
-		remqueue(&thread->runq_links);
-		thread_lock(thread);
-		thread_setrun(thread, SCHED_TAILQ);
-		thread_unlock(thread);
-	}
 }
 
 #endif /* !SCHED_TEST_HARNESS */
+
+/*
+ * The Edge scheduler uses average scheduling latency as the metric for making
+ * thread migration decisions. One component of avg scheduling latency is the load
+ * average on the cluster.
+ *
+ * Load Average Fixed Point Arithmetic
+ *
+ * The load average is maintained as a 24.8 fixed point arithmetic value for precision.
+ * When multiplied by the average execution time, it needs to be rounded up (based on
+ * the most significant bit of the fractional part) for better accuracy. After rounding
+ * up, the whole number part of the value is used as the actual load value for
+ * migrate/steal decisions.
+ */
+#define SCHED_PSET_LOAD_EWMA_FRACTION_BITS 8
+#define SCHED_PSET_LOAD_EWMA_ROUND_BIT     (1 << (SCHED_PSET_LOAD_EWMA_FRACTION_BITS - 1))
+#define SCHED_PSET_LOAD_EWMA_FRACTION_MASK ((1 << SCHED_PSET_LOAD_EWMA_FRACTION_BITS) - 1)
+#define SCHED_PSET_LOAD_EWMA_TC_NSECS 10000000u
+
+inline static int
+sched_edge_get_pset_load_average(processor_set_t pset, sched_bucket_t sched_bucket)
+{
+	uint64_t load_average = os_atomic_load(&pset->pset_load_average[sched_bucket], relaxed);
+	uint64_t avg_execution_time = os_atomic_load(&pset->pset_execution_time[sched_bucket].pset_avg_thread_execution_time, relaxed);
+	/*
+	 * Since a load average of 0 indicates an idle cluster, don't allow an average
+	 * execution time less than 1us to cause a cluster to appear idle.
+	 */
+	avg_execution_time = MAX(avg_execution_time, 1ULL);
+	return (int)(((load_average + SCHED_PSET_LOAD_EWMA_ROUND_BIT) >> SCHED_PSET_LOAD_EWMA_FRACTION_BITS) * avg_execution_time);
+}
+
+/*
+ * sched_edge_pset_running_higher_bucket()
+ *
+ * Routine to calculate cumulative running counts for each scheduling
+ * bucket. This effectively lets the load calculation calculate if a
+ * cluster is running any threads at a QoS lower than the thread being
+ * migrated etc.
+ */
+static void
+sched_edge_pset_running_higher_bucket(processor_set_t pset, uint32_t *running_higher)
+{
+	bitmap_t *active_map = &pset->cpu_state_map[PROCESSOR_RUNNING];
+	bzero(running_higher, sizeof(uint32_t) * TH_BUCKET_SCHED_MAX);
+
+	/* Count the running threads per bucket */
+	for (int cpu = bitmap_first(active_map, MAX_CPUS); cpu >= 0; cpu = bitmap_next(active_map, cpu)) {
+		sched_bucket_t cpu_bucket = os_atomic_load(&pset->cpu_running_buckets[cpu], relaxed);
+		/* Don't count idle threads */
+		if (cpu_bucket < TH_BUCKET_SCHED_MAX) {
+			running_higher[cpu_bucket]++;
+		}
+	}
+
+	/* Calculate the cumulative running counts as a prefix sum */
+	for (sched_bucket_t bucket = TH_BUCKET_FIXPRI; bucket < TH_BUCKET_SCHED_MAX - 1; bucket++) {
+		running_higher[bucket + 1] += running_higher[bucket];
+	}
+}
+
+/*
+ * sched_edge_update_pset_load_average()
+ *
+ * Updates the load average for each sched bucket for a cluster.
+ * This routine must be called with the pset lock held.
+ */
+static void
+sched_edge_update_pset_load_average(processor_set_t pset, uint64_t curtime)
+{
+	int avail_cpu_count = pset_available_cpu_count(pset);
+	if (avail_cpu_count == 0) {
+		/* Looks like the pset is not runnable any more; nothing to do here */
+		return;
+	}
+
+	/*
+	 * Edge Scheduler Optimization
+	 *
+	 * See if more callers of this routine can pass in timestamps to avoid the
+	 * mach_absolute_time() call here.
+	 */
+
+	if (!curtime) {
+		curtime = mach_absolute_time();
+	}
+	uint64_t last_update = os_atomic_load(&pset->pset_load_last_update, relaxed);
+	int64_t delta_ticks = curtime - last_update;
+	if (delta_ticks < 0) {
+		return;
+	}
+
+	uint64_t delta_nsecs = 0;
+	absolutetime_to_nanoseconds(delta_ticks, &delta_nsecs);
+
+	if (__improbable(delta_nsecs > UINT32_MAX)) {
+		delta_nsecs = UINT32_MAX;
+	}
+
+	/* Update the shared resource load on the pset */
+	for (cluster_shared_rsrc_type_t shared_rsrc_type = CLUSTER_SHARED_RSRC_TYPE_MIN; shared_rsrc_type < CLUSTER_SHARED_RSRC_TYPE_COUNT; shared_rsrc_type++) {
+		uint64_t shared_rsrc_runnable_load = sched_edge_shared_rsrc_runnable_load(&pset->pset_clutch_root, shared_rsrc_type);
+		uint64_t shared_rsrc_running_load = bit_count(pset->cpu_running_cluster_shared_rsrc_thread[shared_rsrc_type]);
+		uint64_t new_shared_load = shared_rsrc_runnable_load + shared_rsrc_running_load;
+		uint64_t old_shared_load = os_atomic_xchg(&pset->pset_cluster_shared_rsrc_load[shared_rsrc_type], new_shared_load, relaxed);
+		if (old_shared_load != new_shared_load) {
+			KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_CLUSTER_SHARED_LOAD) | DBG_FUNC_NONE, pset->pset_cluster_id, shared_rsrc_type, new_shared_load, shared_rsrc_running_load);
+		}
+	}
+
+	uint32_t running_higher[TH_BUCKET_SCHED_MAX];
+	sched_edge_pset_running_higher_bucket(pset, running_higher);
+
+	for (sched_bucket_t sched_bucket = TH_BUCKET_FIXPRI; sched_bucket < TH_BUCKET_SCHED_MAX; sched_bucket++) {
+		uint64_t old_load_average = os_atomic_load(&pset->pset_load_average[sched_bucket], relaxed);
+		uint64_t old_load_average_factor = old_load_average * SCHED_PSET_LOAD_EWMA_TC_NSECS;
+		uint32_t current_runq_depth = sched_edge_cluster_cumulative_count(&pset->pset_clutch_root, sched_bucket) +  rt_runq_count(pset) + running_higher[sched_bucket];
+		os_atomic_store(&pset->pset_runnable_depth[sched_bucket], current_runq_depth, relaxed);
+
+		uint32_t current_load = current_runq_depth / avail_cpu_count;
+		/*
+		 * For the new load average multiply current_load by delta_nsecs (which results in a 32.0 value).
+		 * Since we want to maintain the load average as a 24.8 fixed arithmetic value for precision, the
+		 * new load average needs to be shifted before it can be added to the old load average.
+		 */
+		uint64_t new_load_average_factor = (current_load * delta_nsecs) << SCHED_PSET_LOAD_EWMA_FRACTION_BITS;
+
+		/*
+		 * For extremely parallel workloads, it is important that the load average on a cluster moves zero to non-zero
+		 * instantly to allow threads to be migrated to other (potentially idle) clusters quickly. Hence use the EWMA
+		 * when the system is already loaded; otherwise for an idle system use the latest load average immediately.
+		 */
+		int old_load_shifted = (int)((old_load_average + SCHED_PSET_LOAD_EWMA_ROUND_BIT) >> SCHED_PSET_LOAD_EWMA_FRACTION_BITS);
+		boolean_t load_uptick = (old_load_shifted == 0) && (current_load != 0);
+		boolean_t load_downtick = (old_load_shifted != 0) && (current_load == 0);
+		uint64_t load_average;
+		if (load_uptick || load_downtick) {
+			load_average = (current_load << SCHED_PSET_LOAD_EWMA_FRACTION_BITS);
+		} else {
+			/* Indicates a loaded system; use EWMA for load average calculation */
+			load_average = (old_load_average_factor + new_load_average_factor) / (delta_nsecs + SCHED_PSET_LOAD_EWMA_TC_NSECS);
+		}
+		os_atomic_store(&pset->pset_load_average[sched_bucket], load_average, relaxed);
+		if (load_average != old_load_average) {
+			KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_LOAD_AVG) | DBG_FUNC_NONE, pset->pset_cluster_id, (load_average >> SCHED_PSET_LOAD_EWMA_FRACTION_BITS), load_average & SCHED_PSET_LOAD_EWMA_FRACTION_MASK, sched_bucket);
+			os_atomic_store(&pset->pset_load_last_update, curtime, relaxed);
+		}
+	}
+	os_atomic_store(&pset->pset_load_last_update, curtime, relaxed);
+}
+
+static void
+sched_edge_update_pset_avg_execution_time(processor_set_t pset, uint64_t execution_time, uint64_t curtime, sched_bucket_t sched_bucket)
+{
+	pset_execution_time_t old_execution_time_packed, new_execution_time_packed;
+	uint64_t avg_thread_execution_time = 0;
+
+	os_atomic_rmw_loop(&pset->pset_execution_time[sched_bucket].pset_execution_time_packed,
+	    old_execution_time_packed.pset_execution_time_packed,
+	    new_execution_time_packed.pset_execution_time_packed, relaxed, {
+		uint64_t last_update = old_execution_time_packed.pset_execution_time_last_update;
+		int64_t delta_ticks = curtime - last_update;
+		if (delta_ticks <= 0) {
+		        /*
+		         * Its possible that another CPU came in and updated the pset_execution_time
+		         * before this CPU could do it. Since the average execution time is meant to
+		         * be an approximate measure per cluster, ignore the older update.
+		         */
+		        os_atomic_rmw_loop_give_up(return );
+		}
+		uint64_t delta_nsecs = 0;
+		absolutetime_to_nanoseconds(delta_ticks, &delta_nsecs);
+
+		uint64_t nanotime = 0;
+		absolutetime_to_nanoseconds(execution_time, &nanotime);
+		uint64_t execution_time_us = nanotime / NSEC_PER_USEC;
+
+		/*
+		 * Since the average execution time is stored in microseconds, avoid rounding errors in
+		 * the EWMA calculation by only using a non-zero previous value.
+		 */
+		uint64_t old_avg_thread_execution_time = MAX(old_execution_time_packed.pset_avg_thread_execution_time, 1ULL);
+
+		uint64_t old_execution_time = (old_avg_thread_execution_time * SCHED_PSET_LOAD_EWMA_TC_NSECS);
+		uint64_t new_execution_time = (execution_time_us * delta_nsecs);
+
+		avg_thread_execution_time = (old_execution_time + new_execution_time) / (delta_nsecs + SCHED_PSET_LOAD_EWMA_TC_NSECS);
+		new_execution_time_packed.pset_avg_thread_execution_time = avg_thread_execution_time;
+		new_execution_time_packed.pset_execution_time_last_update = curtime;
+	});
+	if (new_execution_time_packed.pset_avg_thread_execution_time != old_execution_time_packed.pset_execution_time_packed) {
+		KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_SCHED, MACH_PSET_AVG_EXEC_TIME) | DBG_FUNC_NONE, pset->pset_cluster_id, avg_thread_execution_time, sched_bucket);
+	}
+}
 
 /*
  * sched_edge_cluster_load_metric()
@@ -4191,7 +4543,7 @@ sched_edge_cluster_load_metric(processor_set_t pset, sched_bucket_t sched_bucket
 	if (pset_is_recommended(pset) == false) {
 		return UINT32_MAX;
 	}
-	return (uint32_t)sched_get_pset_load_average(pset, sched_bucket);
+	return (uint32_t)sched_edge_get_pset_load_average(pset, sched_bucket);
 }
 
 /*
@@ -4231,95 +4583,167 @@ sched_edge_cluster_load_metric(processor_set_t pset, sched_bucket_t sched_bucket
  *
  * Since these operations (just like thread migrations on enqueue)
  * move threads across clusters, they need support for handling clutch
- * bucket group level preferred cluster recommendations.
- * For (1), a clutch bucket will be in the foreign runnable queue based
- * on the clutch bucket group preferred cluster.
+ * bucket group level preferred pset recommendations.
+ * For (1), a clutch bucket will be enqueued in the corresponding steal
+ * silo and queue based on its preferred pset and scheduling bucket
+ * respectively.
  * For (2), the running thread will set the bit on the processor based
  * on its preferred cluster type.
  * For (3), the edge configuration would prevent threads from being stolen
  * in the wrong direction.
  *
  * = SCHED(thread_should_yield) =
- * The thread_should_yield() logic needs to have the same logic as sched_edge_processor_idle()
- * since that is expecting the same answer as if thread_select() was called on a core
- * with an empty runqueue.
+ * The thread_should_yield() logic should remain close to matching what
+ * thread_select() would do for a yielding thread. Note, cases where
+ * thread_should_yield() answers "yes" but thread_select() does not
+ * context-switch out the yielding thread still result in a transient
+ * priority drop for the yielding thread (not to mention timing effects
+ * from choosing to consult thread_select()), which could racily affect
+ * migration decisions happening from other cores.
  */
 
 static bool
 sched_edge_steal_thread_enabled(__unused processor_set_t pset)
 {
-	/*
-	 * For edge scheduler, the gating for steal is being done by sched_edge_steal_candidate()
-	 */
 	return true;
 }
 
-static processor_set_t
-sched_edge_steal_candidate(processor_set_t pset)
+/*
+ * sched_edge_pset_peek_steal_possible()
+ *
+ * Routine to fast-path evaluate whether the steal_from_pset may
+ * contain threads eligible to be stolen to the idle_pset.
+ * Can be called WITHOUT either pset locked.
+ */
+static inline bool
+sched_edge_pset_peek_steal_possible(
+	processor_set_t steal_from_pset,
+	processor_set_t idle_pset,
+	bitmap_t silos_filter)
 {
-	uint32_t dst_cluster_id = pset->pset_cluster_id;
-	for (int cluster_id = 0; cluster_id < sched_edge_max_clusters; cluster_id++) {
-		processor_set_t candidate_pset = pset_array[cluster_id];
-		if (cluster_id == dst_cluster_id) {
-			continue;
-		}
-		if (candidate_pset == NULL) {
-			continue;
-		}
-		int highest_bucket = bitmap_lsb_first(candidate_pset->pset_clutch_root.scr_unbound_runnable_bitmap, TH_BUCKET_SCHED_MAX);
-		if (highest_bucket != -1) {
-			/* Assumes that higher root buckets have the less restrictive sce_steal_allowed edges */
-			sched_clutch_edge edge = sched_edge_config_get(cluster_id, dst_cluster_id, highest_bucket);
-			if (edge.sce_steal_allowed) {
-				return candidate_pset;
+	bitmap_t populated_silos =
+	    os_atomic_load(steal_from_pset->pset_clutch_root.scr_populated_steal_silos, relaxed);
+	bitmap_t permissive_migration_allowed_map =
+	    os_atomic_load(idle_pset->pset_clutch_root.scr_incoming_migration_allowed[PERMISSIVE_MIGRATION_BUCKET], relaxed);
+	bitmap_t eligible_silos = silos_filter & populated_silos & permissive_migration_allowed_map;
+	if (eligible_silos == 0) {
+		/* No eligible silos that contain threads */
+		return false;
+	}
+	for (int silo_id = lsb_first(eligible_silos); silo_id >= 0; silo_id = lsb_next(eligible_silos, silo_id)) {
+		sched_edge_steal_silo_t steal_silo =
+		    sched_edge_steal_silo_from_pset_id((pset_id_t)silo_id, &steal_from_pset->pset_clutch_root);
+		bitmap_t populated_queues = os_atomic_load(steal_silo->sess_populated_steal_queues, relaxed);
+		int highest_populated_bucket = lsb_first(populated_queues);
+		if (highest_populated_bucket != -1) {
+			sched_clutch_edge silo_edge =
+			    sched_edge_config_get(silo_id, idle_pset->pset_id, highest_populated_bucket);
+			if (silo_edge.sce_steal_allowed || (silo_id == idle_pset->pset_id)) {
+				/* Found eligible candidate */
+				return true;
 			}
 		}
 	}
-	return NULL;
-}
-
-static boolean_t
-sched_edge_foreign_runnable_thread_available(processor_set_t pset)
-{
-	/* Find all the clusters that are foreign for this cluster */
-	bitmap_t *foreign_pset_bitmap = pset->foreign_psets;
-	for (int cluster = bitmap_first(foreign_pset_bitmap, sched_edge_max_clusters); cluster >= 0; cluster = bitmap_next(foreign_pset_bitmap, cluster)) {
-		/*
-		 * For each cluster, see if there are any runnable foreign threads.
-		 * This check is currently being done without the pset lock to make it cheap for
-		 * the common case.
-		 */
-		processor_set_t target_pset = pset_array[cluster];
-		if (pset_is_recommended(target_pset) == false) {
-			continue;
-		}
-
-		if (!sched_clutch_root_foreign_empty(&target_pset->pset_clutch_root)) {
-			return true;
-		}
-	}
+	/* Silos only contain threads of QoSes not allowed to be stolen across the edge */
 	return false;
 }
 
+
+/*
+ * Configurable behaviors when looking for threads to steal
+ * out of a particular pset.
+ */
+__options_decl(sched_edge_steal_options_t, uint8_t, {
+	SCHED_EDGE_STEAL_OPTIONS_NONE                 = 0x0,
+	/* Only steal when there are more threads at the QoS than CPUs in the pset */
+	SCHED_EDGE_STEAL_OPTIONS_ONLY_EXCESS_LOAD     = 0x1,
+});
+
+/*
+ * sched_edge_pset_steal_thread()
+ *
+ * Routine to return the highest QoS thread enqueued in
+ * steal_from_pset which is eligible to be stolen to
+ * idle_pset, based on the policy configured in steal_options
+ * combined with the Edge matrix.
+ * Always called with the steal_from_pset locked.
+ */
 static thread_t
-sched_edge_foreign_runnable_thread_remove(processor_set_t pset, uint64_t ctime)
+sched_edge_pset_steal_thread(
+	processor_set_t steal_from_pset,
+	processor_set_t idle_pset,
+	bitmap_t silos_filter,
+	sched_edge_steal_options_t steal_options)
+{
+	bitmap_t populated_silos =
+	    os_atomic_load(steal_from_pset->pset_clutch_root.scr_populated_steal_silos, relaxed);
+	bitmap_t silos_to_search = populated_silos & silos_filter;
+	thread_t highest_pri_thread = THREAD_NULL;
+	sched_pset_iterate_state_t istate = SCHED_PSET_ITERATE_STATE_INIT;
+	while (sched_iterate_psets_ordered(idle_pset, &idle_pset->spill_search_order[TH_BUCKET_FIXPRI],
+	    silos_to_search, &istate)) {
+		int silo_id = istate.spis_pset_id;
+		sched_edge_steal_silo_t steal_silo =
+		    sched_edge_steal_silo_from_pset_id(silo_id, &steal_from_pset->pset_clutch_root);
+		bitmap_t populated_queues = os_atomic_load(steal_silo->sess_populated_steal_queues, relaxed);
+		for (int bucket = lsb_first(populated_queues); bucket >= 0; bucket = lsb_next(populated_queues, bucket)) {
+			sched_clutch_edge silo_edge = sched_edge_config_get(silo_id, idle_pset->pset_id, bucket);
+			if ((silo_edge.sce_steal_allowed == false) && (silo_id != idle_pset->pset_id)) {
+				/*
+				 * Stealing not allowed to the idle_pset for threads of this QoS and
+				 * recommended to this silo.
+				 * Assume that a higher QoS disallowing steal implies the same for
+				 * all lower QoSes.
+				 */
+				break;
+			}
+			if (steal_options & SCHED_EDGE_STEAL_OPTIONS_ONLY_EXCESS_LOAD) {
+				if (silo_edge.sce_migration_weight != 0) {
+					uint32_t candidate_runq_depth = os_atomic_load(&steal_from_pset->pset_runnable_depth[bucket], relaxed);
+					if (candidate_runq_depth <= pset_available_cpu_count(steal_from_pset)) {
+						/* No excess threads at or above this bucket */
+						continue;
+					}
+				}
+			}
+			/* Thread candidate found */
+			struct priority_queue_sched_max *steal_queue = &steal_silo->sess_steal_queues[bucket];
+			sched_clutch_bucket_t clutch_bucket = priority_queue_max(steal_queue, struct sched_clutch_bucket, scb_stealqlink);
+			thread_t thread = priority_queue_max(&clutch_bucket->scb_thread_runq, struct thread, th_clutch_runq_link);
+			/* Bias ties in favor of psets earlier in the search order */
+			if ((highest_pri_thread == THREAD_NULL) || (thread->sched_pri > highest_pri_thread->sched_pri)) {
+				highest_pri_thread = thread;
+			}
+			/* Since this thread is from the highest eligible QoS we found in this silo, move on to search other silos */
+			break;
+		}
+	}
+	return highest_pri_thread;
+}
+
+static thread_t
+sched_edge_foreign_runnable_thread_remove(processor_set_t idle_pset, uint64_t ctime)
 {
 	thread_t thread = THREAD_NULL;
 
-	/* Find all the clusters that are foreign for this cluster */
-	bitmap_t *foreign_pset_bitmap = pset->foreign_psets;
-	for (int cluster = bitmap_first(foreign_pset_bitmap, sched_edge_max_clusters); cluster >= 0; cluster = bitmap_next(foreign_pset_bitmap, cluster)) {
+	/*
+	 * Search all the psets that are foreign for the idle_pset,
+	 * iterating in reverse spill order to prioritize rescuing
+	 * threads from their least desired, most "distant" spill
+	 * location.
+	 */
+	sched_pset_iterate_state_t istate = SCHED_PSET_ITERATE_STATE_INIT;
+	istate.spis_options = SCHED_PSET_ITERATE_STATE_OPTIONS_REVERSE;
+	while (sched_iterate_psets_ordered(idle_pset, &idle_pset->spill_search_order[PERMISSIVE_MIGRATION_BUCKET],
+	    idle_pset->foreign_psets[0], &istate)) {
+		processor_set_t target_pset = pset_array[istate.spis_pset_id];
 		/*
-		 * For each cluster, see if there are any runnable foreign threads.
+		 * For each pset, see if there are any runnable foreign threads.
 		 * This check is currently being done without the pset lock to make it cheap for
 		 * the common case.
 		 */
-		processor_set_t target_pset = pset_array[cluster];
-		if (pset_is_recommended(target_pset) == false) {
-			continue;
-		}
-
-		if (sched_clutch_root_foreign_empty(&target_pset->pset_clutch_root)) {
+		pset_node_t dst_node = pset_node_for_pset_cluster_type(idle_pset->pset_cluster_type);
+		if (!sched_edge_pset_peek_steal_possible(target_pset, idle_pset, dst_node->pset_map)) {
 			continue;
 		}
 		/*
@@ -4327,9 +4751,11 @@ sched_edge_foreign_runnable_thread_remove(processor_set_t pset, uint64_t ctime)
 		 * and get the highest priority thread.
 		 */
 		pset_lock(target_pset);
-		if (pset_is_recommended(target_pset)) {
-			thread = sched_clutch_root_highest_foreign_thread_remove(&target_pset->pset_clutch_root);
-			sched_update_pset_load_average(target_pset, ctime);
+		thread = sched_edge_pset_steal_thread(target_pset, idle_pset, dst_node->pset_map,
+		    SCHED_EDGE_STEAL_OPTIONS_NONE);
+		if (thread != THREAD_NULL) {
+			sched_clutch_thread_remove(&target_pset->pset_clutch_root, thread, ctime, SCHED_CLUTCH_BUCKET_OPTIONS_NONE);
+			SCHED(update_pset_load_average)(target_pset, ctime);
 		}
 		pset_unlock(target_pset);
 
@@ -4342,7 +4768,7 @@ sched_edge_foreign_runnable_thread_remove(processor_set_t pset, uint64_t ctime)
 		 * some form of global state across psets to make that kind of a check cheap.
 		 */
 		if (thread != THREAD_NULL) {
-			KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_REBAL_RUNNABLE) | DBG_FUNC_NONE, thread_tid(thread), pset->pset_cluster_id, target_pset->pset_cluster_id, 0);
+			KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_REBAL_RUNNABLE) | DBG_FUNC_NONE, thread_tid(thread), idle_pset->pset_id, target_pset->pset_id, 0);
 			break;
 		}
 		/* Looks like the thread escaped after the check but before the pset lock was taken; continue the search */
@@ -4379,7 +4805,7 @@ sched_edge_foreign_running_thread_available(processor_set_t pset)
 {
 	bitmap_t *foreign_pset_bitmap = pset->foreign_psets;
 	sched_pset_iterate_state_t istate = SCHED_PSET_ITERATE_STATE_INIT;
-	while (sched_iterate_psets_ordered(pset, &pset->spill_search_order[0], foreign_pset_bitmap[0], &istate)) {
+	while (sched_iterate_psets_ordered(pset, &pset->spill_search_order[PERMISSIVE_MIGRATION_BUCKET], foreign_pset_bitmap[0], &istate)) {
 		/* Skip the pset if its not schedulable */
 		processor_set_t target_pset = pset_array[istate.spis_pset_id];
 		if (pset_is_recommended(target_pset) == false) {
@@ -4388,60 +4814,16 @@ sched_edge_foreign_running_thread_available(processor_set_t pset)
 
 		uint64_t running_foreign_bitmap = target_pset->cpu_state_map[PROCESSOR_RUNNING] & target_pset->cpu_running_foreign;
 		for (int cpu_foreign = bit_first(running_foreign_bitmap); cpu_foreign >= 0; cpu_foreign = bit_next(running_foreign_bitmap, cpu_foreign)) {
-			if (!sched_edge_cpu_running_foreign_shared_rsrc_available(target_pset, cpu_foreign, pset)) {
-				continue;
+			if (sched_edge_cpu_running_foreign_shared_rsrc_available(target_pset, cpu_foreign, pset)) {
+				return true;
 			}
-			return true;
 		}
 	}
-	return false;
-}
-
-/*
- * sched_edge_steal_possible()
- *
- * Determines whether we can and should steal a thread from
- * the candidate_pset to run it on the idle_pset. When returning
- * true, the function also writes the scheduling bucket that we
- * should steal from into the bucket_for_steal out parameter.
- *
- * Always called with the pset lock for candidate_pset held.
- */
-static bool
-sched_edge_steal_possible(processor_set_t idle_pset, processor_set_t candidate_pset, sched_bucket_t *bucket_for_steal)
-{
-	sched_clutch_root_t candidate_clutch_root = &candidate_pset->pset_clutch_root;
-
-	int highest_runnable_bucket = sched_clutch_root_highest_runnable_qos(candidate_clutch_root, SCHED_CLUTCH_HIGHEST_ROOT_BUCKET_UNBOUND_ONLY);
-	if (highest_runnable_bucket == -1) {
-		/* Candidate cluster runq is empty of unbound threads */
-		return false;
-	}
-
-	for (int unbound_qos = highest_runnable_bucket; unbound_qos >= 0; unbound_qos = bitmap_lsb_next(candidate_clutch_root->scr_unbound_runnable_bitmap, TH_BUCKET_SCHED_MAX, unbound_qos)) {
-		/* Confirm we are allowed to steal across the edge at this QoS */
-		sched_clutch_edge edge = sched_edge_config_get(candidate_pset->pset_cluster_id, idle_pset->pset_cluster_id, unbound_qos);
-		if (edge.sce_steal_allowed == false) {
-			continue;
-		}
-		if (edge.sce_migration_weight == 0) {
-			/* Allow free stealing across a zero edge weight, even with idle cores in the candidate pset */
-			*bucket_for_steal = (sched_bucket_t)unbound_qos;
-			return true;
-		}
-		uint32_t candidate_runq_depth = os_atomic_load(&candidate_pset->pset_runnable_depth[unbound_qos], relaxed);
-		if (candidate_runq_depth > pset_available_cpu_count(candidate_pset)) {
-			/* Candidate cluster has excess load at this QoS (and at least one unbound thread we can steal!) */
-			*bucket_for_steal = (sched_bucket_t)unbound_qos;
-			return true;
-		}
-	}
-	/* None of the unbound root buckets are available for steal */
 	return false;
 }
 
 static thread_t
-sched_edge_steal_thread(processor_set_t pset, uint64_t candidate_pset_bitmap)
+sched_edge_steal_thread(processor_set_t idle_pset, uint64_t candidate_pset_bitmap)
 {
 	thread_t stolen_thread = THREAD_NULL;
 
@@ -4453,41 +4835,25 @@ sched_edge_steal_thread(processor_set_t pset, uint64_t candidate_pset_bitmap)
 	 * which looks for the maximum delta etc.
 	 */
 	sched_pset_iterate_state_t istate = SCHED_PSET_ITERATE_STATE_INIT;
-	while (sched_iterate_psets_ordered(pset, &pset->spill_search_order[0], candidate_pset_bitmap, &istate)) {
+	while (sched_iterate_psets_ordered(idle_pset, &idle_pset->spill_search_order[PERMISSIVE_MIGRATION_BUCKET], candidate_pset_bitmap, &istate)) {
 		processor_set_t steal_from_pset = pset_array[istate.spis_pset_id];
-		if (steal_from_pset == NULL) {
-			continue;
-		}
-		bool steal_allowed = false;
-		for (sched_bucket_t bucket = TH_BUCKET_FIXPRI; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
-			sched_clutch_edge edge = sched_edge_config_get(istate.spis_pset_id, pset->pset_cluster_id, bucket);
-			if (edge.sce_steal_allowed) {
-				steal_allowed = true;
-				break;
-			}
-		}
-		if (steal_allowed == false) {
+		bitmap_t migration_allowed_map =
+		    os_atomic_load(idle_pset->pset_clutch_root.scr_incoming_migration_allowed[PERMISSIVE_MIGRATION_BUCKET], relaxed);
+		if (!sched_edge_pset_peek_steal_possible(steal_from_pset, idle_pset, migration_allowed_map)) {
 			continue;
 		}
 		pset_lock(steal_from_pset);
-		sched_bucket_t bucket_for_steal;
-		if (sched_edge_steal_possible(pset, steal_from_pset, &bucket_for_steal)) {
+
+		sched_edge_steal_options_t steal_options = SCHED_EDGE_STEAL_OPTIONS_ONLY_EXCESS_LOAD;
+		stolen_thread = sched_edge_pset_steal_thread(steal_from_pset, idle_pset, migration_allowed_map, steal_options);
+
+		if (stolen_thread != THREAD_NULL) {
 			uint64_t current_timestamp = mach_absolute_time();
-			sched_clutch_root_t clutch_root_for_steal = &steal_from_pset->pset_clutch_root;
-			stolen_thread = sched_clutch_thread_unbound_lookup(clutch_root_for_steal, &clutch_root_for_steal->scr_unbound_buckets[bucket_for_steal], NULL, NULL);
-			sched_clutch_thread_remove(clutch_root_for_steal, stolen_thread, current_timestamp, SCHED_CLUTCH_BUCKET_OPTIONS_SAMEPRI_RR);
-
-			sched_clutch_dbg_thread_select_packed_t debug_info = {0};
-			debug_info.trace_data.version = SCHED_CLUTCH_DBG_THREAD_SELECT_PACKED_VERSION;
-			debug_info.trace_data.traverse_mode = SCHED_CLUTCH_TRAVERSE_REMOVE_HIERARCHY_ONLY;
-			debug_info.trace_data.cluster_id = steal_from_pset->pset_cluster_id;
-			debug_info.trace_data.selection_was_cluster_bound = false;
-			KERNEL_DEBUG_CONSTANT_IST(KDEBUG_TRACE, MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_CLUTCH_THREAD_SELECT) | DBG_FUNC_NONE,
-			    thread_tid(stolen_thread), thread_group_get_id(stolen_thread->thread_group), bucket_for_steal, debug_info.scdts_trace_data_packed, 0);
-			KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_STEAL) | DBG_FUNC_NONE, thread_tid(stolen_thread), pset->pset_cluster_id, steal_from_pset->pset_cluster_id, 0);
-
-			sched_update_pset_load_average(steal_from_pset, current_timestamp);
+			sched_clutch_thread_remove(&steal_from_pset->pset_clutch_root, stolen_thread, current_timestamp, SCHED_CLUTCH_BUCKET_OPTIONS_NONE);
+			SCHED(update_pset_load_average)(steal_from_pset, current_timestamp);
+			KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_STEAL) | DBG_FUNC_NONE, thread_tid(stolen_thread), idle_pset->pset_id, steal_from_pset->pset_id, 0);
 		}
+
 		pset_unlock(steal_from_pset);
 		if (stolen_thread != THREAD_NULL) {
 			break;
@@ -4532,7 +4898,7 @@ sched_edge_processor_idle(processor_set_t pset)
 		return THREAD_NULL;
 	}
 
-	/* No foreign threads found; find a thread to steal from all clusters based on weights/loads etc. */
+	/* No foreign-enqueued threads found; find a thread to steal from all clusters based on weights/loads etc. */
 	thread = sched_edge_steal_thread(pset, pset->native_psets[0] | pset->foreign_psets[0]);
 	return thread;
 }
@@ -4542,7 +4908,7 @@ static bool
 sched_edge_shared_rsrc_migrate_possible(thread_t thread, processor_set_t preferred_pset, processor_set_t current_pset)
 {
 	cluster_shared_rsrc_type_t shared_rsrc_type = sched_edge_thread_shared_rsrc_type(thread);
-	uint64_t current_pset_load = sched_pset_cluster_shared_rsrc_load(current_pset, shared_rsrc_type);
+	uint64_t current_pset_load = sched_edge_pset_cluster_shared_rsrc_load(current_pset, shared_rsrc_type);
 	/*
 	 * Adjust the current pset load to discount the current thread only if the current pset is a preferred pset type. This allows the
 	 * scheduler to rebalance threads from non-preferred cluster to an idle cluster of the preferred type.
@@ -4562,7 +4928,7 @@ sched_edge_shared_rsrc_migrate_possible(thread_t thread, processor_set_t preferr
 		bit_set(eligible_pset_bitmask, preferred_pset->pset_cluster_id);
 	} else {
 		/* For EDGE_SHARED_RSRC_SCHED_POLICY_RR, the load balancing happens among all clusters */
-		eligible_pset_bitmask = sched_edge_available_pset_bitmask[0];
+		eligible_pset_bitmask = os_atomic_load(&sched_edge_available_pset_bitmask[0], relaxed);
 	}
 
 	/* For each eligible cluster check if there is an under-utilized cluster; return true if there is */
@@ -4570,7 +4936,7 @@ sched_edge_shared_rsrc_migrate_possible(thread_t thread, processor_set_t preferr
 		if (cluster_id == current_pset->pset_cluster_id) {
 			continue;
 		}
-		uint64_t cluster_load = sched_pset_cluster_shared_rsrc_load(pset_array[cluster_id], shared_rsrc_type);
+		uint64_t cluster_load = sched_edge_pset_cluster_shared_rsrc_load(pset_array[cluster_id], shared_rsrc_type);
 		if (current_pset_adjusted_load > cluster_load) {
 			KDBG(MACHDBG_CODE(DBG_MACH_SCHED_CLUTCH, MACH_SCHED_EDGE_SHARED_RSRC_MIGRATE) | DBG_FUNC_NONE, current_pset_load, current_pset->pset_cluster_id, cluster_load, cluster_id);
 			return true;
@@ -5046,7 +5412,7 @@ sched_edge_thread_avoid_processor(processor_t processor, thread_t thread, ast_t 
 		 * We should only preempt after confirming the thread actually has a
 		 * recommended, allowed alternative pset to run on.
 		 */
-		for (uint32_t pset_id = 0; pset_id < sched_edge_max_clusters; pset_id++) {
+		for (uint32_t pset_id = 0; pset_id < sched_num_psets; pset_id++) {
 			if (pset_id == processor->processor_set->pset_id) {
 				continue;
 			}
@@ -5105,7 +5471,7 @@ sched_edge_thread_avoid_processor(processor_t processor, thread_t thread, ast_t 
 	if ((processor->processor_set->pset_type != preferred_pset->pset_type) &&
 	    pset_type_is_recommended(preferred_pset)) {
 		/* Scan for idle pset */
-		for (uint32_t pset_id = 0; pset_id < sched_edge_max_clusters; pset_id++) {
+		for (uint32_t pset_id = 0; pset_id < sched_num_psets; pset_id++) {
 			processor_set_t candidate_pset = pset_array[pset_id];
 			edge = sched_edge_config_get(preferred_pset->pset_id, pset_id, thread->th_sched_bucket);
 			if ((candidate_pset->pset_type == preferred_pset->pset_type) &&
@@ -5129,7 +5495,7 @@ sched_edge_balance(__unused processor_t cprocessor, processor_set_t cpset)
 	sched_ipi_type_t ipi_type[MAX_CPUS] = {SCHED_IPI_NONE};
 
 	bitmap_t *foreign_pset_bitmap = cpset->foreign_psets;
-	for (int cluster = bitmap_first(foreign_pset_bitmap, sched_edge_max_clusters); cluster >= 0; cluster = bitmap_next(foreign_pset_bitmap, cluster)) {
+	for (int cluster = bitmap_first(foreign_pset_bitmap, sched_num_psets); cluster >= 0; cluster = bitmap_next(foreign_pset_bitmap, cluster)) {
 		/* Skip the pset if its not schedulable */
 		processor_set_t target_pset = pset_array[cluster];
 		if (pset_is_recommended(target_pset) == false) {
@@ -5192,7 +5558,7 @@ sched_edge_migration_check(uint32_t cluster_id, processor_set_t preferred_pset,
 	if (edge.sce_migration_allowed == false) {
 		return false;
 	}
-	uint32_t dst_load = shared_rsrc_thread ? (uint32_t)sched_pset_cluster_shared_rsrc_load(dst_pset, shared_rsrc_type) : sched_edge_cluster_load_metric(dst_pset, thread->th_sched_bucket);
+	uint32_t dst_load = shared_rsrc_thread ? (uint32_t)sched_edge_pset_cluster_shared_rsrc_load(dst_pset, shared_rsrc_type) : sched_edge_cluster_load_metric(dst_pset, thread->th_sched_bucket);
 	if (dst_load == 0
 	    ) {
 		/* The candidate cluster is idle; select it immediately for execution */
@@ -5282,7 +5648,7 @@ sched_edge_migrate_edges_evaluate(processor_set_t preferred_pset, uint32_t prefe
 		 * Indicates that all peer native clusters are at the same shared resource usage; check if the preferred cluster has
 		 * any more capacity left.
 		 */
-		if (sched_pset_cluster_shared_rsrc_load(preferred_pset, shared_rsrc_type) < pset_available_cpu_count(preferred_pset)) {
+		if (sched_edge_pset_cluster_shared_rsrc_load(preferred_pset, shared_rsrc_type) < pset_available_cpu_count(preferred_pset)) {
 			return preferred_pset;
 		}
 		/*
@@ -5392,7 +5758,7 @@ sched_edge_migrate_candidate(processor_set_t _Nullable preferred_pset, thread_t 
 		}
 	}
 
-	uint64_t candidate_cluster_bitmap = mask(sched_edge_max_clusters);
+	uint64_t candidate_cluster_bitmap = mask(sched_num_psets);
 #if DEVELOPMENT || DEBUG
 	extern int enable_task_set_cluster_type;
 	task_t task = get_threadtask(thread);
@@ -5415,7 +5781,7 @@ sched_edge_migrate_candidate(processor_set_t _Nullable preferred_pset, thread_t 
 		goto migrate_candidate_available_check;
 	}
 
-	uint32_t preferred_cluster_load = shared_rsrc_thread ? (uint32_t)sched_pset_cluster_shared_rsrc_load(preferred_pset, shared_rsrc_type) : sched_edge_cluster_load_metric(preferred_pset, thread->th_sched_bucket);
+	uint32_t preferred_cluster_load = shared_rsrc_thread ? (uint32_t)sched_edge_pset_cluster_shared_rsrc_load(preferred_pset, shared_rsrc_type) : sched_edge_cluster_load_metric(preferred_pset, thread->th_sched_bucket);
 	if (preferred_cluster_load == 0) {
 		goto migrate_candidate_available_check;
 	}
@@ -5462,7 +5828,7 @@ migrate_candidate_available_check:
 	stirring_the_pot = false;
 	/* Looks like selected_pset is not available for scheduling; remove it from candidate_cluster_bitmap */
 	bitmap_clear(&candidate_cluster_bitmap, selected_pset->pset_cluster_id);
-	if (__improbable(bitmap_first(&candidate_cluster_bitmap, sched_edge_max_clusters) == -1)) {
+	if (__improbable(bitmap_first(&candidate_cluster_bitmap, sched_num_psets) == -1)) {
 		pset_unlock(locked_pset);
 		return NULL;
 	}
@@ -5508,37 +5874,15 @@ sched_edge_choose_processor(processor_set_t pset, processor_t processor, thread_
  * bucket overrides etc.) into a local thread queue.
  */
 static void
-sched_edge_clutch_bucket_threads_drain(sched_clutch_bucket_t clutch_bucket, sched_clutch_root_t root_clutch, queue_t clutch_threads)
+sched_edge_clutch_bucket_threads_drain(sched_clutch_bucket_t clutch_bucket, sched_clutch_root_t root_clutch, struct pulled_thread_queue * threadq)
 {
 	thread_t thread = THREAD_NULL;
 	uint64_t current_timestamp = mach_approximate_time();
 	qe_foreach_element_safe(thread, &clutch_bucket->scb_thread_timeshare_queue, th_clutch_timeshare_link) {
 		sched_clutch_thread_remove(root_clutch, thread, current_timestamp, SCHED_CLUTCH_BUCKET_OPTIONS_NONE);
-		enqueue_tail(clutch_threads, &thread->runq_links);
+		pulled_thread_queue_enqueue(threadq, thread);
 	}
 }
-
-#if !SCHED_TEST_HARNESS
-
-/*
- * sched_edge_run_drained_threads()
- *
- * Makes all drained threads in a local queue runnable.
- */
-static void
-sched_edge_run_drained_threads(queue_t clutch_threads)
-{
-	thread_t thread;
-	/* Now setrun all the threads in the local queue */
-	qe_foreach_element_safe(thread, clutch_threads, runq_links) {
-		remqueue(&thread->runq_links);
-		thread_lock(thread);
-		thread_setrun(thread, SCHED_TAILQ);
-		thread_unlock(thread);
-	}
-}
-
-#endif /* !SCHED_TEST_HARNESS */
 
 /*
  * sched_edge_update_preferred_cluster()
@@ -5586,53 +5930,35 @@ sched_edge_migrate_thread_group_runnable_threads(
 	sched_clutch_root_t root_clutch,
 	bitmap_t *clutch_bucket_modify_bitmap,
 	__unused uint32_t *tg_bucket_preferred_cluster,
-	bool migrate_immediately)
+	bool migrate_immediately, struct pulled_thread_queue * threadq)
 {
-	/* Queue to hold threads that have been drained from clutch buckets to be migrated */
-	queue_head_t clutch_threads;
-	queue_init(&clutch_threads);
+	sched_clutch_hierarchy_locked_assert(root_clutch);
 
 	for (int bucket = bitmap_first(clutch_bucket_modify_bitmap, TH_BUCKET_SCHED_MAX); bucket >= 0; bucket = bitmap_next(clutch_bucket_modify_bitmap, bucket)) {
 		/* Get the clutch bucket for this cluster and sched bucket */
 		sched_clutch_bucket_group_t clutch_bucket_group = &(sched_clutch->sc_clutch_groups[bucket]);
 		sched_clutch_bucket_t clutch_bucket = &(clutch_bucket_group->scbg_clutch_buckets[root_clutch->scr_cluster_id]);
-		sched_clutch_root_t scb_root = os_atomic_load(&clutch_bucket->scb_root, relaxed);
-		if (scb_root == NULL) {
+		if (clutch_bucket->scb_root == NULL) {
 			/* Clutch bucket not runnable or already in the right hierarchy; nothing to do here */
-			assert(clutch_bucket->scb_thr_count == 0);
+			assert3u(clutch_bucket->scb_thr_count, ==, 0);
 			continue;
 		}
-		assert(scb_root == root_clutch);
+		assert3p(clutch_bucket->scb_root, ==, root_clutch);
 		uint32_t clutch_bucket_preferred_cluster = sched_clutch_bucket_preferred_cluster(clutch_bucket);
 
-		if (migrate_immediately) {
+		sched_edge_steal_silo_clutch_bucket_classify(clutch_bucket, root_clutch, clutch_bucket_preferred_cluster);
+
+		if (migrate_immediately && (root_clutch->scr_cluster_id != clutch_bucket_preferred_cluster)) {
 			/*
 			 * For transitions where threads need to be migrated immediately, drain the threads into a
 			 * local queue unless we are looking at the clutch buckets for the newly recommended
 			 * cluster.
 			 */
-			if (root_clutch->scr_cluster_id != clutch_bucket_preferred_cluster) {
-				sched_edge_clutch_bucket_threads_drain(clutch_bucket, scb_root, &clutch_threads);
-			} else {
-				sched_clutch_bucket_mark_native(clutch_bucket, root_clutch);
-			}
-		} else {
-			/* Check if this cluster is the same type as the newly recommended cluster */
-			boolean_t homogeneous_cluster = (pset_type_for_id(root_clutch->scr_cluster_id) == pset_type_for_id(clutch_bucket_preferred_cluster));
-			/*
-			 * If threads do not have to be migrated immediately, just change the native/foreign
-			 * flag on the clutch bucket.
-			 */
-			if (homogeneous_cluster) {
-				sched_clutch_bucket_mark_native(clutch_bucket, root_clutch);
-			} else {
-				sched_clutch_bucket_mark_foreign(clutch_bucket, root_clutch);
-			}
+			sched_edge_clutch_bucket_threads_drain(clutch_bucket, clutch_bucket->scb_root, threadq);
 		}
 	}
 
 	pset_unlock(root_clutch->scr_pset);
-	sched_edge_run_drained_threads(&clutch_threads);
 }
 
 /*
@@ -5738,8 +6064,10 @@ sched_edge_tg_preferred_cluster_change(struct thread_group *tg, uint32_t *tg_buc
 	 */
 	sched_edge_update_preferred_cluster(clutch, clutch_bucket_modify_bitmap, tg_bucket_preferred_cluster);
 
-	for (uint32_t cluster_id = 0; cluster_id < sched_edge_max_clusters; cluster_id++) {
+	for (uint32_t cluster_id = 0; cluster_id < sched_num_psets; cluster_id++) {
 		processor_set_t pset = pset_array[cluster_id];
+		struct pulled_thread_queue *threadq = pulled_thread_queue_prepare();
+
 		spl_t s = splsched();
 		pset_lock(pset);
 		/*
@@ -5753,46 +6081,29 @@ sched_edge_tg_preferred_cluster_change(struct thread_group *tg, uint32_t *tg_buc
 		    tg_bucket_preferred_cluster, (options & SCHED_PERFCONTROL_PREFERRED_CLUSTER_MIGRATE_RUNNING));
 		/* Migrate all runnable threads of the TG in this cluster's hierarchy based on options specified by CLPC */
 		sched_edge_migrate_thread_group_runnable_threads(clutch, &pset->pset_clutch_root, clutch_bucket_modify_bitmap,
-		    tg_bucket_preferred_cluster, (options & SCHED_PERFCONTROL_PREFERRED_CLUSTER_MIGRATE_RUNNABLE));
+		    tg_bucket_preferred_cluster, (options & SCHED_PERFCONTROL_PREFERRED_CLUSTER_MIGRATE_RUNNABLE), threadq);
 		/* sched_edge_migrate_thread_group_runnable_threads() returns with pset unlocked */
 		splx(s);
+
+		pulled_thread_queue_flush(threadq);
 	}
 }
 
 /*
  * sched_edge_pset_made_schedulable()
  *
- * Routine to migrate all the clutch buckets which are not in their recommended
- * pset hierarchy now that a new pset has become runnable. Its possible that this
- * routine is called when the pset is already marked schedulable.
+ * Pset may already be marked schedulable. Called at least once when new
+ * processor(s) are made available.
  *
  * Invoked with the pset lock held and interrupts disabled.
  */
 static void
-sched_edge_pset_made_schedulable(__unused processor_t processor, processor_set_t dst_pset, boolean_t drop_lock)
+sched_edge_pset_made_schedulable(
+	processor_set_t pset)
 {
-	if (bitmap_test(sched_edge_available_pset_bitmask, dst_pset->pset_cluster_id)) {
-		/* Nothing to do here since pset is already marked schedulable */
-		if (drop_lock) {
-			pset_unlock(dst_pset);
-		}
-		return;
-	}
-
-	bitmap_set(sched_edge_available_pset_bitmask, dst_pset->pset_cluster_id);
-
-	thread_t thread = sched_edge_processor_idle(dst_pset);
-	if (thread != THREAD_NULL) {
-		thread_lock(thread);
-		thread_setrun(thread, SCHED_TAILQ);
-		thread_unlock(thread);
-	}
-
-	if (!drop_lock) {
-		pset_lock(dst_pset);
-	}
+	/* Mark the pset as schedulable. The bit may already be set if the pset was already schedulable. */
+	atomic_bit_set(sched_edge_available_pset_bitmask, pset->pset_id, memory_order_relaxed);
 }
-
 #endif /* !SCHED_TEST_HARNESS */
 
 
@@ -5806,7 +6117,7 @@ static void
 sched_edge_cpu_init_completed(void)
 {
 	/* Now that all cores have registered, compute bitmaps for different core types */
-	for (int pset_id = 0; pset_id < sched_edge_max_clusters; pset_id++) {
+	for (int pset_id = 0; pset_id < sched_num_psets; pset_id++) {
 		processor_set_t pset = pset_array[pset_id];
 		if (sched_edge_stir_the_pot_core_type_is_desired(pset)) {
 			os_atomic_or(&sched_edge_p_core_map, pset->cpu_bitmask, relaxed);
@@ -5829,7 +6140,7 @@ sched_edge_cpu_init_completed(void)
 	edge_config_defaults[CLUSTER_TYPE_E][CLUSTER_TYPE_P] = no_spill;
 
 	spl_t s = splsched();
-	for (int src_cluster_id = 0; src_cluster_id < sched_edge_max_clusters; src_cluster_id++) {
+	for (int src_cluster_id = 0; src_cluster_id < sched_num_psets; src_cluster_id++) {
 		processor_set_t src_pset = pset_array[src_cluster_id];
 		pset_lock(src_pset);
 
@@ -5840,7 +6151,7 @@ sched_edge_cpu_init_completed(void)
 		}
 
 		/* For each cluster, set all its outgoing edge parameters */
-		for (int dst_cluster_id = 0; dst_cluster_id < sched_edge_max_clusters; dst_cluster_id++) {
+		for (int dst_cluster_id = 0; dst_cluster_id < sched_num_psets; dst_cluster_id++) {
 			processor_set_t dst_pset = pset_array[dst_cluster_id];
 			if (dst_cluster_id == src_cluster_id) {
 				continue;
@@ -5890,6 +6201,10 @@ sched_edge_cpu_init_completed(void)
 
 		pset_unlock(src_pset);
 	}
+	sched_edge_config_final_push();
+#if DEVELOPMENT || DEBUG
+	assert(sched_edge_config_verify());
+#endif /* DEVELOPMENT || DEBUG */
 	splx(s);
 }
 

@@ -112,6 +112,7 @@ hibernate_setup(IOHibernateImageHeader * header,
 		hibernate_flush_memory();
 	}
 
+
 	// no failures hereafter
 
 	hibernate_processor_setup(header);

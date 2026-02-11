@@ -1005,6 +1005,22 @@ tracker_lookup(uuid_t app_uuid, struct sockaddr *remote, tracker_metadata_t *met
 	TRACKER_ENTRY_LOG(LOG_DEBUG, "Lookup entry", &matchentry, 0);
 
 	foundentry = tracker_search_and_insert(db, &matchentry, false);
+
+	/*
+	 * If no entry found and this is a v4-mapped v6 address, retry
+	 * with just the IPv4 address since entries may have been added
+	 * as pure IPv4.
+	 */
+	if (foundentry == NULL &&
+	    matchentry.address_family == AF_INET6 &&
+	    IN6_IS_ADDR_V4MAPPED(&matchentry.address.addr6)) {
+		matchentry.address.addr46.ia46_addr4.s_addr =
+		    matchentry.address.addr6.s6_addr32[3];
+		matchentry.address_family = AF_INET;
+		TRACKER_ENTRY_LOG(LOG_DEBUG, "Retry lookup with v4", &matchentry, 0);
+		foundentry = tracker_search_and_insert(db, &matchentry, false);
+	}
+
 	if (foundentry) {
 		if (metadata) {
 			if (copy_metadata(metadata, &foundentry->metadata) == false) {

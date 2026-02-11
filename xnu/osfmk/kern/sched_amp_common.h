@@ -34,6 +34,9 @@
 /* Routine to initialize processor sets on AMP platforms */
 void sched_amp_init(void);
 
+int sched_amp_get_pset_load_average(processor_set_t pset, __unused sched_bucket_t sched_bucket);
+void sched_amp_update_pset_load_average(processor_set_t pset, __unused uint64_t curtime);
+
 /*
  * The AMP scheduler uses spill/steal/rebalance logic to make sure the most appropriate threads
  * are scheduled on the P/E clusters. Here are the definitions of those terms:

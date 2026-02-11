@@ -96,8 +96,8 @@
 
 #include "network_cmds_lib.h"
 
-char	*inet6name (struct in6_addr *);
-void	inet6print (struct in6_addr *, int, char *, int);
+char	*inet6name (struct netstat_parameters *, struct in6_addr *);
+void	inet6print (struct netstat_parameters *, struct in6_addr *, int, char *, int);
 
 static	char *ip6nh[] = {
 	"hop by hop",
@@ -381,8 +381,8 @@ static const char *srcrulenames[IP6S_SRCRULE_COUNT] = {
 /*
  * Dump IP6 statistics structure.
  */
-void
-ip6_stats(uint32_t off __unused, char *name, int af __unused)
+int
+ip6_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct ip6stat pip6stat;
 	struct ip6stat ip6stat;
@@ -398,15 +398,15 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	len = sizeof ip6stat;
 	memset(&ip6stat, 0, len);
 	if (sysctl(mib, 4, &ip6stat, &len, (void *)0, 0) < 0)
-		return;
-    if (interval && vflag > 0)
+		return -1;
+    if (params->interval && params->vflag > 0)
         print_time();
 	printf("%s:\n", name);
 
 #define	IP6DIFF(f) (ip6stat.f - pip6stat.f)
-#define	p(f, m) if (IP6DIFF(f) || sflag <= 1) \
+#define	p(f, m) if (IP6DIFF(f) || params->sflag <= 1) \
     printf(m, (unsigned long long)IP6DIFF(f), plural(IP6DIFF(f)))
-#define	p1a(f, m) if (IP6DIFF(f) || sflag <= 1) \
+#define	p1a(f, m) if (IP6DIFF(f) || params->sflag <= 1) \
     printf(m, (unsigned long long)IP6DIFF(f))
 
 	p(ip6s_total, "\t%llu total packet%s received\n");
@@ -614,41 +614,47 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 
 	p(ip6s_sources_skip_expensive_secondary_if, "\t\t%llu time%s ignored source on secondary expensive I/F\n");
 
-	if (interval > 0) {
+	if (params->interval > 0) {
 		bcopy(&ip6stat, &pip6stat, len);
 	}
 #undef IP6DIFF
 #undef p
 #undef p1a
+
+	return 0;
 }
 
 /*
  * Dump IPv6 per-interface statistics based on RFC 2465.
  */
-void
-ip6_ifstats(char *ifname)
+int
+ip6_ifstats(struct netstat_parameters *params, char *ifname)
 {
 	struct in6_ifreq ifr;
-	int s;
-#define	p(f, m) if (ifr.ifr_ifru.ifru_stat.f || sflag <= 1) \
+	int s = -1;
+	int retval = 0;
+
+#define	p(f, m) if (ifr.ifr_ifru.ifru_stat.f || params->sflag <= 1) \
     printf(m, (unsigned long long)ifr.ifr_ifru.ifru_stat.f, plural(ifr.ifr_ifru.ifru_stat.f))
-#define	p_5(f, m) if (ifr.ifr_ifru.ifru_stat.f || sflag <= 1) \
+#define	p_5(f, m) if (ifr.ifr_ifru.ifru_stat.f || params->sflag <= 1) \
     printf(m, (unsigned long long)ip6stat.f)
 
 	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 		perror("Warning: socket(AF_INET6)");
-		return;
+		retval = -1;
+		goto end;
 	}
 
-    if (interval && vflag > 0)
+    if (params->interval && params->vflag > 0)
         print_time();
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	printf("ip6 on %s:\n", ifr.ifr_name);
 
 	if (ioctl(s, SIOCGIFSTAT_IN6, (char *)&ifr) < 0) {
-		if (vflag > 0){
+		if (params->vflag > 0){
 			perror("Warning: ioctl(SIOCGIFSTAT_IN6)");
 		}
+		retval = -1;
 		goto end;
 	}
 
@@ -685,6 +691,8 @@ ip6_ifstats(char *ifname)
 
 #undef p
 #undef p_5
+
+	return retval;
 }
 
 static	char *icmp6names[] = {
@@ -949,8 +957,8 @@ static	char *icmp6names[] = {
 /*
  * Dump ICMP6 statistics.
  */
-void
-icmp6_stats(uint32_t off __unused, char *name, int af __unused)
+int
+icmp6_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct icmp6stat picmp6stat;
 	struct icmp6stat icmp6stat;
@@ -966,13 +974,13 @@ icmp6_stats(uint32_t off __unused, char *name, int af __unused)
 	len = sizeof icmp6stat;
 	memset(&icmp6stat, 0, len);
 	if (sysctl(mib, 4, &icmp6stat, &len, (void *)0, 0) < 0)
-		return;
-    if (interval && vflag > 0)
+		return -1;
+    if (params->interval && params->vflag > 0)
         print_time();
 	printf("%s:\n", name);
 
 #define	ICMP6DIFF(f) (icmp6stat.f - picmp6stat.f)
-#define	p(f, m) if (ICMP6DIFF(f) || sflag <= 1) \
+#define	p(f, m) if (ICMP6DIFF(f) || params->sflag <= 1) \
     printf(m, (unsigned long long)ICMP6DIFF(f), plural(ICMP6DIFF(f)))
 #define p_5(f, m) printf(m, (unsigned long long)ICMP6DIFF(f))
 
@@ -1033,37 +1041,39 @@ icmp6_stats(uint32_t off __unused, char *name, int af __unused)
 	p(icp6s_pmtuchg, "\t%llu path MTU change%s\n");
 	p(icp6s_rfc6980_drop, "\t%qu dropped fragmented NDP message%s\n");
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&icmp6stat, &picmp6stat, len);
 
 #undef ICMP6DIFF
 #undef p
 #undef p_5
+
+	return 0;
 }
 
 /*
  * Dump ICMPv6 per-interface statistics based on RFC 2466.
  */
-void
-icmp6_ifstats(char *ifname)
+int
+icmp6_ifstats(struct netstat_parameters *params, char *ifname)
 {
 	struct in6_ifreq ifr;
-	int s;
-#define	p(f, m) if (ifr.ifr_ifru.ifru_icmp6stat.f || sflag <= 1) \
+	int s = -1;
+#define	p(f, m) if (ifr.ifr_ifru.ifru_icmp6stat.f || params->sflag <= 1) \
     printf(m, (unsigned long long)ifr.ifr_ifru.ifru_icmp6stat.f, plural(ifr.ifr_ifru.ifru_icmp6stat.f))
 
 	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 		perror("Warning: socket(AF_INET6)");
-		return;
+		return -1;
 	}
 
-    if (interval && vflag > 0)
+    if (params->interval && params->vflag > 0)
         print_time();
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	printf("icmp6 on %s:\n", ifr.ifr_name);
 
 	if (ioctl(s, SIOCGIFSTAT_ICMP6, (char *)&ifr) < 0) {
-		if (vflag > 0) {
+		if (params->vflag > 0) {
 			perror("Warning: ioctl(SIOCGIFSTAT_ICMP6)");
 		}
 		goto end;
@@ -1108,13 +1118,15 @@ icmp6_ifstats(char *ifname)
   end:
 	close(s);
 #undef p
+
+	return 0;
 }
 
 /*
  * Dump raw ip6 statistics structure.
  */
-void
-rip6_stats(uint32_t off __unused, char *name, int af __unused)
+int
+rip6_stats(struct netstat_parameters *params, uint32_t off __unused, char *name, int af __unused)
 {
 	static struct rip6stat prip6stat;
 	struct rip6stat rip6stat;
@@ -1129,15 +1141,15 @@ rip6_stats(uint32_t off __unused, char *name, int af __unused)
 	l = sizeof(rip6stat);
 	if (sysctl(mib, 4, &rip6stat, &l, NULL, 0) < 0) {
 		perror("Warning: sysctl(net.inet6.ip6.rip6stats)");
-		return;
+		return -1;
 	}
 
-    if (interval && vflag > 0)
+    if (params->interval && params->vflag > 0)
         print_time();
 	printf("%s:\n", name);
 
 #define	RIP6DIFF(f) (rip6stat.f - prip6stat.f)
-#define	p(f, m) if (RIP6DIFF(f) || sflag <= 1) \
+#define	p(f, m) if (RIP6DIFF(f) || params->sflag <= 1) \
     printf(m, (unsigned long long)RIP6DIFF(f), plural(RIP6DIFF(f)))
 	p(rip6s_ipackets, "\t%llu message%s received\n");
 	p(rip6s_isum, "\t%llu checksum calculation%s on inbound\n");
@@ -1152,15 +1164,17 @@ rip6_stats(uint32_t off __unused, char *name, int af __unused)
 		    RIP6DIFF(rip6s_nosock) -
 		    RIP6DIFF(rip6s_nosockmcast) -
 		    RIP6DIFF(rip6s_fullsock);
-	if (delivered || sflag <= 1)
+	if (delivered || params->sflag <= 1)
 		printf("\t%llu delivered\n", (unsigned long long)delivered);
 	p(rip6s_opackets, "\t%llu datagram%s output\n");
 
-	if (interval > 0)
+	if (params->interval > 0)
 		bcopy(&rip6stat, &prip6stat, l);
 
 #undef RIP6DIFF
 #undef p
+
+	return 0;
 }
 
 /*
@@ -1191,14 +1205,14 @@ extern struct servent * _serv_cache_getservbyport(int port, char *proto);
 };
 #endif
 void
-inet6print(struct in6_addr *in6, int port, char *proto, int numeric)
+inet6print(struct netstat_parameters *params, struct in6_addr *in6, int port, char *proto, int numeric)
 {
 	struct servent *sp = 0;
 	char line[80], *cp;
 	int width;
 
-	snprintf(line, sizeof(line), "%.*s.", lflag ? 39 :
-		(Aflag && !numeric) ? 12 : 16, inet6name(in6));
+	snprintf(line, sizeof(line), "%.*s.", params->lflag ? 39 :
+		(params->Aflag && !numeric) ? 12 : 16, inet6name(params, in6));
 	cp = index(line, '\0');
 	if (!numeric && port)
 		GETSERVBYPORT6(port, proto, sp);
@@ -1206,18 +1220,18 @@ inet6print(struct in6_addr *in6, int port, char *proto, int numeric)
 		snprintf(cp, sizeof(line) - (cp - line), "%.15s", sp ? sp->s_name : "*");
 	else
 		snprintf(cp, sizeof(line) - (cp - line), "%d", ntohs((u_short)port));
-	width = lflag ? 45 : Aflag ? 18 : 22;
+	width = params->lflag ? 45 : params->Aflag ? 18 : 22;
 	printf("%-*.*s ", width, width, line);
 }
 
 /*
  * Construct an Internet address representation.
- * If the nflag has been supplied, give
+ * If the params->nflag has been supplied, give
  * numeric value, otherwise try for symbolic name.
  */
 
 char *
-inet6name(struct in6_addr *in6p)
+inet6name(struct netstat_parameters *params, struct in6_addr *in6p)
 {
 	register char *cp;
 	static char line[50];
@@ -1228,7 +1242,7 @@ inet6name(struct in6_addr *in6p)
 	struct sockaddr_in6 sin6;
 	const int niflag = NI_NUMERICHOST;
 
-	if (first && !nflag) {
+	if (first && !params->nflag) {
 		first = 0;
 		if (gethostname(domain, MAXHOSTNAMELEN) == 0 &&
 		    (cp = index(domain, '.')))
@@ -1237,7 +1251,7 @@ inet6name(struct in6_addr *in6p)
 			domain[0] = 0;
 	}
 	cp = 0;
-	if (!nflag && !IN6_IS_ADDR_UNSPECIFIED(in6p)) {
+	if (!params->nflag && !IN6_IS_ADDR_UNSPECIFIED(in6p)) {
 		hp = gethostbyaddr((char *)in6p, sizeof(*in6p), AF_INET6);
 		if (hp) {
 			if ((cp = index(hp->h_name, '.')) &&

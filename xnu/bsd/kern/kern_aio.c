@@ -126,6 +126,7 @@ __options_decl(aio_entry_flags_t, uint32_t, {
 
 	AIO_COMPLETED   = 0x00000100, /* request has completed */
 	AIO_CANCELLED   = 0x00000200, /* request has been cancelled */
+	AIO_KEVENT_REGISTERED = 0x00000400, /* kevent has been registered */
 
 	/*
 	 * These flags mean that this entry is blocking either:
@@ -856,7 +857,12 @@ aio_return(proc_t p, struct aio_return_args *uap, user_ssize_t *retval)
 	/* look for a match on our queue of async IO requests that have completed */
 	TAILQ_FOREACH(entryp, &p->p_aio_doneq, aio_proc_link) {
 		ASSERT_AIO_FROM_PROC(entryp, p);
-		if (entryp->uaiocbp == uap->aiocbp) {
+		/*
+		 * With kevent notification, the completion will be done when the event
+		 * is processed.
+		 */
+		if ((entryp->uaiocbp == uap->aiocbp) &&
+		    (entryp->aiocb.aio_sigevent.sigev_notify != SIGEV_KEVENT)) {
 			/* Done and valid for aio_return(), pull it off the list */
 			aio_proc_remove_done_locked(p, entryp);
 
@@ -1498,14 +1504,15 @@ aio_try_enqueue_work_locked(proc_t procp, aio_workq_entry *entryp,
  */
 #define EV_KERNEL    EV_FLAG0
 
-/* Register a kevent for AIO completion notification. */
+/* Internal function to register/unregister a AIO kevent. */
 static int
-aio_register_kevent(proc_t procp, aio_workq_entry *entryp)
+aio_register_kevent_internal(proc_t procp, aio_workq_entry *entryp,
+    struct user_sigevent *sigp, uintptr_t ident, int16_t filter, uint16_t flags)
 {
 	struct kevent_qos_s kev;
 	struct fileproc *fp = NULL;
 	kqueue_t kqu;
-	int kqfd = entryp->aiocb.aio_sigevent.sigev_signo;
+	int kqfd = sigp->sigev_signo;
 	int error;
 
 	KERNEL_DEBUG(BSDDBG_CODE(DBG_BSD_AIO, AIO_register_kevent) | DBG_FUNC_START,
@@ -1520,19 +1527,18 @@ aio_register_kevent(proc_t procp, aio_workq_entry *entryp)
 	kqu.kq = (struct kqueue *)fp_get_data(fp);
 
 	memset(&kev, 0, sizeof(kev));
-	kev.ident = (uintptr_t)entryp->uaiocbp;
-	kev.filter = EVFILT_AIO;
-	/*
-	 * Set the EV_FLAG0 to indicate the event is registered from the kernel.
-	 * This flag later is checked in filt_aioattach() and to determine if
-	 * a kevent is registered from kernel or user-space.
-	 */
-	kev.flags = EV_ADD | EV_ENABLE | EV_CLEAR | EV_ONESHOT | EV_KERNEL;
-	kev.udata = entryp->aiocb.aio_sigevent.sigev_value.sival_ptr;
+	kev.ident = ident;
+	kev.filter = filter;
+	kev.flags = flags;
+	kev.udata = sigp->sigev_value.sival_ptr;
 	kev.data = (intptr_t)entryp;
 
 	error = kevent_register(kqu.kq, &kev, NULL);
 	assert((error & FILTER_REGISTER_WAIT) == 0);
+
+	if (kev.flags & EV_ERROR) {
+		error = (int)kev.data;
+	}
 
 exit:
 	if (fp) {
@@ -1541,6 +1547,44 @@ exit:
 
 	KERNEL_DEBUG(BSDDBG_CODE(DBG_BSD_AIO, AIO_register_kevent) | DBG_FUNC_END,
 	    VM_KERNEL_ADDRPERM(procp), VM_KERNEL_ADDRPERM(entryp), error, 0, 0);
+
+	return error;
+}
+
+static int
+aio_register_kevent(proc_t procp, aio_workq_entry *entryp,
+    struct user_sigevent *sigp, uintptr_t ident, int16_t filter)
+{
+	/*
+	 * Set the EV_FLAG0 to indicate the event is registered from the kernel.
+	 * This flag is later checked in filt_aioattach() to determine if the
+	 * kevent is registered from kernel or user-space.
+	 */
+	uint16_t flags = EV_ADD | EV_ENABLE | EV_CLEAR | EV_ONESHOT | EV_KERNEL;
+	int error;
+
+	error = aio_register_kevent_internal(procp, entryp, sigp, ident, filter, flags);
+	if (!error) {
+		entryp->flags |= AIO_KEVENT_REGISTERED;
+	}
+
+	return error;
+}
+
+static int
+aio_unregister_kevent(proc_t procp, aio_workq_entry *entryp,
+    struct user_sigevent *sigp, uintptr_t ident, int16_t filter)
+{
+	/*
+	 * Set the EV_KERNEL to indicate the event is unregistered from the kernel.
+	 */
+	uint16_t flags = EV_DELETE | EV_KERNEL;
+	int error;
+
+	error = aio_register_kevent_internal(procp, entryp, sigp, ident, filter, flags);
+	if (!error) {
+		entryp->flags &= ~AIO_KEVENT_REGISTERED;
+	}
 
 	return error;
 }
@@ -1618,10 +1662,24 @@ lio_listio(proc_t p, struct lio_listio_args *uap, int *retval __unused)
 		 * isn't submitted
 		 */
 		entries[lio_count++] = entryp;
-		if ((uap->mode == LIO_NOWAIT) &&
-		    (entryp->aiocb.aio_sigevent.sigev_notify != SIGEV_KEVENT)) {
+		if (uap->mode == LIO_WAIT) {
+			continue;
+		}
+
+		if (entryp->aiocb.aio_sigevent.sigev_notify != SIGEV_KEVENT) {
 			/* Set signal hander, if any */
 			entryp->aiocb.aio_sigevent = aiosigev;
+		} else {
+			/*
+			 * For SIGEV_KEVENT, every AIO in the list would get its own kevent
+			 * notification upon completion as opposed to SIGEV_SIGNAL which a
+			 * single notification is deliverd when all AIOs have completed.
+			 */
+			result = aio_register_kevent(p, entryp, &entryp->aiocb.aio_sigevent,
+			    (uintptr_t)entryp->uaiocbp, EVFILT_AIO);
+			if (result) {
+				goto ExitRoutine;
+			}
 		}
 	}
 
@@ -1647,15 +1705,6 @@ lio_listio(proc_t p, struct lio_listio_args *uap, int *retval __unused)
 	for (int i = 0; i < lio_count; i++) {
 		if (aio_try_enqueue_work_locked(p, entries[i], leader)) {
 			workq_aio_wakeup_thread(p); /* this may drop and reacquire the proc lock */
-			/*
-			 * For SIGEV_KEVENT, every AIO in the list would get its own kevent
-			 * notification upon completion as opposed to SIGEV_SIGNAL which a
-			 * single notification is deliverd when all AIOs have completed.
-			 */
-			if ((uap->mode == LIO_NOWAIT) &&
-			    (entries[i]->aiocb.aio_sigevent.sigev_notify == SIGEV_KEVENT)) {
-				aio_register_kevent(p, entries[i]);
-			}
 			entries[i] = NULL; /* the entry was submitted */
 		} else {
 			result = EAGAIN;
@@ -1686,8 +1735,15 @@ lio_listio(proc_t p, struct lio_listio_args *uap, int *retval __unused)
 ExitRoutine:
 	/* Consume unsubmitted entries */
 	for (int i = 0; i < lio_count; i++) {
-		if (entries[i]) {
-			aio_entry_unref(entries[i]);
+		aio_workq_entry *entryp = entries[i];
+
+		if (entryp) {
+			if (entryp->flags & AIO_KEVENT_REGISTERED) {
+				(void)aio_unregister_kevent(p, entryp,
+				    &entryp->aiocb.aio_sigevent, (uintptr_t)entryp->uaiocbp,
+				    EVFILT_AIO);
+			}
+			aio_entry_unref(entryp);
 		}
 	}
 
@@ -1939,13 +1995,17 @@ aio_queue_async_request(proc_t procp, user_addr_t aiocbp,
 	}
 
 	aio_proc_lock(procp);
-	if (!aio_try_enqueue_work_locked(procp, entryp, NULL)) {
-		result = EAGAIN;
-		goto error_exit;
+	if (entryp->aiocb.aio_sigevent.sigev_notify == SIGEV_KEVENT) {
+		result = aio_register_kevent(procp, entryp, &entryp->aiocb.aio_sigevent,
+		    (uintptr_t)entryp->uaiocbp, EVFILT_AIO);
+		if (result) {
+			goto error_exit;
+		}
 	}
 
-	if ((entryp->aiocb.aio_sigevent.sigev_notify == SIGEV_KEVENT) &&
-	    (aio_register_kevent(procp, entryp) != 0)) {
+	if (!aio_try_enqueue_work_locked(procp, entryp, NULL)) {
+		(void)aio_unregister_kevent(procp, entryp, &entryp->aiocb.aio_sigevent,
+		    (uintptr_t)entryp->uaiocbp, EVFILT_AIO);
 		result = EAGAIN;
 		goto error_exit;
 	}
@@ -2485,7 +2545,8 @@ filt_aioattach(struct knote *kn, struct kevent_qos_s *kev)
 
 	/* Don't allow kevent registration from the user-space. */
 	if ((kev->flags & EV_KERNEL) == 0) {
-		return EPERM;
+		knote_set_error(kn, EPERM);
+		return 0;
 	}
 
 	kev->flags &= ~EV_KERNEL;
@@ -2494,6 +2555,7 @@ filt_aioattach(struct knote *kn, struct kevent_qos_s *kev)
 
 	/* Associate the knote with the AIO work. */
 	knote_kn_hook_set_raw(kn, (void *)entryp);
+	aio_entry_ref(entryp);
 
 	lck_mtx_lock(&aio_klist_lock);
 	KNOTE_ATTACH(&aio_klist, kn);
@@ -2505,9 +2567,15 @@ filt_aioattach(struct knote *kn, struct kevent_qos_s *kev)
 static void
 filt_aiodetach(struct knote *kn)
 {
+	aio_workq_entry *entryp = knote_kn_hook_get_raw(kn);
+
 	lck_mtx_lock(&aio_klist_lock);
 	KNOTE_DETACH(&aio_klist, kn);
 	lck_mtx_unlock(&aio_klist_lock);
+
+	if (entryp) {
+		aio_entry_unref(entryp);
+	}
 }
 
 /*
@@ -2542,9 +2610,13 @@ out:
 }
 
 static int
-filt_aiotouch(struct knote *kn, struct kevent_qos_s *kev)
+filt_aiotouch(struct knote *kn __unused, struct kevent_qos_s *kev)
 {
-	panic("%s: kn %p kev %p (NOT EXPECTED TO BE CALLED!!)", __func__, kn, kev);
+	/* We treat any kevent update from the kernel or user-space as an error. */
+	kev->flags |= EV_ERROR;
+	kev->data = ENOTSUP;
+
+	return 0;
 }
 
 static int
@@ -2564,7 +2636,6 @@ filt_aioprocess(struct knote *kn, struct kevent_qos_s *kev)
 		kn->kn_ext[0] = entryp->errorval;
 		kn->kn_ext[1] = entryp->returnval;
 		knote_fill_kevent(kn, kev, 0);
-		knote_kn_hook_set_raw(kn, NULL);
 
 		aio_proc_lock(p);
 		aio_proc_remove_done_locked(p, entryp);

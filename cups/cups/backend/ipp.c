@@ -849,7 +849,7 @@ main(int  argc,				/* I - Number of command-line args */
         
         // We'll report the error to the user and stop the queue. Forget the old
         // certificate. Trying to print again will trust the printer's new certicate.
-        if (trust == HTTP_TRUST_CHANGED) {
+        if (trust != HTTP_TRUST_OK) {
           httpDeleteCredentials(hostname);
         }
         return (CUPS_BACKEND_STOP);
@@ -2801,6 +2801,7 @@ new_request(
   const char	*keyword;		/* PWG keyword */
   const char *jobPresetName;
   int isFinishingSet = 1;
+  int isSidesSet = 1;
   
  /*
   * Create the IPP request...
@@ -2863,6 +2864,8 @@ new_request(
        */
       isFinishingSet = optionsContainFinishingRequest( num_options, options );
           
+      isSidesSet = cupsGetOption("sides", num_options, options) != NULL;
+      
      /*
       * Send standard IPP attributes...
       */
@@ -2871,6 +2874,16 @@ new_request(
 
       copies = _cupsConvertOptions(request, ppd, pc, media_col_sup, doc_handling_sup, print_color_mode_sup, user, format, copies, num_options, options);
       
+      /* If "sides" wasn't explicitly set then remove the PPD default and use the printer's default
+       */
+      if (!isSidesSet) {
+        ipp_attribute_t *sidesAttr = ippFindAttribute(request, "sides", IPP_TAG_KEYWORD);
+        
+        if (sidesAttr) {
+          fprintf(stderr, "DEBUG: %s: Defaulting to printer's sides setting.\n", __func__);
+          ippDeleteAttribute(request, sidesAttr);
+        }
+      }
      /*
       * Map FaxOut options...
       */

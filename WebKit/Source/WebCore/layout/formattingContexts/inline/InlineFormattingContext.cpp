@@ -306,7 +306,7 @@ InlineLayoutResult InlineFormattingContext::lineLayout(AbstractLineBuilder& line
     auto previousLineEnd = std::optional<InlineItemPosition> { };
     auto leadingInlineItemPosition = needsLayoutRange.start;
     auto partialLayoutStartIndex = previousLine ? std::make_optional(previousLine->lineIndex) : std::nullopt;
-    auto isFirstFormattedLineCandidate = true;
+    auto isFirstFormattedLineCandidate = !previousLine || !previousLine->lineIndex;
     size_t numberOfContentfulLines = partialLayoutStartIndex ? *partialLayoutStartIndex + 1 : 0lu;
     while (true) {
 

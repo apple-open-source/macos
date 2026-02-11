@@ -1175,7 +1175,7 @@ _psynch_cvwait(__unused proc_t p, user_addr_t cv, uint64_t cvlsgen,
 	int error = 0;
 	uint32_t updatebits = 0;
 	ksyn_wait_queue_t ckwq = NULL;
-	ksyn_waitq_element_t kwe, nkwe = NULL;
+	ksyn_waitq_element_t kwe = NULL;
 	
 	/* for conformance reasons */
 	pthread_kern->__pthread_testcancel(0);
@@ -1221,6 +1221,7 @@ _psynch_cvwait(__unused proc_t p, user_addr_t cv, uint64_t cvlsgen,
 	ksyn_queue_t kq = &ckwq->kw_ksynqueues[KSYN_QUEUE_WRITE];
 	kwe = ksyn_queue_find_cvpreposeq(kq, lockseq);
 	if (kwe != NULL) {
+		ksyn_waitq_element_t nkwe = NULL;
 		if (kwe->kwe_state == KWE_THREAD_PREPOST) {
 			if ((kwe->kwe_lockseq & PTHRW_COUNT_MASK) == lockseq) {
 				/* we can safely consume a reference, so do so */
@@ -1259,6 +1260,12 @@ _psynch_cvwait(__unused proc_t p, user_addr_t cv, uint64_t cvlsgen,
 			ksyn_cvupdate_fixup(ckwq, &updatebits);
 			*retval = updatebits;
 		}
+
+		ksyn_wqunlock(ckwq);
+
+		if (nkwe != NULL) {
+			zfree(kwe_zone, nkwe);
+		}
 	} else {
 		uint64_t abstime = 0;
 		uint16_t kwe_flags = 0;
@@ -1279,13 +1286,7 @@ _psynch_cvwait(__unused proc_t p, user_addr_t cv, uint64_t cvlsgen,
 		// ksyn_wait drops wait queue lock
 	}
 	
-	ksyn_wqunlock(ckwq);
-
-	if (nkwe != NULL) {
-		zfree(kwe_zone, nkwe);
-	}
 out:
-
 	PTHREAD_TRACE(psynch_cvar_kwait | DBG_FUNC_END, cv, error, updatebits, 2);
 
 	ksyn_wqrelease(ckwq, 1, (KSYN_WQTYPE_INWAIT | KSYN_WQTYPE_CVAR));

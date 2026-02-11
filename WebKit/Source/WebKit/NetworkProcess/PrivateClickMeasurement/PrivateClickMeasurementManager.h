@@ -39,10 +39,12 @@
 
 namespace WebKit {
 
+using ApplicationBundleIdentifierOrAuditToken = Variant<String, Vector<uint8_t>>;
+
 class PrivateClickMeasurementManager : public PCM::ManagerInterface, public CanMakeWeakPtr<PrivateClickMeasurementManager> {
     WTF_MAKE_TZONE_ALLOCATED(PrivateClickMeasurementManager);
 public:
-    static Ref<PrivateClickMeasurementManager> create(UniqueRef<PCM::Client>&&, const String& storageDirectory);
+    static Ref<PrivateClickMeasurementManager> create(UniqueRef<PCM::Client>&&, const String& storageDirectory, const ApplicationBundleIdentifierOrAuditToken&);
 
     ~PrivateClickMeasurementManager();
 
@@ -50,6 +52,7 @@ public:
 
     void storeUnattributed(PrivateClickMeasurement&&, CompletionHandler<void()>&&) final;
     void handleAttribution(AttributionTriggerData&&, const URL& requestURL, WebCore::RegistrableDomain&& redirectDomain, const URL& firstPartyURL, const ApplicationBundleIdentifier&) final;
+    void checkAttributionTimer() final;
     void clear(CompletionHandler<void()>&&) final;
     void clearForRegistrableDomain(RegistrableDomain&&, CompletionHandler<void()>&&) final;
     void migratePrivateClickMeasurementFromLegacyStorage(PrivateClickMeasurement&&, PrivateClickMeasurementAttributionType) final;
@@ -70,7 +73,7 @@ public:
     void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&) final;
 
 private:
-    PrivateClickMeasurementManager(UniqueRef<PCM::Client>&&, const String& storageDirectory);
+    PrivateClickMeasurementManager(UniqueRef<PCM::Client>&&, const String& storageDirectory, const ApplicationBundleIdentifierOrAuditToken&);
 
     PCM::Store& store();
     const PCM::Store& store() const;
@@ -101,6 +104,7 @@ private:
     std::optional<ApplicationBundleIdentifier> m_privateClickMeasurementAppBundleIDForTesting;
     mutable RefPtr<PCM::Store> m_store;
     String m_storageDirectory;
+    const ApplicationBundleIdentifierOrAuditToken m_applicationBundleIdentifier;
     const UniqueRef<PCM::Client> m_client;
 
     struct AttributionReportTestConfig {

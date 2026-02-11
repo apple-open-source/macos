@@ -936,6 +936,9 @@ typedef NS_OPTIONS(NSUInteger, _WKWebViewDataType) {
 - (void)_setSmartListsEnabled:(BOOL)flag WK_API_AVAILABLE(macos(WK_MAC_TBA));
 - (void)_toggleSmartLists:(id)sender WK_API_AVAILABLE(macos(WK_MAC_TBA));
 
+- (void)_storePrivateClickMeasurementWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destinationURL reportEndpoint:(NSURL *)reportEndpoint WK_API_AVAILABLE(macos(WK_MAC_TBA));
+- (void)_storeSimulatedPrivateClickMeasurementConversionWithPriority:(uint8_t)priority triggerData:(uint8_t)triggerData sourceURL:(NSURL *)sourceURL destinationURL:(NSURL *)destinationURL WK_API_AVAILABLE(macos(WK_MAC_TBA));
+
 @end
 
 @interface WKWebView (WKWindowSnapshot)
