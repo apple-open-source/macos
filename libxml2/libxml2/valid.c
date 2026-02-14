@@ -2904,6 +2904,7 @@ xmlRemoveID(xmlDocPtr doc, xmlAttrPtr attr) {
     if (ID == NULL)
         return(-1);
     xmlValidNormalizeString(ID);
+    xmlValidNormalizeString(ID);
 
     id = xmlHashLookup(table, ID);
     if (id == NULL || id->attr != attr) {
