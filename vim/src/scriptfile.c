@@ -2377,6 +2377,7 @@ get_one_sourceline(source_cookie_T *sp)
 	    buf = (char_u *)ga.ga_data;
 	    buf[ga.ga_len++] = NUL;
 	    len = ga.ga_len;
+	    len = ga.ga_len;
 	}
 	else
 	{
