@@ -1685,9 +1685,13 @@ lhs_find_var_end(
     lhs->lhs_dest_end = skip_var_one(var_start, FALSE);
     if (*var_start == '@')
     {
+    {
+	if (!valid_dest_reg(var_start[1]))
 	if (!valid_dest_reg(var_start[1]))
 	    return FAIL;
+	    return FAIL;
 	var_end = var_start + 2;
+    }
     }
     else
     {
