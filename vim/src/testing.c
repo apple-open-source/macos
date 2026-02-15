@@ -666,6 +666,8 @@ f_assert_fails(typval_T *argvars, typval_T *rettv)
 	    tv = &list->lv_first->li_tv;
 	    expected = tv_get_string_buf_chk(tv, buf);
 	    if (expected == NULL)
+	    if (expected == NULL)
+		goto theend;
 		goto theend;
 	    if (!pattern_match(expected, actual, FALSE))
 	    {
@@ -681,6 +683,8 @@ f_assert_fails(typval_T *argvars, typval_T *rettv)
 		    tv = &list->lv_u.mat.lv_last->li_tv;
 		    expected = tv_get_string_buf_chk(tv, buf);
 		    if (expected == NULL)
+		    if (expected == NULL)
+			goto theend;
 			goto theend;
 		    if (!pattern_match(expected, actual, FALSE))
 		    {
