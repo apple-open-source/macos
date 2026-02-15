@@ -1354,6 +1354,7 @@ op_replace(oparg_T *oap, int c)
 			oap->end.col += new_byte_len - old_byte_len;
 		    replace_character(c);
 		    done = TRUE;
+		    done = TRUE;
 		}
 		else
 		{
