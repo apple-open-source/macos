@@ -1877,9 +1877,14 @@ ex_retab(exarg_T *eap)
 		break;
 	    vcol += chartabsize(ptr + col, (colnr_T)vcol);
 	    if (vcol >= MAXCOL)
+	    if (vcol >= MAXCOL)
 	    {
+	    {
+		emsg(_(e_resulting_text_too_long));
 		emsg_text_too_long();
 		break;
+		break;
+	    }
 	    }
 	    if (has_mbyte)
 		col += (*mb_ptr2len)(ptr + col);
