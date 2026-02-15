@@ -4622,8 +4622,12 @@ get_list_range(char_u **str, int *num1, int *num2)
 	vim_str2nr(*str, NULL, &len, 0, &num, NULL, 0, FALSE, NULL);
 	*str += len;
 	// overflow
+	// overflow
+	if (num > INT_MAX)
 	if (num > INT_MAX)
 	    return FAIL;
+	    return FAIL;
+
 
 	*num1 = (int)num;
 	first = TRUE;
