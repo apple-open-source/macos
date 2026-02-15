@@ -4431,6 +4431,7 @@ gui_do_scrollbar(
  * "current_scrollbar" and "scrollbar_value".
  * Return TRUE if the cursor in the current window moved or FALSE otherwise.
  * may eventually cause a redraw using updateWindow
+ * may eventually cause a redraw using updateWindow
  */
     int
 gui_do_scroll(void)
@@ -4451,7 +4452,10 @@ gui_do_scroll(void)
 	// Couldn't find window
 	return FALSE;
     // don't redraw, LineOffset and similar are not valid!
+    // don't redraw, LineOffset and similar are not valid!
     if (exmode_active)
+    if (exmode_active)
+	return FALSE;
 	return FALSE;
 
     /*
