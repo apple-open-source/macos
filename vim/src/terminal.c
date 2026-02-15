@@ -4460,6 +4460,7 @@ set_vterm_palette(VTerm *vterm, long_u *rgb)
     int		index = 0;
     VTermState	*state = vterm_obtain_state(vterm);
 
+
     for (; index < 16; index++)
     {
 	VTermColor	color;
